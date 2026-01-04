@@ -97,7 +97,7 @@ def require_share_session_id(
     state: SettaFastAPIState,
     share_session_id: str | None,
     *,
-    create_session_state: bool = True,
+    create_session_backend: bool = True,
 ) -> str | None:
     if not state.share_mode:
         return None
@@ -112,8 +112,8 @@ def require_share_session_id(
             detail=f"Unknown share session id: {share_session_id}",
         )
     state.share_session_store.touch_session(share_session_id)
-    if create_session_state:
-        state.share_runtime_state.get_or_create_session_state(share_session_id)
+    if create_session_backend:
+        state.share_runtime_state.get_or_create_session_backend(share_session_id)
     return share_session_id
 
 
@@ -121,7 +121,7 @@ async def require_share_session_id_from_websocket(
     websocket: WebSocket,
     state: SettaFastAPIState,
     *,
-    create_session_state: bool = True,
+    create_session_backend: bool = True,
 ) -> str | None:
     if not state.share_mode:
         return None
@@ -133,8 +133,8 @@ async def require_share_session_id_from_websocket(
         await _close_websocket_with_code(websocket, 4404)
         return None
     state.share_session_store.touch_session(share_session_id)
-    if create_session_state:
-        state.share_runtime_state.get_or_create_session_state(share_session_id)
+    if create_session_backend:
+        state.share_runtime_state.get_or_create_session_backend(share_session_id)
     return share_session_id
 
 

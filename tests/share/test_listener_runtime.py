@@ -53,7 +53,6 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 ShareListenerRuntime(
                     deployment_root=root,
                     manifest=manifest,
-                    project_config_id=project_config_id,
                 )
 
     async def test_requires_session_id(self) -> None:
@@ -68,11 +67,10 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=manifest,
-                project_config_id=project_config_id,
             )
 
             with self.assertRaises(KeyError):
-                await runtime.ensure_listener_for_session(None)
+                await runtime.ensure_listener_for_session(None, project_config_id)
 
     async def test_stop_session_listener_and_stop_all(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -86,21 +84,22 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=manifest,
-                project_config_id=project_config_id,
             )
 
-            await runtime.ensure_listener_for_session("session-a")
-            await runtime.ensure_listener_for_session("session-b")
+            await runtime.ensure_listener_for_session("session-a", project_config_id)
+            await runtime.ensure_listener_for_session("session-b", project_config_id)
 
-            handle_a = runtime._session_handles.get("session-a")
-            handle_b = runtime._session_handles.get("session-b")
+            handle_a = runtime._session_handles.get(("session-a", project_config_id))
+            handle_b = runtime._session_handles.get(("session-b", project_config_id))
             if handle_a is None or handle_b is None:
                 raise AssertionError("expected session listener handles")
             self.assertEqual(["session-a"], handle_a.module.BUILT)
             self.assertEqual(["session-b"], handle_b.module.BUILT)
 
-            runtime.stop_session_listener("session-a")
-            self.assertNotIn("session-a", runtime._session_handles)
+            runtime.stop_session_listener("session-a", project_config_id)
+            self.assertNotIn(
+                ("session-a", project_config_id), runtime._session_handles
+            )
 
             runtime.stop_all()
             self.assertFalse(runtime._session_handles)

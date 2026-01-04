@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from setta.types.id import ID
+from setta.types.project_config import ProjectConfig
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
@@ -58,6 +59,7 @@ class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
     projectConfigName: str
     deploymentVersion: str
     shareSessionId: str
-    projectConfigId: ID
+    defaultProjectConfigId: ID
+    projectMetadata: list[ProjectConfig]
     sharePolicy: SharePolicy
     manifest: ShareDeploymentManifest | None = None

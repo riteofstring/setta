@@ -57,7 +57,7 @@ class ShareChatManager:
     def _get_or_create_manager(self, share_session_id: str) -> LLMChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
-            self.share_runtime_state.get_or_create_session_state(share_session_id)
+            self.share_runtime_state.get_or_create_session_backend(share_session_id)
             session_sender = ScopedFrontendSender(
                 self.frontend_sender, share_session_id
             )

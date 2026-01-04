@@ -149,5 +149,8 @@ class Route(str, Enum):
     SHARE_DEPLOYMENT_SESSION = (
         "/share/deployments/{projectConfigName}/{version}/session"
     )
+    SHARE_DEPLOYMENT_PROJECT_CONFIG = (
+        "/share/deployments/{projectConfigName}/{version}/project_config"
+    )
     SHARE_DEPLOYMENT_STATE = "/share/deployments/{projectConfigName}/{version}/state"
     WEBSOCKET_SHARE_FRONTEND = "/share/frontend"

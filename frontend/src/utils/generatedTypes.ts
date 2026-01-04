@@ -396,6 +396,8 @@ export const RouteEnum = {
   SHARE_DEPLOYMENT_LATEST: "/share/deployments/{projectConfigName}/latest",
   SHARE_DEPLOYMENT_SESSION:
     "/share/deployments/{projectConfigName}/{version}/session",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG:
+    "/share/deployments/{projectConfigName}/{version}/project_config",
   SHARE_DEPLOYMENT_STATE:
     "/share/deployments/{projectConfigName}/{version}/state",
   WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
@@ -4865,7 +4867,8 @@ const ShareDeploymentSessionResponseSchema = z.object({
   projectConfigName: z.string(),
   deploymentVersion: z.string(),
   shareSessionId: z.string(),
-  projectConfigId: IDSchema,
+  defaultProjectConfigId: IDSchema,
+  projectMetadata: z.array(ProjectConfigSchema),
   sharePolicy: SharePolicySchema,
   manifest: z.union([ShareDeploymentManifestSchema, z.null()]).default(null),
 });
@@ -6012,6 +6015,14 @@ const SaveSettingsRequestSchema = z.object({
 
 export type SaveSettingsRequestInput = z.input<
   typeof SaveSettingsRequestSchema
+>;
+
+const LoadShareProjectConfigRequestSchema = z.object({
+  projectConfigId: IDSchema,
+});
+
+export type LoadShareProjectConfigRequestInput = z.input<
+  typeof LoadShareProjectConfigRequestSchema
 >;
 
 const SharePolicyOverridesSchema = z.object({

@@ -106,7 +106,7 @@ async def route_clear_text_field_completion(
 ) -> None:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     await manager.clear_text_field_completion(x)
 
 
@@ -117,7 +117,7 @@ async def route_set_callable(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     return await manager.set_callable(x)
 
 
@@ -127,7 +127,7 @@ async def route_text_field_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     return await manager.text_field_completion(x)
 
 
@@ -137,7 +137,7 @@ async def route_code_area_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     return await manager.code_area_completion(x)
 
 
@@ -147,7 +147,7 @@ async def route_gen_code_prefix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     return await manager.gen_code_prefix_completion(x)
 
 
@@ -157,7 +157,7 @@ async def route_gen_code_suffix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager)
+    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
     return await manager.gen_code_suffix_completion(x)
 
 

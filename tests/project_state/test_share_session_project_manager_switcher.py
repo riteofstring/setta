@@ -92,7 +92,9 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
             switcher, share_manager = _build_switcher(root)
 
             with self.assertRaises(KeyError):
-                switcher.get(share_manager.project_config_id, share_session_id=None)
+                switcher.get(
+                    share_manager.default_project_config_id, share_session_id=None
+                )
 
     async def test_switcher_scopes_managers_by_session(self) -> None:
         with TemporaryDirectory() as tmpdir:

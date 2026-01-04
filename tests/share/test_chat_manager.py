@@ -92,7 +92,7 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
         switcher,
         llm_config=llm_config,
     )
-    return manager, share_session_store, share_runtime_state.project_config_id
+    return manager, share_session_store, share_runtime_state.default_project_config_id
 
 
 class ShareChatManagerTests(unittest.TestCase):

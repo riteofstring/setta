@@ -277,9 +277,10 @@ class ShareRuntimeStateTests(unittest.TestCase):
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
-            self.assertEqual(config_b.id, manager.project_config_id)
+            self.assertEqual(config_b.id, manager.default_project_config_id)
 
-            session_state = manager.create_session_state("session-a")
+            manager.create_session_backend("session-a")
+            session_state = manager.get_session_state("session-a", config_b.id)
             self.assertEqual(config_b.id, session_state.projectConfig.id)
 
     def test_manifest_allows_relocated_deployment_root(self) -> None:
@@ -367,7 +368,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
             manager = ShareRuntimeState(dbe, root, frontend_sender)
 
-            manager.create_session_state("session-a")
+            manager.create_session_backend("session-a")
             artifacts = manager.get_session_artifacts("session-a")
             cached = artifacts.get_cached_image(image_path)
 
@@ -455,7 +456,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
             manager = ShareRuntimeState(dbe, root, frontend_sender)
 
-            session_state = manager.create_session_state("session-a")
+            manager.create_session_backend("session-a")
+            session_state = manager.get_session_state("session-a", project_config_id)
             chart_session_impl = get_curr_effective_section_impl_with_type_guard(
                 session_state,
                 chart_section_id,
@@ -494,14 +496,14 @@ class ShareRuntimeStateTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             session_id = "session-ephemeral"
-            manager.create_session_state(session_id)
+            manager.create_session_backend(session_id)
             runs_root = manager.share_runs_root
             self.addCleanup(
                 lambda: shutil.rmtree(runs_root, ignore_errors=True)
             )
 
             command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, section_id)
+                manager.create_run_command(session_id, project_config_id, section_id)
             )
 
             run_root = runs_root / session_id
@@ -534,10 +536,10 @@ class ShareRuntimeStateTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             session_id = "session-absolute"
-            manager.create_session_state(session_id)
+            manager.create_session_backend(session_id)
 
             command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, section_id)
+                manager.create_run_command(session_id, project_config_id, section_id)
             )
 
             self.assertTrue(manager.share_runs_root.is_absolute())
@@ -596,7 +598,10 @@ class ShareRuntimeStateTests(unittest.TestCase):
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
 
-            session_state = manager.create_session_state("session-a")
+            manager.create_session_backend("session-a")
+            session_state = manager.get_session_state(
+                "session-a", project_state.projectConfig.id
+            )
             impl = get_curr_effective_section_impl_with_type_guard(
                 session_state,
                 section_id,
@@ -651,14 +656,22 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
 
-            session_a = manager.create_session_state("session-a")
-            session_b = manager.create_session_state("session-b")
+            manager.create_session_backend("session-a")
+            manager.create_session_backend("session-b")
+            session_a = manager.get_session_state("session-a", config.id)
+            session_b = manager.get_session_state("session-b", config.id)
             original_name = session_b.projectConfig.name
 
             session_a.projectConfig.name = "changed"
+            manager.update_session_state("session-a", config.id, session_a)
 
-            self.assertEqual(original_name, session_b.projectConfig.name)
-            self.assertNotEqual(session_a.projectConfig.name, session_b.projectConfig.name)
+            session_b_after = manager.get_session_state("session-b", config.id)
+            session_a_after = manager.get_session_state("session-a", config.id)
+            self.assertEqual(original_name, session_b_after.projectConfig.name)
+            self.assertNotEqual(
+                session_a_after.projectConfig.name,
+                session_b_after.projectConfig.name,
+            )
 
     def test_unknown_session_state_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -675,16 +688,17 @@ class ShareRuntimeStateTests(unittest.TestCase):
             manager = ShareRuntimeState(
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
-            existing_state = manager.create_session_state("session-a")
+            manager.create_session_backend("session-a")
+            existing_state = manager.get_session_state("session-a", config.id)
 
             with self.assertRaises(KeyError):
-                manager.get_session_state("missing")
+                manager.get_session_state("missing", config.id)
             with self.assertRaises(KeyError):
-                manager.update_session_state("missing", existing_state)
+                manager.update_session_state("missing", config.id, existing_state)
             with self.assertRaises(KeyError):
                 manager.delete_session_state("missing")
             with self.assertRaises(KeyError):
-                manager.create_session_state("session-a")
+                manager.create_session_backend("session-a")
 
     def test_listener_emit_requires_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -817,8 +831,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 specific_file_watcher=SpecificFileWatcher(),
             )
 
-            manager.create_session_state("session-a")
-            manager.create_session_state("session-b")
+            manager.create_session_backend("session-a")
+            manager.create_session_backend("session-b")
 
             frontend_messages_a: list[Message] = []
             frontend_messages_b: list[Message] = []
@@ -873,7 +887,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
 
             self._loop.run_until_complete(run_test())
 
-            session_state_a = manager.get_session_state("session-a")
+            session_state_a = manager.get_session_state("session-a", project_config_id)
             impl_a = get_curr_effective_section_impl_with_type_guard(
                 session_state_a,
                 section_id,
@@ -881,7 +895,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             )
             self.assertEqual(new_text, impl_a.text)
 
-            session_state_b = manager.get_session_state("session-b")
+            session_state_b = manager.get_session_state("session-b", project_config_id)
             impl_b = get_curr_effective_section_impl_with_type_guard(
                 session_state_b,
                 section_id,
@@ -995,8 +1009,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 specific_file_watcher=SpecificFileWatcher(),
             )
 
-            manager.create_session_state("session-a")
-            manager.create_session_state("session-b")
+            manager.create_session_backend("session-a")
+            manager.create_session_backend("session-b")
 
             frontend_messages_a: list[Message] = []
             frontend_messages_b: list[Message] = []

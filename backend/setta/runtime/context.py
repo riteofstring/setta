@@ -82,7 +82,10 @@ class RuntimeContext:
 
     def get_project_manager(self, project_config_id: "ID"):
         if self.state.share_mode:
-            return self.state.project_manager_switcher.get_for_session(self.session_id)
+            return self.state.project_manager_switcher.get(
+                project_config_id,
+                share_session_id=self.session_id,
+            )
         return self.state.project_manager_switcher.get(project_config_id)
 
     async def enforce_policy(
@@ -181,9 +184,10 @@ class RuntimeContext:
     async def ensure_lsp_ready(
         self,
         manager: "BaseProjectManager",
+        project_config_id: "ID",
     ) -> None:
         if not self.state.share_mode:
             return
         if not self.policy.allowLSP:
             return
-        await manager.ensure_gen_code_ready()
+        await manager.ensure_gen_code_ready(project_config_id)

@@ -25,7 +25,10 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
@@ -63,17 +66,17 @@ class ShareRuntimeState:
         self.project_config_name = self._resolve_project_config_name()
         self.deployment_version = self._resolve_deployment_version()
         self._validate_deployment_root()
-        self.project_config_id = self._resolve_project_config_id()
+        self.default_project_config_id = self._resolve_default_project_config_id()
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
                 "Share deployments do not support runSnapshotMode=never. "
                 "Use ephemeral or always."
             )
-        self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
+        self._session_backends: dict[str, ProjectStateBackend] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
         self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
-        self._base_state: "ProjectStateSingleConfig | None" = None
+        self._base_backend: ProjectStateBackend | None = None
 
     @property
     def share_runs_root(self) -> Path:
@@ -84,39 +87,66 @@ class ShareRuntimeState:
         self._rebase_deployment_paths(project_state)
         return project_state
 
-    def create_session_state(self, session_id: str) -> "ProjectStateSingleConfig":
-        if session_id in self._session_states:
+    def create_session_backend(self, session_id: str) -> ProjectStateBackend:
+        if session_id in self._session_backends:
             raise KeyError(f"Share session already exists: {session_id}")
-        project_state = self._build_base_state()
+        project_state = self._build_base_backend()
         if self.share_policy.allowLSP:
             self._rebase_session_code_paths(project_state, session_id)
-        self._session_states[session_id] = project_state
+        self._session_backends[session_id] = project_state
         return project_state
 
-    def get_session_state(self, session_id: str) -> "ProjectStateSingleConfig":
-        if session_id not in self._session_states:
-            raise KeyError(f"Unknown share session state: {session_id}")
-        return self._session_states[session_id]
+    def get_session_backend(self, session_id: str) -> ProjectStateBackend:
+        if session_id not in self._session_backends:
+            raise KeyError(f"Unknown share session backend: {session_id}")
+        return self._session_backends[session_id]
 
-    def get_or_create_session_state(
-        self, session_id: str
+    def get_or_create_session_backend(self, session_id: str) -> ProjectStateBackend:
+        if session_id in self._session_backends:
+            return self._session_backends[session_id]
+        return self.create_session_backend(session_id)
+
+    def set_session_backend(
+        self, session_id: str, project_state_backend: ProjectStateBackend
+    ) -> None:
+        if session_id not in self._session_backends:
+            raise KeyError(f"Unknown share session backend: {session_id}")
+        self._session_backends[session_id] = project_state_backend
+
+    def get_session_state(
+        self, session_id: str, project_config_id: ID
     ) -> "ProjectStateSingleConfig":
-        if session_id in self._session_states:
-            return self._session_states[session_id]
-        return self.create_session_state(session_id)
+        backend = self.get_session_backend(session_id)
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown share project config: {project_config_id}")
+        project_state = convert_backend_to_single_config(
+            backend, project_config_id
+        ).model_copy(deep=True)
+        self._ensure_gen_code_binding(project_state, session_id=session_id)
+        self._validate_project_state(project_state)
+        return project_state
 
     def update_session_state(
-        self, session_id: str, project_state: "ProjectStateSingleConfig"
-    ) -> None:
-        if session_id not in self._session_states:
-            raise KeyError(f"Unknown share session state: {session_id}")
+        self,
+        session_id: str,
+        project_config_id: ID,
+        project_state: "ProjectStateSingleConfig",
+    ) -> ProjectStateBackend:
+        if session_id not in self._session_backends:
+            raise KeyError(f"Unknown share session backend: {session_id}")
+        if project_config_id not in self._session_backends[session_id].projectConfigs:
+            raise KeyError(f"Unknown share project config: {project_config_id}")
         self.update(project_state)
-        self._session_states[session_id] = project_state
+        updated = merge_single_config_into_backend(
+            self._session_backends[session_id], project_state
+        )
+        self._session_backends[session_id] = updated
+        return updated
 
     def delete_session_state(self, session_id: str) -> None:
-        if session_id not in self._session_states:
-            raise KeyError(f"Unknown share session state: {session_id}")
-        del self._session_states[session_id]
+        if session_id not in self._session_backends:
+            raise KeyError(f"Unknown share session backend: {session_id}")
+        del self._session_backends[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
         if self.share_policy.allowLSP:
@@ -133,10 +163,13 @@ class ShareRuntimeState:
         return artifacts
 
     def get_session_ids(self) -> list[str]:
-        return list(self._session_states.keys())
+        return list(self._session_backends.keys())
 
     def has_session_state(self, session_id: str) -> bool:
-        return session_id in self._session_states
+        return session_id in self._session_backends
+
+    def has_project_config(self, project_config_id: ID) -> bool:
+        return project_config_id in self.project_state_backend.projectConfigs
 
     def save(self) -> None:
         return None
@@ -156,9 +189,10 @@ class ShareRuntimeState:
     async def create_run_command(
         self,
         share_session_id: str,
+        project_config_id: ID,
         section_id: ID | None,
     ) -> str:
-        project_state = self.get_session_state(share_session_id)
+        project_state = self.get_session_state(share_session_id, project_config_id)
         run_snapshot_mode = self._resolve_run_snapshot_mode()
         gen_binding = self._get_gen_code_binding(project_state)
         code_sections = self._collect_code_sections(project_state)
@@ -203,7 +237,7 @@ class ShareRuntimeState:
             raise ValueError(f"Share deployment manifest is empty: {manifest_path}")
         return ShareDeploymentManifest.model_validate(payload)
 
-    def _resolve_project_config_id(self) -> ID:
+    def _resolve_default_project_config_id(self) -> ID:
         project_config_id = self.manifest.projectConfigId
         if project_config_id not in self.project_state_backend.projectConfigs:
             raise KeyError(
@@ -239,31 +273,15 @@ class ShareRuntimeState:
                 f"Share deployment missing project.json: {project_path}"
             )
 
-    def _build_base_state(self) -> "ProjectStateSingleConfig":
-        if self._base_state is not None:
-            return self._base_state.model_copy(deep=True)
-        base_state = (
-            convert_backend_to_single_config(
-                self.project_state_backend, self.project_config_id
-            )
-        ).model_copy(deep=True)
-        self._ensure_gen_code_binding(base_state)
-        self._validate_project_state(base_state)
-        return base_state
-
-    def build_base_state(self) -> "ProjectStateSingleConfig":
-        return self._build_base_state()
+    def _build_base_backend(self) -> ProjectStateBackend:
+        if self._base_backend is not None:
+            return self._base_backend.model_copy(deep=True)
+        return self.project_state_backend.model_copy(deep=True)
 
     def initialize_share_state(self, settings_file: "SettingsFile") -> None:
-        base_state = (
-            convert_backend_to_single_config(
-                self.project_state_backend, self.project_config_id
-            )
-        ).model_copy(deep=True)
-        self._hydrate_json_sources(base_state, settings_file)
-        self._ensure_gen_code_binding(base_state)
-        self._validate_project_state(base_state)
-        self._base_state = base_state
+        base_backend = self.project_state_backend.model_copy(deep=True)
+        self._hydrate_json_sources(base_backend, settings_file)
+        self._base_backend = base_backend
 
     def _validate_project_state(
         self, project_state: "ProjectStateSingleConfig"
@@ -276,14 +294,17 @@ class ShareRuntimeState:
         project_state.validate_required_decoded_images()
 
     def _ensure_gen_code_binding(
-        self, project_state: "ProjectStateSingleConfig"
+        self,
+        project_state: "ProjectStateSingleConfig",
+        *,
+        session_id: str | None = None,
     ) -> None:
         if project_state.genCodeBinding is not None:
             return
         gen_section_id = project_state.singletonSections.GenPythonCode
         if gen_section_id is None:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state
+                project_state, session_id=session_id
             )
             return
         gen_impl = get_curr_effective_section_impl_with_type_guard(
@@ -293,7 +314,7 @@ class ShareRuntimeState:
         )
         if gen_impl.codeFileBinding is None:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state
+                project_state, session_id=session_id
             )
             return
         project_state.genCodeBinding = gen_impl.codeFileBinding
@@ -301,8 +322,18 @@ class ShareRuntimeState:
     def _build_fallback_gen_code_binding(
         self,
         project_state: "ProjectStateSingleConfig",
+        *,
+        session_id: str | None = None,
     ) -> CodeFileBinding:
         project_slug = sanitize_name(project_state.projectConfig.name)
+        if session_id is not None and self.share_policy.allowLSP:
+            session_root = self._resolve_session_code_root(session_id)
+            return CodeFileBinding(
+                canonical_path=(
+                    session_root / "code" / "sections" / project_slug / "setta_gen.py"
+                ).resolve(),
+                access_mode=CodeFileAccessMode.write_only,
+            )
         deployment_path = (
             self.deployment_root / "code" / "sections" / project_slug / "setta_gen.py"
         ).resolve()
@@ -321,7 +352,7 @@ class ShareRuntimeState:
 
     def _hydrate_json_sources(
         self,
-        project_state: "ProjectStateSingleConfig",
+        project_state: ProjectStateBackend,
         settings_file: "SettingsFile",
     ) -> None:
         section_variant_ids: list[tuple[ID, ID]] = []
@@ -412,7 +443,7 @@ class ShareRuntimeState:
 
     def _rebase_session_code_paths(
         self,
-        project_state: "ProjectStateSingleConfig",
+        project_state: ProjectStateBackend,
         session_id: str,
     ) -> None:
         session_root = self._resolve_session_code_root(session_id)
@@ -427,9 +458,6 @@ class ShareRuntimeState:
             resolve_code_binding=resolve_code_binding,
             resolve_json_source_name=lambda path_str: path_str,
         )
-        gen_binding = project_state.genCodeBinding
-        if gen_binding is not None:
-            project_state.genCodeBinding = resolve_code_binding(gen_binding)
 
     def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
         return self.share_policy.runSnapshotMode

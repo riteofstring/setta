@@ -112,7 +112,11 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 deployment_version, session_response.deploymentVersion
             )
             self.assertEqual(
-                project_config.id, session_response.projectConfigId
+                project_config.id, session_response.defaultProjectConfigId
+            )
+            self.assertEqual(
+                [project_config.id],
+                [config.id for config in session_response.projectMetadata],
             )
             self.assertIsNotNone(session_response.shareSessionId)
 

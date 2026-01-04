@@ -93,9 +93,10 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 frontend_sender,
             )
             share_runtime_state.initialize_share_state(settings_file)
+            project_config_id = share_runtime_state.default_project_config_id
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_runtime_state.create_session_state(session.id)
+            share_runtime_state.create_session_backend(session.id)
 
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_runtime_state,
@@ -106,7 +107,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 specific_file_watcher=SpecificFileWatcher(),
             )
             manager = switcher.get(
-                share_runtime_state.project_config_id,
+                project_config_id,
                 share_session_id=session.id,
             )
             await manager._process_queue_task_started.wait()
@@ -143,9 +144,10 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 frontend_sender,
             )
             share_runtime_state.initialize_share_state(settings_file)
+            project_config_id = share_runtime_state.default_project_config_id
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_runtime_state.create_session_state(session.id)
+            share_runtime_state.create_session_backend(session.id)
 
             listener_registry = ListenerRegistry()
             python_script_sender = WMHPythonScriptSender(
@@ -179,7 +181,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 None,
                 message,
                 "primary",
-                share_runtime_state.project_config_id,
+                project_config_id,
                 share_session_id=session.id,
             )
             self.assertIn(session.id, chat_manager._managers)
@@ -187,13 +189,12 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             listener_runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=None,
-                project_config_id=share_runtime_state.project_config_id,
             )
             module_name = f"share_listener_{session.id}"
             module = ModuleType(module_name)
             sys.modules[module_name] = module
             listener = SettaListener(
-                project_config_id=share_runtime_state.project_config_id,
+                project_config_id=project_config_id,
                 share_session_id=session.id,
             )
 
@@ -201,12 +202,17 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(3600)
 
             task = asyncio.create_task(_hold())
-            listener_runtime._session_handles[session.id] = _ListenerHandle(
-                listener=listener,
-                task=task,
-                module=module,
+            listener_runtime._session_handles[(session.id, project_config_id)] = (
+                _ListenerHandle(
+                    listener=listener,
+                    task=task,
+                    module=module,
+                )
             )
-            self.assertIn(session.id, listener_runtime._session_handles)
+            self.assertIn(
+                (session.id, project_config_id),
+                listener_runtime._session_handles,
+            )
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
@@ -218,7 +224,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIn(session.id, expired_ids)
             self.assertFalse(session_store.has_session(session.id))
-            self.assertNotIn(session.id, listener_runtime._session_handles)
+            self.assertFalse(listener_runtime._session_handles)
             self.assertNotIn(session.id, chat_manager._managers)
             self.assertNotIn(module_name, sys.modules)
 
@@ -243,12 +249,13 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             )
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_runtime_state.create_session_state(session.id)
+            share_runtime_state.create_session_backend(session.id)
+            project_config_id = share_runtime_state.default_project_config_id
 
             terminals = Terminals(frontend_sender, settings_file)
             terminal_id = build_terminal_id(ID("terminal-section"), session.id)
             created = terminals.new_terminal(
-                share_runtime_state.project_config_id,
+                project_config_id,
                 terminal_id,
                 share_session_id=session.id,
             )

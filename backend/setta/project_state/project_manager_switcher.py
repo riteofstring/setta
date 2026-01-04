@@ -71,7 +71,7 @@ class ProjectManagerSwitcher:
                 project_config_id = project_identifier
             else:
                 project_config_id = project_identifier.projectConfig.id
-            if project_config_id != self.share_runtime_state.project_config_id:
+            if not self.share_runtime_state.has_project_config(project_config_id):
                 raise KeyError(f"Unknown share project config: {project_config_id}")
             return manager
         if isinstance(project_identifier, str):
@@ -90,13 +90,13 @@ class ProjectManagerSwitcher:
 
     def get_config_id_by_name(self, projectConfigName: str):
         if self.share_runtime_state is not None:
-            project_config_id = self.share_runtime_state.project_config_id
-            config = self.share_runtime_state.project_state_backend.projectConfigs[
-                project_config_id
-            ]
-            if config.name != projectConfigName:
-                raise ProjectNotFound
-            return project_config_id
+            for (
+                config_id,
+                config,
+            ) in self.share_runtime_state.project_state_backend.projectConfigs.items():
+                if config.name == projectConfigName:
+                    return config_id
+            raise ProjectNotFound
         projectConfigId = None
         for p in [self.main, self.settings]:
             if p is None:
@@ -133,7 +133,7 @@ class ProjectManagerSwitcher:
             raise KeyError("Missing share session id")
         if share_session_id in self._session_managers:
             return self._session_managers[share_session_id]
-        self.share_runtime_state.get_or_create_session_state(share_session_id)
+        self.share_runtime_state.get_or_create_session_backend(share_session_id)
         scoped_sender = ScopedFrontendSender(self.frontend_sender, share_session_id)
         artifacts = self.share_runtime_state.get_session_artifacts(share_session_id)
         json_source = JSONSource(

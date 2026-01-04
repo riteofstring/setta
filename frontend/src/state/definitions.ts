@@ -115,7 +115,6 @@ type ShareSessionState = {
   projectConfigName: string | null;
   deploymentVersion: string | null;
   shareSessionId: string | null;
-  projectConfigId: string | null;
   sharePolicy: SharePolicy | null;
   manifest: ShareDeploymentManifest | null;
 };
@@ -127,7 +126,6 @@ export const useShareSession = withProjectState(
       projectConfigName: null,
       deploymentVersion: null,
       shareSessionId: null,
-      projectConfigId: null,
       sharePolicy: null,
       manifest: null,
     })),

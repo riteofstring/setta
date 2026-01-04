@@ -179,12 +179,15 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
 
             try:
                 await session_manager._process_queue_task_started.wait()
+                project_config_id = share_manager.default_project_config_id
                 state = session_manager.get_single_config_state(
-                    share_manager.project_config_id
+                    project_config_id
                 )
                 state.projectConfig.genCodePrefix = "import math\n"
                 await session_manager.update(state, updateFileWatcher=False)
-                updated = share_manager.get_session_state("session-a")
+                updated = share_manager.get_session_state(
+                    "session-a", project_config_id
+                )
                 self.assertEqual("import math\n", updated.projectConfig.genCodePrefix)
             finally:
                 session_manager.shutdown()

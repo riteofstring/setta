@@ -161,7 +161,10 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         )
         if share_session_id is None:
             return
-        await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
+        await state.share_listener_runtime.ensure_listener_for_session(
+            share_session_id,
+            state.share_runtime_state.default_project_config_id,
+        )
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
@@ -188,7 +191,10 @@ async def route_websocket_share_frontend(
     )
     if share_session_id is None:
         return
-    await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
+    await state.share_listener_runtime.ensure_listener_for_session(
+        share_session_id,
+        state.share_runtime_state.default_project_config_id,
+    )
     await websocket_route_loop(
         websocket,
         state.websocket_manager,

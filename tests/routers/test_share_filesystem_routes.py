@@ -237,7 +237,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             _seed_share_dirs(root)
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             image_path = root / "artifacts" / "preview.png"
             image_path.write_bytes(b"img")
@@ -311,7 +311,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             _seed_share_dirs(root)
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             chart_path = root / "artifacts" / "chart.csv"
             chart_path.write_text("x,y\n1,2\n", encoding="utf-8")
@@ -339,7 +339,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             _seed_share_dirs(root)
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             stroke_path = root / "artifacts" / "stroke.json"
             stroke_payload = {
@@ -377,7 +377,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             _seed_share_dirs(root)
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             transform_path = root / "artifacts" / "transform.json"
             transform_payload = {

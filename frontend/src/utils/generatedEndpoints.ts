@@ -764,7 +764,7 @@ export async function route_create_share_session(
   );
 }
 
-export async function route_get_share_deployment_state(
+async function route_get_share_deployment_state(
   projectConfigName: string,
   version: string,
 ): Promise<
@@ -774,6 +774,20 @@ export async function route_get_share_deployment_state(
     projectConfigName,
     version,
   });
+}
+
+export async function route_load_share_project_config(
+  projectConfigName: string,
+  version: string,
+  x: gt.LoadShareProjectConfigRequestInput,
+): Promise<
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
+> {
+  return await post(
+    "/share/deployments/{projectConfigName}/{version}/project_config",
+    x,
+    { projectConfigName, version },
+  );
 }
 
 export async function route_publish_share_deployment(

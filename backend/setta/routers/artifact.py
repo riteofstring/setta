@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from pydantic import BaseModel
 
@@ -21,6 +21,9 @@ from setta.types.artifact import (
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
 from setta.utils.utils import normalize_path
+
+if TYPE_CHECKING:
+    from setta.types.id import ID
 
 router = SettaAPIRouter()
 
@@ -210,21 +213,38 @@ async def route_update_artifacts(
         session_id = ctx.share_session_id
         if session_id is None:
             raise KeyError("Missing share session id")
-        project_state = ctx.state.share_runtime_state.get_session_state(session_id)
-        section_ids, unknown_paths = resolve_section_ids_for_artifacts(
-            project_state, x.artifacts
-        )
+        session_backend = ctx.state.share_runtime_state.get_session_backend(session_id)
+        section_ids: set["ID"] = set()
+        unknown_paths: set[str] | None = None
+        for project_config_id in session_backend.projectConfigs.keys():
+            project_state = ctx.state.share_runtime_state.get_session_state(
+                session_id,
+                project_config_id,
+            )
+            config_section_ids, config_unknown_paths = (
+                resolve_section_ids_for_artifacts(
+                    project_state,
+                    x.artifacts,
+                )
+            )
+            section_ids.update(config_section_ids)
+            config_unknown_set = set(config_unknown_paths)
+            if unknown_paths is None:
+                unknown_paths = config_unknown_set
+            else:
+                unknown_paths &= config_unknown_set
+        resolved_unknown_paths = sorted(unknown_paths) if unknown_paths else []
         await ensure_share_artifact_paths_scoped(
             share_mode=ctx.share_mode,
             policy=ctx.state.share_runtime_state.share_policy,
             frontend_sender=ctx.state.wmh_frontend_sender,
             project_config_id=None,
             share_session_id=session_id,
-            unknown_paths=unknown_paths,
+            unknown_paths=resolved_unknown_paths,
         )
         await ctx.enforce_param_changes_allowed(
             project_config_id=None,
-            section_ids=section_ids if section_ids else None,
+            section_ids=list(section_ids) if section_ids else None,
         )
         artifacts = ctx.state.share_runtime_state.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []

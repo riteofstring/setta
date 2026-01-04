@@ -206,7 +206,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
 
             listener_registry.upsert_registration(
                 websocket_id=websocket_id,
-                project_config_id=share_manager.project_config_id,
+                project_config_id=share_manager.default_project_config_id,
                 callbacks={
                     "cb": ListenerRegisterCallback(
                         dependencies=[],
@@ -219,7 +219,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
 
             emit_message = WebsocketMsgListenerFrontendEmit(
                 content=ListenerFrontendEmitRawContent(
-                    projectConfigId=share_manager.project_config_id,
+                    projectConfigId=share_manager.default_project_config_id,
                     dependencyValues={},
                     artifactUpdates=[],
                 )
@@ -298,8 +298,8 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 shareSessionId="session-b",
             )
 
-            share_manager.create_session_state("session-a")
-            share_manager.create_session_state("session-b")
+            share_manager.create_session_backend("session-a")
+            share_manager.create_session_backend("session-b")
 
             listener_messages: list[Message] = []
             listener_socket = await _build_websocket(
@@ -314,7 +314,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             )
             listener_registry.upsert_registration(
                 websocket_id=listener_id,
-                project_config_id=share_manager.project_config_id,
+                project_config_id=share_manager.default_project_config_id,
                 callbacks={
                     "cb": ListenerRegisterCallback(
                         dependencies=[create_dep_key(sectionId=SECTION_ID)],
@@ -326,7 +326,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             )
 
             await receiver._sync_listener_coverage(
-                share_manager.project_config_id,
+                share_manager.default_project_config_id,
                 share_session_id="session-a",
             )
 

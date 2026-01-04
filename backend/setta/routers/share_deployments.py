@@ -68,6 +68,10 @@ class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
     listenerEnabled: bool = True
 
 
+class LoadShareProjectConfigRequest(BaseModel, extra="forbid"):
+    projectConfigId: ID
+
+
 def _create_deployment_root(project_config_name: str) -> tuple[str, Path]:
     project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / project_config_name)
     project_root.mkdir(parents=True, exist_ok=True)
@@ -429,12 +433,15 @@ async def route_create_share_session(
     _require_share_mode(state)
     _require_matching_deployment(state, projectConfigName, version)
     session = state.share_session_store.create_session()
-    state.share_runtime_state.create_session_state(session.id)
+    state.share_runtime_state.create_session_backend(session.id)
     return ShareDeploymentSessionResponse(
         projectConfigName=state.share_runtime_state.project_config_name,
         deploymentVersion=state.share_runtime_state.deployment_version,
         shareSessionId=session.id,
-        projectConfigId=state.share_runtime_state.project_config_id,
+        defaultProjectConfigId=state.share_runtime_state.default_project_config_id,
+        projectMetadata=list(
+            state.share_runtime_state.project_state_backend.projectConfigs.values()
+        ),
         sharePolicy=state.share_runtime_state.share_policy,
         manifest=state.share_runtime_state.manifest,
     )
@@ -452,10 +459,50 @@ async def route_get_share_deployment_state(
     share_session_id = require_share_session_id(
         state,
         maybe_get_share_session_id_from_request(request),
-        create_session_state=False,
     )
-    project_state = state.share_runtime_state.get_or_create_session_state(
-        share_session_id
+    project_config_id = state.share_runtime_state.default_project_config_id
+    await state.share_listener_runtime.ensure_listener_for_session(
+        share_session_id,
+        project_config_id,
+    )
+    project_state = state.share_runtime_state.get_session_state(
+        share_session_id,
+        project_config_id,
+    )
+    return ProjectStateSingleConfigWithCompletedOpIds(
+        projectState=project_state,
+        completedOpIds=[],
+        pendingOpIds=[],
+    )
+
+
+@router.post(Route.SHARE_DEPLOYMENT_PROJECT_CONFIG)
+async def route_load_share_project_config(
+    projectConfigName: str,
+    version: str,
+    x: LoadShareProjectConfigRequest,
+    state: AppStateFromRequest,
+    request: Request,
+) -> ProjectStateSingleConfigWithCompletedOpIds:
+    _require_share_mode(state)
+    _require_matching_deployment(state, projectConfigName, version)
+    share_session_id = require_share_session_id(
+        state,
+        maybe_get_share_session_id_from_request(request),
+    )
+    session_backend = state.share_runtime_state.get_session_backend(share_session_id)
+    if x.projectConfigId not in session_backend.projectConfigs:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project config not found: {x.projectConfigId}",
+        )
+    await state.share_listener_runtime.ensure_listener_for_session(
+        share_session_id,
+        x.projectConfigId,
+    )
+    project_state = state.share_runtime_state.get_session_state(
+        share_session_id,
+        x.projectConfigId,
     )
     return ProjectStateSingleConfigWithCompletedOpIds(
         projectState=project_state,

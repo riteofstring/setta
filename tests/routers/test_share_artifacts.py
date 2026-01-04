@@ -112,7 +112,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -153,7 +153,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -188,7 +188,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session.id)
+            state.share_runtime_state.create_session_backend(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -221,8 +221,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             session_a = state.share_session_store.create_session()
             session_b = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_state(session_a.id)
-            state.share_runtime_state.create_session_state(session_b.id)
+            state.share_runtime_state.create_session_backend(session_a.id)
+            state.share_runtime_state.create_session_backend(session_b.id)
 
             messages_a: list[Message] = []
             messages_b: list[Message] = []
