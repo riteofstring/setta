@@ -34,7 +34,6 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
@@ -354,9 +353,8 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const theme = useCodeMirrorStyle();
 
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditParams } = useShareCapabilities();
   const canUseLsp = !isShareMode;
-  const isShareReadOnly = isShareMode || !canEditParams;
+  const isShareReadOnly = isShareMode;
   const completionsFn = useCallback(
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
     [generatedCodeForValue, canUseLsp],
@@ -524,8 +522,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
   const theme = useCodeMirrorStyle();
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditParams } = useShareCapabilities();
-  const isShareReadOnly = isShareMode || !canEditParams;
+  const isShareReadOnly = isShareMode;
   const isDisabled = variantIsFrozen || isShareReadOnly;
 
   function onChange(v) {

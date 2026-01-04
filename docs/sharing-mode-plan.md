@@ -94,7 +94,7 @@ A share policy defines what can be modified in share mode:
 - run/terminals (output-only; no terminal input or custom commands)
 - LLM access
 - allowed sections or controls
-- Structural changes, LSP, and MCP are disabled in share mode.
+- Code editing, structural changes, LSP, and MCP are disabled in share mode.
 
 Example `share_policy.json`:
 ```json

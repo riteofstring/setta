@@ -38,7 +38,7 @@ Latest completion updates (this branch):
   instead of the server CWD.
 - Share deployment path rebasing keeps absolute runtime paths in memory so share
   file access checks do not double-join deployment-relative paths.
-- Code editors are read-only in share mode when `allowParamChanges` is false.
+- Code editors are read-only in share mode (independent of `allowParamChanges`).
 - Share websocket error logs include the share session id so messages reach the
   active viewer.
 - New tests cover manager-state publishing, in-memory JSON source publishing,

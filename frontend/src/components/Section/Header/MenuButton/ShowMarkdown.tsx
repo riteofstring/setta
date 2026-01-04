@@ -7,6 +7,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_set_text_block_display_mode,
   route_set_text_block_format,
@@ -17,7 +18,7 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 
-export function RenderTextBlock({ sectionId }) {
+export function RenderTextBlock({ sectionId }: { sectionId: string }) {
   const { textDisplayMode, format, implIsFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -30,6 +31,8 @@ export function RenderTextBlock({ sectionId }) {
       implIsFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+  const { canEditLayout } = useShareCapabilities();
+  const isDisabled = implIsFrozen || !canEditLayout;
 
   const newDisplayMode =
     textDisplayMode === TextBlockDisplayModeEnum.Render
@@ -37,6 +40,9 @@ export function RenderTextBlock({ sectionId }) {
       : TextBlockDisplayModeEnum.Render;
 
   function onClick() {
+    if (isDisabled) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
@@ -54,13 +60,13 @@ export function RenderTextBlock({ sectionId }) {
   }
 
   return (
-    <MenuItem onClick={onClick} disabled={implIsFrozen}>
+    <MenuItem onClick={onClick} disabled={isDisabled}>
       {`${newDisplayMode} ${format}`}
     </MenuItem>
   );
 }
 
-export function ConvertFormat({ sectionId }) {
+export function ConvertFormat({ sectionId }: { sectionId: string }) {
   const format = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -69,6 +75,8 @@ export function ConvertFormat({ sectionId }) {
     );
     return impl.format;
   });
+  const { canEditLayout } = useShareCapabilities();
+  const isDisabled = !canEditLayout;
 
   const convertTo =
     format === TextBlockFormatEnum.Plaintext
@@ -76,6 +84,9 @@ export function ConvertFormat({ sectionId }) {
       : TextBlockFormatEnum.Plaintext;
 
   function onClick() {
+    if (isDisabled) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
@@ -94,5 +105,9 @@ export function ConvertFormat({ sectionId }) {
 
   // only show this option if there are no parameters
   // and the search bar isn't hidden (we don't want to hide both params and search)
-  return <MenuItem onClick={onClick}>{`Convert to ${convertTo}`}</MenuItem>;
+  return (
+    <MenuItem onClick={onClick} disabled={isDisabled}>
+      {`Convert to ${convertTo}`}
+    </MenuItem>
+  );
 }
