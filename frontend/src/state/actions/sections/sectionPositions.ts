@@ -8,7 +8,6 @@ import {
 import _ from "lodash";
 import {
   useNodeInternals,
-  useProjectState,
   useSettings,
   useShareSession,
 } from "state/definitions";
@@ -87,19 +86,11 @@ export function goToSection(sectionId: string) {
 
 export function autoLayout() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    if (!(shareSession.sharePolicy?.allowLayoutChanges ?? true)) {
-      return;
-    }
-    const allowedSections = shareSession.sharePolicy?.allowedSections;
-    if (allowedSections !== null && allowedSections !== undefined) {
-      const sectionIds = Object.keys(
-        useProjectState.getState().projectConfig.topLevelSections,
-      );
-      if (!sectionIds.every((id) => allowedSections.includes(id))) {
-        return;
-      }
-    }
+  if (
+    shareSession.isShareMode &&
+    !(shareSession.sharePolicy?.allowLayoutChanges ?? true)
+  ) {
+    return;
   }
   route_auto_layout_top_level_sections({
     projectConfigId: getCurrProjectConfigId(),

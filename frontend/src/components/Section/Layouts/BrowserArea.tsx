@@ -18,7 +18,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { res200 } from "utils/endpointUtils";
@@ -81,7 +80,6 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
           width={width}
           columnWidth={typesColumnWidth}
           onResizeStart={handleTypesColumnResizeStart}
-          sectionId={sectionId}
         />
       )}
       <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
@@ -93,12 +91,10 @@ function TypesColumn({
   width,
   columnWidth,
   onResizeStart,
-  sectionId,
 }: {
   width: number;
   columnWidth: string;
   onResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  sectionId: string;
 }) {
   const { ref, isScrollable } = useIsScrollable();
   const isResizable = width > TYPES_COLUMN_MIN_CONTAINER_WIDTH;
@@ -109,11 +105,7 @@ function TypesColumn({
     >
       {isResizable && (
         <div className="absolute right-0 top-0 flex h-full items-center">
-          <ResizeHandle
-            sectionId={sectionId}
-            showResizeHandle={true}
-            onMouseDown={onResizeStart}
-          />
+          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         </div>
       )}
       <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
@@ -142,29 +134,19 @@ function ViewSelectorButton({
   view,
   setView,
   viewType,
-  disabled,
   children,
 }: {
   view: BrowserAreaViewMode;
   setView: (newView: BrowserAreaViewMode) => void;
   viewType: BrowserAreaViewMode;
-  disabled: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={() => {
-        if (disabled) {
-          return;
-        }
         setView(viewType);
       }}
-      className={`flex h-4 w-4 cursor-pointer items-center justify-center rounded-md p-1 hover:bg-setta-50 dark:hover:bg-setta-800 ${
-        view === viewType
-          ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600"
-          : "bg-transparent text-setta-400 dark:text-setta-500"
-      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-      disabled={disabled}
+      className={`flex h-4 w-4 cursor-pointer items-center justify-center rounded-md p-1  hover:bg-setta-50  dark:hover:bg-setta-800 ${view === viewType ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600" : "bg-transparent text-setta-400 dark:text-setta-500"}`}
     >
       {children}
     </button>
@@ -174,36 +156,19 @@ function ViewSelectorButton({
 function ViewSelector({
   view,
   setView,
-  disabled,
 }: {
   view: BrowserAreaViewMode;
   setView: (newView: BrowserAreaViewMode) => void;
-  disabled: boolean;
 }) {
   return (
     <div className="flex gap-0.5">
-      <ViewSelectorButton
-        view={view}
-        setView={setView}
-        viewType="list"
-        disabled={disabled}
-      >
+      <ViewSelectorButton view={view} setView={setView} viewType="list">
         <MdList />
       </ViewSelectorButton>
-      <ViewSelectorButton
-        view={view}
-        setView={setView}
-        viewType="thumbnail"
-        disabled={disabled}
-      >
+      <ViewSelectorButton view={view} setView={setView} viewType="thumbnail">
         <HiOutlineViewGrid />
       </ViewSelectorButton>
-      <ViewSelectorButton
-        view={view}
-        setView={setView}
-        viewType="carousel"
-        disabled={disabled}
-      >
+      <ViewSelectorButton view={view} setView={setView} viewType="carousel">
         <TbCarouselHorizontal />
       </ViewSelectorButton>
     </div>
@@ -284,11 +249,7 @@ function ResizableFileList({
         <div className="relative flex items-center px-1 py-2">
           <p>Name</p>
           <div className="absolute right-0 top-0 h-full">
-            <ResizeHandle
-              sectionId={sectionId}
-              showResizeHandle={true}
-              onMouseDown={handleResize}
-            />
+            <ResizeHandle showResizeHandle={true} onMouseDown={handleResize} />
           </div>
         </div>
         <div className="flex items-center px-1 py-2">
@@ -485,14 +446,8 @@ function ItemsColumn({
 }) {
   const [value, setValue] = useLocalPendingValue(viewMode);
   const [items, setItems] = useState<Array<BrowserAreaItem>>([]);
-  const { canEditLayout } = useShareCapabilities();
-  const canEditSection = useShareSectionAccess(sectionId);
-  const isDisabled = !canEditLayout || !canEditSection;
 
   function setView(newView: BrowserAreaViewMode) {
-    if (isDisabled) {
-      return;
-    }
     setValue(newView);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -530,7 +485,7 @@ function ItemsColumn({
           {/* <FilterSection /> */}
           <FolderPath folder={folder} setFolder={setFolder} />
         </div>
-        <ViewSelector view={value} setView={setView} disabled={isDisabled} />
+        <ViewSelector view={value} setView={setView} />
       </div>
       <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>

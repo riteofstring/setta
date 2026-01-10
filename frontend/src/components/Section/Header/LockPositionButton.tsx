@@ -7,7 +7,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import { route_toggle_position_locks } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -35,7 +35,6 @@ export function LockPositionButton({
     };
   }, _.isEqual);
   const { canEditLayout } = useShareCapabilities();
-  const canEditSection = useShareSectionAccess(sectionId);
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 
@@ -49,7 +48,7 @@ export function LockPositionButton({
   }
 
   function onClick() {
-    if (!canEditLayout || !canEditSection) {
+    if (!canEditLayout) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -92,9 +91,9 @@ export function LockPositionButton({
     <button
       className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 hover:text-orange-500 dark:hover:text-orange-700 ${
         isGroup ? "h-5 w-5" : "h-4 w-4"
-      } ${canEditLayout && canEditSection ? "" : "cursor-not-allowed opacity-50"}`}
+      } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
       onClick={onClick}
-      disabled={!canEditLayout || !canEditSection}
+      disabled={!canEditLayout}
     >
       <i className={iconClassName} />
     </button>

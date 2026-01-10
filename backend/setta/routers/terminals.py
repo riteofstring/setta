@@ -96,7 +96,6 @@ async def terminal_websocket_endpoint(
                 severity=SettaBackendLogEventSeverity.error,
                 project_config_id=projectConfigId,
                 context=context,
-                share_session_id=share_session_id,
             )
             raise
         finally:

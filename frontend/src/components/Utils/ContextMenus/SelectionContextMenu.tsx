@@ -10,7 +10,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useContextMenus, useProjectState, useShareSession } from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   route_delete_sections,
@@ -27,14 +27,6 @@ export function SelectionContextMenu() {
   );
   const { canEditLayout, canEditStructure, canEditVariants } =
     useShareCapabilities();
-  const { isShareMode, allowedSections } = useShareSession((state) => ({
-    isShareMode: state.isShareMode,
-    allowedSections: state.sharePolicy?.allowedSections ?? null,
-  }));
-  const canEditSelection =
-    !isShareMode ||
-    allowedSections === null ||
-    nodeIds.every((id) => allowedSections.includes(id));
 
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
@@ -79,7 +71,7 @@ export function SelectionContextMenu() {
   };
 
   function onClickCreate() {
-    if (!canEditStructure || !canEditSelection) {
+    if (!canEditLayout) {
       return;
     }
     route_group_sections({
@@ -102,7 +94,7 @@ export function SelectionContextMenu() {
   }
 
   function onClickLock() {
-    if (!canEditLayout || !canEditSelection) {
+    if (!canEditLayout) {
       return;
     }
     const state = useProjectState.getState();
@@ -132,7 +124,7 @@ export function SelectionContextMenu() {
   }
 
   function onClickVisibility() {
-    if (!canEditVariants || !canEditSelection) {
+    if (!canEditVariants) {
       return;
     }
     route_toggle_section_visibility({
@@ -159,20 +151,17 @@ export function SelectionContextMenu() {
       isOpen={isOpen}
       closeContextMenu={closeContextMenu}
     >
-      <Item onClick={onClickCreate} disabled={!canEditStructure || !canEditSelection}>
+      <Item onClick={onClickCreate} disabled={!canEditLayout}>
         Create Group
       </Item>
       <Item onClick={onClickDelete} disabled={!canEditStructure}>
         Delete
       </Item>
-      <Item onClick={onClickLock} disabled={!canEditLayout || !canEditSelection}>
+      <Item onClick={onClickLock} disabled={!canEditLayout}>
         {lockItem}
       </Item>
       {isEditingViewMode && (
-        <Item
-          onClick={onClickVisibility}
-          disabled={!canEditVariants || !canEditSelection}
-        >
+        <Item onClick={onClickVisibility} disabled={!canEditVariants}>
           {visibilityItem}
         </Item>
       )}

@@ -7,7 +7,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_set_text_block_display_mode,
   route_set_text_block_format,
@@ -32,8 +32,7 @@ export function RenderTextBlock({ sectionId }: { sectionId: string }) {
     };
   }, _.isEqual);
   const { canEditLayout } = useShareCapabilities();
-  const canEditSection = useShareSectionAccess(sectionId);
-  const isDisabled = implIsFrozen || !canEditLayout || !canEditSection;
+  const isDisabled = implIsFrozen || !canEditLayout;
 
   const newDisplayMode =
     textDisplayMode === TextBlockDisplayModeEnum.Render
@@ -77,8 +76,7 @@ export function ConvertFormat({ sectionId }: { sectionId: string }) {
     return impl.format;
   });
   const { canEditLayout } = useShareCapabilities();
-  const canEditSection = useShareSectionAccess(sectionId);
-  const isDisabled = !canEditLayout || !canEditSection;
+  const isDisabled = !canEditLayout;
 
   const convertTo =
     format === TextBlockFormatEnum.Plaintext
