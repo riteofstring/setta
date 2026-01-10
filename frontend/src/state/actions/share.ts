@@ -3,6 +3,7 @@ import { loadProjectState } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
   useProjectLoading,
+  useServerMode,
   useShareSession,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
@@ -49,6 +50,10 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
     shareDeploymentName: session.deploymentName,
     shareDeploymentVersion: session.deploymentVersion,
   });
+  useServerMode.setState({
+    isShareServer: true,
+    modeResolved: true,
+  });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
     projectMetadata: session.projectMetadata,
@@ -70,8 +75,25 @@ export async function ensureShareSessionFromCurrentDeployment(): Promise<ShareDe
 }
 
 export async function initializeShareSessionFromCurrentDeployment(): Promise<boolean> {
+  const serverMode = useServerMode.getState();
+  if (serverMode.modeResolved && !serverMode.isShareServer) {
+    return false;
+  }
   const session = await ensureShareSessionFromCurrentDeployment();
-  return session !== null;
+  if (session) {
+    useServerMode.setState({
+      isShareServer: true,
+      modeResolved: true,
+    });
+    return true;
+  }
+  if (!serverMode.modeResolved) {
+    useServerMode.setState({
+      isShareServer: false,
+      modeResolved: true,
+    });
+  }
+  return false;
 }
 
 type ShareProjectConfigLoadParams = {

@@ -86,7 +86,7 @@ def _make_request(share_session_id: str | None) -> Request:
         "http_version": "1.1",
         "scheme": "http",
         "method": "GET",
-        "path": "/share",
+        "path": "/",
         "root_path": "",
         "query_string": b"",
         "headers": headers,

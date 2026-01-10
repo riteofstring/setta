@@ -24,8 +24,8 @@ workspace.
 - Listener execution is per-viewer (isolated state).
 - Run snapshots should be configurable (not always-on).
 - Terminals/run code are opt-in for share mode (output-only terminals, no stdin).
-- Share URLs support `/share` (default config), `/share/<project_config_name>`,
-  and `/share/home`.
+- Share URLs match IDE routes: `/` (default config), `/home`, and
+  `/<project_config_name>`.
 
 Note: Share runtime is started via CLI flags (no env vars).
 
@@ -77,8 +77,8 @@ Example `manifest.json`:
 
 In SaaS, the same folder can be zipped or stored in object storage. The share
 runtime should be started via CLI flags (no env vars) and can target a
-deployment root. Share URLs do not include a version; the share backend serves
-the configured deployment.
+deployment root. Share URLs do not include a version or `/share` prefix; the
+share backend serves the configured deployment on the standard routes.
 
 ### 3) Per-viewer overlay
 All share-mode mutations apply to a per-viewer overlay, never the base snapshot.

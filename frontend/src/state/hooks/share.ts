@@ -26,10 +26,10 @@ function resolveProjectConfigId(
 }
 
 export function useLoadShareDeployment(loadProject: boolean = true) {
-  const { targetProjectConfigName } = useParams();
+  const { projectConfigName } = useParams();
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
-  const loadKey = `${targetProjectConfigName ?? ""}:${loadProject}`;
+  const loadKey = `${projectConfigName ?? ""}:${loadProject}`;
   const loadKeyRef = useRef(loadKey);
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
   const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
@@ -60,7 +60,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
       if (loadProject) {
         const resolvedConfigId = resolveProjectConfigId(
           session.projectMetadata,
-          targetProjectConfigName,
+          projectConfigName,
           session.defaultProjectConfigId,
         );
         if (!resolvedConfigId) {
@@ -107,7 +107,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
     return () => {
       isMounted = false;
     };
-  }, [loadProject, targetProjectConfigName]);
+  }, [loadProject, projectConfigName]);
 
   return [resolvedDoneLoading, resolvedIs404] as const;
 }

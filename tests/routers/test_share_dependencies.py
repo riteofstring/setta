@@ -20,7 +20,7 @@ from setta.types.share_deployment import ShareDeploymentManifest
 
 def _make_request(
     *,
-    path: str = "/share",
+    path: str = "/",
     headers: list[tuple[bytes, bytes]] | None = None,
     query_string: str | None = None,
 ) -> Request:
@@ -88,7 +88,7 @@ def _write_share_project(
 def _make_app_request(
     app: FastAPI,
     *,
-    path: str = "/share",
+    path: str = "/",
     headers: list[tuple[bytes, bytes]] | None = None,
     query_string: str | None = None,
 ) -> Request:

@@ -62,11 +62,11 @@ function useShareWebsocket() {
 }
 
 function useShareHTMLTitle(mode: "project" | "home") {
-  const { targetProjectConfigName } = useParams();
+  const { projectConfigName } = useParams();
 
   useEffect(() => {
-    document.title = resolveShareTitle(mode, targetProjectConfigName);
-  }, [mode, targetProjectConfigName]);
+    document.title = resolveShareTitle(mode, projectConfigName);
+  }, [mode, projectConfigName]);
 }
 
 function resolveShareTitle(

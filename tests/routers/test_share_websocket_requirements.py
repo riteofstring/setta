@@ -286,7 +286,7 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
             headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
             messages: list[Message] = []
             payload = WebsocketMsgCurrentAddressUpdate(
-                content="/share/demo"
+                content="/demo"
             ).model_dump_json()
             ready_event = asyncio.Event()
             gate_event = asyncio.Event()

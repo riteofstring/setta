@@ -129,6 +129,16 @@ export const useShareSession = withProjectState(
   ),
 );
 
+type ServerModeState = {
+  isShareServer: boolean;
+  modeResolved: boolean;
+};
+
+export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
+  isShareServer: false,
+  modeResolved: false,
+}));
+
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
     defaultProjectConfigId: null,

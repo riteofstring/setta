@@ -12,8 +12,8 @@ Latest completion updates (this branch):
   draining ops, so snapshots reflect the latest edits even without a DB save.
 - JSON source publishing uses in-memory values instead of on-disk JSON source files.
 - Listener execution is per-session only; shared listener isolation was removed.
-- Share startup prints `/share` as the share URL; relocated deployment roots
-  still load from `manifest.json` correctly.
+- Share startup prints `/` as the share URL; relocated deployment roots still
+  load from `manifest.json` correctly.
 - Share runtime roots use the manifest name/version and avoid root-level
   `share_runtime` when deployments are relocated.
 - Share run commands always use `python <absolute path>` in share mode so
@@ -154,7 +154,7 @@ Implemented:
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, skips watchers, and disables LSP in share mode.
 - Share CLI derives project config name/version from `manifest.json`; the share
-  URL remains `/share` even when `--deployment-root` is relocated.
+  URL remains `/` even when `--deployment-root` is relocated.
 - Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
   as a runtime root for file locks + temporary id maps (via
   `DBE.runtime_root`/`lock_root`) so deployments stay immutable.
@@ -412,8 +412,8 @@ Pending updates: none.
 ## 11) Frontend share mode UX
 Status: completed. Project-config routing is in place.
 Implemented:
-- Added `/share`, `/share/:projectConfigName`, and `/share/home` routing with
-  share wrapper/container components.
+- Added `/`, `/:projectConfigName`, and `/home` routing with share
+  wrapper/container components (share mode only).
 - Added share session bootstrap (`route_create_share_session` + state fetch)
   plus share session store + hooks.
 - Websocket connections include `shareSessionId` and use `/share/frontend` in
@@ -570,4 +570,5 @@ Implemented:
 
 ## Next improvements
 - Dev mode: run share backend alongside IDE backend (single `pnpm start`),
-  and route `/share/*` traffic + websockets to the share backend.
+  and route share traffic + websockets by host/port instead of a `/share/*`
+  prefix.
