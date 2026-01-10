@@ -17,8 +17,8 @@ from setta.project_state.run_commands import (
     build_python_file_run_command,
 )
 from setta.project_state.run_snapshot import (
-    SnapshotCodeSection,
-    create_snapshot_run_command,
+    SnapshotSectionInput,
+    create_snapshot_run_command_from_sections,
 )
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
@@ -197,7 +197,7 @@ class ShareRuntimeState:
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
         gen_code = self._generate_gen_code(project_state)
-        snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+        snapshot_section_inputs: dict[ID, SnapshotSectionInput] = {}
         for sid, (code, binding, language) in code_sections.items():
 
             def run_command_builder(path: Path, language=language) -> str:
@@ -205,19 +205,15 @@ class ShareRuntimeState:
                     return build_python_file_run_command(path)
                 return build_bash_run_command(path, use_absolute=True, quote=True)
 
-            snapshot_sections[sid] = SnapshotCodeSection(
-                code=code,
-                binding=binding,
-                run_command_builder=run_command_builder,
-            )
+            snapshot_section_inputs[sid] = (code, binding, run_command_builder)
 
-        return create_snapshot_run_command(
+        return create_snapshot_run_command_from_sections(
             dbe=self.dbe,
             snapshot_root=self.share_runs_root / resolved_session_id,
             entry_section_id=section_id,
             gen_code=gen_code,
             gen_binding=gen_binding,
-            code_sections=snapshot_sections,
+            section_inputs=snapshot_section_inputs,
             gen_command_builder=build_python_file_run_command,
         )
 

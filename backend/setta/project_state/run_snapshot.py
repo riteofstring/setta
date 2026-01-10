@@ -8,6 +8,7 @@ from setta.types.id import ID
 from setta.types.section_impls import CodeFileBinding
 
 RunCommandBuilder = Callable[[Path], str]
+SnapshotSectionInput = tuple[str, CodeFileBinding, RunCommandBuilder]
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,31 @@ def create_snapshot_run_command(
         section = code_sections[entry_section_id]
         return section.run_command_builder(code_paths[entry_section_id])
     return gen_command_builder(gen_code_path)
+
+
+def create_snapshot_run_command_from_sections(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    gen_code: str,
+    gen_binding: CodeFileBinding,
+    section_inputs: dict[ID, SnapshotSectionInput],
+    gen_command_builder: RunCommandBuilder,
+) -> str:
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    return create_snapshot_run_command(
+        dbe=dbe,
+        snapshot_root=snapshot_root,
+        entry_section_id=entry_section_id,
+        gen_code=gen_code,
+        gen_binding=gen_binding,
+        code_sections=snapshot_sections,
+        gen_command_builder=gen_command_builder,
+    )

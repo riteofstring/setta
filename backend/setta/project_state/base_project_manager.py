@@ -152,8 +152,7 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.run_snapshot import (
-    SnapshotCodeSection,
-    create_snapshot_run_command,
+    create_snapshot_run_command_from_sections,
 )
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -581,15 +580,15 @@ class BaseProjectManager(ABC):
                     )
                 return gen_code.get_run_command(gen_code_path)
 
-            snapshot_sections: dict[ID, SnapshotCodeSection] = {}
-            for sid, code_entry in code_entries.items():
-                snapshot_sections[sid] = SnapshotCodeSection(
-                    code=code_entry.code,
-                    binding=code_entry.binding,
-                    run_command_builder=code_entry.get_run_command,
+            snapshot_section_inputs = {
+                sid: (
+                    code_entry.code,
+                    code_entry.binding,
+                    code_entry.get_run_command,
                 )
-
-            return create_snapshot_run_command(
+                for sid, code_entry in code_entries.items()
+            }
+            return create_snapshot_run_command_from_sections(
                 dbe=self.dbe,
                 snapshot_root=self._resolve_run_snapshot_root(
                     resolved_run_snapshot_mode
@@ -597,7 +596,7 @@ class BaseProjectManager(ABC):
                 entry_section_id=section_id,
                 gen_code=gen_code.code,
                 gen_binding=gen_code.binding,
-                code_sections=snapshot_sections,
+                section_inputs=snapshot_section_inputs,
                 gen_command_builder=gen_code.get_run_command,
             )
 
