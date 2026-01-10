@@ -23,8 +23,6 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
-from setta.code_gen.python.code_generator import PythonCodeGenerator
-from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -45,6 +43,9 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
     CodeFileReloadPlan,
     CodeFiles,
+)
+from setta.project_state.codegen_helpers import (
+    build_python_code_generator,
 )
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
@@ -150,7 +151,10 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.project_state.utils import create_timestamped_folder
+from setta.project_state.run_snapshot import (
+    SnapshotCodeSection,
+    create_snapshot_run_command,
+)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -560,28 +564,42 @@ class BaseProjectManager(ABC):
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
             )
+            if not section_id:
+                section_id = self.project_state_backend.projectConfigs[
+                    project_config_id
+                ].entryCodeBlockId
             if resolved_run_snapshot_mode == RunSnapshotMode.never:
                 gen_code_path = gen_code.get_gen_python_code_path()
                 code_paths = {
                     sid: c.binding.canonical_path for sid, c in code_entries.items()
                 }
-            else:
-                target_folder = create_timestamped_folder(
-                    self._resolve_run_snapshot_root(resolved_run_snapshot_mode)
+                if section_id:
+                    if section_id not in code_paths:
+                        raise KeyError(f"Missing code section for run: {section_id}")
+                    return code_entries[section_id].get_run_command(
+                        code_paths[section_id]
+                    )
+                return gen_code.get_run_command(gen_code_path)
+
+            snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+            for sid, code_entry in code_entries.items():
+                snapshot_sections[sid] = SnapshotCodeSection(
+                    code=code_entry.code,
+                    binding=code_entry.binding,
+                    run_command_builder=code_entry.get_run_command,
                 )
-                gen_code_path = gen_code.write_to_folder(target_folder)
-                code_paths = {}
-                for sid, c in code_entries.items():
-                    code_paths[sid] = c.write_to_folder(target_folder)
 
-            if not section_id:
-                section_id = self.project_state_backend.projectConfigs[
-                    project_config_id
-                ].entryCodeBlockId
-
-            if section_id:
-                return code_entries[section_id].get_run_command(code_paths[section_id])
-            return gen_code.get_run_command(gen_code_path)
+            return create_snapshot_run_command(
+                dbe=self.dbe,
+                snapshot_root=self._resolve_run_snapshot_root(
+                    resolved_run_snapshot_mode
+                ),
+                entry_section_id=section_id,
+                gen_code=gen_code.code,
+                gen_binding=gen_code.binding,
+                code_sections=snapshot_sections,
+                gen_command_builder=gen_code.get_run_command,
+            )
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
         if run_snapshot_mode == RunSnapshotMode.ephemeral:
@@ -671,12 +689,7 @@ class BaseProjectManager(ABC):
             )
             self.gen_code[projectConfigId].callback_cleanup()
 
-        code_generator = PythonCodeGenerator(
-            dep_graph,
-            projectConfig.genCodePrefix,
-            projectConfig.genCodeSuffix,
-            value_mode=PythonValueMode.PACKAGED_RUNTIME,
-        )
+        code_generator = build_python_code_generator(projectState, dep_graph)
         code_generator.generate_code()
         ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
             projectState

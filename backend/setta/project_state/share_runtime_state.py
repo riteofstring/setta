@@ -3,17 +3,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.utils import sanitize_name
-from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.codegen_helpers import (
+    build_python_code_generator,
+)
 from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_manager_types import RunCodeRequest
-from setta.project_state.utils import (
-    create_timestamped_folder,
+from setta.project_state.run_snapshot import (
+    SnapshotCodeSection,
+    create_snapshot_run_command,
 )
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
@@ -106,6 +108,21 @@ class ShareRuntimeState:
             return self._session_backends[session_id]
         return self.create_session_backend(session_id)
 
+    def require_session_id(self, session_id: str | None) -> str:
+        if session_id is None:
+            raise KeyError("Missing share session id")
+        return session_id
+
+    def require_session_state(
+        self,
+        session_id: str | None,
+        project_config_id: ID,
+    ) -> tuple[str, "ProjectStateSingleConfig"]:
+        resolved_session_id = self.require_session_id(session_id)
+        return resolved_session_id, self.get_session_state(
+            resolved_session_id, project_config_id
+        )
+
     def set_session_backend(
         self, session_id: str, project_state_backend: ProjectStateBackend
     ) -> None:
@@ -188,12 +205,15 @@ class ShareRuntimeState:
 
     async def create_run_command(
         self,
-        share_session_id: str,
+        share_session_id: str | None,
         x: RunCodeRequest,
     ) -> str:
         project_config_id = x.projectConfigId
         section_id = x.sectionId
-        project_state = self.get_session_state(share_session_id, project_config_id)
+        resolved_session_id, project_state = self.require_session_state(
+            share_session_id,
+            project_config_id,
+        )
         gen_binding = self._get_gen_code_binding(project_state)
         code_sections = self._collect_code_sections(project_state)
 
@@ -202,19 +222,27 @@ class ShareRuntimeState:
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
         gen_code = self._generate_gen_code(project_state)
-        target_folder = self._create_share_run_folder(share_session_id)
-        gen_code_path = self._write_snapshot_file(target_folder, gen_binding, gen_code)
-        code_paths: dict[ID, Path] = {}
-        for sid, (code, binding, _) in code_sections.items():
-            code_paths[sid] = self._write_snapshot_file(target_folder, binding, code)
+        snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+        for sid, (code, binding, language) in code_sections.items():
 
-        if section_id:
-            if section_id not in code_sections:
-                raise KeyError(f"Missing code section for run: {section_id}")
-            _, _, language = code_sections[section_id]
-            return self._build_run_command(language, code_paths[section_id])
+            def run_command_builder(path: Path, language=language) -> str:
+                return self._build_run_command(language, path)
 
-        return self._build_python_run_command(gen_code_path)
+            snapshot_sections[sid] = SnapshotCodeSection(
+                code=code,
+                binding=binding,
+                run_command_builder=run_command_builder,
+            )
+
+        return create_snapshot_run_command(
+            dbe=self.dbe,
+            snapshot_root=self.share_runs_root / resolved_session_id,
+            entry_section_id=section_id,
+            gen_code=gen_code,
+            gen_binding=gen_binding,
+            code_sections=snapshot_sections,
+            gen_command_builder=self._build_python_run_command,
+        )
 
     def _resolve_default_project_config_id(self) -> ID:
         project_config_id = self.manifest.projectConfigId
@@ -399,27 +427,9 @@ class ShareRuntimeState:
 
     def _generate_gen_code(self, project_state: "ProjectStateSingleConfig") -> str:
         dep_graph = DependencyGraph(project_state)
-        project_config = project_state.projectConfig
-        code_generator = PythonCodeGenerator(
-            dep_graph,
-            project_config.genCodePrefix,
-            project_config.genCodeSuffix,
-            value_mode=PythonValueMode.PACKAGED_RUNTIME,
-        )
+        code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
         return code_generator.code
-
-    def _create_share_run_folder(self, share_session_id: str) -> Path:
-        run_root = self.share_runs_root / share_session_id
-        return create_timestamped_folder(run_root)
-
-    def _write_snapshot_file(
-        self, target_folder: Path, binding: "CodeFileBinding", code: str
-    ) -> Path:
-        target_folder.mkdir(parents=True, exist_ok=True)
-        target_path = target_folder / binding.canonical_path.name
-        target_path.write_text(code, encoding="utf-8")
-        return target_path
 
     def _build_run_command(self, language: CodeLanguage, path: Path) -> str:
         if language == CodeLanguage.python:

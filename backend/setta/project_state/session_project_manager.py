@@ -87,10 +87,11 @@ class SessionProjectManager(BaseProjectManager):
 
     def load_initial_state(self) -> ProjectStateBackend:
         if self.share_runtime_state is not None:
-            if self.share_session_id is None:
-                raise KeyError("Missing share session id")
-            return self.share_runtime_state.get_or_create_session_backend(
+            share_session_id = self.share_runtime_state.require_session_id(
                 self.share_session_id
+            )
+            return self.share_runtime_state.get_or_create_session_backend(
+                share_session_id
             )
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
             project_state = self.settings_file.load_settings_project()
@@ -105,10 +106,11 @@ class SessionProjectManager(BaseProjectManager):
     ) -> ProjectStateBackend:
         if self.share_runtime_state is None:
             return super().get_new_project_state_backend(x)
-        if self.share_session_id is None:
-            raise KeyError("Missing share session id")
+        share_session_id = self.share_runtime_state.require_session_id(
+            self.share_session_id
+        )
         return self.share_runtime_state.update_session_state(
-            self.share_session_id,
+            share_session_id,
             x.projectConfig.id,
             x,
         )
@@ -179,24 +181,18 @@ class SessionProjectManager(BaseProjectManager):
             return
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
-        if self.share_session_id is None:
-            raise KeyError("Missing share session id")
-        session_backend = self.share_runtime_state.get_session_backend(
-            self.share_session_id
-        )
-        if projectConfigId not in session_backend.projectConfigs:
-            raise KeyError(f"Unknown share project config: {projectConfigId}")
-
-        project_state = self.share_runtime_state.get_session_state(
-            self.share_session_id,
-            projectConfigId,
+        share_session_id, project_state = (
+            self.share_runtime_state.require_session_state(
+                self.share_session_id,
+                projectConfigId,
+            )
         )
         await ensure_share_listener_emit_updates_allowed(
             share_mode=True,
             policy=self.share_runtime_state.share_policy,
             frontend_sender=self.share_runtime_state.frontend_sender,
             project_config_id=projectConfigId,
-            share_session_id=self.share_session_id,
+            share_session_id=share_session_id,
         )
         await self._apply_listener_emit_updates_to_state(
             project_state,
@@ -211,14 +207,6 @@ class SessionProjectManager(BaseProjectManager):
     ) -> str:
         if self.share_runtime_state is None:
             return await super().create_run_command(x)
-        if self.share_session_id is None:
-            raise KeyError("Missing share session id")
-        session_backend = self.share_runtime_state.get_session_backend(
-            self.share_session_id
-        )
-        project_config_id = x.projectConfigId
-        if project_config_id not in session_backend.projectConfigs:
-            raise KeyError(f"Unknown share project config: {project_config_id}")
         return await self.share_runtime_state.create_run_command(
             self.share_session_id,
             x,
