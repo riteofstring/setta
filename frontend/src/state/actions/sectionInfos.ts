@@ -894,6 +894,10 @@ export function getSectionChildren(
 }
 
 export async function groupActiveSections() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
+    return;
+  }
   if (!canEditLayoutForShareSession()) {
     return;
   }
@@ -906,6 +910,10 @@ export async function groupActiveSections() {
 }
 
 export async function ungroupActiveGroups() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
+    return;
+  }
   if (!canEditLayoutForShareSession()) {
     return;
   }

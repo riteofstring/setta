@@ -25,8 +25,12 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-  const { canEditLayout, canEditStructure, canEditVariants } =
-    useShareCapabilities();
+  const {
+    canEditLayout,
+    canEditStructure,
+    canGroupSections,
+    canToggleViewModeVisibility,
+  } = useShareCapabilities();
 
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
@@ -71,7 +75,7 @@ export function SelectionContextMenu() {
   };
 
   function onClickCreate() {
-    if (!canEditLayout) {
+    if (!canGroupSections) {
       return;
     }
     route_group_sections({
@@ -124,7 +128,7 @@ export function SelectionContextMenu() {
   }
 
   function onClickVisibility() {
-    if (!canEditVariants) {
+    if (!canToggleViewModeVisibility) {
       return;
     }
     route_toggle_section_visibility({
@@ -151,7 +155,7 @@ export function SelectionContextMenu() {
       isOpen={isOpen}
       closeContextMenu={closeContextMenu}
     >
-      <Item onClick={onClickCreate} disabled={!canEditLayout}>
+      <Item onClick={onClickCreate} disabled={!canGroupSections}>
         Create Group
       </Item>
       <Item onClick={onClickDelete} disabled={!canEditStructure}>
@@ -161,7 +165,10 @@ export function SelectionContextMenu() {
         {lockItem}
       </Item>
       {isEditingViewMode && (
-        <Item onClick={onClickVisibility} disabled={!canEditVariants}>
+        <Item
+          onClick={onClickVisibility}
+          disabled={!canToggleViewModeVisibility}
+        >
           {visibilityItem}
         </Item>
       )}

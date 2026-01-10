@@ -86,18 +86,13 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.share.policy import (
-    deny_in_share_mode,
-    ensure_share_code_param_allowed,
-    ensure_share_param_value_allowed,
-)
+from setta.share.policy import deny_in_share_mode, ensure_share_param_value_allowed
 from setta.share.policy_guards import (
     SharePolicyGuard,
     enforce_share_policy_guard,
 )
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -131,6 +126,36 @@ async def _deny_share_mode_code_edit(ctx, project_config_id) -> None:
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows code edits.",
+        project_config_id=project_config_id,
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_param_impl(ctx, project_config_id) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows parameter implementation changes.",
+        project_config_id=project_config_id,
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_param_metadata(ctx, project_config_id) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows parameter metadata changes.",
+        project_config_id=project_config_id,
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_view_modes(ctx, project_config_id) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows view mode changes.",
         project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
@@ -194,21 +219,8 @@ async def route_gen_code_suffix_completion(
 async def route_change_param_impl(
     x: ChangeParamImplRequest, ctx: RuntimeContextFromRequest
 ):
+    await _deny_share_mode_param_impl(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
-    if ctx.share_mode:
-        project_state = manager.get_single_config_state(x.projectConfigId)
-        if x.selectedId in project_state.codeObjImpls:
-            impl_type = project_state.codeObjImpls[x.selectedId].type
-            is_code_param = impl_type == CodeObjType.CodeParam
-        else:
-            is_code_param = x.selectedId == CodeObjType.CodeParam.value
-        await ensure_share_code_param_allowed(
-            frontend_sender=ctx.frontend_sender,
-            project_config_id=x.projectConfigId,
-            is_code_param=is_code_param,
-            share_session_id=ctx.share_session_id,
-        )
     return await manager.change_param_impl(x)
 
 
@@ -216,18 +228,8 @@ async def route_change_param_impl(
 async def route_update_param_impl_config(
     x: UpdateParamImplConfigRequest, ctx: RuntimeContextFromRequest
 ):
+    await _deny_share_mode_param_impl(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    if ctx.share_mode:
-        project_state = manager.get_single_config_state(x.projectConfigId)
-        await ensure_share_param_value_allowed(
-            policy=ctx.policy,
-            frontend_sender=ctx.frontend_sender,
-            project_config_id=x.projectConfigId,
-            project_state=project_state,
-            section_id=x.sectionId,
-            param_info_id=x.paramInfoId,
-            share_session_id=ctx.share_session_id,
-        )
     return await manager.update_param_impl_config(x)
 
 
@@ -302,8 +304,8 @@ async def route_create_new_section_variant(
 async def route_create_view_mode(
     x: CreateViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> str:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     return await manager.create_view_mode(x)
 
 
@@ -320,8 +322,8 @@ async def route_set_active_view_mode(
 async def route_toggle_is_editing_view_mode(
     x: ToggleIsEditingViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     await manager.toggle_is_editing_view_mode(x)
 
 
@@ -329,8 +331,8 @@ async def route_toggle_is_editing_view_mode(
 async def route_toggle_section_visibility(
     x: ToggleSectionVisibilityRequest, ctx: RuntimeContextFromRequest
 ) -> None:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     await manager.toggle_section_visibility(x)
 
 
@@ -338,8 +340,8 @@ async def route_toggle_section_visibility(
 async def route_toggle_view_mode_user_facing(
     x: ToggleViewModeUserFacingRequest, ctx: RuntimeContextFromRequest
 ) -> None:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     await manager.toggle_view_mode_user_facing(x)
 
 
@@ -347,8 +349,8 @@ async def route_toggle_view_mode_user_facing(
 async def route_set_view_mode_name(
     x: SetViewModeNameRequest, ctx: RuntimeContextFromRequest
 ) -> None:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     await manager.set_view_mode_name(x)
 
 
@@ -356,8 +358,8 @@ async def route_set_view_mode_name(
 async def route_delete_view_mode(
     x: DeleteViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
+    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
     await manager.delete_view_mode(x)
 
 
@@ -428,15 +430,15 @@ async def route_auto_layout_top_level_sections(
 
 @router.post(Route.ADD_KWARG)
 async def route_add_kwarg(x: AddKwargRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
     await manager.add_kwarg(x)
 
 
 @router.post(Route.DELETE_KWARG)
 async def route_delete_kwarg(x: DeleteKwargRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
     await manager.delete_kwarg(x)
 
 
@@ -771,8 +773,14 @@ async def route_set_text_block_format(
 
 @router.post(Route.SET_SOCIAL_URL)
 async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRequest):
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows social URL updates.",
+        project_config_id=x.projectConfigId,
+        share_session_id=ctx.share_session_id,
+    )
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
     await manager.set_social_url(x)
 
 
@@ -785,15 +793,15 @@ async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromReque
 
 @router.post(Route.GROUP_SECTIONS)
 async def route_group_sections(x: GroupSectionsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_structural(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
     await manager.group_sections(x)
 
 
 @router.post(Route.UNGROUP_GROUPS)
 async def route_ungroup_groups(x: UngroupGroupsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_structural(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
     await manager.ungroup_groups(x)
 
 

@@ -179,7 +179,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           />
           <ToggleRow
             label="Variant changes"
-            description="Allow variant + view mode edits."
+            description="Allow variant changes + view mode switching."
             checked={policyOverrides.allowVariantChanges}
             onChange={(checked) =>
               setPolicyFlag("allowVariantChanges", checked)

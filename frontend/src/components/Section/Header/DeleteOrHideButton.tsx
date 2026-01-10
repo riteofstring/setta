@@ -37,7 +37,8 @@ export function DeleteOrHideButton({
   sectionId,
   ...props
 }: DeleteOrHideButtonProps) {
-  const { canEditVariants, canEditStructure } = useShareCapabilities();
+  const { canEditStructure, canToggleViewModeVisibility } =
+    useShareCapabilities();
   const { visibility, isEditingViewMode } = useProjectState((state) => {
     const viewMode = getActiveViewModeConfig(state);
     const visibility = viewMode.visibilityBySectionId[sectionId];
@@ -53,7 +54,7 @@ export function DeleteOrHideButton({
   });
 
   const canToggleVisibility = isEditingViewMode
-    ? canEditVariants
+    ? canToggleViewModeVisibility
     : canEditStructure;
 
   const onClick = () => {

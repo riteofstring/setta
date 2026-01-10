@@ -29,7 +29,7 @@ export function ViewingEditingMode() {
         isEditingViewMode,
       };
     }, _.isEqual);
-  const { canEditVariants } = useShareCapabilities();
+  const { canEditVariants, canManageViewModes } = useShareCapabilities();
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -52,21 +52,21 @@ export function ViewingEditingMode() {
   };
 
   const handleToggleEdit = () => {
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     void route_toggle_is_editing_view_mode({ projectConfigId });
   };
 
   const handleCreateMode = (): void => {
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     void route_create_view_mode({ projectConfigId });
   };
 
   const handleToggleUserFacing = (modeId: string): void => {
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     void route_toggle_view_mode_user_facing({
@@ -80,26 +80,26 @@ export function ViewingEditingMode() {
       <div className="flex items-center gap-2">
         <button
           className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
-            canEditVariants
+            canManageViewModes
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
           }`}
           onClick={handleToggleEdit}
           title={editTitle}
-          disabled={!canEditVariants}
+          disabled={!canManageViewModes}
         >
           <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
           {editLabel}
         </button>
         <button
           className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
-            canEditVariants
+            canManageViewModes
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
           }`}
           onClick={handleCreateMode}
           title="Create a new view mode"
-          disabled={!canEditVariants}
+          disabled={!canManageViewModes}
         >
           New View Mode
         </button>
@@ -125,6 +125,7 @@ export function ViewingEditingMode() {
                 onSelect={handleModeChange}
                 onToggleUserFacing={handleToggleUserFacing}
                 canEditVariants={canEditVariants}
+                canManageViewModes={canManageViewModes}
               />
             );
           }
@@ -195,6 +196,7 @@ type ViewModeEditingRowProps = {
   onSelect: (modeId: string) => void;
   onToggleUserFacing: (modeId: string) => void;
   canEditVariants: boolean;
+  canManageViewModes: boolean;
 };
 
 function ViewModeEditingRow({
@@ -205,9 +207,10 @@ function ViewModeEditingRow({
   onSelect,
   onToggleUserFacing,
   canEditVariants,
+  canManageViewModes,
 }: ViewModeEditingRowProps) {
   function onSetName(name: string) {
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -247,7 +250,7 @@ function ViewModeEditingRow({
     event: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation();
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     onToggleUserFacing(mode.id);
@@ -255,7 +258,7 @@ function ViewModeEditingRow({
 
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (!canEditVariants) {
+    if (!canManageViewModes) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -321,13 +324,13 @@ function ViewModeEditingRow({
         onClick={handleInputClick}
         placeholder="View mode name"
         className="flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100"
-        disabled={!canEditVariants}
+        disabled={!canManageViewModes}
       />
       <button
         className={`cursor-pointer bg-transparent ${userFacingClasses}`}
         onClick={handleToggleUserFacing}
         title={userFacingTitle}
-        disabled={!canEditVariants}
+        disabled={!canManageViewModes}
       >
         {userFacingIcon}
       </button>
@@ -336,7 +339,7 @@ function ViewModeEditingRow({
           className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
           onClick={handleDelete}
           title="Delete view mode"
-          disabled={!canEditVariants}
+          disabled={!canManageViewModes}
         >
           <i className="gg-trash" />
         </button>

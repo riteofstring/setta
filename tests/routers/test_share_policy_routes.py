@@ -13,9 +13,12 @@ from setta.project_state.project_manager_types import (
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     CreateTopLevelSectionRequest,
+    CreateViewModeRequest,
     DeclineRenameRefactorRequest,
+    DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
+    GroupSectionsRequest,
     PasteSectionsRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
@@ -31,12 +34,18 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
+    SetSocialUrlRequest,
     SetTopLevelSectionLayoutRequest,
     SetSectionVariantNameRequest,
+    SetViewModeNameRequest,
     SetTextBlockTextRequest,
     SetTypeErrorIgnoreRequest,
+    ToggleIsEditingViewModeRequest,
     ToggleParamSelectedRequest,
+    ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
+    ToggleViewModeUserFacingRequest,
+    UngroupGroupsRequest,
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
@@ -55,9 +64,12 @@ from setta.routers.project_manager import (
     route_auto_layout_top_level_sections,
     route_change_param_impl,
     route_create_top_level_section,
+    route_create_view_mode,
     route_delete_sections,
+    route_delete_view_mode,
     route_delete_kwarg,
     route_decline_rename_refactor,
+    route_group_sections,
     route_paste_sections,
     route_set_callable_hide_params,
     route_set_callable,
@@ -73,12 +85,18 @@ from setta.routers.project_manager import (
     route_set_image_area_image_path,
     route_set_param_entered_value,
     route_set_section_name,
+    route_set_social_url,
     route_set_top_level_section_layout,
     route_set_section_variant_name,
+    route_set_view_mode_name,
     route_set_text_block_text,
     route_set_type_error_ignore,
+    route_toggle_is_editing_view_mode,
     route_toggle_param_selected,
+    route_toggle_section_visibility,
     route_toggle_variant_frozen,
+    route_toggle_view_mode_user_facing,
+    route_ungroup_groups,
     route_unselect_all_params,
     route_update_param_impl_config,
 )
@@ -746,6 +764,69 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                             await handler(request, runtime_ctx)
                         self.assertEqual(403, ctx.exception.status_code)
 
+    async def test_param_impl_and_kwargs_blocked_when_param_changes_allowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, section_id, param_info_id = (
+                _write_share_project_with_code_param(
+                    root,
+                    project_config_name=project_config_name,
+                    deployment_version=root.name,
+                )
+            )
+            _write_share_policy(root, SharePolicy(allowParamChanges=True))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            requests = [
+                (
+                    "change_param_impl",
+                    route_change_param_impl,
+                    ChangeParamImplRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_info_id,
+                        selectedId="TextParam",
+                    ),
+                ),
+                (
+                    "update_param_impl_config",
+                    route_update_param_impl_config,
+                    UpdateParamImplConfigRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_info_id,
+                        newConfig={"value": "456"},
+                    ),
+                ),
+                (
+                    "add_kwarg",
+                    route_add_kwarg,
+                    AddKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                    ),
+                ),
+                (
+                    "delete_kwarg",
+                    route_delete_kwarg,
+                    DeleteKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                    ),
+                ),
+            ]
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                for name, handler, request in requests:
+                    with self.subTest(name=name):
+                        with self.assertRaises(HTTPException) as ctx:
+                            await handler(request, runtime_ctx)
+                        self.assertEqual(403, ctx.exception.status_code)
+
     async def test_param_policy_applies_to_all_configs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             config_a = ProjectConfig(name="Share Config A")
@@ -827,6 +908,126 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                         unselect_request, runtime_ctx
                     )
                 self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_view_mode_routes_blocked_when_variant_changes_allowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowVariantChanges=True))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            requests = [
+                (
+                    "create_view_mode",
+                    route_create_view_mode,
+                    CreateViewModeRequest(projectConfigId=project_config_id),
+                ),
+                (
+                    "toggle_is_editing_view_mode",
+                    route_toggle_is_editing_view_mode,
+                    ToggleIsEditingViewModeRequest(
+                        projectConfigId=project_config_id
+                    ),
+                ),
+                (
+                    "toggle_view_mode_user_facing",
+                    route_toggle_view_mode_user_facing,
+                    ToggleViewModeUserFacingRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=create_new_id(),
+                    ),
+                ),
+                (
+                    "toggle_section_visibility",
+                    route_toggle_section_visibility,
+                    ToggleSectionVisibilityRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[create_new_id()],
+                    ),
+                ),
+                (
+                    "set_view_mode_name",
+                    route_set_view_mode_name,
+                    SetViewModeNameRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=create_new_id(),
+                        name="Viewer",
+                    ),
+                ),
+                (
+                    "delete_view_mode",
+                    route_delete_view_mode,
+                    DeleteViewModeRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=create_new_id(),
+                    ),
+                ),
+            ]
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                for name, handler, request in requests:
+                    with self.subTest(name=name):
+                        with self.assertRaises(HTTPException) as ctx:
+                            await handler(request, runtime_ctx)
+                        self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_layout_routes_blocked_when_layout_changes_allowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            requests = [
+                (
+                    "group_sections",
+                    route_group_sections,
+                    GroupSectionsRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[create_new_id()],
+                    ),
+                ),
+                (
+                    "ungroup_groups",
+                    route_ungroup_groups,
+                    UngroupGroupsRequest(
+                        projectConfigId=project_config_id,
+                        groupIds=[create_new_id()],
+                    ),
+                ),
+                (
+                    "set_social_url",
+                    route_set_social_url,
+                    SetSocialUrlRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        url="https://example.com",
+                    ),
+                ),
+            ]
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                for name, handler, request in requests:
+                    with self.subTest(name=name):
+                        with self.assertRaises(HTTPException) as ctx:
+                            await handler(request, runtime_ctx)
+                        self.assertEqual(403, ctx.exception.status_code)
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
