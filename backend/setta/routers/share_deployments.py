@@ -12,10 +12,6 @@ from setta.project_state.jsonSource.save import build_json_source_dicts
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
-from setta.types.helpers_lvl3 import (
-    convert_backend_to_single_config,
-    merge_single_config_into_backend,
-)
 from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
 )
@@ -27,6 +23,10 @@ from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
     rewrite_project_state_paths,
+)
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
 )
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig

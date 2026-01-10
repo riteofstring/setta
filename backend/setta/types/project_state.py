@@ -327,9 +327,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 del visibility[section_id]
 
         if project_config.activeViewModeId not in project_config.viewModes:
-            project_config.activeViewModeId = next(
-                iter(project_config.viewModes)
-            )
+            project_config.activeViewModeId = next(iter(project_config.viewModes))
         return self
 
 
