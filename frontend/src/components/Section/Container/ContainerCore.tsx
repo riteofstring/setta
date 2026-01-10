@@ -1,12 +1,10 @@
 import _ from "lodash";
 import React from "react";
 
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useIsScrollable } from "state/hooks/sectionSizes";
-import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
@@ -78,29 +76,17 @@ function ContainerGroup({
   children,
 }) {
   const hasNested = useHasTempNested(sectionId);
-  const {
-    isActiveSection,
-    positionAndSizeLocked,
-    isInOtherProjectConfigs,
-    overflowMode,
-    size,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Group,
-    );
-    return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      overflowMode: impl.overflowMode ?? false,
-      size: impl.size,
-    };
-  }, _.isEqual);
+  const { isActiveSection, positionAndSizeLocked, isInOtherProjectConfigs } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
+      return {
+        isActiveSection: x.projectConfig.activeIds.includes(sectionId),
+        positionAndSizeLocked: impl.positionAndSizeLocked,
+        isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      };
+    }, _.isEqual);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
-  const { ref: overflowRef, isScrollable } = useIsScrollable();
 
   // Apply this only to the group title.
   // For sections, this is applied in SectionContainerCore.
@@ -114,35 +100,16 @@ function ContainerGroup({
     isInOtherProjectConfigs,
   });
 
-  const groupStyle = { ...(style ?? {}) };
-  if (overflowMode && size.width !== "auto") {
-    groupStyle.width = size.width;
-  }
-  if (overflowMode && size.height !== "auto") {
-    groupStyle.height = size.height;
-  }
-
-  let contentClassName = "z-10";
-  if (overflowMode) {
-    contentClassName =
-      "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
-    if (isScrollable) {
-      contentClassName = `${contentClassName} ${NO_WHEEL_CLASS_NAME}`;
-    }
-  }
-
   return (
     <div
-      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${
-        overflowMode ? "min-h-0 min-w-0" : ""
-      } ${className}`}
+      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${className}`}
       {...commonProps}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
       tabIndex={-1} // needed so that onKeyDown works
-      style={groupStyle}
+      style={style}
     >
       <div
         className={`outline outline-4 ${outlineColor} transition-radius absolute left-0 right-0 top-0 z-0 h-full w-full ${positionAndSizeLocked ? "rounded-sm border-setta-400/90 dark:border-setta-975/35" : "rounded-3xl border-setta-50/50 dark:border-setta-700"}  border border-solid  bg-setta-100/40 outline outline-2 outline-transparent   dark:bg-setta-860/50`}
@@ -170,14 +137,13 @@ function ContainerGroup({
         )}
       </div>
 
-      <div className={contentClassName} ref={overflowRef}>
-        {!hasNested && (
-          <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
-            Drop A Section Here.
-          </div>
-        )}
-        {children}
-      </div>
+      {!hasNested && (
+        <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
+          Drop A Section Here.
+        </div>
+      )}
+
+      {children}
     </div>
   );
 }

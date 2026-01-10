@@ -8,6 +8,7 @@ import {
   getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import type { CodeObjType } from "utils/generatedTypes";
 import {
   BaseParamCodeObjImplTypeSet,
@@ -45,11 +46,13 @@ function UITypeCombobox({
   presetImpls,
   onDropdownSelect,
   selectedBaseImplId,
+  isDisabled = false,
 }: {
   nonPresetImpls: ComboboxItemArrayType<string>;
   presetImpls: ComboboxItemArrayType<string>;
   onDropdownSelect: OnSelectedItemChangeFnType<string>;
   selectedBaseImplId: string;
+  isDisabled?: boolean;
 }) {
   const allItems = [
     { group: "Base", items: nonPresetImpls },
@@ -62,6 +65,7 @@ function UITypeCombobox({
       allItems={allItems}
       value={selectedBaseImplId}
       onSelectedItemChange={onDropdownSelect}
+      isDisabled={isDisabled}
     />
   );
 }
@@ -86,12 +90,14 @@ export function ParamConfigUITypeCombobox({
     paramInfoId,
     allowedImplTypes,
   );
+  const { canEditParamImpl } = useShareCapabilities();
   return (
     <UITypeCombobox
       nonPresetImpls={nonPresetImpls}
       presetImpls={presetCodeObjImpls}
       selectedBaseImplId={selectedBaseImplId}
       onDropdownSelect={onDropdownSelect}
+      isDisabled={!canEditParamImpl}
     />
   );
 }

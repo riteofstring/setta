@@ -5,6 +5,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -20,6 +21,7 @@ export function ColorPickerInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
+  const { canEditParamConfig } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -27,6 +29,9 @@ export function ColorPickerInputConfigForParam({
   );
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
+    if (!canEditParamConfig) {
+      return;
+    }
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -48,15 +53,23 @@ export function ColorPickerInputConfigForParam({
     });
   }
 
-  return <ColorPickerInputConfig config={config} onChange={onChange} />;
+  return (
+    <ColorPickerInputConfig
+      config={config}
+      onChange={onChange}
+      isDisabled={!canEditParamConfig}
+    />
+  );
 }
 
 function ColorPickerInputConfig({
   onChange,
   config,
+  isDisabled,
 }: {
   onChange: (x: ColorPickerConfigForFrontend) => void;
   config: ColorPickerConfigForFrontend;
+  isDisabled: boolean;
 }) {
   const addColor = () => {
     onChange({
@@ -103,6 +116,7 @@ function ColorPickerInputConfig({
       removeColor={removeColor}
       updateColor={updateColor}
       updateDescription={updateDescription}
+      isDisabled={isDisabled}
     />
   );
 }
@@ -113,12 +127,14 @@ export const AvailableColors = ({
   removeColor,
   updateColor,
   updateDescription,
+  isDisabled,
 }: {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   addColor: () => void;
   removeColor: (removeIdx: number) => void;
   updateColor: (updateIdx: number, newColor: string) => void;
   updateDescription: (updateIdx: number, description: string) => void;
+  isDisabled: boolean;
 }) => {
   return (
     <>
@@ -126,6 +142,7 @@ export const AvailableColors = ({
         onClick={addColor}
         className="my-1 flex cursor-pointer items-center justify-between rounded-xl bg-setta-100 px-3  py-0.5 uppercase text-setta-500 hover:bg-setta-200 dark:bg-setta-850 dark:text-setta-500 dark:hover:bg-setta-850"
         aria-label="Add color"
+        disabled={isDisabled}
       >
         <p className="text-sm font-black ">Add Colors</p>
         <i className="gg-add !scale-90" />
@@ -140,6 +157,7 @@ export const AvailableColors = ({
                 value={color}
                 onChange={(e) => updateColor(idx, e.target.value)}
                 className="min-h-6 min-w-6 cursor-pointer rounded-full !border !border-solid !border-setta-500/20 p-0 dark:!border-setta-500/40 [&::-moz-color-swatch]:rounded"
+                disabled={isDisabled}
               />
               <input
                 type="text"
@@ -147,12 +165,14 @@ export const AvailableColors = ({
                 onChange={(e) => updateDescription(idx, e.target.value)}
                 placeholder="Add description..."
                 className="h-[calc(100%_-_2px)] w-[calc(100%_-_2px)] truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
+                disabled={isDisabled}
               />
             </div>
             <button
               onClick={() => removeColor(idx)}
               className="flex cursor-pointer items-center rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               aria-label="Remove color"
+              disabled={isDisabled}
             >
               <i className="gg-close !scale-75" />
             </button>

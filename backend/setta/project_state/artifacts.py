@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.generated.unions import BaseArtifactUnion
-    from setta.types.project_state import ProjectStateBackend
+    from setta.types.project_state import ProjectStateBackend, ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -79,10 +80,12 @@ class Artifacts:
         websocket_msg_handler: "WMHFrontendSender",
         specific_file_watcher: "SpecificFileWatcher",
         dbe: "DBE",
+        artifact_id_resolver: Callable[[Path | str], Path] | None = None,
     ):
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
+        self._artifact_id_resolver = artifact_id_resolver or normalize_path
         self.images: ImageMapping = {}
         self.chart_data: ChartDataMapping = {}
         self.brush_strokes: BrushStrokeMapping = {}
@@ -92,6 +95,9 @@ class Artifacts:
         self.chart_data_metadata: dict[Path, ArtifactMetadata] = {}
         self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
         self.transform_metadata: dict[Path, ArtifactMetadata] = {}
+
+    def normalize_artifact_id(self, path: Path | str) -> str:
+        return str(self._artifact_id_resolver(path))
 
     def watch_artifact_files(
         self,
@@ -170,7 +176,7 @@ class Artifacts:
 
         return fn
 
-    def get_artifact_files_to_watch(self, p: "ProjectStateBackend"):
+    def get_artifact_files_to_watch(self, p: "ProjectStateCore"):
         path_and_types: set[tuple[Path, ArtifactType]] = set()
         for s in p.sections.values():
             for v in s.variants:
@@ -207,14 +213,16 @@ class Artifacts:
         return None
 
     def read_image_from_disk(self, path: Path):
-        img = self.dbe.read(path, "rb")
+        normalized_path = normalize_path(path)
+        img = self.dbe.read(normalized_path, "rb")
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
-                id=str(normalize_path(path)), value=f"data:image/png;base64,{b64_str}"
+                id=self.normalize_artifact_id(path),
+                value=f"data:image/png;base64,{b64_str}",
             )
-            self.images[path] = artifact
-            self.image_metadata[path] = ArtifactMetadata(
+            self.images[normalized_path] = artifact
+            self.image_metadata[normalized_path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(img),
                 is_dirty=False,
             )
@@ -222,12 +230,16 @@ class Artifacts:
         raise ValueError
 
     def read_chart_data_from_disk(self, path: Path):
-        x = self.dbe.read(path)
+        normalized_path = normalize_path(path)
+        x = self.dbe.read(normalized_path)
         if x:
             value = csv_to_chart_data(x)
-            artifact = ChartDataArtifact(id=str(normalize_path(path)), value=value)
-            self.chart_data[path] = artifact
-            self.chart_data_metadata[path] = ArtifactMetadata(
+            artifact = ChartDataArtifact(
+                id=self.normalize_artifact_id(path),
+                value=value,
+            )
+            self.chart_data[normalized_path] = artifact
+            self.chart_data_metadata[normalized_path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(x),
                 is_dirty=False,
             )
@@ -235,14 +247,16 @@ class Artifacts:
         raise ValueError
 
     def read_brush_stroke_from_disk(self, path: Path):
-        content = self.dbe.read(path)
+        normalized_path = normalize_path(path)
+        content = self.dbe.read(normalized_path)
         if content:
             data = json.loads(content)
             artifact = BrushStrokeArtifact(
-                id=str(normalize_path(path)), value=BrushStroke.model_validate(data)
+                id=self.normalize_artifact_id(path),
+                value=BrushStroke.model_validate(data),
             )
-            self.brush_strokes[path] = artifact
-            self.brush_stroke_metadata[path] = ArtifactMetadata(
+            self.brush_strokes[normalized_path] = artifact
+            self.brush_stroke_metadata[normalized_path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )
@@ -250,15 +264,16 @@ class Artifacts:
         raise ValueError
 
     def read_transform_from_disk(self, path: Path):
-        content = self.dbe.read(path)
+        normalized_path = normalize_path(path)
+        content = self.dbe.read(normalized_path)
         if content:
             data = json.loads(content)
             artifact = DrawAreaLayerItemTransformArtifact(
-                id=str(normalize_path(path)),
+                id=self.normalize_artifact_id(path),
                 value=DrawAreaLayerItemTransform.model_validate(data),
             )
-            self.draw_area_layer_item_transforms[path] = artifact
-            self.transform_metadata[path] = ArtifactMetadata(
+            self.draw_area_layer_item_transforms[normalized_path] = artifact
+            self.transform_metadata[normalized_path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )

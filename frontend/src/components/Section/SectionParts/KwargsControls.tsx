@@ -6,6 +6,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_add_kwarg,
   route_delete_kwarg,
@@ -28,6 +29,7 @@ export function KwargsControls({
 }: KwargsControlsProps) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
+  const { canEditKwargs } = useShareCapabilities();
   const callableMissing = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -39,7 +41,8 @@ export function KwargsControls({
     }
     return impl.callable == null;
   }, _.isEqual);
-  const kwargButtonsDisabled = variantIsFrozen || callableMissing;
+  const kwargButtonsDisabled =
+    variantIsFrozen || callableMissing || !canEditKwargs;
 
   const onClickDeleteSelectedKwargs = () => {};
 

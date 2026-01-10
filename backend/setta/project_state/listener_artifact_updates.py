@@ -3,7 +3,6 @@ from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
 )
-from setta.utils.utils import normalize_path
 
 
 class ListenerArtifactUpdateError(ValueError):
@@ -18,12 +17,11 @@ def apply_listener_artifact_updates(
     applied: list[BaseArtifactUnion] = []
     for update in updates:
         try:
-            normalized_path = normalize_path(update.id)
+            normalized_id = artifacts.normalize_artifact_id(update.id)
         except Exception as exc:
             raise ListenerArtifactUpdateError(
                 f"failed to normalize artifact path {update.id}"
             ) from exc
-        normalized_id = str(normalized_path)
         if normalized_id != update.id:
             artifact = update.model_copy(update={"id": normalized_id})
         else:

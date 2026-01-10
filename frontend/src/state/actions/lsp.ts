@@ -1,4 +1,4 @@
-import { useWaitingForLSPResult } from "state/definitions";
+import { useShareSession, useWaitingForLSPResult } from "state/definitions";
 import { route_restart_language_server } from "utils/generatedEndpoints";
 import { addTemporaryNotification } from "./notifications";
 
@@ -36,6 +36,9 @@ export function textFieldIdForLSPWaiting({ sectionId, paramInfoId }) {
 }
 
 export function restartLanguageServer() {
+  if (useShareSession.getState().isShareMode) {
+    return;
+  }
   addTemporaryNotification("Restarting Language Server");
   route_restart_language_server();
 }

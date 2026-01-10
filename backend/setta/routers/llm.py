@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.llm.config import save_llm_config
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
@@ -17,34 +17,43 @@ class UpdateAPIKeysRequest(BaseModel):
 
 
 @router.get(Route.LLM_CONFIG)
-def route_get_llm_config(state: AppStateFromRequest) -> AllLLMConfigs:
-    return state.chat_manager.config
+async def route_get_llm_config(
+    ctx: RuntimeContextFromRequest,
+) -> AllLLMConfigs:
+    await ctx.enforce_llm_allowed()
+    return ctx.state.chat_manager.config
 
 
 @router.post(Route.LLM_CONFIG)
-def route_set_llm_config(
+async def route_set_llm_config(
     config: AllLLMConfigs,
-    state: AppStateFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
-    save_llm_config(config, state.dbe)
-    state.chat_manager.update_config(config)
-    return state.chat_manager.config
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating LLM configs.")
+    save_llm_config(config, ctx.state.dbe)
+    ctx.state.chat_manager.update_config(config)
+    return ctx.state.chat_manager.config
 
 
 @router.get(Route.LLM_API_KEYS)
-def route_get_llm_api_keys(
-    state: AppStateFromRequest,
+async def route_get_llm_api_keys(
+    ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
-    return state.chat_manager.api_keys
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
+    return ctx.state.chat_manager.api_keys
 
 
 @router.post(Route.LLM_API_KEYS)
 async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
-    state: AppStateFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating LLM API keys.")
     try:
-        env_vars = state.dbe.read_dot_env()
+        env_vars = ctx.state.dbe.read_dot_env()
         mutated = False
         for key, value in payload.apiKeys.items():
             normalized_key = key.strip()
@@ -60,14 +69,14 @@ async def route_set_llm_api_keys(
                     env_vars.pop(normalized_key)
                     mutated = True
         if mutated:
-            state.dbe.write_dot_env(env_vars)
-            state.dbe.reload_dot_env()
-        await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
+            ctx.state.dbe.write_dot_env(env_vars)
+            ctx.state.dbe.reload_dot_env()
+        await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
             "Saved LLM API keys",
             severity=SettaBackendLogEventSeverity.info,
         )
-        state.chat_manager.update_api_keys(env_vars)
-        return state.chat_manager.api_keys
+        ctx.state.chat_manager.update_api_keys(env_vars)
+        return ctx.state.chat_manager.api_keys
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"

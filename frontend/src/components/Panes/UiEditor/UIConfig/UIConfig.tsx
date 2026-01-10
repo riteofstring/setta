@@ -8,6 +8,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
+import { useShareCapabilities } from "state/hooks/share";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
@@ -84,12 +85,16 @@ function _UIElement({
   codeObjTypeFilterKey: CodeObjTypeFilterKey;
 }) {
   const paramInfoId = paramInfo.id;
+  const { canEditParamImpl } = useShareCapabilities();
   const baseImplId = useProjectState((x) => {
     return getCurrCodeObjVariant(x, sectionId, paramInfoId).impl;
   }, _.isEqual);
   const paramName = paramInfo.name;
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
+    if (!canEditParamImpl) {
+      return;
+    }
     if (!selectedId) {
       throw new Error();
     }
