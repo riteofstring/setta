@@ -1,8 +1,5 @@
 import { useProjectLoading, useShareSession } from "state/definitions";
-import {
-  HOME_ROUTER_PATH,
-  PROJECT_CONFIG_ROUTER_PATH,
-} from "utils/constants";
+import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";

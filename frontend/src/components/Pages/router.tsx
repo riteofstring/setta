@@ -69,7 +69,11 @@ function ShareIndexRedirect() {
     projectMetadata,
   );
 
-  if (!defaultProjectConfigId || !showDefaultConfigOnLoad || !defaultProjectConfigName) {
+  if (
+    !defaultProjectConfigId ||
+    !showDefaultConfigOnLoad ||
+    !defaultProjectConfigName
+  ) {
     return <Navigate to={HOME_ROUTER_PATH} replace />;
   }
 
@@ -186,13 +190,18 @@ const indexRoute = {
 
 const homeRoute = {
   path: HOME_ROUTER_PATH,
-  element: <ModeWrapper ide={ideHomeRouteElement} share={shareHomeRouteElement} />,
+  element: (
+    <ModeWrapper ide={ideHomeRouteElement} share={shareHomeRouteElement} />
+  ),
 };
 
 const projectRoute = {
   path: PROJECT_CONFIG_ROUTER_PATH,
   element: (
-    <ModeWrapper ide={ideProjectRouteElement} share={shareProjectRouteElement} />
+    <ModeWrapper
+      ide={ideProjectRouteElement}
+      share={shareProjectRouteElement}
+    />
   ),
 };
 
