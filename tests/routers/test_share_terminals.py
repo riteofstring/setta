@@ -8,7 +8,7 @@ from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.routers.terminals import DeleteTerminalsRequest, route_delete_terminals
 from setta.server_state import SettaFastAPIState
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend

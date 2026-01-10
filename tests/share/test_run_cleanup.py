@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from setta.database.utils import create_new_id
-from setta.share.run_cleanup import cleanup_share_run_output
+from setta.server_state import cleanup_share_run_output
 
 
 class ShareRunCleanupTests(unittest.TestCase):

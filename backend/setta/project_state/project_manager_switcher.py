@@ -7,9 +7,9 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
-from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.types.helpers_lvl2 import ProjectNotFound, confirm_config_name
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile

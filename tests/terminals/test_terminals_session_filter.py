@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.database.settings_file import SettingsFile
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.terminals.terminals import Terminals
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager

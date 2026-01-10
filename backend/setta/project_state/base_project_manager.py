@@ -40,12 +40,12 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.code import (
+    create_snapshot_run_command_from_sections,
+)
 from setta.project_state.code_files import (
     CodeFileReloadPlan,
     CodeFiles,
-)
-from setta.project_state.codegen_helpers import (
-    build_python_code_generator,
 )
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
@@ -63,6 +63,7 @@ from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
     ProjectPythonCode,
+    build_python_code_generator,
 )
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
@@ -150,9 +151,6 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
-)
-from setta.project_state.run_snapshot import (
-    create_snapshot_run_command_from_sections,
 )
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,

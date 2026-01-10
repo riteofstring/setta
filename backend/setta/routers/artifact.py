@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from setta.project_state.artifacts import ArtifactSaveResult, SaveConflictStrategy
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.share.path_guard import ensure_share_deployment_path
+from setta.share.policy import ensure_share_deployment_path
 from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,

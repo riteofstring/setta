@@ -14,9 +14,9 @@ from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
-from setta.share.session_cleanup import cleanup_expired_share_sessions
+from setta.server_state import cleanup_expired_share_sessions
 from setta.share.session_store import MemorySessionStore
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.terminals.terminals import Terminals
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.llm_config import AllLLMConfigs, LLMConfig

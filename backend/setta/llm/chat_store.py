@@ -2,15 +2,14 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
-from setta.project_state.chats.save import create_new_chat, save_messages
 from setta.project_state.chats.save import (
-    delete_chat as delete_chat_record,
-)
-from setta.project_state.chats.utils import (
     append_chat_messages,
     build_chat_metadata,
     build_new_chat,
+    create_new_chat,
+    save_messages,
 )
+from setta.project_state.chats.save import delete_chat as delete_chat_record
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID

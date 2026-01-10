@@ -15,7 +15,6 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
 )
 from setta.project_state.settings_project import apply_settings_display_names
-from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.policy import ensure_share_listener_emit_updates_allowed
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
@@ -25,6 +24,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
+from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile

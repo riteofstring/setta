@@ -2,8 +2,7 @@ from setta.database.utils import create_new_id
 from setta.logging.tasks import spawn_background_task
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager_types import RunCodeRequest
-from setta.terminals.terminal_ids import build_terminal_id
-from setta.terminals.terminals import Terminals
+from setta.terminals.terminals import Terminals, build_terminal_id
 from setta.types.id import ID
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 

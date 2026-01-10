@@ -12,7 +12,7 @@ from setta.routers.dependencies import (
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.terminals.run_code import run_code
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route

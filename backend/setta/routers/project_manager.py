@@ -86,12 +86,13 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.share.policy import deny_in_share_mode, ensure_share_param_value_allowed
-from setta.share.policy_guards import (
+from setta.share.policy import (
     SharePolicyGuard,
+    deny_in_share_mode,
     enforce_share_policy_guard,
+    ensure_share_param_value_allowed,
 )
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType

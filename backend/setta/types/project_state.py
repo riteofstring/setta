@@ -42,9 +42,12 @@ from setta.types.shown_params import (
     ShownParamIds,
     get_param_ids_to_show,
 )
-from setta.utils.code_paths import build_gen_code_path, build_project_sections_dir
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.utils import (
+    build_gen_code_path,
+    build_project_sections_dir,
+    normalize_path,
+)
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 

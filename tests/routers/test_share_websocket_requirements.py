@@ -23,7 +23,7 @@ from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
 from setta.utils.timestamps import get_now_timestamp
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.utils.constants import C
 from tests.utils.runtime_context import runtime_context
 

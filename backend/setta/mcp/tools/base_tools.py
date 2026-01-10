@@ -4,7 +4,7 @@ from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
-from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
 
 

@@ -5,21 +5,16 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.codegen_helpers import (
-    build_python_code_generator,
+from setta.project_state.code import (
+    SnapshotSectionInput,
+    build_bash_run_command,
+    build_python_file_run_command,
+    create_snapshot_run_command_from_sections,
 )
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.project_code import build_python_code_generator
 from setta.project_state.project_manager_types import RunCodeRequest
-from setta.project_state.run_commands import (
-    build_bash_run_command,
-    build_python_file_run_command,
-)
-from setta.project_state.run_snapshot import (
-    SnapshotSectionInput,
-    create_snapshot_run_command_from_sections,
-)
-from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
@@ -42,7 +37,8 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.code_paths import build_gen_code_path
+from setta.utils.utils import build_gen_code_path
+from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile

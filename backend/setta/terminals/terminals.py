@@ -17,6 +17,7 @@ from websockets.exceptions import ConnectionClosedOK
 from setta.database.settings_file import SettingsFile
 from setta.logging.tasks import spawn_background_task
 from setta.terminals.utils import linux_get_child_process_details
+from setta.types.id import ID
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
+TERMINAL_ID_SEPARATOR = "::"
 IS_WINDOWS = platform.system() == "Windows"
 IS_MACOS = platform.system() == "Darwin"
 
@@ -47,6 +49,12 @@ def get_terminal_shell(defaultTerminalShell: str | None):
     if IS_MACOS:
         return ["zsh"]
     return ["bash"]
+
+
+def build_terminal_id(section_id: ID, share_session_id: str | None) -> str:
+    if share_session_id is None:
+        return str(section_id)
+    return f"{share_session_id}{TERMINAL_ID_SEPARATOR}{section_id}"
 
 
 class Terminals:

@@ -1,4 +1,6 @@
 import asyncio
+import shutil
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
@@ -27,16 +29,6 @@ from setta.project_state.session_project_manager import (
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
-from setta.share.run_cleanup import (
-    DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
-    DEFAULT_SHARE_RUN_TTL_SECONDS,
-    run_share_run_cleanup_loop,
-)
-from setta.share.session_cleanup import (
-    DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
-    DEFAULT_SHARE_SESSION_TTL_SECONDS,
-    run_share_session_cleanup_loop,
-)
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
@@ -58,6 +50,93 @@ if TYPE_CHECKING:
     from setta.websockets.msg_handlers.python_script_receiver import (
         WMHPythonScriptReceiver,
     )
+
+DEFAULT_SHARE_RUN_TTL_SECONDS = 60 * 30
+DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS = 60 * 5
+DEFAULT_SHARE_SESSION_TTL_SECONDS = 60 * 30
+DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS = 60 * 5
+
+
+def cleanup_share_run_output(
+    runs_root: Path,
+    *,
+    ttl_seconds: int = DEFAULT_SHARE_RUN_TTL_SECONDS,
+) -> int:
+    if not runs_root.exists():
+        return 0
+    cutoff = time.time() - ttl_seconds
+    removed = 0
+    for session_dir in runs_root.iterdir():
+        if not session_dir.is_dir():
+            continue
+        for run_dir in session_dir.iterdir():
+            if not run_dir.is_dir():
+                continue
+            if run_dir.stat().st_mtime <= cutoff:
+                shutil.rmtree(run_dir)
+                removed += 1
+        if not any(session_dir.iterdir()):
+            session_dir.rmdir()
+    return removed
+
+
+async def run_share_run_cleanup_loop(
+    runs_root: Path,
+    *,
+    ttl_seconds: int = DEFAULT_SHARE_RUN_TTL_SECONDS,
+    interval_seconds: int = DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
+) -> None:
+    while True:
+        cleanup_share_run_output(
+            runs_root,
+            ttl_seconds=ttl_seconds,
+        )
+        await asyncio.sleep(interval_seconds)
+
+
+async def cleanup_expired_share_sessions(
+    share_session_store: ShareSessionStore,
+    share_runtime_state: ShareRuntimeState,
+    session_manager_switcher: "ProjectManagerSwitcher | None" = None,
+    share_listener_runtime: "ShareListenerRuntime | None" = None,
+    share_chat_manager: "ShareChatManager | None" = None,
+    terminals: "Terminals | None" = None,
+) -> list[str]:
+    expired_ids = share_session_store.cleanup_expired()
+    for session_id in expired_ids:
+        if terminals is not None:
+            await terminals.delete_terminals_for_share_session(session_id)
+        if share_listener_runtime is not None:
+            share_listener_runtime.drop_session_listener(session_id)
+        if share_chat_manager is not None:
+            share_chat_manager.drop_session(session_id)
+        if share_runtime_state.has_session_state(session_id):
+            share_runtime_state.delete_session_state(session_id)
+        if session_manager_switcher is not None:
+            session_manager_switcher.drop_session_manager(session_id)
+    return expired_ids
+
+
+async def run_share_session_cleanup_loop(
+    share_session_store: ShareSessionStore,
+    share_runtime_state: ShareRuntimeState,
+    session_manager_switcher: "ProjectManagerSwitcher | None" = None,
+    share_listener_runtime: "ShareListenerRuntime | None" = None,
+    share_chat_manager: "ShareChatManager | None" = None,
+    terminals: "Terminals | None" = None,
+    *,
+    interval_seconds: int = DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
+) -> None:
+    while True:
+        await cleanup_expired_share_sessions(
+            share_session_store,
+            share_runtime_state,
+            session_manager_switcher,
+            share_listener_runtime,
+            share_chat_manager,
+            terminals,
+        )
+        await asyncio.sleep(interval_seconds)
 
 
 class _UninitializedAttribute:

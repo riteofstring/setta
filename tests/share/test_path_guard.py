@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 from fastapi import HTTPException, status
 
-from setta.share.path_guard import ensure_share_deployment_path
+from setta.share.policy import ensure_share_deployment_path
 
 
 class SharePathGuardTests(unittest.TestCase):

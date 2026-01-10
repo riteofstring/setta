@@ -6,10 +6,12 @@ from setta.llm.chat_store import MemoryChatStore
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
-from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import (
+    ScopedFrontendSender,
+    WMHFrontendSender,
+)
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
