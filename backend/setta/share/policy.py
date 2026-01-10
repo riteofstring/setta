@@ -315,7 +315,6 @@ async def ensure_share_param_value_allowed(
 async def ensure_share_llm_allowed(
     state: "SettaFastAPIState",
     *,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -324,14 +323,14 @@ async def ensure_share_llm_allowed(
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowLLM",
         denied_message="Share policy disallows LLM access.",
-        project_config_id=project_config_id,
+        project_config_id=None,
         share_session_id=share_session_id,
     )
     if state.share_mode and not state.chat_manager:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share LLM support is not enabled.",
-            project_config_id=project_config_id,
+            project_config_id=None,
             share_session_id=share_session_id,
         )
 

@@ -20,9 +20,7 @@ class UpdateAPIKeysRequest(BaseModel):
 async def route_get_llm_config(
     ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     return ctx.state.chat_manager.config
 
 
@@ -31,9 +29,7 @@ async def route_set_llm_config(
     config: AllLLMConfigs,
     ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating LLM configs.")
     save_llm_config(config, ctx.state.dbe)
     ctx.state.chat_manager.update_config(config)
@@ -44,9 +40,7 @@ async def route_set_llm_config(
 async def route_get_llm_api_keys(
     ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     return ctx.state.chat_manager.api_keys
 
 
@@ -55,9 +49,7 @@ async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
     ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating LLM API keys.")
     try:
         env_vars = ctx.state.dbe.read_dot_env()

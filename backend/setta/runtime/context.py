@@ -114,13 +114,8 @@ class RuntimeContext:
             share_session_id=self._share_session_id,
         )
 
-    async def enforce_llm_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-    ) -> None:
+    async def enforce_llm_allowed(self) -> None:
         await ensure_share_llm_allowed(
             self.state,
-            project_config_id=project_config_id,
             share_session_id=self._share_session_id,
         )

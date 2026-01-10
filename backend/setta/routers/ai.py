@@ -60,9 +60,7 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
-    await ctx.enforce_llm_allowed(
-        project_config_id=x.projectConfigId,
-    )
+    await ctx.enforce_llm_allowed()
     chat_manager_kwargs = _chat_manager_kwargs(ctx)
     try:
         chat = ctx.state.chat_manager.get_or_create_chat(
@@ -90,9 +88,7 @@ async def route_get_llm_response(
 async def route_get_all_llm_chat_metadata(
     ctx: RuntimeContextFromRequest,
 ) -> list[ChatMetadata]:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     return ctx.state.chat_manager.get_all_chat_metadata(**_chat_manager_kwargs(ctx))
 
 
@@ -101,9 +97,7 @@ async def route_delete_llm_chat(
     x: DeleteLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> None:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     return ctx.state.chat_manager.delete_chat(
         x.chatId,
         **_chat_manager_kwargs(ctx),
@@ -115,9 +109,7 @@ async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> None:
-    await ctx.enforce_llm_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_llm_allowed()
     await ctx.state.chat_manager.request_stop_streaming(
         x.chatId,
         **_chat_manager_kwargs(ctx),
@@ -129,9 +121,7 @@ async def route_get_llm_chat(
     x: GetLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> GetLLMChatRequestResponse:
-    await ctx.enforce_llm_allowed(
-        project_config_id=x.projectConfigId,
-    )
+    await ctx.enforce_llm_allowed()
     chat = ctx.state.chat_manager.get_chat(
         x.chatId,
         **_chat_manager_kwargs(ctx),
@@ -162,9 +152,7 @@ async def route_get_ai_follow_snapshot(
     x: GetAIFollowSnapshotRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
-    await ctx.enforce_llm_allowed(
-        project_config_id=x.projectConfigId,
-    )
+    await ctx.enforce_llm_allowed()
     return ctx.state.chat_manager.get_ai_follow_snapshot(
         x.projectConfigId,
         **_chat_manager_kwargs(ctx),
