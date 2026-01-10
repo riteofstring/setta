@@ -4,9 +4,9 @@ import { useShareCapabilities } from "state/hooks/share";
 import { route_ungroup_groups } from "utils/generatedEndpoints";
 
 export function UngroupButton({ sectionId }: { sectionId: string }) {
-  const { canGroupSections } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   function onClick() {
-    if (!canGroupSections) {
+    if (!canEditStructure) {
       return;
     }
     route_ungroup_groups({
@@ -16,7 +16,7 @@ export function UngroupButton({ sectionId }: { sectionId: string }) {
   }
 
   return (
-    <MenuItem onClick={onClick} disabled={!canGroupSections}>
+    <MenuItem onClick={onClick} disabled={!canEditStructure}>
       Ungroup
     </MenuItem>
   );

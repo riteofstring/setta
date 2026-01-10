@@ -16,7 +16,7 @@ export function ButtonInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditParamConfig } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -24,7 +24,7 @@ export function ButtonInputConfigForParam({
   );
 
   function onSetLabel(nextLabel: string) {
-    if (!canEditParamConfig) {
+    if (!canEditStructure) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -70,7 +70,7 @@ export function ButtonInputConfigForParam({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           placeholder="Trigger"
-          disabled={!canEditParamConfig}
+          disabled={!canEditStructure}
         />
       </div>
     </div>

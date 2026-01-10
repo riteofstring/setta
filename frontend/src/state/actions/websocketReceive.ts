@@ -106,7 +106,8 @@ export const openWebSocket = _.debounce(
       closeWebSocket();
     }
     if (!wss) {
-      wss = new WebSocket(targetUrl);
+      const socket = new WebSocket(targetUrl);
+      wss = socket;
       const shareSessionIdForSocket = shareSessionId;
       currentShareSessionId = shareSessionId;
       currentRoute = route;
@@ -145,7 +146,10 @@ export const openWebSocket = _.debounce(
 
       wss.addEventListener("error", closeWebSocket);
 
-      wss.addEventListener("close", (event: CloseEvent) => {
+      socket.addEventListener("close", (event: CloseEvent) => {
+        if (wss && wss !== socket) {
+          return;
+        }
         stopShareHeartbeat();
         wss = null;
         currentShareSessionId = null;
@@ -176,7 +180,7 @@ export const openWebSocket = _.debounce(
         clearAllWebsocketConnections();
         // Attempt to reconnect
         setTimeout(() => {
-          openWebSocket(pathname, shareSessionId);
+          openWebSocket(lastPathname ?? pathname, lastShareSessionId);
         }, 3000);
       });
     }

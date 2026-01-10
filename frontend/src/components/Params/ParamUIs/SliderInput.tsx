@@ -22,7 +22,7 @@ export function SliderInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditParamConfig } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -30,7 +30,7 @@ export function SliderInputConfigForParam({
   );
 
   function onChange(newConfig: SliderConfigForFrontend) {
-    if (!canEditParamConfig) {
+    if (!canEditStructure) {
       return;
     }
     const configClone = _.cloneDeep(newConfig);
@@ -58,7 +58,7 @@ export function SliderInputConfigForParam({
     <SliderInputConfig
       onChange={onChange}
       config={config}
-      isDisabled={!canEditParamConfig}
+      isDisabled={!canEditStructure}
     />
   );
 }

@@ -21,7 +21,7 @@ export function DropdownInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditParamConfig } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -29,7 +29,7 @@ export function DropdownInputConfigForParam({
   );
 
   function onChange(newConfig: DropdownConfigForFrontend) {
-    if (!canEditParamConfig) {
+    if (!canEditStructure) {
       return;
     }
     const configClone = _.cloneDeep(newConfig);
@@ -56,7 +56,7 @@ export function DropdownInputConfigForParam({
     <DropdownInputConfig
       config={config}
       onChange={onChange}
-      isDisabled={!canEditParamConfig}
+      isDisabled={!canEditStructure}
     />
   );
 }

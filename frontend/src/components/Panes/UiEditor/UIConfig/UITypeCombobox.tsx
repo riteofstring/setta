@@ -90,14 +90,14 @@ export function ParamConfigUITypeCombobox({
     paramInfoId,
     allowedImplTypes,
   );
-  const { canEditParamImpl } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   return (
     <UITypeCombobox
       nonPresetImpls={nonPresetImpls}
       presetImpls={presetCodeObjImpls}
       selectedBaseImplId={selectedBaseImplId}
       onDropdownSelect={onDropdownSelect}
-      isDisabled={!canEditParamImpl}
+      isDisabled={!canEditStructure}
     />
   );
 }

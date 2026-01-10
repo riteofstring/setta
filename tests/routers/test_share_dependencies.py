@@ -4,13 +4,12 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from datetime import timedelta
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket
+from fastapi import FastAPI, HTTPException, Request
 from starlette.types import Scope
 
 from setta.routers.dependencies import (
     get_runtime_context_from_request,
-    get_share_session_id_from_request,
-    get_share_session_id_from_websocket,
+    maybe_get_share_session_id_from_request,
 )
 from setta.server_state import SettaFastAPIState
 from setta.database.db_objs import DBE
@@ -45,41 +44,6 @@ def _make_request(
         return {"type": "http.request", "body": b"", "more_body": False}
 
     return Request(scope, empty_receive)
-
-
-def _make_websocket(
-    *,
-    path: str = "/share",
-    headers: list[tuple[bytes, bytes]] | None = None,
-    query_string: str | None = None,
-) -> WebSocket:
-    scope: Scope = {
-        "type": "websocket",
-        "path": path,
-        "query_string": query_string.encode() if query_string else b"",
-        "scheme": "ws",
-        "headers": headers or [],
-        "client": ("127.0.0.1", 9000),
-        "server": ("testserver", 80),
-        "subprotocols": [],
-        "extensions": {},
-        "state": {},
-        "path_params": {},
-        "app": object(),
-    }
-
-    async def empty_receive() -> dict[str, Any]:
-        return {
-            "type": "websocket.receive",
-            "bytes": b"",
-            "text": "",
-            "more_body": False,
-        }
-
-    async def empty_send(_message: dict[str, Any]) -> None:
-        return None
-
-    return WebSocket(scope, empty_receive, empty_send)
 
 
 def _build_share_deployment_root(
@@ -158,49 +122,22 @@ class ShareDependencyTests(unittest.TestCase):
             ],
             query_string="shareSessionId=query",
         )
-        self.assertEqual("header", get_share_session_id_from_request(request))
+        self.assertEqual("header", maybe_get_share_session_id_from_request(request))
 
     def test_request_cookie_fallback(self) -> None:
         request = _make_request(
             headers=[(b"cookie", b"shareSessionId=cookie")],
             query_string="shareSessionId=query",
         )
-        self.assertEqual("cookie", get_share_session_id_from_request(request))
+        self.assertEqual("cookie", maybe_get_share_session_id_from_request(request))
 
     def test_request_query_fallback(self) -> None:
         request = _make_request(query_string="shareSessionId=query")
-        self.assertEqual("query", get_share_session_id_from_request(request))
+        self.assertEqual("query", maybe_get_share_session_id_from_request(request))
 
-    def test_request_missing_session_id_raises(self) -> None:
+    def test_request_missing_session_id_returns_none(self) -> None:
         request = _make_request()
-        with self.assertRaises(KeyError):
-            get_share_session_id_from_request(request)
-
-    def test_websocket_header_precedence(self) -> None:
-        websocket = _make_websocket(
-            headers=[
-                (b"x-share-session-id", b"header"),
-                (b"cookie", b"shareSessionId=cookie"),
-            ],
-            query_string="shareSessionId=query",
-        )
-        self.assertEqual("header", get_share_session_id_from_websocket(websocket))
-
-    def test_websocket_cookie_fallback(self) -> None:
-        websocket = _make_websocket(
-            headers=[(b"cookie", b"shareSessionId=cookie")],
-            query_string="shareSessionId=query",
-        )
-        self.assertEqual("cookie", get_share_session_id_from_websocket(websocket))
-
-    def test_websocket_query_fallback(self) -> None:
-        websocket = _make_websocket(query_string="shareSessionId=query")
-        self.assertEqual("query", get_share_session_id_from_websocket(websocket))
-
-    def test_websocket_missing_session_id_raises(self) -> None:
-        websocket = _make_websocket()
-        with self.assertRaises(KeyError):
-            get_share_session_id_from_websocket(websocket)
+        self.assertIsNone(maybe_get_share_session_id_from_request(request))
 
 
 class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):

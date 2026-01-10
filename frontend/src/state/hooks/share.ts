@@ -124,13 +124,6 @@ type ShareCapabilities = {
   canEditLayout: boolean;
   canRun: boolean;
   canEditStructure: boolean;
-  canEditParamImpl: boolean;
-  canEditParamConfig: boolean;
-  canEditKwargs: boolean;
-  canManageViewModes: boolean;
-  canToggleViewModeVisibility: boolean;
-  canGroupSections: boolean;
-  canEditSocialUrl: boolean;
 };
 
 export function useShareCapabilities(): ShareCapabilities {
@@ -148,12 +141,5 @@ export function useShareCapabilities(): ShareCapabilities {
     canEditLayout: canEditStructure || allowLayoutChanges,
     canRun: canEditStructure || allowRun,
     canEditStructure,
-    canEditParamImpl: canEditStructure,
-    canEditParamConfig: canEditStructure,
-    canEditKwargs: canEditStructure,
-    canManageViewModes: canEditStructure,
-    canToggleViewModeVisibility: canEditStructure,
-    canGroupSections: canEditStructure,
-    canEditSocialUrl: canEditStructure,
   };
 }

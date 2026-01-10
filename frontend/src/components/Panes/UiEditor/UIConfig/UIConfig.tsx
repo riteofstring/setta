@@ -85,14 +85,14 @@ function _UIElement({
   codeObjTypeFilterKey: CodeObjTypeFilterKey;
 }) {
   const paramInfoId = paramInfo.id;
-  const { canEditParamImpl } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const baseImplId = useProjectState((x) => {
     return getCurrCodeObjVariant(x, sectionId, paramInfoId).impl;
   }, _.isEqual);
   const paramName = paramInfo.name;
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
-    if (!canEditParamImpl) {
+    if (!canEditStructure) {
       return;
     }
     if (!selectedId) {

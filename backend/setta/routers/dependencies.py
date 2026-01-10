@@ -5,15 +5,10 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
-from setta.utils.constants import C
 
 
 def get_app_state_from_request(request: Request) -> SettaFastAPIState:
     return request.app.state.setta
-
-
-def maybe_get_app_state_from_request(request: Request) -> SettaFastAPIState | None:
-    return getattr(request.app.state, "setta", None)
 
 
 def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
@@ -32,24 +27,23 @@ async def get_ready_app_state_from_websocket(websocket: WebSocket) -> SettaFastA
     return state
 
 
-def _extract_share_session_id(headers, cookies, query_params) -> str:
+def _extract_share_session_id(
+    headers,
+    cookies,
+    query_params,
+    *,
+    required: bool,
+) -> str | None:
     session_id = headers.get("x-share-session-id")
     if not session_id:
         session_id = cookies.get("shareSessionId")
     if not session_id:
         session_id = query_params.get("shareSessionId")
-    if not session_id:
+    if session_id:
+        return session_id
+    if required:
         raise KeyError("Missing share session id")
-    return session_id
-
-
-def _maybe_extract_share_session_id(headers, cookies, query_params) -> str | None:
-    session_id = headers.get("x-share-session-id")
-    if not session_id:
-        session_id = cookies.get("shareSessionId")
-    if not session_id:
-        session_id = query_params.get("shareSessionId")
-    return session_id
+    return None
 
 
 async def _close_websocket_with_code(websocket: WebSocket, code: int) -> None:
@@ -58,35 +52,16 @@ async def _close_websocket_with_code(websocket: WebSocket, code: int) -> None:
     await websocket.close(code=code)
 
 
-def get_share_session_id_from_request(request: Request) -> str:
-    return _extract_share_session_id(
-        request.headers, request.cookies, request.query_params
-    )
-
-
-def get_share_session_id_from_websocket(websocket: WebSocket) -> str:
-    return _extract_share_session_id(
-        websocket.headers, websocket.cookies, websocket.query_params
-    )
-
-
 def maybe_get_share_session_id_from_request(request: Request) -> str | None:
-    return _maybe_extract_share_session_id(
-        request.headers, request.cookies, request.query_params
-    )
-
-
-def maybe_get_share_session_id_from_websocket(websocket: WebSocket) -> str | None:
-    return _maybe_extract_share_session_id(
-        websocket.headers, websocket.cookies, websocket.query_params
+    return _extract_share_session_id(
+        request.headers, request.cookies, request.query_params, required=False
     )
 
 
 def require_ide_mode(
-    state: SettaFastAPIState | None = Depends(maybe_get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
-    share_mode = state.share_mode if state is not None else C.SHARE_MODE
-    if share_mode:
+    if state.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Share mode does not allow this endpoint.",
@@ -125,7 +100,12 @@ async def require_share_session_id_from_websocket(
 ) -> str | None:
     if not state.share_mode:
         return None
-    share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+    share_session_id = _extract_share_session_id(
+        websocket.headers,
+        websocket.cookies,
+        websocket.query_params,
+        required=False,
+    )
     if share_session_id is None:
         await _close_websocket_with_code(websocket, 4400)
         return None
@@ -175,9 +155,6 @@ AppStateFromWebsocket = Annotated[
 ]
 ReadyAppStateFromWebsocket = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_websocket)
-]
-MaybeShareSessionIdFromRequest = Annotated[
-    str | None, Depends(maybe_get_share_session_id_from_request)
 ]
 RuntimeContextFromRequest = Annotated[
     RuntimeContext, Depends(get_runtime_context_from_request)

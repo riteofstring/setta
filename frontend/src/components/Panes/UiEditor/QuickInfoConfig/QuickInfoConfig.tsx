@@ -110,8 +110,7 @@ function _UIElement({
   paramInfo: { id: string; name: string };
 }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditParamConfig, canEditParams, canEditStructure } =
-    useShareCapabilities();
+  const { canEditParams, canEditStructure } = useShareCapabilities();
   const { id, name } = paramInfo;
   const { description, displayName, trueName, isKwarg, codeObjType } =
     useProjectState((x) => {
@@ -127,7 +126,7 @@ function _UIElement({
     }, _.isEqual);
   const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
   const canEditDescription =
-    canEditParamConfig && canEditParams && (!isShareMode || !isCodeParam);
+    canEditStructure && canEditParams && (!isShareMode || !isCodeParam);
   const [localDisplayName, setLocalDisplayName] = useLocalPendingValue(
     displayName,
     (pendingValue: string) => {

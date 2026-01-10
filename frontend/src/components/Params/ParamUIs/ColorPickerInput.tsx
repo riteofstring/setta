@@ -21,7 +21,7 @@ export function ColorPickerInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditParamConfig } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -29,7 +29,7 @@ export function ColorPickerInputConfigForParam({
   );
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
-    if (!canEditParamConfig) {
+    if (!canEditStructure) {
       return;
     }
     const configClone = _.cloneDeep(newConfig);
@@ -57,7 +57,7 @@ export function ColorPickerInputConfigForParam({
     <ColorPickerInputConfig
       config={config}
       onChange={onChange}
-      isDisabled={!canEditParamConfig}
+      isDisabled={!canEditStructure}
     />
   );
 }

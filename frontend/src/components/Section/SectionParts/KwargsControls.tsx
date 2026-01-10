@@ -29,7 +29,7 @@ export function KwargsControls({
 }: KwargsControlsProps) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-  const { canEditKwargs } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const callableMissing = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -42,7 +42,7 @@ export function KwargsControls({
     return impl.callable == null;
   }, _.isEqual);
   const kwargButtonsDisabled =
-    variantIsFrozen || callableMissing || !canEditKwargs;
+    variantIsFrozen || callableMissing || !canEditStructure;
 
   const onClickDeleteSelectedKwargs = () => {};
 

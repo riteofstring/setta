@@ -21,7 +21,7 @@ type MetaControlConfigState = {
 };
 
 export function MetaControlSettings({ sectionId }: { sectionId: string }) {
-  const { canEditParamImpl } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const { controlParamId, baseImplId, paramName } = useProjectState(
     (x): MetaControlConfigState => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -50,7 +50,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
   );
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
-    if (!canEditParamImpl) {
+    if (!canEditStructure) {
       return;
     }
     if (!selectedId || !controlParamId) {

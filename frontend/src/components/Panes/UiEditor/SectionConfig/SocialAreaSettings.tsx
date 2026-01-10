@@ -12,7 +12,7 @@ import { route_set_social_url } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function SocialAreaSettings({ sectionId }) {
-  const { canEditSocialUrl } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
   const url = useProjectState((p) => {
     const impl = getCurrEffectiveSectionImplOfType(
       p,
@@ -31,7 +31,7 @@ export function SocialAreaSettings({ sectionId }) {
   );
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!canEditSocialUrl) {
+    if (!canEditStructure) {
       return;
     }
     setPendingValue(e.target.value);
@@ -50,7 +50,7 @@ export function SocialAreaSettings({ sectionId }) {
           // onChange={(e) => setValue(e.target.value)}
           onChange={onChange}
           placeholder="https://www.youtube.com/"
-          disabled={!canEditSocialUrl}
+          disabled={!canEditStructure}
         />
       </div>
     </div>
