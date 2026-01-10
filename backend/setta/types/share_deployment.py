@@ -41,7 +41,6 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowRun: bool = False
     allowLLM: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
-    allowedSections: list[ID] | None = None
 
 
 class ShareDeploymentMetadata(BaseModel, extra="forbid"):

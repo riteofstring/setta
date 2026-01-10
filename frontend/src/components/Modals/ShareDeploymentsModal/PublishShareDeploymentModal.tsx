@@ -31,7 +31,6 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowRun: false,
     allowLLM: false,
     runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
-    allowedSections: null,
   };
 }
 

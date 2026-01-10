@@ -153,7 +153,7 @@ deployment roots.
 Terminal input is always disabled in share mode; viewers can only observe run
 output from published code.
 When a run request omits `sectionId`, share mode should resolve
-`entryCodeBlockId` and enforce `allowedSections` against that entry section.
+`entryCodeBlockId`.
 
 ### 9) LLM in share mode
 Default: disabled. Opt-in via share policy.

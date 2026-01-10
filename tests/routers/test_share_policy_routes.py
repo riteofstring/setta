@@ -430,76 +430,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(403, ctx.exception.status_code)
 
-    async def test_run_routes_blocked_by_allowed_sections(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            allowed_section_id = create_new_id()
-            blocked_section_id = create_new_id()
-            _write_share_policy(
-                root,
-                SharePolicy(
-                    allowRun=True,
-                    allowedSections=[allowed_section_id],
-                ),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            run_request = RunCodeRequest(
-                projectConfigId=project_config_id,
-                sectionId=blocked_section_id,
-                cliId=None,
-            )
-
-            with self.assertRaises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_run_code(run_request, runtime_ctx)
-
-            self.assertEqual(403, ctx.exception.status_code)
-            self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
-
-    async def test_run_routes_blocked_when_entry_code_section_disallowed(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            blocked_section_id = create_new_id()
-            allowed_section_id = create_new_id()
-            project_config_id = _write_share_project_with_entry_code(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-                entry_code_block_id=blocked_section_id,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(
-                    allowRun=True,
-                    allowedSections=[allowed_section_id],
-                ),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            run_request = RunCodeRequest(
-                projectConfigId=project_config_id,
-                sectionId=None,
-                cliId=None,
-            )
-
-            with self.assertRaises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_run_code(run_request, runtime_ctx)
-
-            self.assertEqual(403, ctx.exception.status_code)
-            self.assertIn(
-                "Share policy disallows changes to sections",
-                ctx.exception.detail,
-            )
-
     async def test_terminal_section_blocked_when_run_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-route-test"
@@ -841,41 +771,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     await route_set_text_block_text(request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
 
-    async def test_param_routes_blocked_by_allowed_sections(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            allowed_section_id = create_new_id()
-            blocked_section_id = create_new_id()
-            _write_share_policy(
-                root,
-                SharePolicy(
-                    allowParamChanges=True,
-                    allowedSections=[allowed_section_id],
-                ),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-
-            request = SetTextBlockTextRequest(
-                projectConfigId=project_config_id,
-                sectionId=blocked_section_id,
-                text="blocked",
-            )
-            with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_set_text_block_text(request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
-                self.assertIn(
-                    "Share policy disallows changes to sections",
-                    ctx.exception.detail,
-                )
-
     async def test_layout_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-route-test"
@@ -897,86 +792,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
                     await route_set_callable_hide_params(request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
-
-    async def test_top_level_layout_routes_blocked_by_allowed_sections(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, section_id, _variant_id = (
-                _write_share_project_with_section(
-                    root,
-                    project_config_name=project_config_name,
-                    deployment_version=root.name,
-                )
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(
-                    allowLayoutChanges=True,
-                    allowedSections=[create_new_id()],
-                ),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-
-            layout_request = SetTopLevelSectionLayoutRequest(
-                projectConfigId=project_config_id,
-                topLevelSections={
-                    section_id: TopLevelSectionLayout(),
-                },
-            )
-            with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_set_top_level_section_layout(
-                        layout_request, runtime_ctx
-                    )
-                self.assertEqual(403, ctx.exception.status_code)
-
-                auto_layout_request = AutoLayoutTopLevelSectionsRequest(
-                    projectConfigId=project_config_id
-                )
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_auto_layout_top_level_sections(
-                        auto_layout_request, runtime_ctx
-                    )
-                self.assertEqual(403, ctx.exception.status_code)
-
-    async def test_variant_routes_blocked_by_allowed_sections(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, _section_id, variant_id = _write_share_project_with_section(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(
-                    allowVariantChanges=True,
-                    allowedSections=[create_new_id()],
-                ),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-
-            frozen_request = ToggleVariantFrozenRequest(
-                projectConfigId=project_config_id,
-                variantId=variant_id,
-            )
-            with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_toggle_variant_frozen(frozen_request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
-
-                name_request = SetSectionVariantNameRequest(
-                    projectConfigId=project_config_id,
-                    variantId=variant_id,
-                    name="New Name",
-                )
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_set_section_variant_name(name_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
 
     async def test_param_selection_routes_blocked(self) -> None:

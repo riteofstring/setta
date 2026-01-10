@@ -202,9 +202,6 @@ class SessionProjectManager(BaseProjectManager):
             policy=self.share_runtime_state.share_policy,
             frontend_sender=self.share_runtime_state.frontend_sender,
             project_config_id=projectConfigId,
-            project_state=project_state,
-            dependency_updates=dependency_updates,
-            artifact_updates=artifact_updates,
             share_session_id=self.share_session_id,
         )
 

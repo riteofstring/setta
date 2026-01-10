@@ -4855,7 +4855,6 @@ const SharePolicySchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
 });
 
 export type SharePolicy = z.infer<typeof SharePolicySchema>;
@@ -6031,7 +6030,6 @@ const SharePolicyOverridesSchema = z.object({
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
-  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
 });
 
 const PublishShareDeploymentRequestSchema = z.object({

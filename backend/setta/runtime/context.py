@@ -79,7 +79,6 @@ class RuntimeContext:
         policy_flag: str,
         denied_message: str,
         project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
     ) -> None:
         await enforce_share_policy(
             share_mode=self.state.share_mode,
@@ -89,20 +88,17 @@ class RuntimeContext:
             denied_message=denied_message,
             project_config_id=project_config_id,
             share_session_id=self._share_session_id,
-            section_ids=section_ids,
         )
 
     async def enforce_run_allowed(
         self,
         *,
         project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
     ) -> None:
         await ensure_share_run_allowed(
             self.state,
             project_config_id=project_config_id,
             share_session_id=self._share_session_id,
-            section_ids=section_ids,
         )
 
     async def enforce_run_allowed_ws(
@@ -110,14 +106,12 @@ class RuntimeContext:
         websocket: WebSocket,
         *,
         project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
     ) -> bool:
         return await ensure_share_run_allowed_ws(
             self.state,
             websocket,
             project_config_id=project_config_id,
             share_session_id=self._share_session_id,
-            section_ids=section_ids,
         )
 
     async def enforce_llm_allowed(

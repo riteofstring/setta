@@ -42,7 +42,6 @@ async def terminal_websocket_endpoint(
     allowed = await ctx.enforce_run_allowed_ws(
         websocket,
         project_config_id=projectConfigId,
-        section_ids=[sectionId],
     )
     if not allowed:
         return
@@ -111,7 +110,6 @@ async def route_delete_terminals(
     share_session_id = ctx.share_session_id
     await ctx.enforce_run_allowed(
         project_config_id=None,
-        section_ids=x.sectionIds,
     )
     terminal_ids = [
         build_terminal_id(section_id, share_session_id) for section_id in x.sectionIds
@@ -154,14 +152,8 @@ async def route_run_code(
 ):
     share_session_id = ctx.share_session_id
     manager = ctx.get_project_manager(x.projectConfigId)
-    resolved_section_id = x.sectionId
-    if resolved_section_id is None:
-        project_state = manager.get_single_config_state(x.projectConfigId)
-        resolved_section_id = project_state.projectConfig.entryCodeBlockId
-
     await ctx.enforce_run_allowed(
         project_config_id=x.projectConfigId,
-        section_ids=[resolved_section_id] if resolved_section_id else None,
     )
     run_request = x
     if ctx.share_mode:

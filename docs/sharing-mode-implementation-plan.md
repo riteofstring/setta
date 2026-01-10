@@ -86,7 +86,7 @@ Implemented in `backend/setta/types/share_deployment.py`, added
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
-  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, runSnapshotMode, allowedSections).
+  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, runSnapshotMode).
   - `ShareDeploymentMetadata` (projectConfigName, deploymentVersion, createdAt,
     path, policy path).
   - `ShareDeploymentSessionResponse` (projectConfigName, deploymentVersion,
@@ -238,7 +238,6 @@ and param selection routes are gated.
   - Listener emits: `apply_listener_emit_updates` in
     `backend/setta/project_state/base_project_manager.py`.
   - LLM routes: `backend/setta/routers/ai.py` + `backend/setta/routers/llm.py`.
-  - `allowedSections` is enforced for section-scoped mutations.
 - Return 403 with a clear message; emit a UI log event via
   `backend/setta/websockets/msg_handlers/frontend_sender.py`.
 Implemented:
@@ -258,8 +257,6 @@ Implemented:
   when one is not passed explicitly.
 - Additional gating covers kwarg add/delete, section renames, callable hide params,
   and type-error ignore updates.
-- Variant-only routes (freeze/rename) now enforce `allowedSections` by resolving
-  the owning section.
 Pending updates: none.
 
 ## 6) Websocket scoping + realtime events
@@ -353,8 +350,7 @@ Implemented:
 - Terminal websocket connections validate share session ids and close with
   4400/4404 when missing or unknown.
 - Run/terminal HTTP routes require share session ids in share mode.
-- Run routes resolve `entryCodeBlockId` when `sectionId` is omitted so
-  `allowedSections` is enforced against the entry section.
+- Run routes resolve `entryCodeBlockId` when `sectionId` is omitted.
 - Share-mode run routes create temporary terminal sections through the
   session-scoped project manager, and terminal section IDs stay unprefixed
   while PTY ids include the share session prefix.
@@ -560,7 +556,7 @@ Implemented:
 - Keep share runtime writes out of deployment roots by moving file locks +
   temporary id maps into `setta_files/share_runtime/<project_config_name>/<version>`.
 - Fill policy gaps / allowed mutations: `route_set_callable` is gated by
-  `allowParamChanges`/`allowedSections`, while code obj name/display-name and
+  `allowParamChanges`, while code obj name/display-name and
   code file binding changes are blocked in share mode, with tests.
 - Share-mode endpoint hardening: publish endpoints return 403 in share mode so
   public share servers cannot create deployments.

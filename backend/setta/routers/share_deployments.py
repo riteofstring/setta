@@ -55,7 +55,6 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowRun: bool | None = None
     allowLLM: bool | None = None
     runSnapshotMode: RunSnapshotMode | None = None
-    allowedSections: list[ID] | None = None
 
 
 class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
