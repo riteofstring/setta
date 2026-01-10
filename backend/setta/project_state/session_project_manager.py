@@ -1,0 +1,307 @@
+from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from setta.database.backup import maybe_create_backup
+from setta.lsp.managers import NoopLSPWriters
+from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.jsonSource.save import (
+    remove_json_source_values,
+    save_json_source_data,
+)
+from setta.project_state.listener_artifact_updates import (
+    apply_listener_artifact_updates,
+)
+from setta.project_state.listener_dependency_updates import (
+    apply_listener_dependency_updates,
+)
+from setta.project_state.project_manager_types import (
+    RunCodeRequest,
+    SaveAsNewProjectConfigRequest,
+)
+from setta.project_state.settings_project import apply_settings_display_names
+from setta.runtime.scoped_sender import ScopedFrontendSender
+from setta.share.policy import ensure_share_listener_emit_updates_allowed
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    copy_project,
+    copy_project_config,
+    merge_single_config_into_backend,
+)
+from setta.types.id import ID
+from setta.types.project_state import ProjectStateBackend
+
+if TYPE_CHECKING:
+    from setta.database.settings_file import SettingsFile
+    from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+    from setta.lsp.managers import LSPWriters
+    from setta.project_state.artifacts import Artifacts
+    from setta.project_state.code_files import CodeFiles
+    from setta.project_state.jsonSource.jsonSource import JSONSource
+    from setta.project_state.share_runtime_state import ShareRuntimeState
+    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+    from setta.types.listener import ListenerFrontendEmitKeyAndValue
+    from setta.types.project_state import ProjectStateSingleConfig
+    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+    from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+
+
+class SessionPersistenceMode(str, Enum):
+    share = "share"
+    ide_main = "ide_main"
+    ide_settings = "ide_settings"
+
+
+class SessionProjectManager(BaseProjectManager):
+    def __init__(
+        self,
+        *,
+        persistence_mode: SessionPersistenceMode,
+        frontend_sender: "WMHFrontendSender",
+        python_script_sender: "WMHPythonScriptSender",
+        settings_file: "SettingsFile",
+        specific_file_watcher: "SpecificFileWatcher",
+        dbe,
+        artifacts: "Artifacts",
+        json_source: "JSONSource",
+        code_files: "CodeFiles",
+        lsp_writers: "LSPWriters | None" = None,
+        share_runtime_state: "ShareRuntimeState | None" = None,
+        share_session_id: str | None = None,
+    ) -> None:
+        self.persistence_mode = persistence_mode
+        self.share_runtime_state = share_runtime_state
+        self.share_session_id = share_session_id
+        resolved_lsp_writers = lsp_writers or NoopLSPWriters()
+        resolved_sender = (
+            ScopedFrontendSender(frontend_sender, share_session_id)
+            if share_runtime_state is not None
+            else frontend_sender
+        )
+        super().__init__(
+            lsp_writers=resolved_lsp_writers,
+            websocket_msg_handler=resolved_sender,
+            python_script_sender=python_script_sender,
+            settings_file=settings_file,
+            specific_file_watcher=specific_file_watcher,
+            dbe=dbe,
+            artifacts=artifacts,
+            json_source=json_source,
+            code_files=code_files,
+        )
+
+    def load_initial_state(self) -> ProjectStateBackend:
+        if self.share_runtime_state is not None:
+            if self.share_session_id is None:
+                raise KeyError("Missing share session id")
+            return self.share_runtime_state.get_or_create_session_backend(
+                self.share_session_id
+            )
+        if self.persistence_mode == SessionPersistenceMode.ide_settings:
+            project_state = self.settings_file.load_settings_project()
+            return merge_single_config_into_backend(
+                ProjectStateBackend(), project_state
+            )
+        return self.dbe.read_project()
+
+    def get_new_project_state_backend(
+        self,
+        x: "ProjectStateSingleConfig",
+    ) -> ProjectStateBackend:
+        if self.share_runtime_state is None:
+            return super().get_new_project_state_backend(x)
+        if self.share_session_id is None:
+            raise KeyError("Missing share session id")
+        return self.share_runtime_state.update_session_state(
+            self.share_session_id,
+            x.projectConfig.id,
+            x,
+        )
+
+    def save(self) -> None:
+        if self.share_runtime_state is None:
+            if self.persistence_mode == SessionPersistenceMode.ide_settings:
+                self._save_settings_project()
+            elif self.persistence_mode == SessionPersistenceMode.ide_main:
+                self._save_project_state()
+
+    async def save_as_new_project_config(
+        self, x: SaveAsNewProjectConfigRequest
+    ) -> None:
+        if self.share_runtime_state is not None:
+            raise NotImplementedError(
+                "Share mode does not support project config writes"
+            )
+        if self.persistence_mode != SessionPersistenceMode.ide_main:
+            raise ValueError("Settings projects do not support project config writes")
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        if x.withRefs:
+            new_project_config = copy_project_config(
+                project_state.projectConfig, x.newConfigName, do_create_new_id=True
+            )
+            self.project_state_backend.projectConfigs[new_project_config.id] = (
+                new_project_config
+            )
+        else:
+            new_project_config = copy_project(
+                project_state, x.newConfigName, do_create_new_id=True
+            )
+            self.project_state_backend = merge_single_config_into_backend(
+                self.project_state_backend, new_project_config
+            )
+        self.perform_manual_save()
+        await self.broadcast_all_project_metadata()
+
+    async def update(
+        self,
+        projectState: "ProjectStateSingleConfig",
+        updateFileWatcher: bool = True,
+        validate_code_file_bindings: bool = True,
+    ) -> None:
+        if self.share_runtime_state is not None:
+            validate_code_file_bindings = False
+        await super().update(
+            projectState,
+            updateFileWatcher=updateFileWatcher,
+            validate_code_file_bindings=validate_code_file_bindings,
+        )
+
+    @BaseProjectManager.enqueue_method
+    async def apply_listener_emit_updates(
+        self,
+        projectConfigId: ID,
+        dependency_updates: list["ListenerFrontendEmitKeyAndValue"],
+        artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
+    ) -> None:
+        if self.share_runtime_state is None:
+            await super().apply_listener_emit_updates(
+                projectConfigId=projectConfigId,
+                dependency_updates=dependency_updates,
+                artifact_updates=artifact_updates,
+            )
+            return
+        if not dependency_updates and not artifact_updates:
+            raise ValueError("listener emits require dependency or artifact updates")
+        if self.share_session_id is None:
+            raise KeyError("Missing share session id")
+        session_backend = self.share_runtime_state.get_session_backend(
+            self.share_session_id
+        )
+        if projectConfigId not in session_backend.projectConfigs:
+            raise KeyError(f"Unknown share project config: {projectConfigId}")
+
+        project_state = self.share_runtime_state.get_session_state(
+            self.share_session_id,
+            projectConfigId,
+        )
+        await ensure_share_listener_emit_updates_allowed(
+            share_mode=True,
+            policy=self.share_runtime_state.share_policy,
+            frontend_sender=self.share_runtime_state.frontend_sender,
+            project_config_id=projectConfigId,
+            share_session_id=self.share_session_id,
+        )
+
+        if dependency_updates:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=dependency_updates,
+            )
+
+        artifact_payloads = []
+        if artifact_updates:
+            artifact_payloads = apply_listener_artifact_updates(
+                artifacts=self.artifacts,
+                updates=artifact_updates,
+            )
+
+        if dependency_updates:
+            await self.update_and_broadcast_project_state(project_state)
+
+        if artifact_payloads:
+            await self.websocket_msg_handler.broadcast_artifacts_update(
+                artifacts=artifact_payloads,
+                updateType="update",
+            )
+
+    @BaseProjectManager.enqueue_method
+    async def create_run_command(
+        self,
+        x: RunCodeRequest,
+    ) -> str:
+        if self.share_runtime_state is None:
+            return await super().create_run_command(x)
+        if self.share_session_id is None:
+            raise KeyError("Missing share session id")
+        session_backend = self.share_runtime_state.get_session_backend(
+            self.share_session_id
+        )
+        project_config_id = x.projectConfigId
+        if project_config_id not in session_backend.projectConfigs:
+            raise KeyError(f"Unknown share project config: {project_config_id}")
+        return await self.share_runtime_state.create_run_command(
+            self.share_session_id,
+            x,
+        )
+
+    @BaseProjectManager.enqueue_method
+    async def load_json_sources(
+        self,
+        json_sources: dict[Path, object],
+        section_variants_to_load: list[tuple[str, str]],
+    ):
+        if self.persistence_mode != SessionPersistenceMode.ide_settings:
+            await super().load_json_sources(
+                json_sources=json_sources,
+                section_variants_to_load=section_variants_to_load,
+            )
+            return
+        project_state = self.project_state_backend
+        existing_code_obj_ids = set(project_state.codeObjs.keys())
+        load_json_sources_into_data_structures(
+            project_state,
+            json_sources,
+            section_variants_to_load,
+        )
+        apply_settings_display_names(
+            project_state, existing_code_obj_ids=existing_code_obj_ids
+        )
+
+        for config_id in project_state.projectConfigs.keys():
+            single_config = convert_backend_to_single_config(project_state, config_id)
+            await self.update_and_broadcast_project_state(
+                single_config,
+                updateFileWatcher=False,
+            )
+        await self.settings_file.load_and_broadcast_settings()
+
+    def _save_project_state(self) -> None:
+        self._flush_code_files_for_all_configs()
+        payload = self.project_state_backend.model_copy(deep=True)
+        save_json_source_data(self.dbe, payload)
+        remove_json_source_values(payload)
+        maybe_create_backup(
+            self.dbe.project,
+            self.settings_file.settings.backend.autobackup,
+            self.settings_file.settings.backend.autobackupFreq,
+            self.settings_file.settings.backend.autobackupKeepLastN,
+        )
+        self.dbe.write_project(payload)
+        self.artifacts.save()
+
+    def _save_settings_project(self) -> None:
+        self._flush_code_files_for_all_configs()
+        default_id = self.project_state_backend.defaultProjectConfigId
+        if not default_id:
+            raise ValueError("Missing default project config id")
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend,
+            default_id,
+        )
+        save_json_source_data(self.dbe, project_state)
+        remove_json_source_values(project_state)
+        self.dbe.write_settings_project(project_state)
+        self.artifacts.save()

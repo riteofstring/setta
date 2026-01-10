@@ -5,6 +5,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_delete_sections,
   route_toggle_section_visibility,
@@ -36,6 +37,8 @@ export function DeleteOrHideButton({
   sectionId,
   ...props
 }: DeleteOrHideButtonProps) {
+  const { canEditStructure, canToggleViewModeVisibility } =
+    useShareCapabilities();
   const { visibility, isEditingViewMode } = useProjectState((state) => {
     const viewMode = getActiveViewModeConfig(state);
     const visibility = viewMode.visibilityBySectionId[sectionId];
@@ -50,7 +53,14 @@ export function DeleteOrHideButton({
     };
   });
 
+  const canToggleVisibility = isEditingViewMode
+    ? canToggleViewModeVisibility
+    : canEditStructure;
+
   const onClick = () => {
+    if (!canToggleVisibility) {
+      return;
+    }
     if (isEditingViewMode) {
       route_toggle_section_visibility({
         projectConfigId: getCurrProjectConfigId(),
@@ -83,6 +93,10 @@ export function DeleteOrHideButton({
   const defaultIcon = getDeleteOrHideIcon(isEditingViewMode, visibility);
   const resolvedOnClick = onClickOverride ?? onClick;
   const resolvedIcon = icon ?? defaultIcon;
+  const isDisabled = !canToggleVisibility;
+  const cursorClass = isDisabled
+    ? "cursor-not-allowed opacity-50"
+    : "cursor-pointer";
 
   if (render) {
     return render({
@@ -98,13 +112,16 @@ export function DeleteOrHideButton({
     <button
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
-      } nodrag flex cursor-pointer justify-center ${
+      } nodrag flex justify-center ${
         bg ?? "bg-transparent hover:bg-red-500"
       } ${color ?? "text-setta-600 hover:text-white"} ${
         rounded ?? "rounded-full"
-      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${twClasses ?? ""}`}
+      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${cursorClass} ${
+        twClasses ?? ""
+      }`}
       {...buttonProps}
       onClick={resolvedOnClick}
+      disabled={buttonProps.disabled || isDisabled}
     >
       {resolvedIcon}
       {children}

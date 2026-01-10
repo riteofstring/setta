@@ -2,16 +2,20 @@ import * as Switch from "@radix-ui/react-switch";
 import _ from "lodash";
 import { Link } from "react-router-dom";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { loadShareProjectConfig } from "state/actions/share";
 import {
   useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
+  useShareSession,
 } from "state/definitions";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { ProjectConfig } from "utils/generatedTypes";
 
 export function ProjectConfigs() {
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
+  const currProjectConfigId = useProjectState((x) => x.projectConfig.id);
   const allProjectMetadata = useAllProjectMetadata(
     (x) => x.projectMetadata,
     _.isEqual,
@@ -46,25 +50,73 @@ export function ProjectConfigs() {
           }}
         >
           {allProjectMetadata.map((m, idx) => (
-            <Link
-              to={pathRelativeToProject(m.name)}
+            <ProjectConfigRow
               key={idx}
-              className="group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50"
-              onMouseEnter={() => {
-                onMouseEnter(m, currProjectConfigName, previewEnabled);
-              }}
-              state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-            >
-              <p
-                className={`${m.name === currProjectConfigName ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`}
-              >
-                {m.name}
-              </p>
-            </Link>
+              config={m}
+              currProjectConfigId={currProjectConfigId}
+              currProjectConfigName={currProjectConfigName}
+              isShareMode={isShareMode}
+              previewEnabled={previewEnabled}
+            />
           ))}
         </div>
       </section>
     </>
+  );
+}
+
+type ProjectConfigRowProps = {
+  config: ProjectConfig;
+  currProjectConfigId: string;
+  currProjectConfigName: string;
+  isShareMode: boolean;
+  previewEnabled: boolean;
+};
+
+function ProjectConfigRow({
+  config,
+  currProjectConfigId,
+  currProjectConfigName,
+  isShareMode,
+  previewEnabled,
+}: ProjectConfigRowProps) {
+  const isActive = config.name === currProjectConfigName;
+  const sharedClasses =
+    "group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50";
+
+  const labelClassName = `${isActive ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`;
+
+  if (isShareMode) {
+    return (
+      <button
+        type="button"
+        className={sharedClasses}
+        onClick={() => {
+          if (config.id === currProjectConfigId) {
+            return;
+          }
+          void loadShareProjectConfig(config.id);
+        }}
+        onMouseEnter={() => {
+          onMouseEnter(config, currProjectConfigName, previewEnabled);
+        }}
+      >
+        <p className={labelClassName}>{config.name}</p>
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      to={pathRelativeToProject(config.name)}
+      className={sharedClasses}
+      onMouseEnter={() => {
+        onMouseEnter(config, currProjectConfigName, previewEnabled);
+      }}
+      state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+    >
+      <p className={labelClassName}>{config.name}</p>
+    </Link>
   );
 }
 

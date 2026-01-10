@@ -5,6 +5,7 @@ import { TbUser } from "react-icons/tb";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_view_mode,
   route_delete_view_mode,
@@ -28,6 +29,7 @@ export function ViewingEditingMode() {
         isEditingViewMode,
       };
     }, _.isEqual);
+  const { canEditVariants, canManageViewModes } = useShareCapabilities();
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -40,6 +42,9 @@ export function ViewingEditingMode() {
   const canDeleteViewModes = viewModeList.length > 1;
 
   const handleModeChange = (modeId: string) => {
+    if (!canEditVariants) {
+      return;
+    }
     void route_set_active_view_mode({
       projectConfigId,
       activeViewModeId: modeId,
@@ -47,14 +52,23 @@ export function ViewingEditingMode() {
   };
 
   const handleToggleEdit = () => {
+    if (!canManageViewModes) {
+      return;
+    }
     void route_toggle_is_editing_view_mode({ projectConfigId });
   };
 
   const handleCreateMode = (): void => {
+    if (!canManageViewModes) {
+      return;
+    }
     void route_create_view_mode({ projectConfigId });
   };
 
   const handleToggleUserFacing = (modeId: string): void => {
+    if (!canManageViewModes) {
+      return;
+    }
     void route_toggle_view_mode_user_facing({
       projectConfigId,
       viewModeId: modeId,
@@ -65,17 +79,27 @@ export function ViewingEditingMode() {
     <div className="flex w-full flex-col gap-3">
       <div className="flex items-center gap-2">
         <button
-          className="flex items-center gap-2 rounded border border-setta-200 px-2 py-1 text-xs text-setta-700 transition-all hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+          className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
+            canManageViewModes
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
           onClick={handleToggleEdit}
           title={editTitle}
+          disabled={!canManageViewModes}
         >
           <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
           {editLabel}
         </button>
         <button
-          className="ml-auto rounded border border-setta-200 px-2 py-1 text-xs text-setta-700 transition-all hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+          className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
+            canManageViewModes
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
           onClick={handleCreateMode}
           title="Create a new view mode"
+          disabled={!canManageViewModes}
         >
           New View Mode
         </button>
@@ -100,6 +124,8 @@ export function ViewingEditingMode() {
                 projectConfigId={projectConfigId}
                 onSelect={handleModeChange}
                 onToggleUserFacing={handleToggleUserFacing}
+                canEditVariants={canEditVariants}
+                canManageViewModes={canManageViewModes}
               />
             );
           }
@@ -110,6 +136,7 @@ export function ViewingEditingMode() {
               mode={mode}
               isActive={isActive}
               onSelect={handleModeChange}
+              disabled={!canEditVariants}
             />
           );
         })}
@@ -122,9 +149,10 @@ type ViewModeRowProps = {
   mode: ViewModeConfig;
   isActive: boolean;
   onSelect: (modeId: string) => void;
+  disabled: boolean;
 };
 
-function ViewModeRow({ mode, isActive, onSelect }: ViewModeRowProps) {
+function ViewModeRow({ mode, isActive, onSelect, disabled }: ViewModeRowProps) {
   let modeLabel = mode.name;
   if (!modeLabel) {
     modeLabel = "Untitled View";
@@ -148,8 +176,9 @@ function ViewModeRow({ mode, isActive, onSelect }: ViewModeRowProps) {
   return (
     <button
       className={rowClasses}
-      onClick={() => onSelect(mode.id)}
+      onClick={disabled ? undefined : () => onSelect(mode.id)}
       title={modeLabel}
+      disabled={disabled}
     >
       <span className={`flex items-center justify-center ${iconClasses}`}>
         {icon}
@@ -166,6 +195,8 @@ type ViewModeEditingRowProps = {
   projectConfigId: string;
   onSelect: (modeId: string) => void;
   onToggleUserFacing: (modeId: string) => void;
+  canEditVariants: boolean;
+  canManageViewModes: boolean;
 };
 
 function ViewModeEditingRow({
@@ -175,8 +206,13 @@ function ViewModeEditingRow({
   projectConfigId,
   onSelect,
   onToggleUserFacing,
+  canEditVariants,
+  canManageViewModes,
 }: ViewModeEditingRowProps) {
   function onSetName(name: string) {
+    if (!canManageViewModes) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
@@ -214,11 +250,17 @@ function ViewModeEditingRow({
     event: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation();
+    if (!canManageViewModes) {
+      return;
+    }
     onToggleUserFacing(mode.id);
   };
 
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (!canManageViewModes) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         const { viewModes } = state.projectConfig;
@@ -266,8 +308,14 @@ function ViewModeEditingRow({
     userFacingTitle = "User-facing";
   }
 
+  const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
-    <div className={rowClasses} onClick={() => onSelect(mode.id)}>
+    <div
+      className={`${rowClasses} ${
+        canEditVariants ? "" : "cursor-not-allowed opacity-60"
+      }`}
+      onClick={rowClick}
+    >
       <input
         value={inputValue}
         onChange={onChange}
@@ -276,11 +324,13 @@ function ViewModeEditingRow({
         onClick={handleInputClick}
         placeholder="View mode name"
         className="flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100"
+        disabled={!canManageViewModes}
       />
       <button
         className={`cursor-pointer bg-transparent ${userFacingClasses}`}
         onClick={handleToggleUserFacing}
         title={userFacingTitle}
+        disabled={!canManageViewModes}
       >
         {userFacingIcon}
       </button>
@@ -289,6 +339,7 @@ function ViewModeEditingRow({
           className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
           onClick={handleDelete}
           title="Delete view mode"
+          disabled={!canManageViewModes}
         >
           <i className="gg-trash" />
         </button>

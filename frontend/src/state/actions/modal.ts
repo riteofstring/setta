@@ -51,6 +51,10 @@ export function openRenameReferencesModal(
   openModal({ type: ModalTypeEnum.RENAME_REFERENCES, data });
 }
 
+export function openPublishShareDeploymentModal() {
+  openModal({ type: ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT, data: null });
+}
+
 export function useModalData<T extends ModalType>(
   modalType: T,
 ): ModalDataMap[T] {

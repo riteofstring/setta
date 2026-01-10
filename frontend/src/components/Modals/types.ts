@@ -9,6 +9,7 @@ export const ModalTypeEnum = {
   FILE_MENU_LOAD_PROJECT_CONFIG: "FILE_MENU_LOAD_PROJECT_CONFIG",
   FILE_MENU_SAVE_PROJECT_CONFIG_AS: "FILE_MENU_SAVE_PROJECT_CONFIG_AS",
   RENAME_REFERENCES: "RENAME_REFERENCES",
+  PUBLISH_SHARE_DEPLOYMENT: "PUBLISH_SHARE_DEPLOYMENT",
 } as const;
 
 export type ModalType = ObjectValues<typeof ModalTypeEnum>;
@@ -30,6 +31,7 @@ export type ModalDataMap = {
     projectConfigId: string;
     changedValues: Array<RenameReferenceChangedValue>;
   };
+  [ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT]: null;
 };
 
 // Then generate the union type from the map

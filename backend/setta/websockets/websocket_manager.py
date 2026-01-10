@@ -27,6 +27,9 @@ class WebsocketManager:
         websocket: WebSocket,
         connectionType: WebsocketConnectionType,
         id: str | None = None,
+        shareSessionId: str | None = None,
+        *,
+        broadcast_connections: bool = True,
     ):
         await websocket.accept()
         if id and id in self.sockets:
@@ -38,18 +41,26 @@ class WebsocketManager:
             websocket=websocket,
             connectionType=connectionType,
             currentAddress=None,
+            shareSessionId=shareSessionId,
         )
-        await self.broadcast_connections()
+        if broadcast_connections:
+            await self.broadcast_connections()
         return id
 
-    async def on_disconnect(self, id: str):
+    async def on_disconnect(self, id: str, *, broadcast_connections: bool = True):
         removed = self.sockets.pop(id, None)
         if removed is None:
             return
-        await self.broadcast_connections()
+        if broadcast_connections:
+            await self.broadcast_connections()
 
     def update_current_address(self, currentAddress: str, websocketId: str):
         self.sockets[websocketId].currentAddress = currentAddress
+
+    def get_share_session_id(self, websocketId: str) -> str | None:
+        if websocketId not in self.sockets:
+            raise KeyError(f"Unknown websocket id: {websocketId}")
+        return self.sockets[websocketId].shareSessionId
 
     async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
         socket_info = self.sockets.get(toWebsocketId)
@@ -80,6 +91,25 @@ class WebsocketManager:
             ):
                 await self.send_message(message, k)
 
+    async def broadcast_to_session(
+        self,
+        message: WebsocketMsg,
+        *,
+        share_session_id: str,
+        connectionType: WebsocketConnectionType | None = None,
+        currentAddress: str | None = None,
+    ):
+        sockets_snapshot = list(self.sockets.items())
+        for k, v in sockets_snapshot:
+            if v.shareSessionId != share_session_id:
+                continue
+            if (
+                (not connectionType and not currentAddress)
+                or (connectionType and v.connectionType == connectionType)
+                or (currentAddress and v.currentAddress == currentAddress)
+            ):
+                await self.send_message(message, k)
+
     async def broadcast_connections(self):
         connections: list[WebsocketConnectionInfo] = []
         for id, s in self.sockets.items():
@@ -88,6 +118,7 @@ class WebsocketManager:
                     id=id,
                     connectionType=s.connectionType,
                     currentAddress=s.currentAddress,
+                    shareSessionId=s.shareSessionId,
                 )
             )
         connections.append(
@@ -95,6 +126,7 @@ class WebsocketManager:
                 id=self.main_id,
                 connectionType=WebsocketConnectionType.SERVER,
                 currentAddress=None,
+                shareSessionId=None,
             )
         )
         await self.broadcast(

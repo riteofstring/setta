@@ -9,7 +9,7 @@ class ListenerRouterEndpointRegistryTests(unittest.TestCase):
     def test_allowlist_filters_disallowed_modules(self) -> None:
         get_listener_router_endpoint_specs.cache_clear()
         specs = get_listener_router_endpoint_specs()
-        self.assertIn("route_get_latest_project_state", specs)
+        self.assertIn("route_type_check", specs)
         self.assertNotIn("route_get_notifications", specs)
 
 

@@ -132,6 +132,21 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def _validate_view_modes(self):
         return self.validate_view_modes()
 
+    def validate_for_update(
+        self,
+        *,
+        validate_code_file_bindings: bool,
+    ):
+        self.validate_singleton_sections()
+        self.validate_parent_section_map()
+        self.validate_view_modes()
+        self.validate_shown_param_ids()
+        self.validate_yaml_values()
+        self.validate_required_decoded_images()
+        if validate_code_file_bindings:
+            self.validate_code_file_bindings()
+        return self
+
     def validate_singleton_sections(self):
         output = SingletonSections()
         found = set()
@@ -240,11 +255,13 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 get_variant_base_and_effective_section_impl(self, core, variant_id)
             )
 
-            if (
-                not isinstance(base_impl, BaseCodeSectionImpl)
-                or not isinstance(effective_impl, BaseCodeSectionImpl)
-                or effective_impl.codeFileBinding is not None
+            if not isinstance(base_impl, BaseCodeSectionImpl) or not isinstance(
+                effective_impl, BaseCodeSectionImpl
             ):
+                continue
+            if effective_impl.codeFileBinding is not None:
+                if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                    gen_code_binding = effective_impl.codeFileBinding
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
