@@ -853,24 +853,36 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-function canEditLayoutForShareSession(): boolean {
+function canEditLayoutForShareSession(sectionIds: string[] | null): boolean {
   const shareSession = useShareSession.getState();
   if (!shareSession.isShareMode) {
     return true;
   }
-  return shareSession.sharePolicy?.allowLayoutChanges ?? true;
+  if (!(shareSession.sharePolicy?.allowLayoutChanges ?? true)) {
+    return false;
+  }
+  const allowedSections = shareSession.sharePolicy?.allowedSections;
+  if (allowedSections === null || allowedSections === undefined) {
+    return true;
+  }
+  if (!sectionIds || sectionIds.length === 0) {
+    return false;
+  }
+  return sectionIds.every((id) => allowedSections.includes(id));
 }
 
 export const debounced_route_set_top_level_section_layout = _.debounce(() => {
-  if (!canEditLayoutForShareSession()) {
+  const topLevelSections = createTopLevelSectionLayoutDict(
+    useProjectState.getState().sections,
+    useNodeInternals.getState().x,
+  );
+  const sectionIds = Object.keys(topLevelSections);
+  if (!canEditLayoutForShareSession(sectionIds)) {
     return;
   }
   route_set_top_level_section_layout({
     projectConfigId: getCurrProjectConfigId(),
-    topLevelSections: createTopLevelSectionLayoutDict(
-      useProjectState.getState().sections,
-      useNodeInternals.getState().x,
-    ),
+    topLevelSections,
   });
 }, 500);
 
@@ -894,7 +906,8 @@ export function getSectionChildren(
 }
 
 export async function groupActiveSections() {
-  if (!canEditLayoutForShareSession()) {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
     return;
   }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
@@ -906,7 +919,8 @@ export async function groupActiveSections() {
 }
 
 export async function ungroupActiveGroups() {
-  if (!canEditLayoutForShareSession()) {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
     return;
   }
   const groupIds = useProjectState.getState().projectConfig.activeIds;

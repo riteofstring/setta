@@ -1,9 +1,21 @@
-import { useShareCapabilities } from "state/hooks/share";
+import type { MouseEventHandler } from "react";
+import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
-export function ResizeHandle({ showResizeHandle, onMouseDown }) {
+type ResizeHandleProps = {
+  sectionId: string;
+  showResizeHandle: boolean;
+  onMouseDown: MouseEventHandler<HTMLDivElement>;
+};
+
+export function ResizeHandle({
+  sectionId,
+  showResizeHandle,
+  onMouseDown,
+}: ResizeHandleProps) {
   const { canEditLayout } = useShareCapabilities();
-  if (!canEditLayout) {
+  const canEditSection = useShareSectionAccess(sectionId);
+  if (!canEditLayout || !canEditSection) {
     return null;
   }
   return (

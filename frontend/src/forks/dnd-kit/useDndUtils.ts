@@ -8,6 +8,7 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
+import { useShareSectionAccess } from "state/hooks/share";
 import colors from "tailwindcss/colors";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
@@ -111,10 +112,12 @@ export function useDndProps({ sectionId, isTopLevel }) {
         : null,
     };
   }, _.isEqual);
+  const canEditSection = useShareSectionAccess(sectionId);
+  const resolvedDisabled = canEditSection ? disabled : true;
 
   return {
     id: sectionId,
     data: { isTopLevel, hasNested, onlyChildId },
-    disabled,
+    disabled: resolvedDisabled,
   };
 }

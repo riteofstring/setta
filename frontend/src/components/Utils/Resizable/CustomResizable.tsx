@@ -15,6 +15,7 @@ import {
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -191,9 +192,12 @@ function CustomResizableSuperCore({
   children,
 }) {
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const { canEditLayout } = useShareCapabilities();
+  const canEditSection = useShareSectionAccess(sectionId);
+  const canResize = canEditLayout && canEditSection;
 
   const enable =
-    disablePointerEvents || positionAndSizeLocked
+    disablePointerEvents || positionAndSizeLocked || !canResize
       ? false
       : {
           top: false,

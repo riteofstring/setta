@@ -14,7 +14,7 @@ import {
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { useSettings, useShareSession } from "state/definitions";
+import { useProjectState, useSettings, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
@@ -29,7 +29,18 @@ export function EditMenu() {
 
 function Items() {
   const isShareMode = useShareSession((x) => x.isShareMode);
+  const { allowedSections } = useShareSession((x) => ({
+    allowedSections: x.sharePolicy?.allowedSections ?? null,
+  }));
   const { canEditLayout, canEditStructure } = useShareCapabilities();
+  const topLevelSectionIds = useProjectState((state) =>
+    Object.keys(state.projectConfig.topLevelSections),
+  );
+  const canAutoLayout =
+    canEditLayout &&
+    (!isShareMode ||
+      allowedSections === null ||
+      topLevelSectionIds.every((id) => allowedSections.includes(id)));
   const shortcuts = useSettings((x) => {
     return {
       newCardShortcut: shortcutPrettified(x.shortcuts.newCardShortcut),
@@ -76,7 +87,7 @@ function Items() {
       >
         Restart Language Server
       </MenuItem>
-      <MenuItem onClick={autoLayout} disabled={!canEditLayout}>
+      <MenuItem onClick={autoLayout} disabled={!canAutoLayout}>
         Auto Layout
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />

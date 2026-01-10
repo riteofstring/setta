@@ -4,6 +4,7 @@ import { initializeShareDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_share_deployment } from "utils/generatedEndpoints";
+import type { SharePolicy } from "utils/generatedTypes";
 
 type ShareRouteInfo = {
   deploymentName: string | null;
@@ -126,6 +127,24 @@ type ShareCapabilities = {
   canEditStructure: boolean;
 };
 
+function isSectionAllowed(
+  sectionId: string | null | undefined,
+  sharePolicy: SharePolicy | null,
+  isShareMode: boolean,
+): boolean {
+  if (!isShareMode) {
+    return true;
+  }
+  const allowedSections = sharePolicy?.allowedSections;
+  if (allowedSections === null || allowedSections === undefined) {
+    return true;
+  }
+  if (!sectionId) {
+    return false;
+  }
+  return allowedSections.includes(sectionId);
+}
+
 export function useShareCapabilities(): ShareCapabilities {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const sharePolicy = useShareSession((x) => x.sharePolicy);
@@ -142,4 +161,14 @@ export function useShareCapabilities(): ShareCapabilities {
     canRun: canEditStructure || allowRun,
     canEditStructure,
   };
+}
+
+export function useShareSectionAccess(
+  sectionId: string | null | undefined,
+): boolean {
+  const { isShareMode, sharePolicy } = useShareSession((x) => ({
+    isShareMode: x.isShareMode,
+    sharePolicy: x.sharePolicy,
+  }));
+  return isSectionAllowed(sectionId, sharePolicy, isShareMode);
 }

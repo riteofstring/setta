@@ -89,7 +89,11 @@ function _ParamContainer({
           paramInfoId={paramInfoId}
           maybeErrorMessage={errorMessage}
         />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        <ResizeHandle
+          sectionId={sectionId}
+          showResizeHandle={true}
+          onMouseDown={onResizeStart}
+        />
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
         )}

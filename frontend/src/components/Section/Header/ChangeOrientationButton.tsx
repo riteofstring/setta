@@ -9,6 +9,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
 import { route_toggle_group_orientation } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -23,8 +24,14 @@ export function ChangeOrientationButton({
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
   });
+  const { canEditLayout } = useShareCapabilities();
+  const canEditSection = useShareSectionAccess(sectionId);
+  const isDisabled = !canEditLayout || !canEditSection;
 
   function onClick() {
+    if (isDisabled) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         const impl = getCurrEffectiveSectionImpl(state, sectionId);
@@ -46,8 +53,9 @@ export function ChangeOrientationButton({
 
   return (
     <button
-      className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
+      className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={onClick}
+      disabled={isDisabled}
     >
       {!isHorizontalOrientation ? (
         <TbArrowBigDownLinesFilled />

@@ -1,5 +1,5 @@
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { ZustandProjectState } from "state/definitions";
+import { useShareSession, ZustandProjectState } from "state/definitions";
 import { route_move_section } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
@@ -74,6 +74,9 @@ export function moveSectionWithBackend({
   newIndex: number | null;
   position: Position | null;
 }) {
+  if (useShareSession.getState().isShareMode) {
+    return;
+  }
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSection({

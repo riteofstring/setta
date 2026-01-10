@@ -45,6 +45,7 @@ from setta.routers import (
     terminals_ws_router,
     websocket_router,
 )
+from setta.routers.dependencies import maybe_get_share_session_id_from_request
 from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -255,6 +256,11 @@ async def _log_and_broadcast_http_error(
     )
     state: SettaFastAPIState | None = getattr(request.app.state, "setta", None)
     if state:
+        share_session_id = None
+        if state.share_mode:
+            share_session_id = maybe_get_share_session_id_from_request(request)
+            if share_session_id is not None:
+                log_context["share_session_id"] = share_session_id
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
             label=label,
@@ -263,6 +269,7 @@ async def _log_and_broadcast_http_error(
             project_config_id=project_config_id,
             handled=handled,
             context=log_context,
+            share_session_id=share_session_id,
         )
         return
 

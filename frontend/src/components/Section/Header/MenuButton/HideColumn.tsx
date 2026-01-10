@@ -6,6 +6,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities, useShareSectionAccess } from "state/hooks/share";
 import { route_set_browser_hide_column } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -18,8 +19,14 @@ export function HideColumn({ sectionId }) {
     );
     return impl.hideColumn;
   });
+  const { canEditLayout } = useShareCapabilities();
+  const canEditSection = useShareSectionAccess(sectionId);
+  const isDisabled = !canEditLayout || !canEditSection;
 
   function onClick() {
+    if (isDisabled) {
+      return;
+    }
     const nextHideColumn = !hideColumn;
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -38,7 +45,7 @@ export function HideColumn({ sectionId }) {
   }
 
   return (
-    <MenuItem onClick={onClick}>
+    <MenuItem onClick={onClick} disabled={isDisabled}>
       {hideColumn ? "Show Types" : "Hide Types"}
     </MenuItem>
   );
