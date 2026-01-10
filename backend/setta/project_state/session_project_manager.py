@@ -10,12 +10,6 @@ from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
-from setta.project_state.listener_artifact_updates import (
-    apply_listener_artifact_updates,
-)
-from setta.project_state.listener_dependency_updates import (
-    apply_listener_dependency_updates,
-)
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
     SaveAsNewProjectConfigRequest,
@@ -204,28 +198,11 @@ class SessionProjectManager(BaseProjectManager):
             project_config_id=projectConfigId,
             share_session_id=self.share_session_id,
         )
-
-        if dependency_updates:
-            apply_listener_dependency_updates(
-                project_state=project_state,
-                updates=dependency_updates,
-            )
-
-        artifact_payloads = []
-        if artifact_updates:
-            artifact_payloads = apply_listener_artifact_updates(
-                artifacts=self.artifacts,
-                updates=artifact_updates,
-            )
-
-        if dependency_updates:
-            await self.update_and_broadcast_project_state(project_state)
-
-        if artifact_payloads:
-            await self.websocket_msg_handler.broadcast_artifacts_update(
-                artifacts=artifact_payloads,
-                updateType="update",
-            )
+        await self._apply_listener_emit_updates_to_state(
+            project_state,
+            dependency_updates,
+            artifact_updates,
+        )
 
     @BaseProjectManager.enqueue_method
     async def create_run_command(

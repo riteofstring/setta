@@ -1687,18 +1687,12 @@ class BaseProjectManager(ABC):
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
         await self.update_and_broadcast_project_state(project_state)
 
-    @enqueue_method
-    async def apply_listener_emit_updates(
+    async def _apply_listener_emit_updates_to_state(
         self,
-        projectConfigId: ID,
+        project_state: ProjectStateSingleConfig,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
         artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:
-        if not dependency_updates and not artifact_updates:
-            raise ValueError("listener emits require dependency or artifact updates")
-
-        project_state = self.get_single_config_state(projectConfigId)
-
         artifact_payloads: list[BaseArtifactUnion] = []
 
         if dependency_updates:
@@ -1721,6 +1715,23 @@ class BaseProjectManager(ABC):
                 artifacts=artifact_payloads,
                 updateType="update",
             )
+
+    @enqueue_method
+    async def apply_listener_emit_updates(
+        self,
+        projectConfigId: ID,
+        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
+        artifact_updates: list[BaseArtifactUnionWithDiscriminator],
+    ) -> None:
+        if not dependency_updates and not artifact_updates:
+            raise ValueError("listener emits require dependency or artifact updates")
+
+        project_state = self.get_single_config_state(projectConfigId)
+        await self._apply_listener_emit_updates_to_state(
+            project_state,
+            dependency_updates,
+            artifact_updates,
+        )
 
     @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
