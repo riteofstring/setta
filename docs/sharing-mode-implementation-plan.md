@@ -167,9 +167,6 @@ Implemented:
 Status: completed. ShareRuntimeState + session store exist, share-mode mutation routes are wired to per-session overlays, session validation/cleanup/artifact caching are in place, and share artifact updates broadcast to the active share session after caching.
 - Implement `ShareRuntimeState` in `backend/setta/project_state/share_runtime_state.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
-  - `save` is a no-op (share mode is read-only for persistence).
-  - `watch_json_source_files`, `watch_artifact_files`, `watch_code_files` are no-ops.
-  - Override `update` to avoid writing canonical files; do not touch LSPs in share mode.
   - Override `create_run_command` to use a share run root (see step 8).
 - Add `ShareSessionStore` in `backend/setta/share/session_store.py`:
   - Methods: `create_session`, `get_session`, `update_session`, `touch_session`,
@@ -184,8 +181,8 @@ Implemented:
   per-viewer overlay state in memory.
 - Share deployments no longer require directory names to match the manifest
   (relocated deployment roots are accepted).
-- `ShareRuntimeState` keeps persistence/watchers as no-ops and only validates
-  state on updates.
+- `ShareRuntimeState` keeps persistence disabled and validates session state
+  without writing canonical files.
 - `ShareRuntimeState` tracks per-session artifacts and applies listener emits,
   broadcasting project state/artifact updates to the correct session(s).
 - `ShareRuntimeState` skips per-session artifact preloads; share artifact routes

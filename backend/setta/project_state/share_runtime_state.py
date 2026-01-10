@@ -126,13 +126,6 @@ class ShareRuntimeState:
             resolved_session_id, project_config_id
         )
 
-    def set_session_backend(
-        self, session_id: str, project_state_backend: ProjectStateBackend
-    ) -> None:
-        if session_id not in self._session_backends:
-            raise KeyError(f"Unknown share session backend: {session_id}")
-        self._session_backends[session_id] = project_state_backend
-
     def get_session_state(
         self, session_id: str, project_config_id: ID
     ) -> "ProjectStateSingleConfig":
@@ -182,29 +175,8 @@ class ShareRuntimeState:
         self._session_artifacts[session_id] = artifacts
         return artifacts
 
-    def get_session_ids(self) -> list[str]:
-        return list(self._session_backends.keys())
-
     def has_session_state(self, session_id: str) -> bool:
         return session_id in self._session_backends
-
-    def has_project_config(self, project_config_id: ID) -> bool:
-        return project_config_id in self.project_state_backend.projectConfigs
-
-    def save(self) -> None:
-        return None
-
-    def update(self, project_state: "ProjectStateSingleConfig") -> None:
-        project_state.validate_for_update(validate_code_file_bindings=False)
-
-    def watch_json_source_files(self) -> None:
-        return None
-
-    def watch_artifact_files(self) -> None:
-        return None
-
-    def watch_code_files(self) -> None:
-        return None
 
     async def create_run_command(
         self,
