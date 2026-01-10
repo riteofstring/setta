@@ -201,6 +201,7 @@ class ShareRuntimeState:
         if not section_id:
             section_id = project_state.projectConfig.entryCodeBlockId
 
+        # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
         gen_code = self._generate_gen_code(project_state)
         target_folder = self._create_share_run_folder(share_session_id)
         gen_code_path = self._write_snapshot_file(target_folder, gen_binding, gen_code)

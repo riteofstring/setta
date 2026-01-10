@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     AddKwargRequest,
     AutoLayoutTopLevelSectionsRequest,
     AppendDrawAreaLayerItemRequest,
+    ChangeParamImplRequest,
     CreateTopLevelSectionRequest,
     DeclineRenameRefactorRequest,
     DeleteKwargRequest,
@@ -28,6 +29,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetParamEnteredValueRequest,
     SetSectionNameRequest,
     SetTopLevelSectionLayoutRequest,
     SetSectionVariantNameRequest,
@@ -36,6 +38,7 @@ from setta.project_state.project_manager_types import (
     ToggleParamSelectedRequest,
     ToggleVariantFrozenRequest,
     UnselectAllParamsRequest,
+    UpdateParamImplConfigRequest,
 )
 from setta.routers.ai import GetLLMResponseRequest, route_get_llm_response
 from setta.routers.dependencies import require_share_session_id
@@ -50,6 +53,7 @@ from setta.routers.project_manager import (
     route_append_draw_area_layer_item,
     route_add_kwarg,
     route_auto_layout_top_level_sections,
+    route_change_param_impl,
     route_create_top_level_section,
     route_delete_sections,
     route_delete_kwarg,
@@ -67,6 +71,7 @@ from setta.routers.project_manager import (
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
     route_set_image_area_image_path,
+    route_set_param_entered_value,
     route_set_section_name,
     route_set_top_level_section_layout,
     route_set_section_variant_name,
@@ -75,6 +80,7 @@ from setta.routers.project_manager import (
     route_toggle_param_selected,
     route_toggle_variant_frozen,
     route_unselect_all_params,
+    route_update_param_impl_config,
 )
 from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
@@ -94,6 +100,9 @@ from setta.types.artifact import (
     LineChartSettings,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
@@ -103,7 +112,11 @@ from setta.types.project_config import (
     ProjectConfig,
     TopLevelSectionLayout,
 )
-from setta.types.project_state import ProjectStateBackend, ProjectStateCore
+from setta.types.project_state import (
+    ProjectStateBackend,
+    ProjectStateCore,
+    ProjectStateSingleConfig,
+)
 from setta.types.section_impls import (
     CodeFileAccessMode,
     SectionType,
@@ -241,6 +254,36 @@ def _write_share_project_with_section(
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id, section_id, variant_id
+
+
+def _write_share_project_with_code_param(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> tuple[ID, ID, ID]:
+    settings = SettingsState()
+    project_config = ProjectConfig(name=project_config_name)
+    project_state = ProjectStateSingleConfig(projectConfig=project_config)
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Dict,
+        Position(),
+    )
+    param_info_id = add_kwarg(settings, project_state, section_id)
+    backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+    backend.defaultProjectConfigId = project_config.id
+    dbe = DBE(root)
+    dbe.write_project(backend)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return project_config.id, section_id, param_info_id
 
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
@@ -707,6 +750,61 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                         sectionId=section_id,
                         paramInfoId=create_new_id(),
                         ignoreTypeErrors=True,
+                    ),
+                ),
+            ]
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                for name, handler, request in requests:
+                    with self.subTest(name=name):
+                        with self.assertRaises(HTTPException) as ctx:
+                            await handler(request, runtime_ctx)
+                        self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_code_param_edits_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, section_id, param_info_id = (
+                _write_share_project_with_code_param(
+                    root,
+                    project_config_name=project_config_name,
+                    deployment_version=root.name,
+                )
+            )
+            _write_share_policy(root, SharePolicy(allowParamChanges=True))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            requests = [
+                (
+                    "set_param_entered_value",
+                    route_set_param_entered_value,
+                    SetParamEnteredValueRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_info_id,
+                        value="123",
+                    ),
+                ),
+                (
+                    "update_param_impl_config",
+                    route_update_param_impl_config,
+                    UpdateParamImplConfigRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_info_id,
+                        newConfig={"value": "456"},
+                    ),
+                ),
+                (
+                    "change_param_impl",
+                    route_change_param_impl,
+                    ChangeParamImplRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_info_id,
+                        selectedId="CodeParam",
                     ),
                 ),
             ]
