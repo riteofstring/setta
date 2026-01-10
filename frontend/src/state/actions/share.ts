@@ -34,11 +34,8 @@ export async function initializeShareDeployment(
   setShareSessionCookie(session.shareSessionId);
   useShareSession.setState({
     isShareMode: true,
-    projectConfigName: session.projectConfigName,
-    deploymentVersion: session.deploymentVersion,
     shareSessionId: session.shareSessionId,
     sharePolicy: session.sharePolicy,
-    manifest: session.manifest,
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
@@ -73,22 +70,26 @@ export async function initializeShareDeployment(
   return true;
 }
 
-export async function loadShareProjectConfig(
-  projectConfigId: string,
-): Promise<boolean> {
+type ShareProjectConfigLoadParams = {
+  projectConfigName: string | undefined;
+  deploymentVersion: string | undefined;
+  projectConfigId: string;
+};
+
+export async function loadShareProjectConfig({
+  projectConfigName,
+  deploymentVersion,
+  projectConfigId,
+}: ShareProjectConfigLoadParams): Promise<boolean> {
   const shareSession = useShareSession.getState();
-  if (
-    !shareSession.isShareMode ||
-    !shareSession.projectConfigName ||
-    !shareSession.deploymentVersion
-  ) {
+  if (!shareSession.isShareMode || !projectConfigName || !deploymentVersion) {
     return false;
   }
 
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
   const stateRes = await route_load_share_project_config(
-    shareSession.projectConfigName,
-    shareSession.deploymentVersion,
+    projectConfigName,
+    deploymentVersion,
     { projectConfigId },
   );
   if (!res200(stateRes)) {

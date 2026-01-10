@@ -853,16 +853,12 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-function canEditLayoutForShareSession(): boolean {
-  const shareSession = useShareSession.getState();
-  if (!shareSession.isShareMode) {
-    return true;
-  }
-  return shareSession.sharePolicy?.allowLayoutChanges ?? true;
-}
-
 export const debounced_route_set_top_level_section_layout = _.debounce(() => {
-  if (!canEditLayoutForShareSession()) {
+  const shareSession = useShareSession.getState();
+  if (
+    shareSession.isShareMode &&
+    shareSession.sharePolicy?.allowLayoutChanges === false
+  ) {
     return;
   }
   route_set_top_level_section_layout({
@@ -898,9 +894,6 @@ export async function groupActiveSections() {
   if (shareSession.isShareMode) {
     return;
   }
-  if (!canEditLayoutForShareSession()) {
-    return;
-  }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
@@ -912,9 +905,6 @@ export async function groupActiveSections() {
 export async function ungroupActiveGroups() {
   const shareSession = useShareSession.getState();
   if (shareSession.isShareMode) {
-    return;
-  }
-  if (!canEditLayoutForShareSession()) {
     return;
   }
   const groupIds = useProjectState.getState().projectConfig.activeIds;

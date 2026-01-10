@@ -16,7 +16,6 @@ from setta.types.artifact import (
 )
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
-from setta.utils.utils import normalize_path
 
 router = SettaAPIRouter()
 
@@ -209,7 +208,7 @@ async def route_update_artifacts(
         results: list[ArtifactSaveResult] = []
         payloads: list[BaseArtifactUnion] = []
         for artifact in x.artifacts:
-            normalized_id = str(normalize_path(artifact.id))
+            normalized_id = artifacts.normalize_artifact_id(artifact.id)
             if normalized_id != artifact.id:
                 artifact = artifact.model_copy(update={"id": normalized_id})
             artifacts.cache_artifact_in_memory(

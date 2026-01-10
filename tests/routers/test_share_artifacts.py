@@ -8,7 +8,12 @@ from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from setta.database.db_objs import DBE
-from setta.routers.artifact import UpdateArtifactsRequest, route_update_artifacts
+from setta.routers.artifact import (
+    LoadCachedPathsRequest,
+    UpdateArtifactsRequest,
+    route_load_cached_image_artifacts,
+    route_update_artifacts,
+)
 from setta.server_state import SettaFastAPIState
 from setta.types.artifact import BrushStroke, BrushStrokeArtifact, DrawAreaBrushShape
 from setta.types.project_config import ProjectConfig
@@ -135,6 +140,50 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
                 session.id
             ).get_cached_brush_stroke(artifact_path)
             self.assertIsNotNone(cached)
+
+    async def test_share_preserves_absolute_artifact_ids_under_cwd(self) -> None:
+        with TemporaryDirectory(dir=str(Path.cwd())) as tmpdir:
+            project_config_name = "share-artifacts-cwd-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            (root / "artifacts").mkdir(parents=True, exist_ok=True)
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            artifact_path = root / "artifacts" / "stroke.json"
+            artifact = BrushStrokeArtifact(
+                id=str(artifact_path),
+                value=BrushStroke(
+                    strokeStyle="#000000",
+                    lineWidth=2.0,
+                    lineCap=DrawAreaBrushShape.butt,
+                ),
+            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                results = await route_update_artifacts(request, runtime_ctx)
+
+            self.assertEqual(str(artifact_path.resolve()), results[0].id)
+            cached = state.share_runtime_state.get_session_artifacts(
+                session.id
+            ).get_cached_brush_stroke(artifact_path)
+            self.assertIsNotNone(cached)
+            self.assertEqual(str(artifact_path.resolve()), cached.id)
+
+            image_path = root / "artifacts" / "preview.png"
+            image_path.write_bytes(b"img")
+            payload = LoadCachedPathsRequest(paths=[str(image_path)])
+            with runtime_context(state, session.id) as runtime_ctx:
+                loaded = route_load_cached_image_artifacts(payload, runtime_ctx)
+            self.assertEqual(1, len(loaded))
+            self.assertIsNotNone(loaded[0])
+            self.assertEqual(str(image_path.resolve()), loaded[0].id)
 
     async def test_share_updates_blocked_by_policy(self) -> None:
         with TemporaryDirectory() as tmpdir:

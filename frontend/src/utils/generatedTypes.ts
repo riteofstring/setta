@@ -4830,10 +4830,6 @@ const ShareDeploymentManifestSchema = z.object({
     .default(null),
 });
 
-export type ShareDeploymentManifest = z.infer<
-  typeof ShareDeploymentManifestSchema
->;
-
 const ShareDeploymentMetadataSchema = z.object({
   projectConfigName: z.string(),
   deploymentVersion: z.string(),

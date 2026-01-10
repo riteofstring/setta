@@ -37,7 +37,7 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.utils import build_gen_code_path
+from setta.utils.utils import build_gen_code_path, normalize_path
 from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
@@ -164,7 +164,12 @@ class ShareRuntimeState:
         if session_id in self._session_artifacts:
             return self._session_artifacts[session_id]
         scoped_sender = ScopedFrontendSender(self.frontend_sender, session_id)
-        artifacts = Artifacts(scoped_sender, self._artifact_watcher, self.dbe)
+        artifacts = Artifacts(
+            scoped_sender,
+            self._artifact_watcher,
+            self.dbe,
+            artifact_id_resolver=self._resolve_share_artifact_id,
+        )
         self._session_artifacts[session_id] = artifacts
         return artifacts
 
@@ -335,6 +340,12 @@ class ShareRuntimeState:
             return str(path.resolve())
         resolved = (self.deployment_root / path).resolve()
         return str(resolved)
+
+    def _resolve_share_artifact_id(self, path: Path | str) -> Path:
+        raw_path = Path(path)
+        if raw_path.is_absolute():
+            return raw_path.resolve()
+        return normalize_path(raw_path)
 
     def _resolve_code_binding(self, binding: CodeFileBinding) -> CodeFileBinding:
         path = binding.canonical_path

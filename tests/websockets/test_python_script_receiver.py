@@ -194,6 +194,9 @@ class _StubArtifacts:
         self.cached_types: dict[str, ArtifactType | None] = {}
         self.raise_value_error: bool = False
 
+    def normalize_artifact_id(self, path) -> str:
+        return str(normalize_path(path))
+
     def get_cached_artifact_type(self, path):
         if self.raise_value_error:
             raise ValueError("conflict")

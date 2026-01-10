@@ -30,7 +30,6 @@ import {
   SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
-  ShareDeploymentManifest,
   SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
@@ -112,22 +111,16 @@ export const useProjectState = withProjectState(
 
 type ShareSessionState = {
   isShareMode: boolean;
-  projectConfigName: string | null;
-  deploymentVersion: string | null;
   shareSessionId: string | null;
   sharePolicy: SharePolicy | null;
-  manifest: ShareDeploymentManifest | null;
 };
 
 export const useShareSession = withProjectState(
   createWithEqualityFn(
     withResetFn<ShareSessionState>(() => ({
       isShareMode: false,
-      projectConfigName: null,
-      deploymentVersion: null,
       shareSessionId: null,
       sharePolicy: null,
-      manifest: null,
     })),
   ),
 );

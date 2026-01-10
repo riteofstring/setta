@@ -1,6 +1,6 @@
 import * as Switch from "@radix-ui/react-switch";
 import _ from "lodash";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { loadShareProjectConfig } from "state/actions/share";
 import {
@@ -13,6 +13,8 @@ import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { ProjectConfig } from "utils/generatedTypes";
 
 export function ProjectConfigs() {
+  const { projectConfigName: routeProjectConfigName, version: routeVersion } =
+    useParams();
   const isShareMode = useShareSession((x) => x.isShareMode);
   const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
   const currProjectConfigId = useProjectState((x) => x.projectConfig.id);
@@ -56,6 +58,8 @@ export function ProjectConfigs() {
               currProjectConfigId={currProjectConfigId}
               currProjectConfigName={currProjectConfigName}
               isShareMode={isShareMode}
+              shareDeploymentVersion={routeVersion}
+              shareProjectConfigName={routeProjectConfigName}
               previewEnabled={previewEnabled}
             />
           ))}
@@ -70,6 +74,8 @@ type ProjectConfigRowProps = {
   currProjectConfigId: string;
   currProjectConfigName: string;
   isShareMode: boolean;
+  shareDeploymentVersion: string | undefined;
+  shareProjectConfigName: string | undefined;
   previewEnabled: boolean;
 };
 
@@ -78,6 +84,8 @@ function ProjectConfigRow({
   currProjectConfigId,
   currProjectConfigName,
   isShareMode,
+  shareDeploymentVersion,
+  shareProjectConfigName,
   previewEnabled,
 }: ProjectConfigRowProps) {
   const isActive = config.name === currProjectConfigName;
@@ -95,7 +103,11 @@ function ProjectConfigRow({
           if (config.id === currProjectConfigId) {
             return;
           }
-          void loadShareProjectConfig(config.id);
+          void loadShareProjectConfig({
+            projectConfigName: shareProjectConfigName,
+            deploymentVersion: shareDeploymentVersion,
+            projectConfigId: config.id,
+          });
         }}
         onMouseEnter={() => {
           onMouseEnter(config, currProjectConfigName, previewEnabled);
