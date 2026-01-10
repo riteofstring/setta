@@ -10,7 +10,11 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { RiPlayList2Fill } from "react-icons/ri";
-import { useBackendLogEvents, useLocalStorage } from "state/definitions";
+import {
+  useBackendLogEvents,
+  useLocalStorage,
+  useShareSession,
+} from "state/definitions";
 import {
   OverviewTabName,
   OverviewTabNameEnum,
@@ -37,12 +41,26 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
+  const { isShareMode, allowLLM } = useShareSession((x) => ({
+    isShareMode: x.isShareMode,
+    allowLLM: x.sharePolicy?.allowLLM ?? false,
+  }));
+  const showLLMTabs = !isShareMode || allowLLM;
+  let effectiveTabName = selectedTabName;
+  if (!showLLMTabs) {
+    if (
+      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
+      selectedTabName === OverviewTabNameEnum.ProjectAISettings
+    ) {
+      effectiveTabName = OverviewTabNameEnum.Overview;
+    }
+  }
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
   const commonProps = {
     vis,
-    selectedTabName,
+    selectedTabName: effectiveTabName,
     onTabClick: onOverviewTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
@@ -100,18 +118,22 @@ export function Overview() {
             </div>
           }
         />
-        <TabButton<OverviewTabName>
-          tabName={OverviewTabNameEnum.ProjectAIChat}
-          {...commonProps}
-          {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-          icon={<IoChatbox size={20} />}
-        />
-        <TabButton<OverviewTabName>
-          tabName={OverviewTabNameEnum.ProjectAISettings}
-          {...commonProps}
-          {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-          icon={<MdOutlineSmartToy size={20} />}
-        />
+        {showLLMTabs && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.ProjectAIChat}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<IoChatbox size={20} />}
+          />
+        )}
+        {showLLMTabs && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.ProjectAISettings}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<MdOutlineSmartToy size={20} />}
+          />
+        )}
         <Controls />
         <a
           href="https://docs.setta.dev"
@@ -130,7 +152,7 @@ export function Overview() {
         width={width}
         minimumWidth={250}
       >
-        {vis && <TabsVisible selectedTabName={selectedTabName} />}
+        {vis && <TabsVisible selectedTabName={effectiveTabName} />}
       </PaneContainer>
     </div>
   );

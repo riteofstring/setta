@@ -18,7 +18,6 @@ from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.section_impls import SectionType
-from setta.utils.utils import normalize_path
 
 
 class ListenerFrontendEmitResolverError(Exception):
@@ -126,7 +125,7 @@ class ListenerFrontendEmitResolver:
 
         resolved: list[BaseArtifactUnionWithDiscriminator] = []
         for artifact in artifact_updates:
-            normalized_path = self._normalize_artifact_path(artifact.id)
+            normalized_path = self._normalize_artifact_path(artifact.id, artifacts)
             self._assert_artifact_type_supported(
                 path=normalized_path,
                 artifact_type=artifact.type,
@@ -139,7 +138,7 @@ class ListenerFrontendEmitResolver:
             resolved.append(normalized_payload)
         return resolved
 
-    def _normalize_artifact_path(self, raw_path: str) -> str:
+    def _normalize_artifact_path(self, raw_path: str, artifacts: Artifacts) -> str:
         if not isinstance(raw_path, str):
             raise InvalidListenerArtifactUpdateError(
                 path=str(raw_path),
@@ -152,13 +151,13 @@ class ListenerFrontendEmitResolver:
                 message="artifact path must be a non-empty string",
             )
         try:
-            normalized = normalize_path(stripped)
+            normalized = artifacts.normalize_artifact_id(stripped)
         except Exception as exc:
             raise InvalidListenerArtifactUpdateError(
                 path=raw_path,
                 message="failed to normalize artifact path",
             ) from exc
-        return str(normalized)
+        return normalized
 
     def _coerce_artifact_model(
         self,

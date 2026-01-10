@@ -6,7 +6,11 @@ import {
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useNodeInternals, useSettings } from "state/definitions";
+import {
+  useNodeInternals,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
 import { setActiveSectionIds } from "../activeSections";
 import {
@@ -81,6 +85,13 @@ export function goToSection(sectionId: string) {
 }
 
 export function autoLayout() {
+  const shareSession = useShareSession.getState();
+  if (
+    shareSession.isShareMode &&
+    !(shareSession.sharePolicy?.allowLayoutChanges ?? true)
+  ) {
+    return;
+  }
   route_auto_layout_top_level_sections({
     projectConfigId: getCurrProjectConfigId(),
   });

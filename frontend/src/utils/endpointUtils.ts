@@ -70,9 +70,11 @@ export async function get<T>(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(resolveBackendUrl(address), {
+    const response = await fetch(resolveBackendUrl(fullAddress), {
       method: "POST",
       credentials: "include",
       headers: {

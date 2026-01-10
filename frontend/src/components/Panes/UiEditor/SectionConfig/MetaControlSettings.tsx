@@ -9,6 +9,7 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
@@ -20,6 +21,7 @@ type MetaControlConfigState = {
 };
 
 export function MetaControlSettings({ sectionId }: { sectionId: string }) {
+  const { canEditStructure } = useShareCapabilities();
   const { controlParamId, baseImplId, paramName } = useProjectState(
     (x): MetaControlConfigState => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -48,6 +50,9 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
   );
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
+    if (!canEditStructure) {
+      return;
+    }
     if (!selectedId || !controlParamId) {
       throw new Error();
     }

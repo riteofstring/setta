@@ -20,6 +20,7 @@ import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import { initializeShareSessionFromCurrentDeployment } from "../share";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
@@ -35,7 +36,7 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-async function loadProjectState(p: ProjectStateSingleConfig) {
+export async function loadProjectState(p: ProjectStateSingleConfig) {
   if (!p.projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -87,6 +88,10 @@ export function useNavigateToAnotherConfig() {
 }
 
 export async function loadAllProjectMetadata() {
+  const shareLoaded = await initializeShareSessionFromCurrentDeployment();
+  if (shareLoaded) {
+    return;
+  }
   const res = await route_load_all_project_metadata();
   if (res200(res)) {
     useAllProjectMetadata.setState(res.data);

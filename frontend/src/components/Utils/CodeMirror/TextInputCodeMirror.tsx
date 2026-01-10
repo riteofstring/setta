@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
@@ -131,12 +132,15 @@ function CoreCodeMirror({
   isKeyName,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const canUseLsp = !isShareMode;
+  const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
 
   const completionsFn = useCallback(
-    autocomplete && language === "python"
+    shouldAutocomplete
       ? getTextFieldCompletionsFn(sectionId, paramInfoId)
       : () => null,
-    [sectionId, paramInfoId, autocomplete],
+    [sectionId, paramInfoId, shouldAutocomplete],
   );
 
   const extensions = getExtensions({
