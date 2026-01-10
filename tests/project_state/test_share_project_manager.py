@@ -247,10 +247,11 @@ def _write_project_with_state(
     backend.defaultProjectConfigId = project_state.projectConfig.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_state.projectConfig.id,
-        projectConfigName=project_state.projectConfig.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -275,10 +276,11 @@ def _write_project_with_states(
     dbe = DBE(root)
     dbe.write_project(backend)
     default_config = backend.projectConfigs[resolved_default_id]
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=resolved_default_id,
-        projectConfigName=default_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -300,10 +302,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
             config_b = ProjectConfig(name="beta")
             root = _build_share_deployment_root(tmpdir, config_b.name)
             dbe = _write_project(root, [config_a, config_b], config_a.id)
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=config_b.id,
-                projectConfigName=config_b.name,
+                deploymentName=deployment_name,
+                defaultProjectConfigId=config_b.id,
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -324,18 +327,18 @@ class ShareRuntimeStateTests(unittest.TestCase):
             dbe = _write_project(root, [config], config.id)
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=config.id,
-                projectConfigName=config.name,
+                deploymentName=config.name,
+                defaultProjectConfigId=config.id,
                 deploymentVersion="v42",
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             self.assertNotEqual(root.name, manifest.deploymentVersion)
-            self.assertNotEqual(root.parent.name, manifest.projectConfigName)
+            self.assertNotEqual(root.parent.name, manifest.deploymentName)
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
-            self.assertEqual(config.name, manager.project_config_name)
+            self.assertEqual(config.name, manager.deployment_name)
             self.assertEqual(manifest.deploymentVersion, manager.deployment_version)
 
     def test_manifest_missing_project_config_raises(self) -> None:
@@ -343,10 +346,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
             config = ProjectConfig(name="alpha")
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=create_new_id(),
-                projectConfigName=config.name,
+                deploymentName=deployment_name,
+                defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -359,10 +363,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
             root = _build_share_deployment_root(tmpdir, "missing")
             dbe = DBE(root)
             dbe.write_project(ProjectStateBackend())
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=create_new_id(),
-                projectConfigName="missing",
+                deploymentName=deployment_name,
+                defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -374,10 +379,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "missing-project-json")
             dbe = DBE(root)
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=create_new_id(),
-                projectConfigName="missing-project-json",
+                deploymentName=deployment_name,
+                defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -688,10 +694,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
             config = ProjectConfig(name="alpha")
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=config.id,
-                projectConfigName=config.name,
+                deploymentName=deployment_name,
+                defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -766,10 +773,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
             config = ProjectConfig(name="alpha")
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
+            deployment_name = root.parent.name
             manifest = ShareDeploymentManifest(
                 version=1,
-                projectConfigId=config.id,
-                projectConfigName=config.name,
+                deploymentName=deployment_name,
+                defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())

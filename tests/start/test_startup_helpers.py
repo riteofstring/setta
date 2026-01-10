@@ -92,8 +92,8 @@ class ShareStartupHelperTests(unittest.TestCase):
     def _restore_share_deployments_folder(self) -> None:
         C.SHARE_DEPLOYMENTS_FOLDER = self.original_share_deployments_folder
 
-    def _create_deployment(self, project_name: str, version: str) -> Path:
-        path = self.share_root / project_name / version
+    def _create_deployment(self, deployment_name: str, version: str) -> Path:
+        path = self.share_root / deployment_name / version
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -108,7 +108,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         root = self._create_deployment("alpha", "v1")
         resolved = _resolve_share_deployment_root(
             deployment_root=root,
-            project_config_name=None,
+            deployment_name=None,
             deployment_version=None,
             latest=False,
         )
@@ -119,7 +119,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         with self.assertRaises(click.ClickException):
             _resolve_share_deployment_root(
                 deployment_root=root,
-                project_config_name="alpha",
+                deployment_name="alpha",
                 deployment_version=None,
                 latest=False,
             )
@@ -128,7 +128,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         with self.assertRaises(click.ClickException):
             _resolve_share_deployment_root(
                 deployment_root=None,
-                project_config_name=None,
+                deployment_name=None,
                 deployment_version=None,
                 latest=False,
             )
@@ -137,7 +137,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         with self.assertRaises(click.ClickException):
             _resolve_share_deployment_root(
                 deployment_root=None,
-                project_config_name="alpha",
+                deployment_name="alpha",
                 deployment_version=None,
                 latest=False,
             )
@@ -148,7 +148,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         self._create_deployment("alpha", "v2")
         resolved = _resolve_share_deployment_root(
             deployment_root=None,
-            project_config_name="alpha",
+            deployment_name="alpha",
             deployment_version=None,
             latest=True,
         )
@@ -158,7 +158,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         expected = self._create_deployment("alpha", "v2")
         resolved = _resolve_share_deployment_root(
             deployment_root=None,
-            project_config_name="alpha",
+            deployment_name="alpha",
             deployment_version="v2",
             latest=False,
         )
@@ -169,7 +169,7 @@ class ShareStartupHelperTests(unittest.TestCase):
         with self.assertRaises(click.ClickException):
             _resolve_share_deployment_root(
                 deployment_root=None,
-                project_config_name="alpha",
+                deployment_name="alpha",
                 deployment_version="1",
                 latest=False,
             )

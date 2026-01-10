@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
+import { buildSharePath } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_list_share_deployments,
@@ -40,6 +41,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState("");
   const [listenerEnabled, setListenerEnabled] = useState(true);
+  const [deploymentName, setDeploymentName] = useState("");
   const [publishedDeployment, setPublishedDeployment] =
     useState<ShareDeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
@@ -53,10 +55,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     if (!publishedDeployment) {
       return null;
     }
-    return buildShareUrl(
-      publishedDeployment.projectConfigName,
-      publishedDeployment.deploymentVersion,
-    );
+    return buildShareUrl(publishedDeployment.deploymentVersion);
   }, [publishedDeployment]);
 
   useEffect(() => {
@@ -82,6 +81,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setPolicyOverrides(createDefaultPolicyOverrides());
     setListenerEntrypoint("");
     setListenerEnabled(true);
+    setDeploymentName("");
     setPublishedDeployment(null);
     setErrorMessage(null);
   }
@@ -95,6 +95,11 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   }
 
   async function handlePublish(): Promise<void> {
+    const trimmedDeploymentName = deploymentName.trim();
+    if (!trimmedDeploymentName) {
+      setErrorMessage("Enter a deployment name before publishing.");
+      return;
+    }
     if (projectConfig.id === NULL_PROJECT_CONFIG_ID) {
       setErrorMessage("Select a project config before publishing.");
       return;
@@ -106,6 +111,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     const entrypointValue =
       trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
     const payload: PublishShareDeploymentRequestInput = {
+      deploymentName: trimmedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
       listenerEntrypoint: entrypointValue,
@@ -239,6 +245,15 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
         </SectionCard>
 
         <SectionCard title="Deployment" subtitle="Share link + instructions.">
+          <label className="flex flex-col gap-2 text-xs text-setta-500 dark:text-setta-400">
+            Deployment name
+            <input
+              className="w-full rounded-md border border-setta-200 bg-white/80 px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+              placeholder="my-share-deployment"
+              value={deploymentName}
+              onChange={(event) => setDeploymentName(event.target.value)}
+            />
+          </label>
           {!publishedDeployment ? (
             <div className="rounded-md border border-dashed border-setta-200 bg-white/70 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
               Publish to generate a deployment version and share URL.
@@ -246,11 +261,20 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           ) : (
             <div className="flex flex-col gap-3">
               <div className="text-xs text-setta-500 dark:text-setta-400">
-                Project config
+                Deployment name
               </div>
               <ShareValueRow
-                value={publishedDeployment.projectConfigName}
-                onCopy={() => handleCopy(publishedDeployment.projectConfigName)}
+                value={publishedDeployment.deploymentName}
+                onCopy={() => handleCopy(publishedDeployment.deploymentName)}
+              />
+              <div className="text-xs text-setta-500 dark:text-setta-400">
+                Default config
+              </div>
+              <ShareValueRow
+                value={publishedDeployment.defaultProjectConfigName}
+                onCopy={() =>
+                  handleCopy(publishedDeployment.defaultProjectConfigName)
+                }
               />
               <div className="text-xs text-setta-500 dark:text-setta-400">
                 Deployment version
@@ -282,10 +306,10 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
               If the share URL is blank or errors, start a share backend:
             </div>
             <code className="block whitespace-pre-wrap rounded-md bg-white/80 px-2 py-1 font-mono text-[11px] text-setta-600 dark:bg-setta-950 dark:text-setta-300">
-              setta --port 8001 share --project-config-name{" "}
+              setta --port 8001 share --deployment-name{" "}
               {publishedDeployment
-                ? publishedDeployment.projectConfigName
-                : "<project-config-name>"}{" "}
+                ? publishedDeployment.deploymentName
+                : "<deployment-name>"}{" "}
               --version{" "}
               {publishedDeployment
                 ? publishedDeployment.deploymentVersion
@@ -491,17 +515,17 @@ function RecentDeploymentList({
       </div>
       <div className="flex flex-col gap-2">
         {deployments.slice(0, 5).map((deployment) => {
-          const url = buildShareUrl(
-            deployment.projectConfigName,
-            deployment.deploymentVersion,
-          );
+          const url = buildShareUrl(deployment.deploymentVersion);
           return (
             <div
-              key={`${deployment.projectConfigName}-${deployment.deploymentVersion}`}
+              key={`${deployment.deploymentName}-${deployment.deploymentVersion}`}
               className="rounded-md border border-setta-200 bg-white/70 px-3 py-2 text-[11px] text-setta-500 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-400"
             >
               <div className="font-mono text-[11px] text-setta-600 dark:text-setta-300">
-                {deployment.projectConfigName}/{deployment.deploymentVersion}
+                {deployment.deploymentName}/{deployment.deploymentVersion}
+              </div>
+              <div className="text-[10px] text-setta-500 dark:text-setta-400">
+                Default config: {deployment.defaultProjectConfigName}
               </div>
               <div className="mb-2 truncate text-[10px] text-setta-400 dark:text-setta-500">
                 {deployment.deploymentRoot}
@@ -509,11 +533,13 @@ function RecentDeploymentList({
               <div className="flex flex-wrap gap-2">
                 <button
                   className="cursor-pointer rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() =>
-                    onCopy(
-                      `${deployment.projectConfigName}/${deployment.deploymentVersion}`,
-                    )
-                  }
+                  onClick={() => onCopy(deployment.deploymentName)}
+                >
+                  Copy deployment name
+                </button>
+                <button
+                  className="cursor-pointer rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                  onClick={() => onCopy(deployment.deploymentVersion)}
                 >
                   Copy version
                 </button>
@@ -538,11 +564,8 @@ function RecentDeploymentList({
   );
 }
 
-function buildShareUrl(
-  projectConfigName: string,
-  deploymentVersion: string,
-): string {
-  const sharePath = `/share/${projectConfigName}/${deploymentVersion}`;
+function buildShareUrl(deploymentVersion: string): string {
+  const sharePath = buildSharePath(deploymentVersion, null);
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}${sharePath}`;
   }

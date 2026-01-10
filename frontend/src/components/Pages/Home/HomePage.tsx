@@ -22,6 +22,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import {
+  buildSharePath,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_ROUTER_PATH,
@@ -37,7 +38,6 @@ export function HomePage() {
     _.isEqual,
   );
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const shareDeploymentName = useShareSession((x) => x.shareDeploymentName);
   const shareDeploymentVersion = useShareSession(
     (x) => x.shareDeploymentVersion,
   );
@@ -59,7 +59,6 @@ export function HomePage() {
           defaultProjectConfigId={defaultProjectConfigId}
           setIsCreatingConfig={setIsCreatingConfig}
           isShareMode={isShareMode}
-          shareDeploymentName={shareDeploymentName}
           shareDeploymentVersion={shareDeploymentVersion}
         />
       )}
@@ -72,14 +71,12 @@ function RightColumn({
   defaultProjectConfigId,
   setIsCreatingConfig,
   isShareMode,
-  shareDeploymentName,
   shareDeploymentVersion,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
   isShareMode: boolean;
-  shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
@@ -190,7 +187,6 @@ function RightColumn({
         onSelectProject={onSelectProject}
         selectionEnabled={selectionEnabled}
         isShareMode={isShareMode}
-        shareDeploymentName={shareDeploymentName}
         shareDeploymentVersion={shareDeploymentVersion}
       />
     </div>
@@ -204,7 +200,6 @@ function ProjectItems({
   onSelectProject,
   selectionEnabled,
   isShareMode,
-  shareDeploymentName,
   shareDeploymentVersion,
 }: {
   projects: Array<ProjectConfig>;
@@ -213,7 +208,6 @@ function ProjectItems({
   onSelectProject: (e: React.MouseEvent, id: string) => void;
   selectionEnabled: boolean;
   isShareMode: boolean;
-  shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
 }) {
   const searchValue = useHomePageSearch((x) => x.value);
@@ -245,7 +239,6 @@ function ProjectItems({
             inSelectionMode={selectionMode}
             selectionEnabled={selectionEnabled}
             isShareMode={isShareMode}
-            shareDeploymentName={shareDeploymentName}
             shareDeploymentVersion={shareDeploymentVersion}
           />
         ))
@@ -263,7 +256,6 @@ function ProjectItem({
   inSelectionMode,
   selectionEnabled,
   isShareMode,
-  shareDeploymentName,
   shareDeploymentVersion,
 }: {
   project: ProjectConfig;
@@ -273,7 +265,6 @@ function ProjectItem({
   inSelectionMode: boolean;
   selectionEnabled: boolean;
   isShareMode: boolean;
-  shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
 }) {
   const itemStyles =
@@ -281,7 +272,6 @@ function ProjectItem({
   const projectPath = resolveProjectPath(
     project.name,
     isShareMode,
-    shareDeploymentName,
     shareDeploymentVersion,
   );
 
@@ -404,16 +394,15 @@ function ThumbnailArea({
 function resolveProjectPath(
   projectName: string,
   isShareMode: boolean,
-  shareDeploymentName: string | null,
   shareDeploymentVersion: string | null,
 ): string | null {
   if (!isShareMode) {
     return pathRelativeToProject(projectName);
   }
-  if (!shareDeploymentName || !shareDeploymentVersion) {
+  if (!shareDeploymentVersion) {
     return null;
   }
-  return `/share/${shareDeploymentName}/${shareDeploymentVersion}/${projectName}`;
+  return buildSharePath(shareDeploymentVersion, projectName);
 }
 
 function PreviewImg({

@@ -16,8 +16,8 @@ class ShareDeploymentListenerConfig(BaseModel, extra="forbid"):
 
 class ShareDeploymentManifest(BaseModel, extra="forbid"):
     version: int
-    projectConfigId: ID
-    projectConfigName: str
+    deploymentName: str
+    defaultProjectConfigId: ID
     deploymentVersion: str
     createdAt: datetime = Field(default_factory=get_now_timestamp)
     listener: ShareDeploymentListenerConfig | None = None
@@ -44,15 +44,17 @@ class SharePolicy(BaseModel, extra="forbid"):
 
 
 class ShareDeploymentMetadata(BaseModel, extra="forbid"):
-    projectConfigName: str
+    deploymentName: str
     deploymentVersion: str
+    defaultProjectConfigId: ID
+    defaultProjectConfigName: str
     createdAt: datetime
     deploymentRoot: Path
     sharePolicyPath: Path
 
 
 class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
-    projectConfigName: str
+    deploymentName: str
     deploymentVersion: str
     shareSessionId: str
     defaultProjectConfigId: ID

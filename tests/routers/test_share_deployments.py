@@ -93,7 +93,9 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 if project_config_id is None:
                     self.fail("Expected a default project config id for publishing.")
 
+                deployment_name = "share-deployment"
                 request = PublishShareDeploymentRequest(
+                    deploymentName=deployment_name,
                     projectConfigId=project_config_id
                 )
                 metadata = await route_publish_share_deployment(request, state)
@@ -117,9 +119,12 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 ]
 
                 self.assertEqual(1, manifest.version)
-                self.assertEqual(project_config_id, manifest.projectConfigId)
-                self.assertEqual(project_config.name, manifest.projectConfigName)
-                self.assertEqual(metadata.projectConfigName, manifest.projectConfigName)
+                self.assertEqual(deployment_name, manifest.deploymentName)
+                self.assertEqual(project_config_id, manifest.defaultProjectConfigId)
+                self.assertEqual(
+                    project_config.name, metadata.defaultProjectConfigName
+                )
+                self.assertEqual(metadata.deploymentName, manifest.deploymentName)
                 self.assertEqual(
                     metadata.deploymentVersion, manifest.deploymentVersion
                 )
@@ -182,7 +187,10 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 metadata = await route_publish_share_deployment(
-                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    PublishShareDeploymentRequest(
+                        deploymentName="share-deployment",
+                        projectConfigId=project_config_id,
+                    ),
                     state,
                 )
                 snapshot = ProjectStateBackend.model_validate(
@@ -299,7 +307,10 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     share_mode=False,
                 )
                 metadata = await route_publish_share_deployment(
-                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    PublishShareDeploymentRequest(
+                        deploymentName="share-deployment",
+                        projectConfigId=project_config_id,
+                    ),
                     state,
                 )
                 snapshot = ProjectStateBackend.model_validate(
@@ -459,7 +470,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     share_mode=False,
                 )
                 request = PublishShareDeploymentRequest(
-                    projectConfigId=project_config_id
+                    deploymentName="share-deployment",
+                    projectConfigId=project_config_id,
                 )
                 metadata = await route_publish_share_deployment(request, state)
 
@@ -598,18 +610,25 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                         project_config_id
                     ]
                 )
+                deployment_name = "share-deployment"
 
                 first = await route_publish_share_deployment(
-                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    PublishShareDeploymentRequest(
+                        deploymentName=deployment_name,
+                        projectConfigId=project_config_id,
+                    ),
                     state,
                 )
                 second = await route_publish_share_deployment(
-                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    PublishShareDeploymentRequest(
+                        deploymentName=deployment_name,
+                        projectConfigId=project_config_id,
+                    ),
                     state,
                 )
 
                 versions = route_list_share_deployment_versions(
-                    project_config.name,
+                    deployment_name,
                     state,
                 )
                 self.assertEqual(
@@ -618,13 +637,16 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertTrue(
                     all(
-                        entry.projectConfigName == project_config.name
+                        entry.defaultProjectConfigName == project_config.name
                         for entry in versions
                     )
                 )
 
-                latest = route_get_latest_share_deployment(project_config.name, state)
+                latest = route_get_latest_share_deployment(deployment_name, state)
                 self.assertEqual(second.deploymentVersion, latest.deploymentVersion)
-                self.assertEqual(project_config.name, latest.projectConfigName)
+                self.assertEqual(deployment_name, latest.deploymentName)
+                self.assertEqual(
+                    project_config.name, latest.defaultProjectConfigName
+                )
         except RuntimeError as exc:
             self.skipTest(str(exc))

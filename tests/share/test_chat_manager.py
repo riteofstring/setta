@@ -49,10 +49,11 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())

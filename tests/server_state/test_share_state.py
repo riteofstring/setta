@@ -34,6 +34,7 @@ def _write_share_project(
     root: Path,
     *,
     project_config_name: str,
+    deployment_name: str | None = None,
     deployment_version: str,
 ) -> ProjectConfig:
     dbe = DBE(root)
@@ -43,10 +44,11 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    resolved_deployment_name = deployment_name or root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=resolved_deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -117,6 +119,7 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             _write_share_project(
                 root,
                 project_config_name=manifest_name,
+                deployment_name=manifest_name,
                 deployment_version=manifest_version,
             )
             state = await self._build_state(root)
@@ -144,6 +147,7 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             _write_share_project(
                 root,
                 project_config_name=manifest_name,
+                deployment_name=manifest_name,
                 deployment_version=manifest_version,
             )
             state = await self._build_state(root)

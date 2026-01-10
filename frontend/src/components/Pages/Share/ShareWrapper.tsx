@@ -5,6 +5,7 @@ import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import { useShareSession } from "state/definitions";
 import { useLoadShareDeployment } from "state/hooks/share";
+import { SHARE_HOME_ROUTE_SEGMENT } from "utils/constants";
 import { AppShell } from "../AppShell";
 
 type ShareWrapperRenderState = {
@@ -18,12 +19,17 @@ type ShareWrapperChildren =
 
 type ShareWrapperProps = {
   children: ShareWrapperChildren;
+  mode?: "project" | "home";
 };
 
-export function ShareWrapper({ children }: ShareWrapperProps) {
+export function ShareWrapper({
+  children,
+  mode = "project",
+}: ShareWrapperProps) {
   useShareWebsocket();
   useShareHTMLTitle();
-  const [doneLoading, is404] = useLoadShareDeployment();
+  const loadProject = mode === "project";
+  const [doneLoading, is404] = useLoadShareDeployment(loadProject);
   const settingsLoaded = useLoadSettings();
   const resolvedChildren =
     typeof children === "function"
@@ -57,33 +63,25 @@ function useShareWebsocket() {
 }
 
 function useShareHTMLTitle() {
-  const { projectConfigName, version, targetProjectConfigName } = useParams();
+  const { version, targetProjectConfigName } = useParams();
 
   useEffect(() => {
-    document.title = resolveShareTitle(
-      projectConfigName,
-      version,
-      targetProjectConfigName,
-    );
-  }, [projectConfigName, targetProjectConfigName, version]);
+    document.title = resolveShareTitle(version, targetProjectConfigName);
+  }, [targetProjectConfigName, version]);
 }
 
 function resolveShareTitle(
-  deploymentName: string | undefined,
   version: string | undefined,
   targetConfigName: string | undefined,
 ): string {
-  if (!deploymentName) {
+  if (!version) {
     return "Sharing Mode";
   }
+  if (targetConfigName === SHARE_HOME_ROUTE_SEGMENT) {
+    return `Share ${version} Home`;
+  }
   if (targetConfigName) {
-    if (version) {
-      return `Share ${deploymentName}/${version}/${targetConfigName}`;
-    }
-    return `Share ${deploymentName}/${targetConfigName}`;
+    return `Share ${version}/${targetConfigName}`;
   }
-  if (version) {
-    return `Share ${deploymentName}/${version}`;
-  }
-  return `Share ${deploymentName}`;
+  return `Share ${version}`;
 }

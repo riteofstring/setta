@@ -563,36 +563,34 @@ def _resolve_port(host: str, port: int | None) -> int:
 def _resolve_share_deployment_root(
     *,
     deployment_root: Path | None,
-    project_config_name: str | None,
+    deployment_name: str | None,
     deployment_version: str | None,
     latest: bool,
 ) -> Path:
     if deployment_root is not None:
-        if project_config_name or deployment_version or latest:
+        if deployment_name or deployment_version or latest:
             raise click.ClickException(
-                "Use either --deployment-root or --project-config-name/--version/--latest."
+                "Use either --deployment-root or --deployment-name/--version/--latest."
             )
         resolved = deployment_root.expanduser().resolve()
         if not resolved.exists():
             raise click.ClickException(f"Share deployment root not found: {resolved}")
         return resolved
-    if not project_config_name:
+    if not deployment_name:
         raise click.ClickException(
-            "Missing --project-config-name (or use --deployment-root)."
+            "Missing --deployment-name (or use --deployment-root)."
         )
     if deployment_version and latest:
         raise click.ClickException("Use either --version or --latest, not both.")
     if not deployment_version and not latest:
         raise click.ClickException("Missing --version or --latest.")
-    project_root = (C.SHARE_DEPLOYMENTS_FOLDER / project_config_name).resolve()
+    project_root = (C.SHARE_DEPLOYMENTS_FOLDER / deployment_name).resolve()
     if not project_root.exists():
-        raise click.ClickException(f"Share deployment not found: {project_config_name}")
+        raise click.ClickException(f"Share deployment not found: {deployment_name}")
     if latest:
         versions = iter_share_deployment_versions(project_root)
         if not versions:
-            raise click.ClickException(
-                f"Share deployment not found: {project_config_name}"
-            )
+            raise click.ClickException(f"Share deployment not found: {deployment_name}")
         _, latest_root = max(versions, key=lambda item: item[0])
         return latest_root.resolve()
     if parse_share_deployment_version(deployment_version) is None:
@@ -602,7 +600,7 @@ def _resolve_share_deployment_root(
     resolved = (project_root / deployment_version).resolve()
     if not resolved.exists():
         raise click.ClickException(
-            f"Share deployment not found: {project_config_name}/{deployment_version}"
+            f"Share deployment not found: {deployment_name}/{deployment_version}"
         )
     return resolved
 
@@ -884,9 +882,9 @@ def export_db(readable: bool, readable_with_variants: bool) -> None:
     help="Path to a share deployment root (contains manifest.json/project.json).",
 )
 @click.option(
-    "--project-config-name",
+    "--deployment-name",
     default=None,
-    help="Project config name under setta_files/share_deployments.",
+    help="Deployment name under setta_files/share_deployments.",
 )
 @click.option(
     "--version",
@@ -899,7 +897,7 @@ def export_db(readable: bool, readable_with_variants: bool) -> None:
 def share(
     ctx: click.Context,
     deployment_root: Path | None,
-    project_config_name: str | None,
+    deployment_name: str | None,
     deployment_version: str | None,
     latest: bool,
 ) -> None:
@@ -919,7 +917,7 @@ def share(
 
     resolved_deployment_root = _resolve_share_deployment_root(
         deployment_root=deployment_root,
-        project_config_name=project_config_name,
+        deployment_name=deployment_name,
         deployment_version=deployment_version,
         latest=latest,
     )
@@ -933,12 +931,14 @@ def share(
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_project_name = manifest.projectConfigName
     resolved_version = manifest.deploymentVersion
-    share_url = f"{C.BACKEND}/share/{resolved_project_name}/{resolved_version}"
+    resolved_deployment_label = deployment_name or manifest.deploymentName
+    share_url = f"{C.BACKEND}/share/{resolved_version}"
     auto_open = _should_auto_open(no_open)
     C.OPEN_BROWSER_ON_START = share_url if auto_open else None
-    click.echo(f"Starting share backend for {resolved_project_name}/{resolved_version}")
+    click.echo(
+        f"Starting share backend for {resolved_deployment_label}/{resolved_version}"
+    )
     click.echo(f"Share URL: {share_url}")
 
     config = uvicorn.Config(

@@ -738,18 +738,18 @@ export async function route_list_share_deployments(): Promise<
 }
 
 async function route_list_share_deployment_versions(
-  projectConfigName: string,
+  deploymentName: string,
 ): Promise<ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>> {
-  return await get("/share/deployments/{projectConfigName}/versions", {
-    projectConfigName,
+  return await get("/share/deployments/{deploymentName}/versions", {
+    deploymentName,
   });
 }
 
-export async function route_get_latest_share_deployment(
-  projectConfigName: string,
+async function route_get_latest_share_deployment(
+  deploymentName: string,
 ): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
-  return await get("/share/deployments/{projectConfigName}/latest", {
-    projectConfigName,
+  return await get("/share/deployments/{deploymentName}/latest", {
+    deploymentName,
   });
 }
 
@@ -759,40 +759,40 @@ export async function route_create_share_session_current(): Promise<
   return await post("/share/deployments/current/session", null);
 }
 
-export async function route_create_share_session(
-  projectConfigName: string,
+async function route_create_share_session(
+  deploymentName: string,
   version: string,
 ): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
   return await post(
-    "/share/deployments/{projectConfigName}/{version}/session",
+    "/share/deployments/{deploymentName}/{version}/session",
     null,
-    { projectConfigName, version },
+    { deploymentName, version },
   );
 }
 
 async function route_get_share_deployment_state(
-  projectConfigName: string,
+  deploymentName: string,
   version: string,
 ): Promise<
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
 > {
-  return await get("/share/deployments/{projectConfigName}/{version}/state", {
-    projectConfigName,
+  return await get("/share/deployments/{deploymentName}/{version}/state", {
+    deploymentName,
     version,
   });
 }
 
 export async function route_load_share_project_config(
-  projectConfigName: string,
+  deploymentName: string,
   version: string,
   x: gt.LoadShareProjectConfigRequestInput,
 ): Promise<
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
 > {
   return await post(
-    "/share/deployments/{projectConfigName}/{version}/project_config",
+    "/share/deployments/{deploymentName}/{version}/project_config",
     x,
-    { projectConfigName, version },
+    { deploymentName, version },
   );
 }
 

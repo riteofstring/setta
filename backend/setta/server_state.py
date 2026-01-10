@@ -464,7 +464,7 @@ class SettaFastAPIState:
                 ),
                 label="share-run-cleanup",
                 extra_values={
-                    "project_config_name": self.share_runtime_state.project_config_name,
+                    "deployment_name": self.share_runtime_state.deployment_name,
                     "deployment_version": self.share_runtime_state.deployment_version,
                 },
             )
@@ -514,7 +514,7 @@ class SettaFastAPIState:
             ),
             label="share-session-cleanup",
             extra_values={
-                "project_config_name": self.share_runtime_state.project_config_name,
+                "deployment_name": self.share_runtime_state.deployment_name,
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
@@ -551,7 +551,7 @@ class SettaFastAPIState:
             raise FileNotFoundError(
                 f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
             )
-        project_config_name = manifest.projectConfigName
+        deployment_name = manifest.deploymentName
         deployment_version = manifest.deploymentVersion
         share_deployments_root = share_deployment_root.parent.parent
         if share_deployments_root.name == "share_deployments":
@@ -563,7 +563,7 @@ class SettaFastAPIState:
         else:
             base_root = share_deployment_root.parent
         runtime_root = (
-            base_root / "share_runtime" / project_config_name / deployment_version
+            base_root / "share_runtime" / deployment_name / deployment_version
         ).resolve()
         runtime_root.mkdir(parents=True, exist_ok=True)
         return runtime_root

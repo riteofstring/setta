@@ -146,10 +146,11 @@ def _write_project(root: Path) -> DBE:
     backend.defaultProjectConfigId = state.projectConfig.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=state.projectConfig.id,
-        projectConfigName=state.projectConfig.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=state.projectConfig.id,
         deploymentVersion=root.name,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())

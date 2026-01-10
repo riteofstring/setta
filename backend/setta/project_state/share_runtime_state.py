@@ -59,10 +59,11 @@ class ShareRuntimeState:
         self.frontend_sender = frontend_sender
         self.project_state_backend = self.load_initial_state()
         self.manifest = self.dbe.read_share_manifest()
-        self.project_config_name = self._resolve_project_config_name()
+        self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()
-        self._validate_deployment_root()
         self.default_project_config_id = self._resolve_default_project_config_id()
+        self.default_project_config_name = self._resolve_default_project_config_name()
+        self._validate_deployment_root()
         self.project_state_backend.defaultProjectConfigId = (
             self.default_project_config_id
         )
@@ -215,7 +216,7 @@ class ShareRuntimeState:
         )
 
     def _resolve_default_project_config_id(self) -> ID:
-        project_config_id = self.manifest.projectConfigId
+        project_config_id = self.manifest.defaultProjectConfigId
         if project_config_id not in self.project_state_backend.projectConfigs:
             raise KeyError(
                 "Share deployment manifest references missing project config: "
@@ -223,11 +224,21 @@ class ShareRuntimeState:
             )
         return project_config_id
 
-    def _resolve_project_config_name(self) -> str:
-        project_config_name = self.manifest.projectConfigName
-        if not project_config_name:
-            raise ValueError("Share deployment manifest missing projectConfigName")
-        return project_config_name
+    def _resolve_default_project_config_name(self) -> str:
+        project_config_id = self.default_project_config_id
+        project_configs = self.project_state_backend.projectConfigs
+        if project_config_id not in project_configs:
+            raise KeyError(
+                "Share deployment manifest references missing project config: "
+                f"{project_config_id}"
+            )
+        return project_configs[project_config_id].name
+
+    def _resolve_deployment_name(self) -> str:
+        deployment_name = self.manifest.deploymentName
+        if not deployment_name:
+            raise ValueError("Share deployment manifest missing deploymentName")
+        return deployment_name
 
     def _resolve_deployment_version(self) -> str:
         deployment_version = self.manifest.deploymentVersion

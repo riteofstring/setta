@@ -392,15 +392,14 @@ export const RouteEnum = {
   LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
   LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
   SHARE_DEPLOYMENTS: "/share/deployments",
-  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{projectConfigName}/versions",
-  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{projectConfigName}/latest",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
   SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   SHARE_DEPLOYMENT_SESSION:
-    "/share/deployments/{projectConfigName}/{version}/session",
+    "/share/deployments/{deploymentName}/{version}/session",
   SHARE_DEPLOYMENT_PROJECT_CONFIG:
-    "/share/deployments/{projectConfigName}/{version}/project_config",
-  SHARE_DEPLOYMENT_STATE:
-    "/share/deployments/{projectConfigName}/{version}/state",
+    "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
   WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
@@ -4822,8 +4821,8 @@ const ShareDeploymentListenerConfigSchema = z.object({
 
 const ShareDeploymentManifestSchema = z.object({
   version: z.int(),
-  projectConfigId: IDSchema,
-  projectConfigName: z.string(),
+  deploymentName: z.string(),
+  defaultProjectConfigId: IDSchema,
   deploymentVersion: z.string(),
   createdAt: z.iso.datetime().default(get_now_timestamp),
   listener: z
@@ -4832,8 +4831,10 @@ const ShareDeploymentManifestSchema = z.object({
 });
 
 const ShareDeploymentMetadataSchema = z.object({
-  projectConfigName: z.string(),
+  deploymentName: z.string(),
   deploymentVersion: z.string(),
+  defaultProjectConfigId: IDSchema,
+  defaultProjectConfigName: z.string(),
   createdAt: z.iso.datetime(),
   deploymentRoot: z.string(),
   sharePolicyPath: z.string(),
@@ -4857,7 +4858,7 @@ const SharePolicySchema = z.object({
 export type SharePolicy = z.infer<typeof SharePolicySchema>;
 
 const ShareDeploymentSessionResponseSchema = z.object({
-  projectConfigName: z.string(),
+  deploymentName: z.string(),
   deploymentVersion: z.string(),
   shareSessionId: z.string(),
   defaultProjectConfigId: IDSchema,
@@ -6030,6 +6031,7 @@ const SharePolicyOverridesSchema = z.object({
 });
 
 const PublishShareDeploymentRequestSchema = z.object({
+  deploymentName: z.string(),
   projectConfigId: IDSchema,
   sharePolicyOverrides: z
     .union([SharePolicyOverridesSchema, z.null()])

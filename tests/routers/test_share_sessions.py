@@ -42,10 +42,11 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    deployment_name = deployment_root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
@@ -66,11 +67,11 @@ def _write_share_project_with_configs(
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
-    default_config = project_state.projectConfigs[default_project_config_id]
+    deployment_name = deployment_root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=default_project_config_id,
-        projectConfigName=default_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=default_project_config_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
@@ -134,7 +135,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 state,
             )
             self.assertEqual(
-                project_config_name, session_response.projectConfigName
+                project_config_name, session_response.deploymentName
             )
             self.assertEqual(
                 deployment_version, session_response.deploymentVersion
@@ -239,7 +240,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             session_response = await route_create_share_session_current(state)
 
             self.assertEqual(
-                project_config_name, session_response.projectConfigName
+                project_config_name, session_response.deploymentName
             )
             self.assertEqual(
                 deployment_version, session_response.deploymentVersion
@@ -341,7 +342,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(deployment_root)
 
             latest = route_get_latest_share_deployment(project_config_name, state)
-            self.assertEqual(project_config_name, latest.projectConfigName)
+            self.assertEqual(project_config_name, latest.deploymentName)
             self.assertEqual(Path("redacted"), latest.deploymentRoot)
             self.assertEqual(Path("redacted"), latest.sharePolicyPath)
 

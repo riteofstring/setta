@@ -172,10 +172,11 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -195,11 +196,11 @@ def _write_share_project_with_configs(
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
-    default_config = project_state.projectConfigs[default_project_config_id]
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=default_project_config_id,
-        projectConfigName=default_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=default_project_config_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -222,10 +223,11 @@ def _write_share_project_with_entry_code(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -264,10 +266,11 @@ def _write_share_project_with_section(
         sectionVariants={variant_id: variant},
     )
     dbe.write_project(project_state)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -294,10 +297,11 @@ def _write_share_project_with_code_param(
     backend.defaultProjectConfigId = project_config.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_config.id,
-        projectConfigName=project_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -368,6 +372,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             request = PublishShareDeploymentRequest(
+                deploymentName=root.parent.name,
                 projectConfigId=project_config_id,
             )
             with self.assertRaises(HTTPException) as ctx:

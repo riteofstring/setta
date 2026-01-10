@@ -115,12 +115,27 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SHARE_PROJECT_ROUTER_PATH = "/share/:projectConfigName";
-export const SHARE_PROJECT_VERSION_ROUTER_PATH =
-  "/share/:projectConfigName/:version";
+export const SHARE_PROJECT_VERSION_ROUTER_PATH = "/share/:version";
 export const SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH =
-  "/share/:projectConfigName/:version/:targetProjectConfigName";
+  "/share/:version/:targetProjectConfigName";
+export const SHARE_PROJECT_VERSION_HOME_ROUTER_PATH = "/share/:version/home";
+export const SHARE_HOME_ROUTE_SEGMENT = "home";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
+
+export function buildSharePath(
+  version: string,
+  targetProjectConfigName: string | null | undefined,
+): string {
+  let path = `/share/${version}`;
+  if (targetProjectConfigName) {
+    path = `${path}/${targetProjectConfigName}`;
+  }
+  return path;
+}
+
+export function buildShareHomePath(version: string): string {
+  return buildSharePath(version, SHARE_HOME_ROUTE_SEGMENT);
+}
 
 export function pathRelativeToProject(projectConfigName: string) {
   return `../${projectConfigName}`;

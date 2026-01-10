@@ -144,10 +144,11 @@ def _write_project_with_state(
     backend.defaultProjectConfigId = project_state.projectConfig.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=project_state.projectConfig.id,
-        projectConfigName=project_state.projectConfig.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -172,10 +173,11 @@ def _write_project_with_states(
     dbe = DBE(root)
     dbe.write_project(backend)
     default_config = backend.projectConfigs[resolved_default_id]
+    deployment_name = root.parent.name
     manifest = ShareDeploymentManifest(
         version=1,
-        projectConfigId=resolved_default_id,
-        projectConfigName=default_config.name,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
