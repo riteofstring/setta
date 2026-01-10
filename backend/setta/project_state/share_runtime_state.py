@@ -8,7 +8,7 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.codegen_helpers import (
     build_python_code_generator,
 )
-from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
+from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_manager_types import RunCodeRequest
 from setta.project_state.run_commands import (
@@ -27,7 +27,6 @@ from setta.share.policy import (
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
-    get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
@@ -36,7 +35,6 @@ from setta.types.helpers_lvl3 import (
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
-    BaseDictSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
@@ -44,7 +42,6 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.utils import normalize_path
 from setta.utils.code_paths import build_gen_code_path
 
 if TYPE_CHECKING:
@@ -310,33 +307,23 @@ class ShareRuntimeState:
         project_state: ProjectStateBackend,
         settings_file: "SettingsFile",
     ) -> None:
-        section_variant_ids: list[tuple[ID, ID]] = []
-        json_source_paths: set[Path] = set()
-        for section in project_state.sections.values():
-            for variant_id in section.variants:
-                variant, _, impl = get_variant_base_and_effective_section_impl(
-                    project_state, section, variant_id
-                )
-                if not isinstance(impl, BaseDictSectionImpl) or not impl.isJsonSource:
-                    continue
-                section_variant_ids.append((section.id, variant_id))
-                json_source_paths.add(normalize_path(variant.name))
-
-        if not section_variant_ids:
-            return
-
         json_source = JSONSource(
             self.frontend_sender,
             settings_file,
             SpecificFileWatcher(),
             self.dbe,
         )
-        json_sources: dict[Path, ProcessedJSONInfo] = {}
-        for path in json_source_paths:
-            if not path.exists():
-                continue
-            payload = self.dbe.read_json(path)
-            json_sources[path] = json_source.process_json_object(payload)
+        json_source_paths, json_source_to_section_variants = (
+            json_source.get_json_source_files_to_watch(project_state)
+        )
+        section_variant_ids: set[tuple[ID, ID]] = set()
+        for section_variant_set in json_source_to_section_variants.values():
+            section_variant_ids.update(section_variant_set)
+
+        if not section_variant_ids:
+            return
+
+        json_sources = json_source.process_json_source_files(json_source_paths)
 
         load_json_sources_into_data_structures(
             project_state,
