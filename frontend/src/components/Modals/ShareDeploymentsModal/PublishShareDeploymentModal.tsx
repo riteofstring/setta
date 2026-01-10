@@ -16,6 +16,7 @@ import type {
   ShareDeploymentMetadata,
   SharePolicy,
 } from "utils/generatedTypes";
+import { createRandomName } from "utils/idNameCreation";
 
 type SharePolicyOverridesInput = NonNullable<
   PublishShareDeploymentRequestInput["sharePolicyOverrides"]
@@ -35,13 +36,20 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
   };
 }
 
+function createDefaultDeploymentName(): string {
+  const baseName = createRandomName();
+  return `share-${baseName.split("_").join("-")}`;
+}
+
 export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
   const [policyOverrides, setPolicyOverrides] =
     useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState("");
   const [listenerEnabled, setListenerEnabled] = useState(true);
-  const [deploymentName, setDeploymentName] = useState("");
+  const [deploymentName, setDeploymentName] = useState(
+    createDefaultDeploymentName,
+  );
   const [publishedDeployment, setPublishedDeployment] =
     useState<ShareDeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
@@ -81,7 +89,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setPolicyOverrides(createDefaultPolicyOverrides());
     setListenerEntrypoint("");
     setListenerEnabled(true);
-    setDeploymentName("");
+    setDeploymentName(createDefaultDeploymentName());
     setPublishedDeployment(null);
     setErrorMessage(null);
   }
@@ -96,9 +104,10 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
 
   async function handlePublish(): Promise<void> {
     const trimmedDeploymentName = deploymentName.trim();
-    if (!trimmedDeploymentName) {
-      setErrorMessage("Enter a deployment name before publishing.");
-      return;
+    let resolvedDeploymentName = trimmedDeploymentName;
+    if (!resolvedDeploymentName) {
+      resolvedDeploymentName = createDefaultDeploymentName();
+      setDeploymentName(resolvedDeploymentName);
     }
     if (projectConfig.id === NULL_PROJECT_CONFIG_ID) {
       setErrorMessage("Select a project config before publishing.");
@@ -111,7 +120,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     const entrypointValue =
       trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
     const payload: PublishShareDeploymentRequestInput = {
-      deploymentName: trimmedDeploymentName,
+      deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
       listenerEntrypoint: entrypointValue,
@@ -240,7 +249,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             description="Only used when an entrypoint is set."
             checked={listenerEnabled}
             onChange={setListenerEnabled}
-            disabled={listenerEntrypoint.trim().length === 0}
           />
         </SectionCard>
 

@@ -172,7 +172,9 @@ class SessionProjectManager(BaseProjectManager):
         artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
     ) -> None:
         if self.share_runtime_state is None:
-            await super().apply_listener_emit_updates(
+            # Avoid double-enqueueing by calling the base implementation directly.
+            await BaseProjectManager.apply_listener_emit_updates.__wrapped__(
+                self,
                 projectConfigId=projectConfigId,
                 dependency_updates=dependency_updates,
                 artifact_updates=artifact_updates,
@@ -204,7 +206,7 @@ class SessionProjectManager(BaseProjectManager):
         x: RunCodeRequest,
     ) -> str:
         if self.share_runtime_state is None:
-            return await super().create_run_command(x)
+            return await BaseProjectManager.create_run_command.__wrapped__(self, x)
         return await self.share_runtime_state.create_run_command(
             self.share_session_id,
             x,
@@ -217,7 +219,8 @@ class SessionProjectManager(BaseProjectManager):
         section_variants_to_load: list[tuple[str, str]],
     ):
         if self.persistence_mode != SessionPersistenceMode.ide_settings:
-            await super().load_json_sources(
+            await BaseProjectManager.load_json_sources.__wrapped__(
+                self,
                 json_sources=json_sources,
                 section_variants_to_load=section_variants_to_load,
             )

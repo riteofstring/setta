@@ -22,6 +22,8 @@ from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
@@ -263,6 +265,7 @@ class SettaListener:
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
+        auth_headers: dict[str, str] | None = None,
     ) -> None:
         if project_name is None and project_config_id is None:
             raise ValueError("SettaListener requires project_name or project_config_id")
@@ -278,6 +281,7 @@ class SettaListener:
         self._host = host
         self._port = port
         self._reconnect_delay = reconnect_delay
+        self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._stop_event = asyncio.Event()
         self._socket_id = uuid4().hex
         self._registration_pending = False
@@ -349,6 +353,20 @@ class SettaListener:
             return endpoint
         query = urlencode({"shareSessionId": self._share_session_id})
         return f"{endpoint}?{query}"
+
+    def _resolve_auth_headers(self) -> dict[str, str] | None:
+        if self._auth_headers is not None:
+            return dict(self._auth_headers)
+        if self._share_session_id is not None:
+            return None
+        if self._host != C.HOST or self._port != C.PORT:
+            return None
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return None
+        session_metadata, secret = session_info
+        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
@@ -496,8 +514,12 @@ class SettaListener:
             listener_id=self._log_identifier,
             listener_endpoint=endpoint,
         ):
+            auth_headers = self._resolve_auth_headers()
             logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
-            async with websockets.connect(endpoint) as websocket:
+            async with websockets.connect(
+                endpoint,
+                additional_headers=auth_headers,
+            ) as websocket:
                 logger.info("Listener %s connected", self._log_identifier)
                 self._websocket = websocket
                 await self._send_bootstrap_init()
