@@ -41,6 +41,7 @@ async def route_get_llm_api_keys(
     ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
     await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
     return ctx.state.chat_manager.api_keys
 
 

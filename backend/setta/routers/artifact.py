@@ -1,10 +1,15 @@
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, TypeVar
 
 from pydantic import BaseModel
 
-from setta.project_state.artifacts import ArtifactSaveResult, SaveConflictStrategy
+from setta.project_state.artifacts import (
+    Artifacts,
+    ArtifactSaveResult,
+    SaveConflictStrategy,
+)
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.policy import ensure_share_deployment_path
@@ -18,6 +23,7 @@ from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
+TArtifact = TypeVar("TArtifact")
 
 
 class CheckIfFileExistsRequests(BaseModel):
@@ -54,52 +60,63 @@ def _get_artifacts(ctx: RuntimeContextFromRequest):
     return ctx.state.artifacts
 
 
-def _load_share_cached_image(
-    artifacts, path: str, deployment_root: Path | None
-) -> ImageArtifact | None:
-    cached = artifacts.get_cached_image(path)
+def _load_share_cached_artifact(
+    path: str,
+    deployment_root: Path | None,
+    get_cached: Callable[[Path | str], TArtifact | None],
+    read_from_disk: Callable[[Path], TArtifact],
+) -> TArtifact | None:
+    cached = get_cached(path)
     if cached is not None:
         return cached
     resolved = ensure_share_deployment_path(path, deployment_root)
     if not resolved.exists():
         return None
-    return artifacts.read_image_from_disk(resolved)
+    return read_from_disk(resolved)
+
+
+def _load_share_cached_image(
+    artifacts: Artifacts, path: str, deployment_root: Path | None
+) -> ImageArtifact | None:
+    return _load_share_cached_artifact(
+        path,
+        deployment_root,
+        artifacts.get_cached_image,
+        artifacts.read_image_from_disk,
+    )
 
 
 def _load_share_cached_chart_data(
-    artifacts, path: str, deployment_root: Path | None
+    artifacts: Artifacts, path: str, deployment_root: Path | None
 ) -> ChartDataArtifact | None:
-    cached = artifacts.get_cached_chart_data(path)
-    if cached is not None:
-        return cached
-    resolved = ensure_share_deployment_path(path, deployment_root)
-    if not resolved.exists():
-        return None
-    return artifacts.read_chart_data_from_disk(resolved)
+    return _load_share_cached_artifact(
+        path,
+        deployment_root,
+        artifacts.get_cached_chart_data,
+        artifacts.read_chart_data_from_disk,
+    )
 
 
 def _load_share_cached_brush_stroke(
-    artifacts, path: str, deployment_root: Path | None
+    artifacts: Artifacts, path: str, deployment_root: Path | None
 ) -> BrushStrokeArtifact | None:
-    cached = artifacts.get_cached_brush_stroke(path)
-    if cached is not None:
-        return cached
-    resolved = ensure_share_deployment_path(path, deployment_root)
-    if not resolved.exists():
-        return None
-    return artifacts.read_brush_stroke_from_disk(resolved)
+    return _load_share_cached_artifact(
+        path,
+        deployment_root,
+        artifacts.get_cached_brush_stroke,
+        artifacts.read_brush_stroke_from_disk,
+    )
 
 
 def _load_share_cached_transform(
-    artifacts, path: str, deployment_root: Path | None
+    artifacts: Artifacts, path: str, deployment_root: Path | None
 ) -> DrawAreaLayerItemTransformArtifact | None:
-    cached = artifacts.get_cached_draw_area_layer_item_transform(path)
-    if cached is not None:
-        return cached
-    resolved = ensure_share_deployment_path(path, deployment_root)
-    if not resolved.exists():
-        return None
-    return artifacts.read_transform_from_disk(resolved)
+    return _load_share_cached_artifact(
+        path,
+        deployment_root,
+        artifacts.get_cached_draw_area_layer_item_transform,
+        artifacts.read_transform_from_disk,
+    )
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)

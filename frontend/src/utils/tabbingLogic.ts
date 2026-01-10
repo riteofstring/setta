@@ -1,7 +1,7 @@
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
-import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
+import { HOME_ROUTER_PATH } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
@@ -33,9 +33,12 @@ export function siteLogoOnKeyDown(e, navigate, location) {
   }
 }
 
-export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
+export function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
   if (e.code === "Space") {
-    navigate(pathRelativeToProject(projectConfigName));
+    if (!projectPath) {
+      return;
+    }
+    navigate(projectPath);
   }
 }
 

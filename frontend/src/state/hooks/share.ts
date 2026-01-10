@@ -141,13 +141,6 @@ export function useShareCapabilities(): ShareCapabilities {
   const allowLayoutChanges = sharePolicy?.allowLayoutChanges ?? true;
   const allowRun = sharePolicy?.allowRun ?? false;
   const canEditStructure = !isShareMode;
-  const canEditParamImpl = canEditStructure;
-  const canEditParamConfig = canEditStructure;
-  const canEditKwargs = canEditStructure;
-  const canManageViewModes = canEditStructure;
-  const canToggleViewModeVisibility = canEditStructure;
-  const canGroupSections = canEditStructure;
-  const canEditSocialUrl = canEditStructure;
 
   return {
     canEditParams: canEditStructure || allowParamChanges,
@@ -155,12 +148,12 @@ export function useShareCapabilities(): ShareCapabilities {
     canEditLayout: canEditStructure || allowLayoutChanges,
     canRun: canEditStructure || allowRun,
     canEditStructure,
-    canEditParamImpl,
-    canEditParamConfig,
-    canEditKwargs,
-    canManageViewModes,
-    canToggleViewModeVisibility,
-    canGroupSections,
-    canEditSocialUrl,
+    canEditParamImpl: canEditStructure,
+    canEditParamConfig: canEditStructure,
+    canEditKwargs: canEditStructure,
+    canManageViewModes: canEditStructure,
+    canToggleViewModeVisibility: canEditStructure,
+    canGroupSections: canEditStructure,
+    canEditSocialUrl: canEditStructure,
   };
 }

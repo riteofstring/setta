@@ -753,6 +753,12 @@ export async function route_get_latest_share_deployment(
   });
 }
 
+export async function route_create_share_session_current(): Promise<
+  ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>
+> {
+  return await post("/share/deployments/current/session", null);
+}
+
 export async function route_create_share_session(
   projectConfigName: string,
   version: string,

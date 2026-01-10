@@ -420,6 +420,26 @@ def route_get_latest_share_deployment(
     return _metadata_from_manifest(manifest, latest_root)
 
 
+@router.post(Route.SHARE_DEPLOYMENT_CURRENT_SESSION)
+async def route_create_share_session_current(
+    state: AppStateFromRequest,
+) -> ShareDeploymentSessionResponse:
+    _require_share_mode(state)
+    session = state.share_session_store.create_session()
+    state.share_runtime_state.create_session_backend(session.id)
+    return ShareDeploymentSessionResponse(
+        projectConfigName=state.share_runtime_state.project_config_name,
+        deploymentVersion=state.share_runtime_state.deployment_version,
+        shareSessionId=session.id,
+        defaultProjectConfigId=state.share_runtime_state.default_project_config_id,
+        projectMetadata=list(
+            state.share_runtime_state.project_state_backend.projectConfigs.values()
+        ),
+        sharePolicy=state.share_runtime_state.share_policy,
+        manifest=state.share_runtime_state.manifest,
+    )
+
+
 @router.post(Route.SHARE_DEPLOYMENT_SESSION)
 async def route_create_share_session(
     projectConfigName: str,

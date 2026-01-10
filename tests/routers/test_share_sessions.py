@@ -14,6 +14,7 @@ from setta.project_state.project_manager_types import (
 from setta.routers.share_deployments import (
     LoadShareProjectConfigRequest,
     route_create_share_session,
+    route_create_share_session_current,
     route_get_share_deployment_state,
     route_get_latest_share_deployment,
     route_load_share_project_config,
@@ -218,6 +219,39 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(
                 config_b.id, response.projectState.projectConfig.id
+            )
+
+    async def test_current_session_uses_active_deployment(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-current"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            project_config = _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
+
+            session_response = await route_create_share_session_current(state)
+
+            self.assertEqual(
+                project_config_name, session_response.projectConfigName
+            )
+            self.assertEqual(
+                deployment_version, session_response.deploymentVersion
+            )
+            self.assertEqual(
+                project_config.id, session_response.defaultProjectConfigId
+            )
+            self.assertIsNotNone(session_response.shareSessionId)
+            self.assertTrue(
+                state.share_session_store.has_session(
+                    session_response.shareSessionId
+                )
             )
 
     async def test_unknown_session_id_returns_404(self) -> None:

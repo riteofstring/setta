@@ -113,6 +113,8 @@ type ShareSessionState = {
   isShareMode: boolean;
   shareSessionId: string | null;
   sharePolicy: SharePolicy | null;
+  shareDeploymentName: string | null;
+  shareDeploymentVersion: string | null;
 };
 
 export const useShareSession = withProjectState(
@@ -121,6 +123,8 @@ export const useShareSession = withProjectState(
       isShareMode: false,
       shareSessionId: null,
       sharePolicy: null,
+      shareDeploymentName: null,
+      shareDeploymentVersion: null,
     })),
   ),
 );

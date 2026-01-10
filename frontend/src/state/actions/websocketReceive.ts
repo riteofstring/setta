@@ -67,6 +67,8 @@ let wss: WebSocket | null;
 let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
+const SHARE_SESSION_MISSING_CODE = 4400;
+const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
@@ -105,6 +107,7 @@ export const openWebSocket = _.debounce(
     }
     if (!wss) {
       wss = new WebSocket(targetUrl);
+      const shareSessionIdForSocket = shareSessionId;
       currentShareSessionId = shareSessionId;
       currentRoute = route;
       wss.addEventListener("open", async () => {
@@ -147,6 +150,15 @@ export const openWebSocket = _.debounce(
         wss = null;
         currentShareSessionId = null;
         currentRoute = null;
+        if (
+          (event.code === SHARE_SESSION_MISSING_CODE ||
+            event.code === SHARE_SESSION_UNKNOWN_CODE) &&
+          !shareSessionIdForSocket
+        ) {
+          wasOpen = false;
+          clearAllWebsocketConnections();
+          return;
+        }
         if (event.code === AUTH_CLOSE_CODE) {
           authLost = true;
           wasOpen = false;

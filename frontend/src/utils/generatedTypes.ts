@@ -394,6 +394,7 @@ export const RouteEnum = {
   SHARE_DEPLOYMENTS: "/share/deployments",
   SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{projectConfigName}/versions",
   SHARE_DEPLOYMENT_LATEST: "/share/deployments/{projectConfigName}/latest",
+  SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   SHARE_DEPLOYMENT_SESSION:
     "/share/deployments/{projectConfigName}/{version}/session",
   SHARE_DEPLOYMENT_PROJECT_CONFIG:

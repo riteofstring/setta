@@ -9,6 +9,7 @@ import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_share_session,
+  route_create_share_session_current,
   route_load_share_project_config,
 } from "utils/generatedEndpoints";
 import type { ProjectConfig } from "utils/generatedTypes";
@@ -36,6 +37,8 @@ export async function initializeShareDeployment(
     isShareMode: true,
     shareSessionId: session.shareSessionId,
     sharePolicy: session.sharePolicy,
+    shareDeploymentName: session.projectConfigName,
+    shareDeploymentVersion: session.deploymentVersion,
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
@@ -67,6 +70,33 @@ export async function initializeShareDeployment(
     await requestAIFollowSnapshot(resolvedConfigId);
   }
   useProjectLoading.setState({ projectIsLoading: false, projectIs404: false });
+  return true;
+}
+
+export async function initializeShareSessionFromCurrentDeployment(): Promise<boolean> {
+  const shareSession = useShareSession.getState();
+  if (shareSession.shareSessionId) {
+    return true;
+  }
+
+  const sessionRes = await route_create_share_session_current();
+  if (!res200(sessionRes)) {
+    return false;
+  }
+
+  const session = sessionRes.data;
+  setShareSessionCookie(session.shareSessionId);
+  useShareSession.setState({
+    isShareMode: true,
+    shareSessionId: session.shareSessionId,
+    sharePolicy: session.sharePolicy,
+    shareDeploymentName: session.projectConfigName,
+    shareDeploymentVersion: session.deploymentVersion,
+  });
+  useAllProjectMetadata.setState({
+    defaultProjectConfigId: session.defaultProjectConfigId,
+    projectMetadata: session.projectMetadata,
+  });
   return true;
 }
 
