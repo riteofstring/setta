@@ -6,7 +6,6 @@ from typing import Any, Callable, get_type_hints
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from setta.runtime.context import RuntimeContext
 from setta.server import app
 from setta.server_state import SettaFastAPIState
 
@@ -26,7 +25,6 @@ class ListenerRouterEndpointSpec:
     request_model: type[BaseModel]
     request_param_name: str
     state_param_name: str | None
-    runtime_context_param_name: str | None
 
 
 def _is_allowed_module(module_name: str) -> bool:
@@ -53,7 +51,6 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
     request_param_name: str | None = None
     request_model: type[BaseModel] | None = None
     state_param_name: str | None = None
-    runtime_context_param_name: str | None = None
 
     for param in signature.parameters.values():
         if type(param.default).__name__ == "Depends":
@@ -63,9 +60,6 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
             continue
         if param_type is SettaFastAPIState:
             state_param_name = param.name
-            continue
-        if param_type is RuntimeContext:
-            runtime_context_param_name = param.name
             continue
         if request_param_name is not None:
             return None
@@ -86,7 +80,6 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
         request_model=request_model,
         request_param_name=request_param_name,
         state_param_name=state_param_name,
-        runtime_context_param_name=runtime_context_param_name,
     )
 
 

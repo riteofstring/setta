@@ -2,7 +2,6 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -41,7 +40,6 @@ class AuthBootstrapIntegrationTests(unittest.TestCase):
         self._set_session_env(self.session.id)
 
         app = FastAPI()
-        app.state.setta = SimpleNamespace(share_mode=False)
         app.add_middleware(AuthMiddleware)
         app.include_router(bootstrap_router)
 

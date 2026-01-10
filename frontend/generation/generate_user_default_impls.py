@@ -210,6 +210,8 @@ from setta.types.section_impls import (
 from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
+    ButtonActionMode,
+    HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
 )

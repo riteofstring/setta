@@ -14,44 +14,26 @@ from setta.types.id import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
 class DBE:
-    def __init__(
-        self,
-        path: Path,
-        *,
-        runtime_root: Path | None = None,
-        lock_root: Path | None = None,
-    ):
+    def __init__(self, path: Path):
         self.path = normalize_path(path)
-        self.runtime_root = (
-            normalize_path(runtime_root) if runtime_root is not None else self.path
-        )
-        self.lock_root = (
-            normalize_path(lock_root) if lock_root is not None else self.runtime_root
-        )
         self.project = self.path / "project.json"
-        self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
+        self.temporary_id_map = self.path / "temporary_id_map.json"
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.share_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
-        if self.runtime_root != self.path:
-            self.runtime_root.mkdir(parents=True, exist_ok=True)
-        if self.lock_root not in (self.path, self.runtime_root):
-            self.lock_root.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
-        locks_dir = self.lock_root / "file_locks"
-        locks_dir.mkdir(parents=True, exist_ok=True)
+        locks_dir = self.path / "file_locks"
+        locks_dir.mkdir(exist_ok=True)
         # Create a hash to avoid name conflicts
         path_hash = compute_md5_prefix(str(path.absolute()), 8)
         lock_filename = f"{path.name}_{path_hash}.lock"
@@ -134,34 +116,6 @@ class DBE:
 
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump())
-
-    def read_project_required(self) -> ProjectStateBackend:
-        if not self.project.exists():
-            raise FileNotFoundError(f"Project file not found: {self.project}")
-        payload = json.loads(self.project.read_text(encoding="utf-8"))
-        if not payload:
-            raise ValueError(f"Project file is empty: {self.project}")
-        return ProjectStateBackend.model_validate(payload)
-
-    def read_share_manifest(self) -> ShareDeploymentManifest:
-        if not self.share_manifest.exists():
-            raise FileNotFoundError(
-                f"Share deployment manifest not found: {self.share_manifest}"
-            )
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
-        if not payload:
-            raise ValueError(
-                f"Share deployment manifest is empty: {self.share_manifest}"
-            )
-        return ShareDeploymentManifest.model_validate(payload)
-
-    def read_share_manifest_optional(self) -> ShareDeploymentManifest | None:
-        if not self.share_manifest.exists():
-            return None
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
-        if not payload:
-            return None
-        return ShareDeploymentManifest.model_validate(payload)
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)

@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
-
-from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerRealtimeDelta,
     RealtimeActionEventContent,
@@ -22,27 +19,17 @@ from setta.websockets.msg_handlers.base import (
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
-if TYPE_CHECKING:
-    from setta.project_state.share_runtime_state import ShareRuntimeState
-
 
 class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
     def __init__(
         self,
         websocket_manager: WebsocketManager,
-        project_manager: BaseProjectManager | None,
+        project_manager: ProjectManager,
         realtime_event_hub: RealtimeEventHub,
-        *,
-        share_mode: bool = False,
-        share_runtime_state: "ShareRuntimeState | None" = None,
     ):
         self.websocket_manager = websocket_manager
         self.project_manager = project_manager
         self.realtime_event_hub = realtime_event_hub
-        self.share_mode = share_mode
-        self.share_runtime_state = share_runtime_state
-        if share_mode and share_runtime_state is None:
-            raise ValueError("Share mode requires share runtime state")
 
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(
@@ -54,81 +41,29 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             return
 
         if isinstance(m, WebsocketMsgRealtimeUIChange):
-            share_session_id = (
-                self.require_share_session_id(fromWebsocketId)
-                if self.share_mode
-                else None
-            )
-            await self._handle_realtime_ui_change(
-                m.content, share_session_id=share_session_id
-            )
+            await self._handle_realtime_ui_change(m.content)
             return
 
         if isinstance(m, WebsocketMsgRealtimeActionEvent):
-            share_session_id = (
-                self.require_share_session_id(fromWebsocketId)
-                if self.share_mode
-                else None
-            )
-            await self._handle_realtime_action_event(
-                m.content, share_session_id=share_session_id
-            )
+            await self._handle_realtime_action_event(m.content)
 
     async def on_connect(self, _websocket_id: str):
-        if self.share_mode:
-            self.require_share_session_id(_websocket_id)
-            return
-        if self.project_manager is None:
-            return
         await self.project_manager.broadcast_all_project_metadata()
 
-    async def _handle_realtime_ui_change(
-        self,
-        content: RealtimeUIChangeContent,
-        *,
-        share_session_id: str | None,
-    ):
-        self._require_share_project_config(
-            content.projectConfigId,
-            share_session_id=share_session_id,
-        )
+    async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):
         delta = ListenerRealtimeDelta(
             dependency=content.dependencyKey, value=content.value
         )
         await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,
             deltas=[delta],
-            share_session_id=share_session_id,
         )
 
     async def _handle_realtime_action_event(
         self,
         content: RealtimeActionEventContent,
-        *,
-        share_session_id: str | None,
     ) -> None:
-        self._require_share_project_config(
-            content.projectConfigId,
-            share_session_id=share_session_id,
-        )
         await self.realtime_event_hub.emit_action_event(
             project_config_id=content.projectConfigId,
             action_events=[content.actionEvent],
-            share_session_id=share_session_id,
         )
-
-    def _require_share_project_config(
-        self,
-        project_config_id: ID,
-        *,
-        share_session_id: str | None,
-    ) -> None:
-        if not self.share_mode:
-            return
-        if share_session_id is None:
-            raise KeyError("Missing share session id")
-        if self.share_runtime_state is None:
-            raise KeyError("Missing share runtime state")
-        session_backend = self.share_runtime_state.get_session_backend(share_session_id)
-        if project_config_id not in session_backend.projectConfigs:
-            raise KeyError(f"Unknown share project config: {project_config_id}")

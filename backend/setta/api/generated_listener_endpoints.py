@@ -53,7 +53,6 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
 )
-from setta.types.settings_state import RunSnapshotMode
 
 
 class ListenerAcceptRenameRefactorRequestPayload(TypedDict):
@@ -278,7 +277,6 @@ class ListenerRunCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID | None
     cliId: NotRequired[str | None]
-    runSnapshotMode: NotRequired[RunSnapshotMode | None]
 
 
 class ListenerSetActiveIdsRequestPayload(TypedDict):
@@ -399,11 +397,25 @@ class ListenerSetGenCodeSuffixRequestPayload(TypedDict):
     genCodeSuffix: str
 
 
+class ListenerSetGroupOverflowModeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    overflowMode: bool
+
+
 class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     imagePath: str
+
+
+class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    showSectionTitle: bool
 
 
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
@@ -494,6 +506,20 @@ class ListenerSetTextBlockFormatRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     format: TextBlockFormat
+
+
+class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    headingAsSectionName: bool
+
+
+class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    metaControlStyle: bool
 
 
 class ListenerSetTextBlockTextRequestPayload(TypedDict):
@@ -855,10 +881,20 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_gen_code_suffix", payload)
 
+    async def set_group_overflow_mode(
+        self, payload: ListenerSetGroupOverflowModeRequestPayload
+    ) -> None:
+        return await self._caller("route_set_group_overflow_mode", payload)
+
     async def set_image_area_image_path(
         self, payload: ListenerSetImageAreaImagePathRequestPayload
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
+
+    async def set_meta_control_show_section_title(
+        self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
+    ) -> None:
+        return await self._caller("route_set_meta_control_show_section_title", payload)
 
     async def set_param_entered_value(
         self, payload: ListenerSetParamEnteredValueRequestPayload
@@ -922,6 +958,18 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTextBlockFormatRequestPayload
     ) -> None:
         return await self._caller("route_set_text_block_format", payload)
+
+    async def set_text_block_heading_as_section_name(
+        self, payload: ListenerSetTextBlockHeadingAsSectionNameRequestPayload
+    ) -> None:
+        return await self._caller(
+            "route_set_text_block_heading_as_section_name", payload
+        )
+
+    async def set_text_block_meta_control_style(
+        self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload
+    ) -> None:
+        return await self._caller("route_set_text_block_meta_control_style", payload)
 
     async def set_text_block_text(
         self, payload: ListenerSetTextBlockTextRequestPayload

@@ -6,7 +6,6 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   DropdownConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -21,7 +20,6 @@ export function DropdownInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -29,9 +27,6 @@ export function DropdownInputConfigForParam({
   );
 
   function onChange(newConfig: DropdownConfigForFrontend) {
-    if (!canEditStructure) {
-      return;
-    }
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -52,23 +47,15 @@ export function DropdownInputConfigForParam({
         }),
     });
   }
-  return (
-    <DropdownInputConfig
-      config={config}
-      onChange={onChange}
-      isDisabled={!canEditStructure}
-    />
-  );
+  return <DropdownInputConfig config={config} onChange={onChange} />;
 }
 
 function DropdownInputConfig({
   onChange,
   config,
-  isDisabled,
 }: {
   onChange: (x: DropdownConfigForFrontend) => void;
   config: DropdownConfigForFrontend;
-  isDisabled: boolean;
 }) {
   const choices = config.choices ?? [];
 
@@ -95,7 +82,6 @@ function DropdownInputConfig({
         onClick={addChoice}
         className="my-1 flex cursor-pointer items-center justify-between rounded-xl bg-setta-100 px-3  py-0.5 uppercase text-setta-500 hover:bg-setta-200 dark:bg-setta-850 dark:text-setta-500 dark:hover:bg-setta-850"
         aria-label="Add choice"
-        disabled={isDisabled}
       >
         <p className="text-sm font-black ">Add Choices</p>
         <i className="gg-add !scale-90" />
@@ -111,14 +97,12 @@ function DropdownInputConfig({
                 onChange={(e) => updateChoice(idx, e.target.value)}
                 placeholder="Add description..."
                 className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
-                disabled={isDisabled}
               />
             </div>
             <button
               onClick={() => removeChoice(idx)}
               className="flex cursor-pointer items-center rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               aria-label="Remove choice"
-              disabled={isDisabled}
             >
               <i className="gg-close !scale-75" />
             </button>
@@ -134,6 +118,7 @@ export function DropdownInput({
   value,
   onChange,
   outerDivClasses,
+  inputOuterClasses,
   isDisabled,
   placeholder,
   small = true,
@@ -142,6 +127,7 @@ export function DropdownInput({
   value: string | null;
   onChange: OnSelectedItemChangeFnType<string>;
   outerDivClasses?: string;
+  inputOuterClasses?: string;
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
@@ -162,6 +148,7 @@ export function DropdownInput({
       small={small}
       isDisabled={isDisabled}
       placeholder={placeholder}
+      inputOuterClasses={inputOuterClasses}
     />
   );
 }

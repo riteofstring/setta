@@ -105,6 +105,7 @@ class Route(str, Enum):
     TOGGLE_POSITION_LOCKS = "/togglePositionLocks"
     TOGGLE_MINIMIZED = "/toggleMinimized"
     TOGGLE_GROUP_ORIENTATION = "/toggleGroupOrientation"
+    SET_GROUP_OVERFLOW_MODE = "/setGroupOverflowMode"
     SET_SECTION_PARAM_FILTER = "/setSectionParamFilter"
     SET_SECTION_VARIANT = "/setSectionVariant"
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"
@@ -114,7 +115,10 @@ class Route(str, Enum):
     SET_ACTIVE_IDS = "/setActiveIds"
     SET_VIEWPORT = "/setViewport"
     SET_SECTION_NAME = "/setSectionName"
+    SET_META_CONTROL_SHOW_SECTION_TITLE = "/setMetaControlShowSectionTitle"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
+    SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME = "/setTextBlockHeadingAsSectionName"
+    SET_TEXT_BLOCK_META_CONTROL_STYLE = "/setTextBlockMetaControlStyle"
     SET_SECTION_WITH_PARAMS_DISPLAY_MODE = "/setSectionWithParamsDisplayMode"
     SET_CALLABLE_HIDE_PARAMS = "/setCallableHideParams"
     SET_SECTION_HIDE_UNPINNED_PARAMS = "/setSectionHideUnpinnedParams"
@@ -143,15 +147,3 @@ class Route(str, Enum):
     SET_CHART_SETTINGS = "/setChartSettings"
     LOAD_CACHED_BRUSH_STROKES = "/loadCachedBrushStrokes"
     LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM = "/loadDrawAreaLayerItemTransform"
-    SHARE_DEPLOYMENTS = "/share/deployments"
-    SHARE_DEPLOYMENT_VERSIONS = "/share/deployments/{projectConfigName}/versions"
-    SHARE_DEPLOYMENT_LATEST = "/share/deployments/{projectConfigName}/latest"
-    SHARE_DEPLOYMENT_CURRENT_SESSION = "/share/deployments/current/session"
-    SHARE_DEPLOYMENT_SESSION = (
-        "/share/deployments/{projectConfigName}/{version}/session"
-    )
-    SHARE_DEPLOYMENT_PROJECT_CONFIG = (
-        "/share/deployments/{projectConfigName}/{version}/project_config"
-    )
-    SHARE_DEPLOYMENT_STATE = "/share/deployments/{projectConfigName}/{version}/state"
-    WEBSOCKET_SHARE_FRONTEND = "/share/frontend"

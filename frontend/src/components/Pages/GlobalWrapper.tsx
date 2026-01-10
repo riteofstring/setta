@@ -2,11 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
-import {
-  useProjectLoading,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useProjectLoading, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -76,11 +72,10 @@ function useSetHTMLTitle() {
 
 function useOpenCloseWebsocket() {
   const location = useLocation();
-  const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
-    openWebSocket(location.pathname, shareSessionId);
-  }, [location.pathname, shareSessionId]);
+    openWebSocket(location.pathname);
+  }, [location.pathname]);
 }
 
 function useDefaultProjectConfigName() {
