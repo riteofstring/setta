@@ -132,6 +132,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             session_response = await route_create_share_session(
                 project_config_name,
                 deployment_version,
+                _make_request(None),
                 state,
             )
             self.assertEqual(
@@ -208,6 +209,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             session_response = await route_create_share_session(
                 config_a.name,
                 deployment_version,
+                _make_request(None),
                 state,
             )
             request = _make_request(session_response.shareSessionId)
@@ -237,7 +239,10 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(deployment_root)
 
-            session_response = await route_create_share_session_current(state)
+            session_response = await route_create_share_session_current(
+                _make_request(None),
+                state,
+            )
 
             self.assertEqual(
                 project_config_name, session_response.deploymentName
@@ -299,6 +304,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 await route_create_share_session(
                     "wrong-config",
                     deployment_version,
+                    _make_request(None),
                     state,
                 )
             self.assertEqual(404, ctx.exception.status_code)

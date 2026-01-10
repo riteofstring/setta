@@ -22,12 +22,17 @@ export function uiEditorPaneOnKeyDown(e) {
   }
 }
 
-export function siteLogoOnKeyDown(e, navigate, location) {
-  if (location.pathname === HOME_ROUTER_PATH) {
+export function siteLogoOnKeyDown(
+  e,
+  navigate,
+  location,
+  homePath = HOME_ROUTER_PATH,
+) {
+  if (location.pathname === homePath) {
     return;
   }
   if (e.code === "Space") {
-    navigate(HOME_ROUTER_PATH);
+    navigate(homePath);
   } else if (e.code === "Tab" && e.shiftKey) {
     tabToLastFocusablePaneElement(e);
   }

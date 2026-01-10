@@ -137,6 +137,20 @@ export function buildShareHomePath(version: string): string {
   return buildSharePath(version, SHARE_HOME_ROUTE_SEGMENT);
 }
 
+export function resolveHomePath(
+  pathname: string,
+  version: string | null | undefined,
+  shareDeploymentVersion: string | null,
+): string {
+  if (pathname.startsWith("/share/")) {
+    const resolvedVersion = version ?? shareDeploymentVersion;
+    if (resolvedVersion) {
+      return buildShareHomePath(resolvedVersion);
+    }
+  }
+  return HOME_ROUTER_PATH;
+}
+
 export function pathRelativeToProject(projectConfigName: string) {
   return `../${projectConfigName}`;
 }

@@ -653,7 +653,6 @@ async def route_set_active_ids(x: SetActiveIdsRequest, ctx: RuntimeContextFromRe
 @router.post(Route.SET_VIEWPORT)
 async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_viewport(x)
 
 

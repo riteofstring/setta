@@ -1,17 +1,27 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { HOME_ROUTER_PATH } from "utils/constants";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useShareSession } from "state/definitions";
+import { resolveHomePath } from "utils/constants";
 import { siteLogoOnKeyDown } from "utils/tabbingLogic";
 
 export function SiteLogo() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { version } = useParams();
+  const shareDeploymentVersion = useShareSession(
+    (x) => x.shareDeploymentVersion,
+  );
+  const homePath = resolveHomePath(
+    location.pathname,
+    version,
+    shareDeploymentVersion,
+  );
 
   return (
     <Link
       id="SiteLogo"
       className="rounded-md outline-2 outline-offset-4 outline-blue-500 focus-visible:outline"
-      to={HOME_ROUTER_PATH}
-      onKeyDown={(e) => siteLogoOnKeyDown(e, navigate, location)}
+      to={homePath}
+      onKeyDown={(e) => siteLogoOnKeyDown(e, navigate, location, homePath)}
     >
       <SVG
         styles="w-12 mt-[4px] group"
