@@ -14,8 +14,7 @@ import {
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { useSettings, useShareSession } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
+import { useSettings } from "state/definitions";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
 
@@ -28,8 +27,6 @@ export function EditMenu() {
 }
 
 function Items() {
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const shortcuts = useSettings((x) => {
     return {
       newCardShortcut: shortcutPrettified(x.shortcuts.newCardShortcut),
@@ -49,14 +46,12 @@ function Items() {
       <MenuItem
         onClick={addCallableSectionInEmptySpace}
         shortcut={shortcuts.newCardShortcut}
-        disabled={!canEditStructure}
       >
         <HiPlus className="h-4 w-4" /> Card
       </MenuItem>
       <MenuItem
         onClick={addGroupInEmptySpace}
         shortcut={shortcuts.newGroupShortcut}
-        disabled={!canEditStructure}
       >
         <AiOutlineGroup className="h-4 w-4" />
         Group
@@ -65,20 +60,16 @@ function Items() {
       <MenuItem
         onClick={() => requestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
-        disabled={isShareMode}
       >
         Type Check
       </MenuItem>
       <MenuItem
         onClick={restartLanguageServer}
         shortcut={shortcuts.restartLanguageServerShortcut}
-        disabled={isShareMode}
       >
         Restart Language Server
       </MenuItem>
-      <MenuItem onClick={autoLayout} disabled={!canEditLayout}>
-        Auto Layout
-      </MenuItem>
+      <MenuItem onClick={autoLayout}>Auto Layout</MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem onClick={redoProjectState} shortcut={shortcuts.redoShortcut}>
         Redo

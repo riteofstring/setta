@@ -16,12 +16,6 @@ class RenameRefactorMode(str, Enum):
     NEVER_RENAME = "NEVER_RENAME"
 
 
-class RunSnapshotMode(str, Enum):
-    always = "always"
-    ephemeral = "ephemeral"
-    never = "never"
-
-
 class BackgroundVariant(str, Enum):
     lines = "lines"
     dots = "dots"
@@ -128,7 +122,6 @@ class SettingsBackend(BaseModel):
     exportDbReadableWithVariantsOnSave: bool = False
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
-    runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
 
 
 class SectionSizingPolicyTypeEntry(BaseModel):

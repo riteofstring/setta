@@ -14,7 +14,6 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
-  useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
@@ -822,10 +821,6 @@ export function getAncestorSameVisibility(
 }
 
 export function deleteAllActiveSections() {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return;
-  }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds: useProjectState.getState().projectConfig.activeIds,
@@ -853,26 +848,17 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-function canEditLayoutForShareSession(): boolean {
-  const shareSession = useShareSession.getState();
-  if (!shareSession.isShareMode) {
-    return true;
-  }
-  return shareSession.sharePolicy?.allowLayoutChanges ?? true;
-}
-
-export const debounced_route_set_top_level_section_layout = _.debounce(() => {
-  if (!canEditLayoutForShareSession()) {
-    return;
-  }
-  route_set_top_level_section_layout({
-    projectConfigId: getCurrProjectConfigId(),
-    topLevelSections: createTopLevelSectionLayoutDict(
-      useProjectState.getState().sections,
-      useNodeInternals.getState().x,
-    ),
-  });
-}, 500);
+export const debounced_route_set_top_level_section_layout = _.debounce(
+  () =>
+    route_set_top_level_section_layout({
+      projectConfigId: getCurrProjectConfigId(),
+      topLevelSections: createTopLevelSectionLayoutDict(
+        useProjectState.getState().sections,
+        useNodeInternals.getState().x,
+      ),
+    }),
+  500,
+);
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
@@ -894,13 +880,6 @@ export function getSectionChildren(
 }
 
 export async function groupActiveSections() {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return;
-  }
-  if (!canEditLayoutForShareSession()) {
-    return;
-  }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
@@ -910,13 +889,6 @@ export async function groupActiveSections() {
 }
 
 export async function ungroupActiveGroups() {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return;
-  }
-  if (!canEditLayoutForShareSession()) {
-    return;
-  }
   const groupIds = useProjectState.getState().projectConfig.activeIds;
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }

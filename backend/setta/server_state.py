@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from setta.database.db_objs import DBE
@@ -20,27 +19,7 @@ from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.session_project_manager import (
-    SessionPersistenceMode,
-    SessionProjectManager,
-)
-from setta.project_state.share_runtime_state import ShareRuntimeState
-from setta.share.chat_manager import ShareChatManager
-from setta.share.deployment_utils import read_share_deployment_manifest
-from setta.share.listener_runtime import ShareListenerRuntime
-from setta.share.run_cleanup import (
-    DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
-    DEFAULT_SHARE_RUN_TTL_SECONDS,
-    run_share_run_cleanup_loop,
-)
-from setta.share.session_cleanup import (
-    DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
-    DEFAULT_SHARE_SESSION_TTL_SECONDS,
-    run_share_session_cleanup_loop,
-)
-from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
-from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.init_status import BackendInitializationStatus
 from setta.websockets.listener_registry import ListenerRegistry
@@ -51,14 +30,15 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
-_T = TypeVar("_T")
-
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
     from setta.websockets.msg_handlers.python_script_receiver import (
         WMHPythonScriptReceiver,
     )
+
+
+_T = TypeVar("_T")
 
 
 class _UninitializedAttribute:
@@ -75,55 +55,23 @@ class _UninitializedAttribute:
     def __bool__(self) -> bool:
         return False
 
-    @property
-    def disabled(self) -> bool:
-        return True
-
 
 class SettaFastAPIState:
-    def __init__(
-        self,
-        app,
-        *,
-        share_mode: bool = False,
-        share_deployment_root: Path | None = None,
-    ):
-        self.share_mode = share_mode
-        self.share_deployment_root = self._resolve_share_deployment_root(
-            share_mode, share_deployment_root
-        )
-        self.share_runtime_root = self._resolve_share_runtime_root(
-            self.share_deployment_root
-        )
-
+    def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.dbe = DBE(
-            self.share_deployment_root
-            if self.share_deployment_root is not None
-            else C.SETTA_FILES_FOLDER,
-            runtime_root=self.share_runtime_root,
-            lock_root=self.share_runtime_root,
-        )
-        if not self.share_mode:
-            seed_llm_config_example_file(self.dbe)
-        self.wmh_frontend_sender = WMHFrontendSender(
-            self.websocket_manager,
-            share_mode=self.share_mode,
-        )
+        self.dbe = DBE(C.SETTA_FILES_FOLDER)
+        seed_llm_config_example_file(self.dbe)
+        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
-            None if self.share_mode else self.dbe,
+            self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.share_mode:
-            self.settings_file = self._defer_attr("settings_file")
-            self.terminals = self._defer_attr("terminals")
-        else:
-            self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
-            self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
+        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
+        self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
 
         self.lsps: LSPServers = self._defer_attr("lsps")
         self.lsp_writers: LSPWriters = self._defer_attr("lsp_writers")
@@ -137,15 +85,6 @@ class SettaFastAPIState:
         self.project_manager_switcher: ProjectManagerSwitcher = self._defer_attr(
             "project_manager_switcher"
         )
-        self.share_session_store: ShareSessionStore = self._defer_attr(
-            "share_session_store"
-        )
-        self.share_runtime_state: ShareRuntimeState = self._defer_attr(
-            "share_runtime_state"
-        )
-        self.share_listener_runtime: ShareListenerRuntime = self._defer_attr(
-            "share_listener_runtime"
-        )
         self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
             "wmh_frontend_receiver"
         )
@@ -155,17 +94,14 @@ class SettaFastAPIState:
         )
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
-        self.chat_manager: LLMChatManager | ShareChatManager = self._defer_attr(
-            "chat_manager"
-        )
+        self.chat_manager: LLMChatManager = self._defer_attr("chat_manager")
         self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
         )
 
         self.init_status = BackendInitializationStatus()
-        mode_label = "share" if self.share_mode else "backend"
-        self.init_status.record(f"Booting {mode_label} services")
+        self.init_status.record("Booting backend services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
                 f"Simulating slow init (+{C.BACKEND_INIT_DELAY_SECONDS:.1f}s per step)"
@@ -183,20 +119,15 @@ class SettaFastAPIState:
         )
 
     async def _initialize_async(self, app):
-        try:
-            if self.share_mode:
-                await self._initialize_share_async()
-                return
-            from setta.project_state.project_manager_switcher import (
-                ProjectManagerSwitcher,
-            )
-            from setta.websockets.msg_handlers.frontend_receiver import (
-                WMHFrontendReceiver,
-            )
-            from setta.websockets.msg_handlers.python_script_receiver import (
-                WMHPythonScriptReceiver,
-            )
+        from setta.project_state.project_manager import ProjectManager
+        from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+        from setta.project_state.settings_project_manager import SettingsProjectManager
+        from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
+        from setta.websockets.msg_handlers.python_script_receiver import (
+            WMHPythonScriptReceiver,
+        )
 
+        try:
             self.init_status.record("Creating file watchers")
             await self._maybe_delay()
             self.specific_file_watcher = SpecificFileWatcher()
@@ -217,33 +148,30 @@ class SettaFastAPIState:
             await self._maybe_delay()
             self.lsps = LSPServers(self.settings_file.settings.languageServer)
             self.lsp_writers = LSPWriters(self.lsps)
-            project_manager = SessionProjectManager(
-                persistence_mode=SessionPersistenceMode.ide_main,
-                frontend_sender=self.wmh_frontend_sender,
-                python_script_sender=self.wmh_python_script_sender,
-                settings_file=self.settings_file,
-                specific_file_watcher=self.specific_file_watcher,
-                dbe=self.dbe,
-                artifacts=self.artifacts,
-                json_source=self.json_source,
-                code_files=self.code_files,
-                lsp_writers=self.lsp_writers,
+            project_manager = ProjectManager(
+                self.lsp_writers,
+                self.wmh_frontend_sender,
+                self.wmh_python_script_sender,
+                self.settings_file,
+                self.specific_file_watcher,
+                self.dbe,
+                self.artifacts,
+                self.json_source,
+                self.code_files,
             )
-            settings_project_manager = SessionProjectManager(
-                persistence_mode=SessionPersistenceMode.ide_settings,
-                frontend_sender=self.wmh_frontend_sender,
-                python_script_sender=self.wmh_python_script_sender,
-                settings_file=self.settings_file,
-                specific_file_watcher=self.specific_file_watcher,
-                dbe=self.dbe,
-                artifacts=self.artifacts,
-                json_source=self.json_source,
-                code_files=self.code_files,
-                lsp_writers=self.lsp_writers,
+            settings_project_manager = SettingsProjectManager(
+                self.lsp_writers,
+                self.wmh_frontend_sender,
+                self.wmh_python_script_sender,
+                self.settings_file,
+                self.specific_file_watcher,
+                self.dbe,
+                self.artifacts,
+                self.json_source,
+                self.code_files,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
-                main_manager=project_manager,
-                settings_manager=settings_project_manager,
+                project_manager, settings_project_manager
             )
 
             self.init_status.record("Preparing websocket handlers")
@@ -303,7 +231,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
-            if not self.mcp_client.disabled:
+            if self.mcp_client:
                 spawn_background_task(
                     self.mcp_client.connect_to_servers(),
                     label="mcp-client-connect",
@@ -328,180 +256,9 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_share_async(self) -> None:
-        from setta.websockets.msg_handlers.frontend_receiver import (
-            WMHFrontendReceiver,
-        )
-        from setta.websockets.msg_handlers.python_script_receiver import (
-            WMHPythonScriptReceiver,
-        )
-
-        self.init_status.record("Loading share deployment")
-        await self._maybe_delay()
-        if self.share_deployment_root is None:
-            raise ValueError("Share deployment root must be set in share mode")
-        self.share_session_store = MemorySessionStore(
-            ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
-        )
-        self.specific_file_watcher = SpecificFileWatcher()
-        self.share_runtime_state = ShareRuntimeState(
-            self.dbe,
-            self.share_deployment_root,
-            self.wmh_frontend_sender,
-            specific_file_watcher=self.specific_file_watcher,
-        )
-        self.settings_file = SettingsFile(
-            self.dbe,
-            self.wmh_frontend_sender,
-            allow_write=False,
-        )
-        self.share_runtime_state.initialize_share_state(self.settings_file)
-        lsp_writers = None
-        from setta.project_state.project_manager_switcher import (
-            ProjectManagerSwitcher,
-        )
-
-        self.project_manager_switcher = ProjectManagerSwitcher(
-            share_runtime_state=self.share_runtime_state,
-            settings_file=self.settings_file,
-            python_script_sender=self.wmh_python_script_sender,
-            lsp_writers=lsp_writers,
-            frontend_sender=self.wmh_frontend_sender,
-            specific_file_watcher=self.specific_file_watcher,
-        )
-        if self.share_runtime_state.share_policy.allowRun:
-            self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
-        else:
-            self.terminals = None
-        if (
-            self.share_runtime_state.share_policy.allowRun
-            and self.share_runtime_state.share_policy.runSnapshotMode
-            == RunSnapshotMode.ephemeral
-        ):
-            spawn_background_task(
-                run_share_run_cleanup_loop(
-                    self.share_runtime_state.share_runs_root,
-                    ttl_seconds=DEFAULT_SHARE_RUN_TTL_SECONDS,
-                    interval_seconds=DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
-                ),
-                label="share-run-cleanup",
-                extra_values={
-                    "project_config_name": self.share_runtime_state.project_config_name,
-                    "deployment_version": self.share_runtime_state.deployment_version,
-                },
-            )
-        self.share_listener_runtime = ShareListenerRuntime(
-            deployment_root=self.share_deployment_root,
-            manifest=self.share_runtime_state.manifest,
-        )
-        self.wmh_frontend_receiver = WMHFrontendReceiver(
-            self.websocket_manager,
-            project_manager=None,
-            realtime_event_hub=self.realtime_event_hub,
-            share_mode=True,
-            share_runtime_state=self.share_runtime_state,
-        )
-        self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager,
-            self.listener_registry,
-            self.wmh_frontend_sender,
-            self.wmh_python_script_sender,
-            self.project_manager_switcher,
-            dbe=self.dbe,
-        )
-        share_policy = self.share_runtime_state.share_policy
-        llm_dbe = self._resolve_share_llm_dbe()
-        llm_config = None
-        if share_policy.allowLLM:
-            llm_config = load_llm_config(llm_dbe, allow_write=False)
-            self.chat_manager = ShareChatManager(
-                llm_dbe,
-                self.wmh_frontend_sender,
-                self.share_runtime_state,
-                self.share_session_store,
-                self.project_manager_switcher,
-                llm_config=llm_config,
-            )
-        share_chat_manager = self.chat_manager if share_policy.allowLLM else None
-        share_terminals = self.terminals
-        spawn_background_task(
-            run_share_session_cleanup_loop(
-                self.share_session_store,
-                self.share_runtime_state,
-                self.project_manager_switcher,
-                share_listener_runtime=self.share_listener_runtime,
-                share_chat_manager=share_chat_manager,
-                terminals=share_terminals,
-                interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
-            ),
-            label="share-session-cleanup",
-            extra_values={
-                "project_config_name": self.share_runtime_state.project_config_name,
-                "deployment_version": self.share_runtime_state.deployment_version,
-            },
-        )
-        if self.specific_file_watcher:
-            self.specific_file_watcher.start()
-        self._ready_event.set()
-        self.init_status.record("Share backend ready")
-        self.init_status.mark_ready()
-
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
-
-    def _resolve_share_deployment_root(
-        self, share_mode: bool, share_deployment_root: Path | None
-    ) -> Path | None:
-        if not share_mode:
-            return None
-        if share_deployment_root is None:
-            raise ValueError("Share mode requires a share deployment root")
-        resolved = share_deployment_root.expanduser().resolve()
-        if not resolved.exists():
-            raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
-        project_path = resolved / "project.json"
-        if not project_path.exists():
-            raise FileNotFoundError(
-                f"Share deployment missing project.json: {project_path}"
-            )
-        return resolved
-
-    def _resolve_share_runtime_root(
-        self, share_deployment_root: Path | None
-    ) -> Path | None:
-        if not self.share_mode or share_deployment_root is None:
-            return None
-        manifest = read_share_deployment_manifest(share_deployment_root)
-        if manifest is None:
-            raise FileNotFoundError(
-                f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
-            )
-        project_config_name = manifest.projectConfigName
-        deployment_version = manifest.deploymentVersion
-        share_deployments_root = share_deployment_root.parent.parent
-        if share_deployments_root.name == "share_deployments":
-            default_share_root = C.SHARE_DEPLOYMENTS_FOLDER.resolve()
-            if share_deployments_root.resolve() == default_share_root:
-                base_root = default_share_root.parent
-            else:
-                base_root = share_deployments_root
-        else:
-            base_root = share_deployment_root.parent
-        runtime_root = (
-            base_root / "share_runtime" / project_config_name / deployment_version
-        ).resolve()
-        runtime_root.mkdir(parents=True, exist_ok=True)
-        return runtime_root
-
-    def _resolve_share_llm_dbe(self) -> DBE:
-        if not self.share_mode or self.share_runtime_root is None:
-            return self.dbe
-        return DBE(
-            self.share_runtime_root,
-            runtime_root=self.share_runtime_root,
-            lock_root=self.share_runtime_root,
-        )
 
     async def _maybe_delay(self) -> None:
         delay = C.BACKEND_INIT_DELAY_SECONDS
