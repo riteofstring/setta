@@ -78,7 +78,6 @@ class RuntimeContext:
         *,
         policy_flag: str,
         denied_message: str,
-        project_config_id: "ID | None",
     ) -> None:
         await enforce_share_policy(
             share_mode=self.state.share_mode,
@@ -86,31 +85,24 @@ class RuntimeContext:
             frontend_sender=self.state.wmh_frontend_sender,
             policy_flag=policy_flag,
             denied_message=denied_message,
-            project_config_id=project_config_id,
             share_session_id=self._share_session_id,
         )
 
     async def enforce_run_allowed(
         self,
-        *,
-        project_config_id: "ID | None",
     ) -> None:
         await ensure_share_run_allowed(
             self.state,
-            project_config_id=project_config_id,
             share_session_id=self._share_session_id,
         )
 
     async def enforce_run_allowed_ws(
         self,
         websocket: WebSocket,
-        *,
-        project_config_id: "ID | None",
     ) -> bool:
         return await ensure_share_run_allowed_ws(
             self.state,
             websocket,
-            project_config_id=project_config_id,
             share_session_id=self._share_session_id,
         )
 

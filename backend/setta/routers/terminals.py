@@ -39,10 +39,7 @@ async def terminal_websocket_endpoint(
     ctx: RuntimeContextFromWebsocket,
 ):
     share_session_id = ctx.share_session_id
-    allowed = await ctx.enforce_run_allowed_ws(
-        websocket,
-        project_config_id=projectConfigId,
-    )
+    allowed = await ctx.enforce_run_allowed_ws(websocket)
     if not allowed:
         return
     terminal_id = build_terminal_id(sectionId, share_session_id)
@@ -108,9 +105,7 @@ async def route_delete_terminals(
     ctx: RuntimeContextFromRequest,
 ):
     share_session_id = ctx.share_session_id
-    await ctx.enforce_run_allowed(
-        project_config_id=None,
-    )
+    await ctx.enforce_run_allowed()
     terminal_ids = [
         build_terminal_id(section_id, share_session_id) for section_id in x.sectionIds
     ]
@@ -124,9 +119,7 @@ async def route_kill_subprocesses(
     ctx: RuntimeContextFromRequest,
 ):
     share_session_id = ctx.share_session_id
-    await ctx.enforce_run_allowed(
-        project_config_id=x.projectConfigId,
-    )
+    await ctx.enforce_run_allowed()
     ids = ctx.state.terminals.get_existing_terminals(
         x.projectConfigId,
         share_session_id=share_session_id,
@@ -152,9 +145,7 @@ async def route_run_code(
 ):
     share_session_id = ctx.share_session_id
     manager = ctx.get_project_manager(x.projectConfigId)
-    await ctx.enforce_run_allowed(
-        project_config_id=x.projectConfigId,
-    )
+    await ctx.enforce_run_allowed()
     run_request = x
     if ctx.share_mode:
         run_request = x.model_copy(

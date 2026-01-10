@@ -191,7 +191,6 @@ class SessionProjectManager(BaseProjectManager):
             share_mode=True,
             policy=self.share_runtime_state.share_policy,
             frontend_sender=self.share_runtime_state.frontend_sender,
-            project_config_id=projectConfigId,
             share_session_id=share_session_id,
         )
         await self._apply_listener_emit_updates_to_state(

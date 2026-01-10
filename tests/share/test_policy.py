@@ -73,7 +73,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
@@ -86,7 +86,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowParamChanges",
                     denied_message="Share policy disallows parameter changes.",
-                    project_config_id=project_config_id,
                 )
 
             self.assertEqual(403, raised.exception.status_code)
@@ -95,7 +94,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
@@ -108,7 +107,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowVariantChanges",
                     denied_message="Share policy disallows variant changes.",
-                    project_config_id=project_config_id,
                 )
 
             self.assertEqual(403, raised.exception.status_code)
@@ -117,7 +115,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
@@ -130,7 +128,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowLayoutChanges",
                     denied_message="Share policy disallows layout changes.",
-                    project_config_id=project_config_id,
                 )
 
             self.assertEqual(403, raised.exception.status_code)
@@ -139,7 +136,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
@@ -152,7 +149,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                     share_mode=runtime_ctx.share_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
                     message="Share mode disallows structural changes.",
-                    project_config_id=project_config_id,
                     share_session_id=runtime_ctx.share_session_id,
                 )
 
@@ -162,7 +158,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
@@ -175,7 +171,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                     share_mode=runtime_ctx.share_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
                     message="Share mode disallows language server features.",
-                    project_config_id=project_config_id,
                     share_session_id=runtime_ctx.share_session_id,
                 )
 

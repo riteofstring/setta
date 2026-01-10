@@ -102,62 +102,56 @@ router = SettaProjectContextAPIRouter(
 )
 
 
-async def _deny_share_mode_lsp(ctx, project_config_id) -> None:
+async def _deny_share_mode_lsp(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows language server features.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
 
-async def _deny_share_mode_structural(ctx, project_config_id) -> None:
+async def _deny_share_mode_structural(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows structural changes.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
 
-async def _deny_share_mode_code_edit(ctx, project_config_id) -> None:
+async def _deny_share_mode_code_edit(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows code edits.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
 
-async def _deny_share_mode_param_impl(ctx, project_config_id) -> None:
+async def _deny_share_mode_param_impl(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows parameter implementation changes.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
 
-async def _deny_share_mode_param_metadata(ctx, project_config_id) -> None:
+async def _deny_share_mode_param_metadata(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows parameter metadata changes.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
 
-async def _deny_share_mode_view_modes(ctx, project_config_id) -> None:
+async def _deny_share_mode_view_modes(ctx) -> None:
     await deny_in_share_mode(
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows view mode changes.",
-        project_config_id=project_config_id,
         share_session_id=ctx.share_session_id,
     )
 
@@ -166,7 +160,7 @@ async def _deny_share_mode_view_modes(ctx, project_config_id) -> None:
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.clear_text_field_completion(x)
 
@@ -175,7 +169,7 @@ async def route_clear_text_field_completion(
 async def route_set_callable(
     x: SetCallableRequest, ctx: RuntimeContextFromRequest
 ) -> SetCallableResponse:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.set_callable(x)
 
@@ -184,7 +178,7 @@ async def route_set_callable(
 async def route_text_field_completion(
     x: TextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.text_field_completion(x)
 
@@ -193,7 +187,7 @@ async def route_text_field_completion(
 async def route_code_area_completion(
     x: CodeAreaCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.code_area_completion(x)
 
@@ -202,7 +196,7 @@ async def route_code_area_completion(
 async def route_gen_code_prefix_completion(
     x: GenCodePrefixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.gen_code_prefix_completion(x)
 
@@ -211,7 +205,7 @@ async def route_gen_code_prefix_completion(
 async def route_gen_code_suffix_completion(
     x: GenCodeSuffixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.gen_code_suffix_completion(x)
 
@@ -220,7 +214,7 @@ async def route_gen_code_suffix_completion(
 async def route_change_param_impl(
     x: ChangeParamImplRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_param_impl(ctx, x.projectConfigId)
+    await _deny_share_mode_param_impl(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.change_param_impl(x)
 
@@ -229,7 +223,7 @@ async def route_change_param_impl(
 async def route_update_param_impl_config(
     x: UpdateParamImplConfigRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_param_impl(ctx, x.projectConfigId)
+    await _deny_share_mode_param_impl(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.update_param_impl_config(x)
 
@@ -238,7 +232,7 @@ async def route_update_param_impl_config(
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, ctx: RuntimeContextFromRequest
 ) -> CreateTopLevelSectionResponse:
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     result = await manager.create_top_level_section(x)
     if x.implType == SectionType.Terminal:
@@ -256,7 +250,7 @@ async def route_create_top_level_section(
 async def route_create_child_sections(
     x: CreateChildSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.create_child_sections(x)
 
@@ -265,7 +259,7 @@ async def route_create_child_sections(
 async def route_create_child_sections_via_incrementer(
     x: CreateChildSectionsViaIncrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.create_child_sections_via_incrementer(x)
 
@@ -274,7 +268,7 @@ async def route_create_child_sections_via_incrementer(
 async def route_delete_sections(
     x: DeleteSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.delete_sections(x)
 
@@ -283,7 +277,7 @@ async def route_delete_sections(
 async def route_delete_child_sections_via_decrementer(
     x: DeleteChildSectionsViaDecrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.delete_child_sections_via_decrementer(x)
 
@@ -293,7 +287,7 @@ async def route_create_new_section_variant(
     x: CreateNewSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.create_new_section_variant(x)
     await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "New Variant Created",
@@ -305,7 +299,7 @@ async def route_create_new_section_variant(
 async def route_create_view_mode(
     x: CreateViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> str:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.create_view_mode(x)
 
@@ -315,7 +309,7 @@ async def route_set_active_view_mode(
     x: SetActiveViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_active_view_mode(x)
 
 
@@ -323,7 +317,7 @@ async def route_set_active_view_mode(
 async def route_toggle_is_editing_view_mode(
     x: ToggleIsEditingViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.toggle_is_editing_view_mode(x)
 
@@ -332,7 +326,7 @@ async def route_toggle_is_editing_view_mode(
 async def route_toggle_section_visibility(
     x: ToggleSectionVisibilityRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.toggle_section_visibility(x)
 
@@ -341,7 +335,7 @@ async def route_toggle_section_visibility(
 async def route_toggle_view_mode_user_facing(
     x: ToggleViewModeUserFacingRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.toggle_view_mode_user_facing(x)
 
@@ -350,7 +344,7 @@ async def route_toggle_view_mode_user_facing(
 async def route_set_view_mode_name(
     x: SetViewModeNameRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_view_mode_name(x)
 
@@ -359,7 +353,7 @@ async def route_set_view_mode_name(
 async def route_delete_view_mode(
     x: DeleteViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_view_modes(ctx, x.projectConfigId)
+    await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.delete_view_mode(x)
 
@@ -416,7 +410,7 @@ async def route_set_top_level_section_layout(
     x: SetTopLevelSectionLayoutRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_top_level_section_layout(x)
 
 
@@ -425,20 +419,20 @@ async def route_auto_layout_top_level_sections(
     x: AutoLayoutTopLevelSectionsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.auto_layout_top_level_sections(x)
 
 
 @router.post(Route.ADD_KWARG)
 async def route_add_kwarg(x: AddKwargRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_param_metadata(ctx, x.projectConfigId)
+    await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.add_kwarg(x)
 
 
 @router.post(Route.DELETE_KWARG)
 async def route_delete_kwarg(x: DeleteKwargRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_param_metadata(ctx, x.projectConfigId)
+    await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.delete_kwarg(x)
 
@@ -459,7 +453,7 @@ async def route_toggle_variant_json_source(
     x: ToggleVariantJSONSourceRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.toggle_variant_json_source(x)
 
 
@@ -478,7 +472,7 @@ async def route_set_text_block_text(
     x: SetTextBlockTextRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_text_block_text(x)
 
 
@@ -486,7 +480,7 @@ async def route_set_text_block_text(
 async def route_set_gen_code_prefix(
     x: SetGenCodePrefixRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
+    await _deny_share_mode_code_edit(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_gen_code_prefix(x)
 
@@ -495,7 +489,7 @@ async def route_set_gen_code_prefix(
 async def route_set_gen_code_suffix(
     x: SetGenCodeSuffixRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
+    await _deny_share_mode_code_edit(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_gen_code_suffix(x)
 
@@ -505,7 +499,7 @@ async def route_set_show_param_display_names(
     x: SetShowParamDisplayNamesRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_show_param_display_names(x)
 
 
@@ -519,7 +513,6 @@ async def route_set_param_entered_value(
         await ensure_share_param_value_allowed(
             policy=ctx.policy,
             frontend_sender=ctx.frontend_sender,
-            project_config_id=x.projectConfigId,
             project_state=project_state,
             section_id=x.sectionId,
             param_info_id=x.paramInfoId,
@@ -533,7 +526,7 @@ async def route_set_type_error_ignore(
     x: SetTypeErrorIgnoreRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_type_error_ignore(x)
 
 
@@ -541,7 +534,7 @@ async def route_set_type_error_ignore(
 async def route_set_code_obj_name(
     x: SetCodeObjNameRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_obj_name(x)
 
@@ -550,7 +543,7 @@ async def route_set_code_obj_name(
 async def route_set_code_obj_display_name(
     x: SetCodeObjDisplayNameRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_obj_display_name(x)
 
@@ -559,7 +552,7 @@ async def route_set_code_obj_display_name(
 async def route_set_code_file_binding(
     x: SetCodeFileBindingRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_file_binding(x)
 
@@ -569,7 +562,7 @@ async def route_toggle_position_locks(
     x: TogglePositionLocksRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.toggle_position_locks(x)
 
 
@@ -578,7 +571,7 @@ async def route_toggle_minimized(
     x: ToggleMinimizedRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.toggle_minimized(x)
 
 
@@ -587,13 +580,13 @@ async def route_toggle_group_orientation(
     x: ToggleGroupOrientationRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.toggle_group_orientation(x)
 
 
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
+    await _deny_share_mode_code_edit(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code(x)
 
@@ -603,7 +596,7 @@ async def route_set_section_param_filter(
     x: SetSectionParamFilterRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_param_filter(x)
 
 
@@ -612,7 +605,7 @@ async def route_set_section_variant(
     x: SetSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_section_variant(x)
 
 
@@ -621,7 +614,7 @@ async def route_set_default_section_variant(
     x: SetDefaultSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_default_section_variant(x)
 
 
@@ -630,7 +623,7 @@ async def route_toggle_variant_frozen(
     x: ToggleVariantFrozenRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.toggle_variant_frozen(x)
 
 
@@ -639,7 +632,7 @@ async def route_set_section_variant_name(
     x: SetSectionVariantNameRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.variant)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_section_variant_name(x)
 
 
@@ -648,7 +641,7 @@ async def route_set_section_sizes(
     x: SetSectionSizesRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_sizes(x)
 
 
@@ -660,7 +653,7 @@ async def route_set_active_ids(x: SetActiveIdsRequest, ctx: RuntimeContextFromRe
 @router.post(Route.SET_VIEWPORT)
 async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_viewport(x)
 
 
@@ -668,7 +661,7 @@ async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromReque
 async def route_set_section_name(
     x: SetSectionNameRequest, ctx: RuntimeContextFromRequest
 ):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_section_name(x)
 
@@ -677,7 +670,7 @@ async def route_set_section_name(
 async def route_accept_rename_refactor(
     x: AcceptRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.accept_rename_refactor(x)
 
@@ -686,7 +679,7 @@ async def route_accept_rename_refactor(
 async def route_decline_rename_refactor(
     x: DeclineRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.decline_rename_refactor(x)
 
@@ -696,7 +689,7 @@ async def route_set_text_block_display_mode(
     x: SetTextBlockDisplayModeRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_text_block_display_mode(x)
 
 
@@ -705,7 +698,7 @@ async def route_set_section_with_params_display_mode(
     x: SetSectionWithParamsDisplayModeRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_with_params_display_mode(x)
 
 
@@ -714,7 +707,7 @@ async def route_set_callable_hide_params(
     x: SetCallableHideParamsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_callable_hide_params(x)
 
 
@@ -723,7 +716,7 @@ async def route_set_section_hide_unpinned_params(
     x: SetSectionHideUnpinnedParamsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_hide_unpinned_params(x)
 
 
@@ -732,7 +725,7 @@ async def route_set_section_column_width(
     x: SetSectionColumnWidthRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_column_width(x)
 
 
@@ -741,7 +734,7 @@ async def route_set_browser_column_widths(
     x: SetBrowserColumnWidthsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_browser_column_widths(x)
 
 
@@ -750,7 +743,7 @@ async def route_set_browser_area_view_mode(
     x: SetBrowserAreaViewModeRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_browser_area_view_mode(x)
 
 
@@ -759,7 +752,7 @@ async def route_set_browser_hide_column(
     x: SetBrowserHideColumnRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_browser_hide_column(x)
 
 
@@ -768,7 +761,7 @@ async def route_set_text_block_format(
     x: SetTextBlockFormatRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_text_block_format(x)
 
 
@@ -778,7 +771,6 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows social URL updates.",
-        project_config_id=x.projectConfigId,
         share_session_id=ctx.share_session_id,
     )
     manager = ctx.get_project_manager(x.projectConfigId)
@@ -788,20 +780,20 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
 @router.post(Route.MOVE_SECTION)
 async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.layout)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.move_section(x)
 
 
 @router.post(Route.GROUP_SECTIONS)
 async def route_group_sections(x: GroupSectionsRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.group_sections(x)
 
 
 @router.post(Route.UNGROUP_GROUPS)
 async def route_ungroup_groups(x: UngroupGroupsRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.ungroup_groups(x)
 
@@ -811,7 +803,7 @@ async def route_toggle_param_selected(
     x: ToggleParamSelectedRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.toggle_param_selected(x)
 
 
@@ -820,7 +812,7 @@ async def route_unselect_all_params(
     x: UnselectAllParamsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.unselect_all_params(x)
 
 
@@ -833,7 +825,7 @@ async def route_prepare_sections_for_copy(
 
 @router.post(Route.PASTE_SECTIONS)
 async def route_paste_sections(x: PasteSectionsRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx, x.projectConfigId)
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.paste_sections(x)
 
@@ -843,7 +835,7 @@ async def route_append_draw_area_layer_item(
     x: AppendDrawAreaLayerItemRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.append_draw_area_layer_item(x)
 
 
@@ -852,7 +844,7 @@ async def route_set_image_area_image_path(
     x: SetImageAreaImagePathRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_image_area_image_path(x)
 
 
@@ -861,14 +853,14 @@ async def route_set_chart_area_data_path(
     x: SetChartAreaDataPathRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_chart_area_data_path(x)
 
 
 @router.post(Route.SET_CHART_TYPE)
 async def route_set_chart_type(x: SetChartTypeRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_chart_type(x)
 
 
@@ -877,5 +869,5 @@ async def route_set_chart_settings(
     x: SetChartSettingsRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, x, SharePolicyGuard.param)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_chart_settings(x)

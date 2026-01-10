@@ -14,9 +14,6 @@ from setta.types.share_deployment import SharePolicy
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
-    from setta.project_state.project_manager_types import (
-        ProjectManagerRequestWithProjectConfig,
-    )
     from setta.runtime.context import RuntimeContext
     from setta.server_state import SettaFastAPIState
     from setta.types.project_state import ProjectStateSingleConfig
@@ -80,13 +77,12 @@ async def _notify_and_raise(
     frontend_sender: "WMHFrontendSender",
     *,
     message: str,
-    project_config_id: ID | None,
     share_session_id: str | None,
 ) -> None:
     await frontend_sender.log_and_broadcast_backend_log_event(
         message,
         severity=SettaBackendLogEventSeverity.warning,
-        project_config_id=project_config_id,
+        project_config_id=None,
         share_session_id=share_session_id,
     )
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
@@ -97,13 +93,12 @@ async def _notify_and_close(
     websocket: WebSocket,
     *,
     message: str,
-    project_config_id: ID | None,
     share_session_id: str | None,
 ) -> None:
     await frontend_sender.log_and_broadcast_backend_log_event(
         message,
         severity=SettaBackendLogEventSeverity.warning,
-        project_config_id=project_config_id,
+        project_config_id=None,
         share_session_id=share_session_id,
     )
     if websocket.application_state == WebSocketState.CONNECTING:
@@ -116,7 +111,6 @@ async def deny_in_share_mode(
     share_mode: bool,
     frontend_sender: "WMHFrontendSender",
     message: str,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> None:
     if not share_mode:
@@ -124,7 +118,6 @@ async def deny_in_share_mode(
     await _notify_and_raise(
         frontend_sender,
         message=message,
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )
 
@@ -132,7 +125,6 @@ async def deny_in_share_mode(
 async def ensure_share_code_param_allowed(
     *,
     frontend_sender: "WMHFrontendSender",
-    project_config_id: ID | None,
     is_code_param: bool,
     share_session_id: str | None = None,
 ) -> None:
@@ -141,7 +133,6 @@ async def ensure_share_code_param_allowed(
     await _notify_and_raise(
         frontend_sender,
         message="Share mode disallows CodeParam edits.",
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )
 
@@ -153,7 +144,6 @@ async def enforce_share_policy(
     frontend_sender: "WMHFrontendSender",
     policy_flag: str,
     denied_message: str,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> None:
     if not share_mode:
@@ -162,7 +152,6 @@ async def enforce_share_policy(
         await _notify_and_raise(
             frontend_sender,
             message=denied_message,
-            project_config_id=project_config_id,
             share_session_id=share_session_id,
         )
 
@@ -175,7 +164,6 @@ class SharePolicyGuard(str, Enum):
 
 async def enforce_share_policy_guard(
     ctx: "RuntimeContext",
-    request: "ProjectManagerRequestWithProjectConfig",
     guard: SharePolicyGuard,
 ) -> None:
     if not ctx.share_mode:
@@ -184,21 +172,18 @@ async def enforce_share_policy_guard(
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
             denied_message="Share policy disallows parameter changes.",
-            project_config_id=request.projectConfigId,
         )
         return
     if guard is SharePolicyGuard.variant:
         await ctx.enforce_policy(
             policy_flag="allowVariantChanges",
             denied_message="Share policy disallows variant changes.",
-            project_config_id=request.projectConfigId,
         )
         return
     if guard is SharePolicyGuard.layout:
         await ctx.enforce_policy(
             policy_flag="allowLayoutChanges",
             denied_message="Share policy disallows layout changes.",
-            project_config_id=request.projectConfigId,
         )
         return
     raise KeyError(f"Unsupported share policy guard: {guard}")
@@ -212,7 +197,6 @@ async def enforce_share_policy_ws(
     frontend_sender: "WMHFrontendSender",
     policy_flag: str,
     denied_message: str,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> bool:
     if not share_mode:
@@ -222,7 +206,6 @@ async def enforce_share_policy_ws(
             frontend_sender,
             websocket,
             message=denied_message,
-            project_config_id=project_config_id,
             share_session_id=share_session_id,
         )
         return False
@@ -232,7 +215,6 @@ async def enforce_share_policy_ws(
 async def ensure_share_run_allowed(
     state: "SettaFastAPIState",
     *,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -241,14 +223,12 @@ async def ensure_share_run_allowed(
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
         denied_message="Share policy disallows run and terminal access.",
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )
     if state.share_mode and not state.terminals:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share run support is not enabled.",
-            project_config_id=project_config_id,
             share_session_id=share_session_id,
         )
 
@@ -257,7 +237,6 @@ async def ensure_share_run_allowed_ws(
     state: "SettaFastAPIState",
     websocket: WebSocket,
     *,
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> bool:
     allowed = await enforce_share_policy_ws(
@@ -267,7 +246,6 @@ async def ensure_share_run_allowed_ws(
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
         denied_message="Share policy disallows run and terminal access.",
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )
     if not allowed:
@@ -277,7 +255,6 @@ async def ensure_share_run_allowed_ws(
             state.wmh_frontend_sender,
             websocket,
             message="Share run support is not enabled.",
-            project_config_id=project_config_id,
             share_session_id=share_session_id,
         )
         return False
@@ -288,7 +265,6 @@ async def ensure_share_param_value_allowed(
     *,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
-    project_config_id: ID | None,
     project_state: "ProjectStateSingleConfig",
     section_id: ID,
     param_info_id: ID,
@@ -300,13 +276,11 @@ async def ensure_share_param_value_allowed(
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
         denied_message="Share policy disallows parameter changes.",
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )
     impl = get_curr_effective_code_obj_impl(project_state, section_id, param_info_id)
     await ensure_share_code_param_allowed(
         frontend_sender=frontend_sender,
-        project_config_id=project_config_id,
         is_code_param=isinstance(impl, CodeParamCodeObjImpl),
         share_session_id=share_session_id,
     )
@@ -323,14 +297,12 @@ async def ensure_share_llm_allowed(
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowLLM",
         denied_message="Share policy disallows LLM access.",
-        project_config_id=None,
         share_session_id=share_session_id,
     )
     if state.share_mode and not state.chat_manager:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share LLM support is not enabled.",
-            project_config_id=None,
             share_session_id=share_session_id,
         )
 
@@ -340,7 +312,6 @@ async def ensure_share_listener_emit_updates_allowed(
     share_mode: bool,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
-    project_config_id: ID | None,
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -349,6 +320,5 @@ async def ensure_share_listener_emit_updates_allowed(
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
         denied_message="Share policy disallows listener updates.",
-        project_config_id=project_config_id,
         share_session_id=share_session_id,
     )

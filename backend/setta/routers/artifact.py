@@ -204,7 +204,6 @@ async def route_update_artifacts(
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
             denied_message="Share policy disallows parameter changes.",
-            project_config_id=None,
         )
         artifacts = ctx.state.share_runtime_state.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []
