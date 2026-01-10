@@ -1,7 +1,13 @@
-import { useLoadShareDeployment } from "state/hooks/share";
 import { MainContainerCore } from "../MainContainerCore";
 
-export function ShareMainContainer() {
-  const [doneLoading, is404] = useLoadShareDeployment();
+type ShareMainContainerProps = {
+  doneLoading: boolean;
+  is404: boolean;
+};
+
+export function ShareMainContainer({
+  doneLoading,
+  is404,
+}: ShareMainContainerProps) {
   return <MainContainerCore doneLoading={doneLoading} is404={is404} />;
 }

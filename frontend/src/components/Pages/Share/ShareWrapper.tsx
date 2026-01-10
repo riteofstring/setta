@@ -1,14 +1,34 @@
+import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import { useShareSession } from "state/definitions";
+import { useLoadShareDeployment } from "state/hooks/share";
 import { AppShell } from "../AppShell";
 
-export function ShareWrapper({ children }) {
+type ShareWrapperRenderState = {
+  doneLoading: boolean;
+  is404: boolean;
+};
+
+type ShareWrapperChildren =
+  | ReactNode
+  | ((state: ShareWrapperRenderState) => ReactNode);
+
+type ShareWrapperProps = {
+  children: ShareWrapperChildren;
+};
+
+export function ShareWrapper({ children }: ShareWrapperProps) {
   useShareWebsocket();
   useShareHTMLTitle();
+  const [doneLoading, is404] = useLoadShareDeployment();
   const settingsLoaded = useLoadSettings();
+  const resolvedChildren =
+    typeof children === "function"
+      ? children({ doneLoading, is404 })
+      : children;
   return (
     <AppShell
       isLoading={!settingsLoaded}
@@ -19,7 +39,7 @@ export function ShareWrapper({ children }) {
         </div>
       }
     >
-      {children}
+      {resolvedChildren}
     </AppShell>
   );
 }

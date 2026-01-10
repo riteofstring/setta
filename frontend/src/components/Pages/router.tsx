@@ -62,12 +62,14 @@ const projectRoute = {
 
 const shareRouteElement = (
   <ShareWrapper>
-    <ModalContainer>
-      <HeaderContainer path={SHARE_PROJECT_ROUTER_PATH} />
-      <GridContainer>
-        <ShareMainContainer />
-      </GridContainer>
-    </ModalContainer>
+    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
+      <ModalContainer>
+        <HeaderContainer path={SHARE_PROJECT_ROUTER_PATH} />
+        <GridContainer>
+          <ShareMainContainer doneLoading={doneLoading} is404={is404} />
+        </GridContainer>
+      </ModalContainer>
+    )}
   </ShareWrapper>
 );
 
