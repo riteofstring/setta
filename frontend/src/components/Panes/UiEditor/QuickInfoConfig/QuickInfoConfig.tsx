@@ -8,9 +8,8 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   useLocalPendingValue,
   useLocalValue,
@@ -21,7 +20,7 @@ import {
   route_set_show_param_display_names,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum, isBaseParamCodeObjImpl } from "utils/generatedTypes";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
@@ -33,7 +32,6 @@ function _QuickInfoConfig({ sectionId }) {
 export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
 function QuickInfoConfigCore({ sectionId, paramInfos }) {
-  const { canEditLayout } = useShareCapabilities();
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
   );
@@ -54,9 +52,6 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
     "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
   function onToggleDisplayNames(checked: boolean) {
-    if (!canEditLayout) {
-      return;
-    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         state.projectConfig.showParamDisplayNames = checked;
@@ -78,7 +73,6 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
           className={toggleRootClasses}
           checked={showParamDisplayNames}
           onCheckedChange={onToggleDisplayNames}
-          disabled={!canEditLayout}
         >
           <Switch.Thumb className={toggleThumbClasses} />
         </Switch.Root>
@@ -109,12 +103,9 @@ function _UIElement({
   sectionId: string;
   paramInfo: { id: string; name: string };
 }) {
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditParamConfig, canEditParams, canEditStructure } =
-    useShareCapabilities();
   const { id, name } = paramInfo;
-  const { description, displayName, trueName, isKwarg, codeObjType } =
-    useProjectState((x) => {
+  const { description, displayName, trueName, isKwarg } = useProjectState(
+    (x) => {
       const codeObj = x.codeObjs[id];
       const impl = getCurrEffectiveCodeObjImpl(x, sectionId, id);
       return {
@@ -122,12 +113,10 @@ function _UIElement({
         displayName: codeObj.displayName,
         trueName: codeObj.name,
         isKwarg: isBaseParamCodeObjImpl(impl) && impl.coreNameEditable,
-        codeObjType: impl.type,
       };
-    }, _.isEqual);
-  const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
-  const canEditDescription =
-    canEditParamConfig && canEditParams && (!isShareMode || !isCodeParam);
+    },
+    _.isEqual,
+  );
   const [localDisplayName, setLocalDisplayName] = useLocalPendingValue(
     displayName,
     (pendingValue: string) => {
@@ -196,9 +185,6 @@ function _UIElement({
   }, [debouncedSetParamDisplayName, debouncedSetParamDescription]);
 
   function onDisplayNameChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!canEditStructure) {
-      return;
-    }
     let nextValue = e.target.value;
     if (nextValue.trim().length === 0) {
       nextValue = "";
@@ -208,9 +194,6 @@ function _UIElement({
   }
 
   function onDescriptionChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    if (!canEditDescription) {
-      return;
-    }
     const nextValue = e.target.value;
     setLocalDescription(nextValue);
     debouncedSetParamDescription(nextValue);
@@ -233,14 +216,12 @@ function _UIElement({
           placeholder={trueName}
           value={displayNameValue}
           onChange={onDisplayNameChange}
-          disabled={!canEditStructure}
         />
       )}
       <textarea
         className="mx-[2px] mb-4 h-12 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
         value={localDescription}
         onChange={onDescriptionChange}
-        disabled={!canEditDescription}
       />
     </div>
   );

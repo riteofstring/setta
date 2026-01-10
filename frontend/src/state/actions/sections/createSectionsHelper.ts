@@ -124,13 +124,6 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
-      name: "Text Area",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
-    },
-    {
       name: "Password Field",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
@@ -150,13 +143,6 @@ export function useCreateSectionsList() {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.ButtonParam,
-    },
-    {
-      name: "Rotary Encoder",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.RotaryParam,
     },
     {
       name: "Dropzone",

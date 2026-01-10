@@ -1,17 +1,10 @@
-import {
-  useProjectState,
-  useShareSession,
-  useTypeErrors,
-} from "state/definitions";
+import { useProjectState, useTypeErrors } from "state/definitions";
 import { route_type_check } from "utils/generatedEndpoints";
 import { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export async function requestTypeCheck(userRequested: boolean = false) {
-  if (useShareSession.getState().isShareMode) {
-    return;
-  }
   if (userRequested) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });

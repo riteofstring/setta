@@ -37,6 +37,22 @@ class ParamNameType(str, Enum):
     TEXT = "TEXT"
 
 
+class ButtonActionMode(str, Enum):
+    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
+    HTTP_REQUEST = "HTTP_REQUEST"
+    SETTA_API = "SETTA_API"
+
+
+class HttpRequestMethod(str, Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
+
+
 class ColorPickerChoice(BaseModel):
     color: str
     description: str
@@ -80,6 +96,12 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
 class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
     type: Literal[CodeObjType.ButtonParam] = CodeObjType.ButtonParam
     label: str = "Trigger"
+    actionMode: ButtonActionMode = ButtonActionMode.WEBSOCKET_LISTENER
+    requestMethod: HttpRequestMethod = HttpRequestMethod.POST
+    requestUrl: str = ""
+    requestHeaderKey: str = ""
+    requestHeaderValue: str = ""
+    requestBody: str = ""
 
 
 class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
@@ -135,9 +157,7 @@ ControlCodeObjTypeSet = frozenset(
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
         CodeObjType.ButtonParam,
-        CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
         CodeObjType.SwitchParam,
         CodeObjType.ColorPickerParam,
         CodeObjType.DropdownParam,

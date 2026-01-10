@@ -24,18 +24,21 @@
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
-- Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
 
 ## Testing Guidelines
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
-- Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
+- Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover tests`.
+- Exercise `test.py` when altering database or JSON source flows; it seeds `setta_files/` and validates round-trips through the project state stack.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
-- Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
 
 ## Commit & Pull Request Guidelines
 
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
+- Group related changes together; split UI and backend adjustments into separate commits when the history would otherwise mix responsibilities.
+- Every PR should describe the change, list commands executed (`pnpm test`, `./format_code.sh`, `test_install.sh`), and link any GitHub issues or Linear tickets.
+- Attach before/after screenshots or recordings for UI-facing updates and call out schema migrations or scripts that consumers must rerun.
+- Ensure reviewers are assigned, labels applied, and CI (when enabled) is green before merging or tagging a release.
 
 ## Environment & Tooling
 

@@ -31,7 +31,6 @@ import {
   useMisc,
   useProjectState,
   useResizeEvent,
-  useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
 import { C } from "utils/c";
@@ -303,12 +302,9 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canUseLsp = !isShareMode;
-  const completionsFn = useCallback(
-    getPythonCodeAreaCompletionsFn(sectionId, canUseLsp),
-    [sectionId, canUseLsp],
-  );
+  const completionsFn = useCallback(getPythonCodeAreaCompletionsFn(sectionId), [
+    sectionId,
+  ]);
 
   return (
     <CoreCodeArea
@@ -352,18 +348,12 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const theme = useCodeMirrorStyle();
 
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canUseLsp = !isShareMode;
-  const isShareReadOnly = isShareMode;
   const completionsFn = useCallback(
-    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
-    [generatedCodeForValue, canUseLsp],
+    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue),
+    [generatedCodeForValue],
   );
 
   function onChange(nextValue: string) {
-    if (isShareReadOnly) {
-      return;
-    }
     setValue(nextValue);
     const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
     if (!nextParts.isValid) {
@@ -464,7 +454,6 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: isShareReadOnly,
   }).concat(
     readOnlyGeneratedRange,
     readOnlyDecorations,
@@ -503,7 +492,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     );
     return {
       value: impl.code,
-      variantIsFrozen: impl.isFrozen,
+      variantIsFrozen: false,
     };
   }, _.isEqual);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
@@ -521,14 +510,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const isShareReadOnly = isShareMode;
-  const isDisabled = variantIsFrozen || isShareReadOnly;
 
   function onChange(v) {
-    if (isDisabled) {
-      return;
-    }
     debouncedSetCode(sectionId, v);
   }
 
@@ -542,7 +525,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled,
+    isDisabled: variantIsFrozen,
   });
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
@@ -742,11 +725,8 @@ const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   });
 }, 50);
 
-function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
+function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {
-    if (!canUseLsp) {
-      return [];
-    }
     const projectConfigId = getCurrProjectConfigId();
     const res = await route_code_area_completion({
       projectConfigId,
@@ -764,14 +744,8 @@ function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
   return wrappedCompletionsFn(fn);
 }
 
-function getGenPythonCodeAreaCompletionsFn(
-  generatedCode: string,
-  canUseLsp: boolean,
-) {
+function getGenPythonCodeAreaCompletionsFn(generatedCode: string) {
   const fn = async (fullText: string, position: number) => {
-    if (!canUseLsp) {
-      return [];
-    }
     const docParts = splitGenPythonDoc(fullText, generatedCode);
     if (!docParts.isValid) {
       return [];
