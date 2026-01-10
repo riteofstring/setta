@@ -26,7 +26,7 @@ class C:
     # Basic configuration
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
-    DEV_MODE_FRONTEND_PORT = 3000
+    DEV_MODE_FRONTEND_PORT = int(os.environ.get("SETTA_DEV_FRONTEND_PORT", "3000") or 3000)
     SETTINGS_PROJECT_NAME = "settings"
     BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
     OPEN_BROWSER_ON_START: str | None = None
@@ -43,7 +43,7 @@ class C:
     RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
     RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
 
-    AUTH_COOKIE_NAME = "setta_auth"
+    AUTH_COOKIE_NAME = os.environ.get("SETTA_AUTH_COOKIE_NAME", "setta_auth")
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
     AUTH_COOKIE_SAMESITE = "lax"
     AUTH_COOKIE_SECURE = False
