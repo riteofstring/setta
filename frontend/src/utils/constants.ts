@@ -115,38 +115,29 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SHARE_PROJECT_VERSION_ROUTER_PATH = "/share/:version";
-export const SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH =
-  "/share/:version/:targetProjectConfigName";
-export const SHARE_PROJECT_VERSION_HOME_ROUTER_PATH = "/share/:version/home";
+export const SHARE_PROJECT_ROUTER_PATH = "/share";
+export const SHARE_PROJECT_CONFIG_ROUTER_PATH =
+  "/share/:targetProjectConfigName";
+export const SHARE_PROJECT_HOME_ROUTER_PATH = "/share/home";
 export const SHARE_HOME_ROUTE_SEGMENT = "home";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
 export function buildSharePath(
-  version: string,
   targetProjectConfigName: string | null | undefined,
 ): string {
-  let path = `/share/${version}`;
   if (targetProjectConfigName) {
-    path = `${path}/${targetProjectConfigName}`;
+    return `/share/${targetProjectConfigName}`;
   }
-  return path;
+  return "/share";
 }
 
-export function buildShareHomePath(version: string): string {
-  return buildSharePath(version, SHARE_HOME_ROUTE_SEGMENT);
+export function buildShareHomePath(): string {
+  return buildSharePath(SHARE_HOME_ROUTE_SEGMENT);
 }
 
-export function resolveHomePath(
-  pathname: string,
-  version: string | null | undefined,
-  shareDeploymentVersion: string | null,
-): string {
-  if (pathname.startsWith("/share/")) {
-    const resolvedVersion = version ?? shareDeploymentVersion;
-    if (resolvedVersion) {
-      return buildShareHomePath(resolvedVersion);
-    }
+export function resolveHomePath(pathname: string): string {
+  if (pathname === "/share" || pathname.startsWith("/share/")) {
+    return buildShareHomePath();
   }
   return HOME_ROUTER_PATH;
 }

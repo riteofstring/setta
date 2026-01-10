@@ -1,20 +1,11 @@
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useShareSession } from "state/definitions";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { resolveHomePath } from "utils/constants";
 import { siteLogoOnKeyDown } from "utils/tabbingLogic";
 
 export function SiteLogo() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { version } = useParams();
-  const shareDeploymentVersion = useShareSession(
-    (x) => x.shareDeploymentVersion,
-  );
-  const homePath = resolveHomePath(
-    location.pathname,
-    version,
-    shareDeploymentVersion,
-  );
+  const homePath = resolveHomePath(location.pathname);
 
   return (
     <Link

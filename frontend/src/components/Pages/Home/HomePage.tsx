@@ -38,9 +38,6 @@ export function HomePage() {
     _.isEqual,
   );
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const shareDeploymentVersion = useShareSession(
-    (x) => x.shareDeploymentVersion,
-  );
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
@@ -59,7 +56,6 @@ export function HomePage() {
           defaultProjectConfigId={defaultProjectConfigId}
           setIsCreatingConfig={setIsCreatingConfig}
           isShareMode={isShareMode}
-          shareDeploymentVersion={shareDeploymentVersion}
         />
       )}
     </GridWrapper>
@@ -71,13 +67,11 @@ function RightColumn({
   defaultProjectConfigId,
   setIsCreatingConfig,
   isShareMode,
-  shareDeploymentVersion,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
   isShareMode: boolean;
-  shareDeploymentVersion: string | null;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
@@ -187,7 +181,6 @@ function RightColumn({
         onSelectProject={onSelectProject}
         selectionEnabled={selectionEnabled}
         isShareMode={isShareMode}
-        shareDeploymentVersion={shareDeploymentVersion}
       />
     </div>
   );
@@ -200,7 +193,6 @@ function ProjectItems({
   onSelectProject,
   selectionEnabled,
   isShareMode,
-  shareDeploymentVersion,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
@@ -208,7 +200,6 @@ function ProjectItems({
   onSelectProject: (e: React.MouseEvent, id: string) => void;
   selectionEnabled: boolean;
   isShareMode: boolean;
-  shareDeploymentVersion: string | null;
 }) {
   const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
@@ -239,7 +230,6 @@ function ProjectItems({
             inSelectionMode={selectionMode}
             selectionEnabled={selectionEnabled}
             isShareMode={isShareMode}
-            shareDeploymentVersion={shareDeploymentVersion}
           />
         ))
       )}
@@ -256,7 +246,6 @@ function ProjectItem({
   inSelectionMode,
   selectionEnabled,
   isShareMode,
-  shareDeploymentVersion,
 }: {
   project: ProjectConfig;
   isDefault: boolean;
@@ -265,15 +254,10 @@ function ProjectItem({
   inSelectionMode: boolean;
   selectionEnabled: boolean;
   isShareMode: boolean;
-  shareDeploymentVersion: string | null;
 }) {
   const itemStyles =
     "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
-  const projectPath = resolveProjectPath(
-    project.name,
-    isShareMode,
-    shareDeploymentVersion,
-  );
+  const projectPath = resolveProjectPath(project.name, isShareMode);
 
   return (
     <div className={itemStyles}>
@@ -394,15 +378,11 @@ function ThumbnailArea({
 function resolveProjectPath(
   projectName: string,
   isShareMode: boolean,
-  shareDeploymentVersion: string | null,
 ): string | null {
   if (!isShareMode) {
     return pathRelativeToProject(projectName);
   }
-  if (!shareDeploymentVersion) {
-    return null;
-  }
-  return buildSharePath(shareDeploymentVersion, projectName);
+  return buildSharePath(projectName);
 }
 
 function PreviewImg({

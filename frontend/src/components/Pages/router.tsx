@@ -10,9 +10,9 @@ import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
-  SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH,
-  SHARE_PROJECT_VERSION_HOME_ROUTER_PATH,
-  SHARE_PROJECT_VERSION_ROUTER_PATH,
+  SHARE_PROJECT_CONFIG_ROUTER_PATH,
+  SHARE_PROJECT_HOME_ROUTER_PATH,
+  SHARE_PROJECT_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
@@ -76,7 +76,7 @@ const shareProjectRouteElement = (
   <ShareWrapper>
     {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
       <ModalContainer>
-        <HeaderContainer path={SHARE_PROJECT_VERSION_ROUTER_PATH} />
+        <HeaderContainer path={SHARE_PROJECT_ROUTER_PATH} />
         <GridContainer>
           <ShareMainContainer doneLoading={doneLoading} is404={is404} />
         </GridContainer>
@@ -89,7 +89,7 @@ const shareHomeRouteElement = (
   <ShareWrapper mode="home">
     {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
       <ModalContainer>
-        <HeaderContainer path={SHARE_PROJECT_VERSION_HOME_ROUTER_PATH} />
+        <HeaderContainer path={SHARE_PROJECT_HOME_ROUTER_PATH} />
         <GridContainer>
           {resolveShareHomeContent(doneLoading, is404)}
         </GridContainer>
@@ -100,15 +100,15 @@ const shareHomeRouteElement = (
 
 const shareRoutes = [
   {
-    path: SHARE_PROJECT_VERSION_HOME_ROUTER_PATH,
+    path: SHARE_PROJECT_HOME_ROUTER_PATH,
     element: shareHomeRouteElement,
   },
   {
-    path: SHARE_PROJECT_VERSION_ROUTER_PATH,
+    path: SHARE_PROJECT_ROUTER_PATH,
     element: shareProjectRouteElement,
   },
   {
-    path: SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH,
+    path: SHARE_PROJECT_CONFIG_ROUTER_PATH,
     element: shareProjectRouteElement,
   },
 ];

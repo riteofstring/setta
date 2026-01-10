@@ -5,7 +5,6 @@ import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import { useShareSession } from "state/definitions";
 import { useLoadShareDeployment } from "state/hooks/share";
-import { SHARE_HOME_ROUTE_SEGMENT } from "utils/constants";
 import { AppShell } from "../AppShell";
 
 type ShareWrapperRenderState = {
@@ -27,7 +26,7 @@ export function ShareWrapper({
   mode = "project",
 }: ShareWrapperProps) {
   useShareWebsocket();
-  useShareHTMLTitle();
+  useShareHTMLTitle(mode);
   const loadProject = mode === "project";
   const [doneLoading, is404] = useLoadShareDeployment(loadProject);
   const settingsLoaded = useLoadSettings();
@@ -62,26 +61,23 @@ function useShareWebsocket() {
   }, [location.pathname, shareSessionId]);
 }
 
-function useShareHTMLTitle() {
-  const { version, targetProjectConfigName } = useParams();
+function useShareHTMLTitle(mode: "project" | "home") {
+  const { targetProjectConfigName } = useParams();
 
   useEffect(() => {
-    document.title = resolveShareTitle(version, targetProjectConfigName);
-  }, [targetProjectConfigName, version]);
+    document.title = resolveShareTitle(mode, targetProjectConfigName);
+  }, [mode, targetProjectConfigName]);
 }
 
 function resolveShareTitle(
-  version: string | undefined,
+  mode: "project" | "home",
   targetConfigName: string | undefined,
 ): string {
-  if (!version) {
-    return "Sharing Mode";
-  }
-  if (targetConfigName === SHARE_HOME_ROUTE_SEGMENT) {
-    return `Share ${version} Home`;
+  if (mode === "home") {
+    return "Share Home";
   }
   if (targetConfigName) {
-    return `Share ${version}/${targetConfigName}`;
+    return `Share ${targetConfigName}`;
   }
-  return `Share ${version}`;
+  return "Share";
 }

@@ -1,25 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { buildShareHomePath, buildSharePath } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_load_share_project_config } from "utils/generatedEndpoints";
 import type { ProjectConfig } from "utils/generatedTypes";
-
-function resolveShareRedirectPath(
-  resolvedVersion: string,
-  targetProjectConfigName: string | undefined,
-  loadProject: boolean,
-): string {
-  if (!loadProject) {
-    return buildShareHomePath(resolvedVersion);
-  }
-  return buildSharePath(resolvedVersion, targetProjectConfigName);
-}
 
 function resolveProjectConfigId(
   projectMetadata: ProjectConfig[],
@@ -38,11 +26,10 @@ function resolveProjectConfigId(
 }
 
 export function useLoadShareDeployment(loadProject: boolean = true) {
-  const { version, targetProjectConfigName } = useParams();
-  const navigate = useNavigate();
+  const { targetProjectConfigName } = useParams();
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
-  const loadKey = `${version ?? ""}:${targetProjectConfigName ?? ""}:${loadProject}`;
+  const loadKey = `${targetProjectConfigName ?? ""}:${loadProject}`;
   const loadKeyRef = useRef(loadKey);
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
   const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
@@ -53,12 +40,6 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
     loadKeyRef.current = loadKey;
 
     async function load() {
-      if (!version) {
-        if (isMounted) {
-          setDoneLoading(true);
-        }
-        return;
-      }
       setDoneLoading(false);
       resetProjectStores();
       useProjectLoading.setState({
@@ -67,28 +48,6 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
       });
       const session = await ensureShareSessionFromCurrentDeployment();
       if (!session) {
-        useProjectLoading.setState({
-          projectIsLoading: false,
-          projectIs404: true,
-        });
-        if (isMounted) {
-          setDoneLoading(true);
-        }
-        return;
-      }
-      const resolvedVersion = session.deploymentVersion;
-      if (version === "latest") {
-        const targetPath = resolveShareRedirectPath(
-          resolvedVersion,
-          targetProjectConfigName,
-          loadProject,
-        );
-        navigate(targetPath, {
-          replace: true,
-        });
-        return;
-      }
-      if (version !== resolvedVersion) {
         useProjectLoading.setState({
           projectIsLoading: false,
           projectIs404: true,
@@ -148,7 +107,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
     return () => {
       isMounted = false;
     };
-  }, [loadProject, navigate, targetProjectConfigName, version]);
+  }, [loadProject, targetProjectConfigName]);
 
   return [resolvedDoneLoading, resolvedIs404] as const;
 }

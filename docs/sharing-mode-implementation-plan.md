@@ -12,8 +12,8 @@ Latest completion updates (this branch):
   draining ops, so snapshots reflect the latest edits even without a DB save.
 - JSON source publishing uses in-memory values instead of on-disk JSON source files.
 - Listener execution is per-session only; shared listener isolation was removed.
-- Share startup derives the share URL from `manifest.json`, so relocated
-  deployment roots still produce the correct `/share/<name>/<version>` URL.
+- Share startup prints `/share` as the share URL; relocated deployment roots
+  still load from `manifest.json` correctly.
 - Share runtime roots use the manifest name/version and avoid root-level
   `share_runtime` when deployments are relocated.
 - Share run commands always use `python <absolute path>` in share mode so
@@ -130,7 +130,7 @@ Implemented in `backend/setta/routers/share_deployments.py`.
     relocated; share boot rebases them to runtime paths.
   - Write `project.json`, `manifest.json`, and `share_policy.json`.
   - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
-    so `/share/<project_config_name>` can resolve the latest version.
+    for deployment identification.
 - Avoid any writes back to the developer workspace state.
 - In share mode, `route_publish_share_deployment` returns 403 to prevent
   public share servers from publishing deployments.
@@ -153,8 +153,8 @@ Implemented:
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, skips watchers, and disables LSP in share mode.
-- Share CLI derives project config name/version from `manifest.json` so the
-  share URL stays correct even when `--deployment-root` is relocated.
+- Share CLI derives project config name/version from `manifest.json`; the share
+  URL remains `/share` even when `--deployment-root` is relocated.
 - Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
   as a runtime root for file locks + temporary id maps (via
   `DBE.runtime_root`/`lock_root`) so deployments stay immutable.
@@ -410,10 +410,10 @@ Implemented:
 Pending updates: none.
 
 ## 11) Frontend share mode UX
-Status: completed. Project-config name/version routing is in place.
+Status: completed. Project-config routing is in place.
 Implemented:
-- Added `/share/:projectConfigName` and `/share/:projectConfigName/:version`
-  routing with share wrapper/container components and latest-version resolution.
+- Added `/share`, `/share/:projectConfigName`, and `/share/home` routing with
+  share wrapper/container components.
 - Added share session bootstrap (`route_create_share_session` + state fetch)
   plus share session store + hooks.
 - Websocket connections include `shareSessionId` and use `/share/frontend` in
@@ -428,7 +428,7 @@ Implemented:
  - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag) and run
    snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
-   and shows config/version + share URL with copy/open actions + recent list.
+   and shows config + share URL with copy/open actions + recent list.
  - Publish/redeploy UI: shows share-backend startup instructions.
 
 ## 12) Generated endpoints + types

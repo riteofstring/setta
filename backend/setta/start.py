@@ -933,7 +933,7 @@ def share(
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     resolved_version = manifest.deploymentVersion
     resolved_deployment_label = deployment_name or manifest.deploymentName
-    share_url = f"{C.BACKEND}/share/{resolved_version}"
+    share_url = f"{C.BACKEND}/share"
     auto_open = _should_auto_open(no_open)
     C.OPEN_BROWSER_ON_START = share_url if auto_open else None
     click.echo(

@@ -55,7 +55,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     if (!publishedDeployment) {
       return null;
     }
-    return buildShareUrl(publishedDeployment.deploymentVersion);
+    return buildShareUrl();
   }, [publishedDeployment]);
 
   useEffect(() => {
@@ -256,7 +256,8 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           </label>
           {!publishedDeployment ? (
             <div className="rounded-md border border-dashed border-setta-200 bg-white/70 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
-              Publish to generate a deployment version and share URL.
+              Publish to generate a deployment version. Share URL comes from the
+              share backend.
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -515,7 +516,7 @@ function RecentDeploymentList({
       </div>
       <div className="flex flex-col gap-2">
         {deployments.slice(0, 5).map((deployment) => {
-          const url = buildShareUrl(deployment.deploymentVersion);
+          const url = buildShareUrl();
           return (
             <div
               key={`${deployment.deploymentName}-${deployment.deploymentVersion}`}
@@ -564,8 +565,8 @@ function RecentDeploymentList({
   );
 }
 
-function buildShareUrl(deploymentVersion: string): string {
-  const sharePath = buildSharePath(deploymentVersion, null);
+function buildShareUrl(): string {
+  const sharePath = buildSharePath(null);
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}${sharePath}`;
   }
