@@ -8,10 +8,7 @@ from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
-from setta.websockets.msg_handlers.frontend_sender import (
-    ScopedFrontendSender,
-    WMHFrontendSender,
-)
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -60,9 +57,7 @@ class ShareChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
             self.share_runtime_state.get_or_create_session_backend(share_session_id)
-            session_sender = ScopedFrontendSender(
-                self.frontend_sender, share_session_id
-            )
+            session_sender = self.frontend_sender.scoped(share_session_id)
             manager = LLMChatManager(
                 self.dbe,
                 self._mcp_client,

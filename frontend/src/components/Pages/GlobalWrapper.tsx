@@ -14,6 +14,7 @@ import {
   router_get_default_project_config_name,
 } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
+import { AppShell } from "./AppShell";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -23,21 +24,18 @@ export function GlobalWrapper({ children }) {
   const backendReady = initStatus?.isReady ?? false;
   const shouldShowLoading = !settingsLoaded || !backendReady;
 
-  if (shouldShowLoading) {
-    return (
-      <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
+  return (
+    <AppShell
+      isLoading={shouldShowLoading}
+      loadingContent={
         <LoadingScreen
           initStatus={initStatus}
           settingsLoaded={settingsLoaded}
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="app-base flex min-h-0 min-w-full flex-1 flex-col bg-setta-light dark:bg-setta-dark">
+      }
+    >
       {children}
-    </div>
+    </AppShell>
   );
 }
 

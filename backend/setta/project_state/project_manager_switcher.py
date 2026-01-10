@@ -9,7 +9,6 @@ from setta.project_state.session_project_manager import (
 )
 from setta.types.helpers_lvl2 import ProjectNotFound, confirm_config_name
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -125,7 +124,7 @@ class ProjectManagerSwitcher:
         if share_session_id in self._session_managers:
             return self._session_managers[share_session_id]
         self.share_runtime_state.get_or_create_session_backend(share_session_id)
-        scoped_sender = ScopedFrontendSender(self.frontend_sender, share_session_id)
+        scoped_sender = self.frontend_sender.scoped(share_session_id)
         artifacts = self.share_runtime_state.get_session_artifacts(share_session_id)
         json_source = JSONSource(
             scoped_sender,

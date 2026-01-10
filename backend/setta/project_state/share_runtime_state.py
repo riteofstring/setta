@@ -38,7 +38,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.utils import build_gen_code_path, normalize_path
-from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -163,7 +162,7 @@ class ShareRuntimeState:
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
             return self._session_artifacts[session_id]
-        scoped_sender = ScopedFrontendSender(self.frontend_sender, session_id)
+        scoped_sender = self.frontend_sender.scoped(session_id)
         artifacts = Artifacts(
             scoped_sender,
             self._artifact_watcher,

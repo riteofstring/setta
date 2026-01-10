@@ -3,25 +3,24 @@ import { useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import { useShareSession } from "state/definitions";
+import { AppShell } from "../AppShell";
 
 export function ShareWrapper({ children }) {
   useShareWebsocket();
   useShareHTMLTitle();
   const settingsLoaded = useLoadSettings();
-  if (!settingsLoaded) {
-    return (
-      <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
+  return (
+    <AppShell
+      isLoading={!settingsLoaded}
+      loadingContent={
         <div className="flex flex-col items-center gap-3 text-xs text-setta-500 dark:text-setta-200">
           <div className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent" />
           <p>Loading share settings…</p>
         </div>
-      </div>
-    );
-  }
-  return (
-    <div className="app-base flex min-h-0 min-w-full flex-1 flex-col bg-setta-light dark:bg-setta-dark">
+      }
+    >
       {children}
-    </div>
+    </AppShell>
   );
 }
 

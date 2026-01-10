@@ -24,7 +24,6 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
-from setta.websockets.msg_handlers.frontend_sender import ScopedFrontendSender
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -69,7 +68,7 @@ class SessionProjectManager(BaseProjectManager):
         self.share_session_id = share_session_id
         resolved_lsp_writers = lsp_writers or NoopLSPWriters()
         resolved_sender = (
-            ScopedFrontendSender(frontend_sender, share_session_id)
+            frontend_sender.scoped(share_session_id)
             if share_runtime_state is not None
             else frontend_sender
         )
