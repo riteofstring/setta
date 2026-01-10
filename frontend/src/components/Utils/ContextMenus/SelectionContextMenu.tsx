@@ -11,7 +11,6 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   route_delete_sections,
   route_group_sections,
@@ -25,8 +24,6 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-  const { canEditLayout, canEditStructure, canEditVariants } =
-    useShareCapabilities();
 
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
@@ -71,9 +68,6 @@ export function SelectionContextMenu() {
   };
 
   function onClickCreate() {
-    if (!canEditLayout) {
-      return;
-    }
     route_group_sections({
       projectConfigId: getCurrProjectConfigId(),
       sectionIds: nodeIds,
@@ -82,9 +76,6 @@ export function SelectionContextMenu() {
   }
 
   function onClickDelete() {
-    if (!canEditStructure) {
-      return;
-    }
     route_delete_sections({
       projectConfigId: getCurrProjectConfigId(),
       sectionIds: nodeIds,
@@ -94,9 +85,6 @@ export function SelectionContextMenu() {
   }
 
   function onClickLock() {
-    if (!canEditLayout) {
-      return;
-    }
     const state = useProjectState.getState();
     const targetLocked = !allLocked;
     const sectionIdsToToggle = nodeIds.filter((sectionId: string) => {
@@ -124,9 +112,6 @@ export function SelectionContextMenu() {
   }
 
   function onClickVisibility() {
-    if (!canEditVariants) {
-      return;
-    }
     route_toggle_section_visibility({
       projectConfigId: getCurrProjectConfigId(),
       sectionIds: nodeIds,
@@ -151,19 +136,11 @@ export function SelectionContextMenu() {
       isOpen={isOpen}
       closeContextMenu={closeContextMenu}
     >
-      <Item onClick={onClickCreate} disabled={!canEditLayout}>
-        Create Group
-      </Item>
-      <Item onClick={onClickDelete} disabled={!canEditStructure}>
-        Delete
-      </Item>
-      <Item onClick={onClickLock} disabled={!canEditLayout}>
-        {lockItem}
-      </Item>
+      <Item onClick={onClickCreate}>Create Group</Item>
+      <Item onClick={onClickDelete}>Delete</Item>
+      <Item onClick={onClickLock}>{lockItem}</Item>
       {isEditingViewMode && (
-        <Item onClick={onClickVisibility} disabled={!canEditVariants}>
-          {visibilityItem}
-        </Item>
+        <Item onClick={onClickVisibility}>{visibilityItem}</Item>
       )}
     </ContextMenuCore>
   );
