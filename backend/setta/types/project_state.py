@@ -24,7 +24,7 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import ProjectConfig, ViewModeConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -303,6 +303,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def validate_view_modes(self):
         project_config = self.projectConfig
         if not project_config.viewModes:
+            visibility_by_section_id = {
+                section_id: True for section_id in self.sections.keys()
+            }
+            view_mode = ViewModeConfig(
+                visibilityBySectionId=visibility_by_section_id,
+            )
+            project_config.viewModes[view_mode.id] = view_mode
+            project_config.activeViewModeId = view_mode.id
             return self
 
         section_ids = set(self.sections.keys())
@@ -318,6 +326,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             for section_id in stale_ids:
                 del visibility[section_id]
 
+        if project_config.activeViewModeId not in project_config.viewModes:
+            project_config.activeViewModeId = next(
+                iter(project_config.viewModes)
+            )
         return self
 
 

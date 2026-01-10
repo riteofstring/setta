@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
@@ -42,9 +42,15 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
   const navigate = useNavigate();
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
+  const loadKey = `${version ?? ""}:${targetProjectConfigName ?? ""}:${loadProject}`;
+  const loadKeyRef = useRef(loadKey);
+  const isStaleLoadKey = loadKeyRef.current !== loadKey;
+  const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
+  const resolvedIs404 = isStaleLoadKey ? false : is404;
 
   useEffect(() => {
     let isMounted = true;
+    loadKeyRef.current = loadKey;
 
     async function load() {
       if (!version) {
@@ -144,7 +150,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
     };
   }, [loadProject, navigate, targetProjectConfigName, version]);
 
-  return [doneLoading, is404] as const;
+  return [resolvedDoneLoading, resolvedIs404] as const;
 }
 
 type ShareCapabilities = {

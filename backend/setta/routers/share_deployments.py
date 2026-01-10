@@ -12,6 +12,10 @@ from setta.project_state.jsonSource.save import build_json_source_dicts
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
 )
@@ -131,6 +135,17 @@ def _get_or_create_share_session_id(
     session = state.share_session_store.create_session()
     state.share_runtime_state.create_session_backend(session.id)
     return session.id
+
+
+def _ensure_snapshot_view_modes(
+    snapshot: "ProjectStateBackend",
+) -> "ProjectStateBackend":
+    updated = snapshot
+    for project_config_id in list(snapshot.projectConfigs.keys()):
+        single_state = convert_backend_to_single_config(updated, project_config_id)
+        single_state.validate_view_modes()
+        updated = merge_single_config_into_backend(updated, single_state)
+    return updated
 
 
 def _code_target_path(source_path: Path, code_root: Path) -> Path:
@@ -597,6 +612,14 @@ async def route_load_share_project_config(
         share_session_id,
         x.projectConfigId,
     )
+    logger.info(
+        "Share project config loaded: deployment=%s version=%s config_id=%s active_view_mode_id=%s view_modes=%s",
+        deploymentName,
+        version,
+        x.projectConfigId,
+        project_state.projectConfig.activeViewModeId,
+        len(project_state.projectConfig.viewModes),
+    )
     return ProjectStateSingleConfigWithCompletedOpIds(
         projectState=project_state,
         completedOpIds=[],
@@ -642,6 +665,7 @@ async def route_publish_share_deployment(
 
     snapshot = project_state_backend.model_copy(deep=True)
     snapshot.defaultProjectConfigId = x.projectConfigId
+    snapshot = _ensure_snapshot_view_modes(snapshot)
     _rebase_project_state_paths(snapshot, deployment_root)
     json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():
