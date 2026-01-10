@@ -42,6 +42,7 @@ from setta.types.shown_params import (
     ShownParamIds,
     get_param_ids_to_show,
 )
+from setta.utils.code_paths import build_gen_code_path, build_project_sections_dir
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 
@@ -242,10 +243,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_code_file_bindings(self):
-        project_slug = sanitize_name(self.projectConfig.name)
         code_root = normalize_path(C.CODE_FOLDER)
-        canonical_sections_dir = code_root / "sections" / project_slug
-        gen_code_path = canonical_sections_dir / "setta_gen.py"
+        canonical_sections_dir = build_project_sections_dir(
+            code_root, self.projectConfig.name
+        )
+        gen_code_path = build_gen_code_path(code_root, self.projectConfig.name)
         gen_code_binding: CodeFileBinding | None = None
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():

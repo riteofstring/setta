@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.utils import sanitize_name
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
@@ -46,6 +45,7 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.utils import normalize_path
+from setta.utils.code_paths import build_gen_code_path
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -287,17 +287,18 @@ class ShareRuntimeState:
         self,
         project_state: "ProjectStateSingleConfig",
     ) -> CodeFileBinding:
-        project_slug = sanitize_name(project_state.projectConfig.name)
-        deployment_path = (
-            self.deployment_root / "code" / "sections" / project_slug / "setta_gen.py"
+        deployment_path = build_gen_code_path(
+            self.deployment_root / "code",
+            project_state.projectConfig.name,
         ).resolve()
         if deployment_path.exists():
             return CodeFileBinding(
                 canonical_path=deployment_path,
                 access_mode=CodeFileAccessMode.write_only,
             )
-        runtime_path = (
-            self.dbe.runtime_root / "code" / "sections" / project_slug / "setta_gen.py"
+        runtime_path = build_gen_code_path(
+            self.dbe.runtime_root / "code",
+            project_state.projectConfig.name,
         ).resolve()
         return CodeFileBinding(
             canonical_path=runtime_path,
