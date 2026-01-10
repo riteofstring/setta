@@ -7,9 +7,12 @@ from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
-from setta.project_state.utils import convert_path_to_module_path
+from setta.project_state.run_commands import (
+    build_bash_run_command,
+    build_python_module_run_command,
+)
 from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.utils import compute_md5_hex
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -111,9 +114,7 @@ class PythonCode(Code):
         return "py"
 
     def get_run_command(self, path: Path):
-        path = normalize_path(path)
-        module_path = convert_path_to_module_path(path)
-        return f"python -m {module_path}"
+        return build_python_module_run_command(path)
 
     @abstractmethod
     async def diagnostics_callback(self, lsp_response):
@@ -147,5 +148,4 @@ class BashCode(Code):
         return "sh"
 
     def get_run_command(self, path: Path):
-        path = normalize_path(path)
-        return f"bash {path}"
+        return build_bash_run_command(path)

@@ -1,4 +1,3 @@
-import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +12,10 @@ from setta.project_state.codegen_helpers import (
 from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_manager_types import RunCodeRequest
+from setta.project_state.run_commands import (
+    build_bash_run_command,
+    build_python_file_run_command,
+)
 from setta.project_state.run_snapshot import (
     SnapshotCodeSection,
     create_snapshot_run_command,
@@ -226,7 +229,9 @@ class ShareRuntimeState:
         for sid, (code, binding, language) in code_sections.items():
 
             def run_command_builder(path: Path, language=language) -> str:
-                return self._build_run_command(language, path)
+                if language == CodeLanguage.python:
+                    return build_python_file_run_command(path)
+                return build_bash_run_command(path, use_absolute=True, quote=True)
 
             snapshot_sections[sid] = SnapshotCodeSection(
                 code=code,
@@ -241,7 +246,7 @@ class ShareRuntimeState:
             gen_code=gen_code,
             gen_binding=gen_binding,
             code_sections=snapshot_sections,
-            gen_command_builder=self._build_python_run_command,
+            gen_command_builder=build_python_file_run_command,
         )
 
     def _resolve_default_project_config_id(self) -> ID:
@@ -430,16 +435,3 @@ class ShareRuntimeState:
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
         return code_generator.code
-
-    def _build_run_command(self, language: CodeLanguage, path: Path) -> str:
-        if language == CodeLanguage.python:
-            return self._build_python_run_command(path)
-        return self._build_bash_run_command(path)
-
-    def _build_python_run_command(self, path: Path) -> str:
-        resolved = shlex.quote(str(path.resolve()))
-        return f"python {resolved}"
-
-    def _build_bash_run_command(self, path: Path) -> str:
-        resolved = shlex.quote(str(path.resolve()))
-        return f"bash {resolved}"
