@@ -19,6 +19,7 @@ import uvicorn
 
 from setta import __version__
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
@@ -26,7 +27,6 @@ from setta.sessions.utils import resolve_sessions_root
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
     parse_share_deployment_version,
-    read_share_deployment_manifest,
 )
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
@@ -923,7 +923,7 @@ def share(
         deployment_version=deployment_version,
         latest=latest,
     )
-    manifest = read_share_deployment_manifest(resolved_deployment_root)
+    manifest = DBE(resolved_deployment_root).read_share_manifest_optional()
     if manifest is None:
         raise click.ClickException(
             f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"

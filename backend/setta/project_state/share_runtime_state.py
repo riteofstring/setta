@@ -40,7 +40,6 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -62,7 +61,7 @@ class ShareRuntimeState:
         self.deployment_root = deployment_root
         self.frontend_sender = frontend_sender
         self.project_state_backend = self.load_initial_state()
-        self.manifest = self._load_manifest()
+        self.manifest = self.dbe.read_share_manifest()
         self.project_config_name = self._resolve_project_config_name()
         self.deployment_version = self._resolve_deployment_version()
         self._validate_deployment_root()
@@ -86,7 +85,7 @@ class ShareRuntimeState:
         return self.dbe.runtime_root / "share_runs"
 
     def load_initial_state(self) -> ProjectStateBackend:
-        project_state = self.dbe.read_project()
+        project_state = self.dbe.read_project_required()
         self._rebase_deployment_paths(project_state)
         return project_state
 
@@ -217,17 +216,6 @@ class ShareRuntimeState:
 
         return self._build_python_run_command(gen_code_path)
 
-    def _load_manifest(self) -> ShareDeploymentManifest:
-        manifest_path = self.deployment_root / "manifest.json"
-        if not manifest_path.exists():
-            raise FileNotFoundError(
-                f"Share deployment manifest not found: {manifest_path}"
-            )
-        payload = self.dbe.read_json(manifest_path)
-        if not payload:
-            raise ValueError(f"Share deployment manifest is empty: {manifest_path}")
-        return ShareDeploymentManifest.model_validate(payload)
-
     def _resolve_default_project_config_id(self) -> ID:
         project_config_id = self.manifest.projectConfigId
         if project_config_id not in self.project_state_backend.projectConfigs:
@@ -257,11 +245,6 @@ class ShareRuntimeState:
         if not self.deployment_root.is_dir():
             raise NotADirectoryError(
                 f"Share deployment root is not a directory: {self.deployment_root}"
-            )
-        project_path = self.deployment_root / "project.json"
-        if not project_path.exists():
-            raise FileNotFoundError(
-                f"Share deployment missing project.json: {project_path}"
             )
 
     def _build_base_backend(self) -> ProjectStateBackend:

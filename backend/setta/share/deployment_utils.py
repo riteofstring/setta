@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,7 +12,6 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.types.share_deployment import ShareDeploymentManifest
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateCore
@@ -40,18 +38,6 @@ def iter_share_deployment_versions(project_root: Path) -> list[tuple[int, Path]]
             continue
         versions.append((version_number, entry))
     return versions
-
-
-def read_share_deployment_manifest(
-    deployment_root: Path,
-) -> ShareDeploymentManifest | None:
-    manifest_path = deployment_root / "manifest.json"
-    if not manifest_path.exists():
-        return None
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not payload:
-        return None
-    return ShareDeploymentManifest.model_validate(payload)
 
 
 ArtifactPathResolver = Callable[[str], str]

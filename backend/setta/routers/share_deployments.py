@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
+from setta.database.db_objs import DBE
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.jsonSource.save import build_json_source_dicts
 from setta.project_state.project_manager_types import (
@@ -21,7 +22,6 @@ from setta.routers.dependencies import (
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
-    read_share_deployment_manifest,
     rewrite_project_state_paths,
 )
 from setta.types.id import ID
@@ -331,7 +331,7 @@ def route_list_share_deployments(
         if not project_root.is_dir():
             continue
         for _, version_root in iter_share_deployment_versions(project_root):
-            manifest = read_share_deployment_manifest(version_root)
+            manifest = DBE(version_root).read_share_manifest_optional()
             if manifest is None:
                 continue
             if not _manifest_matches_root(manifest, version_root):
@@ -361,7 +361,7 @@ def route_list_share_deployment_versions(
     )
     deployments: list[ShareDeploymentMetadata] = []
     for _, version_root in versions:
-        manifest = read_share_deployment_manifest(version_root)
+        manifest = DBE(version_root).read_share_manifest_optional()
         if manifest is None:
             continue
         if not _manifest_matches_root(manifest, version_root):
@@ -411,7 +411,7 @@ def route_get_latest_share_deployment(
             detail=f"Share deployment not found: {projectConfigName}",
         )
     _, latest_root = max(versions, key=lambda item: item[0])
-    manifest = read_share_deployment_manifest(latest_root)
+    manifest = DBE(latest_root).read_share_manifest_optional()
     if manifest is None or not _manifest_matches_root(manifest, latest_root):
         raise HTTPException(
             status_code=404,

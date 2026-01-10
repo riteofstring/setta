@@ -26,7 +26,6 @@ from setta.project_state.session_project_manager import (
 )
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
-from setta.share.deployment_utils import read_share_deployment_manifest
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.run_cleanup import (
     DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
@@ -460,11 +459,7 @@ class SettaFastAPIState:
         resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
             raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
-        project_path = resolved / "project.json"
-        if not project_path.exists():
-            raise FileNotFoundError(
-                f"Share deployment missing project.json: {project_path}"
-            )
+        DBE(resolved).read_project_required()
         return resolved
 
     def _resolve_share_runtime_root(
@@ -472,7 +467,7 @@ class SettaFastAPIState:
     ) -> Path | None:
         if not self.share_mode or share_deployment_root is None:
             return None
-        manifest = read_share_deployment_manifest(share_deployment_root)
+        manifest = DBE(share_deployment_root).read_share_manifest_optional()
         if manifest is None:
             raise FileNotFoundError(
                 f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"

@@ -14,6 +14,7 @@ from setta.types.id import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
@@ -40,6 +41,7 @@ class DBE:
         self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
+        self.share_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
@@ -132,6 +134,34 @@ class DBE:
 
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump())
+
+    def read_project_required(self) -> ProjectStateBackend:
+        if not self.project.exists():
+            raise FileNotFoundError(f"Project file not found: {self.project}")
+        payload = json.loads(self.project.read_text(encoding="utf-8"))
+        if not payload:
+            raise ValueError(f"Project file is empty: {self.project}")
+        return ProjectStateBackend.model_validate(payload)
+
+    def read_share_manifest(self) -> ShareDeploymentManifest:
+        if not self.share_manifest.exists():
+            raise FileNotFoundError(
+                f"Share deployment manifest not found: {self.share_manifest}"
+            )
+        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        if not payload:
+            raise ValueError(
+                f"Share deployment manifest is empty: {self.share_manifest}"
+            )
+        return ShareDeploymentManifest.model_validate(payload)
+
+    def read_share_manifest_optional(self) -> ShareDeploymentManifest | None:
+        if not self.share_manifest.exists():
+            return None
+        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        if not payload:
+            return None
+        return ShareDeploymentManifest.model_validate(payload)
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)
