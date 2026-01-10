@@ -204,6 +204,8 @@ class PythonCode(Code):
         await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
+        if self.lsp_writer is None:
+            return
         filepath = self.binding.canonical_path
         self.uri = await self.lsp_writer.send_document_open_request(
             filepath=filepath,
@@ -212,6 +214,8 @@ class PythonCode(Code):
         )
 
     def callback_cleanup(self):
+        if self.lsp_writer is None:
+            return
         if self.diagnostics_callback and self.uri:
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
 
@@ -236,6 +240,9 @@ class PythonCode(Code):
         uri: str | None = None
         try:
             self.dbe.write(filepath, code)
+            if self.lsp_writer is None:
+                yield filepath
+                return
             uri = await self.lsp_writer.send_document_open_request(
                 filepath=filepath,
                 code=code,

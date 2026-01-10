@@ -935,6 +935,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 project_config_id,
                 share_session_id=share_session_id,
             ),
+            share_session_id=share_session_id,
         )
         if snapshot is not None:
             await self.frontend_sender.broadcast_listener_coverage_snapshot(

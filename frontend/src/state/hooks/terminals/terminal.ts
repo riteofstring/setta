@@ -38,8 +38,12 @@ export function useTerminal({
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
   const isShareMode = useShareSession((x) => x.isShareMode);
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
+    if (isShareMode && !shareSessionId) {
+      return;
+    }
     const terminal = new Terminal({
       cursorBlink: true,
       theme: terminalTheme,
@@ -51,7 +55,7 @@ export function useTerminal({
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const { ws } = newTerminalWebsocket(sectionId);
+    const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
 
     terminal.onResize((size) => {
       // Send the new size to the backend
@@ -85,7 +89,7 @@ export function useTerminal({
       terminalCleanup(ws, terminal);
       unsub();
     };
-  }, [isShareMode]);
+  }, [isShareMode, shareSessionId]);
 
   useEffect(() => {
     fitAddon.fit();
@@ -94,10 +98,19 @@ export function useTerminal({
   return terminalRef;
 }
 
-function newTerminalWebsocket(sectionId) {
+function newTerminalWebsocket(
+  sectionId: string,
+  shareSessionId: string | null,
+) {
   const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
-  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
+  const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
+    RouteEnum.TERMINAL,
+    { projectConfigId, sectionId, id },
+  )}`;
+  const wsTerminalAddress = shareSessionId
+    ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
+    : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {

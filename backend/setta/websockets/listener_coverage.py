@@ -24,7 +24,13 @@ class _CoverageState:
 
 class ListenerCoverageTracker:
     def __init__(self) -> None:
-        self._state_by_project: dict[str, _CoverageState] = {}
+        self._state_by_key: dict[tuple[str, str | None], _CoverageState] = {}
+
+    @staticmethod
+    def _coverage_key(
+        project_config_id: ID, share_session_id: str | None
+    ) -> tuple[str, str | None]:
+        return (str(project_config_id), share_session_id)
 
     def _build_signature_and_snapshot(
         self,
@@ -62,17 +68,20 @@ class ListenerCoverageTracker:
         self,
         project_config_id: ID,
         registrations: Iterable[ListenerRegistration],
+        *,
+        share_session_id: str | None = None,
     ) -> ListenerCoverageSnapshot | None:
         signature, snapshot = self._build_signature_and_snapshot(
             project_config_id,
             registrations,
         )
 
-        prev_state = self._state_by_project.get(project_config_id)
+        key = self._coverage_key(project_config_id, share_session_id)
+        prev_state = self._state_by_key.get(key)
         if prev_state and prev_state.signature == signature:
             return None
 
-        self._state_by_project[project_config_id] = _CoverageState(
+        self._state_by_key[key] = _CoverageState(
             signature=signature,
             snapshot=snapshot,
         )
@@ -82,17 +91,20 @@ class ListenerCoverageTracker:
         self,
         project_config_id: ID,
         registrations: Iterable[ListenerRegistration],
+        *,
+        share_session_id: str | None = None,
     ) -> ListenerCoverageSnapshot:
         signature, snapshot = self._build_signature_and_snapshot(
             project_config_id,
             registrations,
         )
 
-        prev_state = self._state_by_project.get(project_config_id)
+        key = self._coverage_key(project_config_id, share_session_id)
+        prev_state = self._state_by_key.get(key)
         if prev_state and prev_state.signature == signature:
             return prev_state.snapshot
 
-        self._state_by_project[project_config_id] = _CoverageState(
+        self._state_by_key[key] = _CoverageState(
             signature=signature,
             snapshot=snapshot,
         )

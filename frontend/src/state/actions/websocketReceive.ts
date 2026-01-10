@@ -53,6 +53,7 @@ import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
   dependencyKeyCovered,
+  fetchListenerCoverageSnapshot,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
@@ -125,6 +126,10 @@ export const openWebSocket = _.debounce(
         wasOpen = true;
         if (isShareMode) {
           startShareHeartbeat();
+          const projectConfigId = getCurrProjectConfigId();
+          if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
+            await fetchListenerCoverageSnapshot(projectConfigId);
+          }
         }
         if (!isShareMode) {
           const projectConfigId = getCurrProjectConfigId();

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
+import { fetchListenerCoverageSnapshot } from "state/actions/listenerCoverage";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
@@ -89,6 +90,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
           return;
         }
         await loadProjectState(stateRes.data.projectState);
+        await fetchListenerCoverageSnapshot(resolvedConfigId);
         if (session.sharePolicy.allowLLM) {
           await requestAIFollowSnapshot(resolvedConfigId);
         }

@@ -18,4 +18,5 @@ async def route_get_listener_coverage(
             x.projectConfigId,
             share_session_id=share_session_id,
         ),
+        share_session_id=share_session_id,
     )
