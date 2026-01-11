@@ -447,33 +447,6 @@ export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }
 
-export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
-  const state = useProjectState.getState();
-  const variant = getCurrSectionVariant(state, sectionId);
-  const impl = getSectionImpl(state, variant.impl);
-  if (impl.type !== SectionTypeEnum.Group) {
-    return false;
-  }
-  const core = getSectionCore(state, sectionId);
-  if (
-    Object.prototype.hasOwnProperty.call(
-      variant.modifier,
-      "isHorizontalOrientation",
-    )
-  ) {
-    return Boolean(variant.modifier.isHorizontalOrientation);
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(
-      core.sharedModifier,
-      "isHorizontalOrientation",
-    )
-  ) {
-    return Boolean(core.sharedModifier.isHorizontalOrientation);
-  }
-  return impl.isHorizontalOrientation;
-}
-
 export function getSectionType(state: ZustandProjectState, sectionId: string) {
   return getCurrEffectiveSectionImpl(state, sectionId).type;
 }

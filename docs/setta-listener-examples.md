@@ -78,7 +78,7 @@ from setta.types.listener import ListenerDependencyMode
 listener = SettaListener(project_name="Demo Project")
 
 
-@listener.listen(dependency_mode=ListenerDependencyMode.ANY_DEPENDENCY)
+@listener.listen(deps=[], dependency_mode=ListenerDependencyMode.ALWAYS)
 def on_any_change(state, ctx) -> None:
     ctx.log.info("delta keys=%s", list(ctx.changed.keys()))
 
@@ -107,38 +107,49 @@ listener.start()
 ```
 
 ## Action events (specific and wildcard)
-Strings: `Demo Project` is the project name; `run-analysis` is an `actionId` emitted by a Meta Control action (button) you want to handle (Meta Control buttons send their section name as `actionId`); `action=%s payload=%s` and `received %d action(s)` are log message templates.
+Strings: `Demo Project` is the project name; `run-analysis` is the section dependency name for a Meta Control button you want to handle; `dependency=%s payload=%s` and `received %d action(s)` are log message templates.
 ```python
 from setta.api import SettaListener
+from setta.types.listener import ListenerDependencyMode
 
 listener = SettaListener(project_name="Demo Project")
 
 
-@listener.listen(actions=["run-analysis"])
+@listener.listen(
+    deps=["run-analysis"],
+    dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+)
 def on_run_action(state, ctx) -> None:
-    for event in ctx.actions:
-        ctx.log.info("action=%s payload=%s", event.actionId, event.payload)
+    for event in ctx.events:
+        ctx.log.info("dependency=%s payload=%s", event.dependencyKey, event.payload)
 
 
-@listener.listen(actions=[])
+@listener.listen(
+    deps=[],
+    dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+)
 def on_any_action(state, ctx) -> None:
-    ctx.log.info("received %d action(s)", len(ctx.actions))
+    ctx.log.info("received %d action(s)", len(ctx.events))
 
 
 listener.start()
 ```
 
 ## Actions + dependencies in the same callback
-Strings: `Demo Project` is the project name; `filters__active` is a param dependency (section `filters` + param `active`); `apply-filters` is an action `actionId` from a Meta Control button; `apply-filters clicked` and `filters changed: %s` are log message text.
+Strings: `Demo Project` is the project name; `filters__active` is a param dependency (section `filters` + param `active`); `apply-filters` is the section dependency name for a Meta Control button; `apply-filters clicked` and `filters changed: %s` are log message text.
 ```python
 from setta.api import SettaListener
+from setta.types.listener import ListenerDependencyMode
 
 listener = SettaListener(project_name="Demo Project")
 
 
-@listener.listen(deps=["filters__active"], actions=["apply-filters"])
+@listener.listen(
+    deps=["filters__active", "apply-filters"],
+    dependency_mode=ListenerDependencyMode.ALWAYS,
+)
 def on_filters(state, ctx) -> None:
-    if ctx.actions:
+    if ctx.events:
         ctx.log.info("apply-filters clicked")
     if ctx.changed:
         ctx.log.info("filters changed: %s", ctx.changed)

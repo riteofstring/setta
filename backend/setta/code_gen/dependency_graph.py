@@ -43,6 +43,8 @@ from setta.types.project_state import (
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
+    ChatSectionImpl,
+    ChatSectionState,
     DrawSectionImpl,
     SectionType,
     TextBlockSectionImpl,
@@ -121,6 +123,7 @@ class DependencyGraph:
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.MetaControl: self._export_meta_control_section,
+            SectionType.Chat: self._export_chat_section,
         }
         self.construct_graph(p)
 
@@ -253,6 +256,27 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(section_impl.text),
+            deps={},
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
+    def _export_chat_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, ChatSectionImpl):
+            return
+        state_payload = ChatSectionState(
+            messages=section_impl.messages,
+            inputText=section_impl.inputText,
+            waitingForResponse=section_impl.waitingForResponse,
+            toolCallArguments=section_impl.toolCallArguments,
+        )
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(state_payload.model_dump_json()),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)
