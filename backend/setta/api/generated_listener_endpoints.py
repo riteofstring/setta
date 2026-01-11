@@ -53,6 +53,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
 )
+from setta.types.settings_state import RunSnapshotMode
 
 
 class ListenerAcceptRenameRefactorRequestPayload(TypedDict):
@@ -277,6 +278,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID | None
     cliId: NotRequired[str | None]
+    runSnapshotMode: NotRequired[RunSnapshotMode | None]
 
 
 class ListenerSetActiveIdsRequestPayload(TypedDict):

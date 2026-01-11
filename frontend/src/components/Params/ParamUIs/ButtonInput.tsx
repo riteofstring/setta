@@ -4,6 +4,7 @@ import {
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { useShareCapabilities } from "state/hooks/share";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
@@ -15,6 +16,7 @@ export function ButtonInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
+  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -22,6 +24,9 @@ export function ButtonInputConfigForParam({
   );
 
   function onSetLabel(nextLabel: string) {
+    if (!canEditStructure) {
+      return;
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveCodeObjImplValue<"ButtonParamCodeObj">(
@@ -65,6 +70,7 @@ export function ButtonInputConfigForParam({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           placeholder="Trigger"
+          disabled={!canEditStructure}
         />
       </div>
     </div>

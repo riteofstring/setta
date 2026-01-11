@@ -177,6 +177,8 @@ def prepare_sections_for_copy(
 
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
+    if projectConfigId not in p.projectConfigs:
+        raise KeyError(f"Unknown project config: {projectConfigId}")
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
         p, set(project_config.sectionVariantMap.keys())

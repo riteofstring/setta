@@ -24,7 +24,7 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import ProjectConfig, ViewModeConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -43,7 +43,11 @@ from setta.types.shown_params import (
     get_param_ids_to_show,
 )
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.utils import (
+    build_gen_code_path,
+    build_project_sections_dir,
+    normalize_path,
+)
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 
@@ -131,6 +135,21 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_view_modes(self):
         return self.validate_view_modes()
+
+    def validate_for_update(
+        self,
+        *,
+        validate_code_file_bindings: bool,
+    ):
+        self.validate_singleton_sections()
+        self.validate_parent_section_map()
+        self.validate_view_modes()
+        self.validate_shown_param_ids()
+        self.validate_yaml_values()
+        self.validate_required_decoded_images()
+        if validate_code_file_bindings:
+            self.validate_code_file_bindings()
+        return self
 
     def validate_singleton_sections(self):
         output = SingletonSections()
@@ -227,10 +246,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_code_file_bindings(self):
-        project_slug = sanitize_name(self.projectConfig.name)
         code_root = normalize_path(C.CODE_FOLDER)
-        canonical_sections_dir = code_root / "sections" / project_slug
-        gen_code_path = canonical_sections_dir / "setta_gen.py"
+        canonical_sections_dir = build_project_sections_dir(
+            code_root, self.projectConfig.name
+        )
+        gen_code_path = build_gen_code_path(code_root, self.projectConfig.name)
         gen_code_binding: CodeFileBinding | None = None
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
@@ -240,11 +260,13 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 get_variant_base_and_effective_section_impl(self, core, variant_id)
             )
 
-            if (
-                not isinstance(base_impl, BaseCodeSectionImpl)
-                or not isinstance(effective_impl, BaseCodeSectionImpl)
-                or effective_impl.codeFileBinding is not None
+            if not isinstance(base_impl, BaseCodeSectionImpl) or not isinstance(
+                effective_impl, BaseCodeSectionImpl
             ):
+                continue
+            if effective_impl.codeFileBinding is not None:
+                if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                    gen_code_binding = effective_impl.codeFileBinding
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
@@ -281,6 +303,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def validate_view_modes(self):
         project_config = self.projectConfig
         if not project_config.viewModes:
+            visibility_by_section_id = {
+                section_id: True for section_id in self.sections.keys()
+            }
+            view_mode = ViewModeConfig(
+                visibilityBySectionId=visibility_by_section_id,
+            )
+            project_config.viewModes[view_mode.id] = view_mode
+            project_config.activeViewModeId = view_mode.id
             return self
 
         section_ids = set(self.sections.keys())
@@ -296,6 +326,8 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             for section_id in stale_ids:
                 del visibility[section_id]
 
+        if project_config.activeViewModeId not in project_config.viewModes:
+            project_config.activeViewModeId = next(iter(project_config.viewModes))
         return self
 
 

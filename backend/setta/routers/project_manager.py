@@ -84,216 +84,296 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.share.policy import (
+    SharePolicyGuard,
+    deny_in_share_mode,
+    enforce_share_policy_guard,
+    ensure_share_param_value_allowed,
+)
+from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
-router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
+router = SettaProjectContextAPIRouter(
+    require_project_context_by_default=True,
+)
+
+
+async def _deny_share_mode_lsp(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows language server features.",
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_structural(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows structural changes.",
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_code_edit(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows code edits.",
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_param_impl(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows parameter implementation changes.",
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_param_metadata(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows parameter metadata changes.",
+        share_session_id=ctx.share_session_id,
+    )
+
+
+async def _deny_share_mode_view_modes(ctx) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows view mode changes.",
+        share_session_id=ctx.share_session_id,
+    )
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
-    x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
+    x: ClearTextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).clear_text_field_completion(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.clear_text_field_completion(x)
 
 
 @router.post(Route.SET_CALLABLE)
 async def route_set_callable(
-    x: SetCallableRequest, state: AppStateFromRequest
+    x: SetCallableRequest, ctx: RuntimeContextFromRequest
 ) -> SetCallableResponse:
-    return await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.set_callable(x)
 
 
 @router.post(Route.TEXT_FIELD_COMPLETION)
 async def route_text_field_completion(
-    x: TextFieldCompletionRequest, state: AppStateFromRequest
+    x: TextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).text_field_completion(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.text_field_completion(x)
 
 
 @router.post(Route.CODE_AREA_COMPLETION)
 async def route_code_area_completion(
-    x: CodeAreaCompletionRequest, state: AppStateFromRequest
+    x: CodeAreaCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).code_area_completion(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.code_area_completion(x)
 
 
 @router.post(Route.GEN_CODE_PREFIX_COMPLETION)
 async def route_gen_code_prefix_completion(
-    x: GenCodePrefixCompletionRequest, state: AppStateFromRequest
+    x: GenCodePrefixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).gen_code_prefix_completion(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.gen_code_prefix_completion(x)
 
 
 @router.post(Route.GEN_CODE_SUFFIX_COMPLETION)
 async def route_gen_code_suffix_completion(
-    x: GenCodeSuffixCompletionRequest, state: AppStateFromRequest
+    x: GenCodeSuffixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).gen_code_suffix_completion(x)
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.gen_code_suffix_completion(x)
 
 
 @router.post(Route.CHANGE_PARAM_IMPL)
 async def route_change_param_impl(
-    x: ChangeParamImplRequest, state: AppStateFromRequest
+    x: ChangeParamImplRequest, ctx: RuntimeContextFromRequest
 ):
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).change_param_impl(x)
+    await _deny_share_mode_param_impl(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.change_param_impl(x)
 
 
 @router.post(Route.UPDATE_PARAM_IMPL_CONFIG)
 async def route_update_param_impl_config(
-    x: UpdateParamImplConfigRequest, state: AppStateFromRequest
+    x: UpdateParamImplConfigRequest, ctx: RuntimeContextFromRequest
 ):
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).update_param_impl_config(x)
+    await _deny_share_mode_param_impl(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.update_param_impl_config(x)
 
 
 @router.post(Route.CREATE_TOP_LEVEL_SECTION)
 async def route_create_top_level_section(
-    x: CreateTopLevelSectionRequest, state: AppStateFromRequest
+    x: CreateTopLevelSectionRequest, ctx: RuntimeContextFromRequest
 ) -> CreateTopLevelSectionResponse:
-    result = await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).create_top_level_section(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    result = await manager.create_top_level_section(x)
     if x.implType == SectionType.Terminal:
-        state.terminals.new_terminal(x.projectConfigId, result.sectionId)
+        share_session_id = ctx.share_session_id
+        terminal_id = build_terminal_id(result.sectionId, share_session_id)
+        ctx.state.terminals.new_terminal(
+            x.projectConfigId,
+            terminal_id,
+            share_session_id=share_session_id,
+        )
     return result
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)
 async def route_create_child_sections(
-    x: CreateChildSectionsRequest, state: AppStateFromRequest
+    x: CreateChildSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).create_child_sections(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.create_child_sections(x)
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS_VIA_INCREMENTER)
 async def route_create_child_sections_via_incrementer(
-    x: CreateChildSectionsViaIncrementerRequest, state: AppStateFromRequest
+    x: CreateChildSectionsViaIncrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).create_child_sections_via_incrementer(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.create_child_sections_via_incrementer(x)
 
 
 @router.post(Route.DELETE_SECTIONS)
-async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromRequest):
-    return await state.project_manager_switcher.get(x.projectConfigId).delete_sections(
-        x
-    )
+async def route_delete_sections(
+    x: DeleteSectionsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.delete_sections(x)
 
 
 @router.post(Route.DELETE_CHILD_SECTIONS_VIA_DECREMENTER)
 async def route_delete_child_sections_via_decrementer(
-    x: DeleteChildSectionsViaDecrementerRequest, state: AppStateFromRequest
+    x: DeleteChildSectionsViaDecrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).delete_child_sections_via_decrementer(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.delete_child_sections_via_decrementer(x)
 
 
 @router.post(Route.CREATE_NEW_SECTION_VARIANT)
 async def route_create_new_section_variant(
-    x: CreateNewSectionVariantRequest, state: AppStateFromRequest
+    x: CreateNewSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).create_new_section_variant(x)
-    await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.create_new_section_variant(x)
+    await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "New Variant Created",
         project_config_id=x.projectConfigId,
+        share_session_id=ctx.share_session_id,
     )
 
 
 @router.post(Route.CREATE_VIEW_MODE)
 async def route_create_view_mode(
-    x: CreateViewModeRequest, state: AppStateFromRequest
+    x: CreateViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> str:
-    return await state.project_manager_switcher.get(x.projectConfigId).create_view_mode(
-        x
-    )
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.create_view_mode(x)
 
 
 @router.post(Route.SET_ACTIVE_VIEW_MODE)
 async def route_set_active_view_mode(
-    x: SetActiveViewModeRequest, state: AppStateFromRequest
+    x: SetActiveViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).set_active_view_mode(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_active_view_mode(x)
 
 
 @router.post(Route.TOGGLE_IS_EDITING_VIEW_MODE)
 async def route_toggle_is_editing_view_mode(
-    x: ToggleIsEditingViewModeRequest, state: AppStateFromRequest
+    x: ToggleIsEditingViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_is_editing_view_mode(x)
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.toggle_is_editing_view_mode(x)
 
 
 @router.post(Route.TOGGLE_SECTION_VISIBILITY)
 async def route_toggle_section_visibility(
-    x: ToggleSectionVisibilityRequest, state: AppStateFromRequest
+    x: ToggleSectionVisibilityRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_section_visibility(x)
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.toggle_section_visibility(x)
 
 
 @router.post(Route.TOGGLE_VIEW_MODE_USER_FACING)
 async def route_toggle_view_mode_user_facing(
-    x: ToggleViewModeUserFacingRequest, state: AppStateFromRequest
+    x: ToggleViewModeUserFacingRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_view_mode_user_facing(x)
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.toggle_view_mode_user_facing(x)
 
 
 @router.post(Route.SET_VIEW_MODE_NAME)
 async def route_set_view_mode_name(
-    x: SetViewModeNameRequest, state: AppStateFromRequest
+    x: SetViewModeNameRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).set_view_mode_name(x)
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_view_mode_name(x)
 
 
 @router.post(Route.DELETE_VIEW_MODE)
 async def route_delete_view_mode(
-    x: DeleteViewModeRequest, state: AppStateFromRequest
+    x: DeleteViewModeRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).delete_view_mode(x)
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_view_mode(x)
 
 
 @router.post(Route.UNDO)
-async def route_undo(x: UndoRequest, state: AppStateFromRequest) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).undo(x)
+async def route_undo(x: UndoRequest, ctx: RuntimeContextFromRequest) -> None:
+    await ctx.get_project_manager(x.projectConfigId).undo(x)
 
 
 @router.post(Route.REDO)
-async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).redo(x)
+async def route_redo(x: RedoRequest, ctx: RuntimeContextFromRequest) -> None:
+    await ctx.get_project_manager(x.projectConfigId).redo(x)
 
 
 @router.post(Route.GET_LATEST_PROJECT_STATE)
 async def route_get_latest_project_state(
-    x: GetLatestProjectStateRequest, state: AppStateFromRequest
+    x: GetLatestProjectStateRequest, ctx: RuntimeContextFromRequest
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
-    manager = state.project_manager_switcher.get(x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     projectState = await manager.get_latest_project_state(x)
     return ProjectStateSingleConfigWithCompletedOpIds(
         projectState=projectState,
@@ -304,9 +384,9 @@ async def route_get_latest_project_state(
 
 @router.post(Route.FORCE_REFRESH_LISTENER)
 async def route_force_refresh_listener(
-    x: ForceRefreshProjectRequest, state: AppStateFromRequest
+    x: ForceRefreshProjectRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    manager = state.project_manager_switcher.get(x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     try:
         project_state = await manager.get_latest_project_state(
             GetLatestProjectStateRequest(
@@ -320,403 +400,474 @@ async def route_force_refresh_listener(
             detail=f"project state unavailable for {x.projectConfigId}",
         ) from exc
 
-    await state.wmh_python_script_sender.send_force_refresh(
+    await ctx.state.wmh_python_script_sender.send_force_refresh(
         projectState=project_state,
+        share_session_id=ctx.share_session_id,
     )
 
 
 @router.post(Route.SET_TOP_LEVEL_SECTION_LAYOUT)
 async def route_set_top_level_section_layout(
-    x: SetTopLevelSectionLayoutRequest, state: AppStateFromRequest
+    x: SetTopLevelSectionLayoutRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_top_level_section_layout(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_top_level_section_layout(x)
 
 
 @router.post(Route.AUTO_LAYOUT_TOP_LEVEL_SECTIONS)
 async def route_auto_layout_top_level_sections(
-    x: AutoLayoutTopLevelSectionsRequest, state: AppStateFromRequest
+    x: AutoLayoutTopLevelSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).auto_layout_top_level_sections(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.auto_layout_top_level_sections(x)
 
 
 @router.post(Route.ADD_KWARG)
-async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).add_kwarg(x)
+async def route_add_kwarg(x: AddKwargRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.add_kwarg(x)
 
 
 @router.post(Route.DELETE_KWARG)
-async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).delete_kwarg(x)
+async def route_delete_kwarg(x: DeleteKwargRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_kwarg(x)
 
 
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)
 async def route_delete_section_variant_or_ask(
-    x: DeleteSectionVariantOrAskRequest, state: AppStateFromRequest
+    x: DeleteSectionVariantOrAskRequest, ctx: RuntimeContextFromRequest
 ) -> str | None:
-    filepath_to_delete = await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).delete_section_variant_or_ask(x)
+    ctx.require_ide_mode("Share mode does not allow deleting section variants.")
+    manager = ctx.get_project_manager(x.projectConfigId)
+    filepath_to_delete = await manager.delete_section_variant_or_ask(x)
     if filepath_to_delete:
         return filepath_to_delete
 
 
 @router.post(Route.TOGGLE_VARIANT_JSON_SOURCE)
 async def route_toggle_variant_json_source(
-    x: ToggleVariantJSONSourceRequest, state: AppStateFromRequest
+    x: ToggleVariantJSONSourceRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_variant_json_source(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.toggle_variant_json_source(x)
 
 
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
 async def route_delete_json_source_file_and_variant(
-    x: DeleteJSONSourceFileAndVariantRequest, state: AppStateFromRequest
+    x: DeleteJSONSourceFileAndVariantRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
+    ctx.require_ide_mode("Share mode does not allow deleting section variants.")
+    await ctx.get_project_manager(
         x.projectConfigId
     ).delete_json_source_file_and_variant(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_TEXT)
 async def route_set_text_block_text(
-    x: SetTextBlockTextRequest, state: AppStateFromRequest
+    x: SetTextBlockTextRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_text_block_text(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_text_block_text(x)
 
 
 @router.post(Route.SET_GEN_CODE_PREFIX)
 async def route_set_gen_code_prefix(
-    x: SetGenCodePrefixRequest, state: AppStateFromRequest
+    x: SetGenCodePrefixRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_prefix(x)
+    await _deny_share_mode_code_edit(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_gen_code_prefix(x)
 
 
 @router.post(Route.SET_GEN_CODE_SUFFIX)
 async def route_set_gen_code_suffix(
-    x: SetGenCodeSuffixRequest, state: AppStateFromRequest
+    x: SetGenCodeSuffixRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_suffix(x)
+    await _deny_share_mode_code_edit(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_gen_code_suffix(x)
 
 
 @router.post(Route.SET_SHOW_PARAM_DISPLAY_NAMES)
 async def route_set_show_param_display_names(
-    x: SetShowParamDisplayNamesRequest, state: AppStateFromRequest
+    x: SetShowParamDisplayNamesRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_show_param_display_names(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_show_param_display_names(x)
 
 
 @router.post(Route.SET_PARAM_ENTERED_VALUE)
 async def route_set_param_entered_value(
-    x: SetParamEnteredValueRequest, state: AppStateFromRequest
+    x: SetParamEnteredValueRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_param_entered_value(
-        x
-    )
+    manager = ctx.get_project_manager(x.projectConfigId)
+    if ctx.share_mode:
+        project_state = manager.get_single_config_state(x.projectConfigId)
+        await ensure_share_param_value_allowed(
+            policy=ctx.policy,
+            frontend_sender=ctx.frontend_sender,
+            project_state=project_state,
+            section_id=x.sectionId,
+            param_info_id=x.paramInfoId,
+            share_session_id=ctx.share_session_id,
+        )
+    await manager.set_param_entered_value(x)
 
 
 @router.post(Route.SET_TYPE_ERROR_IGNORE)
 async def route_set_type_error_ignore(
-    x: SetTypeErrorIgnoreRequest, state: AppStateFromRequest
+    x: SetTypeErrorIgnoreRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_type_error_ignore(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_type_error_ignore(x)
 
 
 @router.post(Route.SET_CODE_OBJ_NAME)
-async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)
+async def route_set_code_obj_name(
+    x: SetCodeObjNameRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_code_obj_name(x)
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
 async def route_set_code_obj_display_name(
-    x: SetCodeObjDisplayNameRequest, state: AppStateFromRequest
+    x: SetCodeObjDisplayNameRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_code_obj_display_name(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_code_obj_display_name(x)
 
 
 @router.post(Route.SET_CODE_FILE_BINDING)
 async def route_set_code_file_binding(
-    x: SetCodeFileBindingRequest, state: AppStateFromRequest
+    x: SetCodeFileBindingRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_code_file_binding(x)
 
 
 @router.post(Route.TOGGLE_POSITION_LOCKS)
 async def route_toggle_position_locks(
-    x: TogglePositionLocksRequest, state: AppStateFromRequest
+    x: TogglePositionLocksRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_position_locks(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.toggle_position_locks(x)
 
 
 @router.post(Route.TOGGLE_MINIMIZED)
-async def route_toggle_minimized(x: ToggleMinimizedRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_minimized(x)
+async def route_toggle_minimized(
+    x: ToggleMinimizedRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.toggle_minimized(x)
 
 
 @router.post(Route.TOGGLE_GROUP_ORIENTATION)
 async def route_toggle_group_orientation(
-    x: ToggleGroupOrientationRequest, state: AppStateFromRequest
+    x: ToggleGroupOrientationRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_group_orientation(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.toggle_group_orientation(x)
 
 
 @router.post(Route.SET_CODE)
-async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_code(x)
+async def route_set_code(x: SetCodeRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_code_edit(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_code(x)
 
 
 @router.post(Route.SET_SECTION_PARAM_FILTER)
 async def route_set_section_param_filter(
-    x: SetSectionParamFilterRequest, state: AppStateFromRequest
+    x: SetSectionParamFilterRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_section_param_filter(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_param_filter(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)
 async def route_set_section_variant(
-    x: SetSectionVariantRequest, state: AppStateFromRequest
+    x: SetSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_section_variant(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_section_variant(x)
 
 
 @router.post(Route.SET_DEFAULT_SECTION_VARIANT)
 async def route_set_default_section_variant(
-    x: SetDefaultSectionVariantRequest, state: AppStateFromRequest
+    x: SetDefaultSectionVariantRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_default_section_variant(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_default_section_variant(x)
 
 
 @router.post(Route.TOGGLE_VARIANT_FROZEN)
 async def route_toggle_variant_frozen(
-    x: ToggleVariantFrozenRequest, state: AppStateFromRequest
+    x: ToggleVariantFrozenRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_variant_frozen(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.toggle_variant_frozen(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT_NAME)
 async def route_set_section_variant_name(
-    x: SetSectionVariantNameRequest, state: AppStateFromRequest
+    x: SetSectionVariantNameRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_section_variant_name(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_section_variant_name(x)
 
 
 @router.post(Route.SET_SECTION_SIZES)
 async def route_set_section_sizes(
-    x: SetSectionSizesRequest, state: AppStateFromRequest
+    x: SetSectionSizesRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_section_sizes(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_sizes(x)
 
 
 @router.post(Route.SET_ACTIVE_IDS)
-async def route_set_active_ids(x: SetActiveIdsRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_active_ids(x)
+async def route_set_active_ids(x: SetActiveIdsRequest, ctx: RuntimeContextFromRequest):
+    await ctx.get_project_manager(x.projectConfigId).set_active_ids(x)
 
 
 @router.post(Route.SET_VIEWPORT)
-async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_viewport(x)
+async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromRequest):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_viewport(x)
 
 
 @router.post(Route.SET_SECTION_NAME)
-async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
+async def route_set_section_name(
+    x: SetSectionNameRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_section_name(x)
 
 
 @router.post(Route.ACCEPT_RENAME_REFACTOR)
 async def route_accept_rename_refactor(
-    x: AcceptRenameRefactorRequest, state: AppStateFromRequest
+    x: AcceptRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).accept_rename_refactor(
-        x
-    )
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.accept_rename_refactor(x)
 
 
 @router.post(Route.DECLINE_RENAME_REFACTOR)
 async def route_decline_rename_refactor(
-    x: DeclineRenameRefactorRequest, state: AppStateFromRequest
+    x: DeclineRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).decline_rename_refactor(
-        x
-    )
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.decline_rename_refactor(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_DISPLAY_MODE)
 async def route_set_text_block_display_mode(
-    x: SetTextBlockDisplayModeRequest, state: AppStateFromRequest
+    x: SetTextBlockDisplayModeRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_text_block_display_mode(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_text_block_display_mode(x)
 
 
 @router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)
 async def route_set_section_with_params_display_mode(
-    x: SetSectionWithParamsDisplayModeRequest, state: AppStateFromRequest
+    x: SetSectionWithParamsDisplayModeRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_section_with_params_display_mode(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_with_params_display_mode(x)
 
 
 @router.post(Route.SET_CALLABLE_HIDE_PARAMS)
 async def route_set_callable_hide_params(
-    x: SetCallableHideParamsRequest, state: AppStateFromRequest
+    x: SetCallableHideParamsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_callable_hide_params(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_callable_hide_params(x)
 
 
 @router.post(Route.SET_SECTION_HIDE_UNPINNED_PARAMS)
 async def route_set_section_hide_unpinned_params(
-    x: SetSectionHideUnpinnedParamsRequest, state: AppStateFromRequest
+    x: SetSectionHideUnpinnedParamsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_section_hide_unpinned_params(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_hide_unpinned_params(x)
 
 
 @router.post(Route.SET_SECTION_COLUMN_WIDTH)
 async def route_set_section_column_width(
-    x: SetSectionColumnWidthRequest, state: AppStateFromRequest
+    x: SetSectionColumnWidthRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_section_column_width(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_column_width(x)
 
 
 @router.post(Route.SET_BROWSER_COLUMN_WIDTHS)
 async def route_set_browser_column_widths(
-    x: SetBrowserColumnWidthsRequest, state: AppStateFromRequest
+    x: SetBrowserColumnWidthsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_browser_column_widths(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_browser_column_widths(x)
 
 
 @router.post(Route.SET_BROWSER_AREA_VIEW_MODE)
 async def route_set_browser_area_view_mode(
-    x: SetBrowserAreaViewModeRequest, state: AppStateFromRequest
+    x: SetBrowserAreaViewModeRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_browser_area_view_mode(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_browser_area_view_mode(x)
 
 
 @router.post(Route.SET_BROWSER_HIDE_COLUMN)
 async def route_set_browser_hide_column(
-    x: SetBrowserHideColumnRequest, state: AppStateFromRequest
+    x: SetBrowserHideColumnRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_browser_hide_column(
-        x
-    )
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_browser_hide_column(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_FORMAT)
 async def route_set_text_block_format(
-    x: SetTextBlockFormatRequest, state: AppStateFromRequest
+    x: SetTextBlockFormatRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_text_block_format(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_text_block_format(x)
 
 
 @router.post(Route.SET_SOCIAL_URL)
-async def route_set_social_url(x: SetSocialUrlRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_social_url(x)
+async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRequest):
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows social URL updates.",
+        share_session_id=ctx.share_session_id,
+    )
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_social_url(x)
 
 
 @router.post(Route.MOVE_SECTION)
-async def route_move_section(x: MoveSectionRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).move_section(x)
+async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromRequest):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.move_section(x)
 
 
 @router.post(Route.GROUP_SECTIONS)
-async def route_group_sections(x: GroupSectionsRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).group_sections(x)
+async def route_group_sections(x: GroupSectionsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.group_sections(x)
 
 
 @router.post(Route.UNGROUP_GROUPS)
-async def route_ungroup_groups(x: UngroupGroupsRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).ungroup_groups(x)
+async def route_ungroup_groups(x: UngroupGroupsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.ungroup_groups(x)
 
 
 @router.post(Route.TOGGLE_PARAM_SELECTED)
 async def route_toggle_param_selected(
-    x: ToggleParamSelectedRequest, state: AppStateFromRequest
+    x: ToggleParamSelectedRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_param_selected(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.toggle_param_selected(x)
 
 
 @router.post(Route.UNSELECT_ALL_PARAMS)
 async def route_unselect_all_params(
-    x: UnselectAllParamsRequest, state: AppStateFromRequest
+    x: UnselectAllParamsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).unselect_all_params(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.unselect_all_params(x)
 
 
 @router.post(Route.PREPARE_SECTIONS_FOR_COPY)
 async def route_prepare_sections_for_copy(
-    x: PrepareSectionsForCopyRequest, state: AppStateFromRequest
+    x: PrepareSectionsForCopyRequest, ctx: RuntimeContextFromRequest
 ) -> SectionsClipboardData:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).prepare_sections_for_copy(x)
+    return await ctx.get_project_manager(x.projectConfigId).prepare_sections_for_copy(x)
 
 
 @router.post(Route.PASTE_SECTIONS)
-async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).paste_sections(x)
+async def route_paste_sections(x: PasteSectionsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.paste_sections(x)
 
 
 @router.post(Route.APPEND_DRAW_AREA_LAYER_ITEM)
 async def route_append_draw_area_layer_item(
-    x: AppendDrawAreaLayerItemRequest, state: AppStateFromRequest
+    x: AppendDrawAreaLayerItemRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).append_draw_area_layer_item(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.append_draw_area_layer_item(x)
 
 
 @router.post(Route.SET_IMAGE_AREA_IMAGE_PATH)
 async def route_set_image_area_image_path(
-    x: SetImageAreaImagePathRequest, state: AppStateFromRequest
+    x: SetImageAreaImagePathRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_image_area_image_path(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_image_area_image_path(x)
 
 
 @router.post(Route.SET_CHART_AREA_IMAGE_PATH)
 async def route_set_chart_area_data_path(
-    x: SetChartAreaDataPathRequest, state: AppStateFromRequest
+    x: SetChartAreaDataPathRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_chart_area_data_path(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_chart_area_data_path(x)
 
 
 @router.post(Route.SET_CHART_TYPE)
-async def route_set_chart_type(x: SetChartTypeRequest, state: AppStateFromRequest):
-    await state.project_manager_switcher.get(x.projectConfigId).set_chart_type(x)
+async def route_set_chart_type(x: SetChartTypeRequest, ctx: RuntimeContextFromRequest):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_chart_type(x)
 
 
 @router.post(Route.SET_CHART_SETTINGS)
 async def route_set_chart_settings(
-    x: SetChartSettingsRequest, state: AppStateFromRequest
+    x: SetChartSettingsRequest, ctx: RuntimeContextFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).set_chart_settings(x)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_chart_settings(x)

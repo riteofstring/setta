@@ -8,7 +8,15 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, is_dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Literal, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Iterator,
+    Literal,
+    TypeVar,
+    cast,
+)
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -20,6 +28,7 @@ from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
+from setta.llm.chat_store import ChatStore, DBEChatStore
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
@@ -44,14 +53,6 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
-)
-from setta.project_state.chats.load import load_all_chat_metadata, load_chat
-from setta.project_state.chats.save import (
-    create_new_chat,
-    save_messages,
-)
-from setta.project_state.chats.save import (
-    delete_chat as delete_chat_record,
 )
 from setta.project_state.project_manager_types import (
     GetLatestProjectStateSummaryRequest,
@@ -185,12 +186,17 @@ class LLMChatManager:
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
         project_manager_switcher: "ProjectManagerSwitcher",
+        chat_store: ChatStore | None = None,
+        *,
+        share_session_id: str | None = None,
     ) -> None:
         self.dbe = dbe
+        self.chat_store = chat_store or DBEChatStore(dbe)
         self.mcp_client = mcp_client
         self.tool_preunlocker = ToolPreunlocker()
         self.websocket_msg_handler = websocket_msg_handler
         self.project_manager_switcher = project_manager_switcher
+        self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
         self._raw_env_vars: APIKeys = {}
@@ -204,7 +210,7 @@ class LLMChatManager:
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
-        return load_chat(self.dbe, chat_id)
+        return self.chat_store.get_chat(chat_id)
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = self._hydrate_config(config)
@@ -223,23 +229,22 @@ class LLMChatManager:
         project_config_id: ID,
     ) -> Chat:
         if chat_id:
-            chat = load_chat(self.dbe, chat_id)
+            chat = self.chat_store.get_chat(chat_id)
             if chat:
-                updated = save_messages(self.dbe, chat.id, [message])
+                updated = self.chat_store.save_messages(chat.id, [message])
                 return updated or chat
         llm_config = self.config.resolve_config(llm_config_id)
-        return create_new_chat(
-            self.dbe,
+        return self.chat_store.create_new_chat(
             message,
             llm_config,
             project_config_id=project_config_id,
         )
 
     def get_all_chat_metadata(self):
-        return load_all_chat_metadata(self.dbe)
+        return self.chat_store.get_all_chat_metadata()
 
     def delete_chat(self, chat_id: ID) -> None:
-        delete_chat_record(self.dbe, chat_id)
+        self.chat_store.delete_chat(chat_id)
         self._chat_tool_states.pop(chat_id, None)
         self._ai_follow_state.pop(chat_id, None)
 
@@ -367,7 +372,7 @@ class LLMChatManager:
                         len(tool_results),
                         chat.id,
                     )
-                saved_chat = save_messages(self.dbe, chat.id, new_messages)
+                saved_chat = self.chat_store.save_messages(chat.id, new_messages)
 
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
@@ -387,7 +392,7 @@ class LLMChatManager:
                         chat.id,
                         chat.projectConfigId,
                     )
-                    save_messages(self.dbe, chat.id, [assistant_message])
+                    self.chat_store.save_messages(chat.id, [assistant_message])
                     await self.websocket_msg_handler.send_streaming_response(
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
@@ -446,6 +451,17 @@ class LLMChatManager:
             return
         task.cancel()
         self._tasks.pop(chat_id, None)
+
+    async def shutdown(self) -> None:
+        tasks = list(self._tasks.values())
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._tasks.clear()
+        self._sessions.clear()
+        self._chat_tool_states.clear()
+        self._ai_follow_state.clear()
 
     def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
@@ -520,7 +536,10 @@ class LLMChatManager:
     async def _build_project_summary(
         self, project_config_id: ID
     ) -> tuple[ID, str, ProjectStateSummary]:
-        project_manager = self.project_manager_switcher.get(project_config_id)
+        project_manager = self.project_manager_switcher.get(
+            project_config_id,
+            share_session_id=self.share_session_id,
+        )
         summary = await project_manager.get_latest_project_state_summary(
             GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
         )
@@ -1711,7 +1730,12 @@ class LLMChatManager:
             )
         else:
             try:
-                call_result = await self.mcp_client.call_tool(tool_name, arguments)
+                meta = None
+                if self.share_session_id and self._is_setta_tool_name(tool_name):
+                    meta = {"shareSessionId": self.share_session_id}
+                call_result = await self.mcp_client.call_tool(
+                    tool_name, arguments, meta=meta
+                )
             except Exception:
                 logger.exception(
                     "MCP tool invocation failed for chat %s (tool=%s)",

@@ -117,6 +117,19 @@ export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
+export function buildSharePath(
+  targetProjectConfigName: string | null | undefined,
+): string {
+  if (targetProjectConfigName) {
+    return `/${targetProjectConfigName}`;
+  }
+  return INDEX_ROUTER_PATH;
+}
+
+export function resolveHomePath(_pathname: string): string {
+  return HOME_ROUTER_PATH;
+}
+
 export function pathRelativeToProject(projectConfigName: string) {
   return `../${projectConfigName}`;
 }

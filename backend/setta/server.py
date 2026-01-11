@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import setta.mcp.tools  # noqa: F401
 from setta.logging.context import get_logging_context
 from setta.logging.context_sources import ensure_request_context
 from setta.logging.errors import log_failure
@@ -40,6 +39,7 @@ from setta.routers import (
     projects_router,
     sections_router,
     settings_router,
+    share_deployments_router,
     status_router,
     terminals_http_router,
     terminals_ws_router,
@@ -52,12 +52,22 @@ from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.utils import get_absolute_path
 
+if not C.SHARE_MODE:
+    import setta.mcp.tools  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.setta = SettaFastAPIState(app)
+    if C.SHARE_MODE:
+        app.state.setta = SettaFastAPIState(
+            app,
+            share_mode=True,
+            share_deployment_root=C.SHARE_DEPLOYMENT_ROOT,
+        )
+    else:
+        app.state.setta = SettaFastAPIState(app)
 
     if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
@@ -93,7 +103,7 @@ async def lifespan(app: FastAPI):
             await browser_task
         if app.state.setta.specific_file_watcher:
             app.state.setta.specific_file_watcher.stop()
-        if app.state.setta.mcp_client:
+        if not app.state.setta.mcp_client.disabled:
             await app.state.setta.mcp_client.stop()
         if app.state.setta.lsps and app.state.setta.lsp_readers:
             await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
@@ -109,7 +119,8 @@ app = FastAPI(
 )
 
 app.add_middleware(LoggingContextMiddleware)
-app.add_middleware(AuthMiddleware)
+if not C.SHARE_MODE:
+    app.add_middleware(AuthMiddleware)
 # Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
     CORSMiddleware,
@@ -140,6 +151,7 @@ app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
+app.include_router(share_deployments_router, **http_router_kwargs)
 
 
 async def _open_browser_after_startup(url: str) -> None:

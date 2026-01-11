@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_child_sections_via_incrementer,
   route_delete_child_sections_via_decrementer,
@@ -18,6 +19,7 @@ export function Incrementer({
 }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
+  const { canEditStructure } = useShareCapabilities();
 
   const [numSections, setNumSections] = useState<number | "">(1);
 
@@ -40,6 +42,9 @@ export function Incrementer({
   };
 
   const addSections = () => {
+    if (!canEditStructure) {
+      return;
+    }
     if (typeof numSections === "string") return;
     route_create_child_sections_via_incrementer({
       projectConfigId: getCurrProjectConfigId(),
@@ -50,6 +55,9 @@ export function Incrementer({
   };
 
   const deleteChildren = () => {
+    if (!canEditStructure) {
+      return;
+    }
     if (typeof numSections === "string") return;
     route_delete_child_sections_via_decrementer({
       projectConfigId: getCurrProjectConfigId(),
@@ -57,15 +65,6 @@ export function Incrementer({
       numChildren: numSections,
     });
   };
-
-  // In your JSX:
-  <input
-    className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300"
-    value={numSections}
-    onChange={(e) => numSectionsOnChange(e.target.value)}
-    onBlur={numSectionsOnBlur}
-    disabled={variantIsFrozen}
-  />;
 
   return (
     <div
@@ -85,21 +84,21 @@ export function Incrementer({
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         onBlur={numSectionsOnBlur}
-        disabled={variantIsFrozen}
+        disabled={variantIsFrozen || !canEditStructure}
       />
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={deleteChildren}
         role="button"
-        disabled={variantIsFrozen}
+        disabled={variantIsFrozen || !canEditStructure}
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={addSections}
         role="button"
-        disabled={variantIsFrozen}
+        disabled={variantIsFrozen || !canEditStructure}
       />
     </div>
   );

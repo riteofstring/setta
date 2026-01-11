@@ -1,3 +1,4 @@
+import { useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
 import { RouteEnum } from "./generatedTypes";
 
@@ -18,6 +19,14 @@ function resolveBackendUrl(address: string): string {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;
+}
+
+function buildShareSessionHeaders(): Record<string, string> {
+  const shareSession = useShareSession.getState();
+  if (!shareSession.isShareMode || !shareSession.shareSessionId) {
+    return {};
+  }
+  return { "X-Share-Session-Id": shareSession.shareSessionId };
 }
 
 async function parseResponse<T>(response: Response): Promise<T | undefined> {
@@ -53,8 +62,10 @@ export async function get<T>(
 ): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
+    const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
       credentials: "include",
+      headers: shareHeaders,
     });
     return {
       data: await parseResponse<T>(response),
@@ -70,13 +81,17 @@ export async function get<T>(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(resolveBackendUrl(address), {
+    const shareHeaders = buildShareSessionHeaders();
+    const response = await fetch(resolveBackendUrl(fullAddress), {
       method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        ...shareHeaders,
       },
       body: body === null ? null : JSON.stringify(body),
     });

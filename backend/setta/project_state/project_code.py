@@ -6,6 +6,7 @@ from lsprotocol import types as LSPTypes
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
+from setta.code_gen.value_mode import PythonValueMode
 from setta.database.utils import create_new_id
 from setta.project_state.code import BashCode, PythonCode
 from setta.project_state.code_files import (
@@ -64,6 +65,19 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
+
+
+def build_python_code_generator(
+    project_state: ProjectStateSingleConfig,
+    dep_graph: DependencyGraph,
+) -> PythonCodeGenerator:
+    project_config = project_state.projectConfig
+    return PythonCodeGenerator(
+        dep_graph,
+        project_config.genCodePrefix,
+        project_config.genCodeSuffix,
+        value_mode=PythonValueMode.PACKAGED_RUNTIME,
+    )
 
 
 class ProjectGenPythonCode(PythonCode):

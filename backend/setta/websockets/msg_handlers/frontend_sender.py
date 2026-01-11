@@ -67,6 +67,26 @@ _SEVERITY_TO_LOG_LEVEL = {
 
 
 class WMHFrontendSender(BaseWebsocketMsgSender):
+    def __init__(
+        self,
+        websocket_manager,
+        *,
+        share_mode: bool = False,
+        share_session_id: str | None = None,
+    ) -> None:
+        super().__init__(websocket_manager)
+        self.share_mode = share_mode
+        self._share_session_id = share_session_id
+
+    def scoped(self, share_session_id: str | None) -> "WMHFrontendSender":
+        if share_session_id is None or share_session_id == self._share_session_id:
+            return self
+        return WMHFrontendSender(
+            self.websocket_manager,
+            share_mode=self.share_mode,
+            share_session_id=share_session_id,
+        )
+
     @staticmethod
     def _resolve_ui_log_level() -> int:
         env_value = os.environ.get(_UI_LOG_LEVEL_ENV)
@@ -77,10 +97,37 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                 pass
         return logging.getLogger().getEffectiveLevel()
 
-    async def broadcast_notification(self, notification: SettaNotification):
+    async def _broadcast_frontend(
+        self,
+        message,
+        share_session_id: str | None,
+    ) -> None:
+        resolved_share_session_id = (
+            share_session_id if share_session_id is not None else self._share_session_id
+        )
+        if self.share_mode:
+            if resolved_share_session_id is None:
+                return
+            await self.websocket_manager.broadcast_to_session(
+                message,
+                share_session_id=resolved_share_session_id,
+                connectionType=WebsocketConnectionType.FRONTEND,
+            )
+            return
         await self.websocket_manager.broadcast(
-            WebsocketMsgNotification(content=notification),
+            message,
             connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_notification(
+        self,
+        notification: SettaNotification,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
+            WebsocketMsgNotification(content=notification),
+            share_session_id,
         )
 
     async def broadcast_backend_log_event(
@@ -89,6 +136,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         *,
         severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
         project_config_id: ID | None = None,
+        share_session_id: str | None = None,
     ) -> None:
         threshold = self._resolve_ui_log_level()
         event_level = _SEVERITY_TO_LOG_LEVEL.get(severity, logging.INFO)
@@ -99,9 +147,9 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             severity=severity,
             message=message,
         )
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgBackendLogEvent(content=event),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def log_and_broadcast_backend_log_event(
@@ -112,6 +160,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         project_config_id: ID | None = None,
         logger: logging.Logger | None = None,
         context: Mapping[str, LoggingContextInput] | None = None,
+        share_session_id: str | None = None,
     ) -> None:
         """Log a backend message and surface it to the UI."""
 
@@ -134,6 +183,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             message,
             severity=severity,
             project_config_id=project_config_id,
+            share_session_id=share_session_id,
         )
 
     async def log_failure_and_broadcast_backend_log_event(
@@ -146,6 +196,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         handled: bool = False,
         logger: logging.Logger | None = None,
         context: Mapping[str, LoggingContextInput] | None = None,
+        share_session_id: str | None = None,
     ) -> None:
         """Log a structured failure and surface it to the UI."""
 
@@ -162,49 +213,62 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             project_config_id=project_config_id,
             logger=logger,
             context=context,
+            share_session_id=share_session_id,
         )
 
     async def broadcast_artifacts_update(
         self,
         artifacts: list[BaseArtifactUnion],
         updateType: Literal["update", "delete"],
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
-            message=WebsocketMsgUpdateArtifacts(
+        await self._broadcast_frontend(
+            WebsocketMsgUpdateArtifacts(
                 content=UpdateArtifactMsgContent(
                     artifacts=artifacts, updateType=updateType
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_rename_refactor_results(
-        self, content: RenameRefactorBroadcastContent
+        self,
+        content: RenameRefactorBroadcastContent,
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgReturnRenameRefactorResults(content=content),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def send_streaming_response(
         self,
         chatId: ID,
         chunk: LLMStreamingResponseChunk,
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgLLMStreamingResponse(
                 content=LLMStreamingResponse(
                     chatId=chatId,
                     chunk=chunk,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
-    async def broadcast_lsp_diagnostics(self, content: SettaProjectConfigDiagnostics):
-        await self.websocket_manager.broadcast(
+    async def broadcast_lsp_diagnostics(
+        self,
+        content: SettaProjectConfigDiagnostics,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
             WebsocketMsgLSPDiagnostics(content=content),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_project_state(
@@ -212,8 +276,10 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectState: ProjectStateSingleConfig,
         completedOpIds: list[str],
         pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgUpdateFrontendProjectState(
                 content=ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
@@ -221,52 +287,79 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     pendingOpIds=pendingOpIds,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_all_project_metadata(
-        self, defaultProjectConfigId: str | None, projectMetadata: list[ProjectConfig]
+        self,
+        defaultProjectConfigId: str | None,
+        projectMetadata: list[ProjectConfig],
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgAllProjectMetadata(
                 content=AllProjectMetadata(
                     defaultProjectConfigId=defaultProjectConfigId,
                     projectMetadata=projectMetadata,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
-    async def broadcast_terminal_metadata(self, terminal_metadata):
-        await self.websocket_manager.broadcast(
+    async def broadcast_terminal_metadata(
+        self,
+        terminal_metadata,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
             WebsocketMsgTerminalMetadata(content=terminal_metadata),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
-    async def broadcast_settings(self, settings: SettingsState):
-        await self.websocket_manager.broadcast(
+    async def broadcast_settings(
+        self,
+        settings: SettingsState,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
             WebsocketMsgUpdateSettings(content=settings),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_listener_coverage_snapshot(
-        self, snapshot: ListenerCoverageSnapshot
+        self,
+        snapshot: ListenerCoverageSnapshot,
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgListenerCoverageSnapshot(content=snapshot),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
-    async def broadcast_llm_config_update(self, config: AllLLMConfigs):
-        await self.websocket_manager.broadcast(
+    async def broadcast_llm_config_update(
+        self,
+        config: AllLLMConfigs,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
             WebsocketMsgLLMConfigUpdated(content=config),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
-    async def broadcast_llm_api_keys_update(self, payload: APIKeys):
-        await self.websocket_manager.broadcast(
+    async def broadcast_llm_api_keys_update(
+        self,
+        payload: APIKeys,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
             WebsocketMsgLLMApiKeysUpdated(content=payload),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_ai_follow_tool_arguments_update(
@@ -274,8 +367,10 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         chatId: ID,
         idsByType: dict[FollowIdType, list[ID]],
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgAIFollowToolArgumentsUpdate(
                 content=AIFollowToolArgumentsUpdateContent(
                     projectConfigId=projectConfigId,
@@ -283,7 +378,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     idsByType=idsByType,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )
 
     async def broadcast_ai_follow_tool_result_update(
@@ -291,8 +386,10 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         chatId: ID,
         idsByType: dict[FollowIdType, list[ID]],
+        *,
+        share_session_id: str | None = None,
     ):
-        await self.websocket_manager.broadcast(
+        await self._broadcast_frontend(
             WebsocketMsgAIFollowToolResultUpdate(
                 content=AIFollowToolResultUpdateContent(
                     projectConfigId=projectConfigId,
@@ -300,5 +397,5 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     idsByType=idsByType,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
+            share_session_id,
         )

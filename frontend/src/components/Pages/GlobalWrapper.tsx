@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
-import { useProjectLoading, useSettings } from "state/definitions";
+import {
+  useProjectLoading,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -10,6 +14,7 @@ import {
   router_get_default_project_config_name,
 } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
+import { AppShell } from "./AppShell";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -19,21 +24,18 @@ export function GlobalWrapper({ children }) {
   const backendReady = initStatus?.isReady ?? false;
   const shouldShowLoading = !settingsLoaded || !backendReady;
 
-  if (shouldShowLoading) {
-    return (
-      <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
+  return (
+    <AppShell
+      isLoading={shouldShowLoading}
+      loadingContent={
         <LoadingScreen
           initStatus={initStatus}
           settingsLoaded={settingsLoaded}
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="app-base flex min-h-0 min-w-full flex-1 flex-col bg-setta-light dark:bg-setta-dark">
+      }
+    >
       {children}
-    </div>
+    </AppShell>
   );
 }
 
@@ -72,10 +74,11 @@ function useSetHTMLTitle() {
 
 function useOpenCloseWebsocket() {
   const location = useLocation();
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
-    openWebSocket(location.pathname);
-  }, [location.pathname]);
+    openWebSocket(location.pathname, shareSessionId);
+  }, [location.pathname, shareSessionId]);
 }
 
 function useDefaultProjectConfigName() {

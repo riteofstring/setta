@@ -12,6 +12,7 @@
 - `setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
 - `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
+- `sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
 - `setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
 - `remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `remote-ssh-manual.md` – manual SSH tunnel steps for remote Setta without a local install.

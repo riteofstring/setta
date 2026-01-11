@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.logging.tasks import spawn_background_task
@@ -201,6 +201,17 @@ class JSONSource:
                     new_json_source_to_variant_mapping[filepath].add((s.id, v))
 
         return filename_set, new_json_source_to_variant_mapping
+
+    def process_json_source_files(
+        self, paths: Iterable[Path]
+    ) -> dict[Path, ProcessedJSONInfo]:
+        json_sources: dict[Path, ProcessedJSONInfo] = {}
+        for path in paths:
+            if not path.exists():
+                continue
+            payload = self.dbe.read_json(path)
+            json_sources[path] = self.process_json_object(payload)
+        return json_sources
 
     def get_section_variants_for_json_source_update(
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"

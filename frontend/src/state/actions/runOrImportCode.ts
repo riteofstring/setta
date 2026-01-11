@@ -1,4 +1,10 @@
-import { useProjectState, useRunControl } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useRunControl,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import {
   route_kill_subprocesses,
   route_run_code,
@@ -12,10 +18,23 @@ export async function runCodeBlock(sectionId: string | null) {
   if (sectionId === singletonSections.GenPythonCode) {
     sectionId = null;
   }
+  const shareSession = useShareSession.getState();
+  let runSnapshotMode = null;
+  if (!shareSession.isShareMode) {
+    const overrides =
+      useLocalStorage.getState().runSnapshotModeByProjectConfigId;
+    const runSnapshotOverride = overrides[projectConfig.id];
+    if (runSnapshotOverride !== undefined) {
+      runSnapshotMode = runSnapshotOverride;
+    } else {
+      runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
+    }
+  }
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
     cliId: null,
+    runSnapshotMode,
   });
 }
 

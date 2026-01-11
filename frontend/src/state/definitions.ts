@@ -30,6 +30,7 @@ import {
   SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
+  SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -107,6 +108,36 @@ export const useProjectState = withProjectState(
     ),
   ),
 );
+
+type ShareSessionState = {
+  isShareMode: boolean;
+  shareSessionId: string | null;
+  sharePolicy: SharePolicy | null;
+  shareDeploymentName: string | null;
+  shareDeploymentVersion: string | null;
+};
+
+export const useShareSession = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ShareSessionState>(() => ({
+      isShareMode: false,
+      shareSessionId: null,
+      sharePolicy: null,
+      shareDeploymentName: null,
+      shareDeploymentVersion: null,
+    })),
+  ),
+);
+
+type ServerModeState = {
+  isShareServer: boolean;
+  modeResolved: boolean;
+};
+
+export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
+  isShareServer: false,
+  modeResolved: false,
+}));
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -221,6 +252,7 @@ export const useNotifications = createWithEqualityFn(
 );
 
 type RunMode = "once" | "continuous";
+type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
 export type CustomRunAction =
   | { type: "runCodeBlock"; sectionId: string | null }
@@ -513,6 +545,7 @@ type ZustandLocalStorage = {
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
+  runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -533,6 +566,7 @@ export const useLocalStorage = createWithEqualityFn(
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
+      runSnapshotModeByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation

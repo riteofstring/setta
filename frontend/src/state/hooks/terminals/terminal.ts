@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useShareSession } from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
@@ -23,14 +24,30 @@ import {
 const TERMINAL_WEBSOCKETS = {};
 const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
-export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
+export function useTerminal({
+  sectionId,
+  width,
+  height,
+  setHasScrollbar,
+}: {
+  sectionId: string;
+  width: number;
+  height: number;
+  setHasScrollbar: (value: boolean) => void;
+}) {
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
+    if (isShareMode && !shareSessionId) {
+      return;
+    }
     const terminal = new Terminal({
       cursorBlink: true,
       theme: terminalTheme,
+      disableStdin: isShareMode,
       // fontFamily: fontFamily,
       // letterSpacing: "0",
       // fontSize: "14",
@@ -38,7 +55,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const { ws } = newTerminalWebsocket(sectionId);
+    const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
 
     terminal.onResize((size) => {
       // Send the new size to the backend
@@ -56,7 +73,9 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 
     function onInitialMessage(message) {
       if (message.data === C.SETTA_TERMINAL_READY) {
-        const attachAddon = new AttachAddon(ws);
+        const attachAddon = new AttachAddon(ws, {
+          bidirectional: !isShareMode,
+        });
         terminal.loadAddon(attachAddon);
         ws.removeEventListener("message", onInitialMessage);
       }
@@ -70,7 +89,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
       terminalCleanup(ws, terminal);
       unsub();
     };
-  }, []);
+  }, [isShareMode, shareSessionId]);
 
   useEffect(() => {
     fitAddon.fit();
@@ -79,10 +98,19 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   return terminalRef;
 }
 
-function newTerminalWebsocket(sectionId) {
+function newTerminalWebsocket(
+  sectionId: string,
+  shareSessionId: string | null,
+) {
   const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
-  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
+  const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
+    RouteEnum.TERMINAL,
+    { projectConfigId, sectionId, id },
+  )}`;
+  const wsTerminalAddress = shareSessionId
+    ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
+    : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {
