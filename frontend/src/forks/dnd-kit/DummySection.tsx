@@ -1,4 +1,5 @@
-import { DragOverlay } from "@dnd-kit/react";
+import { DragOverlay, useDragDropManager } from "@dnd-kit/react";
+import { useComputed } from "@dnd-kit/react/hooks";
 import { useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { forwardRef } from "react";
@@ -44,11 +45,18 @@ const DummySection = forwardRef<HTMLDivElement, Record<string, never>>(
 export const DummyDragOverlay = forwardRef<
   HTMLDivElement,
   Record<string, never>
->(({}, ref) =>
-  createPortal(
-    <DragOverlay>
+>(({}, ref) => {
+  const manager = useDragDropManager();
+  const isDropped = useComputed(
+    () => manager?.dragOperation.status.dropped ?? false,
+    [manager],
+  ).value;
+  const overlayStyle = isDropped ? { opacity: 0 } : undefined;
+
+  return createPortal(
+    <DragOverlay style={overlayStyle}>
       <DummySection ref={ref} />
     </DragOverlay>,
     document.body,
-  ),
-);
+  );
+});
