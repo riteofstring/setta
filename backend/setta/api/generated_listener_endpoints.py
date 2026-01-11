@@ -48,7 +48,6 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -252,12 +251,6 @@ class ListenerGenCodeSuffixCompletionRequestPayload(TypedDict):
     position: int
 
 
-class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-
-
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -402,29 +395,6 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chartType: ChartType
-
-
-class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    chatId: ID | None
-
-
-class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
-
-
-class ListenerSetChatSectionStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    state: ChatSectionState
 
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
@@ -872,11 +842,6 @@ class RouterEndpointAPI:
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_gen_code_suffix_completion", payload)
 
-    async def get_chat_section_chat_id(
-        self, payload: ListenerGetChatSectionChatIdRequestPayload
-    ) -> str | None:
-        return await self._caller("route_get_chat_section_chat_id", payload)
-
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
@@ -971,21 +936,6 @@ class RouterEndpointAPI:
 
     async def set_chart_type(self, payload: ListenerSetChartTypeRequestPayload) -> None:
         return await self._caller("route_set_chart_type", payload)
-
-    async def set_chat_section_chat_id(
-        self, payload: ListenerSetChatSectionChatIdRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_chat_id", payload)
-
-    async def set_chat_section_settings(
-        self, payload: ListenerSetChatSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_settings", payload)
-
-    async def set_chat_section_state(
-        self, payload: ListenerSetChatSectionStateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_state", payload)
 
     async def set_code(self, payload: ListenerSetCodeRequestPayload) -> None:
         return await self._caller("route_set_code", payload)
