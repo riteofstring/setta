@@ -111,12 +111,10 @@ function mapDragEvent(
   };
 }
 
-function getCollisions(
-  manager: DragDropManager,
-): SettaCollision[] | null {
+function getCollisions(manager: DragDropManager): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
-    return null;
+    return [];
   }
 
   return collisions as SettaCollision[];

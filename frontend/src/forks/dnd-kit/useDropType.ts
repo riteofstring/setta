@@ -17,10 +17,13 @@ import {
   getCurrSectionVariant,
   getSectionChildren,
   getSectionType,
+  manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
+
+const DEBUG_DND = true;
 
 export function onDragStart({ active }: DragStartEvent) {
   if (!active.data || !active.data.current) {
@@ -30,6 +33,17 @@ export function onDragStart({ active }: DragStartEvent) {
   const dndState = useDndState.getState();
   setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
   if (dndState.isMovingFree) {
+    if (DEBUG_DND) {
+      const dndChildrenState = useDndChildren.getState();
+      const parentId = dndChildrenState.y[active.id];
+      const parentChildren = parentId ? dndChildrenState.x[parentId] : null;
+      console.log("[dnd] dragstart-free", {
+        activeId: active.id,
+        parentId,
+        parentChildren,
+      });
+    }
+    manualDndChildrenReset();
     replaceDndSectionWithTemp(active.id);
   }
 }

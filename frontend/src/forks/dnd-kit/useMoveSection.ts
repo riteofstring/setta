@@ -53,18 +53,20 @@ async function onFreeMoveEnd({
 
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
-    if (!children || !overId || !collisions?.[0]) {
+    if (!children || !overId) {
+      manualDndChildrenReset();
       return;
     }
     activeIdx = children.indexOf(dndSectionId);
     const overIdx = children.indexOf(overId);
-    const pastHalfway = collisions[0].pastHalfway;
+    const pastHalfway = Boolean(collisions?.[0]?.pastHalfway);
     const maxIdx = children.length;
     newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
   }
   // dropping nested section onto pane
   else if (!overId) {
     if (!dummyRef.current) {
+      manualDndChildrenReset();
       return;
     }
     newIndex = 0;
@@ -73,6 +75,7 @@ async function onFreeMoveEnd({
 
     if (!oldParentId) {
       justMoveANode(sectionId, position);
+      manualDndChildrenReset();
       return;
     }
   }
@@ -115,6 +118,7 @@ async function onFreeMoveEnd({
     newIndex,
     position,
   });
+  manualDndChildrenReset();
 }
 
 export function useOnDragEnd() {
