@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.generated.unions import BaseArtifactUnion
-    from setta.types.project_state import ProjectStateBackend, ProjectStateCore
+    from setta.types.project_state import ProjectStateBackend
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -80,14 +79,10 @@ class Artifacts:
         websocket_msg_handler: "WMHFrontendSender",
         specific_file_watcher: "SpecificFileWatcher",
         dbe: "DBE",
-        artifact_id_resolver: Callable[[Path | str], Path | str] | None = None,
-        path_resolver: Callable[[Path | str], Path] | None = None,
     ):
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
-        self._path_resolver = path_resolver or normalize_path
-        self._artifact_id_resolver = artifact_id_resolver or self._path_resolver
         self.images: ImageMapping = {}
         self.chart_data: ChartDataMapping = {}
         self.brush_strokes: BrushStrokeMapping = {}
@@ -97,12 +92,6 @@ class Artifacts:
         self.chart_data_metadata: dict[Path, ArtifactMetadata] = {}
         self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
         self.transform_metadata: dict[Path, ArtifactMetadata] = {}
-
-    def normalize_artifact_id(self, path: Path | str) -> str:
-        return str(self._artifact_id_resolver(path))
-
-    def _resolve_path(self, path: Path | str) -> Path:
-        return self._path_resolver(path)
 
     def watch_artifact_files(
         self,
@@ -133,7 +122,7 @@ class Artifacts:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
             artifacts: list[BaseArtifactUnion] = []
             conflict_infos: list[tuple[BaseArtifactUnion, str]] = []
-            normalized_path = self._resolve_path(coreUpdate.fileToRead)
+            normalized_path = normalize_path(coreUpdate.fileToRead)
             for t in types:
                 artifact = None
                 metadata_dict = self.metadata_dict_for_artifact_type(t)
@@ -163,9 +152,7 @@ class Artifacts:
                 if artifact:
                     artifacts.append(artifact)
                     if backup_path:
-                        metadata_after = metadata_dict.get(
-                            self._resolve_path(artifact.id)
-                        )
+                        metadata_after = metadata_dict.get(normalize_path(artifact.id))
                         if metadata_after:
                             metadata_after.has_conflict = True
                         conflict_infos.append((artifact, backup_path))
@@ -183,30 +170,28 @@ class Artifacts:
 
         return fn
 
-    def get_artifact_files_to_watch(self, p: "ProjectStateCore"):
+    def get_artifact_files_to_watch(self, p: "ProjectStateBackend"):
         path_and_types: set[tuple[Path, ArtifactType]] = set()
         for s in p.sections.values():
             for v in s.variants:
                 impl = get_variant_effective_section_impl(p, s.id, v)
                 if isinstance(impl, ImageSectionImpl):
                     path_and_types.add(
-                        (self._resolve_path(impl.imagePath), ArtifactType.Image)
+                        (normalize_path(impl.imagePath), ArtifactType.Image)
                     )
                 elif isinstance(impl, DrawSectionImpl):
                     for layer in impl.layers:
                         for el in layer.elements:
-                            path_and_types.add(
-                                (self._resolve_path(el.dataPath), el.type)
-                            )
+                            path_and_types.add((normalize_path(el.dataPath), el.type))
                             path_and_types.add(
                                 (
-                                    self._resolve_path(el.transformId),
+                                    normalize_path(el.transformId),
                                     ArtifactType.DrawAreaLayerItemTransform,
                                 )
                             )
                 elif isinstance(impl, ChartSectionImpl):
                     path_and_types.add(
-                        (self._resolve_path(impl.dataPath), ArtifactType.ChartData)
+                        (normalize_path(impl.dataPath), ArtifactType.ChartData)
                     )
 
         path_to_types: dict[Path, set[ArtifactType]] = defaultdict(set)
@@ -222,16 +207,14 @@ class Artifacts:
         return None
 
     def read_image_from_disk(self, path: Path):
-        normalized_path = self._resolve_path(path)
-        img = self.dbe.read(normalized_path, "rb")
+        img = self.dbe.read(path, "rb")
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
-                id=self.normalize_artifact_id(path),
-                value=f"data:image/png;base64,{b64_str}",
+                id=str(normalize_path(path)), value=f"data:image/png;base64,{b64_str}"
             )
-            self.images[normalized_path] = artifact
-            self.image_metadata[normalized_path] = ArtifactMetadata(
+            self.images[path] = artifact
+            self.image_metadata[path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(img),
                 is_dirty=False,
             )
@@ -239,16 +222,12 @@ class Artifacts:
         raise ValueError
 
     def read_chart_data_from_disk(self, path: Path):
-        normalized_path = self._resolve_path(path)
-        x = self.dbe.read(normalized_path)
+        x = self.dbe.read(path)
         if x:
             value = csv_to_chart_data(x)
-            artifact = ChartDataArtifact(
-                id=self.normalize_artifact_id(path),
-                value=value,
-            )
-            self.chart_data[normalized_path] = artifact
-            self.chart_data_metadata[normalized_path] = ArtifactMetadata(
+            artifact = ChartDataArtifact(id=str(normalize_path(path)), value=value)
+            self.chart_data[path] = artifact
+            self.chart_data_metadata[path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(x),
                 is_dirty=False,
             )
@@ -256,16 +235,14 @@ class Artifacts:
         raise ValueError
 
     def read_brush_stroke_from_disk(self, path: Path):
-        normalized_path = self._resolve_path(path)
-        content = self.dbe.read(normalized_path)
+        content = self.dbe.read(path)
         if content:
             data = json.loads(content)
             artifact = BrushStrokeArtifact(
-                id=self.normalize_artifact_id(path),
-                value=BrushStroke.model_validate(data),
+                id=str(normalize_path(path)), value=BrushStroke.model_validate(data)
             )
-            self.brush_strokes[normalized_path] = artifact
-            self.brush_stroke_metadata[normalized_path] = ArtifactMetadata(
+            self.brush_strokes[path] = artifact
+            self.brush_stroke_metadata[path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )
@@ -273,16 +250,15 @@ class Artifacts:
         raise ValueError
 
     def read_transform_from_disk(self, path: Path):
-        normalized_path = self._resolve_path(path)
-        content = self.dbe.read(normalized_path)
+        content = self.dbe.read(path)
         if content:
             data = json.loads(content)
             artifact = DrawAreaLayerItemTransformArtifact(
-                id=self.normalize_artifact_id(path),
+                id=str(normalize_path(path)),
                 value=DrawAreaLayerItemTransform.model_validate(data),
             )
-            self.draw_area_layer_item_transforms[normalized_path] = artifact
-            self.transform_metadata[normalized_path] = ArtifactMetadata(
+            self.draw_area_layer_item_transforms[path] = artifact
+            self.transform_metadata[path] = ArtifactMetadata(
                 last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )
@@ -290,16 +266,16 @@ class Artifacts:
         raise ValueError
 
     def get_cached_image(self, path: Path | str):
-        return self.images.get(self._resolve_path(path))
+        return self.images.get(normalize_path(path))
 
     def get_cached_chart_data(self, path: Path | str):
-        return self.chart_data.get(self._resolve_path(path))
+        return self.chart_data.get(normalize_path(path))
 
     def get_cached_brush_stroke(self, path: Path | str):
-        return self.brush_strokes.get(self._resolve_path(path))
+        return self.brush_strokes.get(normalize_path(path))
 
     def get_cached_draw_area_layer_item_transform(self, path: Path | str):
-        return self.draw_area_layer_item_transforms.get(self._resolve_path(path))
+        return self.draw_area_layer_item_transforms.get(normalize_path(path))
 
     def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
         """Return the cached artifact type for a normalized path, if any.
@@ -308,7 +284,7 @@ class Artifacts:
         since that indicates inconsistent state we cannot safely resolve.
         """
 
-        normalized = self._resolve_path(path)
+        normalized = normalize_path(path)
         matches: list[ArtifactType] = []
         for artifact_type in ArtifactType:
             art_dict = self.dict_for_artifact_type(artifact_type)
@@ -365,7 +341,7 @@ class Artifacts:
         """Store an artifact in the in-memory cache and mark metadata dirty."""
         art_dict = self.dict_for_artifact_type(artifact.type)
         metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
-        path = self._resolve_path(artifact.id)
+        path = normalize_path(artifact.id)
 
         art_dict[path] = artifact  # type: ignore[index]
         metadata = metadata_dict.get(path)

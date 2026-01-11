@@ -6,7 +6,6 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -22,7 +21,6 @@ export function SliderInputConfigForParam({
   sectionId: string;
   paramInfoId: string;
 }) {
-  const { canEditStructure } = useShareCapabilities();
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
@@ -30,9 +28,6 @@ export function SliderInputConfigForParam({
   );
 
   function onChange(newConfig: SliderConfigForFrontend) {
-    if (!canEditStructure) {
-      return;
-    }
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -54,23 +49,15 @@ export function SliderInputConfigForParam({
     });
   }
 
-  return (
-    <SliderInputConfig
-      onChange={onChange}
-      config={config}
-      isDisabled={!canEditStructure}
-    />
-  );
+  return <SliderInputConfig onChange={onChange} config={config} />;
 }
 
 function SliderInputConfig({
   onChange,
   config,
-  isDisabled,
 }: {
   onChange: (x: SliderConfigForFrontend) => void;
   config: SliderConfigForFrontend;
-  isDisabled: boolean;
 }) {
   const [localConfig, setLocalConfig] = useState(config);
 
@@ -115,7 +102,6 @@ function SliderInputConfig({
             onChange={(v) => localOnChange(e, v.target.value)}
             onBlur={(v) => onBlur(e, v.target.value)}
             value={localConfig[e]}
-            disabled={isDisabled}
           />
         </div>
       ))}

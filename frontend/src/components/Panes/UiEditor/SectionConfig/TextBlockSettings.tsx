@@ -1,30 +1,22 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { setCurrEffectiveSectionImplValue } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
-import { useShareCapabilities } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
 import { route_docstring_to_markdown } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 
-export function TextBlockSettings({ sectionId }: { sectionId: string }) {
+export function TextBlockSettings({ sectionId }) {
   const { format, text, isFrozen, headingAsSectionName } =
     useTextBlockTextAndEditability(sectionId);
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditParams } = useShareCapabilities();
-  const canToggleFormat = !isShareMode || canEditParams;
-  const canToggleHeading = !isShareMode || canEditParams;
 
-  async function onChangeRenderMarkdown(v: boolean) {
-    if (!canToggleFormat) {
-      return;
-    }
-    let newText = text;
+  async function onChangeRenderMarkdown(v) {
+    let newText;
     if (v) {
       const res = await route_docstring_to_markdown({ docstring: text });
-      if (res200(res)) {
-        newText = res.data;
-      }
+      newText = res200(res) ? res.data : text;
+    } else {
+      newText = text;
     }
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
@@ -36,10 +28,7 @@ export function TextBlockSettings({ sectionId }: { sectionId: string }) {
     });
   }
 
-  async function onChangeHeadingAsSectionName(v: boolean) {
-    if (!canToggleHeading) {
-      return;
-    }
+  async function onChangeHeadingAsSectionName(v) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         headingAsSectionName: v,
@@ -54,7 +43,7 @@ export function TextBlockSettings({ sectionId }: { sectionId: string }) {
           Markdown
         </p>
         <SwitchInput
-          isDisabled={isFrozen || !canToggleFormat}
+          isDisabled={isFrozen}
           value={format === TextBlockFormatEnum.Markdown}
           onChange={onChangeRenderMarkdown}
           outerDivClassName="flex items-center"
@@ -65,7 +54,7 @@ export function TextBlockSettings({ sectionId }: { sectionId: string }) {
           Heading As Section Name
         </p>
         <SwitchInput
-          isDisabled={isFrozen || !canToggleHeading}
+          isDisabled={isFrozen}
           value={headingAsSectionName} // Add your state value
           onChange={onChangeHeadingAsSectionName} // Add your onChange handler
           outerDivClassName="flex items-center"

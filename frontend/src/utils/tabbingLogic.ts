@@ -1,7 +1,7 @@
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
-import { HOME_ROUTER_PATH } from "./constants";
+import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
@@ -22,28 +22,20 @@ export function uiEditorPaneOnKeyDown(e) {
   }
 }
 
-export function siteLogoOnKeyDown(
-  e,
-  navigate,
-  location,
-  homePath = HOME_ROUTER_PATH,
-) {
-  if (location.pathname === homePath) {
+export function siteLogoOnKeyDown(e, navigate, location) {
+  if (location.pathname === HOME_ROUTER_PATH) {
     return;
   }
   if (e.code === "Space") {
-    navigate(homePath);
+    navigate(HOME_ROUTER_PATH);
   } else if (e.code === "Tab" && e.shiftKey) {
     tabToLastFocusablePaneElement(e);
   }
 }
 
-export function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
+export function homePageProjectItemOnKeyDown(e, navigate, projectConfigName) {
   if (e.code === "Space") {
-    if (!projectPath) {
-      return;
-    }
-    navigate(projectPath);
+    navigate(pathRelativeToProject(projectConfigName));
   }
 }
 

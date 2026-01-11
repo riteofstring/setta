@@ -8,49 +8,31 @@ class RealtimeEventHub:
 
     def __init__(self, python_script_sender: WMHPythonScriptSender) -> None:
         self._python_script_sender = python_script_sender
-        self._sequence_by_project: dict[tuple[ID, str | None], int] = {}
+        self._sequence_by_project: dict[str, int] = {}
         python_script_sender.register_realtime_event_hub(self)
 
-    def reset_sequence(
-        self,
-        project_config_id: ID,
-        share_session_id: str | None = None,
-    ) -> None:
+    def reset_sequence(self, project_config_id: ID) -> None:
         """Reset the realtime sequence counter for a project.
 
         Call this when a listener receives a full snapshot (bootstrap or force refresh)
         so the next realtime delta starts from sequence 1 again.
         """
-        self._sequence_by_project.pop((project_config_id, share_session_id), None)
-
-    def drop_share_session_sequences(self, share_session_id: str) -> None:
-        if not self._sequence_by_project:
-            return
-        keys_to_drop = [
-            key
-            for key in self._sequence_by_project.keys()
-            if key[1] == share_session_id
-        ]
-        for key in keys_to_drop:
-            del self._sequence_by_project[key]
+        self._sequence_by_project.pop(project_config_id, None)
 
     async def emit_realtime_delta(
         self,
         *,
         project_config_id: ID,
         deltas: list[ListenerRealtimeDelta],
-        share_session_id: str | None = None,
     ) -> None:
         if not deltas:
             raise ValueError("deltas must contain at least one entry")
-        sequence_key = (project_config_id, share_session_id)
-        sequence = self._sequence_by_project.get(sequence_key, 0) + 1
-        self._sequence_by_project[sequence_key] = sequence
+        sequence = self._sequence_by_project.get(project_config_id, 0) + 1
+        self._sequence_by_project[project_config_id] = sequence
         await self._python_script_sender.send_realtime_update(
             projectConfigId=project_config_id,
             deltas=deltas,
             sequence=sequence,
-            share_session_id=share_session_id,
         )
 
     async def emit_action_event(
@@ -58,16 +40,13 @@ class RealtimeEventHub:
         *,
         project_config_id: ID,
         action_events: list[ControlActionEvent],
-        share_session_id: str | None = None,
     ) -> None:
         if not action_events:
             raise ValueError("action_events must contain at least one entry")
-        sequence_key = (project_config_id, share_session_id)
-        sequence = self._sequence_by_project.get(sequence_key, 0) + 1
-        self._sequence_by_project[sequence_key] = sequence
+        sequence = self._sequence_by_project.get(project_config_id, 0) + 1
+        self._sequence_by_project[project_config_id] = sequence
         await self._python_script_sender.send_action_event(
             projectConfigId=project_config_id,
             actionEvents=action_events,
             sequence=sequence,
-            share_session_id=share_session_id,
         )

@@ -19,14 +19,8 @@ import {
   useAllProjectMetadata,
   useHomePageSearch,
   useProjectLoading,
-  useShareSession,
 } from "state/definitions";
-import {
-  buildSharePath,
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-  SETTINGS_ROUTER_PATH,
-} from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
@@ -37,7 +31,6 @@ export function HomePage() {
     (x) => x,
     _.isEqual,
   );
-  const isShareMode = useShareSession((x) => x.isShareMode);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
@@ -55,7 +48,6 @@ export function HomePage() {
           projects={projectMetadata}
           defaultProjectConfigId={defaultProjectConfigId}
           setIsCreatingConfig={setIsCreatingConfig}
-          isShareMode={isShareMode}
         />
       )}
     </GridWrapper>
@@ -66,22 +58,13 @@ function RightColumn({
   projects,
   defaultProjectConfigId,
   setIsCreatingConfig,
-  isShareMode,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
-  isShareMode: boolean;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
-  const selectionEnabled = !isShareMode;
-
-  useEffect(() => {
-    if (isShareMode) {
-      setSelectedProjects([]);
-    }
-  }, [isShareMode]);
 
   async function handleCreateConfig() {
     setIsCreatingConfig(true);
@@ -89,9 +72,6 @@ function RightColumn({
   }
 
   function onSelectProject(e: React.MouseEvent, projectConfigId: string) {
-    if (!selectionEnabled) {
-      return;
-    }
     e.preventDefault(); // to prevent going into the project
     if (selectedProjects.includes(projectConfigId)) {
       setSelectedProjects(
@@ -132,55 +112,45 @@ function RightColumn({
       onKeyDown={onEscapeClearSelectedProjects}
     >
       <div className="flex justify-between gap-4">
-        {isShareMode ? (
-          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-            Sharing mode is read-only
-          </div>
-        ) : (
-          <>
-            <div className="flex gap-4">
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
-                onClick={handleCreateConfig}
-              >
-                <BiPlus />
-                New Config
-              </button>
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
-                onClick={onClickMakeDefault}
-                disabled={selectedProjects.length !== 1}
-              >
-                <HiHome />
-                Make Default
-              </button>
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
-                onClick={onClickDelete}
-                disabled={selectedProjects.length === 0}
-              >
-                <IoClose />
-                Delete
-              </button>
-            </div>
-            <Link
-              to={SETTINGS_ROUTER_PATH}
-              state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-              className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
-            >
-              <IoSettingsOutline />
-              Settings
-            </Link>
-          </>
-        )}
+        <div className="flex gap-4">
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
+            onClick={handleCreateConfig}
+          >
+            <BiPlus />
+            New Config
+          </button>
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
+            onClick={onClickMakeDefault}
+            disabled={selectedProjects.length !== 1}
+          >
+            <HiHome />
+            Make Default
+          </button>
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
+            onClick={onClickDelete}
+            disabled={selectedProjects.length === 0}
+          >
+            <IoClose />
+            Delete
+          </button>
+        </div>
+        <Link
+          to={SETTINGS_ROUTER_PATH}
+          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
+        >
+          <IoSettingsOutline />
+          Settings
+        </Link>
       </div>
       <ProjectItems
         projects={projects}
         defaultProjectConfigId={defaultProjectConfigId}
         selectedProjects={selectedProjects}
         onSelectProject={onSelectProject}
-        selectionEnabled={selectionEnabled}
-        isShareMode={isShareMode}
       />
     </div>
   );
@@ -191,21 +161,16 @@ function ProjectItems({
   defaultProjectConfigId,
   selectedProjects,
   onSelectProject,
-  selectionEnabled,
-  isShareMode,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
   onSelectProject: (e: React.MouseEvent, id: string) => void;
-  selectionEnabled: boolean;
-  isShareMode: boolean;
 }) {
   const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
   });
-  const selectionMode = selectionEnabled && selectedProjects.length > 0;
 
   const gridStyles =
     "grid grid-cols-1 gap-8 pt-7 justify-items-start sm:grid-cols-2 lg:grid-cols-3";
@@ -227,9 +192,7 @@ function ProjectItems({
             key={`Project ${i} ${x.name}`}
             isSelected={selectedProjects.includes(x.id)}
             onSelectProject={onSelectProject}
-            inSelectionMode={selectionMode}
-            selectionEnabled={selectionEnabled}
-            isShareMode={isShareMode}
+            inSelectionMode={selectedProjects.length > 0}
           />
         ))
       )}
@@ -244,20 +207,15 @@ function ProjectItem({
   isSelected,
   onSelectProject,
   inSelectionMode,
-  selectionEnabled,
-  isShareMode,
 }: {
   project: ProjectConfig;
   isDefault: boolean;
   isSelected: boolean;
   onSelectProject: (e: React.MouseEvent, id: string) => void;
   inSelectionMode: boolean;
-  selectionEnabled: boolean;
-  isShareMode: boolean;
 }) {
   const itemStyles =
     "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
-  const projectPath = resolveProjectPath(project.name, isShareMode);
 
   return (
     <div className={itemStyles}>
@@ -265,15 +223,11 @@ function ProjectItem({
         project={project}
         inSelectionMode={inSelectionMode}
         onSelectProject={onSelectProject}
-        projectPath={projectPath}
-        selectionEnabled={selectionEnabled}
       >
         <ThumbnailArea
           project={project}
           isSelected={isSelected}
           onSelectProject={onSelectProject}
-          projectPath={projectPath}
-          selectionEnabled={selectionEnabled}
         />
         <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-860">
           <div className="flex items-center justify-between">
@@ -294,21 +248,17 @@ function ThumbnailWrapper({
   project,
   inSelectionMode,
   onSelectProject,
-  projectPath,
-  selectionEnabled,
   children,
 }: {
   project: ProjectConfig;
   inSelectionMode: boolean;
   onSelectProject: (e: React.MouseEvent, id: string) => void;
-  projectPath: string | null;
-  selectionEnabled: boolean;
   children: React.ReactNode;
 }) {
-  if (!inSelectionMode && projectPath) {
+  if (!inSelectionMode) {
     return (
       <Link
-        to={projectPath}
+        to={`/${project.name}`}
         state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
         className="contents"
         relative="path"
@@ -316,10 +266,6 @@ function ThumbnailWrapper({
         {children}
       </Link>
     );
-  }
-
-  if (!selectionEnabled) {
-    return <div className="contents">{children}</div>;
   }
 
   return (
@@ -336,14 +282,10 @@ function ThumbnailArea({
   project,
   isSelected,
   onSelectProject,
-  projectPath,
-  selectionEnabled,
 }: {
   project: ProjectConfig;
   isSelected: boolean;
   onSelectProject: (e: React.MouseEvent, id: string) => void;
-  projectPath: string | null;
-  selectionEnabled: boolean;
 }) {
   const navigate = useNavigate();
 
@@ -352,37 +294,25 @@ function ThumbnailArea({
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
     >
       <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
-        {selectionEnabled && (
-          <button
-            className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} h-4 w-4 rounded-full px-1 py-1 text-white/50 hover:text-white`}
-            onClick={(e) => onSelectProject(e, project.id)}
-          >
-            <IoMdCheckmark />
-          </button>
-        )}
+        <button
+          className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} h-4 w-4 rounded-full px-1 py-1 text-white/50 hover:text-white`}
+          onClick={(e) => onSelectProject(e, project.id)}
+        >
+          <IoMdCheckmark />
+        </button>
       </aside>
 
       <div
         className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
         tabIndex={0}
         onKeyDown={(e) =>
-          homePageProjectItemOnKeyDown(e, navigate, projectPath)
+          homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
       >
         <PreviewImg topLevelSections={project.topLevelSections} />
       </div>
     </div>
   );
-}
-
-function resolveProjectPath(
-  projectName: string,
-  isShareMode: boolean,
-): string | null {
-  if (!isShareMode) {
-    return pathRelativeToProject(projectName);
-  }
-  return buildSharePath(projectName);
 }
 
 function PreviewImg({

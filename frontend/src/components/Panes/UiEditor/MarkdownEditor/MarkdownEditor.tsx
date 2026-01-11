@@ -14,7 +14,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
-import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { route_set_text_block_text } from "utils/generatedEndpoints";
@@ -55,8 +54,6 @@ function _MarkdownEditorCore({
   ref,
 }) {
   const { format, text, isFrozen } = useTextBlockTextAndEditability(sectionId);
-  const { canEditParams } = useShareCapabilities();
-  const isReadOnly = isFrozen || !canEditParams;
 
   const [value, setPendingValue] = useLocalPendingValue(
     text,
@@ -93,10 +90,7 @@ function _MarkdownEditorCore({
     [],
   );
 
-  function onChange(v: string) {
-    if (isReadOnly) {
-      return;
-    }
+  function onChange(v) {
     setPendingValue(v);
     debouncedSetText(sectionId, v);
   }
@@ -110,7 +104,7 @@ function _MarkdownEditorCore({
     language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: isReadOnly,
+    isDisabled: isFrozen,
     onEscape: onEscapeFocusOnArticleDiv,
   });
 

@@ -14,7 +14,7 @@ async function route_bootstrap_consume(
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
-  return await post("/loadAllProjectMetadata", null);
+  return await post("/loadAllProjectMetadata");
 }
 
 export async function route_load_project_config(
@@ -56,7 +56,7 @@ export async function route_set_project_config_name(
 export async function router_get_default_project_config_name(): Promise<
   ResponseDataAndStatus<string | null>
 > {
-  return await post("/getDefaultConfigName", null);
+  return await post("/getDefaultConfigName");
 }
 
 export async function router_set_as_default_project(
@@ -128,7 +128,7 @@ export async function route_save_settings(
 export async function route_load_settings(): Promise<
   ResponseDataAndStatus<gt.SettingsState>
 > {
-  return await post("/loadSettings", null);
+  return await post("/loadSettings");
 }
 
 export async function route_check_if_file_exists(
@@ -184,7 +184,7 @@ export async function route_get_listener_coverage(
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
-  return await post("/restartLanguageServer", null);
+  return await post("/restartLanguageServer");
 }
 
 export async function route_type_check(
@@ -226,7 +226,7 @@ export async function route_get_llm_response(
 export async function route_get_all_llm_chat_metadata(): Promise<
   ResponseDataAndStatus<Array<gt.ChatMetadata>>
 > {
-  return await post("/getAllLLMChatMetadata", null);
+  return await post("/getAllLLMChatMetadata");
 }
 
 export async function route_delete_llm_chat(
@@ -729,75 +729,4 @@ export async function route_get_backend_init_status(): Promise<
   ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
-}
-
-export async function route_list_share_deployments(): Promise<
-  ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
-> {
-  return await get("/share/deployments");
-}
-
-async function route_list_share_deployment_versions(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>> {
-  return await get("/share/deployments/{deploymentName}/versions", {
-    deploymentName,
-  });
-}
-
-async function route_get_latest_share_deployment(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
-  return await get("/share/deployments/{deploymentName}/latest", {
-    deploymentName,
-  });
-}
-
-export async function route_create_share_session_current(): Promise<
-  ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>
-> {
-  return await post("/share/deployments/current/session", null);
-}
-
-async function route_create_share_session(
-  deploymentName: string,
-  version: string,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
-  return await post(
-    "/share/deployments/{deploymentName}/{version}/session",
-    null,
-    { deploymentName, version },
-  );
-}
-
-async function route_get_share_deployment_state(
-  deploymentName: string,
-  version: string,
-): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
-> {
-  return await get("/share/deployments/{deploymentName}/{version}/state", {
-    deploymentName,
-    version,
-  });
-}
-
-export async function route_load_share_project_config(
-  deploymentName: string,
-  version: string,
-  x: gt.LoadShareProjectConfigRequestInput,
-): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
-> {
-  return await post(
-    "/share/deployments/{deploymentName}/{version}/project_config",
-    x,
-    { deploymentName, version },
-  );
-}
-
-export async function route_publish_share_deployment(
-  x: gt.PublishShareDeploymentRequestInput,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
-  return await post("/share/deployments", x);
 }

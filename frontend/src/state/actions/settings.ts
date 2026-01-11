@@ -6,20 +6,10 @@ import { SettingsState } from "utils/generatedTypes";
 
 const SETTINGS_RETRY_DELAY_MS = 500;
 
-type LoadSettingsOptions = {
-  enabled?: boolean;
-};
-
-export function useLoadSettings(options: LoadSettingsOptions = {}) {
+export function useLoadSettings() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const enabled = options.enabled ?? true;
 
   useEffect(() => {
-    if (!enabled) {
-      setSettingsLoaded(false);
-      return;
-    }
-
     let isMounted = true;
     let retryTimeout: number | undefined;
 
@@ -50,7 +40,7 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
         window.clearTimeout(retryTimeout);
       }
     };
-  }, [enabled]);
+  }, []);
 
   return settingsLoaded;
 }

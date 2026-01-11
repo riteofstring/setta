@@ -19,21 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 class SettingsFile:
-    def __init__(
-        self,
-        dbe: DBE,
-        websocket_msg_handler: WMHFrontendSender,
-        *,
-        allow_write: bool = True,
-    ):
+    def __init__(self, dbe: DBE, websocket_msg_handler: WMHFrontendSender):
         self.dbe = dbe
         self.websocket_msg_handler = websocket_msg_handler
-        self._allow_write = allow_write
         self.settings = self.load_settings()
 
     async def save_settings(self, settings: SettingsState):
-        if not self._allow_write:
-            raise ValueError("Settings updates are disabled in share mode.")
         logger.debug("Saving settings")
         paths = self.get_settings_paths()
         settings_dump = settings.model_dump(mode="json")
@@ -51,20 +42,12 @@ class SettingsFile:
         logger.debug("Loading settings")
         paths = self.get_settings_paths()
         path_set = set(paths.values())
-        default_settings = SettingsState().model_dump(mode="json")
         contents = {}
         for p in path_set:
-            payload = self.dbe.read_json(p)
-            if payload is None:
-                payload = {}
-            contents[p] = payload
+            contents[p] = self.dbe.read_json(p)
         output = {}
         for settings_slice, path in paths.items():
-            payload = contents[path]
-            if settings_slice in payload:
-                output[settings_slice] = payload[settings_slice]
-            else:
-                output[settings_slice] = default_settings[settings_slice]
+            output[settings_slice] = contents[path][settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings
@@ -76,11 +59,10 @@ class SettingsFile:
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
         p = self.load_settings_project()
-        default_settings = SettingsState().model_dump(mode="json")
         for k in SettingsState.model_fields.keys():
             path = self.find_path_for_settings_slice(p, k)
-            if not path.exists() and self._allow_write:
-                self.dbe.write_json(path, default_settings)
+            if not path.exists():
+                self.dbe.write_json(path, SettingsState().model_dump())
             settings_slice_to_path[k] = path
         return settings_slice_to_path
 
@@ -96,8 +78,7 @@ class SettingsFile:
 
     def load_settings_project(self):
         if not os.path.exists(self.dbe.settings_project):
-            project_state = create_settings_project_state(self.dbe.settings)
-            if self._allow_write:
-                self.dbe.write_settings_project(project_state)
-            return project_state
+            self.dbe.write_settings_project(
+                create_settings_project_state(self.dbe.settings)
+            )
         return self.dbe.read_settings_project()
