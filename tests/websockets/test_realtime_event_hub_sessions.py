@@ -80,7 +80,6 @@ class RealtimeEventHubShareSessionTests(unittest.IsolatedAsyncioTestCase):
                 "cb": ListenerRegisterCallback(
                     dependencies=[self.dependency],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
-                    actions=None,
                 )
             },
         )

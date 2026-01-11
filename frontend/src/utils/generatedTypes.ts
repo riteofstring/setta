@@ -241,6 +241,13 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
+export const DependencyEventTypeEnum = {
+  VALUE: "value",
+  ACTION: "action",
+} as const;
+
+export type DependencyEventType = ObjectValues<typeof DependencyEventTypeEnum>;
+
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
   error: "error",
@@ -401,6 +408,10 @@ export const RouteEnum = {
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
+  SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  SET_CHAT_SECTION_STATE: "/setChatSectionState",
+  GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
+  SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
   SET_SOCIAL_URL: "/setSocialUrl",
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
@@ -471,7 +482,7 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
-  RealtimeActionEvent: "RealtimeActionEvent",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -1169,6 +1180,7 @@ const SharedModifierSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
+  deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
@@ -1185,6 +1197,7 @@ const SharedModifierSchema = z.object({
   id: IDSchema.optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   imagePath: z.string().optional(),
+  inputText: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isHorizontalOrientation: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
@@ -1195,7 +1208,19 @@ const SharedModifierSchema = z.object({
   jsonSourceMissing: z.boolean().optional(),
   label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
+  llmConfigId: z.union([z.string(), z.null()]).optional(),
+  managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .optional(),
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
@@ -1218,11 +1243,13 @@ const SharedModifierSchema = z.object({
   step: z.union([z.number(), z.int()]).optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
+  toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   url: z.string().optional(),
   value: z.string().optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
+  waitingForResponse: z.boolean().optional(),
 });
 
 type SharedModifier = z.infer<typeof SharedModifierSchema>;
@@ -1267,6 +1294,7 @@ const CoreSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
+        "deepThink",
         "defaultVal",
         "description",
         "displayMode",
@@ -1283,6 +1311,7 @@ const CoreSchema = z.object({
         "id",
         "ignoreTypeErrors",
         "imagePath",
+        "inputText",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",
@@ -1293,7 +1322,10 @@ const CoreSchema = z.object({
         "jsonSourceMissing",
         "label",
         "layers",
+        "llmConfigId",
+        "managed",
         "max",
+        "messages",
         "metaControlParamId",
         "metaControlStyle",
         "min",
@@ -1316,12 +1348,14 @@ const CoreSchema = z.object({
         "step",
         "text",
         "textDisplayMode",
+        "toolCallArguments",
         "topLevelParamId",
         "type",
         "typesColumnWidth",
         "url",
         "value",
         "viewMode",
+        "waitingForResponse",
       ]),
     )
     .default(() => [
@@ -1718,6 +1752,22 @@ const ChatSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  managed: z.boolean().default(false),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  deepThink: z.boolean().default(false),
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .default([]),
+  inputText: z.string().default("" as const),
+  waitingForResponse: z.boolean().default(false),
+  toolCallArguments: z.record(z.string(), z.string()).default({}),
 });
 
 type ChatSectionImpl = z.infer<typeof ChatSectionImplSchema>;
@@ -2816,6 +2866,22 @@ const ChatSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  managed: z.boolean().optional(),
+  llmConfigId: z.union([z.string(), z.null()]).optional(),
+  deepThink: z.boolean().optional(),
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .optional(),
+  inputText: z.string().optional(),
+  waitingForResponse: z.boolean().optional(),
+  toolCallArguments: z.record(z.string(), z.string()).optional(),
 });
 
 type ChatSectionImplArgs = z.infer<typeof ChatSectionImplArgsSchema>;
@@ -2867,31 +2933,33 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-const ControlActionEventSchema = z.object({
-  controlName: z.string(),
-  actionId: z.string(),
-  actionControlType: z.enum(CodeObjTypeEnum),
+const DependencyEventSchema = z.object({
+  dependencyKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  eventType: z.enum(DependencyEventTypeEnum),
   payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 
-export type ControlActionEvent = z.infer<typeof ControlActionEventSchema>;
+export type DependencyEvent = z.infer<typeof DependencyEventSchema>;
 
-const RealtimeActionEventContentSchema = z.object({
+const RealtimeDependencyEventContentSchema = z.object({
   projectConfigId: IDSchema,
-  actionEvent: ControlActionEventSchema,
+  dependencyEvent: DependencyEventSchema,
 });
 
-const WebsocketMsgRealtimeActionEventSchema = z.object({
+const WebsocketMsgRealtimeDependencyEventSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: RealtimeActionEventContentSchema,
+  content: RealtimeDependencyEventContentSchema,
   messageType: z
-    .literal("RealtimeActionEvent")
-    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
+    .literal("RealtimeDependencyEvent")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent),
 });
 
-export type WebsocketMsgRealtimeActionEvent = z.infer<
-  typeof WebsocketMsgRealtimeActionEventSchema
+export type WebsocketMsgRealtimeDependencyEvent = z.infer<
+  typeof WebsocketMsgRealtimeDependencyEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({
@@ -3698,6 +3766,22 @@ const UserDefaultChatSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  managed: z.boolean().default(false),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  deepThink: z.boolean().default(false),
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .default([]),
+  inputText: z.string().default("" as const),
+  waitingForResponse: z.boolean().default(false),
+  toolCallArguments: z.record(z.string(), z.string()).default({}),
 });
 
 type UserDefaultChatSectionImpl = z.infer<
@@ -4940,6 +5024,24 @@ type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
+const ChatSectionStateSchema = z.object({
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .default([]),
+  inputText: z.string().default("" as const),
+  waitingForResponse: z.boolean().default(false),
+  toolCallArguments: z.record(z.string(), z.string()).default({}),
+});
+
+export type ChatSectionState = z.infer<typeof ChatSectionStateSchema>;
+
 const PositionSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -5486,6 +5588,16 @@ export type GenCodeSuffixCompletionRequestInput = z.input<
   typeof GenCodeSuffixCompletionRequestSchema
 >;
 
+const GetChatSectionChatIdRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type GetChatSectionChatIdRequestInput = z.input<
+  typeof GetChatSectionChatIdRequestSchema
+>;
+
 const GetLatestProjectStateRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5700,6 +5812,41 @@ const SetChartTypeRequestSchema = z.object({
 
 export type SetChartTypeRequestInput = z.input<
   typeof SetChartTypeRequestSchema
+>;
+
+const SetChatSectionChatIdRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]),
+});
+
+export type SetChatSectionChatIdRequestInput = z.input<
+  typeof SetChatSectionChatIdRequestSchema
+>;
+
+const SetChatSectionSettingsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  managed: z.boolean(),
+  llmConfigId: z.union([z.string(), z.null()]),
+  deepThink: z.boolean(),
+});
+
+export type SetChatSectionSettingsRequestInput = z.input<
+  typeof SetChatSectionSettingsRequestSchema
+>;
+
+const SetChatSectionStateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  state: ChatSectionStateSchema,
+});
+
+export type SetChatSectionStateRequestInput = z.input<
+  typeof SetChatSectionStateRequestSchema
 >;
 
 const CodeFileBindingUpdateSchema = z.object({

@@ -175,7 +175,6 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                     "cb": ListenerRegisterCallback(
                         dependencies=[dependency],
                         dependencyMode=ListenerDependencyMode.SPECIFIC,
-                        actions=None,
                     )
                 },
                 share_session_id="session-a",

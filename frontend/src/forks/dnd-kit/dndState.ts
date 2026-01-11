@@ -4,7 +4,7 @@ import { withProjectState, withResetFn } from "state/utils";
 import { getNowDate } from "utils/timestamps";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import type { Disabled } from "./adapter";
+import { Disabled } from "./CustomSortable/types";
 import { BehaviorDropType } from "./dropTypes";
 
 export type ZustandDndState = {

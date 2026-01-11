@@ -1,7 +1,7 @@
 # Meta Controls
 
 This page describes how MetaControl sections are represented in project state, how
-their values/actions propagate, and how they appear in generated code and listeners.
+their values and action events propagate, and how they appear in generated code and listeners.
 
 ## What a MetaControl section is
 - `SectionType.MetaControl` wraps a single control code object stored as
@@ -30,7 +30,10 @@ their values/actions propagate, and how they appear in generated code and listen
     (50ms debounce).
 - Button controls:
   - No persisted value is written.
-  - Frontend sends `RealtimeActionEvent` with `actionId` equal to the section name.
+  - Frontend sends `RealtimeDependencyEvent` with:
+    - `dependencyKey` set to the section's `SectionDependencyKey`
+    - `eventType` set to `action`
+    - `payload` set to `null`
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the
@@ -48,8 +51,8 @@ their values/actions propagate, and how they appear in generated code and listen
 ## Listener integration
 - Subscribe to value controls using the section dependency name
   (the `SectionDependencyKey` for the meta control).
-- Subscribe to button controls via `actions=[<section_name>]`
-  (`actionId` is the section name).
+- Subscribe to button controls by including the section dependency and
+  `event_types=[DependencyEventType.ACTION]` (omit `deps` for a wildcard action listener).
 - Listener emits can only update meta controls through the control param id
   (`SectionParamDependencyKey`) or `route_set_param_entered_value`; section-level
   dependency updates are not applied for MetaControl sections.

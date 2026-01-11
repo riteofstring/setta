@@ -4,6 +4,7 @@ from typing import Iterable
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
 from setta.types.listener import (
+    DependencyEventType,
     ListenerCoverageSnapshot,
     ListenerDependencyMode,
 )
@@ -42,6 +43,8 @@ class ListenerCoverageTracker:
 
         for registration in registrations:
             for callback in registration.callbacks.values():
+                if DependencyEventType.VALUE not in callback.eventTypes:
+                    continue
                 if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
                     continue
                 if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:

@@ -24,8 +24,9 @@ from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
 from setta.types.listener import (
-    ControlActionEvent,
-    ListenerActionEventContent,
+    DependencyEvent,
+    DependencyEventType,
+    ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -414,11 +415,16 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             project_name=project_state.projectConfig.name,
             share_session_id="session-a",
         )
-        action_calls: list[list[str]] = []
+        action_calls: list[list[str | None]] = []
+        section_id = next(iter(project_state.sections))
+        dependency_key = create_dep_key(sectionId=section_id)
 
-        @listener.listen(actions=("action-id",))
+        @listener.listen(
+            deps=(dependency_key,),
+            event_types=[DependencyEventType.ACTION],
+        )
         def on_action(state, ctx):
-            action_calls.append([event.controlName for event in ctx.actions])
+            action_calls.append([event.payload for event in ctx.events])
 
         await listener._process_snapshot(
             project_state,
@@ -433,15 +439,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if spec.function is on_action
         )
 
-        await listener._handle_action_event(
-            ListenerActionEventContent(
+        await listener._handle_dependency_event(
+            ListenerDependencyEventContent(
                 projectConfigId=project_state.projectConfig.id,
                 shareSessionId="session-a",
-                actionEvents=[
-                    ControlActionEvent(
-                        controlName="Control-A",
-                        actionId="action-id",
-                        actionControlType=CodeObjType.ButtonParam,
+                dependencyEvents=[
+                    DependencyEvent(
+                        dependencyKey=dependency_key,
+                        eventType=DependencyEventType.ACTION,
                         payload="payload-a",
                         timestampMs=1,
                     )
@@ -451,15 +456,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
-        await listener._handle_action_event(
-            ListenerActionEventContent(
+        await listener._handle_dependency_event(
+            ListenerDependencyEventContent(
                 projectConfigId=project_state.projectConfig.id,
                 shareSessionId="session-a",
-                actionEvents=[
-                    ControlActionEvent(
-                        controlName="Control-B",
-                        actionId="action-id",
-                        actionControlType=CodeObjType.ButtonParam,
+                dependencyEvents=[
+                    DependencyEvent(
+                        dependencyKey=dependency_key,
+                        eventType=DependencyEventType.ACTION,
                         payload="payload-b",
                         timestampMs=2,
                     )
@@ -469,7 +473,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
-        self.assertEqual(action_calls, [["Control-A"], ["Control-B"]])
+        self.assertEqual(action_calls, [["payload-a"], ["payload-b"]])
         self.assertEqual(listener._get_last_realtime_sequence(), 2)
 
     async def test_action_rejects_mismatched_share_session(self) -> None:
@@ -478,8 +482,13 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             project_name=project_state.projectConfig.name,
             share_session_id="session-a",
         )
+        section_id = next(iter(project_state.sections))
+        dependency_key = create_dep_key(sectionId=section_id)
 
-        @listener.listen(actions=("action-id",))
+        @listener.listen(
+            deps=(dependency_key,),
+            event_types=[DependencyEventType.ACTION],
+        )
         def on_action(state, ctx):
             pass
 
@@ -491,15 +500,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
 
         with self.assertRaises(ValueError):
-            await listener._handle_action_event(
-                ListenerActionEventContent(
+            await listener._handle_dependency_event(
+                ListenerDependencyEventContent(
                     projectConfigId=project_state.projectConfig.id,
                     shareSessionId="session-b",
-                    actionEvents=[
-                        ControlActionEvent(
-                            controlName="Control-B",
-                            actionId="action-id",
-                            actionControlType=CodeObjType.ButtonParam,
+                    dependencyEvents=[
+                        DependencyEvent(
+                            dependencyKey=dependency_key,
+                            eventType=DependencyEventType.ACTION,
                             payload="payload-b",
                             timestampMs=2,
                         )
