@@ -374,6 +374,7 @@ type ControlActionEventInput = {
   controlName: string;
   actionId: string;
   payload?: string | null;
+  timestampMs?: number;
 };
 
 export function sendRealtimeControlAction(
@@ -388,7 +389,7 @@ export function sendRealtimeControlAction(
     controlName: action.controlName,
     actionId: action.actionId,
     payload: action.payload ?? null,
-    timestampMs: Date.now(),
+    timestampMs: action.timestampMs ?? Date.now(),
   };
   const message: WebsocketMsgRealtimeActionEvent = {
     id: null,
