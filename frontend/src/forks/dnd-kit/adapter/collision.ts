@@ -45,7 +45,7 @@ export const customCollisionDetection: CollisionDetector = ({
     return null;
   }
 
-  const activeRect = getActiveRect(active, activeShape);
+  const activeRect = getActiveRect(activeShape);
   if (!activeRect) {
     return null;
   }
@@ -143,7 +143,7 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     return null;
   }
 
-  const activeRect = getActiveRect(active, activeShape);
+  const activeRect = getActiveRect(activeShape);
   if (!activeRect) {
     return null;
   }
@@ -219,28 +219,12 @@ function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
   };
 }
 
-function getActiveRect(
-  active: Draggable,
-  activeShape: Rectangle | null,
-): ClientRect | null {
-  if (activeShape) {
-    return toClientRect(activeShape.boundingRectangle);
-  }
-
-  const element = active.element;
-  if (!element) {
+function getActiveRect(activeShape: Rectangle | null): ClientRect | null {
+  if (!activeShape) {
     return null;
   }
 
-  const rect = element.getBoundingClientRect();
-  return {
-    top: rect.top,
-    left: rect.left,
-    right: rect.right,
-    bottom: rect.bottom,
-    width: rect.width,
-    height: rect.height,
-  };
+  return toClientRect(activeShape.boundingRectangle);
 }
 
 function getEntityData(entity: { data?: Record<string, unknown> } | null) {

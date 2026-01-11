@@ -5,13 +5,16 @@ import {
   RestrictToHorizontalAxis,
   RestrictToVerticalAxis,
 } from "@dnd-kit/abstract/modifiers";
-import { useDragDropManager } from "@dnd-kit/react";
+import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import type { Coordinates } from "@dnd-kit/geometry";
+import { useDragDropManager } from "@dnd-kit/react";
+import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { Context } from "./SortableContext";
 import type {
   ClientRect,
   Disabled,
+  DndData,
   SettaCollision,
   SortingStrategy,
   Transform,
@@ -21,8 +24,8 @@ import {
   resolveStrategyResult,
   rectSortingStrategy,
 } from "./sorting";
-import { useDraggable } from "./useDraggable";
-import { useDroppable } from "./useDroppable";
+import { useCollisionDetector } from "./useCollisionDetector";
+import { ZoomAwareModifier } from "./zoom";
 import { useDndMode } from "../dndState";
 
 const DEBUG_DND_SORTING = true;
@@ -94,13 +97,15 @@ export function useSortable({
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
   const dndMode = useDndMode();
-  const feedback = dndMode.isSorting ? "none" : undefined;
+  const useFeedbackForSorting = dndMode.isSorting;
+  const feedback = useFeedbackForSorting ? "default" : undefined;
   let dragModifiers;
   if (dndMode.isSorting) {
     const containerIsHorizontal = Boolean(
       getSectionInfo(containerId)?.isHorizontalOrientation,
     );
     dragModifiers = [
+      ZoomAwareModifier,
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
     ];
   }
@@ -115,27 +120,33 @@ export function useSortable({
     }),
     [containerId, customData, index, items],
   );
-  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
-    id,
-    data,
-    disabled: disabled.droppable,
-  });
+  const wrappedData = useMemo<DndData | undefined>(() => {
+    if (!data) {
+      return undefined;
+    }
+
+    return { current: data };
+  }, [data]);
+  const collisionDetector = useCollisionDetector();
   const {
-    setNodeRef: setDraggableNodeRef,
-    listeners,
+    sortable,
+    ref: setNodeRef,
     isDragging,
-  } = useDraggable({
+    isDropTarget,
+  } = useDndKitSortable({
     id,
-    data,
-    attributes,
-    disabled: disabled.draggable,
+    data: wrappedData,
+    index,
+    group: containerId,
     feedback,
     modifiers: dragModifiers,
+    collisionDetector,
+    transition,
+    // Skip OptimisticSortingPlugin; Setta controls reorder/placeholder behavior.
+    plugins: [SortableKeyboardPlugin],
   });
-  const setNodeRef = (element: Element | null) => {
-    setDroppableNodeRef(element);
-    setDraggableNodeRef(element);
-  };
+  const listeners = {};
+  const isOver = isDropTarget;
   const manager = useDragDropManager();
   const activeRect = useComputed(
     () =>
@@ -168,7 +179,7 @@ export function useSortable({
     isValidIndex(activeIndex) &&
     isValidIndex(overIndex);
   const shouldDisplaceActiveItem =
-    isSorting && !useDragOverlay && isActiveItem;
+    isSorting && !useDragOverlay && isActiveItem && !useFeedbackForSorting;
   const strategy = localStrategy ?? globalStrategy ?? rectSortingStrategy;
 
   let finalTransform: Transform | null = null;
@@ -197,6 +208,11 @@ export function useSortable({
     useDragOverlay,
   });
   const debugRef = useRef<SortableItemDebugState | null>(null);
+
+  useEffect(() => {
+    sortable.draggable.disabled = Boolean(disabled.draggable);
+    sortable.droppable.disabled = Boolean(disabled.droppable);
+  }, [disabled, sortable]);
 
   useEffect(() => {
     if (!DEBUG_DND_SORTING) {
