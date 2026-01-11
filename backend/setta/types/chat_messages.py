@@ -43,6 +43,11 @@ class MessageThinkingContent(BaseModel):
 MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
 
 
+class ToolReferenceContent(BaseModel):
+    type: Literal["tool_reference"] = "tool_reference"
+    tool_name: str
+
+
 class ToolCallFunction(BaseModel):
     name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -108,9 +113,9 @@ class ToolChatMessage(BaseChatMessage):
     tool_name: str | None = None
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
-    content: list[TextContent | ImageContent | EmbeddedResource] = Field(
-        default_factory=list
-    )
+    content: list[
+        TextContent | ImageContent | EmbeddedResource | ToolReferenceContent
+    ] = Field(default_factory=list)
     is_error: bool = False
     started_at: datetime = Field(default_factory=get_now_timestamp)
     completed_at: datetime | None = None
