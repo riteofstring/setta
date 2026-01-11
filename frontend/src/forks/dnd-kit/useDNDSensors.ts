@@ -1,53 +1,20 @@
-import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
-import { useDndState } from "./dndState";
+import {
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "forks/dnd-kit/CustomCore";
+import { sortableKeyboardCoordinates } from "forks/dnd-kit/CustomSortable";
 import { useShareCapabilities } from "state/hooks/share";
 
 export function useDNDSensors() {
   const { canEditLayout } = useShareCapabilities();
+  const pointerSensor = useSensor(PointerSensor);
+  const keyboardSensor = useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  });
   if (!canEditLayout) {
-    return [];
+    return useSensors();
   }
-
-  const pointerSensor = PointerSensor.configure({
-    activationConstraints: () => undefined,
-    preventActivation: (_event, source) => {
-      const { isSorting, isMovingFree } = useDndState.getState();
-      const isTopLevel = Boolean(
-        (source.data as { current?: { isTopLevel?: boolean } } | undefined)
-          ?.current?.isTopLevel,
-      );
-
-      if (isMovingFree) {
-        return false;
-      }
-
-      if (isSorting && !isTopLevel) {
-        return false;
-      }
-
-      return true;
-    },
-  });
-
-  const keyboardSensor = KeyboardSensor.configure({
-    preventActivation: (_event, source) => {
-      const { isSorting, isMovingFree } = useDndState.getState();
-      const isTopLevel = Boolean(
-        (source.data as { current?: { isTopLevel?: boolean } } | undefined)
-          ?.current?.isTopLevel,
-      );
-
-      if (isMovingFree) {
-        return false;
-      }
-
-      if (isSorting && !isTopLevel) {
-        return false;
-      }
-
-      return true;
-    },
-  });
-
-  return [pointerSensor, keyboardSensor];
+  return useSensors(pointerSensor, keyboardSensor);
 }
