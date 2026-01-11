@@ -23,7 +23,7 @@ import { getEventPosition } from "../utils";
 type PaneProps = {
   isSelecting: boolean;
   children: ReactNode;
-  panOnDrag: boolean | number[];
+  panOnDrag: boolean;
 };
 
 const wrapHandler = (
@@ -139,6 +139,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       nextUserSelectRect,
       transform,
       useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
+      true,
     );
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {

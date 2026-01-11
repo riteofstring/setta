@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   D3DragEvent,
   Selection as D3Selection,
@@ -32,9 +33,7 @@ export type ReactFlowStore = {
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
-  d3ZoomHandler:
-    | ((this: Element, event: WheelEvent, d: unknown) => void)
-    | undefined;
+  d3ZoomHandler: ((this: Element, event: any, d: unknown) => void) | undefined;
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 
