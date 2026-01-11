@@ -2,20 +2,26 @@ import cc from "classcat";
 import useDrag from "forks/xyflow/core/hooks/useDrag";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import React, { useEffect, useRef } from "react";
+import React, {
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
+import type { Rect } from "../types";
 import { arrowKeyDiffs } from "./wrapNode";
 
-function _NodesSelection({ x, y, width, height }) {
+function _NodesSelection({ x, y, width, height }: Rect) {
   const transformString = useReactFlow(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
-  const nodeRef = useRef(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     nodeRef.current?.focus({
@@ -27,7 +33,7 @@ function _NodesSelection({ x, y, width, height }) {
     nodeRef,
   });
 
-  const onContextMenu = (event) => {
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
     const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
     const selectedNodeIds = getNodes()
       .filter((n) => activeSectionIds.includes(n.id))
@@ -35,7 +41,7 @@ function _NodesSelection({ x, y, width, height }) {
     openSelectionContextMenu(event, selectedNodeIds);
   };
 
-  const onKeyDown = (event) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)) {
       updatePositions({
         x: arrowKeyDiffs[event.key].x,

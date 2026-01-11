@@ -1,29 +1,26 @@
 import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection";
 import _ from "lodash";
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { useAIFollow, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
 
-const FlowRenderer = ({
-  children,
-  wrapperDimensions,
-}: {
-  children: React.ReactNode;
+type FlowRendererProps = {
+  children: ReactNode;
   wrapperDimensions: { width: number; height: number };
-}) => {
-  const {
-    panActivationKeyPressed,
-    zoomActivationKeyPressed,
-    selectionKeyPressed,
-  } = useReactFlow((x) => {
-    return {
-      panActivationKeyPressed: x.panActivationKeyPressed,
-      zoomActivationKeyPressed: x.zoomActivationKeyPressed,
-      selectionKeyPressed: x.selectionKeyPressed,
-    };
-  }, _.isEqual);
+};
+
+const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
+  const { zoomActivationKeyPressed, selectionKeyPressed } = useReactFlow(
+    (x) => {
+      return {
+        zoomActivationKeyPressed: x.zoomActivationKeyPressed,
+        selectionKeyPressed: x.selectionKeyPressed,
+      };
+    },
+    _.isEqual,
+  );
 
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
@@ -58,9 +55,6 @@ const FlowRenderer = ({
       panOnScrollMode={panOnScrollMode}
       zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
       panOnDrag={!selectionKeyPressed && !isFollowTransitioning && panOnDrag}
-      panActivationKeyPressed={
-        !isFollowTransitioning && panActivationKeyPressed
-      }
       zoomActivationKeyPressed={
         !isFollowTransitioning && zoomActivationKeyPressed
       }

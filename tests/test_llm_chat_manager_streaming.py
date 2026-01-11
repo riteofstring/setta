@@ -141,6 +141,8 @@ class SystemPromptInjectionTests(unittest.TestCase):
             self.assertEqual(payload["messages"][0]["role"], "system")
             system_text = payload["messages"][0]["content"][0]["text"]
             self.assertTrue(system_text.startswith(prompt))
+            self.assertIn("## Active project config", system_text)
+            self.assertIn("## Project summary", system_text)
             self.assertEqual(payload["messages"][1]["role"], "user")
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],
