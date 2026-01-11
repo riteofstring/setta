@@ -6,6 +6,8 @@ import {
 } from "forks/dnd-kit/dndChildren";
 import {
   getDndSectionId,
+  getOriginalSectionId,
+  isTempSection,
   setActiveDnd,
   setDndTime,
   useDndState,
@@ -54,6 +56,10 @@ export function onDragStart({ active }: DragStartEvent) {
   const dndState = useDndState.getState();
   setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
   if (dndState.isMovingFree) {
+    const rootId = getTopLevelRootId(active.id, useProjectState.getState());
+    if (rootId) {
+      useDndState.setState({ activeRootId: rootId });
+    }
     manualDndChildrenReset();
     replaceDndSectionWithTemp(active.id);
   }
@@ -179,6 +185,13 @@ function onDragOver({
   lastResolvedOverId = overId;
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
+
+  if (dndState.isMovingFree && overId) {
+    const rootId = getTopLevelRootId(String(overId), useProjectState.getState());
+    if (rootId && rootId !== dndState.activeRootId) {
+      useDndState.setState({ activeRootId: rootId });
+    }
+  }
 
   if (calledFromOnDragMove && dndState.triggerDistCondition) {
     leftDistBehavior({
@@ -463,6 +476,28 @@ function getSectionDepth(sectionId: string, state: ZustandProjectState) {
   }
 
   return depth;
+}
+
+function getTopLevelRootId(
+  sectionId: string,
+  state: ZustandProjectState,
+): string | null {
+  const resolvedId = isTempSection(sectionId)
+    ? getOriginalSectionId(sectionId)
+    : sectionId;
+
+  if (!state.sections[resolvedId]) {
+    return null;
+  }
+
+  let rootId = resolvedId;
+  let parentId = state.parentSectionMap[rootId];
+  while (parentId) {
+    rootId = parentId;
+    parentId = state.parentSectionMap[parentId];
+  }
+
+  return rootId;
 }
 
 function getSectionIsGlobalVariables(sectionId: string) {

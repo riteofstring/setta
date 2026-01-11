@@ -34,10 +34,32 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
   const implIsFrozen = useSectionImplIsFrozen(sectionId);
+  const activeRootId = useDndState((x) => x.activeRootId);
+  const activeId = useDndState((x) => x.activeId);
   const disabled = useDndState(
     (x) =>
       x.disabled[sectionId] ?? { draggable: implIsFrozen, droppable: true },
   );
+  const listRootId = useProjectState((state) => {
+    let rootId = sectionId;
+    let parentId = state.parentSectionMap[rootId];
+    while (parentId) {
+      rootId = parentId;
+      parentId = state.parentSectionMap[parentId];
+    }
+    return rootId;
+  });
+  const gateDroppable =
+    Boolean(activeId) &&
+    isMovingFree &&
+    activeRootId !== null &&
+    listRootId !== activeRootId;
+  const resolvedDisabled = gateDroppable
+    ? {
+        ...disabled,
+        droppable: true,
+      }
+    : disabled;
 
   useEffect(() => {
     setDndDisabled(sectionId, {
@@ -90,7 +112,7 @@ export function useDisableSortable(sectionId: string) {
     onDragCancel: onDragDone,
   });
 
-  return disabled;
+  return resolvedDisabled;
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
