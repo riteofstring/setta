@@ -21,6 +21,14 @@
 - Nested sections are rendered in DOM, not in the xyflow node layer.
 - There is an existing plan for edge ports UI in `docs/plans/edge-ports-plan.md`.
 
+## Reference Implementation (Original Repo)
+
+- Repo root: `/Users/kevin/Documents/AppDevelopment/xyflow-11.11.4`
+- Edge rendering: `packages/core/src/container/EdgeRenderer`
+- Edge components: `packages/core/src/components/Edges`
+- Handle logic: `packages/core/src/components/Handle`
+- Connection line: `packages/core/src/components/ConnectionLine`
+
 ## Data Model + Persistence
 
 ### Edge model (backend)
