@@ -21,6 +21,7 @@ export function GlobalDndContext({ children }) {
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragEnd}
       onDragOver={onDragOver}
       modifiers={modifiers ?? undefined}
     >

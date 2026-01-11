@@ -5,6 +5,7 @@ import { AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 import type {
+  DragCancelEvent,
   DragEndEvent,
   DragMoveEvent,
   DragOverEvent,
@@ -23,6 +24,7 @@ type Props = PropsWithChildren<{
   onDragMove?: (event: DragMoveEvent) => void;
   onDragOver?: (event: DragOverEvent) => void;
   onDragEnd?: (event: DragEndEvent) => void;
+  onDragCancel?: (event: DragCancelEvent) => void;
 }>;
 
 const plugins = defaultPreset.plugins.filter((plugin) => plugin !== AutoScroller);
@@ -35,6 +37,7 @@ export function DragDropProvider({
   onDragMove,
   onDragOver,
   onDragEnd,
+  onDragCancel,
 }: Props) {
   return (
     <DndKitProvider
@@ -76,7 +79,11 @@ export function DragDropProvider({
           return;
         }
 
-        onDragEnd?.(mapped);
+        if (event.canceled) {
+          onDragCancel?.(mapped);
+        } else {
+          onDragEnd?.(mapped);
+        }
         resetCollisionHysteresis();
       }}
     >
