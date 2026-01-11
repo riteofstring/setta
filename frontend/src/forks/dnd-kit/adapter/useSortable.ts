@@ -1,8 +1,13 @@
 import { useContext, useEffect, useMemo, useRef } from "react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
+import {
+  RestrictToHorizontalAxis,
+  RestrictToVerticalAxis,
+} from "@dnd-kit/abstract/modifiers";
 import { useDragDropManager } from "@dnd-kit/react";
 import type { Coordinates } from "@dnd-kit/geometry";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { Context } from "./SortableContext";
 import type {
   ClientRect,
@@ -90,6 +95,15 @@ export function useSortable({
   const index = items.indexOf(id);
   const dndMode = useDndMode();
   const feedback = dndMode.isSorting ? "none" : undefined;
+  let dragModifiers;
+  if (dndMode.isSorting) {
+    const containerIsHorizontal = Boolean(
+      getSectionInfo(containerId)?.isHorizontalOrientation,
+    );
+    dragModifiers = [
+      containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
+    ];
+  }
   const data = useMemo(
     () => ({
       sortable: {
@@ -116,6 +130,7 @@ export function useSortable({
     attributes,
     disabled: disabled.draggable,
     feedback,
+    modifiers: dragModifiers,
   });
   const setNodeRef = (element: Element | null) => {
     setDroppableNodeRef(element);

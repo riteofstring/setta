@@ -3,7 +3,15 @@
 ## Goals
 - Replace the in-repo fork with a thin adapter layer built on the new dnd-kit packages.
 - Preserve current Setta-specific drag behavior (nested rules, temp placeholders, free-move vs sort, React Flow zoom).
+- Keep all existing DnD features, but implement them by adapting to the new dnd-kit APIs and capabilities.
 - Reduce long-term maintenance by aligning with upstream APIs.
+
+## Guiding principles (critical)
+- We must keep all current DnD features and behaviors.
+- We must adapt our code to the new dnd-kit, not the other way around.
+- Prefer upstream mechanisms (sortable, plugins, collision utilities, modifiers) over porting legacy code.
+- Only keep custom logic when the new dnd-kit cannot express the behavior directly.
+- Avoid expensive DOM queries like `getBoundingClientRect` and lean on dnd-kit-provided geometry/state; use DOM measurements only when dnd-kit does not provide the needed data.
 
 ## Non-goals
 - No attempt to keep the legacy fork around or provide dual-path compatibility.

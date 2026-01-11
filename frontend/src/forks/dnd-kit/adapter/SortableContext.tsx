@@ -156,6 +156,9 @@ export function SortableContext({
     () => getDroppableRects(manager?.registry.droppables ?? []),
     [manager],
   ).value;
+  const frozenDroppableRectsRef = useRef<
+    Map<UniqueIdentifier, ClientRect> | null
+  >(null);
 
   const isDragging = active != null;
   const activeIndex = getActiveIndex(active, items);
@@ -184,6 +187,7 @@ export function SortableContext({
     (overIndex !== -1 && activeIndex === -1) || itemsHaveChanged;
   const disabled = normalizeDisabled(disabledProp);
   const useDragOverlay = dndMode.isMovingFree && Boolean(active);
+  const useFrozenRects = dndMode.isSorting && Boolean(active);
   const collisionsSummary = useMemo(
     () => formatCollisionsSummary(collisions),
     [collisions],
@@ -287,6 +291,33 @@ export function SortableContext({
     previousItemsRef.current = items;
   }, [items]);
 
+  useEffect(() => {
+    if (!useFrozenRects) {
+      frozenDroppableRectsRef.current = null;
+      return;
+    }
+
+    if (!frozenDroppableRectsRef.current) {
+      frozenDroppableRectsRef.current = droppableRects;
+      return;
+    }
+
+    if (droppableRects.size > frozenDroppableRectsRef.current.size) {
+      const nextRects = new Map(frozenDroppableRectsRef.current);
+      for (const [idKey, rect] of droppableRects.entries()) {
+        if (!nextRects.has(idKey)) {
+          nextRects.set(idKey, rect);
+        }
+      }
+      frozenDroppableRectsRef.current = nextRects;
+    }
+  }, [droppableRects, useFrozenRects]);
+
+  const rectsForSorting =
+    useFrozenRects && frozenDroppableRectsRef.current
+      ? frozenDroppableRectsRef.current
+      : droppableRects;
+
   const contextValue = useMemo(
     (): ContextDescriptor => ({
       activeIndex,
@@ -296,7 +327,7 @@ export function SortableContext({
       items,
       overIndex,
       useDragOverlay,
-      sortedRects: getSortedRects(items, droppableRects),
+      sortedRects: getSortedRects(items, rectsForSorting),
       strategy,
     }),
     [
@@ -306,7 +337,7 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
-      droppableRects,
+      rectsForSorting,
       useDragOverlay,
       dndMode.isMovingFree,
       strategy,
