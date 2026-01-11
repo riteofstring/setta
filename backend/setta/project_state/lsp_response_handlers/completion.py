@@ -9,9 +9,13 @@ class CodeMirrorCompletion:
 
 
 def process_completion_response(response: Any) -> list[CodeMirrorCompletion]:
+    if isinstance(response, list):
+        return process_completion(response)
     if not isinstance(response, dict):
         return []
     result = response.get("result")
+    if isinstance(result, list):
+        return process_completion(result)
     if not result or not result.get("items"):
         return []
     return process_completion(result["items"])

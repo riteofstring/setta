@@ -15,6 +15,8 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     ParamNameType,
 )
+from setta.types.edges import EdgePort
+from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
@@ -43,6 +45,8 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
+    edgeInputParams: list[ID] = Field(default_factory=list)
+    edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
 
 class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

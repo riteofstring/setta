@@ -10,12 +10,11 @@ from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.mcp.tools.tool_search import search_mcp_tools
+from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
 from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
-    ToolReferenceContent,
     UserChatMessage,
 )
 from setta.types.id import ID
@@ -169,7 +168,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(len(registered_tool_names), 0)
             self.assertIn("read_file_range", registered_tool_names)
 
-            search_results = search_mcp_tools(
+            search_results = search_and_unlock_mcp_tools(
                 query="section size settings",
                 limit=2,
                 ctx=ctx,
@@ -180,14 +179,14 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 search_result_names,
             )
             self.assertNotIn(
-                C.SEARCH_MCP_TOOLS_NAME,
+                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                 search_result_names,
             )
 
             search_tool = next(
                 tool
                 for tool in mcp_server.list_registered_tools()
-                if tool.name == C.SEARCH_MCP_TOOLS_NAME
+                if tool.name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
             )
             results_via_tool_run = await search_tool.run(
                 {
@@ -203,7 +202,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 parsed_result_names,
             )
             self.assertNotIn(
-                C.SEARCH_MCP_TOOLS_NAME,
+                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                 parsed_result_names,
             )
 
@@ -230,7 +229,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 ("create sections", 3),
             )
             for query, limit in search_scenarios:
-                results = search_mcp_tools(
+                results = search_and_unlock_mcp_tools(
                     query=query,
                     limit=limit,
                     ctx=ctx,
@@ -245,7 +244,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     ),
                 )
 
-    async def test_chat_manager_returns_tool_references_from_search(self) -> None:
+    async def test_chat_manager_unlocks_tools_from_search(self) -> None:
         async with real_project_manager() as fixture:
             app = FastAPI()
             setta_state = _StubSettaState(fixture.dbe, fixture.manager)
@@ -268,6 +267,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 fixture.dbe,
                 mcp_client,
                 websocket_sender,
+                setta_state.project_manager_switcher,
             )
 
             chat_manager.update_config(
@@ -306,7 +306,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             tool_call = ToolCall(
                 function=ToolCallFunction(
                     name=build_namespaced_tool_name(
-                        SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+                        SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
                     ),
                     arguments={"query": "section size settings", "limit": 2},
                 )
@@ -323,14 +323,13 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
                 search_result_names,
             )
-            referenced_names = [
-                entry.tool_name
-                for entry in tool_message.content
-                if isinstance(entry, ToolReferenceContent)
-            ]
+            chat_state = chat_manager._get_or_create_chat_tool_state(
+                chat.id,
+                [SETTA_MCP_SERVER_ID],
+            )
             self.assertIn(
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                referenced_names,
+                chat_state.unlocked_tools,
             )
 
     async def test_does_not_register_project_config_id_in_temp_map(self) -> None:

@@ -1,8 +1,16 @@
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+  type UIEvent,
+} from "react";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
+import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -56,7 +64,14 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          <ViewportWrapper>{readyToRender && <NodeRenderer />}</ViewportWrapper>
+          <ViewportWrapper>
+            {readyToRender && (
+              <>
+                <EdgeRenderer />
+                <NodeRenderer />
+              </>
+            )}
+          </ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>
@@ -64,16 +79,13 @@ const ReactFlow = () => {
   );
 };
 
-function cancelOutScrolling(
-  e: React.UIEvent<HTMLDivElement>,
-  initialized: boolean,
-) {
+function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
   if (!initialized) {
     return;
   }
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  d3Zoom.translateBy(
-    d3Selection,
+  d3Zoom!.translateBy(
+    d3Selection!,
     -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
     -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );
@@ -81,7 +93,7 @@ function cancelOutScrolling(
   e.currentTarget.scrollLeft = SCROLL_INIT;
 }
 
-function useWrapperDivDimensions(ref: React.RefObject<HTMLDivElement>) {
+function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
   const { overviewWidth, uiEditorWidth } = useLocalStorage(
     (x) => ({
       overviewWidth: x.overviewTrueWidth,

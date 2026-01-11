@@ -6,6 +6,7 @@ import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId }) {
@@ -89,6 +90,24 @@ function _SortableCore({
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = transformWithZoom(applyTransform ? transform : null);
+  const transformX = scaledTransform ? scaledTransform.x : null;
+  const transformY = scaledTransform ? scaledTransform.y : null;
+  const transformScaleX = scaledTransform ? scaledTransform.scaleX : null;
+  const transformScaleY = scaledTransform ? scaledTransform.scaleY : null;
+  const hasTransform = scaledTransform !== null;
+
+  useEffect(() => {
+    scheduleEdgeHandlePositionUpdate([sectionId]);
+  }, [
+    applyTransform,
+    hasTransform,
+    sectionId,
+    transition,
+    transformX,
+    transformY,
+    transformScaleX,
+    transformScaleY,
+  ]);
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),

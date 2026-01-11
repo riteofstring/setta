@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   D3DragEvent,
   Selection as D3Selection,
@@ -7,6 +6,11 @@ import type {
 } from "d3";
 
 import { Position } from "utils/generatedTypes";
+import type {
+  ConnectingHandle,
+  ConnectionMode,
+  ConnectionStatus,
+} from "./edges";
 import type { Node } from "./nodes";
 import type { CoordinateExtent, Rect, Transform } from "./utils";
 
@@ -33,7 +37,9 @@ export type ReactFlowStore = {
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
-  d3ZoomHandler: ((this: Element, event: any, d: unknown) => void) | undefined;
+  d3ZoomHandler:
+    | ((this: Element, event: WheelEvent, d: unknown) => void)
+    | undefined;
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 
@@ -47,12 +53,22 @@ export type ReactFlowStore = {
   userSelectionRect: SelectionRect | null;
 
   multiSelectionActive: boolean;
+  selectionKeyPressed: boolean;
+  zoomActivationKeyPressed: boolean;
 
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: FitViewOptions | undefined;
 
   autoPanOnNodeDrag: boolean;
+
+  connectionStartHandle: ConnectingHandle | null;
+  connectionEndHandle: ConnectingHandle | null;
+  connectionPosition: Position;
+  connectionStatus: ConnectionStatus | null;
+  connectionMode: ConnectionMode;
+  autoPanOnConnect: boolean;
+  connectionRadius: number;
 };
 
 type ReactFlowActions = {
@@ -61,6 +77,7 @@ type ReactFlowActions = {
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
   reset: () => void;
   panBy: (delta: Position) => boolean;
+  cancelConnection: () => void;
 };
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;

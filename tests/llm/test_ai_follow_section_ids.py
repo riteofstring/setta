@@ -16,6 +16,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.types.chat_messages import ToolCall, ToolCallFunction
 
+from tests.utils.project_summary import build_project_summary_switcher
+
+
 class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
@@ -23,10 +26,12 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.mcp_client = MultiMCPClient({})
+        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
+            project_manager_switcher,
         )
 
     def tearDown(self) -> None:
