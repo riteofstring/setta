@@ -1,5 +1,7 @@
 import { DragDropProvider } from "forks/dnd-kit/adapter";
+import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
+import { useDndMode } from "./dndState";
 import { useDNDSensors } from "./useDNDSensors";
 import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";
 import { useModifiers } from "./useModifiers";
@@ -11,6 +13,7 @@ export function GlobalDndContext({ children }) {
   const onDragOver = useOnDragOver();
   const { modifiers } = useModifiers();
   const sensors = useDNDSensors();
+  const { isMovingFree } = useDndMode();
 
   return (
     <DragDropProvider
@@ -21,8 +24,9 @@ export function GlobalDndContext({ children }) {
       onDragOver={onDragOver}
       modifiers={modifiers ?? undefined}
     >
+      <DragOperationShapeSync />
       {children}
-      <DummyDragOverlay ref={dummyRef} />
+      {isMovingFree ? <DummyDragOverlay ref={dummyRef} /> : null}
     </DragDropProvider>
   );
 }

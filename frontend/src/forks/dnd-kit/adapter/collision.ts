@@ -30,10 +30,10 @@ export const customCollisionDetection: CollisionDetector = ({
 }) => {
   const active = dragOperation.source;
   const activeId = active?.id;
-  const activeShape = dragOperation.shape?.current;
+  const activeShape = dragOperation.shape?.current ?? null;
   const droppableShape = droppable.shape;
 
-  if (!active || !activeId || !activeShape || !droppableShape) {
+  if (!active || !activeId || !droppableShape) {
     return null;
   }
 
@@ -45,7 +45,10 @@ export const customCollisionDetection: CollisionDetector = ({
     return null;
   }
 
-  const activeRect = toClientRect(activeShape.boundingRectangle);
+  const activeRect = getActiveRect(active, activeShape);
+  if (!activeRect) {
+    return null;
+  }
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
   const intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
@@ -112,10 +115,10 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
   dragOperation,
 }) => {
   const active = dragOperation.source;
-  const activeShape = dragOperation.shape?.current;
+  const activeShape = dragOperation.shape?.current ?? null;
   const droppableShape = droppable.shape;
 
-  if (!active || !activeShape || !droppableShape) {
+  if (!active || !droppableShape) {
     return null;
   }
 
@@ -140,7 +143,10 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     return null;
   }
 
-  const activeRect = toClientRect(activeShape.boundingRectangle);
+  const activeRect = getActiveRect(active, activeShape);
+  if (!activeRect) {
+    return null;
+  }
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
   const containerIsHorizontal = Boolean(
@@ -203,6 +209,30 @@ export function resetCollisionHysteresis(): void {
 }
 
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function getActiveRect(
+  active: Draggable,
+  activeShape: Rectangle | null,
+): ClientRect | null {
+  if (activeShape) {
+    return toClientRect(activeShape.boundingRectangle);
+  }
+
+  const element = active.element;
+  if (!element) {
+    return null;
+  }
+
+  const rect = element.getBoundingClientRect();
   return {
     top: rect.top,
     left: rect.left,

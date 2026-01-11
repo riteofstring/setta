@@ -54,6 +54,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
     transition,
     overIndex,
     items,
+    isDragging,
   } = useSortable({ ...dndProps, animateLayoutChanges });
   return (
     <SortableCore
@@ -65,6 +66,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
       transition={transition}
       applyTransform={
         forceApplyTransform ||
+        isDragging ||
         (overIndex !== null && overIndex !== -1) ||
         (items.length === 1 &&
           items[0] === sectionId &&
