@@ -7,10 +7,12 @@ import type { Draggable, Droppable } from "@dnd-kit/dom";
 import { Rectangle } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionInfo } from "state/actions/sectionInfos";
+import { isTempSection } from "../dndState";
 import type { ClientRect, SettaCollision } from "./types";
 
 let prevCollisionId: Draggable["id"] | null = null;
 let prevPastHalfway: boolean | null = null;
+let prevCollisionRect: ClientRect | null = null;
 
 
 type DndEntityData = {
@@ -32,6 +34,10 @@ export const customCollisionDetection: CollisionDetector = ({
   const droppableShape = droppable.shape;
 
   if (!active || !activeId || !activeShape || !droppableShape) {
+    return null;
+  }
+
+  if (isTempSection(String(droppable.id))) {
     return null;
   }
 
@@ -111,6 +117,10 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     return null;
   }
 
+  if (isTempSection(String(droppable.id))) {
+    return null;
+  }
+
   const activeData = getEntityData(active);
   const droppableData = getEntityData(droppable);
   const activeContainerId = activeData?.sortable?.containerId;
@@ -172,16 +182,20 @@ export function updateCollisionHysteresis(
   if (!collisions || collisions.length === 0) {
     prevCollisionId = null;
     prevPastHalfway = null;
+    prevCollisionRect = null;
     return;
   }
 
   prevCollisionId = collisions[0].id;
   prevPastHalfway = collisions[0].pastHalfway ?? null;
+  const droppableRect = collisions[0].data?.droppable?.shape?.boundingRectangle;
+  prevCollisionRect = droppableRect ? toClientRect(droppableRect) : null;
 }
 
 export function resetCollisionHysteresis(): void {
   prevCollisionId = null;
   prevPastHalfway = null;
+  prevCollisionRect = null;
 }
 
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
@@ -251,6 +265,10 @@ function getTriggerDistCondition({
     return false;
   }
 
+  if (!droppableData.hasNested) {
+    return false;
+  }
+
   if (droppableData.isTopLevel) {
     return false;
   }
@@ -280,6 +298,10 @@ function getPastHalfway({
   currentId: Draggable["id"];
 }): boolean {
   let buffer = 0;
+  const effectiveDroppableRect =
+    prevCollisionId && prevCollisionId === currentId && prevCollisionRect
+      ? prevCollisionRect
+      : droppableRect;
 
   if (prevCollisionId && prevCollisionId === currentId) {
     if (prevPastHalfway === true) {
@@ -292,13 +314,13 @@ function getPastHalfway({
   if (!containerIsHorizontal) {
     return (
       (activeRect.top + activeRect.bottom) / 2 + buffer >
-      (droppableRect.top + droppableRect.bottom) / 2
+      (effectiveDroppableRect.top + effectiveDroppableRect.bottom) / 2
     );
   }
 
   return (
     (activeRect.left + activeRect.right) / 2 + buffer >
-    (droppableRect.left + droppableRect.right) / 2
+    (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
   );
 }
 

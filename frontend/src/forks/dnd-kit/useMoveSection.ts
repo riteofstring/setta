@@ -50,6 +50,11 @@ async function onFreeMoveEnd({
   let newIndex: number | null = null;
   let position: Position | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
+  const hasCollisions = Boolean(collisions && collisions.length > 0);
+
+  if (!hasCollisions && !overId) {
+    newParentId = null;
+  }
 
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];

@@ -70,9 +70,26 @@ export function SortableContext({
     () => manager?.dragOperation.source ?? null,
     [manager],
   ).value;
-  const over = useComputed(
-    () => manager?.dragOperation.target ?? null,
+  const collisions = useComputed(
+    () => manager?.collisionObserver.collisions ?? null,
     [manager],
+  ).value;
+  const collisionOverId = useComputed(
+    () =>
+      getOverIdFromCollisions(
+        collisions as Array<{ id: UniqueIdentifier }> | null,
+        items,
+      ),
+    [collisions, items],
+  ).value;
+  const hasContainerCollision = useComputed(
+    () =>
+      Boolean(
+        (collisions as Array<{ id: UniqueIdentifier }> | null)?.some(
+          (collision) => collision.id === containerId,
+        ),
+      ),
+    [collisions, containerId],
   ).value;
   const droppableRects = useComputed(
     () => getDroppableRects(manager?.registry.droppables ?? []),
@@ -81,7 +98,25 @@ export function SortableContext({
 
   const isDragging = active != null;
   const activeIndex = getActiveIndex(active, items);
-  const overIndex = over?.id ? items.indexOf(over.id) : -1;
+  const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
+  const resolvedOverId = useMemo(() => {
+    if (collisionOverId) {
+      lastOverIdRef.current = collisionOverId;
+      return collisionOverId;
+    }
+
+    if (hasContainerCollision) {
+      const stickyId = lastOverIdRef.current;
+      if (stickyId && items.includes(stickyId)) {
+        return stickyId;
+      }
+    } else if (lastOverIdRef.current) {
+      lastOverIdRef.current = null;
+    }
+
+    return manager?.dragOperation.target?.id ?? null;
+  }, [collisionOverId, hasContainerCollision, items, manager]);
+  const overIndex = resolvedOverId ? items.indexOf(resolvedOverId) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
   const disableTransforms =
@@ -135,6 +170,23 @@ function getActiveIndex(
   }
 
   return items.indexOf(active.id);
+}
+
+function getOverIdFromCollisions(
+  collisions: Array<{ id: UniqueIdentifier }> | null,
+  items: UniqueIdentifier[],
+): UniqueIdentifier | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  for (const collision of collisions) {
+    if (items.includes(collision.id)) {
+      return collision.id;
+    }
+  }
+
+  return null;
 }
 
 function getDroppableRects(
