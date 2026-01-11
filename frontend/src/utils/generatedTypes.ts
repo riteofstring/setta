@@ -241,13 +241,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
-export const DependencyEventTypeEnum = {
-  VALUE: "value",
-  ACTION: "action",
-} as const;
-
-export type DependencyEventType = ObjectValues<typeof DependencyEventTypeEnum>;
-
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
   error: "error",
@@ -2938,7 +2931,6 @@ const DependencyEventSchema = z.object({
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  eventType: z.enum(DependencyEventTypeEnum),
   payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });

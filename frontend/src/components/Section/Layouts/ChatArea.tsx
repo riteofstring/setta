@@ -34,7 +34,6 @@ import {
 import {
   ChatRoleEnum,
   ChatSectionState,
-  DependencyEventTypeEnum,
   DependencyKeyTypeEnum,
   SectionTypeEnum,
   createMessageTextContent,
@@ -81,7 +80,6 @@ function emitChatSendAction({
       type: DependencyKeyTypeEnum.Section,
       sectionId,
     },
-    eventType: DependencyEventTypeEnum.ACTION,
     payload: JSON.stringify(payload),
     timestampMs,
   });

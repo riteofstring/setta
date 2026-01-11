@@ -8,7 +8,6 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
-    DependencyEventType,
     ListenerDependencyMode,
     ListenerRegisterCallback,
     ListenerRealtimeDelta,
@@ -109,8 +108,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-specific": ListenerRegisterCallback(
                     dependencies=[action_dependency],
-                    dependencyMode=ListenerDependencyMode.SPECIFIC,
-                    eventTypes=[DependencyEventType.ACTION],
+                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
                 )
             },
         )
@@ -120,8 +118,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-wildcard": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
-                    eventTypes=[DependencyEventType.ACTION],
+                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
                 )
             },
         )
@@ -141,15 +138,13 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-other": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
-                    eventTypes=[DependencyEventType.ACTION],
+                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
                 )
             },
         )
 
         action_event = DependencyEvent(
             dependencyKey=action_dependency,
-            eventType=DependencyEventType.ACTION,
             payload=None,
             timestampMs=123,
         )
@@ -200,15 +195,13 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-wildcard": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
-                    eventTypes=[DependencyEventType.ACTION],
+                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
                 )
             },
         )
 
         action_event = DependencyEvent(
             dependencyKey=action_dependency,
-            eventType=DependencyEventType.ACTION,
             payload=None,
             timestampMs=123,
         )
@@ -250,8 +243,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-specific": ListenerRegisterCallback(
                     dependencies=[dependency, action_dependency],
-                    dependencyMode=ListenerDependencyMode.SPECIFIC,
-                    eventTypes=[DependencyEventType.ACTION, DependencyEventType.VALUE],
+                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
                 )
             },
         )
@@ -267,7 +259,6 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
 
         action_event = DependencyEvent(
             dependencyKey=action_dependency,
-            eventType=DependencyEventType.ACTION,
             payload=None,
             timestampMs=321,
         )

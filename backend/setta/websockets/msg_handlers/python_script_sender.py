@@ -10,7 +10,6 @@ from setta.types.id import (
 )
 from setta.types.listener import (
     DependencyEvent,
-    DependencyEventType,
     ListenerDependencyEventContent,
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
@@ -108,7 +107,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
             dependency_keys=(delta.dependency for delta in deltas),
-            event_type=DependencyEventType.VALUE,
             share_session_id=share_session_id,
         ):
             if matching_callbacks:
@@ -167,7 +165,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
             dependency_keys=(event.dependencyKey for event in dependencyEvents),
-            event_type=DependencyEventType.ACTION,
             share_session_id=share_session_id,
         ):
             if matching_callbacks:

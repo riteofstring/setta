@@ -25,7 +25,6 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_g
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
-    DependencyEventType,
     ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerErrorContent,
@@ -421,7 +420,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         @listener.listen(
             deps=(dependency_key,),
-            event_types=[DependencyEventType.ACTION],
+            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
         def on_action(state, ctx):
             action_calls.append([event.payload for event in ctx.events])
@@ -446,7 +445,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        eventType=DependencyEventType.ACTION,
                         payload="payload-a",
                         timestampMs=1,
                     )
@@ -463,7 +461,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        eventType=DependencyEventType.ACTION,
                         payload="payload-b",
                         timestampMs=2,
                     )
@@ -487,7 +484,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         @listener.listen(
             deps=(dependency_key,),
-            event_types=[DependencyEventType.ACTION],
+            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
         def on_action(state, ctx):
             pass
@@ -507,7 +504,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     dependencyEvents=[
                         DependencyEvent(
                             dependencyKey=dependency_key,
-                            eventType=DependencyEventType.ACTION,
                             payload="payload-b",
                             timestampMs=2,
                         )
@@ -592,7 +588,10 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         any_calls: list[dict[str, Any]] = []
         specific_calls: list[dict[str, Any]] = []
 
-        @listener.listen(dependency_mode=ListenerDependencyMode.ANY_DEPENDENCY)
+        @listener.listen(
+            deps=(),
+            dependency_mode=ListenerDependencyMode.ALWAYS,
+        )
         def on_any(state, ctx):
             any_calls.append(dict(ctx.changed))
 

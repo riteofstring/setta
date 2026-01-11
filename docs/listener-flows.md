@@ -7,7 +7,7 @@ listener-driven updates move through the system, plus when disk writes happen.
 ```
 UI change
   -> if meta control is an action control:
-       send RealtimeDependencyEvent (eventType=action, SectionDependencyKey)
+       send RealtimeDependencyEvent (SectionDependencyKey)
      else:
        update local pending value on the control param
        send RealtimeUIChange for SectionDependencyKey

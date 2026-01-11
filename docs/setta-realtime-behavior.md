@@ -14,19 +14,19 @@ This page explains how realtime listener updates move through the system, how ca
 - The sender filters listener registrations so only sockets with matching dependency keys (or realtime wildcard callbacks) receive `WebsocketMsgListenerRealtimeEvent`.
 - Consumer side: `_handle_realtime_event` enforces sequencing (sequence must strictly increase), skips deltas with unknown dependency keys, and ignores updates until runtime state is available.
 - `_set_dependency_value` updates the generated state instance by evaluating the code-generated expression for the dependency.
-- Applied values update `_dependency_cache`, and matching callbacks are scheduled through `ListenerCallbackScheduler`. SPECIFIC callbacks receive only the dependencies that changed; ANY_DEPENDENCY callbacks receive the merged `changed` map for the batch; REFRESH_ONLY callbacks are skipped for realtime deltas.
+- Applied values update `_dependency_cache`, and matching callbacks are scheduled through `ListenerCallbackScheduler`. Callbacks with `dependency_mode=REFRESH_ONLY` are skipped for realtime deltas; callbacks with empty `deps` receive the merged `changed` map for the batch.
 
 ## Action event pipeline
 - Action controls emit `RealtimeDependencyEvent`, and `RealtimeEventHub.emit_dependency_event` increments the same per-project sequence counter used by dependency deltas.
-- `WMHPythonScriptSender.send_dependency_event` filters listeners by dependency keys for action events. Callbacks that include `DependencyEventType.ACTION` and match the dependency key are notified; callbacks with no deps (ANY_DEPENDENCY) act as a wildcard for action events.
+- `WMHPythonScriptSender.send_dependency_event` filters listeners by dependency keys for action events. Callbacks with `dependency_mode` that includes realtime and matching dependency keys are notified; callbacks with `deps=[]` act as a wildcard for action events.
 - `_handle_dependency_event` enforces sequencing, batches action events per callback, and schedules them through `ListenerCallbackScheduler`. `ctx.events` is populated for these calls; `ctx.changed` remains empty unless a dependency delta was also queued before execution.
 - Action events do not touch the dependency cache or the generated `s` instance.
 
 ## Dependency modes
-- `ListenerDependencyMode.SPECIFIC` is the default when `deps` are provided. Realtime deltas run the callback when any declared dependency changes; snapshots run when a value changed or `run_on_refresh=True`.
-- `ListenerDependencyMode.ANY_DEPENDENCY` is a wildcard mode. Omit `deps`; the callback runs on every bootstrap, force refresh, and realtime delta. Snapshot callbacks receive an empty `ctx.changed`, while realtime batches include the merged changes.
-- `ListenerDependencyMode.REFRESH_ONLY` is the default when no `deps` are provided. Callbacks run on bootstrap and force refresh and ignore realtime deltas. If `deps` are present, `ctx.changed` includes any updated values; the callback still runs even if the diff is empty.
-- Action-only callbacks use `event_types=[DependencyEventType.ACTION]`. With no deps, the default dependency mode becomes ANY_DEPENDENCY (wildcard action listener).
+- `ListenerDependencyMode.ALWAYS` runs on snapshots and realtime deltas/actions. This is the default when `deps` are provided.
+- `ListenerDependencyMode.REALTIME_ONLY` runs only on realtime deltas/actions (no snapshots).
+- `ListenerDependencyMode.REFRESH_ONLY` runs only on snapshots. This is the default when `deps` are omitted.
+- Pass `deps=[]` to listen to all dependencies (wildcard). With `deps=[]`, realtime batches include the merged `changed` map.
 - Dependency names must match `DependencyGraph.full_path_name_to_dep_key`; `_build_register_content` raises `KeyError` when a dependency string cannot be resolved.
 
 ## Force refresh lifecycle
@@ -35,7 +35,7 @@ This page explains how realtime listener updates move through the system, how ca
 - `_process_snapshot` rebuilds the dependency graph and replays callbacks using the same rules as bootstrap, then waits for new realtime deltas at sequence `1`.
 
 ## Operational tips
-- Prefer SPECIFIC mode with explicit dependencies so server-side filtering reduces realtime traffic.
-- Use ANY_DEPENDENCY for logging or routing workflows that need every delta.
-- Use REFRESH_ONLY for expensive recomputations that should only happen on snapshots.
-- When listening for action controls, set `event_types=[DependencyEventType.ACTION]` and omit `deps` for a wildcard, or include section dependencies for targeted callbacks.
+- Prefer explicit dependencies so server-side filtering reduces realtime traffic.
+- Use `deps=[]` for logging or routing workflows that need every delta.
+- Use `REFRESH_ONLY` for expensive recomputations that should only happen on snapshots.
+- For action controls, use the button section dependency with `dependency_mode=ListenerDependencyMode.REALTIME_ONLY` (or `deps=[]` for a wildcard).

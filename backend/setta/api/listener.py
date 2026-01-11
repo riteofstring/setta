@@ -51,7 +51,6 @@ from setta.types.generated.websocket_unions import (
 from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.listener import (
     DependencyEvent,
-    DependencyEventType,
     ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
@@ -115,7 +114,6 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     declared_dependencies: tuple["ListenerDependencySpec", ...]
-    event_types: tuple[DependencyEventType, ...]
     dependency_mode: ListenerDependencyMode
     debounce_ms: int | None
     throttle_ms: int | None
@@ -713,26 +711,23 @@ class SettaListener:
         self,
         *,
         deps: Iterable[ListenerDependencySpec] | None = None,
-        event_types: Iterable[DependencyEventType | str] | None = None,
         dependency_mode: ListenerDependencyMode | str | None = None,
         debounce_ms: int | None = None,
         throttle_ms: int | None = None,
         run_on_refresh: bool = False,
     ) -> Callable[[ListenerCallback], ListenerCallback]:
         def decorator(func: ListenerCallback) -> ListenerCallback:
+            deps_provided = deps is not None
             dependencies = tuple(deps) if deps is not None else ()
-            normalized_event_types = self._normalize_event_types(event_types)
             normalized_mode = self._normalize_dependency_mode(
                 dependency_mode,
-                declared_dependencies=dependencies,
-                event_types=normalized_event_types,
+                deps_provided=deps_provided,
             )
             callback_id = uuid4().hex
             spec = ListenerCallbackSpec(
                 function=func,
                 callback_id=callback_id,
                 declared_dependencies=dependencies,
-                event_types=normalized_event_types,
                 dependency_mode=normalized_mode,
                 debounce_ms=debounce_ms,
                 throttle_ms=throttle_ms,
@@ -806,7 +801,6 @@ class SettaListener:
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
                 runOnRefresh=spec.run_on_refresh,
-                eventTypes=list(spec.event_types),
             )
         return ListenerRegisterContent(
             projectConfigId=self._require_project_id(), callbacks=callbacks
@@ -870,38 +864,14 @@ class SettaListener:
             spec.dependency_names = tuple(names)
 
     @staticmethod
-    def _normalize_event_types(
-        event_types: Iterable[DependencyEventType | str] | None,
-    ) -> tuple[DependencyEventType, ...]:
-        if event_types is None:
-            return (DependencyEventType.VALUE,)
-        normalized: list[DependencyEventType] = []
-        for entry in event_types:
-            try:
-                normalized_type = DependencyEventType(entry)
-            except ValueError as error:
-                choices = ", ".join(member.value for member in DependencyEventType)
-                raise ValueError(
-                    f"Unknown event type {entry!r}. Expected one of: {choices}"
-                ) from error
-            if normalized_type not in normalized:
-                normalized.append(normalized_type)
-        if not normalized:
-            raise ValueError("event_types must include at least one entry")
-        return tuple(normalized)
-
-    @staticmethod
     def _normalize_dependency_mode(
         mode: ListenerDependencyMode | str | None,
         *,
-        declared_dependencies: tuple[ListenerDependencySpec, ...],
-        event_types: tuple[DependencyEventType, ...],
+        deps_provided: bool,
     ) -> ListenerDependencyMode:
         if mode is None:
-            if declared_dependencies:
-                return ListenerDependencyMode.SPECIFIC
-            if event_types == (DependencyEventType.ACTION,):
-                return ListenerDependencyMode.ANY_DEPENDENCY
+            if deps_provided:
+                return ListenerDependencyMode.ALWAYS
             return ListenerDependencyMode.REFRESH_ONLY
         try:
             normalized = ListenerDependencyMode(mode)
@@ -910,16 +880,9 @@ class SettaListener:
             raise ValueError(
                 f"Unknown dependency mode {mode!r}. Expected one of: {choices}"
             ) from error
-        if normalized is ListenerDependencyMode.SPECIFIC and not declared_dependencies:
+        if not deps_provided and normalized is not ListenerDependencyMode.REFRESH_ONLY:
             raise ValueError(
-                "Listener dependency_mode 'specific' requires at least one dependency"
-            )
-        if (
-            normalized is ListenerDependencyMode.ANY_DEPENDENCY
-            and declared_dependencies
-        ):
-            raise ValueError(
-                "Listener dependency_mode 'any_dependency' does not accept explicit dependencies"
+                "Listener dependency_mode requires deps (use deps=[] for all dependencies)"
             )
         return normalized
 
@@ -1048,48 +1011,30 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if DependencyEventType.VALUE not in spec.event_types:
-                continue
             changed: dict[str, Any] = {}
             mode = spec.dependency_mode
-            should_run = False
+            if mode is ListenerDependencyMode.REALTIME_ONLY:
+                continue
 
-            if mode is ListenerDependencyMode.SPECIFIC:
-                for dependency in spec.dependency_names:
-                    value = self._get_dependency_value(
-                        runtime_state.s_instance,
-                        dependency,
-                        snapshot_values,
-                    )
-                    if value is _UNAVAILABLE:
-                        continue
-                    previous = self._dependency_cache.get(dependency, _MISSING)
-                    updated_cache[dependency] = value
-                    if previous is _MISSING or value != previous:
-                        changed[dependency] = value
-                should_run = bool(changed)
-                if (
-                    refresh_kind in {"bootstrap", "force_refresh"}
-                    and spec.run_on_refresh
-                ):
+            for dependency in spec.dependency_names:
+                value = self._get_dependency_value(
+                    runtime_state.s_instance,
+                    dependency,
+                    snapshot_values,
+                )
+                if value is _UNAVAILABLE:
+                    continue
+                previous = self._dependency_cache.get(dependency, _MISSING)
+                updated_cache[dependency] = value
+                if previous is _MISSING or value != previous:
+                    changed[dependency] = value
+
+            if mode is ListenerDependencyMode.ALWAYS:
+                should_run = bool(changed) or spec.run_on_refresh
+                if not spec.dependency_names:
                     should_run = True
-            elif mode is ListenerDependencyMode.ANY_DEPENDENCY:
-                should_run = True
             else:  # ListenerDependencyMode.REFRESH_ONLY
-                if refresh_kind in {"bootstrap", "force_refresh"}:
-                    should_run = True
-                    for dependency in spec.dependency_names:
-                        value = self._get_dependency_value(
-                            runtime_state.s_instance,
-                            dependency,
-                            snapshot_values,
-                        )
-                        if value is _UNAVAILABLE:
-                            continue
-                        previous = self._dependency_cache.get(dependency, _MISSING)
-                        updated_cache[dependency] = value
-                        if previous is _MISSING or value != previous:
-                            changed[dependency] = value
+                should_run = True
 
             if should_run:
                 callbacks_to_run.append((spec, changed))
@@ -1317,11 +1262,9 @@ class SettaListener:
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         for spec in self._callbacks.values():
-            if DependencyEventType.VALUE not in spec.event_types:
-                continue
             if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
                 continue
-            if spec.dependency_mode is ListenerDependencyMode.ANY_DEPENDENCY:
+            if not spec.structured_dependencies:
                 callbacks_to_run.append((spec, dict(applied_dependencies)))
                 continue
 
@@ -1413,17 +1356,10 @@ class SettaListener:
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
         callbacks_to_run: dict[str, list[DependencyEvent]] = {}
         for event in content.dependencyEvents:
-            if event.eventType is not DependencyEventType.ACTION:
-                continue
             for spec in self._callbacks.values():
-                if DependencyEventType.ACTION not in spec.event_types:
-                    continue
                 if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
                     continue
-                if (
-                    spec.dependency_mode is ListenerDependencyMode.ANY_DEPENDENCY
-                    or not spec.structured_dependencies
-                ):
+                if not spec.structured_dependencies:
                     callbacks_to_run.setdefault(spec.callback_id, []).append(event)
                     continue
                 if event.dependencyKey not in spec.structured_dependencies:
@@ -1771,7 +1707,7 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if DependencyEventType.VALUE not in spec.event_types:
+            if spec.dependency_mode is ListenerDependencyMode.REALTIME_ONLY:
                 continue
             dependencies = spec.dependency_names
             if not dependencies:

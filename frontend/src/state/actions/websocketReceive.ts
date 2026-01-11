@@ -22,7 +22,6 @@ import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
   DependencyEvent,
-  DependencyEventType,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
@@ -373,7 +372,6 @@ function emitRealtimeDependencyValue(
 
 type DependencyEventInput = {
   dependencyKey: BaseDependencyKeyUnion;
-  eventType: DependencyEventType;
   payload?: string | null;
   timestampMs?: number;
 };
@@ -386,7 +384,6 @@ export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
 
   const dependencyEvent: DependencyEvent = {
     dependencyKey: event.dependencyKey,
-    eventType: event.eventType,
     payload: event.payload ?? null,
     timestampMs: event.timestampMs ?? Date.now(),
   };

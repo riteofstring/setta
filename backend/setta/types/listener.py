@@ -15,14 +15,9 @@ from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ListenerDependencyMode(str, Enum):
-    SPECIFIC = "specific"
-    ANY_DEPENDENCY = "any_dependency"
     REFRESH_ONLY = "refresh_only"
-
-
-class DependencyEventType(str, Enum):
-    VALUE = "value"
-    ACTION = "action"
+    REALTIME_ONLY = "realtime_only"
+    ALWAYS = "always"
 
 
 class ListenerInitContent(BaseModel):
@@ -48,7 +43,6 @@ class ListenerRealtimeEventContent(BaseModel):
 
 class DependencyEvent(BaseModel):
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    eventType: DependencyEventType
     payload: str | None = None
     timestampMs: int
 
@@ -132,9 +126,6 @@ class ListenerRegisterCallback(BaseModel):
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False
-    eventTypes: list[DependencyEventType] = Field(
-        default_factory=lambda: [DependencyEventType.VALUE]
-    )
 
 
 class ListenerRegisterContent(BaseModel):

@@ -27,7 +27,6 @@ import type {
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
-  DependencyEventTypeEnum,
   DependencyKeyTypeEnum,
   HttpRequestMethodEnum,
   SectionTypeEnum,
@@ -185,7 +184,6 @@ function MetaControlValueArea({
         type: DependencyKeyTypeEnum.Section,
         sectionId,
       },
-      eventType: DependencyEventTypeEnum.ACTION,
       payload: null,
     });
   }
