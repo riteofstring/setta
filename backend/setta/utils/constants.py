@@ -26,7 +26,9 @@ class C:
     # Basic configuration
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
-    DEV_MODE_FRONTEND_PORT = int(os.environ.get("SETTA_DEV_FRONTEND_PORT", "3000") or 3000)
+    DEV_MODE_FRONTEND_PORT = int(
+        os.environ.get("SETTA_DEV_FRONTEND_PORT", "3000") or 3000
+    )
     SETTINGS_PROJECT_NAME = "settings"
     BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
     OPEN_BROWSER_ON_START: str | None = None
