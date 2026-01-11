@@ -88,6 +88,21 @@ class ShareListenerRuntime:
     def _drop_module(self, module: ModuleType) -> None:
         sys.modules.pop(module.__name__, None)
 
+    def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
+        if key in self._session_handles:
+            del self._session_handles[key]
+        self._drop_module(handle.module)
+
+    def _handle_listener_task_done(
+        self, key: tuple[str, ID], task: asyncio.Task[object]
+    ) -> None:
+        handle = self._session_handles.get(key)
+        if handle is None:
+            return
+        if handle.task is not task:
+            return
+        self._drop_handle(key, handle)
+
     def _resolve_builder(self, module: ModuleType) -> _ListenerBuilder:
         for name in _BUILDER_NAMES:
             builder = getattr(module, name, None)
@@ -108,8 +123,12 @@ class ShareListenerRuntime:
         if session_id is None:
             raise KeyError("Share listener session id is required in share mode")
         key = (session_id, project_config_id)
-        if key in self._session_handles:
-            return
+        handle = self._session_handles.get(key)
+        if handle is not None:
+            if handle.task.done():
+                self._drop_handle(key, handle)
+            else:
+                return
         module = self._load_module(session_id, project_config_id)
         builder = self._resolve_builder(module)
         listener = SettaListener(
@@ -121,6 +140,9 @@ class ShareListenerRuntime:
             listener.run_forever,
             label="share-listener-per-viewer",
             extra_values={"share_session_id": session_id},
+        )
+        task.add_done_callback(
+            lambda finished_task: self._handle_listener_task_done(key, finished_task)
         )
         self._session_handles[key] = _ListenerHandle(
             listener=listener,

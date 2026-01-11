@@ -208,10 +208,12 @@ export async function initializeShareSessionFromCurrentDeployment(
 
 type ShareProjectConfigLoadParams = {
   projectConfigId: string;
+  allowRetry?: boolean;
 };
 
 export async function loadShareProjectConfig({
   projectConfigId,
+  allowRetry = true,
 }: ShareProjectConfigLoadParams): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
@@ -229,6 +231,17 @@ export async function loadShareProjectConfig({
     { projectConfigId },
   );
   if (!res200(stateRes)) {
+    if (allowRetry && stateRes.status === 404) {
+      const session = await ensureShareSessionFromCurrentDeployment({
+        forceNewSession: true,
+      });
+      if (session) {
+        return await loadShareProjectConfig({
+          projectConfigId,
+          allowRetry: false,
+        });
+      }
+    }
     useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
     return false;
   }

@@ -101,6 +101,7 @@ async def cleanup_expired_share_sessions(
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,
+    realtime_event_hub: RealtimeEventHub | None = None,
 ) -> list[str]:
     expired_ids = share_session_store.cleanup_expired()
     for session_id in expired_ids:
@@ -110,6 +111,8 @@ async def cleanup_expired_share_sessions(
             share_listener_runtime.drop_session_listener(session_id)
         if share_chat_manager is not None:
             share_chat_manager.drop_session(session_id)
+        if realtime_event_hub is not None:
+            realtime_event_hub.drop_share_session_sequences(session_id)
         if share_runtime_state.has_session_state(session_id):
             share_runtime_state.delete_session_state(session_id)
         if session_manager_switcher is not None:
@@ -124,6 +127,7 @@ async def run_share_session_cleanup_loop(
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,
+    realtime_event_hub: RealtimeEventHub | None = None,
     *,
     interval_seconds: int = DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
 ) -> None:
@@ -135,6 +139,7 @@ async def run_share_session_cleanup_loop(
             share_listener_runtime,
             share_chat_manager,
             terminals,
+            realtime_event_hub,
         )
         await asyncio.sleep(interval_seconds)
 
@@ -510,6 +515,7 @@ class SettaFastAPIState:
                 share_listener_runtime=self.share_listener_runtime,
                 share_chat_manager=share_chat_manager,
                 terminals=share_terminals,
+                realtime_event_hub=self.realtime_event_hub,
                 interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
             ),
             label="share-session-cleanup",

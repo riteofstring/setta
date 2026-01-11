@@ -23,6 +23,17 @@ class RealtimeEventHub:
         """
         self._sequence_by_project.pop((project_config_id, share_session_id), None)
 
+    def drop_share_session_sequences(self, share_session_id: str) -> None:
+        if not self._sequence_by_project:
+            return
+        keys_to_drop = [
+            key
+            for key in self._sequence_by_project.keys()
+            if key[1] == share_session_id
+        ]
+        for key in keys_to_drop:
+            del self._sequence_by_project[key]
+
     async def emit_realtime_delta(
         self,
         *,

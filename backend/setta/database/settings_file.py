@@ -54,12 +54,17 @@ class SettingsFile:
         default_settings = SettingsState().model_dump(mode="json")
         contents = {}
         for p in path_set:
-            contents[p] = self.dbe.read_json(p)
+            payload = self.dbe.read_json(p)
+            if payload is None:
+                payload = {}
+            contents[p] = payload
         output = {}
         for settings_slice, path in paths.items():
-            output[settings_slice] = contents[path].get(
-                settings_slice, default_settings[settings_slice]
-            )
+            payload = contents[path]
+            if settings_slice in payload:
+                output[settings_slice] = payload[settings_slice]
+            else:
+                output[settings_slice] = default_settings[settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings

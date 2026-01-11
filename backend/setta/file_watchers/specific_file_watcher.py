@@ -38,12 +38,14 @@ class SpecificFileWatcher:
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
+        self._pending_dirs: set[Path] = set()
         self._loop = loop
         self._started = False
         self.handler = SpecificFileEventHandler(
             self._get_loop,
             self.callbacks,
             self.file_to_patterns,
+            self._handle_directory_created,
         )
 
     def _get_loop(self) -> asyncio.AbstractEventLoop | None:
@@ -55,28 +57,54 @@ class SpecificFileWatcher:
             return None
         return self._loop
 
+    def _find_existing_ancestor(self, path: Path) -> Path | None:
+        current = path
+        while True:
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
+            if current.exists():
+                return current
+        if current.exists():
+            return current
+        return None
+
+    def _handle_directory_created(self, path: Path) -> None:
+        if not self._pending_dirs:
+            return
+        for pending_dir in self._pending_dirs:
+            if pending_dir == path or pending_dir.is_relative_to(path):
+                self._sync_watches()
+                return
+
     def request_read(self, abs_path: Path):
         mock_event = MockFileEvent(abs_path)
         self.handler._send_event(mock_event, FileEventType.readRequested)
 
-    def update_callbacks(
-        self,
-        callbacks: CallbacksDict,
-        callbackCategory: str,
-        fire_immediately: Iterable[Path],
-    ):
-        self.callbacks[callbackCategory].clear()
-        self.callbacks[callbackCategory].update(callbacks)
-
-        # Get all unique parent directories of the files we need to watch
-        dirs_to_watch = set()
+    def _sync_watches(self) -> None:
+        desired_parent_dirs: set[Path] = set()
+        parent_to_files: dict[Path, set[Path]] = defaultdict(set)
         for category_callbacks in self.callbacks.values():
             for file_path in category_callbacks.keys():
                 parent_dir = file_path.parent
-                if parent_dir.exists():
-                    dirs_to_watch.add(parent_dir)
+                desired_parent_dirs.add(parent_dir)
+                parent_to_files[parent_dir].add(file_path)
 
-        # Remove watches for directories no longer needed
+        pending_dirs: set[Path] = set()
+        dirs_to_watch: set[Path] = set()
+        for parent_dir in desired_parent_dirs:
+            if parent_dir.exists():
+                dirs_to_watch.add(parent_dir)
+                continue
+            pending_dirs.add(parent_dir)
+            ancestor = self._find_existing_ancestor(parent_dir)
+            if ancestor is not None:
+                dirs_to_watch.add(ancestor)
+
+        previous_pending_dirs = self._pending_dirs
+        self._pending_dirs = pending_dirs
+
         current_watched_dirs = set(self.watched_dirs.keys())
         dirs_to_remove = current_watched_dirs - dirs_to_watch
         for dir_path in dirs_to_remove:
@@ -84,7 +112,6 @@ class SpecificFileWatcher:
                 self.observer.unschedule(self.watched_dirs[dir_path])
                 del self.watched_dirs[dir_path]
 
-        # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
         for dir_path in dirs_to_add:
             if not dir_path.exists():
@@ -95,6 +122,25 @@ class SpecificFileWatcher:
                 continue
             watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
             self.watched_dirs[dir_path] = watch
+
+        newly_available_dirs = previous_pending_dirs - pending_dirs
+        for parent_dir in newly_available_dirs:
+            files = parent_to_files.get(parent_dir)
+            if not files:
+                continue
+            for file_path in files:
+                if file_path.exists():
+                    self.request_read(file_path)
+
+    def update_callbacks(
+        self,
+        callbacks: CallbacksDict,
+        callbackCategory: str,
+        fire_immediately: Iterable[Path],
+    ):
+        self.callbacks[callbackCategory].clear()
+        self.callbacks[callbackCategory].update(callbacks)
+        self._sync_watches()
 
         # Fire immediate reads if requested (only for new files)
         for f in fire_immediately:
@@ -120,12 +166,17 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         loop_getter: Callable[[], asyncio.AbstractEventLoop | None],
         callbacks: CallbackCategoryToCallbacksDict,
         file_to_patterns: dict[Path, set[str]],
+        dir_created_callback: Callable[[Path], None] | None = None,
     ):
         self._loop_getter = loop_getter
         self.callbacks = callbacks
         self.file_to_patterns = file_to_patterns
+        self._dir_created_callback = dir_created_callback
 
     def on_created(self, event: FileSystemEvent):
+        if event.is_directory:
+            self._handle_directory_created(event)
+            return
         self._send_event(event, FileEventType.created)
 
     def on_modified(self, event: FileSystemEvent):
@@ -141,6 +192,18 @@ class SpecificFileEventHandler(FileSystemEventHandler):
     def on_moved(self, event: FileSystemEvent):
         # TODO
         pass
+
+    def _handle_directory_created(self, event: FileSystemEvent) -> None:
+        if self._dir_created_callback is None:
+            return
+        loop = self._loop_getter()
+        if loop is None:
+            logger.debug(
+                "Specific file watcher missing event loop; skipping directory event."
+            )
+            return
+        abs_path = Path(ensure_str_path(event.src_path)).resolve()
+        loop.call_soon_threadsafe(lambda: self._dir_created_callback(abs_path))
 
     def _send_event(
         self,

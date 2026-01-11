@@ -631,7 +631,10 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             return
 
-        dependency_graph = DependencyGraph(project_state)
+        if project_config_id in manager.gen_code:
+            dependency_graph = manager.gen_code[project_config_id].dep_graph
+        else:
+            dependency_graph = DependencyGraph(project_state)
         resolved = await _resolve_emits_for_state(
             dependency_graph=dependency_graph,
             artifacts=manager.artifacts,

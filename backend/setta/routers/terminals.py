@@ -146,14 +146,8 @@ async def route_run_code(
     share_session_id = ctx.share_session_id
     manager = ctx.get_project_manager(x.projectConfigId)
     await ctx.enforce_run_allowed()
-    run_request = x
-    if ctx.share_mode:
-        run_request = x.model_copy(
-            update={"runSnapshotMode": ctx.policy.runSnapshotMode}
-        )
-
     await run_code(
-        run_request,
+        x,
         manager,
         ctx.state.terminals,
         ctx.state.wmh_cli_sender,

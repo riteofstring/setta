@@ -29,7 +29,8 @@ export function ShareWrapper({
   useShareHTMLTitle(mode);
   const loadProject = mode === "project";
   const [doneLoading, is404] = useLoadShareDeployment(loadProject);
-  const settingsLoaded = useLoadSettings();
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
+  const settingsLoaded = useLoadSettings({ enabled: Boolean(shareSessionId) });
   const resolvedChildren =
     typeof children === "function"
       ? children({ doneLoading, is404 })

@@ -70,6 +70,12 @@ async def _close_unauthorized(websocket: WebSocket) -> None:
     await websocket.close(code=4401)
 
 
+async def _close_forbidden(websocket: WebSocket) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=4403)
+
+
 async def websocket_route_loop(
     websocket: WebSocket,
     websocket_manager: WebsocketManager,
@@ -214,6 +220,9 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
+    if state.share_mode:
+        await _close_forbidden(websocket)
+        return
     if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     await websocket_route_loop(

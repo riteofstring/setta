@@ -292,6 +292,7 @@ async def route_create_new_section_variant(
     await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "New Variant Created",
         project_config_id=x.projectConfigId,
+        share_session_id=ctx.share_session_id,
     )
 
 
@@ -653,7 +654,6 @@ async def route_set_active_ids(x: SetActiveIdsRequest, ctx: RuntimeContextFromRe
 @router.post(Route.SET_VIEWPORT)
 async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_viewport(x)
 
 

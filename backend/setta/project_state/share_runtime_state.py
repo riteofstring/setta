@@ -96,6 +96,11 @@ class ShareRuntimeState:
     def load_initial_state(self) -> ProjectStateBackend:
         project_state = self.dbe.read_project_required()
         self._rebase_deployment_paths(project_state)
+        for project_config_id in project_state.projectConfigs.keys():
+            single_config = convert_backend_to_single_config(
+                project_state, project_config_id
+            )
+            self._require_code_section_bindings(single_config)
         return project_state
 
     def create_session_backend(self, session_id: str) -> ProjectStateBackend:
@@ -438,6 +443,16 @@ class ShareRuntimeState:
         if gen_binding is None:
             raise KeyError("Share run missing generated code binding")
         return gen_binding
+
+    def _require_code_section_bindings(
+        self, project_state: "ProjectStateSingleConfig"
+    ) -> None:
+        for section_id in project_state.sections.keys():
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CodeSectionImpl):
+                continue
+            if section_impl.codeFileBinding is None:
+                raise KeyError(f"Missing code binding for section {section_id}")
 
     def _collect_code_sections(
         self, project_state: "ProjectStateSingleConfig"

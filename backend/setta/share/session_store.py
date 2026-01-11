@@ -87,26 +87,3 @@ class MemorySessionStore(ShareSessionStore):
         for session_id in expired_ids:
             del self._sessions[session_id]
         return expired_ids
-
-
-class RedisSessionStore(ShareSessionStore):
-    def create_session(self) -> ShareSession:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def get_session(self, session_id: str) -> ShareSession:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def has_session(self, session_id: str) -> bool:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def update_session(self, session_id: str, session: ShareSession) -> None:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def touch_session(self, session_id: str) -> None:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def delete_session(self, session_id: str) -> None:
-        raise NotImplementedError("RedisSessionStore is not implemented")
-
-    def cleanup_expired(self) -> list[str]:
-        raise NotImplementedError("RedisSessionStore is not implemented")

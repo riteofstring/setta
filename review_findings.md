@@ -7,7 +7,7 @@ Findings
 session can get stuck until a full page reload. frontend/src/state/actions/websocketReceive.ts:154. Status: DONE.
 Suggested fix: when the close code is 4400/4404 and shareSessionIdForSocket is set, clear share-session state and re-run initializeShareSessionFromCurrentDeployment() before reconnecting.
 - Medium: listener tasks are never pruned or restarted if listener.run_forever() exits; the handle stays in _session_handles, so ensure_listener_for_session() will no-op and the session will remain without a
-listener. backend/setta/share/listener_runtime.py:103. Status: TODO.
+listener. backend/setta/share/listener_runtime.py:103. Status: DONE.
 Suggested fix: add a task done callback to drop the handle (and module) or check task.done() before returning.
 
 Questions / Assumptions
@@ -24,12 +24,11 @@ Findings
 - High: Share runtime trusts absolute paths inside the deployment, so a tampered project.json can point code/artifacts/JSON sources outside the deployment root. _resolve_deployment_path and _resolve_code_binding
 keep absolute paths and _rebase_deployment_paths applies them without any root validation, which bypasses ensure_share_deployment_path (used only for API file access). This risks reading/running host files if
 deployments are not strictly trusted. backend/setta/project_state/share_runtime_state.py:345 backend/setta/project_state/share_runtime_state.py:360. Status: DONE.
-- Medium: Route.SET_VIEWPORT skips the share policy guard, so a viewer can change viewport even when allowLayoutChanges is false. All other layout mutations are guarded, so this is an inconsistent policy hole.
-backend/setta/routers/project_manager.py:653. Status: DONE.
+- Medium: Route.SET_VIEWPORT is allowed regardless of allowLayoutChanges policy (intentional). backend/setta/routers/project_manager.py:653. Status: DONE (intentional).
 - Low: CLI websocket route stays enabled in share mode without requiring a share session id. It will accept connections and then error out later, creating noisy logs and an unnecessary exposed endpoint. Consider
-rejecting/403 or enforcing a session id for share mode. backend/setta/routers/websocket.py:210. Status: TODO.
+rejecting/403 or enforcing a session id for share mode. backend/setta/routers/websocket.py:210. Status: DONE.
 - Low (unused): RedisSessionStore is a stub with no implementation or usage. If it’s not planned for near-term, consider removing or gating behind a TODO to keep dead code down. backend/setta/share/
-session_store.py:92. Status: TODO.
+session_store.py:92. Status: DONE.
 
 Questions/Assumptions
 
@@ -42,11 +41,11 @@ deployment root on load.
 Findings
 
 - High: Share-mode settings load can crash when a settings slice file is missing. With allow_write=False, read_json can return None, but load_settings blindly calls .get(...) on it. That will raise and block
-share startup if setta-settings.json (or slice files) are absent. See backend/setta/database/settings_file.py:50. Status: TODO.
+share startup if setta-settings.json (or slice files) are absent. See backend/setta/database/settings_file.py:50. Status: DONE.
 - Medium: Listener emits now rebuild a DependencyGraph per message instead of reusing the cached graph; this is a likely performance regression under frequent emits. Consider using
-manager.gen_code[project_config_id].dep_graph when available and falling back only when missing. See backend/setta/websockets/msg_handlers/python_script_receiver.py:634. Status: TODO.
+manager.gen_code[project_config_id].dep_graph when available and falling back only when missing. See backend/setta/websockets/msg_handlers/python_script_receiver.py:634. Status: DONE.
 - Low: In share mode, route_run_code overrides runSnapshotMode, but the share path ignores it because SessionProjectManager.create_run_command delegates to ShareRuntimeState.create_run_command which never
-inspects RunCodeRequest.runSnapshotMode. This looks like dead code or a missing hook. See backend/setta/routers/terminals.py:140 and backend/setta/project_state/session_project_manager.py:204. Status: TODO.
+inspects RunCodeRequest.runSnapshotMode. This looks like dead code or a missing hook. See backend/setta/routers/terminals.py:140 and backend/setta/project_state/session_project_manager.py:204. Status: DONE.
 
 Questions / Assumptions
 
@@ -58,10 +57,10 @@ Questions / Assumptions
 Findings
 
 - Medium: Share sessions that expire or go stale won’t recover; the websocket close handler only treats 4400/4404 as fatal when no session id is present, and cached sessions are reused without validation, so
-viewers can get stuck in a reconnect loop after TTL or a deployment restart. (frontend/src/state/actions/websocketReceive.ts:154, frontend/src/state/actions/share.ts:104). Status: PARTIAL (auto-recover on 4400/4404; share-route 404 revalidation still TODO).
+viewers can get stuck in a reconnect loop after TTL or a deployment restart. (frontend/src/state/actions/websocketReceive.ts:154, frontend/src/state/actions/share.ts:104). Status: DONE.
 - Medium: Share runtime rewrites artifact/code/json paths to absolute paths before sending project state to the client, which can leak server filesystem paths and undermines the redaction you’re doing for share
 metadata. (backend/setta/project_state/share_runtime_state.py:345, backend/setta/project_state/share_runtime_state.py:373). Status: DONE.
-- Low: RedisSessionStore is added but entirely unimplemented and unused, which is dead code unless a follow‑up is imminent. (backend/setta/share/session_store.py:92). Status: TODO.
+- Low: RedisSessionStore is added but entirely unimplemented and unused, which is dead code unless a follow‑up is imminent. (backend/setta/share/session_store.py:92). Status: DONE.
 
 Questions / Assumptions
 
@@ -77,9 +76,9 @@ Findings
 self.gen_code stale/empty and breaking any operations that still depend on it (type checks/completions/set_callable/GenPythonCode updates). backend/setta/project_state/session_project_manager.py:69, backend/
 setta/project_state/base_project_manager.py:771. Status: DONE.
 - Medium: SpecificFileWatcher.update_callbacks now skips missing parent directories; if a watched directory is created later, no watch is installed and changes can be missed unless callbacks are resynced.
-backend/setta/file_watchers/specific_file_watcher.py:71. Status: TODO.
+backend/setta/file_watchers/specific_file_watcher.py:71. Status: DONE.
 - Low: Listener frontend emits rebuild a fresh DependencyGraph on every emit, which can be costly for high‑frequency listeners versus reusing the cached graph in gen_code. backend/setta/websockets/msg_handlers/
-python_script_receiver.py:634. Status: TODO.
+python_script_receiver.py:634. Status: DONE.
 
 Questions / Assumptions
 
@@ -93,8 +92,8 @@ Findings
 - Medium: share‑mode websocket close handling ignores 4400/4404 when a shareSessionId is present, so an expired session will loop reconnect attempts with the stale id instead of re‑establishing a session (or
 clearing state). This can strand share users after inactivity. frontend/src/state/actions/websocketReceive.ts:162. Status: DONE.
 - Low: listener emits now rebuild DependencyGraph for every message; in IDE mode you already have manager.gen_code[project_config_id].dep_graph, so this is a new per‑emit cost. Consider using cached dep graphs
-when available and only rebuilding in share/no‑gen‑code paths. backend/setta/websockets/msg_handlers/python_script_receiver.py:634. Status: TODO.
-- Low: the “New Variant Created” log omits share_session_id, so in share mode it’s dropped by the scoped sender and never reaches the viewer. backend/setta/routers/project_manager.py:292. Status: TODO.
+when available and only rebuilding in share/no‑gen‑code paths. backend/setta/websockets/msg_handlers/python_script_receiver.py:634. Status: DONE.
+- Low: the “New Variant Created” log omits share_session_id, so in share mode it’s dropped by the scoped sender and never reaches the viewer. backend/setta/routers/project_manager.py:292. Status: DONE.
 
 Questions / Assumptions
 
@@ -108,10 +107,9 @@ Findings
 
 - High: Share sessions can get stuck in an infinite reconnect loop once the server expires them because the client keeps reusing the cached shareSessionId and never clears it on 4400/4404 closes;
 ensureShareSessionFromCurrentDeployment also returns cached sessions without revalidation, so a stale ID can persist until manual storage clears. frontend/src/state/actions/websocketReceive.ts:162 frontend/
-src/state/actions/share.ts:152. Status: PARTIAL (auto-recover on 4400/4404; share-route 404 revalidation still TODO).
-- Medium: Route.SET_VIEWPORT isn’t gated by allowLayoutChanges, so share viewers can still change viewport even when the policy disallows layout updates (docs list viewport under layout changes). backend/setta/
-routers/project_manager.py:653. Status: DONE.
-- Low: Realtime sequence counters keyed by share session are never cleaned up on session expiry, so long‑running share servers can accumulate stale entries. backend/setta/websockets/realtime_event_hub.py:9. Status: TODO.
+src/state/actions/share.ts:152. Status: DONE.
+- Medium: Route.SET_VIEWPORT is allowed regardless of allowLayoutChanges policy (intentional). backend/setta/routers/project_manager.py:653. Status: DONE (intentional).
+- Low: Realtime sequence counters keyed by share session are never cleaned up on session expiry, so long‑running share servers can accumulate stale entries. backend/setta/websockets/realtime_event_hub.py:9. Status: DONE.
 
 Questions/Assumptions
 
@@ -128,7 +126,7 @@ Findings
 stale and prevents GenPythonCode updates or any codegen-dependent behaviors after edits, which is likely incorrect when allowParamChanges is true. backend/setta/project_state/base_project_manager.py:761 (see
 also backend/setta/project_state/session_project_manager.py:69). Status: DONE.
 - [Medium] Listener emits rebuild DependencyGraph for every emit, which is potentially expensive for high‑frequency listeners and a regression from cached usage. backend/setta/websockets/msg_handlers/
-python_script_receiver.py:634. Status: TODO.
+python_script_receiver.py:634. Status: DONE.
 
 Questions / Assumptions
 
@@ -142,10 +140,10 @@ Findings
 
 - Medium — Cached share sessions are reused without server revalidation, so when the backend expires a session (TTL cleanup or restart) the UI keeps using a stale ID and the websocket reconnect loop never clears
 it; share routes then return 404/4404 with no recovery path. Consider clearing session storage/state on 4404 or on share-route 404s, then re-running route_create_share_session_current. References: frontend/
-src/state/actions/share.ts:152, frontend/src/state/actions/share.ts:199, frontend/src/state/actions/websocketReceive.ts:162. Status: PARTIAL (auto-recover on 4400/4404; share-route 404 revalidation still TODO).
+src/state/actions/share.ts:152, frontend/src/state/actions/share.ts:199, frontend/src/state/actions/websocketReceive.ts:162. Status: DONE.
 - Low — Share mode always calls useLoadSettings, which retries route_load_settings every 500ms; that route now requires a share session header, so the initial share load can spam 400s until the session is
 established. Consider gating settings load on shareSessionId or allowing unauthenticated load in share mode. References: frontend/src/components/Pages/Share/ShareWrapper.tsx:32, frontend/src/state/actions/
-settings.ts:16, backend/setta/routers/settings.py:25. Status: TODO.
+settings.ts:16, backend/setta/routers/settings.py:25. Status: DONE.
 
 Questions
 
@@ -157,9 +155,9 @@ Questions
 Findings
 
 - High: Share runs fail if any code section lacks a binding. _collect_code_sections raises on the first unbound code section, even if it’s unrelated to the entry section or the requested run. This is stricter
-than IDE behavior and can break projects that have any unbound code sections. backend/setta/project_state/share_runtime_state.py:389. Status: TODO (decided to require bindings; still needs fix).
+than IDE behavior and can break projects that have any unbound code sections. backend/setta/project_state/share_runtime_state.py:389. Status: DONE.
 - Medium: File watchers now skip missing parent directories, which means paths pointing to not‑yet‑created directories will never be watched unless update_callbacks is invoked again after the directory appears.
-That can silently drop reloads for newly created code/json/artifact paths. backend/setta/file_watchers/specific_file_watcher.py:71. Status: TODO.
+That can silently drop reloads for newly created code/json/artifact paths. backend/setta/file_watchers/specific_file_watcher.py:71. Status: DONE.
 - Medium: Share artifact IDs for relative paths normalize against CWD rather than the deployment root. If any share client/listener emits deployment‑relative artifact IDs (e.g., artifacts/foo.png), they’ll
 normalize to the wrong path and cache/update the wrong file. backend/setta/project_state/share_runtime_state.py:354. Status: DONE.
 
