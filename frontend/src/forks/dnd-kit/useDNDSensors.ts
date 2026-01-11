@@ -1,5 +1,4 @@
-import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
-import { useDndState } from "./dndState";
+import { PointerSensor } from "@dnd-kit/dom";
 import { useShareCapabilities } from "state/hooks/share";
 
 export function useDNDSensors() {
@@ -8,46 +7,7 @@ export function useDNDSensors() {
     return [];
   }
 
-  const pointerSensor = PointerSensor.configure({
-    activationConstraints: () => undefined,
-    preventActivation: (_event, source) => {
-      const { isSorting, isMovingFree } = useDndState.getState();
-      const isTopLevel = Boolean(
-        (source.data as { current?: { isTopLevel?: boolean } } | undefined)
-          ?.current?.isTopLevel,
-      );
+  const pointerSensor = PointerSensor.configure({});
 
-      if (isMovingFree) {
-        return false;
-      }
-
-      if (isSorting && !isTopLevel) {
-        return false;
-      }
-
-      return true;
-    },
-  });
-
-  const keyboardSensor = KeyboardSensor.configure({
-    preventActivation: (_event, source) => {
-      const { isSorting, isMovingFree } = useDndState.getState();
-      const isTopLevel = Boolean(
-        (source.data as { current?: { isTopLevel?: boolean } } | undefined)
-          ?.current?.isTopLevel,
-      );
-
-      if (isMovingFree) {
-        return false;
-      }
-
-      if (isSorting && !isTopLevel) {
-        return false;
-      }
-
-      return true;
-    },
-  });
-
-  return [pointerSensor, keyboardSensor];
+  return [pointerSensor];
 }

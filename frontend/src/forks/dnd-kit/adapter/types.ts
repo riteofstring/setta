@@ -36,21 +36,10 @@ export type DndData<T extends Record<string, unknown> = Record<string, unknown>>
     current: T;
   };
 
-export type SettaCollision = Collision & {
-  pastHalfway?: boolean;
-  triggerDistCondition?: boolean;
-  data?: Collision["data"] & {
-    droppable?: Droppable;
-    absTriggerDist?: number;
-    triggerDist?: number;
-    intersectionRatio?: number;
-  };
-};
-
 export type DragEvent = {
   activatorEvent: Event | null;
   active: Draggable;
-  collisions: SettaCollision[] | null;
+  collisions: Collision[] | null;
   delta: Coordinates;
   over: Droppable | null;
 };

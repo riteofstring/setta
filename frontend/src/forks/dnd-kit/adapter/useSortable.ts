@@ -4,13 +4,7 @@ import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import { useDragDropManager } from "@dnd-kit/react";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { Context } from "./SortableContext";
-import type {
-  ClientRect,
-  Disabled,
-  SettaCollision,
-  SortingStrategy,
-  Transform,
-} from "./types";
+import type { ClientRect, Disabled, SortingStrategy, Transform } from "./types";
 import {
   isValidIndex,
   resolveStrategyResult,
@@ -18,7 +12,6 @@ import {
 } from "./sorting";
 import { useDraggable } from "./useDraggable";
 import { useDroppable } from "./useDroppable";
-import { useDndMode } from "../dndState";
 
 export type SortableTransition = {
   duration?: number;
@@ -103,19 +96,7 @@ export function useSortable({
     () => toTransform(manager?.dragOperation.transform),
     [manager],
   ).value;
-  const collisions = useComputed(
-    () => manager?.collisionObserver.collisions ?? null,
-    [manager],
-  ).value as SettaCollision[] | null;
-  const overIdFromIndex = isValidIndex(overIndex) ? items[overIndex] : null;
-  const relevantCollision = getRelevantCollision(
-    collisions,
-    items,
-    overIdFromIndex,
-  );
-  const pastHalfway = relevantCollision?.pastHalfway;
-  const dndMode = useDndMode();
-  const isSorting = dndMode.isSorting && activeIndex !== -1;
+  const isSorting = activeIndex !== -1;
   const displaceItem =
     isSorting &&
     !disableTransforms &&
@@ -139,7 +120,6 @@ export function useSortable({
         activeIndex,
         overIndex,
         index,
-        pastHalfway,
       });
       const resolved = resolveStrategyResult(result, overIndex);
       finalTransform = resolved.transform;
@@ -190,31 +170,6 @@ function toTransform(transform: Coordinates | undefined): Transform {
     scaleX: 1,
     scaleY: 1,
   };
-}
-
-function getRelevantCollision(
-  collisions: SettaCollision[] | null,
-  items: UniqueIdentifier[],
-  preferredId: UniqueIdentifier | null,
-): SettaCollision | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  if (preferredId) {
-    const preferredCollision = collisions.find(
-      (collision) => collision.id === preferredId,
-    );
-    return preferredCollision ?? null;
-  }
-
-  for (const collision of collisions) {
-    if (items.includes(collision.id)) {
-      return collision;
-    }
-  }
-
-  return collisions[0] ?? null;
 }
 
 function toClientRect(rect: ClientRect): ClientRect {

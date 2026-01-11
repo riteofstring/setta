@@ -2,9 +2,7 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 
 export function useShouldDisablePointerEvents() {
-  const isSortingOrMovingFree = useDndState(
-    (x) => x.isSorting || x.isMovingFree,
-  );
+  const isDragging = useDndState((x) => x.activeId !== null);
   const otherSpecialKeysPressed = useReactFlow(
     (x) =>
       x.moveSectionActivationKeyPressed ||
@@ -12,5 +10,5 @@ export function useShouldDisablePointerEvents() {
       x.multiSelectionActive ||
       x.zoomActivationKeyPressed,
   );
-  return isSortingOrMovingFree || otherSpecialKeysPressed;
+  return isDragging || otherSpecialKeysPressed;
 }

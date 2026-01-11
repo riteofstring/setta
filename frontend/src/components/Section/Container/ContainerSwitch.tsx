@@ -34,7 +34,6 @@ export function ContainerSwitch({
     <DndSlotAndDndWatcher
       isGroup={isGroup}
       sectionId={sectionId}
-      isTopLevel={isTopLevel}
       dragListeners={dragListeners}
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}

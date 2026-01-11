@@ -1,49 +1,14 @@
 import { useSortable } from "forks/dnd-kit/adapter";
-import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
-import { TempDNDSection } from "forks/dnd-kit/DummySection";
-import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { applyZoomToTransform, transformToString } from "forks/dnd-kit/adapter/zoom";
+import { useDndState } from "forks/dnd-kit/dndState";
+import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId }) {
-  return isTempSection(sectionId) ? (
-    <TempDNDSortableSectionContainer sectionId={sectionId} />
-  ) : (
-    <RegularSortableSectionContainer
-      sectionId={sectionId}
-      forceApplyTransform={false}
-    />
-  );
-}
-
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
-
-function _TempDNDSortableSectionContainer({ sectionId }) {
-  const [forceApplyTransform, setForceApplyTransform] = useState(true);
-
-  useEffect(() => {
-    // we want to force the temp section to appear on first render
-    setForceApplyTransform(false);
-  }, []);
-
-  return (
-    <RegularSortableSectionContainer
-      sectionId={sectionId}
-      forceApplyTransform={forceApplyTransform}
-    />
-  );
-}
-
-const TempDNDSortableSectionContainer = React.memo(
-  _TempDNDSortableSectionContainer,
-);
-
-function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
-  const animateLayoutChanges = useAnimateLayoutChanges();
-  const dndProps = useDndProps({ sectionId, isTopLevel: false });
+  const dndProps = useDndProps(sectionId);
 
   // remove 'role' because we don't want sections to be "role=button"
   const {
@@ -52,9 +17,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
     setNodeRef,
     transform,
     transition,
-    overIndex,
-    items,
-  } = useSortable({ ...dndProps, animateLayoutChanges });
+  } = useSortable({ ...dndProps });
   return (
     <SortableCore
       sectionId={sectionId}
@@ -63,20 +26,11 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
       setNodeRef={setNodeRef}
       transform={transform}
       transition={transition}
-      applyTransform={
-        forceApplyTransform ||
-        (overIndex !== null && overIndex !== -1) ||
-        (items.length === 1 &&
-          items[0] === sectionId &&
-          isTempSection(sectionId))
-      }
     />
   );
 }
 
-const RegularSortableSectionContainer = React.memo(
-  _RegularSortableSectionContainer,
-);
+export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
 function _SortableCore({
   sectionId,
@@ -85,10 +39,9 @@ function _SortableCore({
   setNodeRef,
   transform,
   transition,
-  applyTransform,
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
-  const scaledTransform = applyZoomToTransform(applyTransform ? transform : null);
+  const scaledTransform = applyZoomToTransform(transform);
   const transformX = scaledTransform ? scaledTransform.x : null;
   const transformY = scaledTransform ? scaledTransform.y : null;
   const transformScaleX = scaledTransform ? scaledTransform.scaleX : null;
@@ -98,7 +51,6 @@ function _SortableCore({
   useEffect(() => {
     scheduleEdgeHandlePositionUpdate([sectionId]);
   }, [
-    applyTransform,
     hasTransform,
     sectionId,
     transition,
@@ -121,24 +73,9 @@ function _SortableCore({
       {...stackProps}
       tabIndex={-1}
     >
-      <TempSectionOrNot
-        sectionId={sectionId}
-        applyTransform={applyTransform}
-        listeners={listeners}
-      />
+      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
     </div>
   );
-}
-
-function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
-  if (isTempSection(sectionId)) {
-    if (applyTransform) {
-      return <TempDNDSection />;
-    }
-    return null;
-  } else {
-    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
-  }
 }
 
 const SortableCore = React.memo(
@@ -149,8 +86,3 @@ const SortableCore = React.memo(
     p.transition === n.transition &&
     _.isEqual(p.listeners, n.listeners),
 );
-
-function useAnimateLayoutChanges() {
-  const isSorting = useDndState((x) => x.isSorting);
-  return () => isSorting;
-}

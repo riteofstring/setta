@@ -19,10 +19,10 @@ export function TopLevelContainer({
   isUserView: boolean;
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
-  const dndProps = useDndProps({ sectionId, isTopLevel: true });
+  const dndProps = useDndProps(sectionId);
   const { setNodeRef: droppableRef } = useDroppable({
     ...dndProps,
-    disabled: activeIsSelf,
+    disabled: Boolean(dndProps.disabled) || activeIsSelf,
   });
   const { listeners: dragListeners, setNodeRef: draggableRef } =
     useDraggable(dndProps);
@@ -31,7 +31,6 @@ export function TopLevelContainer({
     <DndSlotAndDndWatcher
       isGroup={isGroup}
       sectionId={sectionId}
-      isTopLevel={true}
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       dragListeners={dragListeners}

@@ -1,9 +1,8 @@
-import { useComputed } from "@dnd-kit/react/hooks";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
+import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useMemo, useRef, useId } from "react";
-import { getDndSectionId } from "../dndState";
 import type { ClientRect, Disabled, SortingStrategy } from "./types";
 import {
   getSortedRects,
@@ -70,59 +69,23 @@ export function SortableContext({
     () => manager?.dragOperation.source ?? null,
     [manager],
   ).value;
-  const collisions = useComputed(
-    () => manager?.collisionObserver.collisions ?? null,
+  const over = useComputed(
+    () => manager?.dragOperation.target ?? null,
     [manager],
-  ).value;
-  const collisionOverId = useComputed(
-    () =>
-      getOverIdFromCollisions(
-        collisions as Array<{ id: UniqueIdentifier }> | null,
-        items,
-      ),
-    [collisions, items],
-  ).value;
-  const hasContainerCollision = useComputed(
-    () =>
-      Boolean(
-        (collisions as Array<{ id: UniqueIdentifier }> | null)?.some(
-          (collision) => collision.id === containerId,
-        ),
-      ),
-    [collisions, containerId],
   ).value;
   const droppableRects = useComputed(
     () => getDroppableRects(manager?.registry.droppables ?? []),
     [manager],
   ).value;
 
-  const isDragging = active != null;
   const activeIndex = getActiveIndex(active, items);
-  const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
-  const resolvedOverId = useMemo(() => {
-    if (collisionOverId) {
-      lastOverIdRef.current = collisionOverId;
-      return collisionOverId;
-    }
-
-    if (hasContainerCollision) {
-      const stickyId = lastOverIdRef.current;
-      if (stickyId && items.includes(stickyId)) {
-        return stickyId;
-      }
-    } else if (lastOverIdRef.current) {
-      lastOverIdRef.current = null;
-    }
-
-    return manager?.dragOperation.target?.id ?? null;
-  }, [collisionOverId, hasContainerCollision, items, manager]);
-  const overIndex = resolvedOverId ? items.indexOf(resolvedOverId) : -1;
+  const overIndex = over ? items.indexOf(over.id) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
   const disableTransforms =
     (overIndex !== -1 && activeIndex === -1) || itemsHaveChanged;
   const disabled = normalizeDisabled(disabledProp);
-  const useDragOverlay = Boolean(active);
+  const useDragOverlay = false;
 
   useEffect(() => {
     previousItemsRef.current = items;
@@ -164,29 +127,7 @@ function getActiveIndex(
     return -1;
   }
 
-  const tempIndex = items.indexOf(getDndSectionId(String(active.id)));
-  if (tempIndex >= 0) {
-    return tempIndex;
-  }
-
   return items.indexOf(active.id);
-}
-
-function getOverIdFromCollisions(
-  collisions: Array<{ id: UniqueIdentifier }> | null,
-  items: UniqueIdentifier[],
-): UniqueIdentifier | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  for (const collision of collisions) {
-    if (items.includes(collision.id)) {
-      return collision.id;
-    }
-  }
-
-  return null;
 }
 
 function getDroppableRects(
