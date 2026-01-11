@@ -40,7 +40,6 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
   const autoPanId = useRef(0);
   const containerBounds = useRef<DOMRect | null>(null);
   const mousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const dragEvent = useRef<MouseEvent | null>(null);
   const autoPanStarted = useRef(false);
   const dragStarted = useRef(false);
 
@@ -195,7 +194,6 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
               dragItems.current &&
               dragStarted.current
             ) {
-              dragEvent.current = event.sourceEvent as MouseEvent;
               mousePosition.current = getEventPosition(
                 event.sourceEvent,
                 containerBounds.current!,

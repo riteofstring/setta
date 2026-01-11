@@ -14,6 +14,19 @@ export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   height: node.offsetHeight,
 });
 
+const getWheelDeltaModeFactor = (deltaMode: number): number => {
+  if (deltaMode === 1) {
+    return 0.05;
+  }
+  if (deltaMode === 0) {
+    return 0.002;
+  }
+  return 1;
+};
+
+export const getWheelDelta = (event: WheelEvent, factor = 1): number =>
+  -event.deltaY * getWheelDeltaModeFactor(event.deltaMode) * factor;
+
 // returns a number between 0 and 1 that represents the velocity of the movement
 // when the mouse is close to the edge of the canvas
 const calcAutoPanVelocity = (
