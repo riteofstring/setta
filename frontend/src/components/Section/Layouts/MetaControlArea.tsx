@@ -181,6 +181,7 @@ function MetaControlValueArea({
     sendRealtimeControlAction({
       controlName: sectionName,
       actionId: sectionName,
+      actionControlType: CodeObjTypeEnum.ButtonParam,
       payload: null,
     });
   }

@@ -116,10 +116,6 @@ class PythonValueCodec:
                 if node.value:
                     return repr(node.value.payload)
                 return "None"
-            case SectionType.Chat:
-                if node.value:
-                    return repr(node.value.payload)
-                return "None"
             case SectionType.Draw:
                 if node.value:
                     return self.format_dependency_value(node.value)

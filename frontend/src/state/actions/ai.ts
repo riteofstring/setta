@@ -139,7 +139,6 @@ export async function submitMessage(
   message: string,
   deepThink: boolean,
   llmConfigId: string,
-  messageId?: string,
 ): Promise<string | null> {
   if (!message.trim()) {
     return null;
@@ -147,7 +146,7 @@ export async function submitMessage(
 
   // Add user message immediately for responsive UI
   const userMessage = {
-    id: messageId ?? createNewId(),
+    id: createNewId(),
     role: ChatRoleEnum.user,
     content: [createMessageTextContent({ text: message })],
   };
