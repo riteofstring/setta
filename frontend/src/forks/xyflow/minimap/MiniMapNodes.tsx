@@ -1,20 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import {
-  useNodeInternals,
-  useProjectState,
-  type ZustandNodeInternalsState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
-const selectorNodes = (s: ZustandNodeInternalsState) =>
+declare const window: any;
+
+const selectorNodes = (s) =>
   getNodes(s).filter((node) => node.width && node.height);
-const getAttrFunction = (
-  func: string | GetMiniMapNodeAttribute,
-): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
+const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
+  func instanceof Function ? func : () => func;
 
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
@@ -22,7 +20,6 @@ function _MiniMapNodesReactive(props: MiniMapNodesType) {
   if (readyToBeVisible) {
     return <MiniMapNodes nodes={nodes} {...props} />;
   }
-  return null;
 }
 
 export const MiniMapNodesReactive = memo(_MiniMapNodesReactive);
@@ -44,10 +41,10 @@ function _MiniMapNodes({
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
   const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
 
-  const isBrowser = typeof window !== "undefined";
-  const isChrome = isBrowser && "chrome" in window;
   const shapeRendering =
-    !isBrowser || isChrome ? "crispEdges" : "geometricPrecision";
+    typeof window === "undefined" || !!window.chrome
+      ? "crispEdges"
+      : "geometricPrecision";
 
   return (
     <>
