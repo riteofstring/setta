@@ -415,6 +415,12 @@ function maybeMoveToNewParent({
     let index = 0;
     if (overIndex >= 0) {
       index = pastHalfway ? overIndex + 1 : overIndex;
+    } else if (
+      overId !== null &&
+      String(overId) === newParentId &&
+      newParentChildren.length > 0
+    ) {
+      index = pastHalfway ? newParentChildren.length : 0;
     }
     logDnd("maybeMoveToNewParent-add-child", {
       activeId: active.id,
