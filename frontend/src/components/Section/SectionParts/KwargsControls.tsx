@@ -12,6 +12,7 @@ import {
   route_delete_kwarg,
   route_set_section_edge_inputs,
   route_set_section_param_filter,
+  route_set_section_pinned_params,
 } from "utils/generatedEndpoints";
 import {
   isBaseSectionWithParamsImpl,
@@ -31,7 +32,7 @@ export function KwargsControls({
 }: KwargsControlsProps) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-  const { canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const callableMissing = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -48,19 +49,52 @@ export function KwargsControls({
 
   const onClickDeleteSelectedKwargs = () => {};
 
-  function onClickPinParam() {}
+  const { selectedParams, edgeInputParams, pinnedParams } = useProjectState(
+    (x) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      return {
+        selectedParams: impl.selectedParams,
+        edgeInputParams: impl.edgeInputParams,
+        pinnedParams: impl.pinnedParams,
+      };
+    },
+    _.isEqual,
+  );
 
-  const { selectedParams, edgeInputParams } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
+  const canPinParams =
+    selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
+  const pinParamsDisabled = !canPinParams;
+
+  function onClickPinParam() {
+    if (!canPinParams) {
+      return;
+    }
+    const nextPinnedParams = Array.from(
+      new Set([...pinnedParams, ...selectedParams]),
     );
-    return {
-      selectedParams: impl.selectedParams,
-      edgeInputParams: impl.edgeInputParams,
-    };
-  }, _.isEqual);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          state,
+          sectionId,
+          {
+            pinnedParams: nextPinnedParams,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_pinned_params({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          pinnedParams: nextPinnedParams,
+          frontendOpId,
+        }),
+    });
+  }
 
   const canConvertToEdge =
     selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
@@ -138,6 +172,7 @@ export function KwargsControls({
               className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={onClickPinParam}
               tabIndex={0}
+              disabled={pinParamsDisabled}
               aria-label="Pin selected args"
               {...getFloatingBoxHandlers({ content: "Pin selected args" })}
             >
