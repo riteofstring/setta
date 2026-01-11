@@ -243,11 +243,16 @@ export function useOnDragEnd() {
       manualDndChildrenReset();
     }
     // don't reset isMovingFree or isSorting
-    const additionalResetState = (state) => ({
-      isMovingFree: state.getState().isMovingFree,
-      isSorting: state.getState().isSorting,
-      disabled: state.getState().disabled,
-    });
+    const additionalResetState = (state) => {
+      const dndState = state.getState();
+      const shouldDeactivate = dndState.pendingDeactivation;
+      return {
+        isMovingFree: dndState.isMovingFree,
+        isSorting: dndState.isSorting,
+        pendingDeactivation: shouldDeactivate,
+        disabled: dndState.disabled,
+      };
+    };
     useDndState.getState().reset(additionalResetState);
   }
 

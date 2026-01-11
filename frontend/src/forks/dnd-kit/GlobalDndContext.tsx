@@ -1,4 +1,5 @@
 import { DragDropProvider } from "forks/dnd-kit/adapter";
+import { DeferredDndDeactivation } from "./DeferredDndDeactivation";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
 import { useDndMode } from "./dndState";
@@ -26,6 +27,7 @@ export function GlobalDndContext({ children }) {
       modifiers={modifiers ?? undefined}
     >
       <DragOperationShapeSync />
+      <DeferredDndDeactivation />
       {children}
       {isMovingFree ? <DummyDragOverlay ref={dummyRef} /> : null}
     </DragDropProvider>
