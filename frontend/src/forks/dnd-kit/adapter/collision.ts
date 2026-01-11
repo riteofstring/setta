@@ -6,7 +6,7 @@ import {
 import type { Draggable, Droppable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionInfo } from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
 import type { ClientRect, SettaCollision } from "./types";
 
@@ -24,7 +24,7 @@ type DndEntityData = {
   hasNested?: boolean;
   onlyChildId?: string | null;
   sortable?: {
-    containerId?: string | number;
+    containerId?: string;
   };
 };
 
@@ -64,7 +64,7 @@ export const customCollisionDetection: CollisionDetector = ({
   const droppableData = getEntityData(droppable);
   const containerId = droppableData?.sortable?.containerId;
   const containerIsHorizontal = containerId
-    ? Boolean(getSectionInfo(containerId)?.isHorizontalOrientation)
+    ? getSectionIsHorizontalOrientation(containerId)
     : false;
 
   const triggerDist = containerIsHorizontal
@@ -154,7 +154,7 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
   const containerIsHorizontal = Boolean(
-    getSectionInfo(activeContainerId)?.isHorizontalOrientation,
+    getSectionIsHorizontalOrientation(activeContainerId),
   );
 
   const distance = getEdgeDistance({

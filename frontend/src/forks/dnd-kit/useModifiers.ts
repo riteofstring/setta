@@ -3,7 +3,7 @@ import {
   RestrictToVerticalAxis,
 } from "@dnd-kit/abstract/modifiers";
 import _ from "lodash";
-import { getSectionInfo } from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useDndState } from "./dndState";
 
@@ -17,11 +17,11 @@ export function useModifiers() {
   return { modifiers };
 }
 
-function getModifiers(isSorting, activeId) {
+function getModifiers(isSorting: boolean, activeId: string | null) {
   if (isSorting && activeId) {
     const parentId = useProjectState.getState().parentSectionMap[activeId];
     if (parentId) {
-      return getSectionInfo(parentId).isHorizontalOrientation
+      return getSectionIsHorizontalOrientation(parentId)
         ? [RestrictToHorizontalAxis]
         : [RestrictToVerticalAxis];
     }

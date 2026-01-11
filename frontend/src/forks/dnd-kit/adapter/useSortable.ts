@@ -9,7 +9,7 @@ import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
-import { getSectionInfo } from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { Context } from "./SortableContext";
 import type {
   ClientRect,
@@ -75,9 +75,7 @@ export function useSortable({
   const sortableTransition = dndMode.isSorting ? transition : null;
   let dragModifiers;
   if (dndMode.isSorting) {
-    const containerIsHorizontal = Boolean(
-      getSectionInfo(containerId)?.isHorizontalOrientation,
-    );
+    const containerIsHorizontal = getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
     ];
