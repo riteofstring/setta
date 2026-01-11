@@ -13,7 +13,6 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
     CreateTopLevelSectionRequest,
@@ -139,15 +138,10 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = fixture.websocket_manager
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            project_manager_switcher = ProjectManagerSwitcher(
-                main_manager=fixture.manager,
-                settings_manager=fixture.manager,
-            )
             chat_manager = LLMChatManager(
                 fixture.dbe,
                 mcp_client,
                 frontend_sender,
-                project_manager_switcher,
             )
 
             websocket_id = "tool-result-follow-socket"
@@ -261,15 +255,10 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = fixture.websocket_manager
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            project_manager_switcher = ProjectManagerSwitcher(
-                main_manager=fixture.manager,
-                settings_manager=fixture.manager,
-            )
             chat_manager = LLMChatManager(
                 fixture.dbe,
                 mcp_client,
                 frontend_sender,
-                project_manager_switcher,
             )
 
             tool_annotations_by_name = _build_tool_annotations_by_name(
@@ -360,15 +349,10 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
         async with real_project_manager() as fixture:
             frontend_sender = WMHFrontendSender(fixture.websocket_manager)
             mcp_client = MultiMCPClient({})
-            project_manager_switcher = ProjectManagerSwitcher(
-                main_manager=fixture.manager,
-                settings_manager=fixture.manager,
-            )
             chat_manager = LLMChatManager(
                 fixture.dbe,
                 mcp_client,
                 frontend_sender,
-                project_manager_switcher,
             )
 
             tool_name = build_namespaced_tool_name("context7", "create_top_level_section")

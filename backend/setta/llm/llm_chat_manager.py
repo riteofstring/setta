@@ -82,7 +82,6 @@ from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
-    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.types.llm_config import LLMConfig
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
@@ -154,7 +153,6 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
-        project_manager_switcher: "ProjectManagerSwitcher",
         chat_store: ChatStore | None = None,
         *,
         share_session_id: str | None = None,
@@ -163,7 +161,6 @@ class LLMChatManager:
         self.chat_store = chat_store or DBEChatStore(dbe)
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.project_manager_switcher = project_manager_switcher
         self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
@@ -506,6 +503,7 @@ class LLMChatManager:
         discoverable_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
             server_id_set
         )
+        discoverable_tool_names = set(discoverable_tools.keys())
         combined: dict[str, ChatCompletionToolParam] = {}
         combined.update(init_tools)
         combined.update(discoverable_tools)
@@ -520,7 +518,7 @@ class LLMChatManager:
         has_non_deferred = False
         for name in tool_names:
             tool_payload = dict(combined[name])
-            if defer_loading and name != self._search_tool_name:
+            if defer_loading and name in discoverable_tool_names:
                 tool_payload["defer_loading"] = True
             else:
                 has_non_deferred = True

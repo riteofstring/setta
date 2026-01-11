@@ -370,7 +370,6 @@ class SettaFastAPIState:
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
-                self.project_manager_switcher,
             )
             self.chat_manager.update_config(llm_config)
             self.dotenv_watcher = DotEnvWatcher(
@@ -506,7 +505,6 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.share_runtime_state,
                 self.share_session_store,
-                self.project_manager_switcher,
                 llm_config=llm_config,
             )
         share_chat_manager = self.chat_manager if share_policy.allowLLM else None

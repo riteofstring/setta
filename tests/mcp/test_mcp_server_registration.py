@@ -268,7 +268,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 fixture.dbe,
                 mcp_client,
                 websocket_sender,
-                setta_state.project_manager_switcher,
             )
 
             chat_manager.update_config(

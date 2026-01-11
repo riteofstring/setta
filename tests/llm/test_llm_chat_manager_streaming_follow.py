@@ -10,7 +10,7 @@ from litellm.types.utils import (
     ModelResponseStream,
 )
 from setta.database.db_objs import DBE
-from setta.llm.llm_chat_manager import LLMChatManager, ToolCallStreamState
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
@@ -18,8 +18,6 @@ from setta.mcp.tool_metadata import (
     SettaToolAnnotations,
     SettaToolType,
 )
-from setta.types.chat_messages import AssistantChatMessage
-from setta.types.id import ID
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
@@ -29,9 +27,6 @@ from setta.websockets.websocket_manager import WebsocketManager
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
-from tests.utils.project_summary import build_project_summary_switcher
-
-
 class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
@@ -39,12 +34,10 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.mcp_client = MultiMCPClient({})
-        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
-            project_manager_switcher,
         )
         namespaced_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID,
