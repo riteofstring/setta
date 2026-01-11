@@ -53,12 +53,40 @@ function formatCollisions(
   }));
 }
 
+function formatCollisionsSummary(
+  collisions: DragOverEvent["collisions"] | null,
+): string | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  return collisions
+    .map((collision) => {
+      const id = String(collision.id);
+      const pastHalfway = collision.pastHalfway ? "T" : "F";
+      const value =
+        typeof collision.value === "number"
+          ? collision.value.toFixed(2)
+          : String(collision.value);
+      return `${id}:${pastHalfway}:${value}`;
+    })
+    .join(" | ");
+}
+
 function logDnd(label: string, data: Record<string, unknown>) {
   if (!DEBUG_DND_VERBOSE) {
     return;
   }
 
   console.log("[dnd]", label, data);
+}
+
+function logDndLine(message: string) {
+  if (!DEBUG_DND_VERBOSE) {
+    return;
+  }
+
+  console.log("[dnd]", message);
 }
 
 export function onDragStart({ active }: DragStartEvent) {
@@ -101,6 +129,7 @@ function onDragMove({ active, collisions }: DragMoveEvent) {
     activeId: active.id,
     triggerDistCondition,
     overId: dndState.overId,
+    collisionsSummary: formatCollisionsSummary(collisions),
     collisions: formatCollisions(collisions),
   });
 
@@ -156,6 +185,7 @@ function onDragOver({
     calledFromOnDragMove: Boolean(calledFromOnDragMove),
     dndSectionId,
     oldParentId,
+    collisionsSummary: formatCollisionsSummary(collisions),
     collisions: formatCollisions(collisions),
   });
 
@@ -292,6 +322,7 @@ function maybeMoveToNewParent({
     newParentChildren,
     oldParentChildren,
     pastHalfway,
+    collisionsSummary: formatCollisionsSummary(collisions),
   });
   // Check if section can actually be dropped onto newParentId
   console.log("newParentId", newParentId);
@@ -354,6 +385,9 @@ function maybeMoveToNewParent({
       index,
       pastHalfway,
     });
+    logDndLine(
+      `add-child overIndex=${overIndex} index=${index} pastHalfway=${pastHalfway}`,
+    );
     addDndChild(oldParentId, newParentId, dndSectionId, index);
   } else if (activeIndex >= 0 && overIndex >= 0 && overId !== dndSectionId) {
     const nextIndex = computeNewIndex(
@@ -372,6 +406,9 @@ function maybeMoveToNewParent({
       nextIndex,
       pastHalfway,
     });
+    logDndLine(
+      `reorder activeIndex=${activeIndex} overIndex=${overIndex} nextIndex=${nextIndex} pastHalfway=${pastHalfway}`,
+    );
     if (nextIndex !== activeIndex) {
       addDndChild(oldParentId, newParentId, dndSectionId, nextIndex);
     }
@@ -449,7 +486,7 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
   return null;
 }
 
-function getOverId(
+export function getOverId(
   over: { id: string | number } | null,
   collisions: DragOverEvent["collisions"] | null,
 ) {

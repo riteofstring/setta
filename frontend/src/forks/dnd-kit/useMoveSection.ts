@@ -10,9 +10,39 @@ import { moveSectionWithBackend } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import type { DragEndEvent } from "./adapter";
-import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
+import { getOverId } from "./useDropType";
+
+const DEBUG_DND_MOVE_SECTION = true;
+
+function formatCollisionsSummary(
+  collisions: DragEndEvent["collisions"] | null,
+): string | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  return collisions
+    .map((collision) => {
+      const id = String(collision.id);
+      const pastHalfway = collision.pastHalfway ? "T" : "F";
+      const value =
+        typeof collision.value === "number"
+          ? collision.value.toFixed(2)
+          : String(collision.value);
+      return `${id}:${pastHalfway}:${value}`;
+    })
+    .join(" | ");
+}
+
+function logDndMoveSection(label: string, data: Record<string, unknown>) {
+  if (!DEBUG_DND_MOVE_SECTION) {
+    return;
+  }
+
+  console.log("[dnd-move-section]", label, data);
+}
 
 function onSortEnd({ active, over }: Pick<DragEndEvent, "active" | "over">) {
   if (over && active.id !== over.id) {
@@ -43,14 +73,27 @@ async function onFreeMoveEnd({
   const dndChildrenState = useDndChildren.getState();
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
-  const overId = over?.id;
+  const resolvedOverId = getOverId(over, collisions);
+  const overId = resolvedOverId ? String(resolvedOverId) : null;
   const oldParentId = useProjectState.getState().parentSectionMap[sectionId];
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let activeIdx: number | null = null;
   let newIndex: number | null = null;
   let position: Position | null = null;
+  let pastHalfway: boolean | null = null;
+  let indexSource: "placeholder" | "collision" | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
   const hasCollisions = Boolean(collisions && collisions.length > 0);
+
+  logDndMoveSection("dragend-start", {
+    activeId: active.id,
+    overId,
+    oldParentId,
+    newParentId,
+    behaviorDropType,
+    hasCollisions,
+    collisionsSummary: formatCollisionsSummary(collisions),
+  });
 
   if (!hasCollisions && !overId) {
     newParentId = null;
@@ -58,15 +101,37 @@ async function onFreeMoveEnd({
 
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
-    if (!children || !overId) {
+    if (!children) {
       manualDndChildrenReset();
       return;
     }
+    const overIdx = overId ? children.indexOf(overId) : -1;
     activeIdx = children.indexOf(dndSectionId);
-    const overIdx = children.indexOf(overId);
-    const pastHalfway = Boolean(collisions?.[0]?.pastHalfway);
-    const maxIdx = children.length;
-    newIndex = computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx);
+    if (activeIdx >= 0) {
+      newIndex = activeIdx;
+      indexSource = "placeholder";
+    } else {
+      const overCollision =
+        collisions?.find((collision) => String(collision.id) === overId) ?? null;
+      pastHalfway = Boolean(overCollision?.pastHalfway);
+      if (overIdx >= 0) {
+        newIndex = pastHalfway ? overIdx + 1 : overIdx;
+      } else {
+        newIndex = 0;
+      }
+      indexSource = "collision";
+    }
+
+    logDndMoveSection("dragend-indices", {
+      activeId: active.id,
+      newParentId,
+      activeIdx,
+      overId,
+      overIdx,
+      pastHalfway,
+      indexSource,
+      newIndex,
+    });
   }
   // dropping nested section onto pane
   else if (!overId) {

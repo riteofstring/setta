@@ -4,7 +4,7 @@ import {
   type CollisionDetector,
 } from "@dnd-kit/abstract";
 import type { Draggable, Droppable } from "@dnd-kit/dom";
-import { Rectangle } from "@dnd-kit/geometry";
+import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
@@ -47,6 +47,7 @@ export const customCollisionDetection: CollisionDetector = ({
 
   const activeRect = toClientRect(activeShape.boundingRectangle);
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
+  const pointerCoordinates = dragOperation.position?.current ?? null;
   const intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
 
   if (!intersectionRatio) {
@@ -78,6 +79,7 @@ export const customCollisionDetection: CollisionDetector = ({
     droppableRect,
     containerIsHorizontal,
     currentId: droppable.id,
+    pointerCoordinates,
   });
 
   const triggerDistCondition = getTriggerDistCondition({
@@ -140,6 +142,7 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
 
   const activeRect = toClientRect(activeShape.boundingRectangle);
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
+  const pointerCoordinates = dragOperation.position?.current ?? null;
   const containerIsHorizontal = Boolean(
     getSectionInfo(activeContainerId)?.isHorizontalOrientation,
   );
@@ -159,6 +162,7 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     droppableRect,
     containerIsHorizontal,
     currentId: droppable.id,
+    pointerCoordinates,
   });
 
   const collision: SettaCollision = {
@@ -291,17 +295,23 @@ function getPastHalfway({
   droppableRect,
   containerIsHorizontal,
   currentId,
+  pointerCoordinates,
 }: {
   activeRect: ClientRect;
   droppableRect: ClientRect;
   containerIsHorizontal: boolean;
   currentId: Draggable["id"];
+  pointerCoordinates: Coordinates | null;
 }): boolean {
   let buffer = 0;
   const effectiveDroppableRect =
     prevCollisionId && prevCollisionId === currentId && prevCollisionRect
       ? prevCollisionRect
       : droppableRect;
+  const referencePoint = pointerCoordinates ?? {
+    x: (activeRect.left + activeRect.right) / 2,
+    y: (activeRect.top + activeRect.bottom) / 2,
+  };
 
   if (prevCollisionId && prevCollisionId === currentId) {
     if (prevPastHalfway === true) {
@@ -313,13 +323,13 @@ function getPastHalfway({
 
   if (!containerIsHorizontal) {
     return (
-      (activeRect.top + activeRect.bottom) / 2 + buffer >
+      referencePoint.y + buffer >
       (effectiveDroppableRect.top + effectiveDroppableRect.bottom) / 2
     );
   }
 
   return (
-    (activeRect.left + activeRect.right) / 2 + buffer >
+    referencePoint.x + buffer >
     (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
   );
 }
