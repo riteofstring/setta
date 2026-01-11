@@ -117,7 +117,9 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -132,6 +134,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -200,7 +204,9 @@ from setta.types.helpers_lvl2 import (
     set_code,
     set_code_file_binding,
     set_default_section_variant,
+    set_group_overflow_mode,
     set_image_area_image_path,
+    set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -214,6 +220,8 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
+    set_text_block_heading_as_section_name,
+    set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
     toggle_group_orientation,
@@ -1004,6 +1012,18 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_group_overflow_mode(self, x: SetGroupOverflowModeRequest):
+        """Set whether a group section constrains its children in a scrollable area."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
         ),
         tool_argument_preview=ToolArgumentPreviewMetadata(
             targetIdPathsByType={"section": ["sectionId"]},
@@ -1621,9 +1641,45 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_show_section_title(
+        self, x: SetMetaControlShowSectionTitleRequest
+    ):
+        """Toggle meta control title visibility and broadcast the updated project state."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_show_section_title(
+            project_state, x.sectionId, x.showSectionTitle
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_heading_as_section_name(
+        self, x: SetTextBlockHeadingAsSectionNameRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_heading_as_section_name(
+            project_state, x.sectionId, x.headingAsSectionName
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_meta_control_style(
+        self, x: SetTextBlockMetaControlStyleRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_meta_control_style(
+            project_state, x.sectionId, x.metaControlStyle
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

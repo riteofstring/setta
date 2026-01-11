@@ -50,7 +50,9 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
@@ -64,6 +66,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -585,6 +589,15 @@ async def route_toggle_group_orientation(
     await manager.toggle_group_orientation(x)
 
 
+@router.post(Route.SET_GROUP_OVERFLOW_MODE)
+async def route_set_group_overflow_mode(
+    x: SetGroupOverflowModeRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_group_overflow_mode(
+        x
+    )
+
+
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, ctx: RuntimeContextFromRequest):
     await _deny_share_mode_code_edit(ctx)
@@ -666,6 +679,15 @@ async def route_set_section_name(
     await manager.set_section_name(x)
 
 
+@router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)
+async def route_set_meta_control_show_section_title(
+    x: SetMetaControlShowSectionTitleRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_meta_control_show_section_title(x)
+
+
 @router.post(Route.ACCEPT_RENAME_REFACTOR)
 async def route_accept_rename_refactor(
     x: AcceptRenameRefactorRequest, ctx: RuntimeContextFromRequest
@@ -691,6 +713,24 @@ async def route_set_text_block_display_mode(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_text_block_display_mode(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME)
+async def route_set_text_block_heading_as_section_name(
+    x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_heading_as_section_name(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)
+async def route_set_text_block_meta_control_style(
+    x: SetTextBlockMetaControlStyleRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_meta_control_style(x)
 
 
 @router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)

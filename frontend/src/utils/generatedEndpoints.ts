@@ -521,6 +521,12 @@ export async function route_toggle_group_orientation(
   return await post("/toggleGroupOrientation", x);
 }
 
+export async function route_set_group_overflow_mode(
+  x: gt.SetGroupOverflowModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setGroupOverflowMode", x);
+}
+
 export async function route_set_code(
   x: gt.SetCodeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -581,6 +587,12 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
+export async function route_set_meta_control_show_section_title(
+  x: gt.SetMetaControlShowSectionTitleRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setMetaControlShowSectionTitle", x);
+}
+
 async function route_accept_rename_refactor(
   x: gt.AcceptRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -597,6 +609,18 @@ export async function route_set_text_block_display_mode(
   x: gt.SetTextBlockDisplayModeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockDisplayMode", x);
+}
+
+export async function route_set_text_block_heading_as_section_name(
+  x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockHeadingAsSectionName", x);
+}
+
+export async function route_set_text_block_meta_control_style(
+  x: gt.SetTextBlockMetaControlStyleRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockMetaControlStyle", x);
 }
 
 export async function route_set_section_with_params_display_mode(

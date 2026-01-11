@@ -10,7 +10,9 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
 # Code object type imports
 from setta.types.code_obj_impls import (
+    ButtonActionMode,
     ColorPickerChoice,
+    HttpRequestMethod,
     ParamNameType,
 )
 from setta.types.section_impls import (
@@ -80,6 +82,7 @@ class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="fo
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
+    overflowMode: bool = False
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -107,14 +110,18 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
+    metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pass
+    showSectionTitle: bool = False
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -203,6 +210,12 @@ class UserDefaultButtonParamCodeObjImpl(
     UserDefaultBaseParamCodeObjImpl, extra="forbid"
 ):
     label: str = "Trigger"
+    actionMode: ButtonActionMode = ButtonActionMode.WEBSOCKET_LISTENER
+    requestMethod: HttpRequestMethod = HttpRequestMethod.POST
+    requestUrl: str = ""
+    requestHeaderKey: str = ""
+    requestHeaderValue: str = ""
+    requestBody: str = ""
 
 
 class UserDefaultSliderParamCodeObjImpl(
