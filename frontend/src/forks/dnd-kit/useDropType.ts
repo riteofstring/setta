@@ -25,6 +25,9 @@ import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 let lastChildOverByParent: Record<string, string> = {};
 let lastPastHalfwayByOverId: Record<string, boolean> = {};
+let lastResolvedOverId: string | number | null = null;
+let lastResolvedPastHalfway: boolean | null = null;
+let lastResolvedTriggerDistCondition: boolean | null = null;
 
 function resetLastChildOverByParent() {
   lastChildOverByParent = {};
@@ -34,9 +37,16 @@ function resetLastPastHalfwayByOverId() {
   lastPastHalfwayByOverId = {};
 }
 
+function resetLastResolvedOverState() {
+  lastResolvedOverId = null;
+  lastResolvedPastHalfway = null;
+  lastResolvedTriggerDistCondition = null;
+}
+
 export function onDragStart({ active }: DragStartEvent) {
   resetLastChildOverByParent();
   resetLastPastHalfwayByOverId();
+  resetLastResolvedOverState();
   if (!active.data || !active.data.current) {
     return;
   }
@@ -129,7 +139,6 @@ function onDragOver({
   }
 
   const dndState = useDndState.getState();
-  const overId = getOverId(over, collisions);
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getDndParentId(dndSectionId);
@@ -137,10 +146,39 @@ function onDragOver({
   // There can be discrepancy between over and collisions due to the way state updates in DndContext.
   // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
   if (collisions.length === 0) {
+    if (
+      lastResolvedOverId === null &&
+      lastResolvedPastHalfway === null &&
+      lastResolvedTriggerDistCondition === dndState.triggerDistCondition &&
+      dndState.overId === null &&
+      dndState.behaviorDropType === null
+    ) {
+      return;
+    }
+
+    lastResolvedOverId = null;
+    lastResolvedPastHalfway = null;
+    lastResolvedTriggerDistCondition = dndState.triggerDistCondition;
     removeDndChild(dndSectionId);
     setNullBehavior(null);
     return;
   }
+
+  const overId = getOverId(over, collisions);
+  const pastHalfway = getOverCollisionPastHalfway(overId, collisions);
+  const triggerDistCondition = dndState.triggerDistCondition;
+
+  if (
+    overId === lastResolvedOverId &&
+    pastHalfway === lastResolvedPastHalfway &&
+    triggerDistCondition === lastResolvedTriggerDistCondition
+  ) {
+    return;
+  }
+
+  lastResolvedOverId = overId;
+  lastResolvedPastHalfway = pastHalfway;
+  lastResolvedTriggerDistCondition = triggerDistCondition;
 
   if (calledFromOnDragMove && dndState.triggerDistCondition) {
     leftDistBehavior({
@@ -301,6 +339,11 @@ function leftDistBehavior({
 }
 
 function setNullBehavior(overId) {
+  const dndState = useDndState.getState();
+  if (dndState.behaviorDropType === null && dndState.overId === overId) {
+    return;
+  }
+
   useDndState.setState({
     behaviorDropType: null,
     overId,
