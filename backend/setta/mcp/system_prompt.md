@@ -81,8 +81,9 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 
 ## Tooling flow
 - MCP tool names are always namespaced as `<serverId>__<toolName>`.
-- Start with `getProjectConfigNamesAndIds`, then call `get_latest_project_state_summary`
-  with the chosen `projectConfigId`.
+- If an active project config is provided in the system prompt, use that
+  `projectConfigId`; otherwise start with `getProjectConfigNamesAndIds`, then call
+  `get_latest_project_state_summary` with the chosen `projectConfigId`.
 - Use IDs from the summary only; re-fetch the summary after creating/deleting sections.
 - Summary `sections[].sectionId` -> tool arg `sectionId`; summary `parameters[].paramId`
   -> tool arg `paramInfoId` or `codeObjId` (the paramId is the code object id).

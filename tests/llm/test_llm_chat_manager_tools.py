@@ -10,6 +10,7 @@ from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.server import SettaFastMCP
+from setta.project_state.project_manager_types import CreateTopLevelSectionRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.terminals.terminals import Terminals
 from setta.types.chat import Chat
@@ -23,6 +24,7 @@ from setta.types.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
+from setta.types.section_impls import SectionType
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -73,6 +75,25 @@ async def _build_manager_with_mcp():
                 frontend_sender,
             )
             yield manager, mcp_client
+
+
+@asynccontextmanager
+async def _build_manager_with_project_summary():
+    async with real_project_manager() as project_fixture:
+        async with real_settings_manager() as settings_fixture:
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            project_manager_switcher = ProjectManagerSwitcher(
+                main_manager=project_fixture.manager,
+                settings_manager=settings_fixture.manager,
+            )
+            manager = LLMChatManager(
+                project_fixture.dbe,
+                MultiMCPClient({}),
+                frontend_sender,
+                project_manager_switcher=project_manager_switcher,
+            )
+            yield manager, project_fixture
 
 
 def _configure_manager(manager: LLMChatManager, llm_config: LLMConfig) -> None:
@@ -473,6 +494,50 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(reference_names)
             for name in reference_names:
                 self.assertIn(name, payload_tool_names)
+
+
+class PromptSummaryCacheTests(unittest.IsolatedAsyncioTestCase):
+    async def test_summary_prompt_is_cached_per_chat(self) -> None:
+        async with _build_manager_with_project_summary() as (manager, fixture):
+            llm_config = LLMConfig(
+                id="default",
+                model="gpt-4o",
+            )
+            manager.config = AllLLMConfigs(configs={llm_config.id: llm_config})
+            project_config_id = (
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            self.assertIsNotNone(project_config_id)
+            chat = Chat(
+                id=ID("chat-uuid"),
+                name="Prompt cache chat",
+                projectConfigId=ID(project_config_id),
+                llmConfig=llm_config,
+                messages=[
+                    UserChatMessage(content=[MessageTextContent(text="Hello prompt")])
+                ],
+            )
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+            first_prompt = payload["messages"][0]["content"][0]["text"]
+            self.assertIn("## Project summary", first_prompt)
+
+            await fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=ID(project_config_id),
+                    implType=SectionType.Code,
+                )
+            )
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+            second_prompt = payload["messages"][0]["content"][0]["text"]
+            self.assertEqual(first_prompt, second_prompt)
 
 
 if __name__ == "__main__":

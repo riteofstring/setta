@@ -5,7 +5,8 @@ import logging
 import string
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -23,6 +24,7 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
+from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
@@ -47,8 +49,12 @@ from setta.mcp.tool_search_index import (
     build_tool_search_entries_from_llm_definitions,
 )
 from setta.mcp.utils import (
+    convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
+)
+from setta.project_state.project_manager_types import (
+    GetLatestProjectStateSummaryRequest,
 )
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
@@ -82,6 +88,7 @@ from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.types.llm_config import LLMConfig
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
@@ -153,6 +160,7 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
+        project_manager_switcher: "ProjectManagerSwitcher | None" = None,
         chat_store: ChatStore | None = None,
         *,
         share_session_id: str | None = None,
@@ -161,6 +169,7 @@ class LLMChatManager:
         self.chat_store = chat_store or DBEChatStore(dbe)
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
+        self.project_manager_switcher = project_manager_switcher
         self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
@@ -168,6 +177,7 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._ai_follow_state: dict[ID, AIFollowState] = {}
+        self._chat_prompt_cache: dict[ID, str] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
         )
@@ -209,6 +219,7 @@ class LLMChatManager:
     def delete_chat(self, chat_id: ID) -> None:
         self.chat_store.delete_chat(chat_id)
         self._ai_follow_state.pop(chat_id, None)
+        self._chat_prompt_cache.pop(chat_id, None)
 
     def get_ai_follow_snapshot(
         self, project_config_id: ID
@@ -423,6 +434,7 @@ class LLMChatManager:
         self._tasks.clear()
         self._sessions.clear()
         self._ai_follow_state.clear()
+        self._chat_prompt_cache.clear()
 
     def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
@@ -444,7 +456,7 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        system_prompt = self.system_prompt
+        system_prompt = await self._build_system_prompt(chat)
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
@@ -467,7 +479,10 @@ class LLMChatManager:
         )
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
-        tools = self._build_tool_definitions(chat)
+        tools = self._build_tool_definitions(
+            server_ids,
+            use_tool_search=use_tool_search,
+        )
         if tools:
             request["tools"] = tools
 
@@ -478,6 +493,74 @@ class LLMChatManager:
 
         return request
 
+    async def _build_system_prompt(self, chat: Chat) -> str:
+        cached = self._chat_prompt_cache.get(chat.id)
+        if cached:
+            return cached
+        prompt = self.system_prompt
+        project_config_id = chat.projectConfigId
+        if project_config_id is not None:
+            if self.project_manager_switcher is None:
+                prompt = (
+                    f"{prompt}\n\n## Active project config\n- id: {project_config_id}\n"
+                )
+            else:
+                (
+                    temporary_project_config_id,
+                    summary_block,
+                ) = await self._build_project_summary(project_config_id)
+                prompt = (
+                    f"{prompt}\n\n"
+                    "## Active project config\n"
+                    f"- id: {temporary_project_config_id}\n\n"
+                    "## Project summary\n"
+                    "(Injected at request start; call get_latest_project_state_summary only to"
+                    " refresh after edits.)\n"
+                    f"{summary_block}"
+                )
+        self._chat_prompt_cache[chat.id] = prompt
+        return prompt
+
+    async def _build_project_summary(self, project_config_id: ID) -> tuple[ID, str]:
+        project_manager = self.project_manager_switcher.get(
+            project_config_id,
+            share_session_id=self.share_session_id,
+        )
+        summary = await project_manager.get_latest_project_state_summary(
+            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+        )
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
+        map_size_before = len(canonical_to_temporary)
+        converted_summary = convert_canonical_ids_to_temporary(
+            summary,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        if len(canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(canonical_to_temporary)
+
+        temporary_project_config_id = converted_summary.projectConfig.id
+        summary_text = self._serialize_prompt_payload(converted_summary)
+        summary_block = f"```json\n{summary_text}\n```"
+        return temporary_project_config_id, summary_block
+
+    @staticmethod
+    def _serialize_prompt_payload(payload: Any) -> str:
+        def default(obj: Any):
+            if is_dataclass(obj):
+                return asdict(obj)
+            if isinstance(obj, BaseModel):
+                return obj.model_dump(mode="json")
+            if isinstance(obj, Enum):
+                return obj.value
+            if isinstance(obj, Path):
+                return str(obj)
+            return str(obj)
+
+        return json.dumps(payload, indent=2, default=default)
+
     def _resolve_mcp_server_ids(self, llm_config) -> list[str]:
         return self.config.resolve_mcp_server_ids(llm_config)
 
@@ -487,11 +570,14 @@ class LLMChatManager:
             return "anthropic" in provider
         return self._is_claude_like_model(llm_config.model)
 
-    def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
-        server_ids = self._resolve_mcp_server_ids(chat.llmConfig)
+    def _build_tool_definitions(
+        self,
+        server_ids: list[str],
+        *,
+        use_tool_search: bool,
+    ) -> list[ChatCompletionToolParam]:
         if not server_ids:
             return []
-        use_tool_search = self._should_use_anthropic_tool_search(chat.llmConfig)
         return self._build_full_tool_definitions(
             server_ids,
             defer_loading=use_tool_search,
