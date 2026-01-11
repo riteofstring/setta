@@ -37,7 +37,6 @@ function setHandlePosition(key: string, record: EdgeHandleRecord) {
         x,
         y,
       };
-      state.version += 1;
       updated = true;
     }
   });
@@ -63,7 +62,6 @@ export function unregisterEdgeHandle(
     if (state.handles[key]) {
       delete state.handles[key];
       delete state.positions[key];
-      state.version += 1;
     }
   });
 }

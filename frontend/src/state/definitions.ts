@@ -377,7 +377,6 @@ type EdgeHandlePosition = {
 type ZustandEdgeHandleRegistry = {
   handles: Record<string, EdgeHandleRecord>;
   positions: Record<string, EdgeHandlePosition>;
-  version: number;
 };
 
 export const useEdgeHandleRegistry = withProjectState(
@@ -386,7 +385,6 @@ export const useEdgeHandleRegistry = withProjectState(
       withResetFn<ZustandEdgeHandleRegistry>(() => ({
         handles: {},
         positions: {},
-        version: 0,
       })),
     ),
   ),
