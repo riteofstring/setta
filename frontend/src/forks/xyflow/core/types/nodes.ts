@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Position } from "utils/generatedTypes";
 
 // interface for the user node items
@@ -8,6 +9,8 @@ export type Node = {
   height: number | null;
   zIndex: number;
   tempZIndex: number;
+  type?: string;
+  style?: CSSProperties;
 };
 
 export type NodeDragItem = {

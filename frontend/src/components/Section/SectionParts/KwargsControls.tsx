@@ -10,6 +10,7 @@ import { useShareCapabilities } from "state/hooks/share";
 import {
   route_add_kwarg,
   route_delete_kwarg,
+  route_set_section_edge_inputs,
   route_set_section_param_filter,
 } from "utils/generatedEndpoints";
 import {
@@ -47,6 +48,45 @@ export function KwargsControls({
   const onClickDeleteSelectedKwargs = () => {};
 
   function onClickPinParam() {}
+
+  const { selectedParams, edgeInputParams } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return {
+      selectedParams: impl.selectedParams,
+      edgeInputParams: impl.edgeInputParams,
+    };
+  }, _.isEqual);
+
+  const canConvertToEdge =
+    selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
+
+  function onClickConvertToEdgeInputs() {
+    const nextInputs = Array.from(
+      new Set([...edgeInputParams, ...selectedParams]),
+    );
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          state,
+          sectionId,
+          {
+            edgeInputParams: nextInputs,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_edge_inputs({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          edgeInputParams: nextInputs,
+          frontendOpId,
+        }),
+    });
+  }
 
   const classes =
     "focus-visible:ring-2 flex nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 w-[18px] rounded-full items-center justify-center";
@@ -91,6 +131,14 @@ export function KwargsControls({
 
             <button className={classes} onClick={onClickPinParam} tabIndex={0}>
               <i className="gg-pin-alt mt-1 !scale-50" />
+            </button>
+            <button
+              className={classes}
+              onClick={onClickConvertToEdgeInputs}
+              tabIndex={0}
+              disabled={!canConvertToEdge}
+            >
+              <i className="gg-link !scale-50" />
             </button>
             <button
               className={classes}
