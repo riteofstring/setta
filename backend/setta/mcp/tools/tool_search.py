@@ -34,7 +34,7 @@ def list_mcp_tools(*, ctx: Context) -> MCPToolNameList:
 
 
 @setta_init_tool
-def search_and_unlock_mcp_tools(
+def search_mcp_tools(
     *,
     query: str,
     limit: int = 2,

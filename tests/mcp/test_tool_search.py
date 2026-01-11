@@ -7,7 +7,7 @@ from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_search_index import _build_parameter_text
-from setta.mcp.tools.tool_search import list_mcp_tools, search_and_unlock_mcp_tools
+from setta.mcp.tools.tool_search import list_mcp_tools, search_mcp_tools
 
 
 @dataclass
@@ -53,7 +53,7 @@ def _build_tool(
     )
 
 
-class SearchAndUnlockMCPToolsTest(unittest.TestCase):
+class SearchMCPToolsTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tool_specs = [
             ToolSpec(
@@ -106,7 +106,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         self.ctx = Context(fastmcp=StubFastMCP(tools, setta_state))
 
     def test_returns_ranked_results_for_query(self) -> None:
-        results = search_and_unlock_mcp_tools(
+        results = search_mcp_tools(
             query="read specific file lines",
             limit=1,
             ctx=self.ctx,
@@ -116,7 +116,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         self.assertEqual(results.results[0].name, "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
-        results = search_and_unlock_mcp_tools(
+        results = search_mcp_tools(
             query="search project",
             limit=0,
             ctx=self.ctx,
@@ -126,7 +126,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
-            search_and_unlock_mcp_tools(
+            search_mcp_tools(
                 query="   ",
                 ctx=self.ctx,
             )
@@ -135,7 +135,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         empty_state = StubSettaState()
         empty_ctx = Context(fastmcp=StubFastMCP([], empty_state))
 
-        results = search_and_unlock_mcp_tools(
+        results = search_mcp_tools(
             query="read",
             ctx=empty_ctx,
         )

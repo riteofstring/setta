@@ -10,7 +10,7 @@ from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
+from setta.mcp.tools.tool_search import search_mcp_tools
 from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
@@ -169,7 +169,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(len(registered_tool_names), 0)
             self.assertIn("read_file_range", registered_tool_names)
 
-            search_results = search_and_unlock_mcp_tools(
+            search_results = search_mcp_tools(
                 query="section size settings",
                 limit=2,
                 ctx=ctx,
@@ -180,14 +180,14 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 search_result_names,
             )
             self.assertNotIn(
-                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
+                C.SEARCH_MCP_TOOLS_NAME,
                 search_result_names,
             )
 
             search_tool = next(
                 tool
                 for tool in mcp_server.list_registered_tools()
-                if tool.name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
+                if tool.name == C.SEARCH_MCP_TOOLS_NAME
             )
             results_via_tool_run = await search_tool.run(
                 {
@@ -203,7 +203,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 parsed_result_names,
             )
             self.assertNotIn(
-                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
+                C.SEARCH_MCP_TOOLS_NAME,
                 parsed_result_names,
             )
 
@@ -230,7 +230,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 ("create sections", 3),
             )
             for query, limit in search_scenarios:
-                results = search_and_unlock_mcp_tools(
+                results = search_mcp_tools(
                     query=query,
                     limit=limit,
                     ctx=ctx,
@@ -306,7 +306,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             tool_call = ToolCall(
                 function=ToolCallFunction(
                     name=build_namespaced_tool_name(
-                        SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
+                        SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
                     ),
                     arguments={"query": "section size settings", "limit": 2},
                 )

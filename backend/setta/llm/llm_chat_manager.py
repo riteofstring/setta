@@ -172,7 +172,7 @@ class LLMChatManager:
         self._ai_follow_state: dict[ID, AIFollowState] = {}
         self._chat_prompt_cache: dict[ID, str] = {}
         self._search_tool_name = build_namespaced_tool_name(
-            SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
+            SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 

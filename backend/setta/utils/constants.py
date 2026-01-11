@@ -75,7 +75,7 @@ class C:
     LLM_THINKING = "thinking"
 
     MCP_SETTA_STATE_ARG_NAME = "setta_state"
-    SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools"
+    SEARCH_MCP_TOOLS_NAME = "search_mcp_tools"
     MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden"
     SETTA_MCP_PARAM_NAMES = [
         MCP_SETTA_STATE_ARG_NAME,

@@ -92,8 +92,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   a param name and value.
 - For type errors, call `get_latest_lsp_diagnostics` to get parsed diagnostics with
   `sectionId`/`paramInfoId` instead of line/col data from generated code.
-- If `setta__search_and_unlock_mcp_tools` is available, use it when you do not know the tool name.
-- It returns entries with `name`, `description`, and `category`; always use the `name` field when calling a tool.
+- If `setta__search_mcp_tools` is available, use it when you do not know the tool name.
+- It returns entries with `name`, `description`, and `category` (or tool references when tool search is enabled); always use the tool name when calling a tool.
 
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.
