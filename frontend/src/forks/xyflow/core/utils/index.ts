@@ -14,6 +14,19 @@ export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   height: node.offsetHeight,
 });
 
+const getWheelDeltaModeFactor = (deltaMode: number): number => {
+  if (deltaMode === 1) {
+    return 0.05;
+  }
+  if (deltaMode === 0) {
+    return 0.002;
+  }
+  return 1;
+};
+
+export const getWheelDelta = (event: WheelEvent, factor = 1): number =>
+  -event.deltaY * getWheelDeltaModeFactor(event.deltaMode) * factor;
+
 // returns a number between 0 and 1 that represents the velocity of the movement
 // when the mouse is close to the edge of the canvas
 const calcAutoPanVelocity = (
@@ -93,9 +106,7 @@ const isReactKeyboardEvent = (
   event: KeyboardEvent | ReactKeyboardEvent,
 ): event is ReactKeyboardEvent => "nativeEvent" in event;
 
-export function isInputDOMNode(
-  event: KeyboardEvent | ReactKeyboardEvent,
-): boolean {
+function isInputDOMNode(event: KeyboardEvent | ReactKeyboardEvent): boolean {
   const kbEvent = isReactKeyboardEvent(event) ? event.nativeEvent : event;
   // using composed path for handling shadow dom
   const target = (kbEvent.composedPath?.()?.[0] || event.target) as HTMLElement;
@@ -108,7 +119,7 @@ export function isInputDOMNode(
   return isInput || !!target?.closest(".nokey");
 }
 
-const isMouseEvent = (
+export const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
 ): event is MouseEvent | ReactMouseEvent => "clientX" in event;
 
@@ -125,3 +136,8 @@ export const getEventPosition = (
     y: evtY - (bounds?.top ?? 0),
   };
 };
+
+export const getHostForElement = (
+  element: HTMLElement,
+): Document | ShadowRoot =>
+  (element.getRootNode?.() as Document | ShadowRoot) || window?.document;

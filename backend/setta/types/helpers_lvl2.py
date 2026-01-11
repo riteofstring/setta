@@ -28,6 +28,7 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
+from setta.types.edges import Edge, EdgePort, PortSide
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
     BaseChartSettingsUnion,
@@ -957,6 +958,14 @@ def create_child_sections_via_incrementer(
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
+    if p.projectConfig.edges:
+        to_delete_set = set(to_delete)
+        p.projectConfig.edges = [
+            edge
+            for edge in p.projectConfig.edges
+            if edge.sourceSectionId not in to_delete_set
+            and edge.targetSectionId not in to_delete_set
+        ]
     for id in reversed(to_delete):
         parentId = p.parentSectionMap[id]
         # delete from parent's current children list
@@ -1054,7 +1063,44 @@ def get_section_descendants_from_all_variants(
     return output
 
 
+def _copy_edges_for_new_section_variant(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    sourceVariantId: ID,
+    newVariantId: ID,
+    newImpl: BaseSectionWithParamsImpl,
+):
+    source_output_ports = _edge_output_port_ids(newImpl)
+    target_input_ports = set(newImpl.edgeInputParams)
+    new_edges: list[Edge] = []
+    for edge in p.projectConfig.edges:
+        update_source = (
+            edge.sourceSectionId == sectionId
+            and edge.sourceVariantId == sourceVariantId
+        )
+        update_target = (
+            edge.targetSectionId == sectionId
+            and edge.targetVariantId == sourceVariantId
+        )
+        if not (update_source or update_target):
+            continue
+        if update_source and edge.sourcePortId not in source_output_ports:
+            continue
+        if update_target and edge.targetPortId not in target_input_ports:
+            continue
+        new_edge = edge.model_copy(deep=True)
+        new_edge.id = create_new_id()
+        if update_source:
+            new_edge.sourceVariantId = newVariantId
+        if update_target:
+            new_edge.targetVariantId = newVariantId
+        new_edges.append(new_edge)
+    if new_edges:
+        p.projectConfig.edges.extend(new_edges)
+
+
 def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
+    source_variant_id = get_curr_section_variant(p, sectionId).id
     currBaseImpl = get_curr_section_base_impl(p, sectionId)
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
@@ -1090,6 +1136,14 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
     p.sectionImpls[newBaseImpl.id] = newBaseImpl
     p.sectionVariants[newVariant.id] = newVariant
     p.projectConfig.sectionVariantMap[sectionId] = newVariant.id
+    if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
+        _copy_edges_for_new_section_variant(
+            p,
+            sectionId,
+            source_variant_id,
+            newVariant.id,
+            newBaseImpl,
+        )
 
 
 def create_new_code_obj_variant(
@@ -1435,6 +1489,14 @@ def delete_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variant
     core = p.sections[sectionId]
     if len(core.variants) < 2:
         return  # can't delete variant if there's only 1
+    p.projectConfig.edges = [
+        edge
+        for edge in p.projectConfig.edges
+        if not (
+            (edge.sourceSectionId == sectionId and edge.sourceVariantId == variantId)
+            or (edge.targetSectionId == sectionId and edge.targetVariantId == variantId)
+        )
+    ]
     core.variants = [v for v in core.variants if v != variantId]
     if core.defaultVariant == variantId:
         core.defaultVariant = core.variants[0]
@@ -1580,6 +1642,201 @@ def set_code_file_binding(
         sectionId,
         BaseCodeSectionImplArgsWithCallable(codeFileBinding=normalized_binding),
     )
+
+
+def _get_section_variant_impl_with_params(
+    p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
+) -> BaseSectionWithParamsImpl:
+    if sectionId not in p.sections:
+        raise KeyError(f"Section {sectionId} not found.")
+    core = p.sections[sectionId]
+    if variantId not in core.variants:
+        raise KeyError(f"Variant {variantId} not found for section {sectionId}.")
+    _, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
+        p, core, variantId, BaseSectionWithParamsImpl
+    )
+    return impl
+
+
+def _edge_output_port_ids(impl: BaseSectionWithParamsImpl) -> set[ID]:
+    return {port.id for port in impl.edgeOutputPorts}
+
+
+def _ensure_edge_endpoints_valid(p: "ProjectStateSingleConfig", edge: Edge):
+    source_impl = _get_section_variant_impl_with_params(
+        p, edge.sourceSectionId, edge.sourceVariantId
+    )
+    target_impl = _get_section_variant_impl_with_params(
+        p, edge.targetSectionId, edge.targetVariantId
+    )
+    source_ports = _edge_output_port_ids(source_impl)
+    if edge.sourcePortId not in source_ports:
+        raise KeyError(
+            f"Section {edge.sourceSectionId} missing output port {edge.sourcePortId}."
+        )
+    if edge.targetPortId not in target_impl.edgeInputParams:
+        raise KeyError(
+            f"Section {edge.targetSectionId} missing input port {edge.targetPortId}."
+        )
+
+
+def set_section_edge_inputs(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    edgeInputParams: list[ID],
+):
+    section_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    deduped: list[ID] = []
+    seen: set[ID] = set()
+    for param_id in edgeInputParams:
+        if param_id not in p.codeObjs:
+            raise KeyError(f"Input param {param_id} not found in project state.")
+        if param_id in seen:
+            continue
+        seen.add(param_id)
+        deduped.append(param_id)
+
+    new_edge_inputs = [
+        param_id for param_id in deduped if param_id not in section_impl.edgeInputParams
+    ]
+    for param_id in new_edge_inputs:
+        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, sectionId, param_id, BaseParamCodeObjImpl
+        )
+        if param_impl.type != CodeObjType.CodeParam:
+            change_param_impl(
+                settings, p, sectionId, param_id, CodeObjType.CodeParam.value
+            )
+
+    removed_ports = set(section_impl.edgeInputParams) - set(deduped)
+    if removed_ports:
+        variant_id = get_curr_section_variant(p, sectionId).id
+        p.projectConfig.edges = [
+            edge
+            for edge in p.projectConfig.edges
+            if not (
+                edge.targetSectionId == sectionId
+                and edge.targetVariantId == variant_id
+                and edge.targetPortId in removed_ports
+            )
+        ]
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(edgeInputParams=deduped),
+    )
+
+
+def set_section_edge_outputs(
+    p: "ProjectStateSingleConfig", sectionId: ID, edgeOutputPorts: list[EdgePort]
+):
+    section_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    deduped: list[EdgePort] = []
+    seen: set[ID] = set()
+    for port in edgeOutputPorts:
+        if port.id in seen:
+            continue
+        accessor = port.accessor.strip()
+        deduped.append(
+            EdgePort(
+                id=port.id,
+                accessor=accessor,
+                side=port.side or PortSide.Right,
+            )
+        )
+        seen.add(port.id)
+
+    removed_ports = _edge_output_port_ids(section_impl) - seen
+    if removed_ports:
+        variant_id = get_curr_section_variant(p, sectionId).id
+        p.projectConfig.edges = [
+            edge
+            for edge in p.projectConfig.edges
+            if not (
+                edge.sourceSectionId == sectionId
+                and edge.sourceVariantId == variant_id
+                and edge.sourcePortId in removed_ports
+            )
+        ]
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(edgeOutputPorts=deduped),
+    )
+
+
+def create_edge(p: "ProjectStateSingleConfig", edge: Edge):
+    if any(existing.id == edge.id for existing in p.projectConfig.edges):
+        raise KeyError(f"Edge {edge.id} already exists.")
+    _ensure_edge_endpoints_valid(p, edge)
+    p.projectConfig.edges.append(edge)
+
+
+def update_edge(p: "ProjectStateSingleConfig", edge: Edge):
+    for idx, existing in enumerate(p.projectConfig.edges):
+        if existing.id != edge.id:
+            continue
+        _ensure_edge_endpoints_valid(p, edge)
+        p.projectConfig.edges[idx] = edge
+        return
+    raise KeyError(f"Edge {edge.id} not found.")
+
+
+def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+    edge_ids = set(edgeIds)
+    existing_ids = {edge.id for edge in p.projectConfig.edges}
+    missing = edge_ids - existing_ids
+    if missing:
+        raise KeyError(f"Edges not found: {sorted(missing)}")
+    p.projectConfig.edges = [
+        edge for edge in p.projectConfig.edges if edge.id not in edge_ids
+    ]
+
+
+def reconnect_edge(
+    p: "ProjectStateSingleConfig",
+    edgeId: ID,
+    sourceSectionId: ID,
+    sourceVariantId: ID,
+    sourcePortId: ID,
+    targetSectionId: ID,
+    targetVariantId: ID,
+    targetPortId: ID,
+):
+    for idx, existing in enumerate(p.projectConfig.edges):
+        if existing.id != edgeId:
+            continue
+        updated = existing.model_copy(
+            update={
+                "sourceSectionId": sourceSectionId,
+                "sourceVariantId": sourceVariantId,
+                "sourcePortId": sourcePortId,
+                "targetSectionId": targetSectionId,
+                "targetVariantId": targetVariantId,
+                "targetPortId": targetPortId,
+            }
+        )
+        _ensure_edge_endpoints_valid(p, updated)
+        p.projectConfig.edges[idx] = updated
+        return
+    raise KeyError(f"Edge {edgeId} not found.")
+
+
+def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
+    edge_ids: set[ID] = set()
+    for edge in edges:
+        if edge.id in edge_ids:
+            raise KeyError(f"Duplicate edge id {edge.id} in update.")
+        edge_ids.add(edge.id)
+        _ensure_edge_endpoints_valid(p, edge)
+    p.projectConfig.edges = edges
 
 
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):

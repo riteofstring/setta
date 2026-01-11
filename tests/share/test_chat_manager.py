@@ -4,6 +4,8 @@ from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.session_store import MemorySessionStore
@@ -13,7 +15,9 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -64,6 +68,20 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
     share_runtime_state = ShareRuntimeState(dbe, root, frontend_sender)
     share_runtime_state.initialize_share_state(settings_file)
     share_session_store = MemorySessionStore()
+    listener_registry = ListenerRegistry()
+    python_script_sender = WMHPythonScriptSender(
+        websocket_manager,
+        listener_registry,
+        dbe,
+    )
+    switcher = ProjectManagerSwitcher(
+        share_runtime_state=share_runtime_state,
+        settings_file=settings_file,
+        python_script_sender=python_script_sender,
+        lsp_writers=None,
+        frontend_sender=frontend_sender,
+        specific_file_watcher=SpecificFileWatcher(),
+    )
     llm_config = AllLLMConfigs(
         configs={"primary": LLMConfig(id="primary", model="test-model")}
     )
@@ -72,6 +90,7 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
         frontend_sender,
         share_runtime_state,
         share_session_store,
+        switcher,
         llm_config=llm_config,
     )
     return manager, share_session_store, share_runtime_state.default_project_config_id
