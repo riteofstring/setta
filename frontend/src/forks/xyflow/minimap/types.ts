@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   ComponentType,
   CSSProperties,
@@ -5,14 +6,19 @@ import type {
   MouseEvent,
 } from "react";
 import { Position } from "utils/generatedTypes";
-import type { Node, PanelPosition } from "../core/types";
+import { Node, PanelPosition } from "../core/types";
 
-export type GetMiniMapNodeAttribute = (node: Node) => string;
+export type GetMiniMapNodeAttribute<NodeData = any> = (
+  node: Node<NodeData>,
+) => string;
 
-export type MiniMapProps = Omit<HTMLAttributes<SVGSVGElement>, "onClick"> & {
-  nodeColor?: string | GetMiniMapNodeAttribute;
-  nodeStrokeColor?: string | GetMiniMapNodeAttribute;
-  nodeClassName?: string | GetMiniMapNodeAttribute;
+export type MiniMapProps<NodeData = any> = Omit<
+  HTMLAttributes<SVGSVGElement>,
+  "onClick"
+> & {
+  nodeColor?: string | GetMiniMapNodeAttribute<NodeData>;
+  nodeStrokeColor?: string | GetMiniMapNodeAttribute<NodeData>;
+  nodeClassName?: string | GetMiniMapNodeAttribute<NodeData>;
   nodeBorderRadius?: number;
   nodeStrokeWidth?: number;
   nodeComponent?: ComponentType<MiniMapNodeProps>;
@@ -21,7 +27,7 @@ export type MiniMapProps = Omit<HTMLAttributes<SVGSVGElement>, "onClick"> & {
   maskStrokeWidth?: number;
   position?: PanelPosition;
   onClick?: (event: MouseEvent, position: Position) => void;
-  onNodeClick?: (event: MouseEvent, node: Node) => void;
+  onNodeClick?: (event: MouseEvent, node: Node<NodeData>) => void;
   pannable?: boolean;
   zoomable?: boolean;
   ariaLabel?: string | null;

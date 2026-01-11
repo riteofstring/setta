@@ -7,17 +7,17 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - The constructor wires together Setta-specific state: it loads the canonical ↔ temporary ID map from the database (`dbe.read_temporary_id_map()`), stores a reference to the FastAPI state object, and broadcasts a `SettaNotification` once the server is ready so the UI can show “MCP Server Ready”.
 - Tool registration happens immediately via `add_setta_tools()`. Functions decorated with `@setta_init_tool` become always-on “init” tools, while `@setta_tool` registrations are marked as “discoverable”. The `SettaToolType` annotation is injected into each tool’s metadata so clients can split the sets.
 - `setta_id_transformer` wraps every tool callable so we can transparently convert between canonical IDs and the temporary IDs that LLMs see. After each call we persist the latest ID map to keep the client and server aligned.
-- A BM25 search index is built over every discoverable tool on demand. The index blends tool names, docstrings, parameter descriptions, and search tags/categories. The server-side `search_and_unlock_mcp_tools` helper queries this index for external MCP clients, while the internal chat manager runs its own local search across all configured servers. The `list_mcp_tools` init tool uses the same registry for a cheap listing.
+- A BM25 search index is built over every discoverable tool on demand. The index blends tool names, docstrings, parameter descriptions, and search tags/categories. The server-side `search_and_unlock_mcp_tools` helper queries this index for external MCP clients, while the internal chat manager runs its own local search across all configured servers and returns tool references when tool search is enabled. The `list_mcp_tools` init tool uses the same registry for a cheap listing.
 - When a function is registered we extract its docstring through `docstring_parser` and propagate parameter descriptions into the JSON schema. Tool execution catches exceptions and re-raises them as `ToolError` so clients see structured failures.
 
 ## Tool decorators (`backend/setta/mcp/tool_setup.py` and friends)
-- `@setta_tool` stores the decorated callable in the `SETTA_MCP_TOOLS` list. Use it for discoverable tools that the chat manager will unlock via search.
+- `@setta_tool` stores the decorated callable in the `SETTA_MCP_TOOLS` list. Use it for discoverable tools that should live in the main tool catalog.
 - `@setta_init_tool` stores the callable in `SETTA_INIT_MCP_TOOLS`. These tools (for example `read_file_range` and `list_mcp_tools`) are injected into every MCP server session automatically, while the chat manager intercepts `setta__search_and_unlock_mcp_tools` locally for multi-server search.
 - `project_state_registry.project_state_tool` lets any `BaseProjectManager` coroutine become an MCP tool. The decorator inspects the method’s Pydantic request model, builds a standalone async function whose signature mirrors that schema (minus any fields tagged with `json_schema_extra[settaMcpHidden]`), and routes calls back through the correct project manager instance. This keeps project-specific tools consistent with the rest of our MCP surface.
 - All tool decorators preserve docstrings, so investing in clear docblocks pays off twice: parameter descriptions show up in the MCP schema, and the BM25 index becomes more accurate.
 
 ## Tool search tags and categories
-- Every tool can carry `searchTags` and `searchCategory` inside `SettaToolAnnotations`. These are used by both the BM25 index (so search terms match better) and `ToolPreunlocker` (to pre-unlock tools based on project section types).
+- Every tool can carry `searchTags` and `searchCategory` inside `SettaToolAnnotations`. These are used by the BM25 index so search terms match better.
 - Explicit tags and category are attached via `attach_tool_search_tags`/`attach_tool_search_category` in `project_state_tool` or by manually decorating tool functions.
 - Derived metadata comes from the tool name: `_derive_search_tags` expands common synonyms (for example `create` -> `add`, `new`, `insert`) and `_derive_search_category` matches token keywords (for example `terminal`, `chat`, `params`) to a category.
 - During registration we merge explicit and derived tags, normalize them to lowercase, and prefer the explicit category when provided. The final values are stored on the MCP tool annotations and returned in `search_and_unlock_mcp_tools` results.
@@ -31,9 +31,10 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 
 ## LLM chat manager (`backend/setta/llm/llm_chat_manager.py`)
 - `LLMChatManager` is the orchestrator that the FastAPI routes invoke. It persists chats, streams litellm responses, manages `deepThink` overrides, and communicates back to the UI via `WMHFrontendSender`.
-- Every chat keeps a `ChatToolState`. When a chat starts we seed it with init tools from the selected MCP servers. All tool names are namespaced as `<serverId>__<toolName>`, so the prompt never contains ambiguous tool names.
-- `setta__search_and_unlock_mcp_tools` is handled inside `LLMChatManager` (no MCP round-trip). It searches the aggregated tool registry and returns namespaced results so the unlock flow stays consistent across servers.
-- Before each LLM request, `ToolPreunlocker` scores discoverable tools using the latest user message plus section categories from the project summary, then pre-unlocks the top matches (currently up to 2) so common workflows do not need a search round-trip.
+- `LLMChatManager` always includes the full tool catalog in each request. For Anthropic tool search, it marks non-search tools with `defer_loading` and exposes a local search tool that returns tool references to load the exact tools needed.
+- Tool names are always namespaced as `<serverId>__<toolName>` so the prompt never contains ambiguous tool names.
+- The first request for a chat injects the active `projectConfigId` and a project summary into the system prompt. That summary is cached per chat and only refreshed if the model explicitly calls `get_latest_project_state_summary`.
+- `setta__search_and_unlock_mcp_tools` is handled inside `LLMChatManager` (no MCP round-trip). It searches the aggregated tool registry and returns namespaced results so tool references stay consistent across servers.
 - When the LLM emits a tool call, `_dispatch_tool_call` routes namespaced tool calls through `MultiMCPClient.call_tool`. Arguments are sanitized via `convert_existing_canonical_ids_to_temporary` before being logged or persisted, and the results are streamed back to the UI as `ToolResultEvent`s.
 - Streaming deltas (`MessageStartEvent`, `MessageDeltaEvent`, `ToolCallDeltaEvent`, etc.) are forwarded to the websocket handler so the frontend can animate assistant text, thinking traces, and tool execution progress in real time.
 - Chat persistence happens entirely inside `setta_files/chats/`. `DBE.write_chat` saves each conversation as `<chat_id>.json`, so the UI can reload transcripts or delete them without hitting an external database. `setta_files/temporary_id_map.json` is updated in lockstep so replaying chats keeps ID mappings intact.
@@ -64,8 +65,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 
   The resulting process behaves like any other MCP server binary on stdin/stdout, meaning you can register Setta inside clients such as the OpenAI Desktop app or Anthropic’s tools without writing glue code.
 - Third parties that already speak SSE can also skip the bridge and connect directly. The server exposes `GET /mcp` for the MCP session and `POST /mcp/messages/` as the channel FastMCP uses to forward client-to-server payloads. Once connected, they receive the same tool list (`list_mcp_tools` and `search_and_unlock_mcp_tools` included), the same doc-enriched schemas, and the same ID translation guarantees that the internal chat manager relies on.
-- Remember that discoverable tools stay locked until `search_and_unlock_mcp_tools` returns them. External clients should mimic the chat manager’s flow by calling search with a natural-language query, merging the returned tool names, and then issuing `call_tool` with the matching schemas.
-  The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
+- External clients can optionally call `search_and_unlock_mcp_tools` to get shortlists of relevant tools. The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
 
 ## When to touch what
 - Adding or modifying tools → update `backend/setta/mcp/tools/*` or annotate project manager methods with `@project_state_tool`. Keep docstrings up to date so discovery remains accurate.

@@ -15,7 +15,7 @@ Even without a public README, the repo structure and docs suggest Setta is more 
 - **Fast composition UX**: the right-click menu and command palette expose the same primitives (Artifacts + MetaControls), reinforcing that you “build a tool surface” by composing sections rather than writing frontend code.
 - **Realtime loop**: UI edits → backend state updates; backend scripts can push values back via `emit_to_frontend` and action events.
 - **Listener model**: user code runs as callbacks keyed to dependency changes/actions (with debounce/throttle and refresh-only modes).
-- **Agent surface via MCP**: tools are discoverable/unlocked via search; schemas have docstring-backed parameter descriptions; there’s “AI Follow” to keep the UI focused on what the agent is doing.
+- **Agent surface via MCP**: tools are discoverable via search; schemas have docstring-backed parameter descriptions; there’s “AI Follow” to keep the UI focused on what the agent is doing.
 - **Tiered view modes**: the same project can present “developer complexity” vs “operator simplicity” by hiding/showing controls by user tier.
 - **Dogfooding configuration**: Setta’s own settings are represented as a Setta project, which is a strong signal that “projects as config” (stored as JSON) is a first-class, general pattern rather than a one-off feature.
 

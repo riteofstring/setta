@@ -81,7 +81,6 @@ class C:
         MCP_SETTA_STATE_ARG_NAME,
     ]
     GEN_CODE_SEPARATOR_NEWLINES = 2
-    EDGE_OUTPUT_BASE_LABEL = "value"
 
     @classproperty
     def FRONTEND_ORIGINS(cls):

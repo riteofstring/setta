@@ -28,7 +28,7 @@ class ShareChatManager:
         frontend_sender: WMHFrontendSender,
         share_runtime_state: "ShareRuntimeState",
         share_session_store: "ShareSessionStore",
-        project_manager_switcher: "ProjectManagerSwitcher",
+        project_manager_switcher: "ProjectManagerSwitcher | None" = None,
         *,
         llm_config: AllLLMConfigs | None = None,
         api_keys: "APIKeys | None" = None,
@@ -62,7 +62,7 @@ class ShareChatManager:
                 self.dbe,
                 self._mcp_client,
                 session_sender,
-                self.project_manager_switcher,
+                project_manager_switcher=self.project_manager_switcher,
                 chat_store=MemoryChatStore(),
                 share_session_id=share_session_id,
             )
