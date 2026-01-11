@@ -16,6 +16,7 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_nam
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
+    SettaToolType,
 )
 from setta.types.chat_messages import AssistantChatMessage
 from setta.types.id import ID
@@ -51,6 +52,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.mcp_client.tool_annotations_by_name = {
             namespaced_tool_name: SettaToolAnnotations(
+                settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["sectionId", "sectionIds"]},
                 ),

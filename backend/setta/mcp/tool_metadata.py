@@ -6,6 +6,11 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 
+class SettaToolType(str, Enum):
+    init = "init"
+    discoverable = "discoverable"
+
+
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
 
@@ -109,6 +114,7 @@ def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
 
 
 class SettaToolAnnotations(ToolAnnotations):
+    settaToolType: SettaToolType
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
     aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None
     toolArgumentPreview: ToolArgumentPreviewMetadata | None = None

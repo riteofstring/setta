@@ -17,13 +17,14 @@ from setta.database.db_objs import DBE
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import (
     SettaToolAnnotations,
+    SettaToolType,
     get_ai_follow_tool_arguments,
     get_ai_follow_tool_result,
     get_tool_argument_preview,
     get_tool_search_category,
     get_tool_search_tags,
 )
-from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
@@ -96,10 +97,14 @@ class SettaFastMCP(FastMCP):
         )
 
     def add_setta_tools(self):
+        for fn in SETTA_INIT_MCP_TOOLS:
+            self._register_setta_tool(fn, SettaToolType.init)
         for fn in SETTA_MCP_TOOLS:
-            self._register_setta_tool(fn)
+            self._register_setta_tool(fn, SettaToolType.discoverable)
 
-    def _register_setta_tool(self, fn: Callable[..., Any]) -> None:
+    def _register_setta_tool(
+        self, fn: Callable[..., Any], tool_type: SettaToolType
+    ) -> None:
         ai_follow_tool_arguments = get_ai_follow_tool_arguments(fn)
         ai_follow_tool_result = get_ai_follow_tool_result(fn)
         tool_argument_preview = get_tool_argument_preview(fn)
@@ -110,6 +115,7 @@ class SettaFastMCP(FastMCP):
         )
         annotations = ToolAnnotations.model_validate(
             SettaToolAnnotations(
+                settaToolType=tool_type,
                 aiFollowToolResult=ai_follow_tool_result,
                 aiFollowToolArguments=ai_follow_tool_arguments,
                 toolArgumentPreview=tool_argument_preview,

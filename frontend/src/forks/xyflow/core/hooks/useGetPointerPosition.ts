@@ -29,13 +29,3 @@ function useGetPointerPosition() {
 }
 
 export default useGetPointerPosition;
-
-// return {
-//   xSnapped: snapToGrid
-//     ? snapGrid[0] * Math.round(pointerPos.x / snapGrid[0])
-//     : pointerPos.x,
-//   ySnapped: snapToGrid
-//     ? snapGrid[1] * Math.round(pointerPos.y / snapGrid[1])
-//     : pointerPos.y,
-//   ...pointerPos,
-// };

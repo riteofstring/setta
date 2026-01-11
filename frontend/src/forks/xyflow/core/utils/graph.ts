@@ -8,7 +8,7 @@ import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { useReactFlow } from "../store";
-import { Node, Rect, Transform, Viewport } from "../types";
+import type { Node, ReactFlowState, Rect, Transform, Viewport } from "../types";
 import {
   boxToRect,
   getBoundsOfBoxes,
@@ -21,7 +21,7 @@ export const pointToRendererPoint = (
   [tx, ty, tScale]: Transform,
   snapToGrid: boolean,
   [snapX, snapY]: [number, number],
-  ignoreGrid,
+  ignoreGrid?: boolean,
 ): Position => {
   const position: Position = {
     x: (x - tx) / tScale,
@@ -85,12 +85,10 @@ export function getActiveSectionsBounds(ignoreGrid = false) {
 }
 
 export function getNodesInside(
-  rect,
-  [tx, ty, tScale] = [0, 0, 1],
+  rect: Rect,
+  [tx, ty, tScale]: Transform = [0, 0, 1],
   partially = false,
-  // set excludeNonSelectableNodes if you want to pay attention to the nodes "selectable" attribute
-  excludeNonSelectableNodes = false,
-) {
+): Array<string> {
   const rectToLookInside = {
     x: (rect.x - tx) / tScale,
     y: (rect.y - ty) / tScale,
@@ -204,7 +202,7 @@ export function getSectionRectWithNested(sectionId: string) {
   return { width, height };
 }
 
-export function getPaneRect(s, overviewWidth) {
+export function getPaneRect(s: ReactFlowState, overviewWidth: number): Rect {
   return {
     x: (-s.transform[0] + overviewWidth) / s.transform[2],
     y: -s.transform[1] / s.transform[2],
@@ -213,16 +211,11 @@ export function getPaneRect(s, overviewWidth) {
   };
 }
 
-function isSectionFullyVisible(id) {
-  const paneRect = getPaneRect(
-    useReactFlow.getState(),
-    useLocalStorage.getState().overviewTrueWidth,
-  );
-
-  return isSectionOverlappingWithRect(id, paneRect, false);
-}
-
-function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
+function isSectionOverlappingWithRect(
+  sectionId: string,
+  otherRect: Rect,
+  partially: boolean,
+) {
   const rect = getSectionRect(sectionId);
   if (!rect) {
     return false;
@@ -248,7 +241,7 @@ function isSectionOverlappingWithRect(sectionId, otherRect, partially) {
   return notInitialized || partiallyVisible || overlappingArea >= area;
 }
 
-export function movePaneToIncludeElement(element) {
+export function movePaneToIncludeElement(element: HTMLElement) {
   const point = screenToFlowPosition(element.getBoundingClientRect());
   const paneRect = getPaneRect(
     useReactFlow.getState(),
@@ -261,7 +254,7 @@ export function movePaneToIncludeElement(element) {
   }
 }
 
-function getRectTranslation(point, rect, padding = 0) {
+function getRectTranslation(point: Position, rect: Rect, padding = 0) {
   // Calculate the boundaries with padding
   const minX = rect.x + padding;
   const maxX = rect.x + rect.width - padding;

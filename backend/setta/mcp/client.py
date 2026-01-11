@@ -31,7 +31,7 @@ from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_logging
 from setta.logging.errors import log_failure
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
-from setta.mcp.tool_metadata import SettaToolAnnotations
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -181,7 +181,8 @@ async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
 
 @dataclass
 class _ServerToolCache:
-    tools: dict[str, ChatCompletionToolParam]
+    init_tools: dict[str, ChatCompletionToolParam]
+    discoverable_tools: dict[str, ChatCompletionToolParam]
     annotations: dict[str, SettaToolAnnotations | None]
     routing: dict[str, tuple[str, str]]
 
@@ -204,7 +205,8 @@ class MultiMCPClient:
         self._exit_stacks: dict[str, AsyncExitStack] = {}
         self._connection_tasks: dict[str, asyncio.Task[None]] = {}
         self._server_tool_cache: dict[str, _ServerToolCache] = {}
-        self.tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         self.routing: dict[str, tuple[str, str]] = {}
 
@@ -262,12 +264,21 @@ class MultiMCPClient:
         self._rebuild_tool_cache()
         logger.info("MCP client resources cleaned up successfully")
 
-    def tool_definitions_for_servers(
+    def init_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
         if self.disabled:
             return {}
-        return self._filter_tool_definitions(self.tool_definitions, server_ids)
+        return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
+
+    def discoverable_tool_definitions_for_servers(
+        self, server_ids: set[str]
+    ) -> dict[str, ChatCompletionToolParam]:
+        if self.disabled:
+            return {}
+        return self._filter_tool_definitions(
+            self.discoverable_tool_definitions, server_ids
+        )
 
     def tool_annotations_for_servers(
         self, server_ids: set[str]
@@ -475,39 +486,50 @@ class MultiMCPClient:
         self._rebuild_tool_cache()
 
     def _update_tool_cache_for_server(self, server_id: str, tools: list[Tool]) -> None:
-        tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        init_tools: dict[str, ChatCompletionToolParam] = {}
+        discoverable_tools: dict[str, ChatCompletionToolParam] = {}
         annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         routing: dict[str, tuple[str, str]] = {}
         for tool in tools:
             annotations: SettaToolAnnotations | None = None
+            tool_type = SettaToolType.discoverable
             if tool.annotations is not None:
                 raw_annotations = tool.annotations.model_dump()
-                annotations = SettaToolAnnotations.model_validate(raw_annotations)
+                if "settaToolType" in raw_annotations:
+                    annotations = SettaToolAnnotations.model_validate(raw_annotations)
+                    tool_type = SettaToolType(annotations.settaToolType)
             namespaced_name = build_namespaced_tool_name(server_id, tool.name)
             definition = self._convert_tool_to_llm_definition(
                 tool, namespaced_name=namespaced_name
             )
-            tool_definitions[namespaced_name] = definition
+            if tool_type == SettaToolType.init:
+                init_tools[namespaced_name] = definition
+            else:
+                discoverable_tools[namespaced_name] = definition
             annotations_by_name[namespaced_name] = annotations
             routing[namespaced_name] = (server_id, tool.name)
 
         self._server_tool_cache[server_id] = _ServerToolCache(
-            tools=tool_definitions,
+            init_tools=init_tools,
+            discoverable_tools=discoverable_tools,
             annotations=annotations_by_name,
             routing=routing,
         )
         self._rebuild_tool_cache()
 
     def _rebuild_tool_cache(self) -> None:
-        tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        init_tools: dict[str, ChatCompletionToolParam] = {}
+        discoverable_tools: dict[str, ChatCompletionToolParam] = {}
         annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         routing: dict[str, tuple[str, str]] = {}
         for cache in self._server_tool_cache.values():
-            tool_definitions.update(cache.tools)
+            init_tools.update(cache.init_tools)
+            discoverable_tools.update(cache.discoverable_tools)
             annotations_by_name.update(cache.annotations)
             routing.update(cache.routing)
 
-        self.tool_definitions = tool_definitions
+        self.init_tool_definitions = init_tools
+        self.discoverable_tool_definitions = discoverable_tools
         self.tool_annotations_by_name = annotations_by_name
         self.routing = routing
 

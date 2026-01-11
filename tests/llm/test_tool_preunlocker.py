@@ -1,7 +1,7 @@
 import unittest
 
 from setta.llm.tool_preunlocker import ToolPreunlocker
-from setta.mcp.tool_metadata import SettaToolAnnotations
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.project_state.project_state_summary_types import (
     ProjectStateSummary,
     ProjectStateSummarySection,
@@ -60,6 +60,7 @@ def _register_tool(
     }
     available_tools[name] = definition
     annotations_by_name[name] = SettaToolAnnotations(
+        settaToolType=SettaToolType.discoverable,
         searchTags=tags,
         searchCategory=category,
     )

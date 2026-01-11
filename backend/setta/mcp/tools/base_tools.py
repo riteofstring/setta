@@ -3,7 +3,7 @@ import importlib.metadata
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.tool_setup import setta_tool
+from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
 
@@ -46,7 +46,7 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
 
 
-@setta_tool
+@setta_init_tool
 def getProjectConfigNamesAndIds(ctx: Context):
     """
     Return metadata for every known project config so external agents can pick one.

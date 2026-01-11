@@ -8,9 +8,10 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_nam
 from setta.mcp.tool_metadata import (
     AIFollowToolResultMetadata,
     SettaToolAnnotations,
+    SettaToolType,
     get_ai_follow_tool_result,
 )
-from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import (
@@ -35,10 +36,18 @@ def _build_tool_annotations_by_name(
     server_id: str,
 ) -> dict[str, SettaToolAnnotations]:
     tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
+    for tool_fn in SETTA_INIT_MCP_TOOLS:
+        tool_annotations_by_name[
+            build_namespaced_tool_name(server_id, tool_fn.__name__)
+        ] = SettaToolAnnotations(
+            settaToolType=SettaToolType.init,
+            aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
+        )
     for tool_fn in SETTA_MCP_TOOLS:
         tool_annotations_by_name[
             build_namespaced_tool_name(server_id, tool_fn.__name__)
         ] = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
             aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
         )
     return tool_annotations_by_name
@@ -215,6 +224,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 mcp_client.tool_annotations_by_name[
                     namespaced_tool_name
                 ] = SettaToolAnnotations(
+                    settaToolType=SettaToolType.discoverable,
                     aiFollowToolResult=AIFollowToolResultMetadata(
                         pathsByIdType={"section": ["sectionId"]},
                     ),
@@ -363,6 +373,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
 
             tool_name = build_namespaced_tool_name("context7", "create_top_level_section")
             mcp_client.tool_annotations_by_name[tool_name] = SettaToolAnnotations(
+                settaToolType=SettaToolType.discoverable,
                 aiFollowToolResult=AIFollowToolResultMetadata(
                     pathsByIdType={"section": ["$"]},
                 ),

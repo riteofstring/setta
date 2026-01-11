@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useSettings } from "state/definitions";
+import { Position } from "utils/generatedTypes";
 import { screenToFlowPosition, setCenter } from "../hooks/useViewportHelper";
 
-export let mouseLocation;
+export let mouseLocation: Position = { x: 0, y: 0 };
 
-function addMouseLocationListener() {
-  function handleMouseMove(e) {
+function addMouseLocationListener(): () => void {
+  function handleMouseMove(e: MouseEvent) {
     mouseLocation = {
       x: e.clientX,
       y: e.clientY,
