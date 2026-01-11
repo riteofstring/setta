@@ -1,3 +1,4 @@
+import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
@@ -17,12 +18,21 @@ import {
 import {
   debouncedDispatchViewportUpdate,
   getCurrEffectiveSectionImpl,
+  getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
+  useProjectState.subscribe(
+    getDisplayedSectionIdToChildren,
+    (x) => {
+      updateDndChildren(x);
+    },
+    { equalityFn: _.isEqual },
+  );
+
   // useProjectState.subscribe(
   //   topLevelSectionVisibilitySubscriptionFn,
   //   (newVal) => {

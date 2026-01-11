@@ -14,11 +14,7 @@ import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { LockPositionButton } from "../Header/LockPositionButton";
 import MenuButton from "../Header/MenuButton/MenuButton";
 import { SectionTitle } from "../Header/SectionTitle";
-import {
-  getOnSectionClick,
-  getOutlineColor,
-  useHasNestedChildren,
-} from "./utils";
+import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
 
 function _Container({
   isGroup,
@@ -81,7 +77,7 @@ function ContainerGroup({
   style,
   children,
 }) {
-  const hasNested = useHasNestedChildren(sectionId);
+  const hasNested = useHasTempNested(sectionId);
   const {
     isActiveSection,
     positionAndSizeLocked,

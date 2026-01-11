@@ -358,7 +358,10 @@ const ZoomPane = ({
           return false;
         }
 
-        if (useDndState.getState().activeId !== null) {
+        if (
+          useDndState.getState().isSorting ||
+          useDndState.getState().isMovingFree
+        ) {
           return false;
         }
 

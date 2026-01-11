@@ -9,7 +9,12 @@ import type {
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
+  SettaCollision,
 } from "./types";
+import {
+  resetCollisionHysteresis,
+  updateCollisionHysteresis,
+} from "./collision";
 
 type Props = PropsWithChildren<{
   sensors?: Sensors<DragDropManager>;
@@ -36,6 +41,10 @@ export function DragDropProvider({
       sensors={sensors}
       modifiers={modifiers}
       plugins={plugins}
+      onCollision={(event) => {
+        const collisions = event.collisions as SettaCollision[];
+        updateCollisionHysteresis(collisions);
+      }}
       onDragStart={(event) => {
         const mapped = mapDragStartEvent(event);
         if (!mapped) {
@@ -63,10 +72,12 @@ export function DragDropProvider({
       onDragEnd={(event, manager) => {
         const mapped = mapDragEvent(event, manager, event.canceled);
         if (!mapped) {
+          resetCollisionHysteresis();
           return;
         }
 
         onDragEnd?.(mapped);
+        resetCollisionHysteresis();
       }}
     >
       {children}
@@ -114,11 +125,11 @@ function mapDragEvent(
   };
 }
 
-function getCollisions(manager: DragDropManager) {
+function getCollisions(manager: DragDropManager): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
     return [];
   }
 
-  return collisions;
+  return collisions as SettaCollision[];
 }

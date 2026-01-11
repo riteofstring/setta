@@ -1,3 +1,4 @@
+import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
@@ -483,6 +484,12 @@ export function getSectionDescendants(
     idx += 1;
   }
   return ids;
+}
+
+export function manualDndChildrenReset() {
+  updateDndChildren(
+    getDisplayedSectionIdToChildren(useProjectState.getState()),
+  );
 }
 
 export function processProjectStateUpdateFromBackend(

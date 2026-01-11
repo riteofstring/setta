@@ -1,10 +1,11 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { SortableSectionContainer } from "./SortableSectionContainer";
-import { useHasNestedChildren, useSectionChildren } from "./utils";
+import { useHasTempNested } from "./utils";
 
 export function MaybeManyNestedSections({
   sectionId,
@@ -13,7 +14,7 @@ export function MaybeManyNestedSections({
   sectionId: string;
   isGroup: boolean;
 }) {
-  const hasNested = useHasNestedChildren(sectionId);
+  const hasNested = useHasTempNested(sectionId);
   return (
     hasNested && (
       <div className="flex flex-col">
@@ -30,12 +31,12 @@ function ManyNestedSections({
   sectionId: string;
   isGroup: boolean;
 }) {
-  const childIds = useSectionChildren(sectionId);
+  const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
 
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <DNDSortable sectionId={sectionId} items={tempChildIds}>
       <NestedSectionsWithMargin
-        childIds={childIds}
+        childIds={tempChildIds}
         sectionId={sectionId}
         isGroup={isGroup}
       />

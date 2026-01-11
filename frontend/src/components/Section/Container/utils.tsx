@@ -1,3 +1,4 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useEffect, useState } from "react";
@@ -15,7 +16,6 @@ import { hasSectionIdInProject } from "state/aiFollowUtils";
 import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
-  isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -111,24 +111,8 @@ export function getOnSectionClick(sectionId, isActiveSection) {
   };
 }
 
-export function useSectionChildren(sectionId: string): string[] {
-  return useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
-    if (!isBaseParentSectionImpl(impl)) {
-      return [];
-    }
-    return impl.children;
-  }, _.isEqual);
-}
-
-export function useHasNestedChildren(sectionId: string) {
-  return useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
-    if (!isBaseParentSectionImpl(impl)) {
-      return false;
-    }
-    return impl.children.length > 0;
-  });
+export function useHasTempNested(sectionId: string) {
+  return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
 }
 
 export function useAiSectionHighlight(

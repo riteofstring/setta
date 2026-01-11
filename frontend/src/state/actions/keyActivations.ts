@@ -17,6 +17,11 @@ import {
   removeFrozenFloatingBox,
 } from "components/Utils/FloatingBox";
 import {
+  activateDndMovingFreeMode,
+  activateDndSortingMode,
+  deactivateDnd,
+} from "forks/dnd-kit/dndState";
+import {
   resetZoom,
   zoomIn,
   zoomOut,
@@ -518,6 +523,8 @@ export function attachKeyEventListeners() {
       activateMoveSectionMode,
       deactivateMoveSectionMode,
     ],
+    [shortcuts.sortingShortcut, activateDndSortingMode, deactivateDnd],
+    [shortcuts.movingFreeShortcut, activateDndMovingFreeMode, deactivateDnd],
     ["Escape", onEscapeKey],
   ];
 

@@ -7,7 +7,12 @@ import type {
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
+  SettaCollision,
 } from "./types";
+import {
+  resetCollisionHysteresis,
+  updateCollisionHysteresis,
+} from "./collision";
 
 export type DndMonitorHandlers = Partial<{
   onDragStart: (event: DragStartEvent) => void;
@@ -106,11 +111,11 @@ function mapDragEvent(
   };
 }
 
-function getCollisions(manager: DragDropManager) {
+function getCollisions(manager: DragDropManager): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
     return [];
   }
 
-  return collisions;
+  return collisions as SettaCollision[];
 }
