@@ -1,23 +1,16 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
-import { Handle } from "forks/xyflow/core/components/Handle";
-import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { createEdgeFromConnection } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
-  getParamDisplayName,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useProjectState, useSettings } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
-import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -49,7 +42,6 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
         <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
         <>
-          <EdgesStrip sectionId={sectionId} />
           <GetPinnedParams
             sectionId={sectionId}
             outerRef={outerRef}
@@ -69,114 +61,15 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function EdgesStrip({ sectionId }: { sectionId: string }) {
-  const { canEditStructure } = useShareCapabilities();
-  const { inputPorts, outputPorts } = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const pinned = getCurrShownParamIds(state, sectionId, true, true);
-    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-    const requiredParamIdsToPaths = {
-      ...pinned.requiredParamIdsToPaths,
-      ...unpinned.requiredParamIdsToPaths,
-    };
-    const inputPorts = impl.edgeInputParams
-      .map((paramId) => {
-        const path = requiredParamIdsToPaths[paramId];
-        const label = path
-          ? paramNameFromPathArray(state, sectionId, path)
-          : getParamDisplayName(state, sectionId, paramId);
-        return { id: paramId, label };
-      })
-      .filter((entry) => entry.label.length > 0);
-    const outputPorts = impl.edgeOutputPorts.map((port) => ({
-      id: port.id,
-      label:
-        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-    }));
-    return { inputPorts, outputPorts };
-  }, _.isEqual);
-
-  if (inputPorts.length === 0 && outputPorts.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="section-w-full section-row-pin-main -mt-1 flex flex-col gap-2 rounded-md border border-blue-100 bg-blue-50/60 px-2 py-2 shadow-sm dark:border-setta-700/40 dark:bg-blue-950/30">
-      <header className="flex items-center gap-1 text-[0.6rem] font-semibold uppercase text-blue-600/70 dark:text-blue-300/60">
-        <span className="tracking-[0.2em]">Edges</span>
-      </header>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1">
-          {inputPorts.map((port) => (
-            <div
-              key={port.id}
-              className="relative flex items-center gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
-            >
-              <Handle
-                id={port.id}
-                type="target"
-                position={HandlePosition.Left}
-                onConnect={createEdgeFromConnection}
-                isConnectable={canEditStructure}
-                isConnectableStart={canEditStructure}
-                isConnectableEnd={canEditStructure}
-              />
-              <span className="truncate">{port.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-1">
-          {outputPorts.map((port) => (
-            <div
-              key={port.id}
-              className="relative flex items-center justify-end gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
-            >
-              <span className="truncate">{port.label}</span>
-              <Handle
-                id={port.id}
-                type="source"
-                position={HandlePosition.Right}
-                onConnect={createEdgeFromConnection}
-                isConnectable={canEditStructure}
-                isConnectableStart={canEditStructure}
-                isConnectableEnd={canEditStructure}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function GetPinnedParams({
   sectionId,
   outerRef,
   handleColumnResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) => {
-    const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
-      x,
-      sectionId,
-      true,
-      true,
-    );
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return filterEdgeInputs(
-      requiredParamIdsToPaths,
-      topLevelParamIds,
-      impl.edgeInputParams,
-    );
-  }, _.isEqual);
+  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) =>
+    getCurrShownParamIds(x, sectionId, true, true),
+  );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
@@ -337,24 +230,9 @@ function GetUnpinnedParamsCore({
   onResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) => {
-    const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
-      x,
-      sectionId,
-      false,
-      true,
-    );
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return filterEdgeInputs(
-      requiredParamIdsToPaths,
-      topLevelParamIds,
-      impl.edgeInputParams,
-    );
-  }, _.isEqual);
+  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) =>
+    getCurrShownParamIds(x, sectionId, false, true),
+  );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
@@ -378,28 +256,4 @@ function getLongestListLength(obj: Record<string, Array<string>>) {
     (max, arr) => (arr.length > max ? arr.length : max),
     0,
   );
-}
-
-function filterEdgeInputs(
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-  topLevelParamIds: Array<string>,
-  edgeInputParams: Array<string>,
-) {
-  if (edgeInputParams.length === 0) {
-    return { requiredParamIdsToPaths, topLevelParamIds };
-  }
-  const edgeInputSet = new Set(edgeInputParams);
-  const filteredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
-    if (!edgeInputSet.has(paramId)) {
-      filteredParamIdsToPaths[paramId] = path;
-    }
-  }
-  const filteredTopLevel = topLevelParamIds.filter(
-    (paramId) => !edgeInputSet.has(paramId),
-  );
-  return {
-    requiredParamIdsToPaths: filteredParamIdsToPaths,
-    topLevelParamIds: filteredTopLevel,
-  };
 }

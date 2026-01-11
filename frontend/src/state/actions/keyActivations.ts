@@ -42,7 +42,6 @@ import {
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy, paste } from "./copyPaste";
-import { deleteSelectedEdges } from "./edges";
 import { restartLanguageServer } from "./lsp";
 import {
   openFileMenuLoadProjectConfigModal,
@@ -67,13 +66,6 @@ import {
   focusOnSearch,
 } from "./sections/sectionParamFilter";
 import { redoProjectState, undoProjectState } from "./undo";
-
-function deleteEdgesOrSections() {
-  const deletedEdges = deleteSelectedEdges();
-  if (!deletedEdges) {
-    deleteAllActiveSections();
-  }
-}
 
 let keysPressed = new Set();
 let keysPressedTimeStamps = new Map();
@@ -494,7 +486,7 @@ export function attachKeyEventListeners() {
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
-    [shortcuts.deleteSectionShortcut, deleteEdgesOrSections],
+    [shortcuts.deleteSectionShortcut, deleteAllActiveSections],
     [
       shortcuts.selectTopLevelNonGroupSections,
       setTopLevelNonGroupSectionsAsActive,

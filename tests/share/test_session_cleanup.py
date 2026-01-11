@@ -150,20 +150,6 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             session = session_store.create_session()
             share_runtime_state.create_session_backend(session.id)
 
-            listener_registry = ListenerRegistry()
-            python_script_sender = WMHPythonScriptSender(
-                websocket_manager,
-                listener_registry,
-                dbe,
-            )
-            switcher = ProjectManagerSwitcher(
-                share_runtime_state=share_runtime_state,
-                settings_file=settings_file,
-                python_script_sender=python_script_sender,
-                lsp_writers=None,
-                frontend_sender=frontend_sender,
-                specific_file_watcher=SpecificFileWatcher(),
-            )
             llm_config = AllLLMConfigs(
                 configs={"primary": LLMConfig(id="primary", model="test-model")}
             )
@@ -172,7 +158,6 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 frontend_sender,
                 share_runtime_state,
                 session_store,
-                switcher,
                 llm_config=llm_config,
             )
             message = UserChatMessage(

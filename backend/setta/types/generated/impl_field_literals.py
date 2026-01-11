@@ -29,8 +29,6 @@ AllImplFields = Literal[
     "description",
     "displayMode",
     "drawThrottleDelay",
-    "edgeInputParams",
-    "edgeOutputPorts",
     "eraserBrushSize",
     "folder",
     "format",

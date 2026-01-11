@@ -59,12 +59,5 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
 
       return transformChanged;
     },
-    cancelConnection: () => {
-      set({
-        connectionStartHandle: null,
-        connectionEndHandle: null,
-        connectionStatus: null,
-      });
-    },
   })),
 );
