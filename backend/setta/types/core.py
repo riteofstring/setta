@@ -20,6 +20,8 @@ class Core(BaseModel, extra="forbid"):
         default_factory=lambda: [
             "callable",
             "codeObjVariantMap",
+            "edgeInputParams",
+            "edgeOutputPorts",
             "topLevelParamId",
             "value",
             "layers",

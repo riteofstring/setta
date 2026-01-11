@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
+from setta.types.edges import Edge
 from setta.types.id import ID
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -65,3 +66,4 @@ class ProjectConfig(BaseModel, extra="forbid"):
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)
+    edges: list[Edge] = Field(default_factory=list)

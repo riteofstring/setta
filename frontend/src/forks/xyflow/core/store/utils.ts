@@ -3,7 +3,7 @@ import { zoomIdentity } from "d3-zoom";
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
-import type { FitViewOptions } from "../types";
+import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,
   getNodesBounds,
@@ -87,6 +87,6 @@ export function onFitViewHandler() {
   );
 }
 
-export function computeReadyToBeVisible(reactFlowState) {
+export function computeReadyToBeVisible(reactFlowState: ReactFlowState) {
   return !reactFlowState.fitViewOnInit || reactFlowState.fitViewOnInitDone;
 }

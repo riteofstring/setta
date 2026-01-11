@@ -40,11 +40,16 @@ export function getAllVisibleParamsInSection(
     return [];
   }
 
-  const pinnedIds = Object.keys(shown.pinned.requiredParamIdsToPaths);
+  const edgeInputParams = new Set(impl.edgeInputParams);
+  const pinnedIds = Object.keys(shown.pinned.requiredParamIdsToPaths).filter(
+    (id) => !edgeInputParams.has(id),
+  );
 
   let unpinnedIds: Array<string> = [];
   if (!impl.hideUnpinnedParams) {
-    unpinnedIds = Object.keys(shown.unpinned.requiredParamIdsToPaths);
+    unpinnedIds = Object.keys(shown.unpinned.requiredParamIdsToPaths).filter(
+      (id) => !edgeInputParams.has(id),
+    );
   }
 
   return [...pinnedIds, ...unpinnedIds];

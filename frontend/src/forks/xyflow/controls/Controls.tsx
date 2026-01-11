@@ -49,11 +49,11 @@ const Controls = () => {
   }
 
   const onZoomInHandler = () => {
-    zoomIn({});
+    zoomIn();
   };
 
   const onZoomOutHandler = () => {
-    zoomOut({});
+    zoomOut();
   };
 
   return (

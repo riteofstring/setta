@@ -330,6 +330,7 @@ export const RouteEnum = {
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
   SET_CALLABLE: "/setCallable",
   TEXT_FIELD_COMPLETION: "/textFieldCompletion",
+  OUTPUT_ACCESSOR_COMPLETION: "/outputAccessorCompletion",
   CODE_AREA_COMPLETION: "/codeAreaCompletion",
   GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
   GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
@@ -373,6 +374,13 @@ export const RouteEnum = {
   TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
   SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
+  SET_SECTION_EDGE_INPUTS: "/setSectionEdgeInputs",
+  SET_SECTION_EDGE_OUTPUTS: "/setSectionEdgeOutputs",
+  CREATE_EDGE: "/createEdge",
+  UPDATE_EDGE: "/updateEdge",
+  DELETE_EDGES: "/deleteEdges",
+  RECONNECT_EDGE: "/reconnectEdge",
+  SET_EDGES: "/setEdges",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
@@ -1068,6 +1076,11 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
+const EdgePortSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  accessor: z.string().default("" as const),
+});
+
 const TypeErrorIgnoreStateSchema = z.object({
   callable: z.boolean().default(false),
   params: z.record(IDSchema, z.boolean()).default({}),
@@ -1160,6 +1173,8 @@ const SharedModifierSchema = z.object({
   description: z.string().optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
   eraserBrushSize: z.int().optional(),
   folder: z.string().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
@@ -1256,6 +1271,8 @@ const CoreSchema = z.object({
         "description",
         "displayMode",
         "drawThrottleDelay",
+        "edgeInputParams",
+        "edgeOutputPorts",
         "eraserBrushSize",
         "folder",
         "format",
@@ -1310,6 +1327,8 @@ const CoreSchema = z.object({
     .default(() => [
       "callable" as const,
       "codeObjVariantMap" as const,
+      "edgeInputParams" as const,
+      "edgeOutputPorts" as const,
       "topLevelParamId" as const,
       "value" as const,
       "layers" as const,
@@ -1347,6 +1366,8 @@ const CallableSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
   hideParams: z.boolean().default(false),
 });
@@ -1382,6 +1403,8 @@ const DictSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -1593,6 +1616,8 @@ const GlobalVariablesSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -2550,6 +2575,8 @@ const DictSectionImplArgsSchema = z.object({
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -2581,6 +2608,8 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -2652,6 +2681,8 @@ const CallableSectionImplArgsSchema = z.object({
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
   hideParams: z.boolean().optional(),
 });
@@ -3065,6 +3096,29 @@ const TopLevelSectionLayoutSchema = z.object({
 
 export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
 
+const EdgeSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  sourceSectionId: IDSchema,
+  sourceVariantId: IDSchema,
+  sourcePortId: IDSchema,
+  targetSectionId: IDSchema,
+  targetVariantId: IDSchema,
+  targetPortId: IDSchema,
+  type: z.string().default("default" as const),
+  label: z.union([z.string(), z.null()]).default(null),
+  style: z
+    .union([
+      z.record(z.string(), z.union([z.string(), z.int(), z.number()])),
+      z.null(),
+    ])
+    .default(null),
+  animated: z.boolean().default(false),
+  hidden: z.boolean().default(false),
+  zIndex: z.int().default(0),
+  data: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  selected: z.boolean().default(false),
+});
+
 const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -3082,6 +3136,7 @@ const ProjectConfigSchema = z.object({
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
   activeIds: z.array(IDSchema).default([]),
+  edges: z.array(EdgeSchema).default([]),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
@@ -3599,6 +3654,8 @@ const UserDefaultCallableSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
 });
 
@@ -3690,6 +3747,8 @@ const UserDefaultDictSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
 });
@@ -3770,6 +3829,8 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
 });
@@ -4557,6 +4618,8 @@ const BaseDictSectionImplArgsSchema = z.object({
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -4651,6 +4714,8 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
+  edgeInputParams: z.array(IDSchema).optional(),
+  edgeOutputPorts: z.array(EdgePortSchema).optional(),
 });
 
 type BaseSectionWithParamsImplArgs = z.infer<
@@ -4810,6 +4875,8 @@ const BaseDictSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -4865,6 +4932,8 @@ const BaseSectionWithParamsImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
 type BaseSectionWithParamsImpl = z.infer<
@@ -5212,6 +5281,31 @@ export type CreateChildSectionsViaIncrementerRequestInput = z.input<
   typeof CreateChildSectionsViaIncrementerRequestSchema
 >;
 
+const CreateEdgeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sourceSectionId: IDSchema,
+  sourceVariantId: IDSchema,
+  sourcePortId: IDSchema,
+  targetSectionId: IDSchema,
+  targetVariantId: IDSchema,
+  targetPortId: IDSchema,
+  type: z.string().default("default" as const),
+  label: z.union([z.string(), z.null()]).default(null),
+  style: z
+    .union([
+      z.record(z.string(), z.union([z.string(), z.int(), z.number()])),
+      z.null(),
+    ])
+    .default(null),
+  animated: z.boolean().default(false),
+  hidden: z.boolean().default(false),
+  zIndex: z.int().default(0),
+  data: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type CreateEdgeRequestInput = z.input<typeof CreateEdgeRequestSchema>;
+
 const CreateNewSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5301,6 +5395,14 @@ const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
 export type DeleteChildSectionsViaDecrementerRequestInput = z.input<
   typeof DeleteChildSectionsViaDecrementerRequestSchema
 >;
+
+const DeleteEdgesRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edgeIds: z.array(IDSchema),
+});
+
+export type DeleteEdgesRequestInput = z.input<typeof DeleteEdgesRequestSchema>;
 
 const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5414,6 +5516,18 @@ const MoveSectionRequestSchema = z.object({
 
 export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
 
+const OutputAccessorCompletionRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  fullText: z.string(),
+  position: z.int(),
+});
+
+export type OutputAccessorCompletionRequestInput = z.input<
+  typeof OutputAccessorCompletionRequestSchema
+>;
+
 const PasteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5434,6 +5548,22 @@ const PrepareSectionsForCopyRequestSchema = z.object({
 
 export type PrepareSectionsForCopyRequestInput = z.input<
   typeof PrepareSectionsForCopyRequestSchema
+>;
+
+const ReconnectEdgeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edgeId: IDSchema,
+  sourceSectionId: IDSchema,
+  sourceVariantId: IDSchema,
+  sourcePortId: IDSchema,
+  targetSectionId: IDSchema,
+  targetVariantId: IDSchema,
+  targetPortId: IDSchema,
+});
+
+export type ReconnectEdgeRequestInput = z.input<
+  typeof ReconnectEdgeRequestSchema
 >;
 
 const RedoRequestSchema = z.object({
@@ -5630,6 +5760,14 @@ export type SetDefaultSectionVariantRequestInput = z.input<
   typeof SetDefaultSectionVariantRequestSchema
 >;
 
+const SetEdgesRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edges: z.array(EdgeSchema),
+});
+
+export type SetEdgesRequestInput = z.input<typeof SetEdgesRequestSchema>;
+
 const SetGenCodePrefixRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5704,6 +5842,28 @@ const SetSectionColumnWidthRequestSchema = z.object({
 
 export type SetSectionColumnWidthRequestInput = z.input<
   typeof SetSectionColumnWidthRequestSchema
+>;
+
+const SetSectionEdgeInputsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  edgeInputParams: z.array(IDSchema),
+});
+
+export type SetSectionEdgeInputsRequestInput = z.input<
+  typeof SetSectionEdgeInputsRequestSchema
+>;
+
+const SetSectionEdgeOutputsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  edgeOutputPorts: z.array(EdgePortSchema),
+});
+
+export type SetSectionEdgeOutputsRequestInput = z.input<
+  typeof SetSectionEdgeOutputsRequestSchema
 >;
 
 const SetSectionHideUnpinnedParamsRequestSchema = z.object({
@@ -6029,6 +6189,14 @@ const UnselectAllParamsRequestSchema = z.object({
 export type UnselectAllParamsRequestInput = z.input<
   typeof UnselectAllParamsRequestSchema
 >;
+
+const UpdateEdgeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edge: EdgeSchema,
+});
+
+export type UpdateEdgeRequestInput = z.input<typeof UpdateEdgeRequestSchema>;
 
 const UpdateParamImplConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

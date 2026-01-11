@@ -5,7 +5,7 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "state/actions/nodeInternals";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import { useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
@@ -25,7 +25,6 @@ const NodeRenderer = () => {
   const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
       return null;
@@ -53,7 +52,6 @@ const NodeRenderer = () => {
         <NodeWrapper
           key={nodeId}
           id={nodeId}
-          selected={activeSectionIds.includes(nodeId)}
           isDraggable={!panActivationKeyPressed}
           resizeObserver={resizeObserver}
           visibility={readyToBeVisible ? "visible" : "hidden"}

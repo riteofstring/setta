@@ -1,10 +1,9 @@
-SELF_IDENTIFIER = "self"
+SELF_IDENTIFIER = "state"
 GEN_CODE_INSTANCE_NAME = "state"
 GEN_CODE_CLASS_NAME = "SettaState"
 CLASS_DEF = f"""
 class {GEN_CODE_CLASS_NAME}:
     def __init__({SELF_IDENTIFIER}):
-        {GEN_CODE_INSTANCE_NAME} = {SELF_IDENTIFIER}
 """.lstrip()
 
 
