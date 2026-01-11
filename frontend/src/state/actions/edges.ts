@@ -10,6 +10,7 @@ import {
   route_delete_edges,
   route_reconnect_edge,
   route_set_edges,
+  route_update_edge,
 } from "utils/generatedEndpoints";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -28,12 +29,26 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
         }
       }
     },
-    send: (frontendOpId) =>
-      route_set_edges({
+    send: (frontendOpId) => {
+      if (multiSelect) {
+        const edge = useProjectState
+          .getState()
+          .projectConfig.edges.find((candidate) => candidate.id === edgeId);
+        if (!edge) {
+          return;
+        }
+        return route_update_edge({
+          projectConfigId: getCurrProjectConfigId(),
+          edge,
+          frontendOpId,
+        });
+      }
+      return route_set_edges({
         projectConfigId: getCurrProjectConfigId(),
         edges: useProjectState.getState().projectConfig.edges,
         frontendOpId,
-      }),
+      });
+    },
   });
 }
 

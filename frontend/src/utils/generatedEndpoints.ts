@@ -563,7 +563,7 @@ export async function route_create_edge(
   return await post("/createEdge", x);
 }
 
-async function route_update_edge(
+export async function route_update_edge(
   x: gt.UpdateEdgeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/updateEdge", x);

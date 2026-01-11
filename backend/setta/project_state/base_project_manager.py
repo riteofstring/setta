@@ -1399,7 +1399,7 @@ class BaseProjectManager(ABC):
         """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        delete_kwarg(project_state, x.sectionId)
+        delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     def create_project_code(
