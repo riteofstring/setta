@@ -133,7 +133,6 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
-    SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
@@ -229,7 +228,6 @@ from setta.types.helpers_lvl2 import (
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
-    set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
@@ -1847,12 +1845,6 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

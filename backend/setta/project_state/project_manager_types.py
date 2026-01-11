@@ -654,10 +654,6 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
 
 
-class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
-    pinnedParams: list[ID]
-
-
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
     columnWidth: float | None
 
