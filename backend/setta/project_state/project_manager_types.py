@@ -7,7 +7,6 @@ from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHel
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -144,11 +143,6 @@ class SetCallableResponse(BaseModel):
 
 class TextFieldCompletionRequest(ProjectManagerRequestWithSection):
     paramInfoId: ID | None
-    fullText: str
-    position: int
-
-
-class OutputAccessorCompletionRequest(ProjectManagerRequestWithSection):
     fullText: str
     position: int
 
@@ -509,52 +503,6 @@ class SetSectionParamFilterRequest(ProjectManagerRequestWithSection):
     value: str = Field(
         description="Raw text filter string; empty text clears any filter.",
     )
-
-
-class SetSectionEdgeInputsRequest(ProjectManagerRequestWithSection):
-    edgeInputParams: list[ID]
-
-
-class SetSectionEdgeOutputsRequest(ProjectManagerRequestWithSection):
-    edgeOutputPorts: list[EdgePort]
-
-
-class CreateEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    sourceSectionId: ID
-    sourceVariantId: ID
-    sourcePortId: ID
-    targetSectionId: ID
-    targetVariantId: ID
-    targetPortId: ID
-    type: str = "default"
-    label: str | None = None
-    style: dict[str, str | int | float] | None = None
-    animated: bool = False
-    hidden: bool = False
-    zIndex: int = 0
-    data: dict[str, object] | None = None
-
-
-class UpdateEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    edge: Edge
-
-
-class DeleteEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edgeIds: list[ID]
-
-
-class ReconnectEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    edgeId: ID
-    sourceSectionId: ID
-    sourceVariantId: ID
-    sourcePortId: ID
-    targetSectionId: ID
-    targetVariantId: ID
-    targetPortId: ID
-
-
-class SetEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edges: list[Edge]
 
 
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):

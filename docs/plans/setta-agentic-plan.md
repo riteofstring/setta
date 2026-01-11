@@ -2,7 +2,7 @@
 
 ## Deep dive summary (current system)
 - The backend exposes an MCP server (`backend/setta/mcp/server.py`) that registers init and discoverable tools, injects docstrings into schemas, and handles ID translation between canonical and temporary IDs.
-- The LLM stack (`backend/setta/llm/llm_chat_manager.py`) injects the system prompt plus a full project summary, streams tool calls/results, and pre-unlocks tools via `ToolPreunlocker`.
+- The LLM stack (`backend/setta/llm/llm_chat_manager.py`) injects the system prompt, streams tool calls/results, and supports tool search with deferred loading for Anthropic.
 - Tool discovery uses a BM25 search index with tags and categories, and MCP tool calls stream through `MultiMCPClient` to any configured server.
 - AIFollow highlights sections touched by tool calls and keeps the viewport in sync (`docs/ai-follow.md`).
 - Project state is the canonical source of truth (sections, params, variants, artifacts), with codegen + LSP sync (`backend/setta/project_state/base_project_manager.py`).

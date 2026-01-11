@@ -17,7 +17,6 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
-from setta.types.edges import EdgePort
 from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -65,8 +64,6 @@ class SharedModifier(TypedDict):
     description: NotRequired[str]
     displayMode: NotRequired[SectionWithParamsDisplayMode]
     drawThrottleDelay: NotRequired[int]
-    edgeInputParams: NotRequired[list[ID]]
-    edgeOutputPorts: NotRequired[list[EdgePort]]
     eraserBrushSize: NotRequired[int]
     folder: NotRequired[str]
     format: NotRequired[TextBlockFormat]

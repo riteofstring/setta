@@ -6,7 +6,6 @@ import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
-import { EdgePortsSettings } from "./EdgePortsSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { MetaControlSettings } from "./MetaControlSettings";
@@ -32,10 +31,6 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
     // case SectionTypeEnum.SECTION:
     // case SectionTypeEnum.GLOBAL_VARIABLES:
     //   return <InputAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Callable:
-    case SectionTypeEnum.Dict:
-    case SectionTypeEnum.GlobalVariables:
-      return <EdgePortsSettings sectionId={sectionId} />;
     case SectionTypeEnum.Code:
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:

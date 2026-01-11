@@ -126,7 +126,6 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     HttpRequestMethod,
 )
-from setta.types.edges import Edge, EdgePort
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
 from setta.types.generated.shared_modifier import SharedModifier
 

@@ -13,7 +13,6 @@ from setta.types.artifact import (
     LineChartSettings,
 )
 from setta.types.code_obj_impls import ColorPickerChoice
-from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -135,8 +134,6 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
-    edgeInputParams: list[ID] = Field(default_factory=list)
-    edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):

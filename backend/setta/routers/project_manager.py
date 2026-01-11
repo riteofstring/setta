@@ -11,14 +11,12 @@ from setta.project_state.project_manager_types import (
     CodeAreaCompletionRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
-    CreateEdgeRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
-    DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
@@ -30,11 +28,9 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
     MoveSectionRequest,
-    OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     ProjectStateSingleConfigWithCompletedOpIds,
-    ReconnectEdgeRequest,
     RedoRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
@@ -52,7 +48,6 @@ from setta.project_state.project_manager_types import (
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
-    SetEdgesRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
@@ -60,8 +55,6 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetSectionColumnWidthRequest,
-    SetSectionEdgeInputsRequest,
-    SetSectionEdgeOutputsRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -93,7 +86,6 @@ from setta.project_state.project_manager_types import (
     UndoRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
-    UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import (
@@ -198,15 +190,6 @@ async def route_text_field_completion(
     await _deny_share_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.text_field_completion(x)
-
-
-@router.post(Route.OUTPUT_ACCESSOR_COMPLETION)
-async def route_output_accessor_completion(
-    x: OutputAccessorCompletionRequest, ctx: RuntimeContextFromRequest
-) -> list[CodeMirrorCompletion]:
-    await _deny_share_mode_lsp(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.output_accessor_completion(x)
 
 
 @router.post(Route.CODE_AREA_COMPLETION)
@@ -634,59 +617,6 @@ async def route_set_section_param_filter(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_param_filter(x)
-
-
-@router.post(Route.SET_SECTION_EDGE_INPUTS)
-async def route_set_section_edge_inputs(
-    x: SetSectionEdgeInputsRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_share_mode_param_metadata(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_section_edge_inputs(x)
-
-
-@router.post(Route.SET_SECTION_EDGE_OUTPUTS)
-async def route_set_section_edge_outputs(
-    x: SetSectionEdgeOutputsRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_share_mode_param_metadata(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_section_edge_outputs(x)
-
-
-@router.post(Route.CREATE_EDGE)
-async def route_create_edge(x: CreateEdgeRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.create_edge(x)
-
-
-@router.post(Route.UPDATE_EDGE)
-async def route_update_edge(x: UpdateEdgeRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.update_edge(x)
-
-
-@router.post(Route.DELETE_EDGES)
-async def route_delete_edges(x: DeleteEdgesRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.delete_edges(x)
-
-
-@router.post(Route.RECONNECT_EDGE)
-async def route_reconnect_edge(x: ReconnectEdgeRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.reconnect_edge(x)
-
-
-@router.post(Route.SET_EDGES)
-async def route_set_edges(x: SetEdgesRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_edges(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)

@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
-import { Node, NodeDragItem } from "forks/xyflow/core/types";
+import { Node } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
@@ -10,7 +10,6 @@ import {
   ZustandNodeInternalsState,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
@@ -98,13 +97,12 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
 }
 
-export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
+export function updateNodePositions(nodeDragItems) {
   const newNodes = getNewNodes();
   for (const n of nodeDragItems) {
     newNodes.get(n.id).position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
-  scheduleEdgeHandlePositionUpdate(nodeDragItems.map((item) => item.id));
 }
 
 export function raiseTempZIndex(nodes: Array<Node>) {
@@ -122,7 +120,6 @@ export function justMoveANode(id: string, position: Position) {
   const newNodes = getNewNodes();
   newNodes.get(id).position = position;
   useNodeInternals.setState({ x: newNodes });
-  scheduleEdgeHandlePositionUpdate([id]);
 }
 
 function getNewNodes() {
