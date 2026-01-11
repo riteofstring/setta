@@ -1,4 +1,5 @@
 import { DragDropProvider } from "forks/dnd-kit/adapter";
+import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
 import { useDndMode } from "./dndState";
 import { useDNDSensors } from "./useDNDSensors";
@@ -24,6 +25,7 @@ export function GlobalDndContext({ children }) {
       onDragOver={onDragOver}
       modifiers={modifiers ?? undefined}
     >
+      <DragOperationShapeSync />
       {children}
       {isMovingFree ? <DummyDragOverlay ref={dummyRef} /> : null}
     </DragDropProvider>

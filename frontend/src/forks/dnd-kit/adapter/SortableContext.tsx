@@ -161,7 +161,7 @@ export function SortableContext({
   >(null);
 
   const isDragging = active != null;
-  const activeIndex = getActiveIndex(active, items);
+  const activeIndex = getActiveIndex(active, items, dndMode.isMovingFree);
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
   const resolvedOverId = useMemo(() => {
     if (collisionOverId) {
@@ -350,14 +350,17 @@ export function SortableContext({
 function getActiveIndex(
   active: { id: UniqueIdentifier } | null,
   items: UniqueIdentifier[],
+  allowTemp: boolean,
 ): number {
   if (!active) {
     return -1;
   }
 
-  const tempIndex = items.indexOf(getDndSectionId(String(active.id)));
-  if (tempIndex >= 0) {
-    return tempIndex;
+  if (allowTemp) {
+    const tempIndex = items.indexOf(getDndSectionId(String(active.id)));
+    if (tempIndex >= 0) {
+      return tempIndex;
+    }
   }
 
   return items.indexOf(active.id);

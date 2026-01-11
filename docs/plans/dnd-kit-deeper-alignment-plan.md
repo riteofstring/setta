@@ -35,6 +35,22 @@ Align Setta's DnD adapter with the new dnd-kit APIs and built-in sortable flow w
    - Sorting reorder stability (top to bottom) and no clumping.
    - Free-move behavior, temp placeholder flow, zoom correctness.
 
+## Status
+Completed
+- Sortable adapter now uses `@dnd-kit/react/sortable` for registration (SortableKeyboardPlugin only).
+- OptimisticSortingPlugin is intentionally skipped to preserve Setta reorder rules.
+- Collision detection relies on shapes only (removed element bounding fallback).
+- Sorting uses Setta collision-derived indices (`pastHalfway` + `computeNewIndex`) on drag end.
+- Sorting keeps `dragOperation.shape` in sync via droppable shapes when feedback is off.
+- Sorting uses axis restriction; zoom compensation stays in render (`applyZoomToTransform`).
+- Temp placeholder IDs are only used in free-move mode.
+
+In progress / remaining
+- Fix sorting regression; confirm collisions/overIndex advance correctly with shape sync.
+- Verify sortedRects + active rects stay consistent in sort mode.
+- Validate sorting stability (no clumping) for vertical/horizontal containers.
+- Re-verify free-move + zoom after sorting fix.
+
 ## Done when
 - Sorting and free-move behave identically to current Setta behavior.
 - Adapter is primarily built on new dnd-kit APIs with minimal legacy code.

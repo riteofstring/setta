@@ -10,6 +10,7 @@ import { moveSectionWithBackend } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import type { DragEndEvent } from "./adapter";
+import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 import { getOverId } from "./useDropType";
@@ -44,22 +45,51 @@ function logDndMoveSection(label: string, data: Record<string, unknown>) {
   console.log("[dnd-move-section]", label, data);
 }
 
-function onSortEnd({ active, over }: Pick<DragEndEvent, "active" | "over">) {
-  if (over && active.id !== over.id) {
-    const parentId = active.data?.current?.sortable?.containerId;
-    if (!parentId) {
-      return;
-    }
-    const children = getSectionChildren(useProjectState.getState(), parentId);
-    const overIndex = children.indexOf(over.id);
-    moveSectionWithBackend({
-      oldParentId: parentId,
-      newParentId: parentId,
-      sectionId: active.id,
-      newIndex: overIndex,
-      position: null,
-    });
+function onSortEnd({
+  active,
+  over,
+  collisions,
+}: Pick<DragEndEvent, "active" | "over" | "collisions">) {
+  const parentId = active.data?.current?.sortable?.containerId;
+  if (!parentId) {
+    return;
   }
+
+  const overId = getOverId(over, collisions);
+  if (!overId || active.id === overId) {
+    return;
+  }
+
+  const children = getSectionChildren(useProjectState.getState(), parentId);
+  const activeIndex = children.indexOf(active.id);
+  const overIndex = children.indexOf(overId);
+
+  if (activeIndex < 0 || overIndex < 0) {
+    return;
+  }
+
+  let newIndex = overIndex;
+  const pastHalfway = getPastHalfwayFromCollisions(overId, collisions);
+  if (pastHalfway !== null) {
+    newIndex = computeNewIndex(
+      activeIndex,
+      overIndex,
+      pastHalfway,
+      children.length,
+    );
+  }
+
+  if (newIndex === activeIndex) {
+    return;
+  }
+
+  moveSectionWithBackend({
+    oldParentId: parentId,
+    newParentId: parentId,
+    sectionId: active.id,
+    newIndex,
+    position: null,
+  });
 }
 
 async function onFreeMoveEnd({
@@ -201,7 +231,7 @@ export function useOnDragEnd() {
     }
 
     if (useDndState.getState().isSorting) {
-      onSortEnd({ active, over });
+      onSortEnd({ active, over, collisions });
     } else if (useDndState.getState().isMovingFree) {
       onFreeMoveEnd({
         active,
@@ -222,4 +252,22 @@ export function useOnDragEnd() {
   }
 
   return { dummyRef, onDragEnd };
+}
+
+function getPastHalfwayFromCollisions(
+  overId: string | number,
+  collisions: DragEndEvent["collisions"] | null,
+): boolean | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  const matching = collisions.find((collision) => collision.id === overId);
+  const resolved = matching ?? collisions[0];
+
+  if (!resolved || resolved.pastHalfway === undefined) {
+    return null;
+  }
+
+  return Boolean(resolved.pastHalfway);
 }

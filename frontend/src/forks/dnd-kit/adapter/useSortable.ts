@@ -25,7 +25,6 @@ import {
   rectSortingStrategy,
 } from "./sorting";
 import { useCollisionDetector } from "./useCollisionDetector";
-import { ZoomAwareModifier } from "./zoom";
 import { useDndMode } from "../dndState";
 
 const DEBUG_DND_SORTING = true;
@@ -97,15 +96,15 @@ export function useSortable({
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
   const dndMode = useDndMode();
-  const useFeedbackForSorting = dndMode.isSorting;
-  const feedback = useFeedbackForSorting ? "default" : undefined;
+  const disableFeedback = dndMode.isSorting;
+  const feedback = disableFeedback ? "none" : undefined;
+  const sortableTransition = dndMode.isSorting ? transition : null;
   let dragModifiers;
   if (dndMode.isSorting) {
     const containerIsHorizontal = Boolean(
       getSectionInfo(containerId)?.isHorizontalOrientation,
     );
     dragModifiers = [
-      ZoomAwareModifier,
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
     ];
   }
@@ -141,7 +140,7 @@ export function useSortable({
     feedback,
     modifiers: dragModifiers,
     collisionDetector,
-    transition,
+    transition: sortableTransition,
     // Skip OptimisticSortingPlugin; Setta controls reorder/placeholder behavior.
     plugins: [SortableKeyboardPlugin],
   });
@@ -179,7 +178,7 @@ export function useSortable({
     isValidIndex(activeIndex) &&
     isValidIndex(overIndex);
   const shouldDisplaceActiveItem =
-    isSorting && !useDragOverlay && isActiveItem && !useFeedbackForSorting;
+    isSorting && !useDragOverlay && isActiveItem;
   const strategy = localStrategy ?? globalStrategy ?? rectSortingStrategy;
 
   let finalTransform: Transform | null = null;
@@ -213,6 +212,15 @@ export function useSortable({
     sortable.draggable.disabled = Boolean(disabled.draggable);
     sortable.droppable.disabled = Boolean(disabled.droppable);
   }, [disabled, sortable]);
+
+  useEffect(() => {
+    if (dndMode.isSorting) {
+      sortable.transition = transition ?? null;
+      return;
+    }
+
+    sortable.transition = null;
+  }, [dndMode.isSorting, sortable, transition]);
 
   useEffect(() => {
     if (!DEBUG_DND_SORTING) {
