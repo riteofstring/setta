@@ -13,10 +13,12 @@ import type { ClientRect, SettaCollision } from "./types";
 let prevCollisionId: Draggable["id"] | null = null;
 let prevPastHalfway: boolean | null = null;
 let prevCollisionRect: ClientRect | null = null;
+let prevSortableCollisionId: Draggable["id"] | null = null;
 let prevPointerX: number | null = null;
 let prevPointerY: number | null = null;
 let prevPointerDirectionX: number | null = null;
 let prevPointerDirectionY: number | null = null;
+const NEAR_MISS_THRESHOLD = 12;
 
 
 type DndEntityData = {
@@ -55,17 +57,27 @@ export const customCollisionDetection: CollisionDetector = ({
   }
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
-  const intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
-
-  if (!intersectionRatio) {
-    return null;
-  }
-
   const droppableData = getEntityData(droppable);
   const containerId = droppableData?.sortable?.containerId;
   const containerIsHorizontal = containerId
     ? Boolean(getSectionInfo(containerId)?.isHorizontalOrientation)
     : false;
+  const isSortable = Boolean(containerId);
+
+  let intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
+
+  if (!intersectionRatio) {
+    const nearMissRatio = getNearMissIntersectionRatio({
+      activeRect,
+      droppableRect,
+      isSortable,
+      currentId: droppable.id,
+    });
+    if (!nearMissRatio) {
+      return null;
+    }
+    intersectionRatio = nearMissRatio;
+  }
 
   const triggerDist = containerIsHorizontal
     ? activeRect.top - droppableRect.top
@@ -73,10 +85,12 @@ export const customCollisionDetection: CollisionDetector = ({
   const absTriggerDist = Math.abs(triggerDist);
 
   const baseRatio =
-    prevCollisionId === droppable.id ? intersectionRatio * 1.1 : intersectionRatio;
+    prevCollisionId === droppable.id
+      ? intersectionRatio * 1.1
+      : intersectionRatio;
 
   const collisionValue = getCollisionScore({
-    isSortable: Boolean(containerId),
+    isSortable,
     intersectionRatio: baseRatio,
     absTriggerDist,
   });
@@ -197,6 +211,7 @@ export function updateCollisionHysteresis(
     prevCollisionId = null;
     prevPastHalfway = null;
     prevCollisionRect = null;
+    prevSortableCollisionId = null;
     return;
   }
 
@@ -204,12 +219,20 @@ export function updateCollisionHysteresis(
   prevPastHalfway = collisions[0].pastHalfway ?? null;
   const droppableRect = collisions[0].data?.droppable?.shape?.boundingRectangle;
   prevCollisionRect = droppableRect ? toClientRect(droppableRect) : null;
+  const sortableCollision = collisions.find((collision) => {
+    const data = getEntityData(collision.data?.droppable ?? null);
+    return Boolean(data?.sortable?.containerId);
+  });
+  if (sortableCollision) {
+    prevSortableCollisionId = sortableCollision.id;
+  }
 }
 
 export function resetCollisionHysteresis(): void {
   prevCollisionId = null;
   prevPastHalfway = null;
   prevCollisionRect = null;
+  prevSortableCollisionId = null;
   prevPointerX = null;
   prevPointerY = null;
   prevPointerDirectionX = null;
@@ -258,6 +281,44 @@ function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
   }
 
   return 0;
+}
+
+function getNearMissIntersectionRatio({
+  activeRect,
+  droppableRect,
+  isSortable,
+  currentId,
+}: {
+  activeRect: ClientRect;
+  droppableRect: ClientRect;
+  isSortable: boolean;
+  currentId: Draggable["id"];
+}): number | null {
+  if (!isSortable || prevSortableCollisionId !== currentId) {
+    return null;
+  }
+
+  const zoom = useReactFlow.getState().transform[2];
+  const threshold = NEAR_MISS_THRESHOLD * zoom;
+  const distance = getRectGapDistance(activeRect, droppableRect);
+  if (distance > threshold) {
+    return null;
+  }
+
+  const normalized = (threshold - distance) / threshold;
+  return 0.001 + normalized * 0.009;
+}
+
+function getRectGapDistance(entry: ClientRect, target: ClientRect): number {
+  const dx = Math.max(
+    0,
+    Math.max(entry.left - target.right, target.left - entry.right),
+  );
+  const dy = Math.max(
+    0,
+    Math.max(entry.top - target.bottom, target.top - entry.bottom),
+  );
+  return Math.hypot(dx, dy);
 }
 
 function getCollisionScore({

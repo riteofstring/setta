@@ -6,12 +6,14 @@ import {
 } from "forks/dnd-kit/dndChildren";
 import {
   getDndSectionId,
+  isTempSection,
   setActiveDnd,
   setDndTime,
   useDndState,
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
@@ -28,8 +30,29 @@ let lastPastHalfwayByOverId: Record<string, boolean> = {};
 let lastResolvedOverId: string | number | null = null;
 let lastResolvedPastHalfway: boolean | null = null;
 let lastResolvedTriggerDistCondition: boolean | null = null;
+let lastPointerCoordinates: { x: number; y: number } | null = null;
+let lastActiveRect:
+  | {
+      top: number;
+      left: number;
+      width: number;
+      height: number;
+    }
+  | null = null;
+let lastCollisionRectsById: Record<
+  string,
+  {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+    right: number;
+    bottom: number;
+  }
+> = {};
 const DND_DEBUG_COLLISION_LIMIT = 8;
 let dndLogSequence = 0;
+const PARENT_ONLY_FALLBACK_THRESHOLD = 14;
 
 function shouldLogDnd(): boolean {
   if (!useDndState.getState().isMovingFree) {
@@ -140,6 +163,191 @@ function resetLastResolvedOverState() {
   lastResolvedOverId = null;
   lastResolvedPastHalfway = null;
   lastResolvedTriggerDistCondition = null;
+  lastPointerCoordinates = null;
+  lastActiveRect = null;
+  lastCollisionRectsById = {};
+}
+
+type DroppableData = {
+  current?: {
+    sortable?: {
+      containerId?: string | number;
+    };
+  };
+};
+type CollisionEntry = NonNullable<DragOverEvent["collisions"]>[number];
+
+function shouldUseStickyChild({
+  containerId,
+  stickyChildId,
+  dndChildrenState,
+}: {
+  containerId: string;
+  stickyChildId: string;
+  dndChildrenState: ReturnType<typeof useDndChildren.getState>;
+}): boolean {
+  if (!lastResolvedOverId) {
+    return false;
+  }
+
+  const lastResolvedId = String(lastResolvedOverId);
+  if (lastResolvedId === stickyChildId) {
+    return true;
+  }
+
+  return dndChildrenState.y[lastResolvedId] === containerId;
+}
+
+function getSortableContainerIdFromCollision(
+  collision: CollisionEntry,
+): string | null {
+  const droppable = collision.data?.droppable;
+  if (!droppable) {
+    return null;
+  }
+
+  const data = droppable.data as DroppableData | undefined;
+  const containerId = data?.current?.sortable?.containerId;
+  if (!containerId) {
+    return null;
+  }
+
+  return String(containerId);
+}
+
+function getParentOnlyContainerIds(
+  collisions: DragOverEvent["collisions"] | null,
+  dndChildrenState: ReturnType<typeof useDndChildren.getState>,
+): Set<string> {
+  const parentOnlyContainers = new Set<string>();
+  if (!collisions || collisions.length === 0) {
+    return parentOnlyContainers;
+  }
+
+  const containerCollisions = new Set<string>();
+  const containerChildCollisions = new Set<string>();
+
+  for (const collision of collisions) {
+    const containerId = getSortableContainerIdFromCollision(collision);
+    if (containerId) {
+      containerChildCollisions.add(containerId);
+      continue;
+    }
+    containerCollisions.add(String(collision.id));
+  }
+
+  for (const containerId of containerCollisions) {
+    if (containerChildCollisions.has(containerId)) {
+      continue;
+    }
+
+    const children = dndChildrenState.x[containerId] ?? [];
+    if (children.length === 0) {
+      continue;
+    }
+
+    const hasRealChildren = children.some(
+      (childId) => !isTempSection(childId),
+    );
+    if (!hasRealChildren) {
+      continue;
+    }
+
+    parentOnlyContainers.add(containerId);
+  }
+
+  return parentOnlyContainers;
+}
+
+function getParentOnlyFallbackOverId({
+  parentOnlyContainers,
+  dndChildrenState,
+}: {
+  parentOnlyContainers: Set<string>;
+  dndChildrenState: ReturnType<typeof useDndChildren.getState>;
+}): string | number | null {
+  if (!lastResolvedOverId) {
+    return null;
+  }
+
+  const lastOverId = lastResolvedOverId;
+  const lastOverIdKey = String(lastOverId);
+  const parentId = dndChildrenState.y[lastOverIdKey];
+  if (!parentId || !parentOnlyContainers.has(parentId)) {
+    return null;
+  }
+
+  const rect = lastCollisionRectsById[lastOverIdKey];
+  if (!rect) {
+    return null;
+  }
+
+  const distance = getDistanceToRect(rect);
+  if (distance === null) {
+    return null;
+  }
+
+  const zoom = useReactFlow.getState().transform[2];
+  const threshold = PARENT_ONLY_FALLBACK_THRESHOLD * zoom;
+  if (distance <= threshold) {
+    return lastOverId;
+  }
+
+  return null;
+}
+
+function updateLastCollisionRects(
+  collisions: DragOverEvent["collisions"] | null,
+): void {
+  if (!collisions || collisions.length === 0) {
+    return;
+  }
+
+  for (const collision of collisions) {
+    const rect = collision.data?.droppable?.shape?.boundingRectangle;
+    if (!rect) {
+      continue;
+    }
+    lastCollisionRectsById[String(collision.id)] = {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+      right: rect.right,
+      bottom: rect.bottom,
+    };
+  }
+}
+
+function getDistanceToRect(rect: {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+}): number | null {
+  const point = getReferencePoint();
+  if (!point) {
+    return null;
+  }
+
+  const dx = Math.max(0, Math.max(rect.left - point.x, point.x - rect.right));
+  const dy = Math.max(0, Math.max(rect.top - point.y, point.y - rect.bottom));
+  return Math.hypot(dx, dy);
+}
+
+function getReferencePoint(): { x: number; y: number } | null {
+  if (lastPointerCoordinates) {
+    return lastPointerCoordinates;
+  }
+
+  if (lastActiveRect) {
+    return {
+      x: lastActiveRect.left + lastActiveRect.width / 2,
+      y: lastActiveRect.top + lastActiveRect.height / 2,
+    };
+  }
+
+  return null;
 }
 
 export function onDragStart({ active }: DragStartEvent) {
@@ -173,6 +381,16 @@ function onDragMove({
   activeRect,
   pointerCoordinates,
 }: DragMoveEvent) {
+  if (pointerCoordinates) {
+    lastPointerCoordinates = {
+      x: pointerCoordinates.x,
+      y: pointerCoordinates.y,
+    };
+  }
+  if (activeRect) {
+    lastActiveRect = activeRect;
+  }
+
   const triggerDistCondition = collisions?.[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
   const overCandidate = collisions?.[0] ?? over;
@@ -243,6 +461,16 @@ function onDragOver({
   activeRect,
   pointerCoordinates,
 }: DragOverEvent & { calledFromOnDragMove?: boolean }) {
+  if (pointerCoordinates) {
+    lastPointerCoordinates = {
+      x: pointerCoordinates.x,
+      y: pointerCoordinates.y,
+    };
+  }
+  if (activeRect) {
+    lastActiveRect = activeRect;
+  }
+
   if (!collisions) {
     return;
   }
@@ -567,12 +795,46 @@ export function getOverId(
   over: { id: string | number } | null,
   collisions: DragOverEvent["collisions"] | null,
 ) {
+  updateLastCollisionRects(collisions);
+  const dndChildrenState = useDndChildren.getState();
+  const parentOnlyContainers = getParentOnlyContainerIds(
+    collisions,
+    dndChildrenState,
+  );
+  const fallbackOverId =
+    parentOnlyContainers.size > 0
+      ? getParentOnlyFallbackOverId({ parentOnlyContainers, dndChildrenState })
+      : null;
+  const resolveParentOnlyOver = (
+    overId: string | number | null,
+  ): string | number | null => {
+    if (!overId) {
+      return null;
+    }
+
+    if (parentOnlyContainers.size === 0) {
+      return overId;
+    }
+
+    const overIdKey = String(overId);
+    const parentId = dndChildrenState.y[overIdKey];
+    const isParentOnly =
+      parentOnlyContainers.has(overIdKey) ||
+      (parentId ? parentOnlyContainers.has(parentId) : false);
+    if (!isParentOnly) {
+      return overId;
+    }
+
+    return fallbackOverId;
+  };
+
   const collisionOver = getCollisionOverId(collisions);
-  if (collisionOver) {
-    return collisionOver;
+  if (collisionOver !== null) {
+    return resolveParentOnlyOver(collisionOver);
   }
 
-  return over ? over.id : null;
+  const overId = over ? over.id : null;
+  return resolveParentOnlyOver(overId);
 }
 
 function getOverCollisionPastHalfway(
@@ -676,7 +938,15 @@ function getCollisionOverId(
         continue;
       }
       const stickyChild = lastChildOverByParent[containerId];
-      if (stickyChild && children.includes(stickyChild)) {
+      if (
+        stickyChild &&
+        children.includes(stickyChild) &&
+        shouldUseStickyChild({
+          containerId,
+          stickyChildId: stickyChild,
+          dndChildrenState,
+        })
+      ) {
         stickyContainerId = containerId;
         stickyChildId = stickyChild;
         resolvedReason = "sticky-child";
