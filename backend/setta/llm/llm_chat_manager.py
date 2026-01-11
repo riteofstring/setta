@@ -450,8 +450,9 @@ class LLMChatManager:
         layer can pass it directly to the configured completion client.
         """
         system_prompt = await self._build_system_prompt(chat)
-        chat.systemPrompt = system_prompt
-        self.chat_store.set_system_prompt(chat.id, system_prompt)
+        if chat.systemPrompt != system_prompt:
+            chat.systemPrompt = system_prompt
+            self.chat_store.set_system_prompt(chat.id, system_prompt)
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
