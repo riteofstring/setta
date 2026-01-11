@@ -37,6 +37,7 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { shallow } from "zustand/shallow";
 
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
@@ -222,7 +223,7 @@ function ManagedChatArea({
       }
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
     },
-    _.isEqual,
+    shallow,
   );
 
   const { apiKeys, allLLMConfigs } = useAIStore(
