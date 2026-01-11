@@ -58,7 +58,18 @@ export function SortableContext({
 }: Props) {
   const manager = useDragDropManager();
   const dndMode = useDndMode();
-  const shouldTrackSorting = dndMode.isSorting;
+  const isDragActive = useComputed(
+    () => {
+      if (!manager) {
+        return false;
+      }
+
+      const status = manager.dragOperation.status;
+      return status.dragging || status.initializing;
+    },
+    [manager],
+  ).value;
+  const shouldTrackSorting = dndMode.isSorting && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
   const items = useMemo<UniqueIdentifier[]>(

@@ -69,10 +69,22 @@ export function useSortable({
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
   const dndMode = useDndMode();
-  const shouldTrackSorting = dndMode.isSorting;
+  const manager = useDragDropManager();
+  const isDragActive = useComputed(
+    () => {
+      if (!manager) {
+        return false;
+      }
+
+      const status = manager.dragOperation.status;
+      return status.dragging || status.initializing;
+    },
+    [manager],
+  ).value;
+  const shouldTrackSorting = dndMode.isSorting && isDragActive;
   const disableFeedback = dndMode.isSorting;
   const feedback = disableFeedback ? "none" : undefined;
-  const sortableTransition = dndMode.isSorting ? transition : null;
+  const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
   if (dndMode.isSorting) {
     const containerIsHorizontal = getSectionIsHorizontalOrientation(containerId);
@@ -118,7 +130,6 @@ export function useSortable({
   });
   const listeners = {};
   const isOver = isDropTarget;
-  const manager = useDragDropManager();
   const activeRect = useComputed(
     () => {
       if (!shouldTrackSorting) {
@@ -165,7 +176,7 @@ export function useSortable({
     isValidIndex(activeIndex) &&
     isValidIndex(overIndex);
   const shouldDisplaceActiveItem =
-    isSorting && !useDragOverlay && isActiveItem;
+    isSorting && !useDragOverlay && isActiveItem && !disableTransforms;
   const strategy = localStrategy ?? globalStrategy ?? rectSortingStrategy;
 
   let finalTransform: Transform | null = null;
@@ -192,6 +203,7 @@ export function useSortable({
     isSorting,
     isDragging: isDraggingActive,
     useDragOverlay,
+    disableTransforms,
   });
 
   useEffect(() => {
@@ -200,13 +212,13 @@ export function useSortable({
   }, [disabled, sortable]);
 
   useEffect(() => {
-    if (dndMode.isSorting) {
+    if (dndMode.isSorting && isDragActive) {
       sortable.transition = transition ?? null;
       return;
     }
 
     sortable.transition = null;
-  }, [dndMode.isSorting, sortable, transition]);
+  }, [dndMode.isSorting, isDragActive, sortable, transition]);
 
   return {
     attributes: attributes ?? {},
@@ -289,13 +301,15 @@ function getTransitionValue({
   isSorting,
   isDragging,
   useDragOverlay,
+  disableTransforms,
 }: {
   transition: SortableTransition | null | undefined;
   isSorting: boolean;
   isDragging: boolean;
   useDragOverlay: boolean;
+  disableTransforms: boolean;
 }): string | undefined {
-  if (!transition || !isSorting) {
+  if (!transition || !isSorting || disableTransforms) {
     return undefined;
   }
 
