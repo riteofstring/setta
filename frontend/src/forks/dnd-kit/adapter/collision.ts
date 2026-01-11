@@ -13,6 +13,10 @@ import type { ClientRect, SettaCollision } from "./types";
 let prevCollisionId: Draggable["id"] | null = null;
 let prevPastHalfway: boolean | null = null;
 let prevCollisionRect: ClientRect | null = null;
+let prevPointerX: number | null = null;
+let prevPointerY: number | null = null;
+let prevPointerDirectionX: number | null = null;
+let prevPointerDirectionY: number | null = null;
 
 
 type DndEntityData = {
@@ -206,6 +210,10 @@ export function resetCollisionHysteresis(): void {
   prevCollisionId = null;
   prevPastHalfway = null;
   prevCollisionRect = null;
+  prevPointerX = null;
+  prevPointerY = null;
+  prevPointerDirectionX = null;
+  prevPointerDirectionY = null;
 }
 
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
@@ -322,10 +330,26 @@ function getPastHalfway({
     prevCollisionId && prevCollisionId === currentId && prevCollisionRect
       ? prevCollisionRect
       : droppableRect;
-  const referencePoint = pointerCoordinates ?? {
-    x: (activeRect.left + activeRect.right) / 2,
-    y: (activeRect.top + activeRect.bottom) / 2,
-  };
+  updatePointerDirections(pointerCoordinates);
+  const axisDirection = containerIsHorizontal
+    ? prevPointerDirectionX
+    : prevPointerDirectionY;
+  let referenceAxisValue = getFallbackReferenceAxisValue({
+    activeRect,
+    containerIsHorizontal,
+    pointerCoordinates,
+  });
+  if (axisDirection !== null) {
+    if (axisDirection > 0) {
+      referenceAxisValue = containerIsHorizontal
+        ? activeRect.right
+        : activeRect.bottom;
+    } else {
+      referenceAxisValue = containerIsHorizontal
+        ? activeRect.left
+        : activeRect.top;
+    }
+  }
 
   if (prevCollisionId && prevCollisionId === currentId) {
     if (prevPastHalfway === true) {
@@ -337,15 +361,65 @@ function getPastHalfway({
 
   if (!containerIsHorizontal) {
     return (
-      referencePoint.y + buffer >
+      referenceAxisValue + buffer >
       (effectiveDroppableRect.top + effectiveDroppableRect.bottom) / 2
     );
   }
 
   return (
-    referencePoint.x + buffer >
+    referenceAxisValue + buffer >
     (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
   );
+}
+
+function updatePointerDirections(pointerCoordinates: Coordinates | null): void {
+  if (!pointerCoordinates) {
+    return;
+  }
+
+  if (prevPointerX !== null) {
+    const deltaX = pointerCoordinates.x - prevPointerX;
+    if (deltaX > 0) {
+      prevPointerDirectionX = 1;
+    } else if (deltaX < 0) {
+      prevPointerDirectionX = -1;
+    }
+  }
+
+  if (prevPointerY !== null) {
+    const deltaY = pointerCoordinates.y - prevPointerY;
+    if (deltaY > 0) {
+      prevPointerDirectionY = 1;
+    } else if (deltaY < 0) {
+      prevPointerDirectionY = -1;
+    }
+  }
+
+  prevPointerX = pointerCoordinates.x;
+  prevPointerY = pointerCoordinates.y;
+}
+
+function getFallbackReferenceAxisValue({
+  activeRect,
+  containerIsHorizontal,
+  pointerCoordinates,
+}: {
+  activeRect: ClientRect;
+  containerIsHorizontal: boolean;
+  pointerCoordinates: Coordinates | null;
+}): number {
+  if (pointerCoordinates) {
+    if (containerIsHorizontal) {
+      return pointerCoordinates.x;
+    }
+    return pointerCoordinates.y;
+  }
+
+  if (containerIsHorizontal) {
+    return (activeRect.left + activeRect.right) / 2;
+  }
+
+  return (activeRect.top + activeRect.bottom) / 2;
 }
 
 function getEdgeDistance({

@@ -64,6 +64,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
       setNodeRef={setNodeRef}
       transform={transform}
       transition={transition}
+      isDragging={isDragging}
       applyTransform={
         forceApplyTransform ||
         isDragging ||
@@ -88,6 +89,7 @@ function _SortableCore({
   transform,
   transition,
   applyTransform,
+  isDragging,
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = applyZoomToTransform(applyTransform ? transform : null);
@@ -113,7 +115,7 @@ function _SortableCore({
   const style = {
     transform: transformToString(scaledTransform),
     transition,
-    zIndex: overIsSelf ? 500 : undefined,
+    zIndex: isDragging ? 1000 : overIsSelf ? 500 : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
@@ -149,6 +151,7 @@ const SortableCore = React.memo(
     p.sectionId === n.sectionId &&
     p.transform === n.transform &&
     p.transition === n.transition &&
+    p.isDragging === n.isDragging &&
     _.isEqual(p.listeners, n.listeners),
 );
 
