@@ -719,30 +719,6 @@ export async function route_set_text_block_format(
   return await post("/setTextBlockFormat", x);
 }
 
-export async function route_set_chat_section_settings(
-  x: gt.SetChatSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionSettings", x);
-}
-
-export async function route_set_chat_section_state(
-  x: gt.SetChatSectionStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionState", x);
-}
-
-export async function route_get_chat_section_chat_id(
-  x: gt.GetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<string | null>> {
-  return await post("/getChatSectionChatId", x);
-}
-
-export async function route_set_chat_section_chat_id(
-  x: gt.SetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionChatId", x);
-}
-
 export async function route_set_social_url(
   x: gt.SetSocialUrlRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
