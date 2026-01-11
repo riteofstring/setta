@@ -573,7 +573,7 @@ async def route_get_share_deployment_state(
         share_session_id,
         project_config_id,
     )
-    project_state = state.share_runtime_state.get_session_state(
+    project_state = state.share_runtime_state.get_session_state_for_client(
         share_session_id,
         project_config_id,
     )
@@ -608,7 +608,7 @@ async def route_load_share_project_config(
         share_session_id,
         x.projectConfigId,
     )
-    project_state = state.share_runtime_state.get_session_state(
+    project_state = state.share_runtime_state.get_session_state_for_client(
         share_session_id,
         x.projectConfigId,
     )

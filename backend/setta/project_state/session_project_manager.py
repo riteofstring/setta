@@ -156,13 +156,42 @@ class SessionProjectManager(BaseProjectManager):
         updateFileWatcher: bool = True,
         validate_code_file_bindings: bool = True,
     ) -> None:
-        if self.share_runtime_state is not None:
-            validate_code_file_bindings = False
-        await super().update(
-            projectState,
-            updateFileWatcher=updateFileWatcher,
-            validate_code_file_bindings=validate_code_file_bindings,
+        if self.share_runtime_state is None:
+            await super().update(
+                projectState,
+                updateFileWatcher=updateFileWatcher,
+                validate_code_file_bindings=validate_code_file_bindings,
+            )
+            return
+        async with self._project_state_lock.write_lock():
+            self.share_runtime_state.normalize_project_state_paths(projectState)
+            projectState.validate_for_update(validate_code_file_bindings=False)
+            if self.share_runtime_state.should_refresh_codegen():
+                await self._refresh_codegen_state(projectState)
+            self._merge_project_state_backend(
+                projectState,
+                updateFileWatcher=updateFileWatcher,
+            )
+
+    async def _broadcast_project_state_snapshot(
+        self,
+        project_state: "ProjectStateSingleConfig",
+    ) -> None:
+        if self.share_runtime_state is None:
+            await super()._broadcast_project_state_snapshot(project_state)
+            return
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
+        redacted = self.share_runtime_state.format_project_state_for_client(
+            project_state
         )
+        await self.websocket_msg_handler.broadcast_project_state(
+            redacted,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
 
     @BaseProjectManager.enqueue_method
     async def apply_listener_emit_updates(

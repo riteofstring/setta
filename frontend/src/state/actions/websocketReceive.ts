@@ -63,6 +63,10 @@ import {
   updateAllProjectMetadata,
 } from "./sectionInfos";
 import { updateSettings } from "./settings";
+import {
+  initializeShareSessionFromCurrentDeployment,
+  resetShareSessionState,
+} from "./share";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -73,6 +77,7 @@ const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
+const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let lastPathname: string | null = null;
@@ -80,6 +85,8 @@ let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
 let currentRoute: string | null = null;
 let shareHeartbeatTimer: number | null = null;
+let shareSessionRecoveryAttempts = 0;
+let shareSessionRecoveryInFlight = false;
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -160,12 +167,15 @@ export const openWebSocket = _.debounce(
         currentShareSessionId = null;
         currentRoute = null;
         if (
-          (event.code === SHARE_SESSION_MISSING_CODE ||
-            event.code === SHARE_SESSION_UNKNOWN_CODE) &&
-          !shareSessionIdForSocket
+          event.code === SHARE_SESSION_MISSING_CODE ||
+          event.code === SHARE_SESSION_UNKNOWN_CODE
         ) {
           wasOpen = false;
           clearAllWebsocketConnections();
+          if (!shareSessionIdForSocket) {
+            return;
+          }
+          void handleShareSessionRecovery();
           return;
         }
         if (event.code === AUTH_CLOSE_CODE) {
@@ -263,6 +273,29 @@ function stopShareHeartbeat() {
   }
   window.clearInterval(shareHeartbeatTimer);
   shareHeartbeatTimer = null;
+}
+
+async function handleShareSessionRecovery() {
+  if (shareSessionRecoveryInFlight) {
+    return;
+  }
+  if (shareSessionRecoveryAttempts >= SHARE_SESSION_RECOVERY_MAX_ATTEMPTS) {
+    resetShareSessionState();
+    addTemporaryNotification("Share session expired. Refresh to continue.");
+    return;
+  }
+  shareSessionRecoveryInFlight = true;
+  shareSessionRecoveryAttempts += 1;
+  const recovered = await initializeShareSessionFromCurrentDeployment({
+    forceNewSession: true,
+  });
+  shareSessionRecoveryInFlight = false;
+  if (!recovered) {
+    resetShareSessionState();
+    addTemporaryNotification("Share session expired. Refresh to continue.");
+    return;
+  }
+  shareSessionRecoveryAttempts = 0;
 }
 
 function receiveMessage(message: string) {

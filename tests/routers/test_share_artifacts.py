@@ -142,7 +142,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             ).get_cached_brush_stroke(artifact_path)
             self.assertIsNotNone(cached)
 
-    async def test_share_preserves_absolute_artifact_ids_under_cwd(self) -> None:
+    async def test_share_normalizes_artifact_ids_to_deployment_relative(self) -> None:
         with TemporaryDirectory(dir=str(Path.cwd())) as tmpdir:
             project_config_name = "share-artifacts-cwd-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
@@ -170,12 +170,13 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state, session.id) as runtime_ctx:
                 results = await route_update_artifacts(request, runtime_ctx)
 
-            self.assertEqual(str(artifact_path.resolve()), results[0].id)
+            expected_id = artifact_path.relative_to(root).as_posix()
+            self.assertEqual(expected_id, results[0].id)
             cached = state.share_runtime_state.get_session_artifacts(
                 session.id
             ).get_cached_brush_stroke(artifact_path)
             self.assertIsNotNone(cached)
-            self.assertEqual(str(artifact_path.resolve()), cached.id)
+            self.assertEqual(expected_id, cached.id)
 
             image_path = root / "artifacts" / "preview.png"
             image_path.write_bytes(b"img")
@@ -184,7 +185,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
                 loaded = route_load_cached_image_artifacts(payload, runtime_ctx)
             self.assertEqual(1, len(loaded))
             self.assertIsNotNone(loaded[0])
-            self.assertEqual(str(image_path.resolve()), loaded[0].id)
+            self.assertEqual(image_path.relative_to(root).as_posix(), loaded[0].id)
 
     async def test_share_updates_blocked_by_policy(self) -> None:
         with TemporaryDirectory() as tmpdir:

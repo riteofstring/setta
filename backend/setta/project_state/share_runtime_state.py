@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
@@ -37,7 +37,7 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.utils import build_gen_code_path, normalize_path
+from setta.utils.utils import build_gen_code_path
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -57,13 +57,14 @@ class ShareRuntimeState:
         self.dbe = dbe
         self.deployment_root = deployment_root
         self.frontend_sender = frontend_sender
+        self._validate_deployment_root()
+        self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
         self.manifest = self.dbe.read_share_manifest()
         self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()
         self.default_project_config_id = self._resolve_default_project_config_id()
         self.default_project_config_name = self._resolve_default_project_config_name()
-        self._validate_deployment_root()
         self.project_state_backend.defaultProjectConfigId = (
             self.default_project_config_id
         )
@@ -81,6 +82,16 @@ class ShareRuntimeState:
     @property
     def share_runs_root(self) -> Path:
         return self.dbe.runtime_root / "share_runs"
+
+    def should_refresh_codegen(self) -> bool:
+        listener_enabled = bool(
+            self.manifest.listener and self.manifest.listener.enabled
+        )
+        return (
+            self.share_policy.allowParamChanges
+            or self.share_policy.allowRun
+            or listener_enabled
+        )
 
     def load_initial_state(self) -> ProjectStateBackend:
         project_state = self.dbe.read_project_required()
@@ -137,6 +148,12 @@ class ShareRuntimeState:
             )
         return project_state
 
+    def get_session_state_for_client(
+        self, session_id: str, project_config_id: ID
+    ) -> "ProjectStateSingleConfig":
+        project_state = self.get_session_state(session_id, project_config_id)
+        return self.format_project_state_for_client(project_state)
+
     def update_session_state(
         self,
         session_id: str,
@@ -168,7 +185,8 @@ class ShareRuntimeState:
             scoped_sender,
             self._artifact_watcher,
             self.dbe,
-            artifact_id_resolver=self._resolve_share_artifact_id,
+            artifact_id_resolver=self._format_share_artifact_id,
+            path_resolver=self._resolve_share_artifact_path,
         )
         self._session_artifacts[session_id] = artifacts
         return artifacts
@@ -298,19 +316,10 @@ class ShareRuntimeState:
         deployment_path = build_gen_code_path(
             self.deployment_root / "code",
             project_state.projectConfig.name,
-        ).resolve()
-        if deployment_path.exists():
-            return CodeFileBinding(
-                canonical_path=deployment_path,
-                access_mode=CodeFileAccessMode.write_only,
-            )
-        runtime_path = build_gen_code_path(
-            self.dbe.runtime_root / "code",
-            project_state.projectConfig.name,
-        ).resolve()
+        )
         return CodeFileBinding(
-            canonical_path=runtime_path,
-            access_mode=CodeFileAccessMode.write_only,
+            canonical_path=self._resolve_deployment_path_to_absolute(deployment_path),
+            access_mode=CodeFileAccessMode.read_only,
         )
 
     def _hydrate_json_sources(
@@ -342,41 +351,85 @@ class ShareRuntimeState:
             section_variant_ids,
         )
 
+    def _resolve_deployment_path_to_absolute(self, path: Path | str) -> Path:
+        raw_path = Path(path)
+        if raw_path.is_absolute():
+            resolved = raw_path.resolve()
+        else:
+            resolved = (self.deployment_root / raw_path).resolve()
+        if not resolved.is_relative_to(self._deployment_root_resolved):
+            raise ValueError(
+                f"Share deployment path escapes deployment root: {raw_path.as_posix()}"
+            )
+        return resolved
+
     def _resolve_deployment_path(self, path_str: str) -> str:
         if not path_str:
             return path_str
-        path = Path(path_str)
-        if path.is_absolute():
-            return str(path.resolve())
-        resolved = (self.deployment_root / path).resolve()
+        resolved = self._resolve_deployment_path_to_absolute(path_str)
         return str(resolved)
 
-    def _resolve_share_artifact_id(self, path: Path | str) -> Path:
-        raw_path = Path(path)
-        if raw_path.is_absolute():
-            return raw_path.resolve()
-        return normalize_path(raw_path)
+    def _resolve_share_artifact_path(self, path: Path | str) -> Path:
+        return self._resolve_deployment_path_to_absolute(path)
+
+    def _format_share_artifact_id(self, path: Path | str) -> str:
+        resolved = self._resolve_deployment_path_to_absolute(path)
+        return resolved.relative_to(self._deployment_root_resolved).as_posix()
 
     def _resolve_code_binding(self, binding: CodeFileBinding) -> CodeFileBinding:
-        path = binding.canonical_path
-        if path.is_absolute():
-            return CodeFileBinding(
-                canonical_path=path.resolve(),
-                access_mode=binding.access_mode,
-            )
-        resolved = (self.deployment_root / path).resolve()
+        resolved = self._resolve_deployment_path_to_absolute(binding.canonical_path)
         return CodeFileBinding(
             canonical_path=resolved,
-            access_mode=binding.access_mode,
+            access_mode=CodeFileAccessMode.read_only,
         )
 
-    def _rebase_deployment_paths(self, project_state: ProjectStateBackend) -> None:
+    def _rebase_deployment_paths(
+        self,
+        project_state: Union[ProjectStateBackend, "ProjectStateSingleConfig"],
+    ) -> None:
         rewrite_project_state_paths(
             project_state,
             resolve_artifact_path=self._resolve_deployment_path,
             resolve_code_binding=self._resolve_code_binding,
             resolve_json_source_name=self._resolve_deployment_path,
         )
+
+    def normalize_project_state_paths(
+        self,
+        project_state: "ProjectStateSingleConfig",
+    ) -> None:
+        self._ensure_gen_code_binding(project_state)
+        self._rebase_deployment_paths(project_state)
+
+    def _format_deployment_relative_path(self, path_str: str) -> str:
+        if not path_str:
+            return path_str
+        resolved = self._resolve_deployment_path_to_absolute(path_str)
+        return resolved.relative_to(self._deployment_root_resolved).as_posix()
+
+    def _format_code_binding_relative(
+        self, binding: CodeFileBinding
+    ) -> CodeFileBinding:
+        relative_path = self._format_deployment_relative_path(
+            str(binding.canonical_path)
+        )
+        return CodeFileBinding(
+            canonical_path=Path(relative_path),
+            access_mode=binding.access_mode,
+        )
+
+    def format_project_state_for_client(
+        self,
+        project_state: "ProjectStateSingleConfig",
+    ) -> "ProjectStateSingleConfig":
+        redacted = project_state.model_copy(deep=True)
+        rewrite_project_state_paths(
+            redacted,
+            resolve_artifact_path=self._format_deployment_relative_path,
+            resolve_code_binding=self._format_code_binding_relative,
+            resolve_json_source_name=self._format_deployment_relative_path,
+        )
+        return redacted
 
     def _get_gen_code_binding(
         self, project_state: "ProjectStateSingleConfig"

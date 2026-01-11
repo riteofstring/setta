@@ -14,6 +14,9 @@ import {
 import type { ShareDeploymentSessionResponse } from "utils/generatedTypes";
 
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
+type ShareSessionOptions = {
+  forceNewSession?: boolean;
+};
 
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
@@ -26,7 +29,7 @@ function clearShareSessionStorage() {
   window.sessionStorage.removeItem(SHARE_SESSION_STORAGE_KEY);
 }
 
-function resetShareSessionState() {
+export function resetShareSessionState() {
   clearShareSessionCookie();
   clearShareSessionStorage();
   useShareSession.getState().reset?.();
@@ -149,14 +152,23 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   });
 }
 
-export async function ensureShareSessionFromCurrentDeployment(): Promise<ShareDeploymentSessionResponse | null> {
-  clearShareSessionCookie();
-  hydrateShareSessionFromStorage();
+export async function ensureShareSessionFromCurrentDeployment(
+  options: ShareSessionOptions = {},
+): Promise<ShareDeploymentSessionResponse | null> {
+  const forceNewSession = options.forceNewSession ?? false;
+  if (forceNewSession) {
+    resetShareSessionState();
+  } else {
+    clearShareSessionCookie();
+    hydrateShareSessionFromStorage();
+  }
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved && serverMode.isShareServer) {
-    const cached = getCachedShareSession();
-    if (cached) {
-      return cached;
+    if (!forceNewSession) {
+      const cached = getCachedShareSession();
+      if (cached) {
+        return cached;
+      }
     }
   }
   const sessionRes = await route_create_share_session_current();
@@ -168,13 +180,15 @@ export async function ensureShareSessionFromCurrentDeployment(): Promise<ShareDe
   return session;
 }
 
-export async function initializeShareSessionFromCurrentDeployment(): Promise<boolean> {
+export async function initializeShareSessionFromCurrentDeployment(
+  options: ShareSessionOptions = {},
+): Promise<boolean> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved && !serverMode.isShareServer) {
     resetShareSessionState();
     return false;
   }
-  const session = await ensureShareSessionFromCurrentDeployment();
+  const session = await ensureShareSessionFromCurrentDeployment(options);
   if (session) {
     useServerMode.setState({
       isShareServer: true,
