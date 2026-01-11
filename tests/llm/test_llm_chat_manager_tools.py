@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
+from mcp.types import CallToolResult, TextContent
 
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
@@ -382,6 +383,36 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             for entry in tool_message.content:
                 self.assertIsInstance(entry, ToolReferenceContent)
                 self.assertIn(entry.tool_name, available)
+
+    async def test_anthropic_search_no_results_returns_text_summary(self) -> None:
+        async with _build_manager_with_mcp() as (manager, _mcp_client):
+            call_result = CallToolResult(
+                content=[TextContent(type="text", text='{"results": []}')],
+                structuredContent={"results": []},
+                isError=False,
+            )
+            tool_call = ToolCall(
+                function=ToolCallFunction(
+                    name=manager._search_tool_name,
+                    arguments={"query": "missing tool", "limit": 1},
+                )
+            )
+            tool_message = manager._build_search_tool_chat_message(
+                chat_id=ID("chat-uuid"),
+                tool_name=manager._search_tool_name,
+                tool_call=tool_call,
+                call_result=call_result,
+                arguments={"query": "missing tool", "limit": 1},
+                started_at=get_now_timestamp(),
+                completed_at=get_now_timestamp(),
+                available_tools={},
+            )
+
+            self.assertTrue(tool_message.content)
+            self.assertEqual(len(tool_message.content), 1)
+            entry = tool_message.content[0]
+            self.assertIsInstance(entry, TextContent)
+            self.assertIn("Search did not return any MCP tools.", entry.text)
 
     async def test_tool_references_exist_in_payload_tools(self) -> None:
         async with _build_manager_with_mcp() as (manager, mcp_client):

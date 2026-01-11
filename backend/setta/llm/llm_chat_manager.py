@@ -1759,9 +1759,17 @@ class LLMChatManager:
                 referenced_tool_names,
             )
 
-        content_blocks = [
-            ToolReferenceContent(tool_name=name) for name in referenced_tool_names
-        ]
+        if referenced_tool_names:
+            content_blocks = [
+                ToolReferenceContent(tool_name=name) for name in referenced_tool_names
+            ]
+        else:
+            content_blocks = [
+                TextContent(
+                    type="text",
+                    text=self._format_tool_reference_summary([]),
+                )
+            ]
 
         return ToolChatMessage(
             tool_call_id=tool_call.id,
