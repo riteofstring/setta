@@ -75,14 +75,12 @@ from setta.project_state.project_manager_types import (
     CodeAreaCompletionRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
-    CreateEdgeRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
-    DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
@@ -95,10 +93,8 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
     MoveSectionRequest,
-    OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
-    ReconnectEdgeRequest,
     RedoRequest,
     RenameRefactorBroadcastContent,
     RunCodeRequest,
@@ -119,7 +115,6 @@ from setta.project_state.project_manager_types import (
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
-    SetEdgesRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
@@ -128,8 +123,6 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
-    SetSectionEdgeInputsRequest,
-    SetSectionEdgeOutputsRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -161,7 +154,6 @@ from setta.project_state.project_manager_types import (
     UndoRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
-    UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.types.clipboard import (
@@ -172,7 +164,6 @@ from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
 )
-from setta.types.edges import Edge
 from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
@@ -190,11 +181,9 @@ from setta.types.helpers_lvl2 import (
     collect_ignore_type_errors_by_section,
     create_child_sections,
     create_child_sections_via_incrementer,
-    create_edge,
     create_new_section_variant,
     create_top_level_section,
     delete_child_sections_via_decrementer,
-    delete_edges,
     delete_kwarg,
     delete_section_variant,
     delete_section_variant_or_ask,
@@ -204,7 +193,6 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_code_section,
     move_section_to_pane,
     move_section_to_parent_section,
-    reconnect_edge,
     resolve_top_level_section_position_and_pan,
     set_browser_area_view_mode,
     set_browser_column_widths,
@@ -216,15 +204,12 @@ from setta.types.helpers_lvl2 import (
     set_code,
     set_code_file_binding,
     set_default_section_variant,
-    set_edges,
     set_group_overflow_mode,
     set_image_area_image_path,
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
-    set_section_edge_inputs,
-    set_section_edge_outputs,
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
@@ -247,7 +232,6 @@ from setta.types.helpers_lvl2 import (
     toggle_variant_json_source,
     ungroup_groups,
     unselect_all_params,
-    update_edge,
     update_param_impl_config,
 )
 from setta.types.helpers_lvl3 import (
@@ -813,14 +797,6 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method(require_serialization=False)
-    async def output_accessor_completion(self, x: OutputAccessorCompletionRequest):
-        async with self._project_state_lock.read_lock():
-            gen_code = self.gen_code[x.projectConfigId]
-        return await gen_code.output_accessor_completion(
-            x.sectionId, x.fullText, x.position
-        )
-
-    @enqueue_method(require_serialization=False)
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
             gen_code = self.gen_code[x.projectConfigId]
@@ -1087,104 +1063,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_edge_inputs(
-            self.settings_file.settings,
-            project_state,
-            x.sectionId,
-            x.edgeInputParams,
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_section_edge_outputs(self, x: SetSectionEdgeOutputsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
-        await self.update_and_broadcast_project_state(project_state)
-
-    def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
-        gen_code = self.gen_code.get(project_state.projectConfig.id)
-        if gen_code is None:
-            raise KeyError(
-                f"Generated code missing for project config {project_state.projectConfig.id}."
-            )
-        edge_value = gen_code.build_edge_expression(project_state, edge)
-        set_param_entered_value(
-            project_state,
-            edge.targetSectionId,
-            edge.targetPortId,
-            edge_value,
-        )
-
-    @enqueue_method
-    async def create_edge(self, x: CreateEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        edge = Edge(
-            sourceSectionId=x.sourceSectionId,
-            sourceVariantId=x.sourceVariantId,
-            sourcePortId=x.sourcePortId,
-            targetSectionId=x.targetSectionId,
-            targetVariantId=x.targetVariantId,
-            targetPortId=x.targetPortId,
-            type=x.type,
-            label=x.label,
-            style=x.style,
-            animated=x.animated,
-            hidden=x.hidden,
-            zIndex=x.zIndex,
-            data=x.data,
-        )
-        create_edge(project_state, edge)
-        self._apply_edge_value(project_state, edge)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def update_edge(self, x: UpdateEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        update_edge(project_state, x.edge)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def delete_edges(self, x: DeleteEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        delete_edges(project_state, x.edgeIds)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        reconnect_edge(
-            project_state,
-            x.edgeId,
-            x.sourceSectionId,
-            x.sourceVariantId,
-            x.sourcePortId,
-            x.targetSectionId,
-            x.targetVariantId,
-            x.targetPortId,
-        )
-        updated_edge = next(
-            (edge for edge in project_state.projectConfig.edges if edge.id == x.edgeId),
-            None,
-        )
-        if updated_edge is None:
-            raise KeyError(f"Edge {x.edgeId} not found.")
-        self._apply_edge_value(project_state, updated_edge)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_edges(self, x: SetEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_edges(project_state, x.edges)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -1399,7 +1277,7 @@ class BaseProjectManager(ABC):
         """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
+        delete_kwarg(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     def create_project_code(

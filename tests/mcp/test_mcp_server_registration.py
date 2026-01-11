@@ -15,6 +15,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    ToolReferenceContent,
     UserChatMessage,
 )
 from setta.types.id import ID
@@ -244,7 +245,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     ),
                 )
 
-    async def test_chat_manager_unlocks_tools_from_search(self) -> None:
+    async def test_chat_manager_returns_tool_references_from_search(self) -> None:
         async with real_project_manager() as fixture:
             app = FastAPI()
             setta_state = _StubSettaState(fixture.dbe, fixture.manager)
@@ -267,7 +268,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 fixture.dbe,
                 mcp_client,
                 websocket_sender,
-                setta_state.project_manager_switcher,
             )
 
             chat_manager.update_config(
@@ -323,13 +323,14 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
                 search_result_names,
             )
-            chat_state = chat_manager._get_or_create_chat_tool_state(
-                chat.id,
-                [SETTA_MCP_SERVER_ID],
-            )
+            referenced_names = [
+                entry.tool_name
+                for entry in tool_message.content
+                if isinstance(entry, ToolReferenceContent)
+            ]
             self.assertIn(
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                chat_state.unlocked_tools,
+                referenced_names,
             )
 
     async def test_does_not_register_project_config_id_in_temp_map(self) -> None:

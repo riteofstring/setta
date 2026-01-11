@@ -18,7 +18,6 @@ from setta.types.clipboard import (
     SectionsClipboardData,
 )
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.edges import Edge, EdgePort
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
@@ -122,24 +121,6 @@ class ListenerCreateChildSectionsViaIncrementerRequestPayload(TypedDict):
     implType: SectionType
 
 
-class ListenerCreateEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sourceSectionId: ID
-    sourceVariantId: ID
-    sourcePortId: ID
-    targetSectionId: ID
-    targetVariantId: ID
-    targetPortId: ID
-    type: NotRequired[str]
-    label: NotRequired[str | None]
-    style: NotRequired[dict[str, str | int | float] | None]
-    animated: NotRequired[bool]
-    hidden: NotRequired[bool]
-    zIndex: NotRequired[int]
-    data: NotRequired[dict[str, object] | None]
-
-
 class ListenerCreateNewSectionVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -191,12 +172,6 @@ class ListenerDeleteChildSectionsViaDecrementerRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     calledBy: ID
     numChildren: int
-
-
-class ListenerDeleteEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edgeIds: list[ID]
 
 
 class ListenerDeleteJSONSourceFileAndVariantRequestPayload(TypedDict):
@@ -279,14 +254,6 @@ class ListenerMoveSectionRequestPayload(TypedDict):
     position: Position | None
 
 
-class ListenerOutputAccessorCompletionRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    fullText: str
-    position: int
-
-
 class ListenerPasteSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -299,18 +266,6 @@ class ListenerPrepareSectionsForCopyRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
-
-
-class ListenerReconnectEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edgeId: ID
-    sourceSectionId: ID
-    sourceVariantId: ID
-    sourcePortId: ID
-    targetSectionId: ID
-    targetVariantId: ID
-    targetPortId: ID
 
 
 class ListenerRedoRequestPayload(TypedDict):
@@ -432,12 +387,6 @@ class ListenerSetDefaultSectionVariantRequestPayload(TypedDict):
     variantId: ID
 
 
-class ListenerSetEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edges: list[Edge]
-
-
 class ListenerSetGenCodePrefixRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -484,20 +433,6 @@ class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     columnWidth: float | None
-
-
-class ListenerSetSectionEdgeInputsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    edgeInputParams: list[ID]
-
-
-class ListenerSetSectionEdgeOutputsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    edgeOutputPorts: list[EdgePort]
 
 
 class ListenerSetSectionHideUnpinnedParamsRequestPayload(TypedDict):
@@ -708,12 +643,6 @@ class ListenerUnselectAllParamsRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
-class ListenerUpdateEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edge: Edge
-
-
 class ListenerUpdateParamImplConfigRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -771,9 +700,6 @@ class RouterEndpointAPI:
             "route_create_child_sections_via_incrementer", payload
         )
 
-    async def create_edge(self, payload: ListenerCreateEdgeRequestPayload) -> None:
-        return await self._caller("route_create_edge", payload)
-
     async def create_new_section_variant(
         self, payload: ListenerCreateNewSectionVariantRequestPayload
     ) -> None:
@@ -800,9 +726,6 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_delete_child_sections_via_decrementer", payload
         )
-
-    async def delete_edges(self, payload: ListenerDeleteEdgesRequestPayload) -> None:
-        return await self._caller("route_delete_edges", payload)
 
     async def delete_json_source_file_and_variant(
         self, payload: ListenerDeleteJSONSourceFileAndVariantRequestPayload
@@ -865,11 +788,6 @@ class RouterEndpointAPI:
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)
 
-    async def output_accessor_completion(
-        self, payload: ListenerOutputAccessorCompletionRequestPayload
-    ) -> list[CodeMirrorCompletion]:
-        return await self._caller("route_output_accessor_completion", payload)
-
     async def paste_sections(
         self, payload: ListenerPasteSectionsRequestPayload
     ) -> None:
@@ -879,11 +797,6 @@ class RouterEndpointAPI:
         self, payload: ListenerPrepareSectionsForCopyRequestPayload
     ) -> SectionsClipboardData:
         return await self._caller("route_prepare_sections_for_copy", payload)
-
-    async def reconnect_edge(
-        self, payload: ListenerReconnectEdgeRequestPayload
-    ) -> None:
-        return await self._caller("route_reconnect_edge", payload)
 
     async def redo(self, payload: ListenerRedoRequestPayload) -> None:
         return await self._caller("route_redo", payload)
@@ -960,9 +873,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_default_section_variant", payload)
 
-    async def set_edges(self, payload: ListenerSetEdgesRequestPayload) -> None:
-        return await self._caller("route_set_edges", payload)
-
     async def set_gen_code_prefix(
         self, payload: ListenerSetGenCodePrefixRequestPayload
     ) -> None:
@@ -997,16 +907,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionColumnWidthRequestPayload
     ) -> None:
         return await self._caller("route_set_section_column_width", payload)
-
-    async def set_section_edge_inputs(
-        self, payload: ListenerSetSectionEdgeInputsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_edge_inputs", payload)
-
-    async def set_section_edge_outputs(
-        self, payload: ListenerSetSectionEdgeOutputsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_edge_outputs", payload)
 
     async def set_section_hide_unpinned_params(
         self, payload: ListenerSetSectionHideUnpinnedParamsRequestPayload
@@ -1161,9 +1061,6 @@ class RouterEndpointAPI:
         self, payload: ListenerUnselectAllParamsRequestPayload
     ) -> None:
         return await self._caller("route_unselect_all_params", payload)
-
-    async def update_edge(self, payload: ListenerUpdateEdgeRequestPayload) -> None:
-        return await self._caller("route_update_edge", payload)
 
     async def update_param_impl_config(
         self, payload: ListenerUpdateParamImplConfigRequestPayload

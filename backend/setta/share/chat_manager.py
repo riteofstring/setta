@@ -11,7 +11,6 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
-    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.share.session_store import ShareSessionStore
     from setta.types.chat import APIKeys, Chat
@@ -28,7 +27,6 @@ class ShareChatManager:
         frontend_sender: WMHFrontendSender,
         share_runtime_state: "ShareRuntimeState",
         share_session_store: "ShareSessionStore",
-        project_manager_switcher: "ProjectManagerSwitcher",
         *,
         llm_config: AllLLMConfigs | None = None,
         api_keys: "APIKeys | None" = None,
@@ -37,7 +35,6 @@ class ShareChatManager:
         self.frontend_sender = frontend_sender
         self.share_runtime_state = share_runtime_state
         self.share_session_store = share_session_store
-        self.project_manager_switcher = project_manager_switcher
         self._mcp_client = _DISABLED_MCP_CLIENT
 
         config = llm_config or load_llm_config(dbe, allow_write=False)
@@ -62,7 +59,6 @@ class ShareChatManager:
                 self.dbe,
                 self._mcp_client,
                 session_sender,
-                self.project_manager_switcher,
                 chat_store=MemoryChatStore(),
                 share_session_id=share_session_id,
             )

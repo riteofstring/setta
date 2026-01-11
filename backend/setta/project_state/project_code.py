@@ -6,7 +6,6 @@ from lsprotocol import types as LSPTypes
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.utils import create_new_id
 from setta.project_state.code import BashCode, PythonCode
@@ -31,8 +30,9 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
-from setta.types.dependency_key import create_dep_key
-from setta.types.edges import Edge
+from setta.types.dependency_key import (
+    create_dep_key,
+)
 from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
@@ -46,7 +46,6 @@ from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
-    get_variant_base_and_effective_section_impl_with_type_guard,
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
@@ -62,12 +61,10 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
-    BaseSectionWithParamsImpl,
     CodeFileBinding,
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
-from setta.utils.constants import C
 
 
 def build_python_code_generator(
@@ -181,44 +178,6 @@ class ProjectGenPythonCode(PythonCode):
         code, line, col = context
         response = await self._request_completion_response(code, line, col)
         return process_completion_response(response)
-
-    async def output_accessor_completion(
-        self, sectionId: ID, fullText: str, position: int
-    ):
-        generator = self._clone_generator()
-        dep_key = create_dep_key(sectionId)
-        graph = generator.dep_graph.graph
-        if dep_key not in graph:
-            raise KeyError(f"Unknown section dependency: {sectionId}")
-        section_path = graph[dep_key].full_path_name
-        if fullText.strip() == C.EDGE_OUTPUT_BASE_LABEL:
-            fullText = ""
-            position = 0
-        prefix = f"\n{GEN_CODE_INSTANCE_NAME}.{section_path}"
-        code = f"{generator.code}{prefix}{fullText}"
-        absolute_position = len(generator.code) + len(prefix) + position
-        line, col = position_to_line_col(code, absolute_position)
-        response = await self._request_completion_response(code, line, col)
-        return process_completion_response(response)
-
-    def build_edge_expression(
-        self, project_state: ProjectStateSingleConfig, edge: Edge
-    ) -> str:
-        dep_key = create_dep_key(sectionId=edge.sourceSectionId)
-        graph = self.dep_graph.graph
-        if dep_key not in graph:
-            raise KeyError(f"Unknown section dependency: {edge.sourceSectionId}")
-        section_path = graph[dep_key].full_path_name
-        core = project_state.sections[edge.sourceSectionId]
-        _, _, source_impl = get_variant_base_and_effective_section_impl_with_type_guard(
-            project_state, core, edge.sourceVariantId, BaseSectionWithParamsImpl
-        )
-        for port in source_impl.edgeOutputPorts:
-            if port.id == edge.sourcePortId:
-                return f"{GEN_CODE_INSTANCE_NAME}.{section_path}{port.accessor}"
-        raise KeyError(
-            f"Section {edge.sourceSectionId} missing output port {edge.sourcePortId}."
-        )
 
     async def clear_text_field_completion(
         self, _sectionId: ID, _paramInfoId: ID | None

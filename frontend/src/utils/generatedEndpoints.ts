@@ -273,12 +273,6 @@ export async function route_text_field_completion(
   return await post("/textFieldCompletion", x);
 }
 
-export async function route_output_accessor_completion(
-  x: gt.OutputAccessorCompletionRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post("/outputAccessorCompletion", x);
-}
-
 export async function route_code_area_completion(
   x: gt.CodeAreaCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
@@ -543,48 +537,6 @@ export async function route_set_section_param_filter(
   x: gt.SetSectionParamFilterRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionParamFilter", x);
-}
-
-export async function route_set_section_edge_inputs(
-  x: gt.SetSectionEdgeInputsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionEdgeInputs", x);
-}
-
-export async function route_set_section_edge_outputs(
-  x: gt.SetSectionEdgeOutputsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionEdgeOutputs", x);
-}
-
-export async function route_create_edge(
-  x: gt.CreateEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createEdge", x);
-}
-
-export async function route_update_edge(
-  x: gt.UpdateEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateEdge", x);
-}
-
-export async function route_delete_edges(
-  x: gt.DeleteEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteEdges", x);
-}
-
-export async function route_reconnect_edge(
-  x: gt.ReconnectEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/reconnectEdge", x);
-}
-
-export async function route_set_edges(
-  x: gt.SetEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setEdges", x);
 }
 
 export async function route_set_section_variant(

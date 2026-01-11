@@ -10,7 +10,6 @@ from setta.project_state.project_state_summary_types import (
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import BaseParentCodeObjImpl, ParameterPassingStyle
 from setta.types.core import Core, Variant
-from setta.types.edges import Edge
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -38,14 +37,12 @@ from setta.types.section_impls import (
     CallableSectionImpl,
     DrawSectionImpl,
     MetaControlSectionImpl,
-    TypeErrorIgnoreState,
 )
 from setta.types.shown_params import ShownParamIds
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:
     from setta.types.generated.impl_args_as_typed_dicts import ProjectConfigArgs
-    from setta.types.generated.shared_modifier import SharedModifier
 
 
 T = TypeVar("T", bound=BaseSectionImplUnion | BaseCodeObjImplUnion)
@@ -440,7 +437,6 @@ def copy_project_config(
     do_create_new_id=False,
     section_id_map: dict[ID, ID] | None = None,
     section_variant_id_map: dict[ID, ID] | None = None,
-    code_obj_id_map: dict[ID, ID] | None = None,
 ):
     new_values: ProjectConfigArgs = {}
     if new_config_name:
@@ -448,8 +444,6 @@ def copy_project_config(
     if do_create_new_id:
         new_values["id"] = create_new_id()
     if section_id_map:
-        if section_variant_id_map is None:
-            raise ValueError("Section variant map is required to remap project config.")
         if project_config.entryCodeBlockId:
             new_values["entryCodeBlockId"] = section_id_map[
                 project_config.entryCodeBlockId
@@ -464,50 +458,8 @@ def copy_project_config(
         new_values["viewModes"] = remap_view_modes(
             project_config.viewModes, section_id_map
         )
-        if project_config.edges:
-            if code_obj_id_map is None:
-                raise ValueError("Code obj map is required to remap edges.")
-            new_values["edges"] = _remap_edges(
-                project_config.edges,
-                section_id_map,
-                section_variant_id_map,
-                code_obj_id_map,
-            )
 
     return project_config.model_copy(update=new_values, deep=True)
-
-
-def _remap_edges(
-    edges: list[Edge],
-    section_id_map: dict[ID, ID],
-    section_variant_id_map: dict[ID, ID],
-    code_obj_id_map: dict[ID, ID],
-) -> list[Edge]:
-    remapped: list[Edge] = []
-    for edge in edges:
-        if edge.sourceSectionId not in section_id_map:
-            raise KeyError(f"Section {edge.sourceSectionId} missing for edge remap.")
-        if edge.targetSectionId not in section_id_map:
-            raise KeyError(f"Section {edge.targetSectionId} missing for edge remap.")
-        if edge.sourceVariantId not in section_variant_id_map:
-            raise KeyError(f"Variant {edge.sourceVariantId} missing for edge remap.")
-        if edge.targetVariantId not in section_variant_id_map:
-            raise KeyError(f"Variant {edge.targetVariantId} missing for edge remap.")
-        if edge.targetPortId not in code_obj_id_map:
-            raise KeyError(f"Param {edge.targetPortId} missing for edge remap.")
-        remapped.append(
-            edge.model_copy(
-                update={
-                    "sourceSectionId": section_id_map[edge.sourceSectionId],
-                    "sourceVariantId": section_variant_id_map[edge.sourceVariantId],
-                    "targetSectionId": section_id_map[edge.targetSectionId],
-                    "targetVariantId": section_variant_id_map[edge.targetVariantId],
-                    "targetPortId": code_obj_id_map[edge.targetPortId],
-                },
-                deep=True,
-            )
-        )
-    return remapped
 
 
 def copy_variants(variants: dict[ID, Variant], implIdMap: dict[ID, ID]):
@@ -573,147 +525,12 @@ def update_section_impl_details(
             }
             c.pinnedParams = [codeObjIdMap[v] for v in c.pinnedParams]
             c.selectedParams = [codeObjIdMap[v] for v in c.selectedParams]
-            c.edgeInputParams = [codeObjIdMap[v] for v in c.edgeInputParams]
         if isinstance(c, BaseDictSectionImpl):
             if c.topLevelParamId:
                 c.topLevelParamId = codeObjIdMap[c.topLevelParamId]
         if isinstance(c, CallableSectionImpl):
             if c.callable:
                 c.callable = codeObjIdMap[c.callable]
-
-
-def _remap_id(value: ID, id_map: dict[ID, ID], label: str) -> ID:
-    if value not in id_map:
-        raise KeyError(f"{label} {value} missing for remap.")
-    return id_map[value]
-
-
-def _remap_id_list(
-    ids: list[ID],
-    id_map: dict[ID, ID],
-    label: str,
-) -> list[ID]:
-    return [_remap_id(value, id_map, label) for value in ids]
-
-
-def _remap_optional_id(
-    value: ID | None,
-    id_map: dict[ID, ID],
-    label: str,
-) -> ID | None:
-    if value is None:
-        return None
-    return _remap_id(value, id_map, label)
-
-
-def _remap_code_obj_variant_map(
-    code_obj_variant_map: dict[ID, ID],
-    code_obj_id_map: dict[ID, ID],
-    code_obj_variant_id_map: dict[ID, ID],
-) -> dict[ID, ID]:
-    remapped: dict[ID, ID] = {}
-    for code_obj_id, variant_id in code_obj_variant_map.items():
-        if code_obj_id not in code_obj_id_map:
-            raise KeyError(f"Code obj {code_obj_id} missing for remap.")
-        if variant_id not in code_obj_variant_id_map:
-            raise KeyError(f"Variant {variant_id} missing for remap.")
-        remapped[code_obj_id_map[code_obj_id]] = code_obj_variant_id_map[variant_id]
-    return remapped
-
-
-def _remap_ignore_type_errors(
-    ignore_type_errors: TypeErrorIgnoreState,
-    code_obj_id_map: dict[ID, ID],
-) -> None:
-    if ignore_type_errors.params:
-        ignore_type_errors.params = {
-            _remap_id(param_id, code_obj_id_map, "Param"): value
-            for param_id, value in ignore_type_errors.params.items()
-        }
-
-
-def update_code_obj_modifier_details(
-    codeObjs: dict[ID, Core],
-    codeObjVariants: dict[ID, Variant],
-    codeObjIdMap: dict[ID, ID],
-):
-    for core in codeObjs.values():
-        if "children" in core.sharedModifier:
-            core.sharedModifier["children"] = _remap_id_list(
-                core.sharedModifier["children"], codeObjIdMap, "Code obj"
-            )
-    for variant in codeObjVariants.values():
-        if "children" in variant.modifier:
-            variant.modifier["children"] = _remap_id_list(
-                variant.modifier["children"], codeObjIdMap, "Code obj"
-            )
-
-
-def update_section_modifier_details(
-    sections: dict[ID, Core],
-    sectionVariants: dict[ID, Variant],
-    sectionIdMap: dict[ID, ID],
-    codeObjIdMap: dict[ID, ID],
-    codeObjVariantIdMap: dict[ID, ID],
-):
-    for core in sections.values():
-        _remap_section_modifier(
-            core.sharedModifier,
-            sectionIdMap,
-            codeObjIdMap,
-            codeObjVariantIdMap,
-        )
-    for variant in sectionVariants.values():
-        _remap_section_modifier(
-            variant.modifier,
-            sectionIdMap,
-            codeObjIdMap,
-            codeObjVariantIdMap,
-        )
-
-
-def _remap_section_modifier(
-    modifier: "SharedModifier",
-    section_id_map: dict[ID, ID],
-    code_obj_id_map: dict[ID, ID],
-    code_obj_variant_id_map: dict[ID, ID],
-) -> None:
-    if "children" in modifier:
-        modifier["children"] = _remap_id_list(
-            modifier["children"], section_id_map, "Section"
-        )
-    if "codeObjVariantMap" in modifier:
-        modifier["codeObjVariantMap"] = _remap_code_obj_variant_map(
-            modifier["codeObjVariantMap"],
-            code_obj_id_map,
-            code_obj_variant_id_map,
-        )
-    if "pinnedParams" in modifier:
-        modifier["pinnedParams"] = _remap_id_list(
-            modifier["pinnedParams"], code_obj_id_map, "Param"
-        )
-    if "selectedParams" in modifier:
-        modifier["selectedParams"] = _remap_id_list(
-            modifier["selectedParams"], code_obj_id_map, "Param"
-        )
-    if "edgeInputParams" in modifier:
-        modifier["edgeInputParams"] = _remap_id_list(
-            modifier["edgeInputParams"], code_obj_id_map, "Param"
-        )
-    if "topLevelParamId" in modifier:
-        modifier["topLevelParamId"] = _remap_optional_id(
-            modifier["topLevelParamId"], code_obj_id_map, "Param"
-        )
-    if "metaControlParamId" in modifier:
-        modifier["metaControlParamId"] = _remap_optional_id(
-            modifier["metaControlParamId"], code_obj_id_map, "Param"
-        )
-    if "callable" in modifier:
-        modifier["callable"] = _remap_optional_id(
-            modifier["callable"], code_obj_id_map, "Code obj"
-        )
-    if "ignoreTypeErrors" in modifier:
-        _remap_ignore_type_errors(modifier["ignoreTypeErrors"], code_obj_id_map)
 
 
 def copy_sections_and_other_info(p: ProjectStateCore):
@@ -723,7 +540,6 @@ def copy_sections_and_other_info(p: ProjectStateCore):
     )
     newCodeObjs, codeObjIdMap = copy_cores(p.codeObjs, codeObjVariantIdMap)
     update_code_obj_impl_details(newCodeObjImpls, codeObjIdMap)
-    update_code_obj_modifier_details(newCodeObjs, newCodeObjVariants, codeObjIdMap)
 
     newSectionImpls, sectionImplIdMap = copy_impls(p.sectionImpls)
     newSectionVariants, sectionVariantIdMap = copy_variants(
@@ -732,13 +548,6 @@ def copy_sections_and_other_info(p: ProjectStateCore):
     newSections, sectionIdMap = copy_cores(p.sections, sectionVariantIdMap)
     update_section_impl_details(
         newSectionImpls, sectionIdMap, codeObjIdMap, codeObjVariantIdMap
-    )
-    update_section_modifier_details(
-        newSections,
-        newSectionVariants,
-        sectionIdMap,
-        codeObjIdMap,
-        codeObjVariantIdMap,
     )
 
     project_core = ProjectStateCore(
@@ -749,7 +558,7 @@ def copy_sections_and_other_info(p: ProjectStateCore):
         codeObjImpls=newCodeObjImpls,
         codeObjVariants=newCodeObjVariants,
     )
-    return project_core, sectionIdMap, sectionVariantIdMap, codeObjIdMap
+    return project_core, sectionIdMap, sectionVariantIdMap
 
 
 def copy_project(
@@ -757,19 +566,13 @@ def copy_project(
     new_config_name: str | None = None,
     do_create_new_id=False,
 ):
-    (
-        newProjectCore,
-        sectionIdMap,
-        sectionVariantIdMap,
-        codeObjIdMap,
-    ) = copy_sections_and_other_info(p)
+    newProjectCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(p)
     newProjectConfig = copy_project_config(
         p.projectConfig,
         new_config_name,
         do_create_new_id,
         sectionIdMap,
         sectionVariantIdMap,
-        codeObjIdMap,
     )
 
     return ProjectStateSingleConfig(
@@ -784,12 +587,9 @@ def paste_sections(
     asRef: bool,
 ):
     if not asRef:
-        (
-            newCore,
-            sectionIdMap,
-            sectionVariantIdMap,
-            _code_obj_id_map,
-        ) = copy_sections_and_other_info(data.core)
+        newCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(
+            data.core
+        )
         data.core = newCore
         data.sectionVariantMap = remap_section_variant_map(
             data.sectionVariantMap, sectionIdMap, sectionVariantIdMap

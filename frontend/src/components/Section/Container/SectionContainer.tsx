@@ -1,4 +1,3 @@
-import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
 import React from "react";
 import {
@@ -43,22 +42,20 @@ function _SectionContainer({
   }
 
   return (
-    <NodeIdProvider value={sectionId}>
-      <ContainerSwitch
-        isGroup={isGroup}
-        sectionId={sectionId}
-        dragListeners={dragListeners}
-        isTopLevel={isTopLevel}
-        visibility={visibility}
-        isEditingViewMode={isEditingViewMode}
-        isUserView={isUserView}
-      >
-        {!isGroup && (
-          <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
-        )}
-        <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
-      </ContainerSwitch>
-    </NodeIdProvider>
+    <ContainerSwitch
+      isGroup={isGroup}
+      sectionId={sectionId}
+      dragListeners={dragListeners}
+      isTopLevel={isTopLevel}
+      visibility={visibility}
+      isEditingViewMode={isEditingViewMode}
+      isUserView={isUserView}
+    >
+      {!isGroup && (
+        <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
+      )}
+      <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
+    </ContainerSwitch>
   );
 }
 export const SectionContainer = React.memo(_SectionContainer, (p, n) =>

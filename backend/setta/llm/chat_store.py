@@ -8,6 +8,7 @@ from setta.project_state.chats.save import (
     build_new_chat,
     create_new_chat,
     save_messages,
+    set_system_prompt,
 )
 from setta.project_state.chats.save import delete_chat as delete_chat_record
 from setta.types.chat import Chat, ChatMetadata
@@ -44,6 +45,10 @@ class ChatStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> Chat | None:
+        raise NotImplementedError
+
+    @abstractmethod
     def delete_chat(self, chat_id: ID) -> None:
         raise NotImplementedError
 
@@ -75,6 +80,9 @@ class DBEChatStore(ChatStore):
         self, chat_id: ID, messages: list[BaseChatMessageUnion]
     ) -> Chat | None:
         return save_messages(self.dbe, chat_id, messages)
+
+    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> Chat | None:
+        return set_system_prompt(self.dbe, chat_id, system_prompt)
 
     def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
@@ -115,6 +123,15 @@ class MemoryChatStore(ChatStore):
             return None
         chat = self._chats[chat_id]
         append_chat_messages(chat, messages)
+        return chat.model_copy(deep=True)
+
+    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> Chat | None:
+        if chat_id not in self._chats:
+            return None
+        chat = self._chats[chat_id]
+        if chat.systemPrompt == system_prompt:
+            return chat.model_copy(deep=True)
+        chat.systemPrompt = system_prompt
         return chat.model_copy(deep=True)
 
     def delete_chat(self, chat_id: ID) -> None:
