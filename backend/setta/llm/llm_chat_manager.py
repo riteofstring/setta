@@ -5,8 +5,7 @@ import logging
 import string
 import time
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field, is_dataclass
-from enum import Enum
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -24,7 +23,6 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
-from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
@@ -52,9 +50,6 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
-)
-from setta.project_state.project_manager_types import (
-    GetLatestProjectStateSummaryRequest,
 )
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
@@ -88,10 +83,10 @@ from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
-    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.types.llm_config import LLMConfig
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
+ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 
 
 @dataclass
@@ -160,7 +155,6 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
-        project_manager_switcher: "ProjectManagerSwitcher | None" = None,
         chat_store: ChatStore | None = None,
         *,
         share_session_id: str | None = None,
@@ -169,7 +163,6 @@ class LLMChatManager:
         self.chat_store = chat_store or DBEChatStore(dbe)
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.project_manager_switcher = project_manager_switcher
         self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
@@ -457,6 +450,8 @@ class LLMChatManager:
         layer can pass it directly to the configured completion client.
         """
         system_prompt = await self._build_system_prompt(chat)
+        chat.systemPrompt = system_prompt
+        self.chat_store.set_system_prompt(chat.id, system_prompt)
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
@@ -479,6 +474,11 @@ class LLMChatManager:
         )
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
+        self._apply_anthropic_tool_search_headers(
+            request,
+            use_tool_search=use_tool_search,
+            has_mcp_tools=bool(server_ids),
+        )
         tools = self._build_tool_definitions(
             server_ids,
             use_tool_search=use_tool_search,
@@ -493,6 +493,38 @@ class LLMChatManager:
 
         return request
 
+    def _apply_anthropic_tool_search_headers(
+        self,
+        request: dict[str, Any],
+        *,
+        use_tool_search: bool,
+        has_mcp_tools: bool,
+    ) -> None:
+        if not use_tool_search or not has_mcp_tools:
+            return
+        extra_headers = request.get("extra_headers")
+        if extra_headers is None:
+            extra_headers = {}
+        if not isinstance(extra_headers, dict):
+            extra_headers = {}
+        else:
+            extra_headers = dict(extra_headers)
+        existing_beta = extra_headers.get("anthropic-beta")
+        merged_beta = self._merge_anthropic_beta_header(existing_beta)
+        extra_headers["anthropic-beta"] = merged_beta
+        request["extra_headers"] = extra_headers
+
+    @staticmethod
+    def _merge_anthropic_beta_header(existing: Any) -> str:
+        values: list[str] = []
+        if isinstance(existing, str):
+            values = [value.strip() for value in existing.split(",") if value.strip()]
+        elif isinstance(existing, list):
+            values = [str(value).strip() for value in existing if str(value).strip()]
+        if ANTHROPIC_TOOL_SEARCH_BETA_HEADER not in values:
+            values.append(ANTHROPIC_TOOL_SEARCH_BETA_HEADER)
+        return ", ".join(values)
+
     async def _build_system_prompt(self, chat: Chat) -> str:
         cached = self._chat_prompt_cache.get(chat.id)
         if cached:
@@ -500,66 +532,26 @@ class LLMChatManager:
         prompt = self.system_prompt
         project_config_id = chat.projectConfigId
         if project_config_id is not None:
-            if self.project_manager_switcher is None:
-                prompt = (
-                    f"{prompt}\n\n## Active project config\n- id: {project_config_id}\n"
-                )
-            else:
-                (
-                    temporary_project_config_id,
-                    summary_block,
-                ) = await self._build_project_summary(project_config_id)
-                prompt = (
-                    f"{prompt}\n\n"
-                    "## Active project config\n"
-                    f"- id: {temporary_project_config_id}\n\n"
-                    "## Project summary\n"
-                    "(Injected at request start; call get_latest_project_state_summary only to"
-                    " refresh after edits.)\n"
-                    f"{summary_block}"
-                )
+            temporary_project_config_id = self._ensure_temporary_project_id(
+                project_config_id
+            )
+            prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
         self._chat_prompt_cache[chat.id] = prompt
         return prompt
 
-    async def _build_project_summary(self, project_config_id: ID) -> tuple[ID, str]:
-        project_manager = self.project_manager_switcher.get(
-            project_config_id,
-            share_session_id=self.share_session_id,
-        )
-        summary = await project_manager.get_latest_project_state_summary(
-            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
-        )
+    def _ensure_temporary_project_id(self, project_config_id: ID) -> ID:
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
         )
         map_size_before = len(canonical_to_temporary)
-        converted_summary = convert_canonical_ids_to_temporary(
-            summary,
+        temporary_project_config_id = convert_canonical_ids_to_temporary(
+            project_config_id,
             canonical_to_temporary,
             temporary_to_canonical,
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-
-        temporary_project_config_id = converted_summary.projectConfig.id
-        summary_text = self._serialize_prompt_payload(converted_summary)
-        summary_block = f"```json\n{summary_text}\n```"
-        return temporary_project_config_id, summary_block
-
-    @staticmethod
-    def _serialize_prompt_payload(payload: Any) -> str:
-        def default(obj: Any):
-            if is_dataclass(obj):
-                return asdict(obj)
-            if isinstance(obj, BaseModel):
-                return obj.model_dump(mode="json")
-            if isinstance(obj, Enum):
-                return obj.value
-            if isinstance(obj, Path):
-                return str(obj)
-            return str(obj)
-
-        return json.dumps(payload, indent=2, default=default)
+        return temporary_project_config_id
 
     def _resolve_mcp_server_ids(self, llm_config) -> list[str]:
         return self.config.resolve_mcp_server_ids(llm_config)
@@ -1754,6 +1746,9 @@ class LLMChatManager:
                 available_tools=available_tools,
                 annotations_by_name=annotations_by_name,
             )
+        elif tool_name not in self.mcp_client.routing:
+            logger.warning("MCP tool %s is not registered; skipping call", tool_name)
+            call_result = self._build_missing_tool_result(tool_name)
         else:
             try:
                 meta = None
@@ -1866,6 +1861,17 @@ class LLMChatManager:
             result=result_payload,
             started_at=started_at,
             completed_at=completed_at,
+        )
+
+    def _build_missing_tool_result(self, tool_name: str) -> CallToolResult:
+        message = (
+            f"MCP tool '{tool_name}' is not registered. "
+            f"Call '{self._search_tool_name}' to find the correct tool name."
+        )
+        return CallToolResult(
+            content=[TextContent(type="text", text=message)],
+            structuredContent={"error": message, "tool_name": tool_name},
+            isError=True,
         )
 
     def _run_local_search_tool(

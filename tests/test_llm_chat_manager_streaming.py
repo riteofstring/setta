@@ -135,7 +135,12 @@ class SystemPromptInjectionTests(unittest.TestCase):
             system_text = payload["messages"][0]["content"][0]["text"]
             self.assertTrue(system_text.startswith(prompt))
             self.assertIn("## Active project config", system_text)
-            self.assertIn(str(chat.projectConfigId), system_text)
+            _, canonical_to_temporary = manager.dbe.read_temporary_id_map()
+            if chat.projectConfigId not in canonical_to_temporary:
+                raise AssertionError("Expected project config ID in temporary map")
+            temporary_project_id = canonical_to_temporary[chat.projectConfigId]
+            self.assertIn(str(temporary_project_id), system_text)
+            self.assertNotIn("## Project summary", system_text)
             self.assertEqual(payload["messages"][1]["role"], "user")
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],

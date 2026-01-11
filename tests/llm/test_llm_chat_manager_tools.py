@@ -83,15 +83,10 @@ async def _build_manager_with_project_summary():
         async with real_settings_manager() as settings_fixture:
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
-            project_manager_switcher = ProjectManagerSwitcher(
-                main_manager=project_fixture.manager,
-                settings_manager=settings_fixture.manager,
-            )
             manager = LLMChatManager(
                 project_fixture.dbe,
                 MultiMCPClient({}),
                 frontend_sender,
-                project_manager_switcher=project_manager_switcher,
             )
             yield manager, project_fixture
 
@@ -234,6 +229,58 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(tool.get("defer_loading"), True)
                 else:
                     self.assertNotIn("defer_loading", tool)
+
+    async def test_anthropic_payload_adds_tool_search_beta_header(
+        self,
+    ) -> None:
+        async with _build_manager_with_mcp() as (manager, _mcp_client):
+            llm_config = LLMConfig(
+                id="claude-sonnet",
+                model="claude-sonnet-4-5-20250929",
+                provider="anthropic",
+            )
+            _configure_manager(manager, llm_config)
+            chat = _build_chat(llm_config)
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+
+            extra_headers = payload.get("extra_headers")
+            self.assertIsInstance(extra_headers, dict)
+            beta_header = extra_headers.get("anthropic-beta")
+            self.assertIsInstance(beta_header, str)
+            self.assertIn("advanced-tool-use-2025-11-20", beta_header)
+
+    async def test_anthropic_payload_merges_existing_beta_header(
+        self,
+    ) -> None:
+        async with _build_manager_with_mcp() as (manager, _mcp_client):
+            llm_config = LLMConfig(
+                id="claude-sonnet",
+                model="claude-sonnet-4-5-20250929",
+                provider="anthropic",
+                other_params={
+                    "extra_headers": {
+                        "anthropic-beta": ["prompt-caching-2024-07-31"],
+                    }
+                },
+            )
+            _configure_manager(manager, llm_config)
+            chat = _build_chat(llm_config)
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+
+            extra_headers = payload.get("extra_headers")
+            self.assertIsInstance(extra_headers, dict)
+            beta_header = extra_headers.get("anthropic-beta")
+            self.assertIsInstance(beta_header, str)
+            self.assertIn("prompt-caching-2024-07-31", beta_header)
+            self.assertIn("advanced-tool-use-2025-11-20", beta_header)
 
     async def test_non_anthropic_payload_strips_tool_reference_content(
         self,
@@ -492,12 +539,41 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 if isinstance(entry, ToolReferenceContent)
             ]
             self.assertTrue(reference_names)
-            for name in reference_names:
-                self.assertIn(name, payload_tool_names)
+        for name in reference_names:
+            self.assertIn(name, payload_tool_names)
 
 
-class PromptSummaryCacheTests(unittest.IsolatedAsyncioTestCase):
-    async def test_summary_prompt_is_cached_per_chat(self) -> None:
+class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_missing_tool_returns_error_result(self) -> None:
+        async with _build_manager_with_mcp() as (manager, _mcp_client):
+            llm_config = LLMConfig(
+                id="provider-openai",
+                model="gpt-4o",
+                provider="openai",
+            )
+            _configure_manager(manager, llm_config)
+            chat = _build_chat(llm_config)
+            tool_name = "setta__change_section_impl"
+            tool_call = ToolCall(
+                function=ToolCallFunction(
+                    name=tool_name,
+                    arguments={},
+                )
+            )
+
+            tool_message = await manager._dispatch_tool_call(chat, tool_call)
+
+            self.assertTrue(tool_message.is_error)
+            self.assertEqual(tool_message.tool_name, tool_name)
+            self.assertTrue(tool_message.content)
+            entry = tool_message.content[0]
+            self.assertIsInstance(entry, TextContent)
+            self.assertIn("not registered", entry.text)
+            self.assertIn(manager._search_tool_name, entry.text)
+
+
+class PromptCacheTests(unittest.IsolatedAsyncioTestCase):
+    async def test_prompt_is_cached_per_chat(self) -> None:
         async with _build_manager_with_project_summary() as (manager, fixture):
             llm_config = LLMConfig(
                 id="default",
@@ -523,11 +599,18 @@ class PromptSummaryCacheTests(unittest.IsolatedAsyncioTestCase):
                 deep_think=False,
             )
             first_prompt = payload["messages"][0]["content"][0]["text"]
-            self.assertIn("## Project summary", first_prompt)
+            self.assertIn("## Active project config", first_prompt)
+            self.assertNotIn("## Project summary", first_prompt)
+            _, canonical_to_temporary = manager.dbe.read_temporary_id_map()
+            project_config_id = ID(project_config_id)
+            if project_config_id not in canonical_to_temporary:
+                raise AssertionError("Expected project config ID in temporary map")
+            temporary_project_id = canonical_to_temporary[project_config_id]
+            self.assertIn(str(temporary_project_id), first_prompt)
 
             await fixture.manager.create_top_level_section(
                 CreateTopLevelSectionRequest(
-                    projectConfigId=ID(project_config_id),
+                    projectConfigId=project_config_id,
                     implType=SectionType.Code,
                 )
             )
