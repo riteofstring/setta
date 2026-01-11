@@ -1,22 +1,12 @@
-from enum import Enum
-
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
 from setta.types.id import ID
 
 
-class PortSide(str, Enum):
-    Left = "Left"
-    Right = "Right"
-    Top = "Top"
-    Bottom = "Bottom"
-
-
 class EdgePort(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     accessor: str = ""
-    side: PortSide | None = None
 
 
 class Edge(BaseModel, extra="forbid"):

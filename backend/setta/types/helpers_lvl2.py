@@ -28,7 +28,7 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
-from setta.types.edges import Edge, EdgePort, PortSide
+from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
     BaseChartSettingsUnion,
@@ -1810,7 +1810,6 @@ def set_section_edge_outputs(
             EdgePort(
                 id=port.id,
                 accessor=accessor,
-                side=port.side or PortSide.Right,
             )
         )
         seen.add(port.id)

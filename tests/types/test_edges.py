@@ -2,7 +2,7 @@ import unittest
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
-from setta.types.edges import Edge, EdgePort, PortSide
+from setta.types.edges import Edge, EdgePort
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -45,8 +45,7 @@ class EdgeCleanupTests(unittest.TestCase):
 
     def _set_output_ports(self, section_id: str, count: int) -> list[str]:
         ports = [
-            EdgePort(id=create_new_id(), accessor="", side=PortSide.Right)
-            for _ in range(count)
+            EdgePort(id=create_new_id(), accessor="") for _ in range(count)
         ]
         set_section_edge_outputs(self.project_state, section_id, ports)
         return [port.id for port in ports]

@@ -2,7 +2,7 @@ import unittest
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
-from setta.types.edges import Edge, EdgePort, PortSide
+from setta.types.edges import Edge, EdgePort
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -56,7 +56,7 @@ class DeleteKwargEdgeTests(unittest.TestCase):
         set_section_edge_outputs(
             self.project_state,
             source_section_id,
-            [EdgePort(id=output_port_id, accessor="", side=PortSide.Right)],
+            [EdgePort(id=output_port_id, accessor="")],
         )
         edge = Edge(
             sourceSectionId=source_section_id,

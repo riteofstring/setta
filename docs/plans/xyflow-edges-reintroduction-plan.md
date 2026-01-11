@@ -85,7 +85,7 @@
 ## Frontend State + Types
 
 - Add edge types in `frontend/src/forks/xyflow/core/types/edges.ts` (avoid name collision
-  with `Position` from generated types; use `HandlePosition` or `PortSide` enum).
+  with `Position` from generated types; use `HandlePosition`).
 - Extend `useProjectState` to include `projectConfig.edges` from generated types.
 - Add an edge handle registry store:
   - Map of `{ sectionId, portId, type, side, element }`

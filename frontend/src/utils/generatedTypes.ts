@@ -212,15 +212,6 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
-export const PortSideEnum = {
-  Left: "Left",
-  Right: "Right",
-  Top: "Top",
-  Bottom: "Bottom",
-} as const;
-
-export type PortSide = ObjectValues<typeof PortSideEnum>;
-
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -1078,7 +1069,6 @@ const ColorPickerChoiceSchema = z.object({
 const EdgePortSchema = z.object({
   id: IDSchema.default(create_new_id),
   accessor: z.string().default("" as const),
-  side: z.union([z.enum(PortSideEnum), z.null()]).default(null),
 });
 
 const TypeErrorIgnoreStateSchema = z.object({

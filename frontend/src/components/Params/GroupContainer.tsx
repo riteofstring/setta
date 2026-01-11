@@ -96,9 +96,6 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       id: port.id,
       label:
         port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-      side: port.side
-        ? (port.side.toLowerCase() as HandlePosition)
-        : HandlePosition.Right,
     }));
     return { inputPorts, outputPorts };
   }, _.isEqual);
@@ -142,7 +139,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
               <Handle
                 id={port.id}
                 type="source"
-                position={port.side}
+                position={HandlePosition.Right}
                 onConnect={createEdgeFromConnection}
                 isConnectable={canEditStructure}
                 isConnectableStart={canEditStructure}

@@ -20,11 +20,7 @@ import {
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
 } from "utils/generatedEndpoints";
-import {
-  isBaseSectionWithParamsImpl,
-  PortSide,
-  PortSideEnum,
-} from "utils/generatedTypes";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
 type EdgePortsSettingsProps = {
@@ -34,7 +30,6 @@ type EdgePortsSettingsProps = {
 type EdgeOutputPort = {
   id: string;
   accessor: string;
-  side: PortSide | null;
 };
 
 export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
@@ -154,7 +149,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       {
         id: createNewId(),
         accessor: "",
-        side: PortSideEnum.Right,
       },
     ];
     setDraftOutputPorts(nextDraft);
@@ -311,7 +305,6 @@ function toDraftOutputPorts(ports: EdgeOutputPort[]) {
     id: port.id,
     accessor:
       port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-    side: port.side ?? PortSideEnum.Right,
   }));
 }
 
@@ -336,7 +329,6 @@ function normalizeOutputPorts(ports: EdgeOutputPort[]) {
     normalized.push({
       id: port.id,
       accessor,
-      side: port.side ?? PortSideEnum.Right,
     });
   }
   return normalized;
