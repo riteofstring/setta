@@ -1,9 +1,5 @@
 from setta.types.id import ID
-from setta.types.listener import (
-    DependencyEvent,
-    DependencyEventType,
-    ListenerRealtimeDelta,
-)
+from setta.types.listener import ControlActionEvent, ListenerRealtimeDelta
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
@@ -57,26 +53,21 @@ class RealtimeEventHub:
             share_session_id=share_session_id,
         )
 
-    async def emit_dependency_event(
+    async def emit_action_event(
         self,
         *,
         project_config_id: ID,
-        dependency_events: list[DependencyEvent],
+        action_events: list[ControlActionEvent],
         share_session_id: str | None = None,
     ) -> None:
-        if not dependency_events:
-            raise ValueError("dependency_events must contain at least one entry")
-        if any(
-            event.eventType is not DependencyEventType.ACTION
-            for event in dependency_events
-        ):
-            raise ValueError("dependency_events must be action events")
+        if not action_events:
+            raise ValueError("action_events must contain at least one entry")
         sequence_key = (project_config_id, share_session_id)
         sequence = self._sequence_by_project.get(sequence_key, 0) + 1
         self._sequence_by_project[sequence_key] = sequence
-        await self._python_script_sender.send_dependency_event(
+        await self._python_script_sender.send_action_event(
             projectConfigId=project_config_id,
-            dependencyEvents=dependency_events,
+            actionEvents=action_events,
             sequence=sequence,
             share_session_id=share_session_id,
         )

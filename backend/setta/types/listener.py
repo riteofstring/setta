@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -18,11 +19,6 @@ class ListenerDependencyMode(str, Enum):
     SPECIFIC = "specific"
     ANY_DEPENDENCY = "any_dependency"
     REFRESH_ONLY = "refresh_only"
-
-
-class DependencyEventType(str, Enum):
-    VALUE = "value"
-    ACTION = "action"
 
 
 class ListenerInitContent(BaseModel):
@@ -46,22 +42,23 @@ class ListenerRealtimeEventContent(BaseModel):
     sequence: int
 
 
-class DependencyEvent(BaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    eventType: DependencyEventType
+class ControlActionEvent(BaseModel):
+    controlName: str
+    actionId: str
+    actionControlType: CodeObjType
     payload: str | None = None
     timestampMs: int
 
 
-class RealtimeDependencyEventContent(BaseModel):
+class RealtimeActionEventContent(BaseModel):
     projectConfigId: ID
-    dependencyEvent: DependencyEvent
+    actionEvent: ControlActionEvent
 
 
-class ListenerDependencyEventContent(BaseModel):
+class ListenerActionEventContent(BaseModel):
     projectConfigId: ID
     shareSessionId: str | None = None
-    dependencyEvents: list[DependencyEvent]
+    actionEvents: list[ControlActionEvent]
     sequence: int
 
 
@@ -132,9 +129,7 @@ class ListenerRegisterCallback(BaseModel):
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False
-    eventTypes: list[DependencyEventType] = Field(
-        default_factory=lambda: [DependencyEventType.VALUE]
-    )
+    actions: list[str] | None = None
 
 
 class ListenerRegisterContent(BaseModel):

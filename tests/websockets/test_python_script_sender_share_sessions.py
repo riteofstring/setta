@@ -97,6 +97,7 @@ class PythonScriptSenderShareSessionTests(unittest.IsolatedAsyncioTestCase):
                     "cb": ListenerRegisterCallback(
                         dependencies=[self.dependency],
                         dependencyMode=ListenerDependencyMode.SPECIFIC,
+                        actions=None,
                     )
                 },
                 share_session_id=share_session_id,

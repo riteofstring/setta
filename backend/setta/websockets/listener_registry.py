@@ -4,7 +4,6 @@ from typing import Iterable
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
 from setta.types.listener import (
-    DependencyEventType,
     ListenerDependencyMode,
     ListenerRegisterCallback,
 )
@@ -17,12 +16,12 @@ class ListenerRegistration:
     use_temporary_ids: bool = False
     share_session_id: str | None = None
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
-    dependency_index_by_event_type: dict[
-        DependencyEventType, dict[BaseDependencyKeyUnion, set[str]]
-    ] = field(default_factory=dict)
-    wildcard_callbacks_by_event_type: dict[DependencyEventType, set[str]] = field(
+    dependency_index: dict[BaseDependencyKeyUnion, set[str]] = field(
         default_factory=dict
     )
+    action_index: dict[str, set[str]] = field(default_factory=dict)
+    action_wildcard_callbacks: set[str] = field(default_factory=set)
+    wildcard_callbacks: set[str] = field(default_factory=set)
 
     @classmethod
     def build_from_callbacks(
@@ -35,37 +34,37 @@ class ListenerRegistration:
         share_session_id: str | None = None,
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
-        dependency_index_by_event_type: dict[
-            DependencyEventType, dict[BaseDependencyKeyUnion, set[str]]
-        ] = {}
-        wildcard_callbacks_by_event_type: dict[DependencyEventType, set[str]] = {}
+        dependency_index: dict[BaseDependencyKeyUnion, set[str]] = {}
+        action_index: dict[str, set[str]] = {}
+        action_wildcard_callbacks: set[str] = set()
+        wildcard_callbacks: set[str] = set()
         for callback_id, callback in callback_map.items():
-            event_types = callback.eventTypes
-            for event_type in event_types:
-                if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
-                    continue
-                if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
-                    wildcard_callbacks_by_event_type.setdefault(event_type, set()).add(
-                        callback_id
-                    )
-                    continue
-                if not callback.dependencies:
-                    wildcard_callbacks_by_event_type.setdefault(event_type, set()).add(
-                        callback_id
-                    )
-                    continue
-                for dependency_key in callback.dependencies:
-                    dependency_index_by_event_type.setdefault(
-                        event_type, {}
-                    ).setdefault(dependency_key, set()).add(callback_id)
+            if callback.actions is not None:
+                if not callback.actions:
+                    action_wildcard_callbacks.add(callback_id)
+                else:
+                    for action_id in callback.actions:
+                        action_index.setdefault(action_id, set()).add(callback_id)
+            if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
+                continue
+            if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
+                wildcard_callbacks.add(callback_id)
+                continue
+            if not callback.dependencies:
+                wildcard_callbacks.add(callback_id)
+                continue
+            for dependency_key in callback.dependencies:
+                dependency_index.setdefault(dependency_key, set()).add(callback_id)
         return cls(
             websocket_id=websocket_id,
             project_config_id=project_config_id,
             use_temporary_ids=use_temporary_ids,
             share_session_id=share_session_id,
             callbacks=callback_map,
-            dependency_index_by_event_type=dependency_index_by_event_type,
-            wildcard_callbacks_by_event_type=wildcard_callbacks_by_event_type,
+            dependency_index=dependency_index,
+            action_index=action_index,
+            action_wildcard_callbacks=action_wildcard_callbacks,
+            wildcard_callbacks=wildcard_callbacks,
         )
 
 
@@ -168,7 +167,6 @@ class ListenerRegistry:
         *,
         project_config_id: ID,
         dependency_keys: Iterable[BaseDependencyKeyUnion],
-        event_type: DependencyEventType,
         share_session_id: str | None = None,
     ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
         dependency_filter = set(dependency_keys)
@@ -176,13 +174,30 @@ class ListenerRegistry:
             project_config_id,
             share_session_id=share_session_id,
         ):
-            matching_callbacks: set[str] = set(
-                registration.wildcard_callbacks_by_event_type.get(event_type, set())
-            )
-            dependency_index = registration.dependency_index_by_event_type.get(
-                event_type, {}
-            )
+            matching_callbacks: set[str] = set(registration.wildcard_callbacks)
             for dependency_key in dependency_filter:
-                matching_callbacks.update(dependency_index.get(dependency_key, set()))
+                matching_callbacks.update(
+                    registration.dependency_index.get(dependency_key, set())
+                )
+            if matching_callbacks:
+                yield registration, matching_callbacks
+
+    def iter_callbacks_matching_actions(
+        self,
+        *,
+        project_config_id: ID,
+        action_ids: Iterable[str],
+        share_session_id: str | None = None,
+    ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
+        action_filter = set(action_ids)
+        for registration in self.iter_registrations_for_project(
+            project_config_id,
+            share_session_id=share_session_id,
+        ):
+            matching_callbacks: set[str] = set(registration.action_wildcard_callbacks)
+            for action_id in action_filter:
+                matching_callbacks.update(
+                    registration.action_index.get(action_id, set())
+                )
             if matching_callbacks:
                 yield registration, matching_callbacks

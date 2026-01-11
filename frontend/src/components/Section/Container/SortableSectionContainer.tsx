@@ -1,9 +1,8 @@
-import { CSS } from "@dnd-kit/utilities";
-import { useSortable } from "forks/dnd-kit/CustomSortable";
+import { useSortable } from "forks/dnd-kit/adapter";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { applyZoomToTransform, transformToString } from "forks/dnd-kit/adapter/zoom";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
@@ -55,6 +54,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
     transition,
     overIndex,
     items,
+    isDragging,
   } = useSortable({ ...dndProps, animateLayoutChanges });
   return (
     <SortableCore
@@ -66,6 +66,7 @@ function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
       transition={transition}
       applyTransform={
         forceApplyTransform ||
+        isDragging ||
         (overIndex !== null && overIndex !== -1) ||
         (items.length === 1 &&
           items[0] === sectionId &&
@@ -89,7 +90,7 @@ function _SortableCore({
   applyTransform,
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
-  const scaledTransform = transformWithZoom(applyTransform ? transform : null);
+  const scaledTransform = applyZoomToTransform(applyTransform ? transform : null);
   const transformX = scaledTransform ? scaledTransform.x : null;
   const transformY = scaledTransform ? scaledTransform.y : null;
   const transformScaleX = scaledTransform ? scaledTransform.scaleX : null;
@@ -110,7 +111,7 @@ function _SortableCore({
   ]);
 
   const style = {
-    transform: CSS.Translate.toString(scaledTransform),
+    transform: transformToString(scaledTransform),
     transition,
     zIndex: overIsSelf ? 500 : undefined,
   };
@@ -150,18 +151,6 @@ const SortableCore = React.memo(
     p.transition === n.transition &&
     _.isEqual(p.listeners, n.listeners),
 );
-
-function transformWithZoom(transform) {
-  if (transform) {
-    const zoom = useReactFlow.getState().transform[2];
-    return {
-      ...transform,
-      x: transform.x / zoom,
-      y: transform.y / zoom,
-    };
-  }
-  return transform;
-}
 
 function useAnimateLayoutChanges() {
   const isSorting = useDndState((x) => x.isSorting);

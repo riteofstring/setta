@@ -2,7 +2,7 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
   verticalListSortingStrategy,
-} from "forks/dnd-kit/CustomSortable";
+} from "forks/dnd-kit/adapter";
 import { useDisableSortable } from "forks/dnd-kit/useDndUtils";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { useDndState } from "./dndState";
