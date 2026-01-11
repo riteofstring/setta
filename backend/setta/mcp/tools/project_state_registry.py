@@ -10,7 +10,6 @@ from pydantic_core import PydanticUndefined
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
-    SettaToolType,
     ToolArgumentPreviewMetadata,
     attach_ai_follow_tool_arguments,
     attach_ai_follow_tool_result,
@@ -18,7 +17,7 @@ from setta.mcp.tool_metadata import (
     attach_tool_search_category,
     attach_tool_search_tags,
 )
-from setta.mcp.tool_setup import setta_init_tool, setta_tool
+from setta.mcp.tool_setup import setta_tool
 from setta.utils.constants import C
 
 if TYPE_CHECKING:
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
 def project_state_tool(
     *,
     name: str | None = None,
-    tool_type: SettaToolType = SettaToolType.discoverable,
     ai_follow_tool_result: AIFollowToolResultMetadata | None = None,
     ai_follow_tool_arguments: AIFollowToolArgumentsMetadata | None = None,
     tool_argument_preview: ToolArgumentPreviewMetadata | None = None,
@@ -52,8 +50,7 @@ def project_state_tool(
         attach_tool_argument_preview(tool_fn, tool_argument_preview)
         attach_tool_search_tags(tool_fn, search_tags)
         attach_tool_search_category(tool_fn, search_category)
-        register = setta_init_tool if tool_type == SettaToolType.init else setta_tool
-        register(tool_fn)
+        setta_tool(tool_fn)
         return method
 
     return decorator

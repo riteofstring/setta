@@ -6,20 +6,10 @@ import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
-from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
-from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
-from setta.types.chat_messages import (
-    MessageTextContent,
-    ToolCall,
-    ToolCallFunction,
-    UserChatMessage,
-)
+from setta.mcp.tool_metadata import SettaToolAnnotations
 from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from watchdog.observers.polling import PollingObserver
 
@@ -48,14 +38,6 @@ class _StubSettaState:
         self.mcp_client = mcp_client
 
 
-class _StubFrontendSender:
-    def __init__(self):
-        self.sent_events: list[tuple[str, object]] = []
-
-    async def send_streaming_response(self, chat_id, chunk):
-        self.sent_events.append((chat_id, chunk))
-
-
 class _StubMCPClient:
     def __init__(
         self,
@@ -66,8 +48,7 @@ class _StubMCPClient:
         self._tools = {tool.name: tool for tool in mcp_server.list_registered_tools()}
         self._context = Context(fastmcp=mcp_server)
         self._routing: dict[str, str] = {}
-        self.init_tool_definitions: dict[str, dict] = {}
-        self.discoverable_tool_definitions: dict[str, dict] = {}
+        self.tool_definitions: dict[str, dict] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         self._populate_tool_definitions()
 
@@ -79,7 +60,6 @@ class _StubMCPClient:
             annotations = SettaToolAnnotations.model_validate(
                 tool_annotations.model_dump()
             )
-            tool_type = annotations.settaToolType
             namespaced_name = build_namespaced_tool_name(self._server_id, tool.name)
             definition = {
                 "type": "function",
@@ -89,23 +69,13 @@ class _StubMCPClient:
                     "parameters": tool.parameters or {},
                 },
             }
-            if tool_type == SettaToolType.init:
-                self.init_tool_definitions[namespaced_name] = definition
-            elif tool_type == SettaToolType.discoverable:
-                self.discoverable_tool_definitions[namespaced_name] = definition
+            self.tool_definitions[namespaced_name] = definition
             self.tool_annotations_by_name[namespaced_name] = annotations
             self._routing[namespaced_name] = tool.name
 
-    def init_tool_definitions_for_servers(self, server_ids: set[str]) -> dict[str, dict]:
+    def tool_definitions_for_servers(self, server_ids: set[str]) -> dict[str, dict]:
         if self._server_id in server_ids:
-            return self.init_tool_definitions
-        return {}
-
-    def discoverable_tool_definitions_for_servers(
-        self, server_ids: set[str]
-    ) -> dict[str, dict]:
-        if self._server_id in server_ids:
-            return self.discoverable_tool_definitions
+            return self.tool_definitions
         return {}
 
     def tool_annotations_for_servers(
@@ -159,7 +129,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             setta_state.mcp_server = mcp_server
             setta_state.mcp_client = _StubMCPClient(mcp_server)
-            ctx = Context(fastmcp=mcp_server)
 
             registered_tool_names = sorted(
                 tool.name for tool in mcp_server.list_registered_tools()
@@ -167,170 +136,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             self.assertGreater(len(registered_tool_names), 0)
             self.assertIn("read_file_range", registered_tool_names)
-
-            search_results = search_and_unlock_mcp_tools(
-                query="section size settings",
-                limit=2,
-                ctx=ctx,
-            )
-            search_result_names = [result.name for result in search_results.results]
-            self.assertIn(
-                "set_section_sizes",
-                search_result_names,
-            )
-            self.assertNotIn(
-                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
-                search_result_names,
-            )
-
-            search_tool = next(
-                tool
-                for tool in mcp_server.list_registered_tools()
-                if tool.name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-            )
-            results_via_tool_run = await search_tool.run(
-                {
-                    "query": "section size settings",
-                    "limit": 2,
-                },
-                context=ctx,
-            )
-            parsed_results = results_via_tool_run.results
-            parsed_result_names = [result.name for result in parsed_results]
-            self.assertIn(
-                "set_section_sizes",
-                parsed_result_names,
-            )
-            self.assertNotIn(
-                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
-                parsed_result_names,
-            )
-
-    async def test_search_finds_create_top_level_section(self) -> None:
-        async with real_project_manager() as fixture:
-            app = FastAPI()
-            setta_state = _StubSettaState(fixture.dbe, fixture.manager)
-            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
-
-            mcp_server = SettaFastMCP(
-                app,
-                setta_state,
-                "/mcp-test",
-                "Test MCP Server",
-                frontend_sender,
-                fixture.dbe,
-            )
-            setta_state.mcp_server = mcp_server
-            setta_state.mcp_client = _StubMCPClient(mcp_server)
-            ctx = Context(fastmcp=mcp_server)
-
-            search_scenarios = (
-                ("create section", 2),
-                ("create sections", 3),
-            )
-            for query, limit in search_scenarios:
-                results = search_and_unlock_mcp_tools(
-                    query=query,
-                    limit=limit,
-                    ctx=ctx,
-                )
-                result_names = [result.name for result in results.results]
-                self.assertIn(
-                    "create_top_level_section",
-                    result_names,
-                    msg=(
-                        f"search results for '{query}' did not include "
-                        "create_top_level_section"
-                    ),
-                )
-
-    async def test_chat_manager_unlocks_tools_from_search(self) -> None:
-        async with real_project_manager() as fixture:
-            app = FastAPI()
-            setta_state = _StubSettaState(fixture.dbe, fixture.manager)
-            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
-
-            mcp_server = SettaFastMCP(
-                app,
-                setta_state,
-                "/mcp-test",
-                "Test MCP Server",
-                frontend_sender,
-                fixture.dbe,
-            )
-            setta_state.mcp_server = mcp_server
-
-            mcp_client = _StubMCPClient(mcp_server)
-            setta_state.mcp_client = mcp_client
-            websocket_sender = _StubFrontendSender()
-            chat_manager = LLMChatManager(
-                fixture.dbe,
-                mcp_client,
-                websocket_sender,
-                setta_state.project_manager_switcher,
-            )
-
-            chat_manager.update_config(
-                AllLLMConfigs(
-                    configs={
-                        "default": LLMConfig(
-                            id="default",
-                            model="fake-model",
-                        )
-                    },
-                    mcpServers={
-                        SETTA_MCP_SERVER_ID: MCPServerConfig(
-                            transport="stdio",
-                            command="noop",
-                        )
-                    },
-                    defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
-                    default_config_id="default",
-                )
-            )
-
-            project_config_id = (
-                fixture.manager.project_state_backend.defaultProjectConfigId
-            )
-            self.assertIsNotNone(project_config_id)
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="help me size sections")]
-            )
-            chat = chat_manager.get_or_create_chat(
-                None,
-                user_message,
-                "default",
-                ID(project_config_id),
-            )
-
-            tool_call = ToolCall(
-                function=ToolCallFunction(
-                    name=build_namespaced_tool_name(
-                        SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-                    ),
-                    arguments={"query": "section size settings", "limit": 2},
-                )
-            )
-
-            tool_message = await chat_manager._dispatch_tool_call(chat, tool_call)
-
-            search_result_names = [
-                entry.get("name")
-                for entry in tool_message.result.get("searchResults", [])
-                if isinstance(entry, dict)
-            ]
-            self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                search_result_names,
-            )
-            chat_state = chat_manager._get_or_create_chat_tool_state(
-                chat.id,
-                [SETTA_MCP_SERVER_ID],
-            )
-            self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                chat_state.unlocked_tools,
-            )
 
     async def test_does_not_register_project_config_id_in_temp_map(self) -> None:
         async with real_project_manager() as fixture:

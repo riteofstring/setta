@@ -34,7 +34,6 @@ from setta.lsp.managers import LSPWriters, NoopLSPWriters
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
-    SettaToolType,
     ToolArgumentPreviewKind,
     ToolArgumentPreviewMetadata,
 )
@@ -1986,7 +1985,7 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
-    @project_state_tool(tool_type=SettaToolType.init)
+    @project_state_tool()
     async def get_latest_project_state_summary(
         self, x: GetLatestProjectStateSummaryRequest
     ):
@@ -1997,7 +1996,7 @@ class BaseProjectManager(ABC):
         return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
-    @project_state_tool(tool_type=SettaToolType.init)
+    @project_state_tool()
     async def get_latest_lsp_diagnostics(
         self, x: GetLatestLspDiagnosticsRequest
     ) -> SettaProjectConfigDiagnostics:

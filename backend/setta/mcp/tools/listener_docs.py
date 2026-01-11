@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.mcp.tool_setup import setta_init_tool
+from setta.mcp.tool_setup import setta_tool
 
 _DOC_SOURCES = {
     "examples": "setta-listener-examples.md",
@@ -33,7 +33,7 @@ class ListenerDocsBundle(BaseModel):
     available_docs: list[str]
 
 
-@setta_init_tool
+@setta_tool
 def get_setta_docs(
     *,
     doc_ids: list[str] | None = None,

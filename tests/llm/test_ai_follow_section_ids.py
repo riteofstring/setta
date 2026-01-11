@@ -9,7 +9,6 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_nam
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
-    SettaToolType,
 )
 from setta.types.id import ID
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -63,7 +62,6 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "annotated_tool")
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
-                settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["targetSectionId"]},
                 ),
@@ -90,7 +88,6 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "mapping_tool")
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
-                settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["sectionSizes"]},
                 ),
@@ -117,7 +114,6 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         tool_name = build_namespaced_tool_name("context7", "annotated_tool")
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
-                settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["targetSectionId"]},
                 ),
