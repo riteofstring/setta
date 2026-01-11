@@ -3,7 +3,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -45,7 +44,6 @@ class ListenerRealtimeEventContent(BaseModel):
 class ControlActionEvent(BaseModel):
     controlName: str
     actionId: str
-    actionControlType: CodeObjType
     payload: str | None = None
     timestampMs: int
 
