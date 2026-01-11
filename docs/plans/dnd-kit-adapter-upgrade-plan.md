@@ -153,3 +153,5 @@
   Use `event.operation` for `source`, `target`, and `position` instead of legacy payloads.
 - `onDragCancel` behavior is represented by `dragend` with `canceled: true`.
 - Collision detection is configured via `@dnd-kit/collision` algorithms (e.g. `closestCenter`).
+- Use Context7 to read the latest `next.dndkit.com` docs.
+- The new (non-legacy) dnd-kit repo lives at `/Users/kevin/Documents/AppDevelopment/dnd-kit-new` for reference, but we should still use the installed packages in `package.json`.
