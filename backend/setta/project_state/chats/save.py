@@ -103,3 +103,13 @@ def save_messages(
     if append_chat_messages(chat, messages):
         return _persist_chat(dbe, chat)
     return chat
+
+
+def set_system_prompt(dbe: "DBE", chat_id: ID, system_prompt: str) -> Chat | None:
+    chat = load_chat(dbe, chat_id)
+    if not chat:
+        return None
+    if chat.systemPrompt == system_prompt:
+        return chat
+    chat.systemPrompt = system_prompt
+    return _persist_chat(dbe, chat)

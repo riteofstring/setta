@@ -26,6 +26,7 @@ class ChatMetadata(BaseModel):
 
 class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
+    systemPrompt: str | None = None
 
 
 APIKeys = dict[str, str]

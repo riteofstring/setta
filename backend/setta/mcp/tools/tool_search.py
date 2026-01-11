@@ -34,7 +34,7 @@ def list_mcp_tools(*, ctx: Context) -> MCPToolNameList:
 
 
 @setta_init_tool
-def search_and_unlock_mcp_tools(
+def search_mcp_tools(
     *,
     query: str,
     limit: int = 2,
@@ -43,8 +43,9 @@ def search_and_unlock_mcp_tools(
 ) -> MCPToolSearchResults:
     """Return the MCP tools that best match a natural-language query.
 
-    The chat manager automatically unlocks the returned tools so subsequent
-    LLM requests can call them directly.
+    The chat manager returns tool_reference blocks for matching tool names
+    when tool search is enabled; otherwise all tools are already present in
+    the initial tool list.
 
     Args:
         query: Text describing the capability you want to look up; empty input
