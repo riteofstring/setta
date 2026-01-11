@@ -241,6 +241,13 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
+export const DependencyEventTypeEnum = {
+  VALUE: "value",
+  ACTION: "action",
+} as const;
+
+export type DependencyEventType = ObjectValues<typeof DependencyEventTypeEnum>;
+
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
   error: "error",
@@ -475,7 +482,7 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
-  RealtimeActionEvent: "RealtimeActionEvent",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -2926,30 +2933,33 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-const ControlActionEventSchema = z.object({
-  controlName: z.string(),
-  actionId: z.string(),
+const DependencyEventSchema = z.object({
+  dependencyKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  eventType: z.enum(DependencyEventTypeEnum),
   payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 
-export type ControlActionEvent = z.infer<typeof ControlActionEventSchema>;
+export type DependencyEvent = z.infer<typeof DependencyEventSchema>;
 
-const RealtimeActionEventContentSchema = z.object({
+const RealtimeDependencyEventContentSchema = z.object({
   projectConfigId: IDSchema,
-  actionEvent: ControlActionEventSchema,
+  dependencyEvent: DependencyEventSchema,
 });
 
-const WebsocketMsgRealtimeActionEventSchema = z.object({
+const WebsocketMsgRealtimeDependencyEventSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: RealtimeActionEventContentSchema,
+  content: RealtimeDependencyEventContentSchema,
   messageType: z
-    .literal("RealtimeActionEvent")
-    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
+    .literal("RealtimeDependencyEvent")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent),
 });
 
-export type WebsocketMsgRealtimeActionEvent = z.infer<
-  typeof WebsocketMsgRealtimeActionEventSchema
+export type WebsocketMsgRealtimeDependencyEvent = z.infer<
+  typeof WebsocketMsgRealtimeDependencyEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({

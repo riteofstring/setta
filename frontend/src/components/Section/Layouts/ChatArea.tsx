@@ -18,10 +18,9 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  getSectionCore,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeControlAction } from "state/actions/websocketReceive";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -35,13 +34,13 @@ import {
 import {
   ChatRoleEnum,
   ChatSectionState,
+  DependencyEventTypeEnum,
+  DependencyKeyTypeEnum,
   SectionTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
-
-const CHAT_SECTION_SEND_ACTION_ID = "chat-send";
 
 type ChatSendActionPayload = {
   sectionId: string;
@@ -54,7 +53,6 @@ type ChatSendActionPayload = {
 
 type EmitChatSendActionArgs = {
   sectionId: string;
-  sectionName: string;
   messageId: string;
   text: string;
   role: ChatRoleEnum;
@@ -64,17 +62,12 @@ type EmitChatSendActionArgs = {
 
 function emitChatSendAction({
   sectionId,
-  sectionName,
   messageId,
   text,
   role,
   managed,
   timestampMs,
 }: EmitChatSendActionArgs) {
-  let controlName = sectionName.trim();
-  if (controlName === "") {
-    controlName = sectionId;
-  }
   const payload: ChatSendActionPayload = {
     sectionId,
     messageId,
@@ -83,9 +76,12 @@ function emitChatSendAction({
     timestampMs,
     managed,
   };
-  sendRealtimeControlAction({
-    controlName,
-    actionId: CHAT_SECTION_SEND_ACTION_ID,
+  sendRealtimeDependencyEvent({
+    dependencyKey: {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId,
+    },
+    eventType: DependencyEventTypeEnum.ACTION,
     payload: JSON.stringify(payload),
     timestampMs,
   });
@@ -93,7 +89,6 @@ function emitChatSendAction({
 
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
-    sectionName,
     managed,
     llmConfigId,
     deepThink,
@@ -103,14 +98,12 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     toolCallArguments,
     isFrozen,
   } = useProjectState((state) => {
-    const sectionName = getSectionCore(state, sectionId).name;
     const impl = getCurrEffectiveSectionImplOfType(
       state,
       sectionId,
       SectionTypeEnum.Chat,
     );
     return {
-      sectionName,
       managed: impl.managed,
       llmConfigId: impl.llmConfigId,
       deepThink: impl.deepThink,
@@ -126,7 +119,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return (
       <ManagedChatArea
         sectionId={sectionId}
-        sectionName={sectionName}
         llmConfigId={llmConfigId}
         deepThink={deepThink}
       />
@@ -136,7 +128,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
   return (
     <ScriptableChatArea
       sectionId={sectionId}
-      sectionName={sectionName}
       messages={messages}
       inputText={inputText}
       waitingForResponse={waitingForResponse}
@@ -148,7 +139,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
 
 type ScriptableChatAreaProps = {
   sectionId: string;
-  sectionName: string;
   messages: Array<ChatSectionState["messages"][number]>;
   inputText: string;
   waitingForResponse: boolean;
@@ -158,7 +148,6 @@ type ScriptableChatAreaProps = {
 
 function ScriptableChatArea({
   sectionId,
-  sectionName,
   messages,
   inputText,
   waitingForResponse,
@@ -217,7 +206,6 @@ function ScriptableChatArea({
       };
       emitChatSendAction({
         sectionId,
-        sectionName,
         messageId,
         text: message,
         role: ChatRoleEnum.user,
@@ -232,13 +220,7 @@ function ScriptableChatArea({
         toolCallArguments,
       });
     },
-    [
-      applyChatState,
-      messages,
-      sectionId,
-      sectionName,
-      toolCallArguments,
-    ],
+    [applyChatState, messages, sectionId, toolCallArguments],
   );
 
   const handleStop = useCallback(() => {
@@ -276,14 +258,12 @@ function ScriptableChatArea({
 
 type ManagedChatAreaProps = {
   sectionId: string;
-  sectionName: string;
   llmConfigId: string | null;
   deepThink: boolean;
 };
 
 function ManagedChatArea({
   sectionId,
-  sectionName,
   llmConfigId,
   deepThink,
 }: ManagedChatAreaProps) {
@@ -422,7 +402,6 @@ function ManagedChatArea({
       const timestampMs = Date.now();
       emitChatSendAction({
         sectionId,
-        sectionName,
         messageId,
         text: message,
         role: ChatRoleEnum.user,
@@ -460,7 +439,6 @@ function ManagedChatArea({
       handleNewChatStart,
       llmConfigId,
       sectionId,
-      sectionName,
     ],
   );
 

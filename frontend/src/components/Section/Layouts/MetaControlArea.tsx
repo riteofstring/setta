@@ -13,7 +13,7 @@ import {
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
-  sendRealtimeControlAction,
+  sendRealtimeDependencyEvent,
   sendRealtimeSectionLiteral,
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
@@ -27,6 +27,8 @@ import type {
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
+  DependencyEventTypeEnum,
+  DependencyKeyTypeEnum,
   HttpRequestMethodEnum,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
@@ -178,9 +180,12 @@ function MetaControlValueArea({
       sendButtonSettaRequest(buttonConfig);
       return;
     }
-    sendRealtimeControlAction({
-      controlName: sectionName,
-      actionId: sectionName,
+    sendRealtimeDependencyEvent({
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId,
+      },
+      eventType: DependencyEventTypeEnum.ACTION,
       payload: null,
     });
   }

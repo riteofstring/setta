@@ -56,7 +56,8 @@ Expose a lightweight metadata surface in `state` without bloating section values
 - Listeners still use `state` for constructed objects and dependency resolution.
 - For Chat, prefer action events for "send" activity:
   - Emit an action event on send (payload includes section id + message details).
-  - Listeners can subscribe via `actions=[...]` without needing chat in codegen.
+  - Listeners can subscribe via `event_types=[DependencyEventType.ACTION]` and
+    section dependencies without needing chat in codegen.
 - Dependency graph remains the primary source for:
   - `ctx.values`/`ctx.changed` resolution.
   - Listener coverage snapshots.
@@ -68,4 +69,3 @@ Expose a lightweight metadata surface in `state` without bloating section values
 - If Chat is in `file` mode, should the listener runtime read files automatically?
 - What metadata is required for experiment tracking (variant name vs id vs both)?
 - Should metadata updates trigger listener callbacks (as dependencies), or be static?
-

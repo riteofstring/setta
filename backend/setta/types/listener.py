@@ -20,6 +20,11 @@ class ListenerDependencyMode(str, Enum):
     REFRESH_ONLY = "refresh_only"
 
 
+class DependencyEventType(str, Enum):
+    VALUE = "value"
+    ACTION = "action"
+
+
 class ListenerInitContent(BaseModel):
     projectConfigId: ID | None = None
     projectName: str | None = None
@@ -41,22 +46,22 @@ class ListenerRealtimeEventContent(BaseModel):
     sequence: int
 
 
-class ControlActionEvent(BaseModel):
-    controlName: str
-    actionId: str
+class DependencyEvent(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    eventType: DependencyEventType
     payload: str | None = None
     timestampMs: int
 
 
-class RealtimeActionEventContent(BaseModel):
+class RealtimeDependencyEventContent(BaseModel):
     projectConfigId: ID
-    actionEvent: ControlActionEvent
+    dependencyEvent: DependencyEvent
 
 
-class ListenerActionEventContent(BaseModel):
+class ListenerDependencyEventContent(BaseModel):
     projectConfigId: ID
     shareSessionId: str | None = None
-    actionEvents: list[ControlActionEvent]
+    dependencyEvents: list[DependencyEvent]
     sequence: int
 
 
@@ -127,7 +132,9 @@ class ListenerRegisterCallback(BaseModel):
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False
-    actions: list[str] | None = None
+    eventTypes: list[DependencyEventType] = Field(
+        default_factory=lambda: [DependencyEventType.VALUE]
+    )
 
 
 class ListenerRegisterContent(BaseModel):
