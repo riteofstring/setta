@@ -1,8 +1,9 @@
-import { DndContext } from "forks/dnd-kit/CustomCore";
+import { DragDropProvider } from "forks/dnd-kit/adapter";
+import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
+import { useDndMode } from "./dndState";
 import { useDNDSensors } from "./useDNDSensors";
 import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";
-import { useMeasuring } from "./useMeasuring";
 import { useModifiers } from "./useModifiers";
 import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 
@@ -10,24 +11,23 @@ export function GlobalDndContext({ children }) {
   const { dummyRef, onDragEnd } = useOnDragEndMoveSection();
   const onDragMove = useOnDragMove();
   const onDragOver = useOnDragOver();
-  const { modifiers, collisionDetection } = useModifiers();
+  const { modifiers } = useModifiers();
   const sensors = useDNDSensors();
-  const measuring = useMeasuring();
+  const { isMovingFree } = useDndMode();
 
   return (
-    <DndContext
+    <DragDropProvider
       sensors={sensors}
-      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragEnd}
       onDragOver={onDragOver}
-      modifiers={modifiers}
-      measuring={measuring}
-      autoScroll={false}
+      modifiers={modifiers ?? undefined}
     >
+      <DragOperationShapeSync />
       {children}
-      <DummyDragOverlay ref={dummyRef} />
-    </DndContext>
+      {isMovingFree ? <DummyDragOverlay ref={dummyRef} /> : null}
+    </DragDropProvider>
   );
 }
