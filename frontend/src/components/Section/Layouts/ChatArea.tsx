@@ -42,6 +42,7 @@ import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 
 type ChatSendActionPayload = {
+  action: "send";
   sectionId: string;
   messageId: string;
   text: string;
@@ -49,6 +50,15 @@ type ChatSendActionPayload = {
   timestampMs: number;
   managed: boolean;
 };
+
+type ChatStopActionPayload = {
+  action: "stop";
+  sectionId: string;
+  timestampMs: number;
+  managed: boolean;
+};
+
+type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
 
 type EmitChatSendActionArgs = {
   sectionId: string;
@@ -59,6 +69,23 @@ type EmitChatSendActionArgs = {
   timestampMs: number;
 };
 
+type EmitChatStopActionArgs = {
+  sectionId: string;
+  managed: boolean;
+  timestampMs: number;
+};
+
+function emitChatAction(payload: ChatActionPayload) {
+  sendRealtimeDependencyEvent({
+    dependencyKey: {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId: payload.sectionId,
+    },
+    payload: JSON.stringify(payload),
+    timestampMs: payload.timestampMs,
+  });
+}
+
 function emitChatSendAction({
   sectionId,
   messageId,
@@ -67,20 +94,26 @@ function emitChatSendAction({
   managed,
   timestampMs,
 }: EmitChatSendActionArgs) {
-  const payload: ChatSendActionPayload = {
+  emitChatAction({
+    action: "send",
     sectionId,
     messageId,
     text,
     role,
     timestampMs,
     managed,
-  };
-  sendRealtimeDependencyEvent({
-    dependencyKey: {
-      type: DependencyKeyTypeEnum.Section,
-      sectionId,
-    },
-    payload: JSON.stringify(payload),
+  });
+}
+
+function emitChatStopAction({
+  sectionId,
+  managed,
+  timestampMs,
+}: EmitChatStopActionArgs) {
+  emitChatAction({
+    action: "stop",
+    sectionId,
+    managed,
     timestampMs,
   });
 }
@@ -222,13 +255,18 @@ function ScriptableChatArea({
   );
 
   const handleStop = useCallback(() => {
+    emitChatStopAction({
+      sectionId,
+      managed: false,
+      timestampMs: Date.now(),
+    });
     applyChatState({
       messages,
       inputText,
       waitingForResponse: false,
       toolCallArguments,
     });
-  }, [applyChatState, inputText, messages, toolCallArguments]);
+  }, [applyChatState, inputText, messages, sectionId, toolCallArguments]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
 
@@ -444,8 +482,13 @@ function ManagedChatArea({
     if (typeof chatId !== "string") {
       return;
     }
+    emitChatStopAction({
+      sectionId,
+      managed: true,
+      timestampMs: Date.now(),
+    });
     await route_stop_llm_chat({ chatId });
-  }, [chatId]);
+  }, [chatId, sectionId]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const isDisabled = !llmConfigId || noConfigsAvailable;

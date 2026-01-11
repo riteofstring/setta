@@ -325,6 +325,14 @@ export const RouteEnum = {
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  CREATE_CHAT: "/createChat",
+  GET_CHAT: "/getChat",
+  APPEND_CHAT_MESSAGES: "/appendChatMessages",
+  DELETE_CHAT: "/deleteChat",
+  SET_CHAT_SYSTEM_PROMPT: "/setChatSystemPrompt",
+  GET_ALL_CHAT_METADATA: "/getAllChatMetadata",
+  RUN_MCP_TOOLS: "/runMcpTools",
+  EMIT_CHAT_STREAM_DELTA: "/emitChatStreamDelta",
   RUN_CODE: "/runCode",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
@@ -911,6 +919,8 @@ const ToolChatMessageSchema = z.object({
   started_at: z.iso.datetime().default(get_now_timestamp),
   completed_at: z.union([z.iso.datetime(), z.null()]).default(null),
 });
+
+export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
 
 const BaseChatMessageUnionSchema = z.union([
   SystemChatMessageSchema,
@@ -4805,6 +4815,25 @@ const FolderContentItemSchema = z.object({
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
 
+const ChatSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  llmConfig: LLMConfigSchema,
+  projectConfigId: IDSchema,
+  messages: z.array(
+    z.union([
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
+  systemPrompt: z.union([z.string(), z.null()]).default(null),
+});
+
+export type Chat = z.infer<typeof ChatSchema>;
+
 const ChatMetadataSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -4814,6 +4843,95 @@ const ChatMetadataSchema = z.object({
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
+
+const AppendChatMessagesRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  messages: z.array(
+    z.discriminatedUnion("role", [
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
+});
+
+export type AppendChatMessagesRequestInput = z.input<
+  typeof AppendChatMessagesRequestSchema
+>;
+
+const CreateChatRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  llmConfigId: z.string(),
+  firstMessage: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
+});
+
+export type CreateChatRequestInput = z.input<typeof CreateChatRequestSchema>;
+
+const DeleteChatRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+});
+
+export type DeleteChatRequestInput = z.input<typeof DeleteChatRequestSchema>;
+
+const EmitChatStreamDeltaRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  chatId: IDSchema,
+  chunk: z.union([
+    MessageStartEventSchema,
+    MessageDeltaEventSchema,
+    ToolCallDeltaEventSchema,
+    ToolResultEventSchema,
+    ToolArgumentPreviewDeltaEventSchema,
+    MessageStopEventSchema,
+    MessageFinalizedEventSchema,
+  ]),
+});
+
+export type EmitChatStreamDeltaRequestInput = z.input<
+  typeof EmitChatStreamDeltaRequestSchema
+>;
+
+const GetAllChatMetadataRequestSchema = z.object({
+  projectConfigId: IDSchema,
+});
+
+export type GetAllChatMetadataRequestInput = z.input<
+  typeof GetAllChatMetadataRequestSchema
+>;
+
+const GetChatRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+});
+
+export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
+
+const RunMcpToolsRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  toolCalls: z.array(ToolCallSchema),
+});
+
+export type RunMcpToolsRequestInput = z.input<typeof RunMcpToolsRequestSchema>;
+
+const SetChatSystemPromptRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  systemPrompt: z.string(),
+});
+
+export type SetChatSystemPromptRequestInput = z.input<
+  typeof SetChatSystemPromptRequestSchema
+>;
 
 const BaseChildlessCodeObjImplSchema = z.object({
   type: z.any(),
@@ -5260,6 +5378,17 @@ const DocstringToMarkdownRequestSchema = z.object({
 
 export type DocstringToMarkdownRequestInput = z.input<
   typeof DocstringToMarkdownRequestSchema
+>;
+
+const SetChatSectionStateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  state: ChatSectionStateSchema,
+});
+
+export type SetChatSectionStateRequestInput = z.input<
+  typeof SetChatSectionStateRequestSchema
 >;
 
 const UpdateAPIKeysRequestSchema = z.object({
@@ -5828,17 +5957,6 @@ const SetChatSectionSettingsRequestSchema = z.object({
 
 export type SetChatSectionSettingsRequestInput = z.input<
   typeof SetChatSectionSettingsRequestSchema
->;
-
-const SetChatSectionStateRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  state: ChatSectionStateSchema,
-});
-
-export type SetChatSectionStateRequestInput = z.input<
-  typeof SetChatSectionStateRequestSchema
 >;
 
 const CodeFileBindingUpdateSchema = z.object({
