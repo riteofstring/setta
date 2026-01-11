@@ -565,6 +565,139 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
         )
 
+    async def test_realtime_only_callbacks_skip_snapshot(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        realtime_calls: list[dict[str, Any]] = []
+
+        @listener.listen(
+            deps=("Welcome",),
+            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+        )
+        def on_realtime(state, ctx):
+            realtime_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        _attach_stub_websocket(listener, websocket)
+
+        await listener._refresh_from_snapshot(project_state)
+        await asyncio.sleep(0)
+
+        self.assertEqual(realtime_calls, [])
+
+        realtime_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_realtime
+        )
+        dependency_key = self._get_structured_dependency(realtime_spec)
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=project_state.projectConfig.id,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=dependency_key,
+                        value=LiteralDependencyValue("Updated"),
+                    )
+                ],
+                sequence=1,
+            )
+        )
+        await listener._scheduler.flush(realtime_spec.callback_id)
+
+        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+
+    async def test_default_dependency_mode_omitted_deps_is_refresh_only(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        refresh_calls: list[dict[str, Any]] = []
+
+        @listener.listen()
+        def on_refresh(state, ctx):
+            refresh_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        _attach_stub_websocket(listener, websocket)
+
+        await listener._refresh_from_snapshot(project_state)
+        await asyncio.sleep(0)
+
+        self.assertEqual(refresh_calls, [{}])
+
+        refresh_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_refresh
+        )
+        self.assertEqual(
+            refresh_spec.dependency_mode,
+            ListenerDependencyMode.REFRESH_ONLY,
+        )
+
+        section_id = next(iter(project_state.sections))
+        dependency_key = create_dep_key(sectionId=section_id)
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=project_state.projectConfig.id,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=dependency_key,
+                        value=LiteralDependencyValue("Updated"),
+                    )
+                ],
+                sequence=1,
+            )
+        )
+        await asyncio.sleep(0)
+
+        self.assertEqual(refresh_calls, [{}])
+
+    async def test_realtime_only_wildcard_skips_snapshot(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        realtime_calls: list[dict[str, Any]] = []
+
+        @listener.listen(
+            deps=(),
+            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+        )
+        def on_realtime(state, ctx):
+            realtime_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        _attach_stub_websocket(listener, websocket)
+
+        await listener._refresh_from_snapshot(project_state)
+        await asyncio.sleep(0)
+
+        self.assertEqual(realtime_calls, [])
+
+        section_id = next(iter(project_state.sections))
+        dependency_key = create_dep_key(sectionId=section_id)
+        realtime_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_realtime
+        )
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=project_state.projectConfig.id,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=dependency_key,
+                        value=LiteralDependencyValue("Updated"),
+                    )
+                ],
+                sequence=1,
+            )
+        )
+        await listener._scheduler.flush(realtime_spec.callback_id)
+
+        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+
         refreshed_state = project_state.model_copy(deep=True)
         self._set_snapshot_section_text(refreshed_state, "Updated")
 
@@ -573,14 +706,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertEqual(
-            refresh_calls,
-            [{"Welcome": "Hello"}, {}],
-        )
-        self.assertEqual(
-            realtime_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
+        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
 
     async def test_any_dependency_callbacks_receive_all_deltas(self) -> None:
         project_state = self._build_project_state()
