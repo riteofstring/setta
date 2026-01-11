@@ -6,6 +6,7 @@ import {
 } from "forks/dnd-kit/dndChildren";
 import {
   getDndSectionId,
+  getOriginalSectionId,
   setActiveDnd,
   setDndTime,
   useDndState,
@@ -28,6 +29,7 @@ let lastPastHalfwayByOverId: Record<string, boolean> = {};
 let lastResolvedOverId: string | number | null = null;
 let lastResolvedPastHalfway: boolean | null = null;
 let lastResolvedTriggerDistCondition: boolean | null = null;
+let sectionDepthCache: Record<string, number> | null = null;
 
 function resetLastChildOverByParent() {
   lastChildOverByParent = {};
@@ -43,6 +45,25 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
+function buildSectionDepthCache(
+  state: ZustandProjectState,
+): Record<string, number> {
+  const depths: Record<string, number> = {};
+  const sectionIds = Object.keys(state.sections);
+
+  for (const sectionId of sectionIds) {
+    let depth = 0;
+    let parentId = state.parentSectionMap[sectionId];
+    while (parentId) {
+      depth += 1;
+      parentId = state.parentSectionMap[parentId];
+    }
+    depths[sectionId] = depth;
+  }
+
+  return depths;
+}
+
 export function onDragStart({ active }: DragStartEvent) {
   resetLastChildOverByParent();
   resetLastPastHalfwayByOverId();
@@ -50,6 +71,7 @@ export function onDragStart({ active }: DragStartEvent) {
   if (!active.data || !active.data.current) {
     return;
   }
+  sectionDepthCache = buildSectionDepthCache(useProjectState.getState());
   const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
   setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
@@ -269,16 +291,18 @@ function maybeMoveToNewParent({
     return;
   }
 
-  const newParentNumChildren = getSectionChildren(
-    useProjectState.getState(),
-    newParentId,
-  ).length;
+  const projectState = useProjectState.getState();
+  const activeParentId = projectState.parentSectionMap[active.id];
+  const shouldCheckSingleChild = activeParentId === newParentId;
+  const newParentNumChildren = shouldCheckSingleChild
+    ? getSectionChildren(projectState, newParentId).length
+    : null;
 
   // Special case where you move a section out of its parent
   // and back in, and the section is the only-child of the parent
   if (
     newParentNumChildren === 1 &&
-    useProjectState.getState().parentSectionMap[active.id] === newParentId
+    shouldCheckSingleChild
   ) {
     addDndChild(oldParentId, newParentId, dndSectionId, 0);
     return;
@@ -414,6 +438,7 @@ function getCollisionOverId(
 
   let bestId: string | number | null = null;
   let bestDepth = -1;
+  let stickyChildId: string | null = null;
   const state = useProjectState.getState();
   const dndChildrenState = useDndChildren.getState();
 
@@ -423,6 +448,21 @@ function getCollisionOverId(
     if (depth > bestDepth) {
       bestDepth = depth;
       bestId = collisionId;
+    }
+
+    if (stickyChildId !== null) {
+      continue;
+    }
+
+    const containerId = String(collisionId);
+    const children = dndChildrenState.x[containerId];
+    if (!children || children.length === 0) {
+      continue;
+    }
+
+    const candidate = lastChildOverByParent[containerId];
+    if (candidate && children.includes(candidate)) {
+      stickyChildId = candidate;
     }
   }
 
@@ -435,31 +475,36 @@ function getCollisionOverId(
     }
   }
 
-  for (const collision of collisions) {
-    const containerId = String(collision.id);
-    const children = dndChildrenState.x[containerId];
-    if (!children || children.length === 0) {
-      continue;
-    }
-    const stickyChildId = lastChildOverByParent[containerId];
-    if (stickyChildId && children.includes(stickyChildId)) {
-      return stickyChildId;
-    }
+  if (stickyChildId) {
+    return stickyChildId;
   }
 
   return bestId ?? collisions[0]?.id ?? null;
 }
 
 function getSectionDepth(sectionId: string, state: ZustandProjectState) {
-  if (!state.sections[sectionId]) {
+  const resolvedId = getOriginalSectionId(sectionId);
+
+  if (!state.sections[resolvedId]) {
     return -1;
   }
 
+  if (
+    sectionDepthCache &&
+    Object.prototype.hasOwnProperty.call(sectionDepthCache, resolvedId)
+  ) {
+    return sectionDepthCache[resolvedId];
+  }
+
   let depth = 0;
-  let parentId = state.parentSectionMap[sectionId];
+  let parentId = state.parentSectionMap[resolvedId];
   while (parentId) {
     depth += 1;
     parentId = state.parentSectionMap[parentId];
+  }
+
+  if (sectionDepthCache) {
+    sectionDepthCache[resolvedId] = depth;
   }
 
   return depth;
