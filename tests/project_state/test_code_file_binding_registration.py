@@ -18,6 +18,7 @@ from setta.project_state.code_files import (
     CodeFiles,
     RegisteredCodeFileBinding,
 )
+from setta.project_state.project_manager_types import SetShowParamDisplayNamesRequest
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -34,7 +35,7 @@ from setta.types.section_impls import (
 )
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.utils import build_gen_code_path, normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -262,6 +263,65 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         code_entries = self.manager.code_dict[self.project_config_id]
         self.assertIn(self.section_id, code_entries)
         self.assertEqual(code_entries[self.section_id].code, new_code)
+
+    async def test_other_manager_updates_do_not_clear_bindings(self):
+        project_state = self.project_state.model_copy(deep=True)
+        await self.manager.update(project_state)
+
+        gen_code_path = normalize_path(
+            build_gen_code_path(C.CODE_FOLDER, project_state.projectConfig.name)
+        )
+        self.assertTrue(self.manager.code_files.get_bindings(gen_code_path))
+        self.assertTrue(self.manager.code_files.get_bindings(self.expected_code_path))
+
+        settings_code_files = CodeFiles(
+            self.frontend_sender,
+            self.specific_file_watcher,
+            self.dbe,
+        )
+        settings_config = ProjectConfig(
+            id=ID("settings-config"),
+            name="settings",
+        )
+        settings_backend = ProjectStateBackend(
+            projectConfigs={settings_config.id: settings_config},
+            defaultProjectConfigId=settings_config.id,
+        )
+        settings_backend.validate_default_project_id()
+        settings_manager = TestProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            settings_code_files,
+            settings_backend,
+        )
+        await settings_manager._process_queue_task_started.wait()
+        self.assertIsNot(self.manager.code_files, settings_manager.code_files)
+
+        self.addAsyncCleanup(self._shutdown_extra_manager, settings_manager)
+
+        await settings_manager.set_show_param_display_names(
+            SetShowParamDisplayNamesRequest(
+                projectConfigId=settings_config.id,
+                showParamDisplayNames=not settings_config.showParamDisplayNames,
+            )
+        )
+        await settings_manager.finish_pending_operations()
+
+        self.assertTrue(self.manager.code_files.get_bindings(gen_code_path))
+        self.assertTrue(self.manager.code_files.get_bindings(self.expected_code_path))
+
+    async def _shutdown_extra_manager(self, manager: BaseProjectManager) -> None:
+        manager.autosave_debouncer.cancel()
+        manager.autosave_debouncer.cancel_pending()
+        manager.queue_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await manager.queue_task
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution

@@ -216,6 +216,7 @@ class SettaFastAPIState:
         )
         self.artifacts: Artifacts = self._defer_attr("artifacts")
         self.code_files: CodeFiles = self._defer_attr("code_files")
+        self.settings_code_files: CodeFiles = self._defer_attr("settings_code_files")
         self.json_source: JSONSource = self._defer_attr("json_source")
         self.project_manager_switcher: ProjectManagerSwitcher = self._defer_attr(
             "project_manager_switcher"
@@ -289,6 +290,9 @@ class SettaFastAPIState:
             self.code_files = CodeFiles(
                 self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
             )
+            self.settings_code_files = CodeFiles(
+                self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
+            )
             self.json_source = JSONSource(
                 self.wmh_frontend_sender,
                 self.settings_file,
@@ -321,7 +325,7 @@ class SettaFastAPIState:
                 dbe=self.dbe,
                 artifacts=self.artifacts,
                 json_source=self.json_source,
-                code_files=self.code_files,
+                code_files=self.settings_code_files,
                 lsp_writers=self.lsp_writers,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
