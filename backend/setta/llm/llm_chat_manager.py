@@ -458,6 +458,13 @@ class LLMChatManager:
             if api_key:
                 request["api_key"] = api_key
 
+        server_ids = self._resolve_mcp_server_ids(chat.llmConfig)
+        use_tool_search = self._should_use_anthropic_tool_search(chat.llmConfig)
+        allow_tool_reference = bool(server_ids) and use_tool_search
+        self._strip_tool_reference_content(
+            messages,
+            allow_tool_reference=allow_tool_reference,
+        )
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
         tools = self._build_tool_definitions(chat)
@@ -475,9 +482,9 @@ class LLMChatManager:
         return self.config.resolve_mcp_server_ids(llm_config)
 
     def _should_use_anthropic_tool_search(self, llm_config: "LLMConfig") -> bool:
-        provider = (llm_config.provider or "").strip()
+        provider = (llm_config.provider or "").strip().lower()
         if provider:
-            return self._is_anthropic_provider(provider.lower())
+            return "anthropic" in provider
         return self._is_claude_like_model(llm_config.model)
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
@@ -526,6 +533,48 @@ class LLMChatManager:
         if defer_loading and not has_non_deferred and payload:
             payload[0].pop("defer_loading", None)
         return payload
+
+    def _strip_tool_reference_content(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        allow_tool_reference: bool,
+    ) -> None:
+        if allow_tool_reference:
+            return
+        for message in messages:
+            if message.get("role") != "tool":
+                continue
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            filtered: list[Any] = []
+            tool_names: list[str] = []
+            for entry in content:
+                if isinstance(entry, dict) and entry.get("type") == "tool_reference":
+                    tool_name = entry.get("tool_name")
+                    if isinstance(tool_name, str) and tool_name:
+                        tool_names.append(tool_name)
+                    continue
+                filtered.append(entry)
+            if not tool_names:
+                continue
+            if not filtered:
+                filtered = [
+                    {
+                        "type": "text",
+                        "text": self._format_tool_reference_summary(tool_names),
+                    }
+                ]
+            message["content"] = filtered
+
+    @staticmethod
+    def _format_tool_reference_summary(tool_names: list[str]) -> str:
+        if not tool_names:
+            return "Search did not return any MCP tools."
+        if len(tool_names) == 1:
+            return f"Search returned MCP tool: {tool_names[0]}"
+        return f"Search returned MCP tools: {', '.join(tool_names)}"
 
     def _maybe_apply_cache_prompting(
         self,

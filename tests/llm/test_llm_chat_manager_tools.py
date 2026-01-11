@@ -16,6 +16,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    ToolChatMessage,
     ToolReferenceContent,
     UserChatMessage,
 )
@@ -89,6 +90,28 @@ def _build_chat(llm_config: LLMConfig) -> Chat:
         llmConfig=llm_config,
         messages=[
             UserChatMessage(content=[MessageTextContent(text="Hello tools")])
+        ],
+    )
+
+
+def _build_chat_with_tool_reference(
+    llm_config: LLMConfig,
+    *,
+    search_tool_name: str,
+    referenced_tool_name: str,
+) -> Chat:
+    return Chat(
+        id=ID("chat-uuid"),
+        name="Tool reference chat",
+        projectConfigId=ID("project-uuid"),
+        llmConfig=llm_config,
+        messages=[
+            UserChatMessage(content=[MessageTextContent(text="Search for tools")]),
+            ToolChatMessage(
+                tool_call_id="tool-call-1",
+                tool_name=search_tool_name,
+                content=[ToolReferenceContent(tool_name=referenced_tool_name)],
+            ),
         ],
     )
 
@@ -189,6 +212,133 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(tool.get("defer_loading"), True)
                 else:
                     self.assertNotIn("defer_loading", tool)
+
+    async def test_non_anthropic_payload_strips_tool_reference_content(
+        self,
+    ) -> None:
+        async with _build_manager_with_mcp() as (manager, mcp_client):
+            llm_config = LLMConfig(
+                id="provider-openai",
+                model="gpt-4o",
+                provider="openai",
+            )
+            _configure_manager(manager, llm_config)
+            discoverable_tools = (
+                mcp_client.discoverable_tool_definitions_for_servers(
+                    {SETTA_MCP_SERVER_ID}
+                )
+            )
+            self.assertTrue(discoverable_tools)
+            referenced_tool = sorted(discoverable_tools.keys())[0]
+            chat = _build_chat_with_tool_reference(
+                llm_config,
+                search_tool_name=manager._search_tool_name,
+                referenced_tool_name=referenced_tool,
+            )
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+
+            tool_messages = [
+                message
+                for message in payload["messages"]
+                if message.get("role") == "tool"
+            ]
+            self.assertEqual(len(tool_messages), 1)
+            content = tool_messages[0].get("content")
+            self.assertIsInstance(content, list)
+            self.assertEqual(len(content), 1)
+            entry = content[0]
+            self.assertIsInstance(entry, dict)
+            self.assertEqual(entry.get("type"), "text")
+            self.assertIn(referenced_tool, entry.get("text", ""))
+
+    async def test_anthropic_payload_preserves_tool_reference_content(
+        self,
+    ) -> None:
+        async with _build_manager_with_mcp() as (manager, mcp_client):
+            llm_config = LLMConfig(
+                id="claude-sonnet",
+                model="claude-sonnet-4-5-20250929",
+                provider="anthropic",
+            )
+            _configure_manager(manager, llm_config)
+            discoverable_tools = (
+                mcp_client.discoverable_tool_definitions_for_servers(
+                    {SETTA_MCP_SERVER_ID}
+                )
+            )
+            self.assertTrue(discoverable_tools)
+            referenced_tool = sorted(discoverable_tools.keys())[0]
+            chat = _build_chat_with_tool_reference(
+                llm_config,
+                search_tool_name=manager._search_tool_name,
+                referenced_tool_name=referenced_tool,
+            )
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+
+            tool_messages = [
+                message
+                for message in payload["messages"]
+                if message.get("role") == "tool"
+            ]
+            self.assertEqual(len(tool_messages), 1)
+            content = tool_messages[0].get("content")
+            self.assertIsInstance(content, list)
+            self.assertEqual(len(content), 1)
+            entry = content[0]
+            self.assertIsInstance(entry, dict)
+            self.assertEqual(entry.get("type"), "tool_reference")
+            self.assertEqual(entry.get("tool_name"), referenced_tool)
+
+    async def test_bedrock_payload_excludes_search_tool_and_defer_loading(
+        self,
+    ) -> None:
+        async with _build_manager_with_mcp() as (manager, mcp_client):
+            llm_config = LLMConfig(
+                id="bedrock-claude",
+                model="claude-sonnet-4-5-20250929",
+                provider="bedrock",
+            )
+            _configure_manager(manager, llm_config)
+            chat = _build_chat(llm_config)
+
+            payload = await manager._build_llm_request_payload(
+                chat,
+                deep_think=False,
+            )
+
+            tools = payload["tools"]
+            tool_names = sorted(
+                tool["function"]["name"] for tool in tools
+            )
+            expected = {}
+            expected.update(
+                mcp_client.init_tool_definitions_for_servers(
+                    {SETTA_MCP_SERVER_ID}
+                )
+            )
+            expected.update(
+                mcp_client.discoverable_tool_definitions_for_servers(
+                    {SETTA_MCP_SERVER_ID}
+                )
+            )
+            expected_names = sorted(
+                name
+                for name in expected.keys()
+                if name != manager._search_tool_name
+            )
+
+            self.assertEqual(tool_names, expected_names)
+            self.assertTrue(
+                all("defer_loading" not in tool for tool in tools)
+            )
 
 
 class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
