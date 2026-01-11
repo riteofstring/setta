@@ -22,6 +22,9 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.project_summary import build_project_summary_switcher
+
+
 @contextmanager
 def _manager_context() -> Iterator[LLMChatManager]:
     with TemporaryDirectory() as temp_dir:
@@ -29,10 +32,12 @@ def _manager_context() -> Iterator[LLMChatManager]:
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         mcp_client = MultiMCPClient({})
+        project_manager_switcher = build_project_summary_switcher(ID("project-uuid"))
         manager = LLMChatManager(
             dbe,
             mcp_client,
             frontend_sender,
+            project_manager_switcher,
         )
         yield manager
 
@@ -48,10 +53,12 @@ def _build_manager_and_chat(
         frontend_sender = WMHFrontendSender(websocket_manager)
         mcp_client = MultiMCPClient({})
         project_config_id = ID("project-uuid")
+        project_manager_switcher = build_project_summary_switcher(project_config_id)
         manager = LLMChatManager(
             dbe,
             mcp_client,
             frontend_sender,
+            project_manager_switcher,
         )
         manager.config = AllLLMConfigs(
             configs={
@@ -135,12 +142,7 @@ class SystemPromptInjectionTests(unittest.TestCase):
             system_text = payload["messages"][0]["content"][0]["text"]
             self.assertTrue(system_text.startswith(prompt))
             self.assertIn("## Active project config", system_text)
-            _, canonical_to_temporary = manager.dbe.read_temporary_id_map()
-            if chat.projectConfigId not in canonical_to_temporary:
-                raise AssertionError("Expected project config ID in temporary map")
-            temporary_project_id = canonical_to_temporary[chat.projectConfigId]
-            self.assertIn(str(temporary_project_id), system_text)
-            self.assertNotIn("## Project summary", system_text)
+            self.assertIn("## Project summary", system_text)
             self.assertEqual(payload["messages"][1]["role"], "user")
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],

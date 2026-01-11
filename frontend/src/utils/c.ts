@@ -33,7 +33,7 @@ export class C {
   static RUN_FOLDER = "setta_files/run";
   static RUN_LOGS_FOLDER = "setta_files/run/logs";
   static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
-  static SEARCH_MCP_TOOLS_NAME = "search_mcp_tools";
+  static SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools";
   static SESSION_SECRET_BYTES = 32;
   static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = ["setta_state"];

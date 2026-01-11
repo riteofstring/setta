@@ -853,11 +853,6 @@ const EmbeddedResourceSchema = z.object({
   meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
-const ToolReferenceContentSchema = z.object({
-  type: z.literal("tool_reference").default("tool_reference" as const),
-  tool_name: z.string(),
-});
-
 const ToolChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("tool").default(ChatRoleEnum.tool),
@@ -887,12 +882,7 @@ const ToolChatMessageSchema = z.object({
     .default(null),
   content: z
     .array(
-      z.union([
-        TextContentSchema,
-        ImageContentSchema,
-        EmbeddedResourceSchema,
-        ToolReferenceContentSchema,
-      ]),
+      z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
     )
     .default([]),
   is_error: z.boolean().default(false),

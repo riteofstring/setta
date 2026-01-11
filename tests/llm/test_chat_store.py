@@ -102,26 +102,6 @@ class MemoryChatStoreTests(unittest.TestCase):
             raise AssertionError("expected chat to be returned")
         self.assertEqual("test-model", fetched.llmConfig.model)
 
-    def test_set_system_prompt_updates_chat(self) -> None:
-        store = MemoryChatStore()
-        config = _build_config("primary")
-        project_config_id = ID("project-five")
-        chat = store.create_new_chat(
-            _build_message("hello"),
-            config,
-            project_config_id=project_config_id,
-        )
-
-        updated = store.set_system_prompt(chat.id, "system prompt")
-        if updated is None:
-            raise AssertionError("expected chat to be returned")
-        self.assertEqual("system prompt", updated.systemPrompt)
-
-        fetched = store.get_chat(chat.id)
-        if fetched is None:
-            raise AssertionError("expected chat to be returned")
-        self.assertEqual("system prompt", fetched.systemPrompt)
-
 
 if __name__ == "__main__":
     unittest.main()
