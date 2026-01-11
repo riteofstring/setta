@@ -5,6 +5,7 @@ import { AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 import type {
+  ClientRect,
   DragCancelEvent,
   DragEndEvent,
   DragMoveEvent,
@@ -121,6 +122,8 @@ function mapDragEvent(
   }
 
   const collisions = getCollisions(manager);
+  const activeRect = getActiveRect(manager);
+  const pointerCoordinates = getPointerCoordinates(manager);
 
   return {
     activatorEvent: event.operation.activatorEvent ?? null,
@@ -129,6 +132,8 @@ function mapDragEvent(
     delta: event.operation.transform,
     over: event.operation.target ?? null,
     canceled,
+    activeRect,
+    pointerCoordinates,
   };
 }
 
@@ -139,4 +144,25 @@ function getCollisions(manager: DragDropManager): SettaCollision[] {
   }
 
   return collisions as SettaCollision[];
+}
+
+function getActiveRect(manager: DragDropManager): ClientRect | null {
+  const shape = manager.dragOperation.shape?.current ?? null;
+  if (!shape) {
+    return null;
+  }
+
+  const rect = shape.boundingRectangle;
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function getPointerCoordinates(manager: DragDropManager): Coordinates | null {
+  return manager.dragOperation.position?.current ?? null;
 }

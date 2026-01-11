@@ -330,15 +330,16 @@ function getPastHalfway({
     prevCollisionId && prevCollisionId === currentId && prevCollisionRect
       ? prevCollisionRect
       : droppableRect;
-  updatePointerDirections(pointerCoordinates);
-  const axisDirection = containerIsHorizontal
-    ? prevPointerDirectionX
-    : prevPointerDirectionY;
   let referenceAxisValue = getFallbackReferenceAxisValue({
     activeRect,
     containerIsHorizontal,
     pointerCoordinates,
   });
+
+  updatePointerDirections(pointerCoordinates);
+  const axisDirection = containerIsHorizontal
+    ? prevPointerDirectionX
+    : prevPointerDirectionY;
   if (axisDirection !== null) {
     if (axisDirection > 0) {
       referenceAxisValue = containerIsHorizontal

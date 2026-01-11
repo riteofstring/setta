@@ -53,6 +53,8 @@ export type DragEvent = {
   collisions: SettaCollision[] | null;
   delta: Coordinates;
   over: Droppable | null;
+  activeRect?: ClientRect | null;
+  pointerCoordinates?: Coordinates | null;
 };
 
 export type DragStartEvent = Pick<DragEvent, "active">;
