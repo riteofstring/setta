@@ -1317,6 +1317,8 @@ const CoreSchema = z.object({
     .default(() => [
       "callable" as const,
       "codeObjVariantMap" as const,
+      "edgeInputParams" as const,
+      "edgeOutputPorts" as const,
       "topLevelParamId" as const,
       "value" as const,
       "layers" as const,

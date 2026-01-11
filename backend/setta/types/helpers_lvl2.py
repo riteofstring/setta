@@ -1076,10 +1076,9 @@ def _copy_edges_for_new_section_variant(
     sectionId: ID,
     sourceVariantId: ID,
     newVariantId: ID,
-    newImpl: BaseSectionWithParamsImpl,
+    source_output_ports: set[ID],
+    target_input_ports: set[ID],
 ):
-    source_output_ports = _edge_output_port_ids(newImpl)
-    target_input_ports = set(newImpl.edgeInputParams)
     new_edges: list[Edge] = []
     for edge in p.projectConfig.edges:
         update_source = (
@@ -1110,6 +1109,18 @@ def _copy_edges_for_new_section_variant(
 def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
     source_variant_id = get_curr_section_variant(p, sectionId).id
     currBaseImpl = get_curr_section_base_impl(p, sectionId)
+    source_edge_input_params: list[ID] = []
+    source_edge_output_ports: list[EdgePort] = []
+    source_edge_output_port_ids: set[ID] = set()
+    if isinstance(currBaseImpl, BaseSectionWithParamsImpl):
+        source_effective_impl = get_curr_effective_section_impl_with_type_guard(
+            p, sectionId, BaseSectionWithParamsImpl
+        )
+        source_edge_input_params = list(source_effective_impl.edgeInputParams)
+        source_edge_output_ports = [
+            port.model_copy(deep=True) for port in source_effective_impl.edgeOutputPorts
+        ]
+        source_edge_output_port_ids = _edge_output_port_ids(source_effective_impl)
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
     else:
@@ -1136,7 +1147,9 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
             core,
             newVariant,
             BaseSectionWithParamsImplArgsWithCallable(
-                codeObjVariantMap=newCodeObjVariantMap
+                codeObjVariantMap=newCodeObjVariantMap,
+                edgeInputParams=source_edge_input_params,
+                edgeOutputPorts=source_edge_output_ports,
             ),
         )
 
@@ -1150,7 +1163,8 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
             sectionId,
             source_variant_id,
             newVariant.id,
-            newBaseImpl,
+            source_edge_output_port_ids,
+            set(source_edge_input_params),
         )
 
 
@@ -1744,6 +1758,9 @@ def set_section_edge_inputs(
     sectionId: ID,
     edgeInputParams: list[ID],
 ):
+    core = p.sections[sectionId]
+    if "edgeInputParams" in core.sharedModifier:
+        del core.sharedModifier["edgeInputParams"]
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
@@ -1797,6 +1814,9 @@ def set_section_edge_inputs(
 def set_section_edge_outputs(
     p: "ProjectStateSingleConfig", sectionId: ID, edgeOutputPorts: list[EdgePort]
 ):
+    core = p.sections[sectionId]
+    if "edgeOutputPorts" in core.sharedModifier:
+        del core.sharedModifier["edgeOutputPorts"]
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )

@@ -33,15 +33,14 @@ const EdgeRenderer = () => {
     _.isEqual,
   );
   const positions = useEdgeHandleRegistry((state) => state.positions);
-  const { width, height, transform } = useReactFlow((state) => ({
+  const { width, height } = useReactFlow((state) => ({
     width: state.width,
     height: state.height,
-    transform: state.transform,
   }));
 
   useEffect(() => {
     recomputeEdgeHandlePositions();
-  }, [edges, transform, width, height, topLevelSections]);
+  }, [edges, width, height, topLevelSections]);
 
   if (!width || !height) {
     return null;

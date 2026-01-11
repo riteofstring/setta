@@ -1101,6 +1101,25 @@ class BaseProjectManager(ABC):
     async def set_section_edge_outputs(self, x: SetSectionEdgeOutputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
+        variant_id = project_state.projectConfig.sectionVariantMap.get(x.sectionId)
+        if variant_id is None:
+            raise KeyError(f"Section {x.sectionId} missing active variant.")
+        for edge in project_state.projectConfig.edges:
+            if (
+                edge.sourceSectionId != x.sectionId
+                or edge.sourceVariantId != variant_id
+            ):
+                continue
+            target_variant_id = project_state.projectConfig.sectionVariantMap.get(
+                edge.targetSectionId
+            )
+            if target_variant_id is None:
+                raise KeyError(
+                    f"Section {edge.targetSectionId} missing active variant."
+                )
+            if target_variant_id != edge.targetVariantId:
+                continue
+            self._apply_edge_value(project_state, edge)
         await self.update_and_broadcast_project_state(project_state)
 
     def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
