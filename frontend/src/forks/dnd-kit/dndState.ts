@@ -10,7 +10,6 @@ import { BehaviorDropType } from "./dropTypes";
 export type ZustandDndState = {
   activeId: string | null;
   activeIsTopLevel: boolean;
-  activeRootId: string | null;
   overId: string | null;
   triggerDistCondition: boolean;
   isSorting: boolean;
@@ -29,7 +28,6 @@ export const useDndState = withProjectState(
       withResetFn<ZustandDndState>(() => ({
         activeId: null,
         activeIsTopLevel: false,
-        activeRootId: null,
         overId: null,
         triggerDistCondition: false,
         isSorting: false,
@@ -117,14 +115,6 @@ export function getDndSectionId(sectionId: string) {
 
 export function isTempSection(sectionId) {
   return sectionId.slice(-dndIdSuffix.length) === dndIdSuffix;
-}
-
-export function getOriginalSectionId(sectionId: string) {
-  if (!isTempSection(sectionId)) {
-    return sectionId;
-  }
-
-  return sectionId.slice(0, -dndIdSuffix.length);
 }
 
 export function useDndMode() {
