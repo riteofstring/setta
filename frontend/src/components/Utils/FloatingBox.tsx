@@ -29,7 +29,7 @@ type ZustandFloatingBoxState = {
   copied: boolean;
 };
 
-export const useFloatingBox = create<ZustandFloatingBoxState>(() => ({
+const useFloatingBox = create<ZustandFloatingBoxState>(() => ({
   isFrozen: false,
   isEnabled: false,
   contentArray: [],

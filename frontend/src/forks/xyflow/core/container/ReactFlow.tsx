@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
+import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -63,7 +64,14 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          <ViewportWrapper>{readyToRender && <NodeRenderer />}</ViewportWrapper>
+          <ViewportWrapper>
+            {readyToRender && (
+              <>
+                <EdgeRenderer />
+                <NodeRenderer />
+              </>
+            )}
+          </ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>

@@ -525,6 +525,7 @@ def update_section_impl_details(
             }
             c.pinnedParams = [codeObjIdMap[v] for v in c.pinnedParams]
             c.selectedParams = [codeObjIdMap[v] for v in c.selectedParams]
+            c.edgeInputParams = [codeObjIdMap[v] for v in c.edgeInputParams]
         if isinstance(c, BaseDictSectionImpl):
             if c.topLevelParamId:
                 c.topLevelParamId = codeObjIdMap[c.topLevelParamId]

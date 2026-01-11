@@ -59,16 +59,19 @@ export const UIEditorTabNamePrettified = {
 
 export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Callable]: [
+    UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.UIConfig,
     UIEditorTabNameEnum.QuickInfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
   [SectionTypeEnum.Dict]: [
+    UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.UIConfig,
     UIEditorTabNameEnum.QuickInfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
   [SectionTypeEnum.GlobalVariables]: [
+    UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.UIConfig,
     UIEditorTabNameEnum.QuickInfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,

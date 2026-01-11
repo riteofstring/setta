@@ -106,9 +106,7 @@ const isReactKeyboardEvent = (
   event: KeyboardEvent | ReactKeyboardEvent,
 ): event is ReactKeyboardEvent => "nativeEvent" in event;
 
-export function isInputDOMNode(
-  event: KeyboardEvent | ReactKeyboardEvent,
-): boolean {
+function isInputDOMNode(event: KeyboardEvent | ReactKeyboardEvent): boolean {
   const kbEvent = isReactKeyboardEvent(event) ? event.nativeEvent : event;
   // using composed path for handling shadow dom
   const target = (kbEvent.composedPath?.()?.[0] || event.target) as HTMLElement;
@@ -121,7 +119,7 @@ export function isInputDOMNode(
   return isInput || !!target?.closest(".nokey");
 }
 
-const isMouseEvent = (
+export const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
 ): event is MouseEvent | ReactMouseEvent => "clientX" in event;
 
@@ -138,3 +136,8 @@ export const getEventPosition = (
     y: evtY - (bounds?.top ?? 0),
   };
 };
+
+export const getHostForElement = (
+  element: HTMLElement,
+): Document | ShadowRoot =>
+  (element.getRootNode?.() as Document | ShadowRoot) || window?.document;

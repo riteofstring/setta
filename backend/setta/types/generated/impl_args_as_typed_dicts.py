@@ -15,6 +15,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -75,6 +76,8 @@ class CoreArgs(TypedDict):
                 "description",
                 "displayMode",
                 "drawThrottleDelay",
+                "edgeInputParams",
+                "edgeOutputPorts",
                 "eraserBrushSize",
                 "folder",
                 "format",
@@ -144,6 +147,7 @@ class ProjectConfigArgs(TypedDict):
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
+    edges: NotRequired[list[Edge]]
 
 
 class BaseSectionImplArgs(TypedDict):
@@ -188,6 +192,8 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     displayMode: NotRequired[SectionWithParamsDisplayMode]
+    edgeInputParams: NotRequired[list[ID]]
+    edgeOutputPorts: NotRequired[list[EdgePort]]
 
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -217,6 +223,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     displayMode: NotRequired[
         SectionWithParamsDisplayMode
         | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
+    ]
+    edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
+    edgeOutputPorts: NotRequired[
+        list[EdgePort] | Callable[[list[EdgePort]], list[EdgePort]]
     ]
 
 

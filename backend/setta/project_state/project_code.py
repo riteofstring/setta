@@ -179,6 +179,21 @@ class ProjectGenPythonCode(PythonCode):
         response = await self._request_completion_response(code, line, col)
         return process_completion_response(response)
 
+    async def output_accessor_completion(
+        self, sectionId: ID, fullText: str, position: int
+    ):
+        dep_key = create_dep_key(sectionId)
+        graph = self.dep_graph.graph
+        if dep_key not in graph:
+            raise KeyError(f"Unknown section dependency: {sectionId}")
+        section_path = graph[dep_key].full_path_name
+        prefix = f"from .setta_gen import state\nstate.{section_path}"
+        code = f"{prefix}{fullText}"
+        absolute_position = len(prefix) + position
+        line, col = position_to_line_col(code, absolute_position)
+        response = await self._request_completion_response(code, line, col)
+        return process_completion_response(response)
+
     async def clear_text_field_completion(
         self, _sectionId: ID, _paramInfoId: ID | None
     ):

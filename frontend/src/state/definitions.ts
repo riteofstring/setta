@@ -1,5 +1,5 @@
 import { ModalInfoType } from "components/Modals/types";
-import { Node } from "forks/xyflow/core/types";
+import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -353,6 +353,41 @@ export const useSectionRefs = withProjectState(
           selfOnly: {},
         })),
       ),
+    ),
+  ),
+);
+
+export type EdgeHandleRecord = {
+  sectionId: string;
+  portId: string;
+  type: HandleType;
+  side: HandlePosition;
+  element: HTMLElement | null;
+};
+
+type EdgeHandlePosition = {
+  sectionId: string;
+  portId: string;
+  type: HandleType;
+  side: HandlePosition;
+  x: number;
+  y: number;
+};
+
+type ZustandEdgeHandleRegistry = {
+  handles: Record<string, EdgeHandleRecord>;
+  positions: Record<string, EdgeHandlePosition>;
+  version: number;
+};
+
+export const useEdgeHandleRegistry = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ZustandEdgeHandleRegistry>(() => ({
+        handles: {},
+        positions: {},
+        version: 0,
+      })),
     ),
   ),
 );
