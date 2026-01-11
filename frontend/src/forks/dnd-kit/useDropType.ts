@@ -20,15 +20,10 @@ import {
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import {
-  DragMoveEvent,
-  DragOverEvent,
-  DragStartEvent,
-  Over,
-} from "./CustomCore";
+import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 
 export function onDragStart({ active }: DragStartEvent) {
-  if (!active.data.current) {
+  if (!active.data || !active.data.current) {
     return;
   }
   const { width, height } = getSectionRectWithNested(active.id);
@@ -276,7 +271,7 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
   return null;
 }
 
-function getOverId(over: Over | null) {
+function getOverId(over: { id: string | number } | null) {
   return over ? over.id : null;
 }
 

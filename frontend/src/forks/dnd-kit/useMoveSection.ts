@@ -9,14 +9,14 @@ import {
 import { moveSectionWithBackend } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
-import { DragEndEvent } from "./CustomCore";
-import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
+import type { DragEndEvent } from "./adapter";
+import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
 function onSortEnd({ active, over }: Pick<DragEndEvent, "active" | "over">) {
   if (over && active.id !== over.id) {
-    const parentId = active.data.current?.sortable?.containerId;
+    const parentId = active.data?.current?.sortable?.containerId;
     if (!parentId) {
       return;
     }
@@ -120,7 +120,12 @@ async function onFreeMoveEnd({
 export function useOnDragEnd() {
   const dummyRef = useRef<HTMLDivElement>(null);
 
-  function onDragEnd({ active, over, collisions }: DragEndEvent) {
+  function onDragEnd({ active, over, collisions, canceled }: DragEndEvent) {
+    if (canceled) {
+      manualDndChildrenReset();
+      return;
+    }
+
     if (useDndState.getState().isSorting) {
       onSortEnd({ active, over });
     } else if (useDndState.getState().isMovingFree) {
