@@ -452,6 +452,17 @@ class LLMChatManager:
         task.cancel()
         self._tasks.pop(chat_id, None)
 
+    async def shutdown(self) -> None:
+        tasks = list(self._tasks.values())
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._tasks.clear()
+        self._sessions.clear()
+        self._chat_tool_states.clear()
+        self._ai_follow_state.clear()
+
     def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
 

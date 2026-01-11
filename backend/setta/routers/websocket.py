@@ -64,16 +64,22 @@ async def _maybe_authenticate_websocket(
     return await _authenticate_websocket(websocket)
 
 
-async def _close_unauthorized(websocket: WebSocket) -> None:
+async def _close_with_code(websocket: WebSocket, code: int) -> None:
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
-    await websocket.close(code=4401)
+    await websocket.close(code=code)
+
+
+async def _close_unauthorized(websocket: WebSocket) -> None:
+    await _close_with_code(websocket, 4401)
 
 
 async def _close_forbidden(websocket: WebSocket) -> None:
-    if websocket.application_state == WebSocketState.CONNECTING:
-        await websocket.accept()
-    await websocket.close(code=4403)
+    await _close_with_code(websocket, 4403)
+
+
+async def _close_not_found(websocket: WebSocket) -> None:
+    await _close_with_code(websocket, 4404)
 
 
 async def websocket_route_loop(
@@ -114,6 +120,9 @@ async def websocket_route_loop(
                 try:
                     json_str = await websocket.receive_text()
                     if share_session_id is not None and share_session_store is not None:
+                        if not share_session_store.has_session(share_session_id):
+                            await _close_not_found(websocket)
+                            break
                         share_session_store.touch_session(share_session_id)
                     await websocket_msg_handler.process_json_str(
                         json_str, fromWebsocketId
@@ -187,10 +196,11 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
 async def route_websocket_share_frontend(
     websocket: WebSocket, state: AppStateFromWebsocket
 ):
+    if not state.share_mode:
+        await _close_forbidden(websocket)
+        return
     if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
-    if not state.share_mode:
-        raise ValueError("Share websocket route requires share mode")
     share_session_id = await require_share_session_id_from_websocket(
         websocket,
         state,

@@ -110,7 +110,7 @@ async def cleanup_expired_share_sessions(
         if share_listener_runtime is not None:
             share_listener_runtime.drop_session_listener(session_id)
         if share_chat_manager is not None:
-            share_chat_manager.drop_session(session_id)
+            await share_chat_manager.drop_session(session_id)
         if realtime_event_hub is not None:
             realtime_event_hub.drop_share_session_sequences(session_id)
         if share_runtime_state.has_session_state(session_id):

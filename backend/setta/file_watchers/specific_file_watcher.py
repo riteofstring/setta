@@ -39,6 +39,7 @@ class SpecificFileWatcher:
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
         self._pending_dirs: set[Path] = set()
+        self._pending_reads: set[Path] = set()
         self._loop = loop
         self._started = False
         self.handler = SpecificFileEventHandler(
@@ -55,7 +56,17 @@ class SpecificFileWatcher:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
             return None
+        self._flush_pending_reads()
         return self._loop
+
+    def _flush_pending_reads(self) -> None:
+        if not self._pending_reads:
+            return
+        pending = list(self._pending_reads)
+        self._pending_reads.clear()
+        for abs_path in pending:
+            mock_event = MockFileEvent(abs_path)
+            self.handler._send_event(mock_event, FileEventType.readRequested)
 
     def _find_existing_ancestor(self, path: Path) -> Path | None:
         current = path
@@ -79,7 +90,11 @@ class SpecificFileWatcher:
                 return
 
     def request_read(self, abs_path: Path):
-        mock_event = MockFileEvent(abs_path)
+        resolved = abs_path.resolve()
+        if self._get_loop() is None:
+            self._pending_reads.add(resolved)
+            return
+        mock_event = MockFileEvent(resolved)
         self.handler._send_event(mock_event, FileEventType.readRequested)
 
     def _sync_watches(self) -> None:

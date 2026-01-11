@@ -84,10 +84,11 @@ class ShareChatManager:
         for manager in self._managers.values():
             manager.update_api_keys(self._raw_env_vars)
 
-    def drop_session(self, share_session_id: str) -> None:
-        if share_session_id not in self._managers:
+    async def drop_session(self, share_session_id: str) -> None:
+        manager = self._managers.pop(share_session_id, None)
+        if manager is None:
             return
-        self._managers.pop(share_session_id, None)
+        await manager.shutdown()
 
     def get_chat(
         self,
