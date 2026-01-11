@@ -1681,7 +1681,10 @@ def _ensure_edge_endpoints_valid(p: "ProjectStateSingleConfig", edge: Edge):
 
 
 def set_section_edge_inputs(
-    p: "ProjectStateSingleConfig", sectionId: ID, edgeInputParams: list[ID]
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    edgeInputParams: list[ID],
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
@@ -1695,6 +1698,18 @@ def set_section_edge_inputs(
             continue
         seen.add(param_id)
         deduped.append(param_id)
+
+    new_edge_inputs = [
+        param_id for param_id in deduped if param_id not in section_impl.edgeInputParams
+    ]
+    for param_id in new_edge_inputs:
+        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, sectionId, param_id, BaseParamCodeObjImpl
+        )
+        if param_impl.type != CodeObjType.CodeParam:
+            change_param_impl(
+                settings, p, sectionId, param_id, CodeObjType.CodeParam.value
+            )
 
     removed_ports = set(section_impl.edgeInputParams) - set(deduped)
     if removed_ports:

@@ -1089,7 +1089,12 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_edge_inputs(project_state, x.sectionId, x.edgeInputParams)
+        set_section_edge_inputs(
+            self.settings_file.settings,
+            project_state,
+            x.sectionId,
+            x.edgeInputParams,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1097,6 +1102,20 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
         await self.update_and_broadcast_project_state(project_state)
+
+    def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
+        gen_code = self.gen_code.get(project_state.projectConfig.id)
+        if gen_code is None:
+            raise KeyError(
+                f"Generated code missing for project config {project_state.projectConfig.id}."
+            )
+        edge_value = gen_code.build_edge_expression(project_state, edge)
+        set_param_entered_value(
+            project_state,
+            edge.targetSectionId,
+            edge.targetPortId,
+            edge_value,
+        )
 
     @enqueue_method
     async def create_edge(self, x: CreateEdgeRequest):
@@ -1118,6 +1137,7 @@ class BaseProjectManager(ABC):
             data=x.data,
         )
         create_edge(project_state, edge)
+        self._apply_edge_value(project_state, edge)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1148,6 +1168,13 @@ class BaseProjectManager(ABC):
             x.targetVariantId,
             x.targetPortId,
         )
+        updated_edge = next(
+            (edge for edge in project_state.projectConfig.edges if edge.id == x.edgeId),
+            None,
+        )
+        if updated_edge is None:
+            raise KeyError(f"Edge {x.edgeId} not found.")
+        self._apply_edge_value(project_state, updated_edge)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

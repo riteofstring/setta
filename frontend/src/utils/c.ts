@@ -21,6 +21,7 @@ export class C {
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
   static DEV_MODE_FRONTEND_PORT = 3000;
+  static EDGE_OUTPUT_BASE_LABEL = "value";
   static GEN_CODE_SEPARATOR_NEWLINES = 2;
   static HOST = "127.0.0.1";
   static LLM_TEXT = "text";

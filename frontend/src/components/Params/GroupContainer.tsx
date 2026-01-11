@@ -17,6 +17,7 @@ import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
+import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -93,7 +94,8 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       .filter((entry) => entry.label.length > 0);
     const outputPorts = impl.edgeOutputPorts.map((port) => ({
       id: port.id,
-      label: port.accessor.trim() === "" ? "value" : port.accessor,
+      label:
+        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
       side: port.side
         ? (port.side.toLowerCase() as HandlePosition)
         : HandlePosition.Right,

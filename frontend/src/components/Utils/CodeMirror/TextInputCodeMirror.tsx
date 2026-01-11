@@ -28,6 +28,7 @@ export function TextInputCodeMirror({
   color,
   language,
   dummyDivId,
+  tooltipParentDivId,
   autocomplete = true,
   isKeyName = false,
   isDisabled = false,
@@ -106,6 +107,7 @@ export function TextInputCodeMirror({
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
+          tooltipParentDivId={tooltipParentDivId}
           completionsFn={completionsFn}
         />
       )}
@@ -133,11 +135,16 @@ function CoreCodeMirror({
   autocomplete,
   isKeyName,
   completionsFn,
+  tooltipParentDivId,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isShareMode = useShareSession((x) => x.isShareMode);
   const canUseLsp = !isShareMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
+  const resolvedTooltipParentDivId =
+    tooltipParentDivId === undefined
+      ? `${sectionId}-CustomResizable`
+      : tooltipParentDivId;
 
   const resolvedCompletionsFn = useCallback(
     shouldAutocomplete
@@ -147,7 +154,7 @@ function CoreCodeMirror({
   );
 
   const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
+    parentDivId: resolvedTooltipParentDivId,
     language,
     completionsFn: resolvedCompletionsFn,
     singleLine,

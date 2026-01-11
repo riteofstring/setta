@@ -83,7 +83,7 @@ export function recomputeEdgeHandlePositions() {
   }
 }
 
-export function updateEdgeHandlePositionsForSections(sectionIds: string[]) {
+function updateEdgeHandlePositionsForSections(sectionIds: string[]) {
   if (sectionIds.length === 0) {
     return;
   }
