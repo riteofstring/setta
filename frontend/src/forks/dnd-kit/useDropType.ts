@@ -27,9 +27,14 @@ import { computeNewIndex } from "./adapter";
 const DEBUG_DND = true;
 const DEBUG_DND_VERBOSE = true;
 let lastChildOverByParent: Record<string, string> = {};
+let lastPastHalfwayByOverId: Record<string, boolean> = {};
 
 function resetLastChildOverByParent() {
   lastChildOverByParent = {};
+}
+
+function resetLastPastHalfwayByOverId() {
+  lastPastHalfwayByOverId = {};
 }
 
 function formatCollisions(
@@ -91,6 +96,7 @@ function logDndLine(message: string) {
 
 export function onDragStart({ active }: DragStartEvent) {
   resetLastChildOverByParent();
+  resetLastPastHalfwayByOverId();
   if (!active.data || !active.data.current) {
     return;
   }
@@ -121,9 +127,40 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({ active, collisions }: DragMoveEvent) {
+function onDragMove({ active, collisions, over }: DragMoveEvent) {
   const triggerDistCondition = collisions?.[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
+  const overCandidate = collisions?.[0] ?? over;
+  const overCandidateId = overCandidate ? String(overCandidate.id) : null;
+  const resolvedOverId = getOverId(overCandidate, collisions);
+  const pastHalfway = getOverCollisionPastHalfway(
+    resolvedOverId,
+    collisions,
+  );
+  const resolvedOverIdKey = resolvedOverId ? String(resolvedOverId) : null;
+  const hasLastPastHalfway =
+    resolvedOverIdKey !== null &&
+    Object.prototype.hasOwnProperty.call(
+      lastPastHalfwayByOverId,
+      resolvedOverIdKey,
+    );
+  const lastPastHalfway = hasLastPastHalfway
+    ? lastPastHalfwayByOverId[resolvedOverIdKey]
+    : null;
+  const pastHalfwayChanged =
+    hasLastPastHalfway &&
+    pastHalfway !== null &&
+    pastHalfway !== lastPastHalfway;
+  const triggerDistChanged =
+    triggerDistCondition !== dndState.triggerDistCondition;
+  const shouldUpdateForTrigger =
+    triggerDistChanged &&
+    overCandidateId !== null &&
+    overCandidateId === dndState.overId;
+  const shouldUpdateForPastHalfway =
+    pastHalfwayChanged &&
+    resolvedOverIdKey &&
+    resolvedOverIdKey === dndState.overId;
 
   logDnd("dragmove", {
     activeId: active.id,
@@ -133,17 +170,21 @@ function onDragMove({ active, collisions }: DragMoveEvent) {
     collisions: formatCollisions(collisions),
   });
 
-  if (triggerDistCondition !== dndState.triggerDistCondition) {
+  if (triggerDistChanged) {
     useDndState.setState({ triggerDistCondition });
-    const over = collisions?.[0];
-    if (over && over.id === dndState.overId) {
-      onDragOver({
-        active,
-        over,
-        collisions,
-        calledFromOnDragMove: true,
-      });
-    }
+  }
+
+  if (shouldUpdateForTrigger || shouldUpdateForPastHalfway) {
+    onDragOver({
+      active,
+      over: overCandidate,
+      collisions,
+      calledFromOnDragMove: true,
+    });
+  }
+
+  if (resolvedOverIdKey && pastHalfway !== null) {
+    lastPastHalfwayByOverId[resolvedOverIdKey] = pastHalfway;
   }
 }
 
@@ -310,9 +351,8 @@ function maybeMoveToNewParent({
   const oldParentChildren = oldParentId
     ? dndChildrenState.x[oldParentId] ?? []
     : [];
-  const overCollision =
-    collisions?.find((collision) => collision.id === overId) ?? collisions?.[0];
-  const pastHalfway = Boolean(overCollision?.pastHalfway);
+  const pastHalfway =
+    getOverCollisionPastHalfway(overId, collisions) ?? false;
 
   logDnd("maybeMoveToNewParent", {
     activeId: active.id,
@@ -496,6 +536,25 @@ export function getOverId(
   }
 
   return over ? over.id : null;
+}
+
+function getOverCollisionPastHalfway(
+  overId: string | number | null,
+  collisions: DragOverEvent["collisions"] | null,
+): boolean | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  const overCollision =
+    (overId
+      ? collisions.find((collision) => collision.id === overId)
+      : null) ?? collisions[0];
+  if (!overCollision || overCollision.pastHalfway === undefined) {
+    return null;
+  }
+
+  return Boolean(overCollision.pastHalfway);
 }
 
 function getCollisionOverId(
