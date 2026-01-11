@@ -240,7 +240,8 @@ function onDragOver({
       dndSectionId,
       oldParentId,
     });
-    setNullBehavior(dndState.overId);
+    removeDndChild(dndSectionId);
+    setNullBehavior(null);
     return;
   }
 
