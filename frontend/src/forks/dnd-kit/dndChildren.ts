@@ -4,9 +4,6 @@ import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { getDndSectionId } from "./dndState";
 
-const DEBUG_DND_CHILDREN = true;
-const DEBUG_DND_CHILDREN_VERBOSE = true;
-
 type ZustandDndChildren = {
   x: Record<string, Array<string>>;
   y: Record<string, string>;
@@ -30,10 +27,6 @@ export function addDndChild(
   index: number,
 ) {
   useDndChildren.setState((state) => {
-    const oldParentChildrenBefore = oldParentId
-      ? [...(state.x[oldParentId] ?? [])]
-      : null;
-    const newParentChildrenBefore = [...(state.x[newParentId] ?? [])];
     if (oldParentId) {
       state.x[oldParentId] = (state.x[oldParentId] ?? []).filter(
         (x) => x !== childId,
@@ -44,17 +37,6 @@ export function addDndChild(
     const nextChildren = existingChildren.filter((x) => x !== childId);
     state.x[newParentId] = insertIntoArray(nextChildren, index, childId);
     state.y[childId] = newParentId;
-    logDuplicates("addDndChild", newParentId, state.x[newParentId]);
-    logChildrenChange("addDndChild", {
-      oldParentId,
-      newParentId,
-      childId,
-      index,
-      oldParentChildrenBefore,
-      oldParentChildrenAfter: oldParentId ? state.x[oldParentId] ?? [] : null,
-      newParentChildrenBefore,
-      newParentChildrenAfter: state.x[newParentId] ?? [],
-    });
   });
 }
 
@@ -62,17 +44,10 @@ export function removeDndChild(childId: string) {
   useDndChildren.setState((state) => {
     const oldParentId = state.y[childId];
     if (oldParentId) {
-      const oldParentChildrenBefore = [...(state.x[oldParentId] ?? [])];
       state.x[oldParentId] = (state.x[oldParentId] ?? []).filter(
         (x) => x !== childId,
       );
       delete state.y[childId];
-      logChildrenChange("removeDndChild", {
-        oldParentId,
-        childId,
-        oldParentChildrenBefore,
-        oldParentChildrenAfter: state.x[oldParentId] ?? [],
-      });
     }
   });
 }
@@ -90,40 +65,16 @@ export function replaceDndSectionWithTemp(id: string) {
       }
 
       const currChildren = state.x[parentId] ?? [];
-      const currChildrenBefore = [...currChildren];
       const index = currChildren.indexOf(id);
       if (index === -1) {
         state.x[parentId] = [...currChildren, tempId];
         state.y[tempId] = parentId;
         delete state.y[id];
-        logChildrenChange("replaceDndSectionWithTemp-append", {
-          id,
-          parentId,
-          tempId,
-          currChildrenBefore,
-          currChildrenAfter: state.x[parentId] ?? [],
-        });
-        logInfo("replaceDndSectionWithTemp-missing", {
-          id,
-          parentId,
-          currChildren,
-        });
         return;
       }
       currChildren[index] = tempId;
       state.y[tempId] = parentId;
       delete state.y[id];
-      logDuplicates("replaceDndSectionWithTemp", parentId, currChildren);
-      logChildrenChange("replaceDndSectionWithTemp", {
-        id,
-        parentId,
-        tempId,
-        index,
-        currChildrenBefore,
-        currChildrenAfter: currChildren,
-      });
-    } else {
-      logInfo("replaceDndSectionWithTemp-no-parent", { id });
     }
   });
 }
@@ -140,45 +91,4 @@ export function updateDndChildren(
       }
     }
   });
-}
-
-function logDuplicates(label: string, parentId: string, children: string[]) {
-  if (!DEBUG_DND_CHILDREN) {
-    return;
-  }
-
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const child of children) {
-    if (seen.has(child)) {
-      duplicates.add(child);
-    } else {
-      seen.add(child);
-    }
-  }
-
-  if (duplicates.size > 0) {
-    console.log("[dndChildren] duplicates", {
-      label,
-      parentId,
-      duplicates: Array.from(duplicates),
-      children,
-    });
-  }
-}
-
-function logInfo(label: string, data: Record<string, unknown>) {
-  if (!DEBUG_DND_CHILDREN) {
-    return;
-  }
-
-  console.log("[dndChildren]", label, data);
-}
-
-function logChildrenChange(label: string, data: Record<string, unknown>) {
-  if (!DEBUG_DND_CHILDREN_VERBOSE) {
-    return;
-  }
-
-  console.log("[dndChildren]", label, data);
 }

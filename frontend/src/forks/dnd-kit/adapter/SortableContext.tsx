@@ -33,63 +33,7 @@ interface ContextDescriptor {
 }
 
 const ID_PREFIX = "Sortable";
-const DEBUG_DND_SORTING = true;
-const DEBUG_DND_SORTING_VERBOSE = true;
-
-type SortableDebugState = {
-  activeId: string | null;
-  overId: string | null;
-  collisionOverId: string | null;
-  rawOverId: string | null;
-  activeIndex: number;
-  overIndex: number;
-  itemsKey: string;
-  collisionsSummary: string | null;
-  disableTransforms: boolean;
-  hasContainerCollision: boolean;
-  containerId: string;
-};
-
-function logDndSorting(label: string, data: Record<string, unknown>) {
-  if (!DEBUG_DND_SORTING) {
-    return;
-  }
-
-  console.log("[dnd-sorting]", label, data);
-}
-
-function formatCollisionsSummary(
-  collisions: Array<Collision> | null,
-): string | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  return collisions
-    .map((collision) => {
-      const id = String(collision.id);
-      const value =
-        typeof collision.value === "number"
-          ? collision.value.toFixed(2)
-          : String(collision.value);
-      return `${id}:${value}`;
-    })
-    .join(" | ");
-}
-
-function formatCollisions(
-  collisions: Array<Collision> | null,
-): Array<{ id: UniqueIdentifier; value: number | string }> | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  return collisions.map((collision) => ({
-    id: collision.id,
-    value: collision.value,
-  }));
-}
-
+const EMPTY_SORTED_RECTS: Array<ClientRect | undefined> = [];
 export const Context = React.createContext<ContextDescriptor>({
   activeIndex: -1,
   containerId: ID_PREFIX,
@@ -113,10 +57,8 @@ export function SortableContext({
   disabled: disabledProp = false,
 }: Props) {
   const manager = useDragDropManager();
-  const rawOverId = useComputed<UniqueIdentifier | null>(
-    () => manager?.dragOperation.target?.id ?? null,
-    [manager],
-  ).value;
+  const dndMode = useDndMode();
+  const shouldTrackSorting = dndMode.isSorting;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
   const items = useMemo<UniqueIdentifier[]>(
@@ -126,44 +68,69 @@ export function SortableContext({
       ),
     [userDefinedItems],
   );
+  const emptyRects = useMemo(() => new Map<UniqueIdentifier, ClientRect>(), []);
   const active = useComputed(
-    () => manager?.dragOperation.source ?? null,
-    [manager],
+    () => {
+      if (!shouldTrackSorting) {
+        return null;
+      }
+
+      return manager?.dragOperation.source ?? null;
+    },
+    [manager, shouldTrackSorting],
   ).value;
-  const dndMode = useDndMode();
   const collisions = useComputed<Array<Collision> | null>(
-    () => manager?.collisionObserver.collisions ?? null,
-    [manager],
+    () => {
+      if (!shouldTrackSorting) {
+        return null;
+      }
+
+      return manager?.collisionObserver.collisions ?? null;
+    },
+    [manager, shouldTrackSorting],
   ).value;
-  const collisionOverId = useComputed(
-    () =>
-      getOverIdFromCollisions(
-        collisions as Array<{ id: UniqueIdentifier }> | null,
-        items,
-      ),
-    [collisions, items],
-  ).value;
-  const hasContainerCollision = useComputed(
-    () =>
-      Boolean(
-        (collisions as Array<{ id: UniqueIdentifier }> | null)?.some(
-          (collision) => collision.id === containerId,
-        ),
-      ),
-    [collisions, containerId],
-  ).value;
+  const collisionOverId = useMemo(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
+
+    return getOverIdFromCollisions(
+      collisions as Array<{ id: UniqueIdentifier }> | null,
+      items,
+    );
+  }, [collisions, items, shouldTrackSorting]);
+  const hasContainerCollision = useMemo(() => {
+    if (!shouldTrackSorting || !collisions) {
+      return false;
+    }
+
+    return collisions.some((collision) => collision.id === containerId);
+  }, [collisions, containerId, shouldTrackSorting]);
   const droppableRects = useComputed(
-    () => getDroppableRects(manager?.registry.droppables ?? []),
-    [manager],
+    () => {
+      if (!shouldTrackSorting) {
+        return emptyRects;
+      }
+
+      return getDroppableRects(manager?.registry.droppables ?? []);
+    },
+    [emptyRects, manager, shouldTrackSorting],
   ).value;
   const frozenDroppableRectsRef = useRef<
     Map<UniqueIdentifier, ClientRect> | null
   >(null);
 
-  const isDragging = active != null;
-  const activeIndex = getActiveIndex(active, items, dndMode.isMovingFree);
+  const isDragging = shouldTrackSorting && active != null;
+  const activeIndex = shouldTrackSorting
+    ? getActiveIndex(active, items, dndMode.isMovingFree)
+    : -1;
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
   const resolvedOverId = useMemo(() => {
+    if (!shouldTrackSorting) {
+      lastOverIdRef.current = null;
+      return null;
+    }
+
     if (collisionOverId) {
       lastOverIdRef.current = collisionOverId;
       return collisionOverId;
@@ -179,113 +146,17 @@ export function SortableContext({
     }
 
     return manager?.dragOperation.target?.id ?? null;
-  }, [collisionOverId, hasContainerCollision, items, manager]);
-  const overIndex = resolvedOverId ? items.indexOf(resolvedOverId) : -1;
+  }, [collisionOverId, hasContainerCollision, items, manager, shouldTrackSorting]);
+  const overIndex =
+    shouldTrackSorting && resolvedOverId ? items.indexOf(resolvedOverId) : -1;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
-  const disableTransforms =
-    (overIndex !== -1 && activeIndex === -1) || itemsHaveChanged;
+  const disableTransforms = shouldTrackSorting
+    ? (overIndex !== -1 && activeIndex === -1) || itemsHaveChanged
+    : false;
   const disabled = normalizeDisabled(disabledProp);
-  const useDragOverlay = dndMode.isMovingFree && Boolean(active);
-  const useFrozenRects = dndMode.isSorting && Boolean(active);
-  const collisionsSummary = useMemo(
-    () => formatCollisionsSummary(collisions),
-    [collisions],
-  );
-  const debugRef = useRef<SortableDebugState | null>(null);
-
-  useEffect(() => {
-    if (!DEBUG_DND_SORTING) {
-      return;
-    }
-
-    const activeId = active?.id ? String(active.id) : null;
-    const resolvedOverIdStr = resolvedOverId ? String(resolvedOverId) : null;
-    const collisionOverIdStr = collisionOverId
-      ? String(collisionOverId)
-      : null;
-    const rawOverIdStr = rawOverId ? String(rawOverId) : null;
-    const itemsKey = items.map((item) => String(item)).join("|");
-    const nextState: SortableDebugState = {
-      activeId,
-      overId: resolvedOverIdStr,
-      collisionOverId: collisionOverIdStr,
-      rawOverId: rawOverIdStr,
-      activeIndex,
-      overIndex,
-      itemsKey,
-      collisionsSummary,
-      disableTransforms,
-      hasContainerCollision,
-      containerId,
-    };
-
-    const prevState = debugRef.current;
-    const hasActiveOrOver = Boolean(activeId || resolvedOverIdStr);
-    if (!prevState && !hasActiveOrOver) {
-      return;
-    }
-
-    let shouldLog = false;
-    if (!prevState) {
-      shouldLog = true;
-    } else if (
-      prevState.activeId !== nextState.activeId ||
-      prevState.overId !== nextState.overId ||
-      prevState.collisionOverId !== nextState.collisionOverId ||
-      prevState.rawOverId !== nextState.rawOverId ||
-      prevState.activeIndex !== nextState.activeIndex ||
-      prevState.overIndex !== nextState.overIndex ||
-      prevState.itemsKey !== nextState.itemsKey ||
-      prevState.collisionsSummary !== nextState.collisionsSummary ||
-      prevState.disableTransforms !== nextState.disableTransforms ||
-      prevState.hasContainerCollision !== nextState.hasContainerCollision ||
-      prevState.containerId !== nextState.containerId
-    ) {
-      shouldLog = true;
-    }
-
-    if (shouldLog) {
-      logDndSorting("sortable-context", {
-        containerId,
-        activeId,
-        activeIndex,
-        overId: resolvedOverIdStr,
-        overIndex,
-        collisionOverId: collisionOverIdStr,
-        rawOverId: rawOverIdStr,
-        disableTransforms,
-        hasContainerCollision,
-        items,
-        collisionsSummary,
-      });
-
-      if (DEBUG_DND_SORTING_VERBOSE) {
-        const collisionsList = formatCollisions(collisions);
-        if (collisionsList) {
-          logDndSorting("sortable-context-collisions", {
-            containerId,
-            collisions: collisionsList,
-          });
-        }
-      }
-    }
-
-    debugRef.current = nextState;
-  }, [
-    active,
-    activeIndex,
-    collisions,
-    collisionsSummary,
-    collisionOverId,
-    containerId,
-    disableTransforms,
-    hasContainerCollision,
-    items,
-    overIndex,
-    rawOverId,
-    resolvedOverId,
-  ]);
+  const useDragOverlay = false;
+  const useFrozenRects = shouldTrackSorting && Boolean(active);
 
   useEffect(() => {
     previousItemsRef.current = items;
@@ -317,6 +188,13 @@ export function SortableContext({
     useFrozenRects && frozenDroppableRectsRef.current
       ? frozenDroppableRectsRef.current
       : droppableRects;
+  const sortedRects = useMemo(() => {
+    if (!shouldTrackSorting) {
+      return EMPTY_SORTED_RECTS;
+    }
+
+    return getSortedRects(items, rectsForSorting);
+  }, [items, rectsForSorting, shouldTrackSorting]);
 
   const contextValue = useMemo(
     (): ContextDescriptor => ({
@@ -327,7 +205,7 @@ export function SortableContext({
       items,
       overIndex,
       useDragOverlay,
-      sortedRects: getSortedRects(items, rectsForSorting),
+      sortedRects,
       strategy,
     }),
     [
@@ -337,9 +215,8 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
-      rectsForSorting,
+      sortedRects,
       useDragOverlay,
-      dndMode.isMovingFree,
       strategy,
     ],
   );
