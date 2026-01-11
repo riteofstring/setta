@@ -2929,7 +2929,6 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
 const ControlActionEventSchema = z.object({
   controlName: z.string(),
   actionId: z.string(),
-  actionControlType: z.enum(CodeObjTypeEnum),
   payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });

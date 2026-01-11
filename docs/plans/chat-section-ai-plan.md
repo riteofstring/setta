@@ -22,6 +22,7 @@
 - Rebuild Chat sections to use those shared components and the existing AI store/actions.
 - Store per-section settings (managed mode flag, LLM config id, deep think, optional display toggles) on `ChatSectionImpl`.
 - Persist chat session IDs per section (recommended: `setta_files/chat_sections.json` keyed by projectConfigId + sectionId).
+- Emit a chat-specific action event on send so listeners can react without relying on generated state.
 
 ### Managed vs scriptable behavior
 - Scriptable mode: listener scripts can read/write chat section state just like other sections.
@@ -29,14 +30,14 @@
 - Listener scripts can still modify state in managed mode, but managed actions should be considered the default driver.
 
 ## Plan
-1. Data model and config shape (backend types)
+1. Data model and config shape (backend types) - DONE
    - Extend `ChatSectionImpl` with:
      - `managed` (bool) to toggle LLM integration.
      - `llmConfigId` (string or null) for managed mode.
      - `deepThink` (bool).
      - Optional UI toggles (show tools, show system prompts, etc) if needed.
    - Document how listener scripts are expected to read/write chat section state.
-2. Backend: chat manager integration (managed mode)
+2. Backend: chat manager integration (managed mode) - DONE
    - Ensure `llmConfigId` is used per section when sending chat requests.
    - Add `chat_sections.json` helpers to `backend/setta/database/db_objs.py`:
      - get/set mapping: `projectConfigId` + `sectionId` -> `chatId`.
@@ -44,30 +45,30 @@
    - Add project-manager request types and handlers for:
      - Updating `ChatSectionImpl` settings (managed/llmConfigId/deepThink).
      - Creating/attaching/clearing chat IDs for managed mode.
-3. Backend: scriptable state surface
+3. Backend: scriptable state surface - DONE
    - Define the chat section state payload (messages, input text, status, etc) so listeners can modify it.
    - Add/confirm listener hooks for chat section state changes without requiring LLM manager.
-4. Frontend: shared chat UI primitives
+4. Frontend: shared chat UI primitives - DONE
    - Extract message rendering + tool call UI + input into shared components.
    - Update `ProjectChatCore` to use shared components.
-5. Frontend: ChatArea rebuild
+5. Frontend: ChatArea rebuild - DONE
    - For managed mode:
      - Load the section chat ID mapping.
      - Fetch chat details via `getLLMChat`.
      - Submit messages via `submitMessage`.
    - For scriptable mode:
      - Render from section state and delegate actions to listener-driven updates.
-6. Frontend: Chat section config UI
+6. Frontend: Chat section config UI - DONE
    - Implement `ChatAreaSettings` with:
      - Managed mode toggle.
      - LLM config selection.
      - Deep-think toggle.
    - Persist config changes via generated endpoints.
    - Add a "New chat" action to reset the section's chat ID mapping in managed mode.
-7. Codegen + sync
+7. Codegen + sync - DONE
    - Run `source activate.sh && cd frontend && pnpm generate` after backend changes.
    - Ensure frontend uses generated endpoints for new chat-section routes.
-8. Validation
+8. Validation - TODO
    - Manual: create a Chat section in managed mode, pick an LLM, send messages, refresh to confirm persistence.
    - Manual: create a Chat section in scriptable mode and verify listeners can alter the state.
    - Manual: create multiple Chat sections and verify they keep separate chat sessions.

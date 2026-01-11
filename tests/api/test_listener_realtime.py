@@ -441,7 +441,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ControlActionEvent(
                         controlName="Control-A",
                         actionId="action-id",
-                        actionControlType=CodeObjType.ButtonParam,
                         payload="payload-a",
                         timestampMs=1,
                     )
@@ -459,7 +458,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ControlActionEvent(
                         controlName="Control-B",
                         actionId="action-id",
-                        actionControlType=CodeObjType.ButtonParam,
                         payload="payload-b",
                         timestampMs=2,
                     )
@@ -499,7 +497,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         ControlActionEvent(
                             controlName="Control-B",
                             actionId="action-id",
-                            actionControlType=CodeObjType.ButtonParam,
                             payload="payload-b",
                             timestampMs=2,
                         )

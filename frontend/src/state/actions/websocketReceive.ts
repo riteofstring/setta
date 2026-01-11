@@ -21,7 +21,6 @@ import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  CodeObjType,
   ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -374,7 +373,6 @@ function emitRealtimeDependencyValue(
 type ControlActionEventInput = {
   controlName: string;
   actionId: string;
-  actionControlType: CodeObjType;
   payload?: string | null;
 };
 
@@ -389,7 +387,6 @@ export function sendRealtimeControlAction(
   const actionEvent: ControlActionEvent = {
     controlName: action.controlName,
     actionId: action.actionId,
-    actionControlType: action.actionControlType,
     payload: action.payload ?? null,
     timestampMs: Date.now(),
   };
