@@ -16,6 +16,7 @@ import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
   getSectionChildren,
+  getSectionInfo,
   getSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
@@ -88,6 +89,43 @@ function getOverIdCollisionMatch(
   }
 
   return collisions.some((collision) => String(collision.id) === String(overId));
+}
+
+function getPointerPastHalfway({
+  overId,
+  collisions,
+  pointerCoordinates,
+  containerIsHorizontal,
+}: {
+  overId: string | number | null;
+  collisions: DragOverEvent["collisions"] | null;
+  pointerCoordinates: DragOverEvent["pointerCoordinates"] | null | undefined;
+  containerIsHorizontal: boolean;
+}): boolean | null {
+  if (!overId || !collisions || collisions.length === 0) {
+    return null;
+  }
+
+  if (!pointerCoordinates) {
+    return null;
+  }
+
+  const matching = collisions.find(
+    (collision) => String(collision.id) === String(overId),
+  );
+  const rect = matching?.data?.droppable?.shape?.boundingRectangle;
+  if (!rect) {
+    return null;
+  }
+
+  const pointerAxis = containerIsHorizontal
+    ? pointerCoordinates.x
+    : pointerCoordinates.y;
+  const midpoint = containerIsHorizontal
+    ? rect.left + rect.width / 2
+    : rect.top + rect.height / 2;
+
+  return pointerAxis > midpoint;
 }
 
 function summarizeRect(
@@ -172,6 +210,7 @@ function onDragMove({
   over,
   activeRect,
   pointerCoordinates,
+  delta,
 }: DragMoveEvent) {
   const triggerDistCondition = collisions?.[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
@@ -219,6 +258,7 @@ function onDragMove({
       calledFromOnDragMove: true,
       activeRect,
       pointerCoordinates,
+      delta,
     });
   }
 
@@ -242,6 +282,7 @@ function onDragOver({
   calledFromOnDragMove,
   activeRect,
   pointerCoordinates,
+  delta,
 }: DragOverEvent & { calledFromOnDragMove?: boolean }) {
   if (!collisions) {
     return;
@@ -306,6 +347,10 @@ function onDragOver({
           y: Math.round(pointerCoordinates.y),
         }
       : null,
+    dragDelta: {
+      x: Math.round(delta.x),
+      y: Math.round(delta.y),
+    },
     collisionIds: collisionSummary.ids,
     collisionCount: collisionSummary.total,
     collisions: summarizeCollisions(collisions),
@@ -325,6 +370,7 @@ function onDragOver({
       collisions,
       activeRect,
       pointerCoordinates,
+      delta,
     });
     return;
   }
@@ -354,6 +400,7 @@ function onDragOver({
       collisions,
       activeRect,
       pointerCoordinates,
+      delta,
     });
     return;
   }
@@ -377,6 +424,7 @@ function onDragOver({
     collisions,
     activeRect,
     pointerCoordinates,
+    delta,
   });
 }
 
@@ -390,6 +438,7 @@ function maybeMoveToNewParent({
   collisions,
   activeRect,
   pointerCoordinates,
+  delta,
 }: DragOverEvent & {
   dndSectionId: string;
   oldParentId: string;
@@ -432,15 +481,28 @@ function maybeMoveToNewParent({
 
   // Check if the temporary section has a new parent
   if (newParentId !== oldParentId) {
+    const containerIsHorizontal = Boolean(
+      getSectionInfo(newParentId)?.isHorizontalOrientation,
+    );
+    const pointerPastHalfway = getPointerPastHalfway({
+      overId,
+      collisions,
+      pointerCoordinates,
+      containerIsHorizontal,
+    });
+    const insertionPastHalfway =
+      pointerPastHalfway !== null ? pointerPastHalfway : pastHalfway;
+    const insertionPastHalfwaySource =
+      pointerPastHalfway !== null ? "pointer" : "collision";
     let index = 0;
     if (overIndex >= 0) {
-      index = pastHalfway ? overIndex + 1 : overIndex;
+      index = insertionPastHalfway ? overIndex + 1 : overIndex;
     } else if (
       overId !== null &&
       String(overId) === newParentId &&
       newParentChildren.length > 0
     ) {
-      index = pastHalfway ? newParentChildren.length : 0;
+      index = insertionPastHalfway ? newParentChildren.length : 0;
     }
     logDnd("free-move reparent", {
       activeId: String(active.id),
@@ -450,6 +512,8 @@ function maybeMoveToNewParent({
       overId: overId ? String(overId) : null,
       overIndex,
       pastHalfway,
+      insertionPastHalfway,
+      insertionPastHalfwaySource,
       index,
       newParentChildrenLength: newParentChildren.length,
       overIdInCollisions: getOverIdCollisionMatch(overId, collisions),
@@ -462,6 +526,10 @@ function maybeMoveToNewParent({
             y: Math.round(pointerCoordinates.y),
           }
         : null,
+      dragDelta: {
+        x: Math.round(delta.x),
+        y: Math.round(delta.y),
+      },
     });
     addDndChild(oldParentId, newParentId, dndSectionId, index);
   } else if (activeIndex >= 0 && overIndex >= 0 && overId !== dndSectionId) {
@@ -492,6 +560,10 @@ function maybeMoveToNewParent({
               y: Math.round(pointerCoordinates.y),
             }
           : null,
+        dragDelta: {
+          x: Math.round(delta.x),
+          y: Math.round(delta.y),
+        },
       });
       addDndChild(oldParentId, newParentId, dndSectionId, nextIndex);
     }
@@ -509,6 +581,7 @@ function leftDistBehavior({
   collisions,
   activeRect,
   pointerCoordinates,
+  delta,
 }) {
   const overId = getOverId(over, collisions);
   // Consider overId to be the new parent, if it's not the temp section.
@@ -523,6 +596,7 @@ function leftDistBehavior({
       collisions,
       activeRect,
       pointerCoordinates,
+      delta,
     });
   }
 }

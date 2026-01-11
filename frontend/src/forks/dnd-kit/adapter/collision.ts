@@ -87,6 +87,7 @@ export const customCollisionDetection: CollisionDetector = ({
     containerIsHorizontal,
     currentId: droppable.id,
     pointerCoordinates,
+    dragDelta: dragOperation.transform ?? null,
   });
 
   const triggerDistCondition = getTriggerDistCondition({
@@ -173,6 +174,7 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     containerIsHorizontal,
     currentId: droppable.id,
     pointerCoordinates,
+    dragDelta: dragOperation.transform ?? null,
   });
 
   const collision: SettaCollision = {
@@ -318,18 +320,23 @@ function getPastHalfway({
   containerIsHorizontal,
   currentId,
   pointerCoordinates,
+  dragDelta,
 }: {
   activeRect: ClientRect;
   droppableRect: ClientRect;
   containerIsHorizontal: boolean;
   currentId: Draggable["id"];
   pointerCoordinates: Coordinates | null;
+  dragDelta: Coordinates | null;
 }): boolean {
   let buffer = 0;
+  const hasPrevRect =
+    prevCollisionId && prevCollisionId === currentId && prevCollisionRect;
+  const rectDeltaLarge = hasPrevRect
+    ? isRectDeltaLarge(prevCollisionRect, droppableRect, containerIsHorizontal)
+    : false;
   const effectiveDroppableRect =
-    prevCollisionId && prevCollisionId === currentId && prevCollisionRect
-      ? prevCollisionRect
-      : droppableRect;
+    hasPrevRect && !rectDeltaLarge ? prevCollisionRect : droppableRect;
   let referenceAxisValue = getFallbackReferenceAxisValue({
     activeRect,
     containerIsHorizontal,
@@ -340,8 +347,10 @@ function getPastHalfway({
   const axisDirection = containerIsHorizontal
     ? prevPointerDirectionX
     : prevPointerDirectionY;
-  if (axisDirection !== null) {
-    if (axisDirection > 0) {
+  const deltaDirection = getDeltaDirection(containerIsHorizontal, dragDelta);
+  const resolvedDirection = axisDirection ?? deltaDirection;
+  if (resolvedDirection !== null) {
+    if (resolvedDirection > 0) {
       referenceAxisValue = containerIsHorizontal
         ? activeRect.right
         : activeRect.bottom;
@@ -352,7 +361,7 @@ function getPastHalfway({
     }
   }
 
-  if (prevCollisionId && prevCollisionId === currentId) {
+  if (!rectDeltaLarge && prevCollisionId && prevCollisionId === currentId) {
     if (prevPastHalfway === true) {
       buffer = 10;
     } else if (prevPastHalfway === false) {
@@ -398,6 +407,40 @@ function updatePointerDirections(pointerCoordinates: Coordinates | null): void {
 
   prevPointerX = pointerCoordinates.x;
   prevPointerY = pointerCoordinates.y;
+}
+
+function getDeltaDirection(
+  containerIsHorizontal: boolean,
+  dragDelta: Coordinates | null,
+): number | null {
+  if (!dragDelta) {
+    return null;
+  }
+
+  const axisDelta = containerIsHorizontal ? dragDelta.x : dragDelta.y;
+  if (axisDelta > 0) {
+    return 1;
+  }
+  if (axisDelta < 0) {
+    return -1;
+  }
+  return null;
+}
+
+function isRectDeltaLarge(
+  prevRect: ClientRect,
+  nextRect: ClientRect,
+  containerIsHorizontal: boolean,
+): boolean {
+  const delta = containerIsHorizontal
+    ? Math.abs(nextRect.left - prevRect.left)
+    : Math.abs(nextRect.top - prevRect.top);
+  const size = containerIsHorizontal ? nextRect.width : nextRect.height;
+  if (size <= 0) {
+    return delta > 0;
+  }
+
+  return delta > size * 0.5;
 }
 
 function getFallbackReferenceAxisValue({
