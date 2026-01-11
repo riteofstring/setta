@@ -117,14 +117,6 @@ export function isTempSection(sectionId) {
   return sectionId.slice(-dndIdSuffix.length) === dndIdSuffix;
 }
 
-export function getOriginalSectionId(sectionId: string) {
-  if (!isTempSection(sectionId)) {
-    return sectionId;
-  }
-
-  return sectionId.slice(0, -dndIdSuffix.length);
-}
-
 export function useDndMode() {
   return useDndState(
     (x) => ({
