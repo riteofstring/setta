@@ -5,7 +5,11 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  TextBlockFormatEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -118,17 +122,26 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const headingAsSectionName = useProjectState((x) => {
+  const { headingAsSectionName, format, text } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
-    return impl.headingAsSectionName;
+    return {
+      headingAsSectionName: impl.headingAsSectionName,
+      format: impl.format,
+      text: impl.text,
+    };
   }, _.isEqual);
+  const hasMarkdownHeading =
+    format === TextBlockFormatEnum.Markdown && hasMarkdownH1(text);
+  const useHeadingAsSectionName =
+    headingAsSectionName &&
+    (format !== TextBlockFormatEnum.Markdown || hasMarkdownHeading);
 
   return (
-    !headingAsSectionName && (
+    !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
         titleProps={getTitleStyles({
@@ -139,6 +152,17 @@ function TextBlockCardTitle({
       />
     )
   );
+}
+
+function hasMarkdownH1(markdown: string) {
+  const trimmed = markdown.trimStart();
+  const match = trimmed.match(
+    /(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)/,
+  );
+  if (!match) {
+    return false;
+  }
+  return match[1].trim().length > 0;
 }
 
 function getTitleStyles({
