@@ -29,6 +29,7 @@ AllImplFields = Literal[
     "deepThink",
     "defaultVal",
     "description",
+    "displayMode",
     "drawThrottleDelay",
     "edgeInputParams",
     "edgeOutputPorts",
