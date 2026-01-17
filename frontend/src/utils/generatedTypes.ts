@@ -3228,7 +3228,7 @@ const ProjectConfigSchema = z.object({
   isEditingViewMode: z.boolean().default(false),
   codegenTargets: z
     .array(ProjectCodegenPythonTargetSchema)
-    .default(default_codegen_targets),
+    .default(() => [createProjectCodegenPythonTarget()]),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
