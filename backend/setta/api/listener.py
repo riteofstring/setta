@@ -86,9 +86,8 @@ from .scheduling import ListenerCallbackScheduler
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
-    from setta.types.id import ID
-
     from setta.listeners.router_endpoint_local_updates import LocalDependencyUpdate
+    from setta.types.id import ID
 
     from .hot_reload import ListenerHotReloader
 
