@@ -21,7 +21,9 @@ from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPrevi
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    ChatRole,
     MessageTextContent,
+    SystemChatMessage,
     ToolCall,
     ToolChatMessage,
     UserChatMessage,
@@ -396,17 +398,35 @@ class ChatSession:
         tools = ChatToolRunnerClient(ctx.project_manager)
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
-        user_message = UserChatMessage(
-            id=resolved_event.messageId,
-            content=[MessageTextContent(text=resolved_event.text)],
-        )
+        content = [MessageTextContent(text=resolved_event.text)]
+        if resolved_event.role == ChatRole.user:
+            first_message = UserChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+            )
+        elif resolved_event.role == ChatRole.system:
+            first_message = SystemChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+            )
+        elif resolved_event.role == ChatRole.assistant:
+            first_message = AssistantChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+            )
+        elif resolved_event.role == ChatRole.tool:
+            raise ValueError(
+                "ChatSendEvent role 'tool' requires tool metadata, which is not supported"
+            )
+        else:
+            raise ValueError(f"Unsupported chat role: {resolved_event.role!r}")
         chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
             llm_config_id=llm_config_id,
-            first_message=user_message,
+            first_message=first_message,
         )
         if not created:
-            await history.append(chat_id=chat_id, messages=[user_message])
+            await history.append(chat_id=chat_id, messages=[first_message])
 
         return cls(
             section_id=section_id,
@@ -557,7 +577,8 @@ class ChatSession:
             message_id=builder.id,
         )
         assistant_message = builder.finalize()
-        if _should_persist_partial_message(assistant_message):
+        should_persist = _should_persist_partial_message(assistant_message)
+        if should_persist:
             await self._history.append(
                 chat_id=self.chat_id,
                 messages=[assistant_message],
@@ -567,6 +588,11 @@ class ChatSession:
             chat_id=self.chat_id,
             waiting_for_response=False,
         )
+        if should_persist:
+            await self._stream.emit_message_finalized(
+                chat_id=self.chat_id,
+                message=assistant_message,
+            )
 
     def _require_builder(self) -> AssistantMessageBuilder:
         if self._assistant_builder is None:
