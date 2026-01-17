@@ -16,11 +16,14 @@ def build_execute_tool_calls_action(
 ) -> ExecuteToolCallsAction | None:
     if not tool_calls:
         return None
+    resolved_allowed_server_ids = (
+        set(allowed_server_ids) if allowed_server_ids is not None else None
+    )
     return ExecuteToolCallsAction(
         project_config_id=project_config_id,
         chat_id=chat_id,
         tool_calls=tool_calls,
-        allowed_server_ids=set(allowed_server_ids or []),
+        allowed_server_ids=resolved_allowed_server_ids,
         share_session_id=share_session_id,
     )
 

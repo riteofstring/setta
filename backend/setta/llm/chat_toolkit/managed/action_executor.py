@@ -107,12 +107,20 @@ class ManagedActionExecutor:
                 f"Tool call {tool_call.id} in chat {action.chat_id} is missing a function name"
             )
         arguments = dict(tool_call.function.arguments or {})
+        allowed_server_ids = action.allowed_server_ids
         available_tools: dict[str, ChatCompletionToolParam] = {}
         annotations_by_name: dict[str, SettaToolAnnotations] = {}
         if tool_name == self._search_tool_name:
-            if not action.allowed_server_ids:
+            if allowed_server_ids is None:
+                server_id_set = set(self._mcp_client.server_configs.keys())
+            else:
+                if not allowed_server_ids:
+                    raise ValueError(
+                        "Search tool requires configured MCP server IDs."
+                    )
+                server_id_set = set(allowed_server_ids)
+            if not server_id_set:
                 raise ValueError("Search tool requires configured MCP server IDs.")
-            server_id_set = set(action.allowed_server_ids)
             available_tools = (
                 self._mcp_client.discoverable_tool_definitions_for_servers(
                     server_id_set
@@ -136,15 +144,15 @@ class ManagedActionExecutor:
                 unknown = [
                     entry
                     for entry in normalized_server_ids
-                    if entry not in action.allowed_server_ids
+                    if entry not in server_id_set
                 ]
                 if unknown:
                     raise ValueError(
                         f"serverIds contain unknown MCP servers: {unknown}"
                     )
                 arguments["serverIds"] = normalized_server_ids
-            else:
-                arguments["serverIds"] = list(action.allowed_server_ids)
+            elif allowed_server_ids is not None:
+                arguments["serverIds"] = list(allowed_server_ids)
         started_at = get_now_timestamp()
         if tool_name == self._search_tool_name:
             call_result = run_local_search_tool(
@@ -165,7 +173,7 @@ class ManagedActionExecutor:
                 )
             else:
                 server_id, _ = route
-                if server_id not in action.allowed_server_ids:
+                if allowed_server_ids is not None and server_id not in allowed_server_ids:
                     self._logger.warning(
                         "MCP tool %s is not allowed; skipping call",
                         tool_name,

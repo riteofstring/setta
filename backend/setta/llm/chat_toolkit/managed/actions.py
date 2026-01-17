@@ -44,7 +44,7 @@ class ExecuteToolCallsAction:
     project_config_id: ID
     chat_id: ID
     tool_calls: list[ToolCall]
-    allowed_server_ids: set[str]
+    allowed_server_ids: set[str] | None
     share_session_id: str | None
 
 

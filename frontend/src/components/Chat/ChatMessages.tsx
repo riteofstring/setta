@@ -385,11 +385,11 @@ function ChatMessages({
     () => buildToolResultMap(allMessages),
     [allMessages],
   );
-  const output = [];
-  for (const [idx, message] of messages.entries()) {
+  const output: ReactNode[] = [];
+  for (const message of messages) {
     output.push(
       <ChatMessage
-        key={idx}
+        key={message.id}
         message={message}
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
@@ -401,14 +401,21 @@ function ChatMessages({
     );
   }
 
-  if (
-    waitingForResponse &&
-    messages[messages.length - 1]?.role !== ChatRoleEnum.assistant
-  ) {
+  const lastMessage = messages[messages.length - 1];
+  if (waitingForResponse && lastMessage?.role !== ChatRoleEnum.assistant) {
+    const pendingMessageId = lastMessage?.id
+      ? `pending-${lastMessage.id}`
+      : "pending";
+    const placeholderMessage: AssistantChatMessage = {
+      id: pendingMessageId,
+      role: ChatRoleEnum.assistant,
+      content: [],
+      tool_calls: null,
+    };
     output.push(
       <ChatMessage
-        key={messages.length}
-        message={{ role: ChatRoleEnum.assistant, content: [] }}
+        key={placeholderMessage.id}
+        message={placeholderMessage}
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
         isStreaming={true}

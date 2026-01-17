@@ -6,7 +6,7 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChatSectionChatIdUpdate,
   clearPendingChatDetails,
@@ -193,9 +193,14 @@ function ScriptableChatArea({
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
+  const [draftInputText, setDraftInputText] = useState<string | null>(null);
 
   const handleInputChange = useCallback(
     (value: string) => {
+      if (waitingForResponse) {
+        setDraftInputText(value);
+        return;
+      }
       useProjectState.setState((state) => {
         const current = getCurrEffectiveSectionImplOfType(
           state,
@@ -210,8 +215,31 @@ function ScriptableChatArea({
         });
       });
     },
-    [sectionId],
+    [sectionId, waitingForResponse],
   );
+
+  useEffect(() => {
+    if (waitingForResponse) {
+      return;
+    }
+    if (draftInputText === null) {
+      return;
+    }
+    useProjectState.setState((state) => {
+      const current = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      if (draftInputText === current.inputText) {
+        return;
+      }
+      setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+        inputText: draftInputText,
+      });
+    });
+    setDraftInputText(null);
+  }, [draftInputText, sectionId, waitingForResponse]);
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
@@ -302,6 +330,8 @@ function ScriptableChatArea({
   ]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
+  const effectiveInputText =
+    waitingForResponse && draftInputText !== null ? draftInputText : inputText;
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
@@ -316,7 +346,7 @@ function ScriptableChatArea({
         placeholderText="Type a message..."
         waitingForResponse={waitingForResponse}
         disabled={isFrozen}
-        value={inputText}
+        value={effectiveInputText}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onStop={handleStop}

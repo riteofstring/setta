@@ -442,21 +442,28 @@ class ChatSession:
                 await self.cancel()
                 self._assistant_builder = None
 
-        assistant_message = self._assistant_builder.finalize()
+        builder = self._require_builder()
+        await self._stream.emit_message_stop(
+            chat_id=self.chat_id,
+            message_id=builder.id,
+        )
+        assistant_message = builder.finalize()
         await self._history.append(
             chat_id=self.chat_id,
             messages=[assistant_message],
         )
-        await self._stream.emit_message_finalized(
-            chat_id=self.chat_id,
-            message=assistant_message,
-        )
 
+        tool_results: list[ToolChatMessage] = []
         if run_tools and assistant_message.tool_calls:
             tool_results = await self._tools.run(
                 chat_id=self.chat_id,
                 tool_calls=assistant_message.tool_calls,
             )
+            for tool_result in tool_results:
+                await self._stream.emit_tool_result(
+                    chat_id=self.chat_id,
+                    message=tool_result,
+                )
             await self._history.append(
                 chat_id=self.chat_id,
                 messages=tool_results,
@@ -466,6 +473,10 @@ class ChatSession:
             section_id=self.section_id,
             chat_id=self.chat_id,
             waiting_for_response=False,
+        )
+        await self._stream.emit_message_finalized(
+            chat_id=self.chat_id,
+            message=assistant_message,
         )
         self._assistant_builder = None
         return assistant_message
