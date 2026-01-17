@@ -115,9 +115,7 @@ class ManagedActionExecutor:
                 server_id_set = set(self._mcp_client.server_configs.keys())
             else:
                 if not allowed_server_ids:
-                    raise ValueError(
-                        "Search tool requires configured MCP server IDs."
-                    )
+                    raise ValueError("Search tool requires configured MCP server IDs.")
                 server_id_set = set(allowed_server_ids)
             if not server_id_set:
                 raise ValueError("Search tool requires configured MCP server IDs.")
@@ -173,7 +171,10 @@ class ManagedActionExecutor:
                 )
             else:
                 server_id, _ = route
-                if allowed_server_ids is not None and server_id not in allowed_server_ids:
+                if (
+                    allowed_server_ids is not None
+                    and server_id not in allowed_server_ids
+                ):
                     self._logger.warning(
                         "MCP tool %s is not allowed; skipping call",
                         tool_name,
