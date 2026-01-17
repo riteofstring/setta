@@ -1,4 +1,4 @@
-import { pickBestCollision } from "forks/dnd-kit/adapter/collisionCompare";
+import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addDndChild,
   removeDndChild,
@@ -421,22 +421,8 @@ export function getOverId(
   over: { id: string | number } | null,
   collisions: DragOverEvent["collisions"] | null,
 ) {
-  const collisionOver = getCollisionOverId(collisions);
-  const resolvedOverId = collisionOver ?? (over ? over.id : null);
-  if (!resolvedOverId || !collisions || collisions.length === 0) {
-    return resolvedOverId;
-  }
-
-  const resolvedOverIdKey = String(resolvedOverId);
-  const dndChildrenState = useDndChildren.getState();
-  for (const collision of collisions) {
-    const collisionId = String(collision.id);
-    if (dndChildrenState.y[collisionId] === resolvedOverIdKey) {
-      return collision.id;
-    }
-  }
-
-  return resolvedOverId;
+  const fallbackId = over ? over.id : null;
+  return resolveOverCollisionId(collisions, fallbackId);
 }
 
 function getOverCollisionPastHalfway(
@@ -470,21 +456,6 @@ function getOverCollisionPastHalfway(
   }
 
   return Boolean(overCollision.pastHalfway);
-}
-
-function getCollisionOverId(
-  collisions: DragOverEvent["collisions"] | null,
-): string | number | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  const bestCollision = pickBestCollision(collisions);
-  if (bestCollision) {
-    return bestCollision.id;
-  }
-
-  return collisions[0]?.id ?? null;
 }
 
 function getSectionIsGlobalVariables(sectionId: string) {

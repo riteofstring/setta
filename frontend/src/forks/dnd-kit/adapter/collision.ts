@@ -8,7 +8,7 @@ import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
-import { pickBestCollision } from "./collisionCompare";
+import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
 
 let prevCollisionId: Draggable["id"] | null = null;
@@ -203,8 +203,16 @@ export function updateCollisionHysteresis(
     return;
   }
 
-  const bestCollision = pickBestCollision(collisions);
-  const resolvedCollision = bestCollision ?? collisions[0];
+  let resolvedCollision = resolveOverCollision(collisions);
+  if (!resolvedCollision) {
+    resolvedCollision = collisions[0] ?? null;
+  }
+  if (!resolvedCollision) {
+    prevCollisionId = null;
+    prevPastHalfway = null;
+    prevCollisionRect = null;
+    return;
+  }
   prevCollisionId = resolvedCollision.id;
   prevPastHalfway = resolvedCollision.pastHalfway ?? null;
   const droppableRect =

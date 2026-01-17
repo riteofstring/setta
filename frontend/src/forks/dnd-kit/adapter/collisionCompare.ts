@@ -67,11 +67,22 @@ function getChildCollisionForParent(
   collisions: SettaCollision[] | null,
   parentCollision: SettaCollision | null,
 ): SettaCollision | null {
-  if (!collisions || collisions.length === 0 || !parentCollision) {
+  if (!parentCollision) {
     return null;
   }
 
-  const parentIdKey = String(parentCollision.id);
+  return getChildCollisionForParentId(collisions, parentCollision.id);
+}
+
+function getChildCollisionForParentId(
+  collisions: SettaCollision[] | null,
+  parentId: string | number,
+): SettaCollision | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  const parentIdKey = String(parentId);
   const dndChildrenState = useDndChildren.getState();
   for (const collision of collisions) {
     const collisionId = String(collision.id);
@@ -155,6 +166,37 @@ export function pickBestCollision(
   return childCollision ?? bestCollision;
 }
 
+export function resolveOverCollision(
+  collisions: SettaCollision[] | null,
+): SettaCollision | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  const baseCollision = pickBestCollision(collisions) ?? collisions[0] ?? null;
+  if (!baseCollision) {
+    return null;
+  }
+
+  const childCollision = getChildCollisionForParentId(
+    collisions,
+    baseCollision.id,
+  );
+  return childCollision ?? baseCollision;
+}
+
+export function resolveOverCollisionId(
+  collisions: SettaCollision[] | null,
+  fallbackId: string | number | null,
+): string | number | null {
+  const resolvedCollision = resolveOverCollision(collisions);
+  if (resolvedCollision) {
+    return resolvedCollision.id;
+  }
+
+  return fallbackId;
+}
+
 export function promoteBestCollision(
   collisions: SettaCollision[] | null,
 ): SettaCollision[] {
@@ -162,7 +204,7 @@ export function promoteBestCollision(
     return [];
   }
 
-  const bestCollision = pickBestCollision(collisions);
+  const bestCollision = resolveOverCollision(collisions);
   if (!bestCollision) {
     return collisions.slice();
   }
