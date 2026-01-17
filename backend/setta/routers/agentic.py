@@ -14,7 +14,6 @@ from setta.types.agentic import (
 from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.routes import Route
-from setta.utils.timestamps import get_now_timestamp
 
 router = SettaAPIRouter()
 
@@ -169,9 +168,10 @@ async def route_start_agent_run(
     await ctx.enforce_llm_allowed()
     profiles = ctx.state.dbe.read_agent_profiles()
     profile = _find_agent_profile(profiles, x.agentProfileId)
+    llm_config_id = x.llmConfigId or profile.llmConfigId
     run = AgentRun(
         agentProfileId=profile.id,
-        llmConfigId=x.llmConfigId or profile.llmConfigId,
+        llmConfigId=llm_config_id,
         inputs=x.inputs,
         status=AgentRunStatus.queued,
         events=[
@@ -182,6 +182,13 @@ async def route_start_agent_run(
         ],
     )
     ctx.state.dbe.write_agent_run(run)
+    ctx.state.agent_runner.start_run(
+        run=run,
+        profile=profile,
+        inputs=x.inputs,
+        llm_config_id=llm_config_id,
+        share_session_id=ctx.share_session_id,
+    )
     return run
 
 
@@ -192,20 +199,9 @@ async def route_stop_agent_run(
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating agent runs.")
-    run = ctx.state.dbe.read_agent_run(runId)
-    if run is None:
+    if ctx.state.dbe.read_agent_run(runId) is None:
         raise HTTPException(status_code=404, detail=f"Agent run not found: {runId}")
-    if run.status == AgentRunStatus.cancelled:
-        return run
-    run.status = AgentRunStatus.cancelled
-    run.completedAt = get_now_timestamp()
-    run.events.append(
-        RunEvent(
-            type=RunEventType.status,
-            status=run.status,
-        )
-    )
-    ctx.state.dbe.write_agent_run(run)
+    run = await ctx.state.agent_runner.stop_run(runId)
     return run
 
 

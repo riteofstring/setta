@@ -50,9 +50,10 @@ def run_agent_profile(
             break
     if profile is None:
         raise KeyError(f"Agent profile not found: {agentProfileId}")
+    llm_config_id = llmConfigId or profile.llmConfigId
     run = AgentRun(
         agentProfileId=profile.id,
-        llmConfigId=llmConfigId or profile.llmConfigId,
+        llmConfigId=llm_config_id,
         inputs=inputs,
         status=AgentRunStatus.queued,
         events=[
@@ -63,4 +64,11 @@ def run_agent_profile(
         ],
     )
     ctx.fastmcp.state.dbe.write_agent_run(run)
+    ctx.fastmcp.state.agent_runner.start_run(
+        run=run,
+        profile=profile,
+        inputs=inputs,
+        llm_config_id=llm_config_id,
+        share_session_id=None,
+    )
     return run

@@ -25,7 +25,12 @@ class AgenticToolsTests(unittest.TestCase):
                 llmConfigId="llm-default",
             )
             dbe.write_agent_profiles([profile])
-            ctx = Context(fastmcp=SimpleNamespace(state=SimpleNamespace(dbe=dbe)))
+            agent_runner = SimpleNamespace(start_run=lambda **_kwargs: None)
+            ctx = Context(
+                fastmcp=SimpleNamespace(
+                    state=SimpleNamespace(dbe=dbe, agent_runner=agent_runner)
+                )
+            )
 
             response = list_agent_profiles(ctx=ctx)
             self.assertEqual([profile], response.profiles)
@@ -42,7 +47,12 @@ class AgenticToolsTests(unittest.TestCase):
                 llmConfigId="llm-default",
             )
             dbe.write_agent_profiles([profile])
-            ctx = Context(fastmcp=SimpleNamespace(state=SimpleNamespace(dbe=dbe)))
+            agent_runner = SimpleNamespace(start_run=lambda **_kwargs: None)
+            ctx = Context(
+                fastmcp=SimpleNamespace(
+                    state=SimpleNamespace(dbe=dbe, agent_runner=agent_runner)
+                )
+            )
 
             run = run_agent_profile(
                 agentProfileId=profile.id,

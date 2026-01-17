@@ -211,3 +211,24 @@ class AgenticRouterTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(HTTPException) as raised:
                     await route_stop_agent_run(run.id, ctx)
                 self.assertEqual(403, raised.exception.status_code)
+
+    async def test_stop_agent_run_missing_returns_404(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "agentic-stop-missing-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowLLM=True))
+            state = await self._build_state(root)
+            original_share_mode = state.share_mode
+            state.share_mode = False
+            try:
+                with runtime_context(state) as ctx:
+                    with self.assertRaises(HTTPException) as raised:
+                        await route_stop_agent_run(ID("missing-run"), ctx)
+                    self.assertEqual(404, raised.exception.status_code)
+            finally:
+                state.share_mode = original_share_mode
