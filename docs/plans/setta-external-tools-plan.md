@@ -12,6 +12,14 @@ data model that external adapters depend on.
 - Respect tool-specific approval/sandbox systems while keeping Setta as the control plane.
 - Keep configuration and credentials out of project state; use env variables and workspace-level settings.
 
+## Feature preservation contract (non-negotiable)
+Backward compatibility is not required, but user-visible features must be preserved. External agents are additive and must not replace existing chat behavior.
+
+- Preserve managed and scriptable Chat section modes and their UI controls (LLM config selection, deep-think, new chat).
+- Keep chat toolkit helpers and routes used by listeners and Chat section state sync.
+- Maintain `LLMStreamingResponse` semantics and AIFollow updates; external events must map into existing stream types.
+- Do not remove Chat section state fields or routes unless an explicit migration preserves behavior.
+
 ## Non-goals (for this plan)
 - Replacing Setta's native agent runner.
 - Building full UI parity with each external tool's native UI.
@@ -148,6 +156,11 @@ Adapters:
 
 ### AIFollow parity
 - Goal: AIFollow should work with external events, not just native MCP tool calls.
+
+## Acceptance checks (minimum)
+- Existing managed and scriptable chats still work unchanged when no external engine is selected.
+- External agent runs render in the same stream UI without breaking AIFollow.
+- Listener-based chat workflows still compile and run using the chat toolkit.
 
 ## Key risks and mitigations
 

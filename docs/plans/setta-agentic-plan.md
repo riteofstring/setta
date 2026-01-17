@@ -21,6 +21,21 @@ focuses on internal agent primitives that external adapters build on.
 - No per-agent tool allowlists or sandbox profiles beyond the per-LLM-config MCP server filters.
 - No explicit context budget controls or memory lenses for prompt construction.
 
+## Feature preservation contract (non-negotiable)
+Backward compatibility is not required, but user-visible features must be preserved. Agentic features are additive and must not delete or bypass existing chat behavior.
+
+- Preserve managed and scriptable Chat section modes, including `llmConfigId`, `deepThink`, `chatId`, and `ChatSectionState`-style message rendering.
+- Keep the chat toolkit surface usable for listeners (`ChatSession`, `ChatSectionSyncClient`, `on_chat_send_event`, and streaming helpers).
+- Keep chat section routes that the toolkit and UI rely on (set/get chat section state and chat id), even if internals change.
+- Maintain the `LLMStreamingResponse` contract, `sectionId`-based updates, and AIFollow behavior.
+- If a replacement is necessary, provide a migration path and explicitly list feature parity before removal.
+
+## Acceptance checks (minimum)
+- A managed chat still streams LLM responses into the Chat section UI with tools and AIFollow.
+- A scriptable chat still works via listeners using the chat toolkit helpers.
+- Changing LLM config and deep-think settings still affects managed chat behavior.
+- Chat sections still support "new chat" and persisted chat history.
+
 ## Plan
 
 ### Phase 1: Agent primitives
