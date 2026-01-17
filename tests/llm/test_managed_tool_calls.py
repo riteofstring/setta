@@ -83,6 +83,56 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
         self.assertEqual(failures, {})
         self.assertEqual(parsed[0].function.arguments, {"value": "ok"})
 
+    def test_accepts_non_string_arguments_as_full_payload(self) -> None:
+        assistant = AssistantChatMessage(content=[])
+        accumulator = ManagedToolCallAccumulator(assistant)
+
+        entry = ChatCompletionDeltaToolCall(
+            index=0,
+            id="tool-call-1",
+            type="function",
+            function=Function(
+                name="setta__run_tool",
+                arguments=None,
+            ),
+        )
+        entry.function.arguments = {"value": "ok"}
+        accumulator.apply_delta(entry)
+
+        parsed, failures = accumulator.finalize()
+
+        self.assertEqual(failures, {})
+        self.assertEqual(parsed[0].function.arguments, {"value": "ok"})
+
+    def test_rejects_deltas_after_full_payload(self) -> None:
+        assistant = AssistantChatMessage(content=[])
+        accumulator = ManagedToolCallAccumulator(assistant)
+
+        entry = ChatCompletionDeltaToolCall(
+            index=0,
+            id="tool-call-1",
+            type="function",
+            function=Function(
+                name="setta__run_tool",
+                arguments=None,
+            ),
+        )
+        entry.function.arguments = {"value": "ok"}
+        accumulator.apply_delta(entry)
+
+        with self.assertRaises(ValueError):
+            accumulator.apply_delta(
+                ChatCompletionDeltaToolCall(
+                    index=0,
+                    id="tool-call-1",
+                    type="function",
+                    function=Function(
+                        name="setta__run_tool",
+                        arguments='{"value": "later"}',
+                    ),
+                )
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

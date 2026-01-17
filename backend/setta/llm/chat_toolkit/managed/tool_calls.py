@@ -11,6 +11,7 @@ from setta.types.chat_stream_events import ToolCallDeltaEvent
 @dataclass
 class ManagedToolCallState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+    sealed_tool_call_indexes: set[int] = field(default_factory=set)
 
 
 class ManagedToolCallAccumulator:
@@ -41,8 +42,26 @@ class ManagedToolCallAccumulator:
             tool_call.function.name = entry.function.name
 
         raw_arguments = entry.function.arguments
-        arguments_delta = raw_arguments if isinstance(raw_arguments, str) else ""
         buffer = self._state.argument_buffers.get(index, "")
+        if index in self._state.sealed_tool_call_indexes:
+            if raw_arguments is not None and not (
+                isinstance(raw_arguments, str) and raw_arguments == ""
+            ):
+                raise ValueError(
+                    f"Tool call {index} received arguments after full payload"
+                )
+            arguments_delta = ""
+        elif isinstance(raw_arguments, str):
+            arguments_delta = raw_arguments
+        elif raw_arguments is None:
+            arguments_delta = ""
+        else:
+            if buffer:
+                raise TypeError(
+                    f"Tool call {index} received non-string arguments after deltas"
+                )
+            arguments_delta = json.dumps(raw_arguments)
+            self._state.sealed_tool_call_indexes.add(index)
         if arguments_delta:
             buffer += arguments_delta
         self._state.argument_buffers[index] = buffer
