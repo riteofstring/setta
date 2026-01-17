@@ -300,7 +300,11 @@ export function ParamDndProvider({
         onDragEnd={handleDragEnd}
         onDragCancel={resetDragState}
       >
-        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          id={sectionId}
+          items={items}
+          strategy={verticalListSortingStrategy}
+        >
           {children}
         </SortableContext>
       </DragDropProvider>

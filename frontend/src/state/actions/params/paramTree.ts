@@ -7,6 +7,7 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
+  type BaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
 type ParamFlatItem = {
@@ -22,6 +23,16 @@ export type ParamTreeView = {
   flat: ParamFlatItem[];
   visibleChildrenByParent: Record<string, string[]>;
 };
+
+function hasParamVariant(
+  sectionImpl: BaseSectionWithParamsImpl,
+  paramId: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(
+    sectionImpl.codeObjVariantMap,
+    paramId,
+  );
+}
 
 export function getParamRootId(
   state: ZustandProjectState,
@@ -52,6 +63,14 @@ export function buildParamParentMap(
   sectionId: string,
   rootId: string,
 ): Record<string, string | null> {
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+    state,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
+  if (!hasParamVariant(sectionImpl, rootId)) {
+    return { [rootId]: null };
+  }
   const rootImpl = getCurrEffectiveCodeObjImpl(state, sectionId, rootId);
   if (!isBaseParentCodeObjImpl(rootImpl)) {
     throw new Error(`Root param ${rootId} is not a parent.`);
@@ -59,11 +78,17 @@ export function buildParamParentMap(
   const parentById: Record<string, string | null> = { [rootId]: null };
 
   function walk(parentId: string) {
+    if (!hasParamVariant(sectionImpl, parentId)) {
+      return;
+    }
     const parentImpl = getCurrEffectiveCodeObjImpl(state, sectionId, parentId);
     if (!isBaseParentCodeObjImpl(parentImpl)) {
       return;
     }
     for (const childId of parentImpl.children) {
+      if (!hasParamVariant(sectionImpl, childId)) {
+        continue;
+      }
       parentById[childId] = parentId;
       walk(childId);
     }
@@ -79,6 +104,11 @@ export function buildParamTreeView(
   topLevelParamIds: string[],
   requiredParamIdsToPaths: Record<string, string[]>,
 ): ParamTreeView {
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+    state,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
   const rootId = getParamRootId(state, sectionId);
   const parentById = buildParamParentMap(state, sectionId, rootId);
   const visibleSet = new Set(Object.keys(requiredParamIdsToPaths));
@@ -87,6 +117,9 @@ export function buildParamTreeView(
 
   function walk(paramId: string, depth: number, parentId: string) {
     if (!visibleSet.has(paramId)) {
+      return;
+    }
+    if (!hasParamVariant(sectionImpl, paramId)) {
       return;
     }
     const impl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
