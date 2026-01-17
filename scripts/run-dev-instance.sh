@@ -63,9 +63,10 @@ if [ -z "${INSTANCE_OFFSET}" ] && [ "${#INSTANCE_SEGMENT}" -eq 1 ]; then
 fi
 if [ -z "${INSTANCE_OFFSET}" ] && [ -n "${INSTANCE_SEGMENT}" ]; then
   if command -v cksum >/dev/null 2>&1; then
-    set -- $(printf "%s" "${INSTANCE_SEGMENT}" | cksum)
-    if [ -n "$1" ]; then
-      INSTANCE_OFFSET=$(( $1 % 100 ))
+    CKSUM_OUTPUT=$(printf "%s" "${INSTANCE_SEGMENT}" | cksum)
+    CKSUM_VALUE=${CKSUM_OUTPUT%% *}
+    if [ -n "${CKSUM_VALUE}" ]; then
+      INSTANCE_OFFSET=$(( CKSUM_VALUE % 100 ))
     fi
   fi
 fi
