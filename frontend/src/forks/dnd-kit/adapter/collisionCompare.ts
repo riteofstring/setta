@@ -150,7 +150,7 @@ function compareCollisions(
   return ratioB - ratioA > 0 ? b : a;
 }
 
-export function pickBestCollision(
+function pickBestCollision(
   collisions: SettaCollision[] | null,
 ): SettaCollision | null {
   if (!collisions || collisions.length === 0) {
