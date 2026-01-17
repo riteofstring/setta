@@ -11,6 +11,7 @@
 - UI renders params via `ParamSwitch`/`ParamContainer` and `GetParamSwitch` in `frontend/src/components/Params/`.
 - Selection is stored per section as `selectedParams` and toggled with the param-select shortcut (`SettingsShortcuts.paramSelect`).
 - DnD is already wired for sections via the `frontend/src/forks/dnd-kit/` adapter and `GlobalDndContext`.
+- Note: dnd-kit docs can be read using the Context7 tool; use the docs for `next.dndkit.com` (the version we use).
 
 ## UX behavior proposal
 - Dragging is only enabled while holding the param-select shortcut.
