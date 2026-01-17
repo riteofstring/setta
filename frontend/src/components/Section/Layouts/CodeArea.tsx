@@ -36,10 +36,6 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import {
-  getPythonCodegenTarget,
-  projectConfigHasPythonCodegen,
-} from "utils/codegenTargets";
-import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -328,31 +324,16 @@ function BashCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
-  const hasPythonCodegen = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
-  if (!hasPythonCodegen) {
-    return <GenPythonCodeAreaDisabled />;
-  }
-  return <GenPythonCodeAreaContent sectionId={sectionId} />;
-}
-
-function GenPythonCodeAreaDisabled() {
-  return null;
-}
-
-function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const { code, prefix, suffix } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.GenPythonCode,
     );
-    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     return {
       code: impl.code,
-      prefix: pythonTarget?.genCodePrefix ?? "",
-      suffix: pythonTarget?.genCodeSuffix ?? "",
+      prefix: x.projectConfig.genCodePrefix,
+      suffix: x.projectConfig.genCodeSuffix,
     };
   });
 
@@ -736,11 +717,7 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
 const debouncedSetGenCodePrefix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodePrefix = value;
+      state.projectConfig.genCodePrefix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_prefix({
@@ -754,11 +731,7 @@ const debouncedSetGenCodePrefix = _.debounce((value: string) => {
 const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodeSuffix = value;
+      state.projectConfig.genCodeSuffix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_suffix({

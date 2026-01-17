@@ -64,7 +64,6 @@ function _SectionItem({
     );
   }
 
-  // The div id is used for tabbing purposes
   return (
     <li
       id={`${sectionId}-OverviewListItem`}
