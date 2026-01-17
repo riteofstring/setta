@@ -7,7 +7,7 @@ listener-driven updates move through the system, plus when disk writes happen.
 ```
 UI change
   -> if meta control is an action control:
-       send RealtimeActionEvent (always)
+       send RealtimeDependencyEvent (SectionDependencyKey)
      else:
        update local pending value on the control param
        send RealtimeUIChange for SectionDependencyKey
@@ -15,8 +15,8 @@ UI change
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
       -> WMHPythonScriptSender fan-out
            - realtime deltas -> sockets with matching dependencies or realtime wildcard
-           - action events -> sockets with matching action ids or action wildcard
-  -> SettaListener applies deltas/actions, schedules callbacks (debounce/throttle)
+           - action events -> sockets with matching dependencies or action wildcard
+  -> SettaListener applies deltas/action events, schedules callbacks (debounce/throttle)
 ```
 
 Key paths:
