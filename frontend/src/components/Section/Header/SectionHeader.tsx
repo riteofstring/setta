@@ -13,6 +13,7 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
+import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 
 type SectionHeaderProps = {
@@ -72,6 +73,9 @@ function _SectionHeader({
               sectionTypeName={sectionTypeName}
             />
           </>
+        )}
+        {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
+          <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}

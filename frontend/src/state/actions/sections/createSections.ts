@@ -14,6 +14,7 @@ import {
   Position,
   SectionType,
   SectionTypeEnum,
+  TextBlockDisplayModeEnum,
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
@@ -46,11 +47,15 @@ export async function createTopLevelSection({
     return null;
   }
   const placement = getSmartPlacementContext();
+  const resolvedImplOverrides = resolveTextBlockImplOverrides(
+    implType,
+    implOverrides,
+  );
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
     implType,
     controlCodeObjType,
-    implOverrides,
+    implOverrides: resolvedImplOverrides,
     position,
     topLevelSections: placement.topLevelSections,
     viewportBounds: placement.viewportBounds,
@@ -150,4 +155,33 @@ export function getEmptySpacePosition() {
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
   return { x: x + positionOffset.x, y: y + positionOffset.y };
+}
+
+function resolveTextBlockImplOverrides(
+  implType: CreateTopLevelSectionRequestInput["implType"],
+  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
+): CreateTopLevelSectionRequestInput["implOverrides"] {
+  if (implType !== SectionTypeEnum.TextBlock) {
+    return implOverrides;
+  }
+
+  if (!implOverrides) {
+    return {
+      type: SectionTypeEnum.TextBlock,
+      textDisplayMode: TextBlockDisplayModeEnum.Edit,
+    };
+  }
+
+  const resolvedBase =
+    "type" in implOverrides && implOverrides.type
+      ? implOverrides
+      : { ...implOverrides, type: SectionTypeEnum.TextBlock };
+  if ("textDisplayMode" in resolvedBase && resolvedBase.textDisplayMode) {
+    return resolvedBase;
+  }
+
+  return {
+    ...resolvedBase,
+    textDisplayMode: TextBlockDisplayModeEnum.Edit,
+  };
 }
