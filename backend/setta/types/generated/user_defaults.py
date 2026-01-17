@@ -24,6 +24,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -43,6 +44,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 

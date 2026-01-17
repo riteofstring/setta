@@ -110,6 +110,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
@@ -2013,6 +2014,16 @@ def set_text_block_meta_control_style(
         p,
         sectionId,
         TextBlockSectionImplArgsWithCallable(metaControlStyle=metaControlStyle),
+    )
+
+
+def set_section_with_params_display_mode(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    displayMode: SectionWithParamsDisplayMode,
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, BaseSectionWithParamsImplArgsWithCallable(displayMode=displayMode)
     )
 
 

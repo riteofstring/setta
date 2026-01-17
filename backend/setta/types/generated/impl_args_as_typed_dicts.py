@@ -31,6 +31,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -73,6 +74,7 @@ class CoreArgs(TypedDict):
                 "dataPath",
                 "defaultVal",
                 "description",
+                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -189,6 +191,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -216,6 +219,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
+    ]
+    displayMode: NotRequired[
+        SectionWithParamsDisplayMode
+        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
     ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[

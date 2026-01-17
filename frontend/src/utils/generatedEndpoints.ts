@@ -671,6 +671,12 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
+export async function route_set_section_with_params_display_mode(
+  x: gt.SetSectionWithParamsDisplayModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionWithParamsDisplayMode", x);
+}
+
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

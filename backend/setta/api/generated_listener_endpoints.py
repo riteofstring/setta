@@ -50,6 +50,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     SectionSize,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -538,6 +539,13 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
+
+
+class ListenerSetSectionWithParamsDisplayModeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    displayMode: SectionWithParamsDisplayMode
 
 
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
@@ -1029,6 +1037,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionVariantNameRequestPayload
     ) -> None:
         return await self._caller("route_set_section_variant_name", payload)
+
+    async def set_section_with_params_display_mode(
+        self, payload: ListenerSetSectionWithParamsDisplayModeRequestPayload
+    ) -> None:
+        return await self._caller("route_set_section_with_params_display_mode", payload)
 
     async def set_show_param_display_names(
         self, payload: ListenerSetShowParamDisplayNamesRequestPayload

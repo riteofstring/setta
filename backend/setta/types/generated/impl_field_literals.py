@@ -27,6 +27,7 @@ AllImplFields = Literal[
     "dataPath",
     "defaultVal",
     "description",
+    "displayMode",
     "drawThrottleDelay",
     "edgeInputParams",
     "edgeOutputPorts",
