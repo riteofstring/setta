@@ -65,7 +65,11 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
 )
-from setta.types.project_config import get_python_codegen_target_with_type_guard
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    get_python_codegen_target_with_type_guard,
+    project_config_has_codegen_language,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
@@ -976,6 +980,18 @@ class SettaListener:
                 incoming_project_id,
             )
             self._project_config_id = incoming_project_id
+
+        if not project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        ):
+            logger.error(
+                "Listener %s requires python codegen; disabled for project %s",
+                self._log_identifier,
+                incoming_project_id,
+            )
+            self.stop()
+            raise RuntimeError("Listener requires python codegen to be enabled.")
 
         try:
             runtime_state = self._build_runtime_state(project_state)
