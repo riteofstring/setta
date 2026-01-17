@@ -112,7 +112,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
     SectionType,
     SectionSizeMode,
-    SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
     CodeFileBinding,
@@ -127,12 +126,6 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
 )
 from setta.types.edges import Edge, EdgePort
-from setta.types.chat_messages import (
-    AssistantChatMessage,
-    SystemChatMessage,
-    ToolChatMessage,
-    UserChatMessage,
-)
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
 from setta.types.generated.shared_modifier import SharedModifier
 
