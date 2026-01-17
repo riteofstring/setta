@@ -290,6 +290,8 @@ class ChatSectionImpl(BaseSectionImpl):
     llmConfigId: str | None = None
     chatId: ID | None = None
     deepThink: bool = False
+    agentProfileId: ID | None = None
+    agentRunId: ID | None = None
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

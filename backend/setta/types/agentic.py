@@ -90,6 +90,7 @@ class RunEvent(BaseModel, extra="forbid"):
 class AgentRun(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     agentProfileId: ID | None = None
+    sectionId: ID | None = None
     llmConfigId: str | None = None
     inputs: JSONValue | None = None
     outputs: JSONValue | None = None

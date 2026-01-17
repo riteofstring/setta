@@ -477,9 +477,8 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
+    agentProfileId: ID | None
+    agentRunId: ID | None
 
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):

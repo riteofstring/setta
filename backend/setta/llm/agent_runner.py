@@ -97,6 +97,9 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 class _RunState:
     assistant_message: AssistantChatMessage
     stream: CustomStreamWrapper | None = None
+    section_id: ID | None = None
+    share_session_id: str | None = None
+    project_config_id: ID | None = None
 
 
 class AgentRunner:
@@ -151,8 +154,11 @@ class AgentRunner:
         profile: AgentProfile,
         inputs: JSONValue,
         llm_config_id: str,
+        section_id: ID | None,
         share_session_id: str | None,
     ) -> None:
+        if section_id is not None:
+            run.sectionId = section_id
         existing = self._tasks.get(run.id)
         if existing and not existing.done():
             logger.info("Agent run %s already active; cancelling", run.id)
@@ -163,6 +169,7 @@ class AgentRunner:
                 profile=profile,
                 inputs=inputs,
                 llm_config_id=llm_config_id,
+                section_id=section_id,
                 share_session_id=share_session_id,
             ),
             name=f"agent-run-{run.id}",
@@ -212,6 +219,7 @@ class AgentRunner:
         profile: AgentProfile,
         inputs: JSONValue,
         llm_config_id: str,
+        section_id: ID | None,
         share_session_id: str | None,
     ) -> None:
         try:
@@ -240,8 +248,13 @@ class AgentRunner:
                 )
                 preview_state = ManagedToolArgumentPreviewState()
                 stream_assembler = ManagedStreamAssembler(assistant_message)
-                self._sessions[run.id] = _RunState(assistant_message=assistant_message)
-                self._append_stream_event(
+                self._sessions[run.id] = _RunState(
+                    assistant_message=assistant_message,
+                    section_id=section_id or run.sectionId,
+                    share_session_id=share_session_id,
+                    project_config_id=active_project_config_id,
+                )
+                await self._append_stream_event(
                     run,
                     MessageStartEvent(message=assistant_message),
                 )
@@ -259,10 +272,9 @@ class AgentRunner:
                         tool_call_accumulator=tool_call_accumulator,
                         preview_state=preview_state,
                         chunk=chunk,
-                        active_project_config_id=active_project_config_id,
                     )
 
-                self._append_stream_event(
+                await self._append_stream_event(
                     run,
                     MessageStopEvent(message_id=assistant_message.id),
                 )
@@ -299,7 +311,7 @@ class AgentRunner:
                 if tool_results:
                     messages.extend(tool_results)
 
-                self._append_stream_event(
+                await self._append_stream_event(
                     run,
                     MessageFinalizedEvent(message=assistant_message),
                 )
@@ -689,7 +701,6 @@ class AgentRunner:
         tool_call_accumulator: ManagedToolCallAccumulator,
         preview_state: ManagedToolArgumentPreviewState,
         chunk: ModelResponseStream,
-        active_project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -698,7 +709,7 @@ class AgentRunner:
         delta = choice.delta
         if not delta:
             return
-        self._handle_text_deltas(
+        await self._handle_text_deltas(
             run=run,
             assistant_message=assistant_message,
             stream_assembler=stream_assembler,
@@ -710,10 +721,9 @@ class AgentRunner:
             delta=delta,
             tool_call_accumulator=tool_call_accumulator,
             preview_state=preview_state,
-            active_project_config_id=active_project_config_id,
         )
 
-    def _handle_text_deltas(
+    async def _handle_text_deltas(
         self,
         *,
         run: AgentRun,
@@ -724,7 +734,7 @@ class AgentRunner:
         text_deltas = self._build_text_deltas(delta, stream_assembler)
         if not text_deltas:
             return
-        self._append_stream_event(
+        await self._append_stream_event(
             run,
             MessageDeltaEvent(
                 message_id=assistant_message.id,
@@ -874,7 +884,6 @@ class AgentRunner:
         delta: Delta,
         tool_call_accumulator: ManagedToolCallAccumulator,
         preview_state: ManagedToolArgumentPreviewState,
-        active_project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
@@ -915,7 +924,7 @@ class AgentRunner:
                 tokens_by_index={entry.index: tokens} if tokens is not None else None,
                 run_id=run.id,
             )
-            self._append_stream_event(run, event, metadata=metadata)
+            await self._append_stream_event(run, event, metadata=metadata)
 
     def _build_streaming_follow_metadata(
         self,
@@ -1016,7 +1025,7 @@ class AgentRunner:
                 if isinstance(action.chunk, ToolResultEvent):
                     tool_results.append(action.chunk.result)
                     self._append_tool_result_event(run, action.chunk.result)
-                self._append_stream_event(run, action.chunk)
+                await self._append_stream_event(run, action.chunk)
                 continue
             if isinstance(action, UpdateAIFollowAction):
                 run.events.append(
@@ -1029,6 +1038,14 @@ class AgentRunner:
                         },
                     )
                 )
+                run_state = self._sessions.get(run.id)
+                if run_state and run_state.project_config_id:
+                    await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+                        run_state.project_config_id,
+                        run.id,
+                        action.ids_by_type,
+                        share_session_id=run_state.share_session_id,
+                    )
                 continue
             if isinstance(action, UpdateAIFollowResultAction):
                 run.events.append(
@@ -1041,6 +1058,14 @@ class AgentRunner:
                         },
                     )
                 )
+                run_state = self._sessions.get(run.id)
+                if run_state and run_state.project_config_id:
+                    await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+                        run_state.project_config_id,
+                        run.id,
+                        action.ids_by_type,
+                        share_session_id=run_state.share_session_id,
+                    )
                 continue
             if isinstance(action, ExecuteToolCallsAction):
                 next_actions = await self._action_executor.apply(action)
@@ -1049,7 +1074,7 @@ class AgentRunner:
         self.dbe.write_agent_run(run)
         return tool_results
 
-    def _append_stream_event(
+    async def _append_stream_event(
         self,
         run: AgentRun,
         chunk: LLMStreamingResponseChunk,
@@ -1064,6 +1089,23 @@ class AgentRunner:
             )
         )
         self.dbe.write_agent_run(run)
+        run_state = self._sessions.get(run.id)
+        if run_state:
+            await self.websocket_msg_handler.send_streaming_response(
+                run.id,
+                chunk,
+                section_id=run_state.section_id,
+                share_session_id=run_state.share_session_id,
+            )
+            if metadata:
+                ids_by_type = metadata.get("aiFollowIdsByType")
+                if ids_by_type and run_state.project_config_id:
+                    await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+                        run_state.project_config_id,
+                        run.id,
+                        ids_by_type,
+                        share_session_id=run_state.share_session_id,
+                    )
 
     def _append_tool_call_events(
         self, run: AgentRun, tool_calls: list[ToolCall]

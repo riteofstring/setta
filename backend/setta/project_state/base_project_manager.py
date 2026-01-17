@@ -1897,9 +1897,8 @@ class BaseProjectManager(ABC):
         set_chat_section_settings(
             project_state,
             x.sectionId,
-            x.managed,
-            x.llmConfigId,
-            x.deepThink,
+            x.agentProfileId,
+            x.agentRunId,
         )
         await self.update_and_broadcast_project_state(project_state)
 

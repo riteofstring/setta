@@ -30,6 +30,7 @@ class StartAgentRunRequest(BaseModel):
     agentProfileId: ID
     inputs: JSONValue | None = None
     llmConfigId: str | None = None
+    sectionId: ID | None = None
 
 
 class CreatePromptTemplateRequest(BaseModel):
@@ -171,6 +172,7 @@ async def route_start_agent_run(
     llm_config_id = x.llmConfigId or profile.llmConfigId
     run = AgentRun(
         agentProfileId=profile.id,
+        sectionId=x.sectionId,
         llmConfigId=llm_config_id,
         inputs=x.inputs,
         status=AgentRunStatus.queued,
@@ -187,6 +189,7 @@ async def route_start_agent_run(
         profile=profile,
         inputs=x.inputs,
         llm_config_id=llm_config_id,
+        section_id=x.sectionId,
         share_session_id=ctx.share_session_id,
     )
     return run

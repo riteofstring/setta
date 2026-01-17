@@ -303,7 +303,7 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
-async function route_list_agent_profiles(): Promise<
+export async function route_list_agent_profiles(): Promise<
   ResponseDataAndStatus<Array<gt.AgentProfile>>
 > {
   return await get("/agentic/profiles");
@@ -348,13 +348,13 @@ async function route_get_agent_run(
   return await get("/agentic/runs/{runId}", { runId });
 }
 
-async function route_start_agent_run(
+export async function route_start_agent_run(
   x: gt.StartAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post("/agentic/runs", x);
 }
 
-async function route_stop_agent_run(
+export async function route_stop_agent_run(
   runId: gt.ID,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post("/agentic/runs/{runId}/stop", null, { runId });
@@ -873,7 +873,7 @@ async function route_get_chat_section_chat_id(
   return await post("/getChatSectionChatId", x);
 }
 
-export async function route_set_chat_section_chat_id(
+async function route_set_chat_section_chat_id(
   x: gt.SetChatSectionChatIdRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionChatId", x);

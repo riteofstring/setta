@@ -40,6 +40,7 @@ def run_agent_profile(
     ctx: Context,
     inputs: JSONValue | None = None,
     llmConfigId: str | None = None,
+    sectionId: ID | None = None,
 ) -> AgentRun:
     """Create a queued agent run for the requested profile."""
     profiles = ctx.fastmcp.state.dbe.read_agent_profiles()
@@ -53,6 +54,7 @@ def run_agent_profile(
     llm_config_id = llmConfigId or profile.llmConfigId
     run = AgentRun(
         agentProfileId=profile.id,
+        sectionId=sectionId,
         llmConfigId=llm_config_id,
         inputs=inputs,
         status=AgentRunStatus.queued,
@@ -69,6 +71,7 @@ def run_agent_profile(
         profile=profile,
         inputs=inputs,
         llm_config_id=llm_config_id,
+        section_id=sectionId,
         share_session_id=None,
     )
     return run

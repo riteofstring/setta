@@ -677,9 +677,8 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
+    agentProfileId: ID | None
+    agentRunId: ID | None
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

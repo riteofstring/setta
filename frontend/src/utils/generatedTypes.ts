@@ -1197,6 +1197,8 @@ export function createSectionSize(
 const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
+  agentRunId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -1314,6 +1316,8 @@ const CoreSchema = z.object({
       z.literal([
         "actionMode",
         "activeLayerIdx",
+        "agentProfileId",
+        "agentRunId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -1799,6 +1803,8 @@ const ChatSectionImplSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  agentRunId: z.union([IDSchema, z.null()]).default(null),
   messages: z
     .array(
       z.union([
@@ -2914,6 +2920,8 @@ const ChatSectionImplArgsSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
+  agentRunId: z.union([IDSchema, z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -3815,6 +3823,8 @@ const UserDefaultChatSectionImplSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  agentRunId: z.union([IDSchema, z.null()]).default(null),
   messages: z
     .array(
       z.union([
@@ -5011,6 +5021,7 @@ const RunEventSchema = z.object({
 const AgentRunSchema = z.object({
   id: IDSchema.default(create_new_id),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  sectionId: z.union([IDSchema, z.null()]).default(null),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
   inputs: z
     .union([
@@ -5499,6 +5510,7 @@ const StartAgentRunRequestSchema = z.object({
     ])
     .default(null),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
+  sectionId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type StartAgentRunRequestInput = z.input<
@@ -6211,9 +6223,8 @@ const SetChatSectionSettingsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  managed: z.boolean(),
-  llmConfigId: z.union([z.string(), z.null()]),
-  deepThink: z.boolean(),
+  agentProfileId: z.union([IDSchema, z.null()]),
+  agentRunId: z.union([IDSchema, z.null()]),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<

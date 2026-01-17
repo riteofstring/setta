@@ -56,6 +56,8 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
+                "agentProfileId",
+                "agentRunId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -543,6 +545,8 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     llmConfigId: NotRequired[str | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
+    agentProfileId: NotRequired[ID | None]
+    agentRunId: NotRequired[ID | None]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -562,6 +566,8 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
+    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    agentRunId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

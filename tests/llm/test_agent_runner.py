@@ -74,6 +74,7 @@ class AgentRunnerTests(unittest.IsolatedAsyncioTestCase):
                 profile=profile,
                 inputs=None,
                 llm_config_id=profile.llmConfigId,
+                section_id=None,
                 share_session_id=None,
             )
             try:
@@ -115,6 +116,7 @@ class AgentRunnerTests(unittest.IsolatedAsyncioTestCase):
                 profile=profile,
                 inputs=None,
                 llm_config_id=profile.llmConfigId,
+                section_id=None,
                 share_session_id=None,
             )
             try:
