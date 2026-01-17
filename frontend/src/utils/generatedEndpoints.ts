@@ -303,94 +303,6 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
-async function route_list_agent_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.AgentProfile>>
-> {
-  return await get("/agentic/profiles");
-}
-
-async function route_get_agent_profile(
-  profileId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await get("/agentic/profiles/{profileId}", { profileId });
-}
-
-async function route_create_agent_profile(
-  x: gt.CreateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/agentic/profiles", x);
-}
-
-async function route_update_agent_profile(
-  profileId: gt.ID,
-  x: gt.UpdateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/agentic/profiles/{profileId}/update", x, { profileId });
-}
-
-async function route_delete_agent_profile(
-  profileId: gt.ID,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/agentic/profiles/{profileId}/delete", null, {
-    profileId,
-  });
-}
-
-async function route_list_agent_runs(
-  agentProfileId: gt.ID | null,
-): Promise<ResponseDataAndStatus<Array<gt.AgentRun>>> {
-  return await get("/agentic/runs", { agentProfileId });
-}
-
-async function route_get_agent_run(
-  runId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await get("/agentic/runs/{runId}", { runId });
-}
-
-async function route_start_agent_run(
-  x: gt.StartAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/agentic/runs", x);
-}
-
-async function route_stop_agent_run(
-  runId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/agentic/runs/{runId}/stop", null, { runId });
-}
-
-async function route_list_prompt_assets(): Promise<
-  ResponseDataAndStatus<Array<gt.PromptTemplate>>
-> {
-  return await get("/agentic/prompts");
-}
-
-async function route_get_prompt_asset(
-  promptId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await get("/agentic/prompts/{promptId}", { promptId });
-}
-
-async function route_create_prompt_asset(
-  x: gt.CreatePromptTemplateRequestInput,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await post("/agentic/prompts", x);
-}
-
-async function route_update_prompt_asset(
-  promptId: gt.ID,
-  x: gt.UpdatePromptTemplateRequestInput,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await post("/agentic/prompts/{promptId}/update", x, { promptId });
-}
-
-async function route_delete_prompt_asset(
-  promptId: gt.ID,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/agentic/prompts/{promptId}/delete", null, { promptId });
-}
-
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -807,12 +719,6 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
-export async function route_set_section_with_params_display_mode(
-  x: gt.SetSectionWithParamsDisplayModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionWithParamsDisplayMode", x);
-}
-
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -889,6 +795,24 @@ export async function route_move_section(
   x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/moveSection", x);
+}
+
+export async function route_move_params(
+  x: gt.MoveParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParams", x);
+}
+
+export async function route_indent_params(
+  x: gt.IndentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/indentParams", x);
+}
+
+export async function route_unindent_params(
+  x: gt.UnindentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/unindentParams", x);
 }
 
 export async function route_group_sections(

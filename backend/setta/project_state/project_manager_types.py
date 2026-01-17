@@ -28,7 +28,6 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -182,6 +181,36 @@ class UpdateParamImplConfigRequest(ProjectManagerRequestWithSectionParam):
 
     newConfig: dict = Field(
         description="Arbitrary dict serialized into the implementation config.",
+    )
+
+
+class MoveParamsRequest(ProjectManagerRequestWithSection):
+    """Reorder or reparent parameters within a section."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to move.",
+    )
+    newParentId: ID = Field(
+        description="Parent code object that will receive the parameters.",
+    )
+    newIndex: int = Field(
+        description="Index within the new parent's children list.",
+    )
+
+
+class IndentParamsRequest(ProjectManagerRequestWithSection):
+    """Indent parameters under the previous sibling."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to indent.",
+    )
+
+
+class UnindentParamsRequest(ProjectManagerRequestWithSection):
+    """Unindent parameters to the parent's parent."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to unindent.",
     )
 
 
@@ -641,10 +670,6 @@ class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
 
 class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
-
-
-class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
-    displayMode: SectionWithParamsDisplayMode
 
 
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):

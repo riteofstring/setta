@@ -28,7 +28,6 @@ from setta.middleware import (
     bind_request_logging_context,
 )
 from setta.routers import (
-    agentic_router,
     ai_router,
     artifact_router,
     bootstrap_router,
@@ -150,7 +149,6 @@ app.include_router(listener_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
-app.include_router(agentic_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
 app.include_router(share_deployments_router, **http_router_kwargs)
