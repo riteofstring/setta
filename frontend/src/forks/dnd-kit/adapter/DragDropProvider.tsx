@@ -17,6 +17,7 @@ import {
   resetCollisionHysteresis,
   updateCollisionHysteresis,
 } from "./collision";
+import { promoteBestCollision } from "./collisionCompare";
 
 type Props = PropsWithChildren<{
   sensors?: Sensors<DragDropManager>;
@@ -143,7 +144,7 @@ function getCollisions(manager: DragDropManager): SettaCollision[] {
     return [];
   }
 
-  return collisions as SettaCollision[];
+  return promoteBestCollision(collisions as SettaCollision[]);
 }
 
 function getActiveRect(manager: DragDropManager): ClientRect | null {

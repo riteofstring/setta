@@ -9,6 +9,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
 import type { ClientRect, SettaCollision } from "./types";
+import { pickBestCollision } from "./collisionCompare";
 
 let prevCollisionId: Draggable["id"] | null = null;
 let prevPastHalfway: boolean | null = null;
@@ -79,6 +80,7 @@ export const customCollisionDetection: CollisionDetector = ({
     isSortable: Boolean(containerId),
     intersectionRatio: baseRatio,
     absTriggerDist,
+    triggerDist,
   });
 
   const pastHalfway = getPastHalfway({
@@ -200,9 +202,12 @@ export function updateCollisionHysteresis(
     return;
   }
 
-  prevCollisionId = collisions[0].id;
-  prevPastHalfway = collisions[0].pastHalfway ?? null;
-  const droppableRect = collisions[0].data?.droppable?.shape?.boundingRectangle;
+  const bestCollision = pickBestCollision(collisions);
+  const resolvedCollision = bestCollision ?? collisions[0];
+  prevCollisionId = resolvedCollision.id;
+  prevPastHalfway = resolvedCollision.pastHalfway ?? null;
+  const droppableRect =
+    resolvedCollision.data?.droppable?.shape?.boundingRectangle;
   prevCollisionRect = droppableRect ? toClientRect(droppableRect) : null;
 }
 
@@ -260,20 +265,37 @@ function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
   return 0;
 }
 
+const MAX_ABS_TRIGGER_DIST = 10000;
+const MAX_INTERSECTION_RATIO = 1_000_000;
+const SIGN_WEIGHT = 1_000_000_000_000_000;
+const DIST_WEIGHT = MAX_INTERSECTION_RATIO + 1;
+
 function getCollisionScore({
   isSortable,
   intersectionRatio,
   absTriggerDist,
+  triggerDist,
 }: {
   isSortable: boolean;
   intersectionRatio: number;
   absTriggerDist: number;
+  triggerDist: number;
 }): number {
   if (!isSortable) {
     return intersectionRatio;
   }
 
-  return intersectionRatio * 1000 - absTriggerDist;
+  // Keep ordering aligned with compareCollisions: prefer rawDist < 0 when sides differ,
+  // otherwise favor smaller abs distance with intersection as tie-breaker.
+  const clampedAbsDist = Math.min(absTriggerDist, MAX_ABS_TRIGGER_DIST);
+  const distScore = -Math.round(clampedAbsDist * 1000);
+  const ratioScore = Math.min(
+    Math.round(intersectionRatio),
+    MAX_INTERSECTION_RATIO,
+  );
+  const signScore = triggerDist < 0 ? 1 : 0;
+
+  return signScore * SIGN_WEIGHT + distScore * DIST_WEIGHT + ratioScore;
 }
 
 function getTriggerDistCondition({
@@ -288,10 +310,6 @@ function getTriggerDistCondition({
   containerIsHorizontal: boolean;
 }): boolean {
   if (!droppableData) {
-    return false;
-  }
-
-  if (!droppableData.hasNested) {
     return false;
   }
 

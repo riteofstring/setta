@@ -14,6 +14,7 @@ import {
   resetCollisionHysteresis,
   updateCollisionHysteresis,
 } from "./collision";
+import { promoteBestCollision } from "./collisionCompare";
 
 export type DndMonitorHandlers = Partial<{
   onDragStart: (event: DragStartEvent) => void;
@@ -122,7 +123,7 @@ function getCollisions(manager: DragDropManager): SettaCollision[] {
     return [];
   }
 
-  return collisions as SettaCollision[];
+  return promoteBestCollision(collisions as SettaCollision[]);
 }
 
 function getActiveRect(manager: DragDropManager): ClientRect | null {
