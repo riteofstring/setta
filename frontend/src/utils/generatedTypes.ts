@@ -261,6 +261,18 @@ export type SettaNotificationType = ObjectValues<
 
 export const ProjectCodegenLanguageEnum = { python: "python" } as const;
 
+const SectionCodegenModeEnum = {
+  inherit: "inherit",
+  include: "include",
+  exclude: "exclude",
+} as const;
+
+const SectionRepresentationModeEnum = {
+  json: "json",
+  file: "file",
+  base64: "base64",
+} as const;
+
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
   read_write: "read_write",
@@ -3166,10 +3178,86 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
+const SectionTypeCodegenPolicySchema = z.object({
+  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
+  representation: z
+    .enum(SectionRepresentationModeEnum)
+    .default(SectionRepresentationModeEnum.json),
+});
+
+type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
+
+function createSectionTypeCodegenPolicy(
+  options: Partial<SectionTypeCodegenPolicy> = {},
+): SectionTypeCodegenPolicy {
+  return SectionTypeCodegenPolicySchema.parse(options);
+}
+
+const SectionCodegenOverrideSchema = z.object({
+  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
+  representation: z
+    .enum(SectionRepresentationModeEnum)
+    .default(SectionRepresentationModeEnum.json),
+});
+
+const SectionCodegenPolicySchema = z.object({
+  allowlist: z
+    .union([z.array(z.enum(SectionTypeEnum)), z.null()])
+    .default(() => [
+      SectionTypeEnum.Callable,
+      SectionTypeEnum.Dict,
+      SectionTypeEnum.ListRoot,
+      SectionTypeEnum.Group,
+      SectionTypeEnum.GlobalVariables,
+      SectionTypeEnum.TextBlock,
+      SectionTypeEnum.Draw,
+      SectionTypeEnum.MetaControl,
+    ]),
+  exclude: z.array(IDSchema).default([]),
+  typePolicies: z
+    .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
+    .default(() => ({
+      "SectionType.Callable": createSectionTypeCodegenPolicy(),
+      "SectionType.Dict": createSectionTypeCodegenPolicy(),
+      "SectionType.ListRoot": createSectionTypeCodegenPolicy(),
+      "SectionType.Group": createSectionTypeCodegenPolicy(),
+      "SectionType.Image": createSectionTypeCodegenPolicy(),
+      "SectionType.Chart": createSectionTypeCodegenPolicy(),
+      "SectionType.Draw": createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.base64,
+      }),
+      "SectionType.TextBlock": createSectionTypeCodegenPolicy(),
+      "SectionType.MetaControl": createSectionTypeCodegenPolicy(),
+      "SectionType.Social": createSectionTypeCodegenPolicy(),
+      "SectionType.GlobalVariables": createSectionTypeCodegenPolicy(),
+      "SectionType.Code": createSectionTypeCodegenPolicy(),
+      "SectionType.GenPythonCode": createSectionTypeCodegenPolicy(),
+      "SectionType.Terminal": createSectionTypeCodegenPolicy(),
+      "SectionType.IFrame": createSectionTypeCodegenPolicy(),
+      "SectionType.Chat": createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.file,
+      }),
+      "SectionType.Browser": createSectionTypeCodegenPolicy(),
+    })),
+  sectionOverrides: z
+    .record(IDSchema, SectionCodegenOverrideSchema)
+    .default({}),
+});
+
+type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
+
+function createSectionCodegenPolicy(
+  options: Partial<SectionCodegenPolicy> = {},
+): SectionCodegenPolicy {
+  return SectionCodegenPolicySchema.parse(options);
+}
+
 const ProjectCodegenPythonTargetSchema = z.object({
   language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
   genCodePrefix: z.string().default("" as const),
   genCodeSuffix: z.string().default("state = SettaState()" as const),
+  generateMetadata: z.boolean().default(false),
+  sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
 });
 
 export type ProjectCodegenPythonTarget = z.infer<

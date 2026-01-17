@@ -8,7 +8,7 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import (
     SnapshotSectionInput,
     build_bash_run_command,
-    build_python_file_run_command,
+    build_python_snapshot_module_run_command,
     create_snapshot_run_command_from_code_sections_only,
     create_snapshot_run_command_from_sections,
 )
@@ -215,6 +215,7 @@ class ShareRuntimeState:
             share_session_id,
             project_config_id,
         )
+        snapshot_root = self.share_runs_root / resolved_session_id
         python_codegen_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
             ProjectCodegenLanguage.python,
@@ -228,9 +229,11 @@ class ShareRuntimeState:
         snapshot_section_inputs: dict[ID, SnapshotSectionInput] = {}
         for sid, (code, binding, language) in code_sections.items():
 
-            def run_command_builder(path: Path, language=language) -> str:
+            def run_command_builder(
+                path: Path, language=language, snapshot_root=snapshot_root
+            ) -> str:
                 if language == CodeLanguage.python:
-                    return build_python_file_run_command(path)
+                    return build_python_snapshot_module_run_command(snapshot_root, path)
                 return build_bash_run_command(path, use_absolute=True, quote=True)
 
             snapshot_section_inputs[sid] = (code, binding, run_command_builder)
@@ -238,21 +241,26 @@ class ShareRuntimeState:
         if not python_codegen_enabled:
             return create_snapshot_run_command_from_code_sections_only(
                 dbe=self.dbe,
-                snapshot_root=self.share_runs_root / resolved_session_id,
+                snapshot_root=snapshot_root,
                 entry_section_id=section_id,
                 section_inputs=snapshot_section_inputs,
             )
 
         gen_binding = self._get_gen_code_binding(project_state)
-        gen_code = self._generate_gen_code(project_state)
+        gen_code, gen_meta_code = self._generate_gen_code(project_state)
+
+        def gen_command_builder(path: Path, snapshot_root=snapshot_root) -> str:
+            return build_python_snapshot_module_run_command(snapshot_root, path)
+
         return create_snapshot_run_command_from_sections(
             dbe=self.dbe,
-            snapshot_root=self.share_runs_root / resolved_session_id,
+            snapshot_root=snapshot_root,
             entry_section_id=section_id,
             gen_code=gen_code,
+            gen_meta_code=gen_meta_code,
             gen_binding=gen_binding,
             section_inputs=snapshot_section_inputs,
-            gen_command_builder=build_python_file_run_command,
+            gen_command_builder=gen_command_builder,
         )
 
     def _resolve_default_project_config_id(self) -> ID:
@@ -499,8 +507,10 @@ class ShareRuntimeState:
             )
         return output
 
-    def _generate_gen_code(self, project_state: "ProjectStateSingleConfig") -> str:
+    def _generate_gen_code(
+        self, project_state: "ProjectStateSingleConfig"
+    ) -> tuple[str, str | None]:
         dep_graph = DependencyGraph(project_state)
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
-        return code_generator.code
+        return code_generator.code, code_generator.meta_code

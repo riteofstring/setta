@@ -577,6 +577,7 @@ class BaseProjectManager(ABC):
         code_entries = self.code_dict.get(projectConfigId, {})
         if gen_code is not None:
             gen_code.write_to_disk(gen_code.code)
+            gen_code.write_meta_to_disk()
         for code_entry in code_entries.values():
             code_entry.write_to_disk(code_entry.code)
         return gen_code, code_entries
@@ -667,6 +668,7 @@ class BaseProjectManager(ABC):
                 ),
                 entry_section_id=section_id,
                 gen_code=gen_code.code,
+                gen_meta_code=gen_code.meta_code,
                 gen_binding=gen_code.binding,
                 section_inputs=snapshot_section_inputs,
                 gen_command_builder=gen_code.get_run_command,
@@ -803,6 +805,8 @@ class BaseProjectManager(ABC):
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
+            if new_gen_code.meta_code is not None:
+                new_gen_code.write_meta_to_disk()
             if self.lsp_writers.full is not None:
                 await new_gen_code.sync_lsp(new_gen_code.code)
             maybe_update_gen_python_code_section(
