@@ -509,6 +509,12 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
+export async function route_set_project_config_codegen_targets(
+  x: gt.SetProjectConfigCodegenTargetsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setProjectConfigCodegenTargets", x);
+}
+
 export async function route_set_gen_code_prefix(
   x: gt.SetGenCodePrefixRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

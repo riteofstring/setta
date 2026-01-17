@@ -102,6 +102,7 @@ class Route(str, Enum):
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
     TOGGLE_VARIANT_JSON_SOURCE = "/toggleVariantJsonSource"
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
+    SET_PROJECT_CONFIG_CODEGEN_TARGETS = "/setProjectConfigCodegenTargets"
     SET_GEN_CODE_PREFIX = "/setGenCodePrefix"
     SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"
     SET_SHOW_PARAM_DISPLAY_NAMES = "/setShowParamDisplayNames"

@@ -259,6 +259,8 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
+export const ProjectCodegenLanguageEnum = { python: "python" } as const;
+
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
   read_write: "read_write",
@@ -368,6 +370,7 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -3163,6 +3166,22 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
+const ProjectCodegenPythonTargetSchema = z.object({
+  language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("state = SettaState()" as const),
+});
+
+export type ProjectCodegenPythonTarget = z.infer<
+  typeof ProjectCodegenPythonTargetSchema
+>;
+
+export function createProjectCodegenPythonTarget(
+  options: Partial<ProjectCodegenPythonTarget> = {},
+): ProjectCodegenPythonTarget {
+  return ProjectCodegenPythonTargetSchema.parse(options);
+}
+
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3207,8 +3226,9 @@ const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
+  codegenTargets: z
+    .array(ProjectCodegenPythonTargetSchema)
+    .default(default_codegen_targets),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -6087,6 +6107,16 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
+>;
+
+const SetProjectConfigCodegenTargetsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
+});
+
+export type SetProjectConfigCodegenTargetsRequestInput = z.input<
+  typeof SetProjectConfigCodegenTargetsRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({

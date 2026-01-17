@@ -26,6 +26,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   isBaseParentSectionImpl,
   SectionTypeEnum,
@@ -334,6 +335,7 @@ function useRunnableCodeBlockListing() {
     const outputList: Array<RunnableCodeBlock> = [];
     const viewMode = getActiveViewModeConfig(x);
     const { isEditingViewMode } = x.projectConfig;
+    const pythonCodegenEnabled = projectConfigHasPythonCodegen(x.projectConfig);
     for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
@@ -344,6 +346,7 @@ function useRunnableCodeBlockListing() {
         x,
         viewMode,
         isEditingViewMode,
+        pythonCodegenEnabled,
         outputList,
       );
     }
@@ -358,11 +361,13 @@ function getRunnableCodeBlockListingHelper(
   x: ZustandProjectState,
   viewMode: ViewModeConfig,
   isEditingViewMode: boolean,
+  pythonCodegenEnabled: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {
   const isRunnable =
     sectionImpl.type === SectionTypeEnum.Code ||
-    sectionImpl.type === SectionTypeEnum.GenPythonCode;
+    (pythonCodegenEnabled &&
+      sectionImpl.type === SectionTypeEnum.GenPythonCode);
 
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
@@ -388,6 +393,7 @@ function getRunnableCodeBlockListingHelper(
         x,
         viewMode,
         isEditingViewMode,
+        pythonCodegenEnabled,
         outputList,
       );
     }

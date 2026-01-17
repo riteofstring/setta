@@ -5,6 +5,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   route_kill_subprocesses,
   route_run_code,
@@ -15,7 +16,8 @@ import { getCurrProjectConfigId } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
-  if (sectionId === singletonSections.GenPythonCode) {
+  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
+  if (pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode) {
     sectionId = null;
   }
   const shareSession = useShareSession.getState();

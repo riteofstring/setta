@@ -35,6 +35,7 @@ import {
   useToolArgumentPreview,
 } from "state/definitions";
 import { C } from "utils/c";
+import { getPythonCodegenTarget } from "utils/codegenTargets";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -324,18 +325,28 @@ function BashCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
-  const { code, prefix, suffix } = useProjectState((x) => {
+  const { code, prefix, suffix, hasPythonCodegen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.GenPythonCode,
     );
+    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     return {
       code: impl.code,
-      prefix: x.projectConfig.genCodePrefix,
-      suffix: x.projectConfig.genCodeSuffix,
+      prefix: pythonTarget?.genCodePrefix ?? "",
+      suffix: pythonTarget?.genCodeSuffix ?? "",
+      hasPythonCodegen: pythonTarget !== null,
     };
   });
+
+  if (!hasPythonCodegen) {
+    return (
+      <div className="mx-3 rounded border border-setta-200/60 bg-white/70 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+        Python codegen is disabled for this project.
+      </div>
+    );
+  }
 
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
   const [value, setValue] = useState<string>(combinedDoc);
@@ -717,7 +728,11 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
 const debouncedSetGenCodePrefix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      state.projectConfig.genCodePrefix = value;
+      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
+      if (!pythonTarget) {
+        return;
+      }
+      pythonTarget.genCodePrefix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_prefix({
@@ -731,7 +746,11 @@ const debouncedSetGenCodePrefix = _.debounce((value: string) => {
 const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      state.projectConfig.genCodeSuffix = value;
+      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
+      if (!pythonTarget) {
+        return;
+      }
+      pythonTarget.genCodeSuffix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_suffix({
