@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import {
@@ -20,12 +20,14 @@ import type {
   Transform,
 } from "./types";
 import {
+  itemsEqual,
   isValidIndex,
   resolveStrategyResult,
   rectSortingStrategy,
 } from "./sorting";
 import { useCollisionDetector } from "./useCollisionDetector";
 import { useDndMode } from "../dndState";
+import { logSortDnd } from "../sortingLog";
 
 export type SortableTransition = {
   duration?: number;
@@ -46,6 +48,8 @@ const defaultTransition = {
   duration: 250,
   easing: "cubic-bezier(0.25, 1, 0.5, 1)",
 };
+const disabledTransition = "transform 0ms linear";
+const dragDeactivationDelayMs = 50;
 
 export function useSortable({
   attributes,
@@ -162,6 +166,28 @@ export function useSortable({
     },
     [manager, shouldTrackSorting],
   ).value as SettaCollision[] | null;
+  const previousItemsRef = useRef(items);
+  const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
+  const wasDragActiveRef = useRef(false);
+  useEffect(() => {
+    if (isDragActive) {
+      wasDragActiveRef.current = true;
+      return undefined;
+    }
+
+    if (!wasDragActiveRef.current) {
+      return undefined;
+    }
+
+    const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => {
+      wasDragActiveRef.current = false;
+    }, dragDeactivationDelayMs);
+
+    return () => clearTimeout(timeoutId);
+  }, [isDragActive]);
+  useEffect(() => {
+    previousItemsRef.current = items;
+  }, [items]);
   const overIdFromIndex = isValidIndex(overIndex) ? items[overIndex] : null;
   const relevantCollision = shouldTrackSorting
     ? getRelevantCollision(collisions, items, overIdFromIndex)
@@ -170,6 +196,18 @@ export function useSortable({
   const isSorting = shouldTrackSorting && activeIndex !== -1;
   const isActiveItem = index === activeIndex && activeIndex !== -1;
   const isDraggingActive = isDragging || (isSorting && isActiveItem);
+  const shouldDisableTransition =
+    dndMode.isSorting && wasDragActiveRef.current && itemsHaveChanged;
+  const lastTransitionLogRef = useRef<{
+    transition: string | null;
+    isDragging: boolean;
+    isDraggingActive: boolean;
+    isSorting: boolean;
+    disableTransforms: boolean;
+    disableTransition: boolean;
+    overIndex: number;
+    activeIndex: number;
+  } | null>(null);
   const displaceItem =
     isSorting &&
     !disableTransforms &&
@@ -204,7 +242,65 @@ export function useSortable({
     isDragging: isDraggingActive,
     useDragOverlay,
     disableTransforms,
+    forceDisabledTransition: shouldDisableTransition,
   });
+  const transitionKey = transitionValue ?? null;
+
+  useEffect(() => {
+    if (!dndMode.isSorting || !isActiveItem) {
+      lastTransitionLogRef.current = null;
+      return;
+    }
+
+    const nextLog = {
+      transition: transitionKey,
+      isDragging,
+      isDraggingActive,
+      isSorting,
+      disableTransforms,
+      disableTransition: shouldDisableTransition,
+      overIndex,
+      activeIndex,
+    };
+    const lastLog = lastTransitionLogRef.current;
+    if (
+      !lastLog ||
+      lastLog.transition !== nextLog.transition ||
+      lastLog.isDragging !== nextLog.isDragging ||
+      lastLog.isDraggingActive !== nextLog.isDraggingActive ||
+      lastLog.isSorting !== nextLog.isSorting ||
+      lastLog.disableTransforms !== nextLog.disableTransforms ||
+      lastLog.disableTransition !== nextLog.disableTransition ||
+      lastLog.overIndex !== nextLog.overIndex ||
+      lastLog.activeIndex !== nextLog.activeIndex
+    ) {
+      logSortDnd("sorting transition", {
+        id: String(id),
+        transition: transitionKey,
+        isDragging,
+        isDraggingActive,
+        isSorting,
+        disableTransforms,
+        disableTransition: shouldDisableTransition,
+        overIndex,
+        activeIndex,
+        itemsLength: items.length,
+      });
+      lastTransitionLogRef.current = nextLog;
+    }
+  }, [
+    activeIndex,
+    disableTransforms,
+    dndMode.isSorting,
+    id,
+    isActiveItem,
+    isDragging,
+    isDraggingActive,
+    isSorting,
+    items.length,
+    overIndex,
+    transitionKey,
+  ]);
 
   useEffect(() => {
     sortable.draggable.disabled = Boolean(disabled.draggable);
@@ -212,13 +308,17 @@ export function useSortable({
   }, [disabled, sortable]);
 
   useEffect(() => {
-    if (dndMode.isSorting && isDragActive) {
+    if (
+      dndMode.isSorting &&
+      isDragActive &&
+      !isDraggingActive
+    ) {
       sortable.transition = transition ?? null;
       return;
     }
 
     sortable.transition = null;
-  }, [dndMode.isSorting, isDragActive, sortable, transition]);
+  }, [dndMode.isSorting, isDragActive, isDraggingActive, sortable, transition]);
 
   return {
     attributes: attributes ?? {},
@@ -302,13 +402,19 @@ function getTransitionValue({
   isDragging,
   useDragOverlay,
   disableTransforms,
+  forceDisabledTransition,
 }: {
   transition: SortableTransition | null | undefined;
   isSorting: boolean;
   isDragging: boolean;
   useDragOverlay: boolean;
   disableTransforms: boolean;
+  forceDisabledTransition: boolean;
 }): string | undefined {
+  if (forceDisabledTransition) {
+    return disabledTransition;
+  }
+
   if (!transition || !isSorting || disableTransforms) {
     return undefined;
   }

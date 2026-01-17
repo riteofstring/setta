@@ -24,6 +24,7 @@ import { useProjectState, ZustandProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { pickBestCollision } from "forks/dnd-kit/adapter/collisionCompare";
 import { computeNewIndex } from "./adapter";
+import { resetSortingOverState } from "./sortingOverState";
 let lastPastHalfwayByOverId: Record<string, boolean> = {};
 let lastResolvedOverId: string | number | null = null;
 let lastResolvedPastHalfway: boolean | null = null;
@@ -180,6 +181,7 @@ export function onDragStart({ active }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetLastMoveState();
+  resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
   }

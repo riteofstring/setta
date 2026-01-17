@@ -4,6 +4,11 @@ import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import React, { useEffect, useMemo, useRef, useId } from "react";
 import { getDndSectionId, useDndMode } from "../dndState";
+import {
+  clearSortingOverState,
+  setSortingOverState,
+} from "../sortingOverState";
+import { logSortDnd } from "../sortingLog";
 import type { ClientRect, Disabled, SortingStrategy } from "./types";
 import {
   getSortedRects,
@@ -130,6 +135,10 @@ export function SortableContext({
   const frozenDroppableRectsRef = useRef<
     Map<UniqueIdentifier, ClientRect> | null
   >(null);
+  const lastSortLogRef = useRef<{
+    overId: string | null;
+    pastHalfway: boolean | null;
+  } | null>(null);
 
   const isDragging = shouldTrackSorting && active != null;
   const activeIndex = shouldTrackSorting
@@ -158,6 +167,20 @@ export function SortableContext({
 
     return manager?.dragOperation.target?.id ?? null;
   }, [collisionOverId, hasContainerCollision, items, manager, shouldTrackSorting]);
+  const resolvedPastHalfway = useMemo(() => {
+    if (!shouldTrackSorting || !resolvedOverId || !collisions) {
+      return null;
+    }
+
+    const matching = (
+      collisions as Array<{ id: UniqueIdentifier; pastHalfway?: boolean }>
+    ).find((collision) => collision.id === resolvedOverId);
+    if (!matching || matching.pastHalfway === undefined) {
+      return null;
+    }
+
+    return Boolean(matching.pastHalfway);
+  }, [collisions, resolvedOverId, shouldTrackSorting]);
   const overIndex =
     shouldTrackSorting && resolvedOverId ? items.indexOf(resolvedOverId) : -1;
   const previousItemsRef = useRef(items);
@@ -194,6 +217,61 @@ export function SortableContext({
       frozenDroppableRectsRef.current = nextRects;
     }
   }, [droppableRects, useFrozenRects]);
+
+  useEffect(() => {
+    if (!shouldTrackSorting) {
+      clearSortingOverState(containerId);
+      lastSortLogRef.current = null;
+      return;
+    }
+
+    const resolvedId =
+      resolvedOverId && items.includes(String(resolvedOverId))
+        ? String(resolvedOverId)
+        : null;
+    if (!resolvedId) {
+      return;
+    }
+
+    setSortingOverState(containerId, resolvedId, resolvedPastHalfway);
+
+    const nextLogState = {
+      overId: resolvedId,
+      pastHalfway: resolvedPastHalfway,
+    };
+    const lastLogState = lastSortLogRef.current;
+    if (
+      !lastLogState ||
+      lastLogState.overId !== nextLogState.overId ||
+      lastLogState.pastHalfway !== nextLogState.pastHalfway
+    ) {
+      logSortDnd("sorting over state", {
+        containerId,
+        activeId: active ? String(active.id) : null,
+        activeIndex,
+        overIndex,
+        resolvedOverId: resolvedId,
+        resolvedPastHalfway,
+        collisionOverId: collisionOverId ? String(collisionOverId) : null,
+        hasContainerCollision,
+        itemsLength: items.length,
+        collisionIds: summarizeSortingCollisions(collisions, 6),
+      });
+      lastSortLogRef.current = nextLogState;
+    }
+  }, [
+    containerId,
+    items,
+    resolvedOverId,
+    resolvedPastHalfway,
+    shouldTrackSorting,
+    active,
+    activeIndex,
+    collisionOverId,
+    collisions,
+    hasContainerCollision,
+    overIndex,
+  ]);
 
   const rectsForSorting =
     useFrozenRects && frozenDroppableRectsRef.current
@@ -295,4 +373,18 @@ function getDroppableRects(
   }
 
   return rects;
+}
+
+function summarizeSortingCollisions(
+  collisions: Array<Collision> | null,
+  limit: number,
+): Array<{ id: string; pastHalfway: boolean | null }> {
+  if (!collisions || collisions.length === 0) {
+    return [];
+  }
+
+  return collisions.slice(0, limit).map((collision) => ({
+    id: String(collision.id),
+    pastHalfway: collision.pastHalfway ?? null,
+  }));
 }

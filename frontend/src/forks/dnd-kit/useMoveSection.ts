@@ -14,6 +14,8 @@ import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 import { getOverId } from "./useDropType";
+import { getSortingOverState } from "./sortingOverState";
+import { logSortDnd } from "./sortingLog";
 
 function onSortEnd({
   active,
@@ -22,24 +24,61 @@ function onSortEnd({
 }: Pick<DragEndEvent, "active" | "over" | "collisions">) {
   const parentId = active.data?.current?.sortable?.containerId;
   if (!parentId) {
-    return;
-  }
-
-  const overId = getOverId(over, collisions);
-  if (!overId || active.id === overId) {
+    logSortDnd("sorting drop skip", {
+      reason: "no-parent",
+      activeId: String(active.id),
+    });
     return;
   }
 
   const children = getSectionChildren(useProjectState.getState(), parentId);
-  const activeIndex = children.indexOf(active.id);
+  const activeId = String(active.id);
+  const sortingOverState = getSortingOverState(parentId);
+  const collisionSummary = summarizeSortingCollisions(collisions, 6);
+  const overId = resolveSortingOverId({
+    collisions,
+    items: children,
+    fallbackOverId: sortingOverState?.overId ?? null,
+    over,
+  });
+  if (!overId || activeId === overId) {
+    logSortDnd("sorting drop skip", {
+      reason: !overId ? "no-over" : "self-over",
+      activeId,
+      overId,
+      parentId,
+      sortingOverId: sortingOverState?.overId ?? null,
+      sortingPastHalfway: sortingOverState?.pastHalfway ?? null,
+      collisionIds: collisionSummary.items,
+      collisionCount: collisionSummary.total,
+    });
+    return;
+  }
+
+  const activeIndex = children.indexOf(activeId);
   const overIndex = children.indexOf(overId);
 
   if (activeIndex < 0 || overIndex < 0) {
+    logSortDnd("sorting drop skip", {
+      reason: "index-missing",
+      activeId,
+      overId,
+      parentId,
+      activeIndex,
+      overIndex,
+      sortingOverId: sortingOverState?.overId ?? null,
+      sortingPastHalfway: sortingOverState?.pastHalfway ?? null,
+      collisionIds: collisionSummary.items,
+      collisionCount: collisionSummary.total,
+    });
     return;
   }
 
   let newIndex = overIndex;
-  const pastHalfway = getPastHalfwayFromCollisions(overId, collisions);
+  const pastHalfway =
+    getPastHalfwayFromCollisions(overId, collisions) ??
+    sortingOverState?.pastHalfway ??
+    null;
   if (pastHalfway !== null) {
     newIndex = computeNewIndex(
       activeIndex,
@@ -49,14 +88,37 @@ function onSortEnd({
     );
   }
 
+  logSortDnd("sorting drop resolve", {
+    activeId,
+    overId,
+    parentId,
+    activeIndex,
+    overIndex,
+    pastHalfway,
+    newIndex,
+    sortingOverId: sortingOverState?.overId ?? null,
+    sortingPastHalfway: sortingOverState?.pastHalfway ?? null,
+    collisionIds: collisionSummary.items,
+    collisionCount: collisionSummary.total,
+  });
+
   if (newIndex === activeIndex) {
+    logSortDnd("sorting drop no-op", {
+      activeId,
+      overId,
+      parentId,
+      activeIndex,
+      overIndex,
+      pastHalfway,
+      newIndex,
+    });
     return;
   }
 
   moveSectionWithBackend({
     oldParentId: parentId,
     newParentId: parentId,
-    sectionId: active.id,
+    sectionId: activeId,
     newIndex,
     position: null,
   });
@@ -217,12 +279,75 @@ function getPastHalfwayFromCollisions(
     return null;
   }
 
-  const matching = collisions.find((collision) => collision.id === overId);
-  const resolved = matching ?? collisions[0];
-
-  if (!resolved || resolved.pastHalfway === undefined) {
+  const overIdKey = String(overId);
+  const matching = collisions.find(
+    (collision) => String(collision.id) === overIdKey,
+  );
+  if (!matching || matching.pastHalfway === undefined) {
     return null;
   }
 
-  return Boolean(resolved.pastHalfway);
+  return Boolean(matching.pastHalfway);
+}
+
+function summarizeSortingCollisions(
+  collisions: DragEndEvent["collisions"] | null,
+  limit: number,
+): { items: Array<{ id: string; pastHalfway: boolean | null }>; total: number } {
+  if (!collisions || collisions.length === 0) {
+    return { items: [], total: 0 };
+  }
+
+  const items = collisions.slice(0, limit).map((collision) => ({
+    id: String(collision.id),
+    pastHalfway: collision.pastHalfway ?? null,
+  }));
+
+  return { items, total: collisions.length };
+}
+
+function resolveSortingOverId({
+  collisions,
+  items,
+  fallbackOverId,
+  over,
+}: {
+  collisions: DragEndEvent["collisions"] | null;
+  items: string[];
+  fallbackOverId: string | null;
+  over: DragEndEvent["over"] | null;
+}): string | null {
+  if (fallbackOverId && items.includes(fallbackOverId)) {
+    return fallbackOverId;
+  }
+
+  const collisionOverId = getSortingOverIdFromCollisions(collisions, items);
+  if (collisionOverId) {
+    return collisionOverId;
+  }
+
+  const overId = over ? String(over.id) : null;
+  if (overId && items.includes(overId)) {
+    return overId;
+  }
+
+  return null;
+}
+
+function getSortingOverIdFromCollisions(
+  collisions: DragEndEvent["collisions"] | null,
+  items: string[],
+): string | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  for (const collision of collisions) {
+    const collisionId = String(collision.id);
+    if (items.includes(collisionId)) {
+      return collisionId;
+    }
+  }
+
+  return null;
 }
