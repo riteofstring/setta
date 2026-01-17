@@ -5,13 +5,15 @@
 - `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
+- `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
+- `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
-- `meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
+- `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
 - `http-request-sections.md` – how HTTP request sections expose REST endpoints, resolve schemas, and send requests.
 - `mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
-- `setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
+- `setta-listener-examples.md` – example-driven guide to listener callbacks, action events, emits, and router endpoints.
 - `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
 - `sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
