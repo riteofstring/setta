@@ -338,15 +338,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 }
 
 function GenPythonCodeAreaDisabled() {
-  return (
-    <article
-      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title flex h-full w-full cursor-auto items-start rounded-lg`}
-    >
-      <div className="mx-3 w-full rounded border border-setta-200/60 bg-white/70 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
-        Python codegen is disabled for this project.
-      </div>
-    </article>
-  );
+  return null;
 }
 
 function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {

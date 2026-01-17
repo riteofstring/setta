@@ -1000,6 +1000,15 @@ class BaseProjectManager(ABC):
         )
         if prev_python_enabled and not next_python_enabled:
             project_state.genCodeBinding = None
+            gen_section_id = project_state.singletonSections.GenPythonCode
+            if (
+                gen_section_id is not None
+                and project_state.projectConfig.entryCodeBlockId == gen_section_id
+            ):
+                project_state.projectConfig.entryCodeBlockId = None
+            if gen_section_id is not None:
+                project_state.validate_parent_section_map()
+                delete_sections(project_state, [gen_section_id])
         if (
             next_python_enabled
             and project_state.singletonSections.GenPythonCode is None

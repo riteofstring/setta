@@ -10,13 +10,21 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.project_manager_types import RunCodeRequest
+from setta.project_state.project_manager_types import (
+    RunCodeRequest,
+    SetProjectConfigCodegenTargetsRequest,
+)
 from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
@@ -24,6 +32,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
+    SectionType,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -286,6 +295,44 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
                     runSnapshotMode=RunSnapshotMode.never,
                 )
             )
+        manager.shutdown()
+
+    async def test_disabling_python_codegen_removes_gen_section_and_entry(self) -> None:
+        project_config = ProjectConfig(name="WithCodegen")
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        gen_section_id = create_top_level_section(
+            self.settings_file.settings,
+            project_state,
+            SectionType.GenPythonCode,
+            Position(),
+        )
+        project_state.projectConfig.entryCodeBlockId = gen_section_id
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+
+        await manager.set_project_config_codegen_targets(
+            SetProjectConfigCodegenTargetsRequest(
+                projectConfigId=project_config.id,
+                codegenTargets=[],
+            )
+        )
+
+        updated_state = manager.get_single_config_state(project_config.id)
+        self.assertIsNone(updated_state.singletonSections.GenPythonCode)
+        self.assertIsNone(updated_state.projectConfig.entryCodeBlockId)
+        self.assertNotIn(gen_section_id, updated_state.sections)
         manager.shutdown()
 
 
