@@ -1,4 +1,8 @@
-import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
+import {
+  forceDeactivateDnd,
+  getDndSectionId,
+  useDndState,
+} from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
@@ -238,7 +242,7 @@ export function useOnDragEnd() {
 
   function onDragEnd({ active, over, collisions, canceled }: DragEndEvent) {
     if (canceled) {
-      manualDndChildrenReset();
+      forceDeactivateDnd();
       return;
     }
 

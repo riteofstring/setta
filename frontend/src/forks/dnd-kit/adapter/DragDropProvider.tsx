@@ -75,6 +75,11 @@ export function DragDropProvider({
         onDragOver?.(mapped);
       }}
       onDragEnd={(event, manager) => {
+        if (event.canceled) {
+          const control = event.suspend();
+          control.abort();
+        }
+
         const mapped = mapDragEvent(event, manager, event.canceled);
         if (!mapped) {
           resetCollisionHysteresis();

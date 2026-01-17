@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useDragDropManager, useDragDropMonitor } from "@dnd-kit/react";
+import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { forceDeactivateDnd, useDndState } from "./dndState";
 
@@ -18,17 +18,6 @@ export function DeferredDndDeactivation() {
     () => manager?.dragOperation.status.idle ?? true,
     [manager],
   ).value;
-
-  useDragDropMonitor({
-    onDragEnd: (event) => {
-      if (!pendingDeactivation) {
-        return;
-      }
-
-      const control = event.suspend();
-      control.abort();
-    },
-  });
 
   useEffect(() => {
     if (!pendingDeactivation || !manager) {
