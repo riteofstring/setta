@@ -3217,27 +3217,27 @@ const SectionCodegenPolicySchema = z.object({
   typePolicies: z
     .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
     .default(() => ({
-      "SectionType.Callable": createSectionTypeCodegenPolicy(),
-      "SectionType.Dict": createSectionTypeCodegenPolicy(),
-      "SectionType.ListRoot": createSectionTypeCodegenPolicy(),
-      "SectionType.Group": createSectionTypeCodegenPolicy(),
-      "SectionType.Image": createSectionTypeCodegenPolicy(),
-      "SectionType.Chart": createSectionTypeCodegenPolicy(),
-      "SectionType.Draw": createSectionTypeCodegenPolicy({
+      Callable: createSectionTypeCodegenPolicy(),
+      Dict: createSectionTypeCodegenPolicy(),
+      ListRoot: createSectionTypeCodegenPolicy(),
+      Group: createSectionTypeCodegenPolicy(),
+      Image: createSectionTypeCodegenPolicy(),
+      Chart: createSectionTypeCodegenPolicy(),
+      Draw: createSectionTypeCodegenPolicy({
         representation: SectionRepresentationModeEnum.base64,
       }),
-      "SectionType.TextBlock": createSectionTypeCodegenPolicy(),
-      "SectionType.MetaControl": createSectionTypeCodegenPolicy(),
-      "SectionType.Social": createSectionTypeCodegenPolicy(),
-      "SectionType.GlobalVariables": createSectionTypeCodegenPolicy(),
-      "SectionType.Code": createSectionTypeCodegenPolicy(),
-      "SectionType.GenPythonCode": createSectionTypeCodegenPolicy(),
-      "SectionType.Terminal": createSectionTypeCodegenPolicy(),
-      "SectionType.IFrame": createSectionTypeCodegenPolicy(),
-      "SectionType.Chat": createSectionTypeCodegenPolicy({
+      TextBlock: createSectionTypeCodegenPolicy(),
+      MetaControl: createSectionTypeCodegenPolicy(),
+      Social: createSectionTypeCodegenPolicy(),
+      GlobalVariables: createSectionTypeCodegenPolicy(),
+      Code: createSectionTypeCodegenPolicy(),
+      GenPythonCode: createSectionTypeCodegenPolicy(),
+      Terminal: createSectionTypeCodegenPolicy(),
+      IFrame: createSectionTypeCodegenPolicy(),
+      Chat: createSectionTypeCodegenPolicy({
         representation: SectionRepresentationModeEnum.file,
       }),
-      "SectionType.Browser": createSectionTypeCodegenPolicy(),
+      Browser: createSectionTypeCodegenPolicy(),
     })),
   sectionOverrides: z
     .record(IDSchema, SectionCodegenOverrideSchema)
