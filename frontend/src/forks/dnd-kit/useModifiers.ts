@@ -1,10 +1,12 @@
 import {
-  RestrictToHorizontalAxis,
-  RestrictToVerticalAxis,
-} from "@dnd-kit/abstract/modifiers";
+  restrictToHorizontalAxis,
+  restrictToVerticalAxis,
+} from "@dnd-kit/modifiers";
 import _ from "lodash";
-import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { customCollisionDetection } from "./collisionDetection";
+import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
 import { useDndState } from "./dndState";
 
 export function useModifiers() {
@@ -13,17 +15,20 @@ export function useModifiers() {
   }, _.isEqual);
 
   const modifiers = getModifiers(isSorting, activeId);
+  const collisionDetection = isSorting
+    ? customCollisionDetectionSorting
+    : customCollisionDetection;
 
-  return { modifiers };
+  return { modifiers, collisionDetection };
 }
 
-function getModifiers(isSorting: boolean, activeId: string | null) {
+function getModifiers(isSorting, activeId) {
   if (isSorting && activeId) {
     const parentId = useProjectState.getState().parentSectionMap[activeId];
     if (parentId) {
-      return getSectionIsHorizontalOrientation(parentId)
-        ? [RestrictToHorizontalAxis]
-        : [RestrictToVerticalAxis];
+      return getSectionInfo(parentId).isHorizontalOrientation
+        ? [restrictToHorizontalAxis]
+        : [restrictToVerticalAxis];
     }
   }
   return null;

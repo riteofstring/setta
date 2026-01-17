@@ -23,7 +23,7 @@ class _CallbackEntry:
     debounce_seconds: float | None
     throttle_seconds: float | None
     pending_payload: dict[str, Any] = field(default_factory=dict)
-    pending_actions: list[Any] = field(default_factory=list)
+    pending_events: list[Any] = field(default_factory=list)
     timer_handle: asyncio.TimerHandle | None = None
     next_scheduled_time: float | None = None
     last_invoked: float | None = None
@@ -62,24 +62,24 @@ class ListenerCallbackScheduler:
         if entry.timer_handle is not None:
             entry.timer_handle.cancel()
         entry.pending_payload.clear()
-        entry.pending_actions.clear()
+        entry.pending_events.clear()
 
     def submit(
         self,
         callback_id: str,
         *,
         changed: dict[str, Any] | None = None,
-        actions: list[Any] | None = None,
+        events: list[Any] | None = None,
     ) -> None:
-        if not changed and not actions:
+        if not changed and not events:
             return
         entry = self._callbacks.get(callback_id)
         if entry is None:
             raise KeyError(f"callback {callback_id!r} is not registered")
         if changed:
             entry.pending_payload.update(changed)
-        if actions:
-            entry.pending_actions.extend(actions)
+        if events:
+            entry.pending_events.extend(events)
         loop = self._get_loop()
         now = loop.time()
         self._plan_execution(entry, now)
@@ -88,9 +88,7 @@ class ListenerCallbackScheduler:
         entry = self._callbacks.get(callback_id)
         if entry is None:
             raise KeyError(f"callback {callback_id!r} is not registered")
-        if entry.is_running or (
-            not entry.pending_payload and not entry.pending_actions
-        ):
+        if entry.is_running or (not entry.pending_payload and not entry.pending_events):
             return
         if entry.timer_handle is not None:
             entry.timer_handle.cancel()
@@ -107,7 +105,7 @@ class ListenerCallbackScheduler:
             entry.timer_handle = None
         entry.next_scheduled_time = None
         entry.pending_payload.clear()
-        entry.pending_actions.clear()
+        entry.pending_events.clear()
 
     def _plan_execution(self, entry: _CallbackEntry, now: float) -> None:
         target_time = now
@@ -171,16 +169,16 @@ class ListenerCallbackScheduler:
             return
         if entry.is_running:
             return
-        if not entry.pending_payload and not entry.pending_actions:
+        if not entry.pending_payload and not entry.pending_events:
             return
         loop = self._get_loop()
         entry.is_running = True
         payload = dict(entry.pending_payload)
-        actions = list(entry.pending_actions)
+        events = list(entry.pending_events)
         entry.pending_payload.clear()
-        entry.pending_actions.clear()
+        entry.pending_events.clear()
         try:
-            result = entry.executor(payload, actions)
+            result = entry.executor(payload, events)
             if inspect.isawaitable(result):
                 await result
         finally:
@@ -188,7 +186,7 @@ class ListenerCallbackScheduler:
             entry.timer_handle = None
             entry.next_scheduled_time = None
             entry.last_invoked = loop.time()
-            if entry.pending_payload or entry.pending_actions:
+            if entry.pending_payload or entry.pending_events:
                 self._plan_execution(entry, entry.last_invoked)
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
