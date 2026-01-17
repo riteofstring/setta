@@ -34,12 +34,6 @@ import {
   activateParamSelect,
   deactivateParamSelect,
 } from "state/actions/paramSelect";
-import {
-  indentSelectedParams,
-  moveSelectedParamsDown,
-  moveSelectedParamsUp,
-  unindentSelectedParams,
-} from "state/actions/params/moveParams";
 import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
@@ -290,16 +284,6 @@ function getIsInput(event) {
   );
 }
 
-function runParamShortcut(action, event) {
-  if (getIsInput(event)) {
-    return;
-  }
-  const didRun = action();
-  if (didRun) {
-    event.preventDefault();
-  }
-}
-
 function getMacosIgnoreWhenInInputField(parsedShortcut) {
   const { mod, shift, ctrl, alt } = parsedShortcut;
   return (
@@ -507,26 +491,6 @@ export function attachKeyEventListeners() {
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
     // [shortcuts.formatCode, formatCode],
-    [
-      shortcuts.paramIndentShortcut,
-      (e) => runParamShortcut(indentSelectedParams, e),
-    ],
-    [
-      shortcuts.paramUnindentShortcut,
-      (e) => runParamShortcut(unindentSelectedParams, e),
-    ],
-    [
-      shortcuts.paramMoveUpShortcut,
-      (e) => runParamShortcut(moveSelectedParamsUp, e),
-      null,
-      true,
-    ],
-    [
-      shortcuts.paramMoveDownShortcut,
-      (e) => runParamShortcut(moveSelectedParamsDown, e),
-      null,
-      true,
-    ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
