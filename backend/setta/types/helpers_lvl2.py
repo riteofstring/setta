@@ -430,16 +430,6 @@ def set_project_config_name(
     p.projectConfigs[projectConfigId].name = newName
 
 
-def _text_block_heading_as_section_name_overridden(
-    impl_overrides: BaseSectionImplArgsUnion | None,
-):
-    if impl_overrides is None:
-        return False
-    if isinstance(impl_overrides, dict):
-        return "headingAsSectionName" in impl_overrides
-    return False
-
-
 def create_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -453,26 +443,11 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
-    if isinstance(impl, TextBlockSectionImpl):
-        if (
-            impl.format == TextBlockFormat.Markdown
-            and not impl.headingAsSectionName
-            and not _text_block_heading_as_section_name_overridden(impl_overrides)
-        ):
-            impl.headingAsSectionName = True
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {
         "name": get_default_section_core_name(impl_type),
         **compute_initial_default_variant(variant),
     }
-    if isinstance(impl, TextBlockSectionImpl) and impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_h1(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
-        if first_heading:
-            default_core_args["name"] = first_heading
     if core_overrides:
         default_core_args.update(core_overrides)
     core = Core(**default_core_args)
@@ -1621,11 +1596,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
         p, sectionId, TextBlockSectionImplArgsWithCallable(text=text)
     )
     if impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_h1(text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(text)
-        )
+        first_heading = get_first_heading_or_text(text)
         if first_heading:
             p.sections[sectionId].name = first_heading
 
@@ -1644,40 +1615,19 @@ def set_text_block_heading_as_section_name(
         TextBlockSectionImplArgsWithCallable(headingAsSectionName=headingAsSectionName),
     )
     if headingAsSectionName:
-        first_heading = (
-            get_first_markdown_h1(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
+        first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
             p.sections[sectionId].name = first_heading
 
 
 def get_first_heading_or_text(markdown: str):
     trimmed_markdown = markdown.lstrip()
-    heading_match = re.search(
-        r"(?:^|\n)#+\s*(.*?)(?=\n|$)",
-        trimmed_markdown,
-    )
+    heading_match = re.search(r"(^|\n)(#+)\s*(.*?)(?=\n|$)", trimmed_markdown)
 
     if heading_match:
-        heading_text = heading_match.group(1).strip()
-        if heading_text:
-            return heading_text
+        # Return the heading text (group 3 captures the text after # and spaces)
+        return heading_match.group(3).strip()
 
-    return None
-
-
-def get_first_markdown_h1(markdown: str):
-    trimmed_markdown = markdown.lstrip()
-    heading_match = re.search(
-        r"(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)",
-        trimmed_markdown,
-    )
-    if heading_match:
-        heading_text = heading_match.group(1).strip()
-        if heading_text:
-            return heading_text
     return None
 
 
