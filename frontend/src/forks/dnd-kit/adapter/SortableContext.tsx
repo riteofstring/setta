@@ -4,7 +4,6 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useId, useMemo, useRef } from "react";
 import { getDndSectionId, useDndMode } from "../dndState";
-import { logSortDnd } from "../sortingLog";
 import {
   clearSortingOverState,
   setSortingOverState,
@@ -124,10 +123,6 @@ export function SortableContext({
     UniqueIdentifier,
     ClientRect
   > | null>(null);
-  const lastSortLogRef = useRef<{
-    overId: string | null;
-    pastHalfway: boolean | null;
-  } | null>(null);
 
   const isDragging = shouldTrackSorting && active != null;
   const activeIndex = shouldTrackSorting
@@ -216,7 +211,6 @@ export function SortableContext({
   useEffect(() => {
     if (!shouldTrackSorting) {
       clearSortingOverState(containerId);
-      lastSortLogRef.current = null;
       return;
     }
 
@@ -229,43 +223,12 @@ export function SortableContext({
     }
 
     setSortingOverState(containerId, resolvedId, resolvedPastHalfway);
-
-    const nextLogState = {
-      overId: resolvedId,
-      pastHalfway: resolvedPastHalfway,
-    };
-    const lastLogState = lastSortLogRef.current;
-    if (
-      !lastLogState ||
-      lastLogState.overId !== nextLogState.overId ||
-      lastLogState.pastHalfway !== nextLogState.pastHalfway
-    ) {
-      logSortDnd("sorting over state", {
-        containerId,
-        activeId: active ? String(active.id) : null,
-        activeIndex,
-        overIndex,
-        resolvedOverId: resolvedId,
-        resolvedPastHalfway,
-        collisionOverId: collisionOverId ? String(collisionOverId) : null,
-        hasContainerCollision,
-        itemsLength: items.length,
-        collisionIds: summarizeSortingCollisions(collisions, 6),
-      });
-      lastSortLogRef.current = nextLogState;
-    }
   }, [
     containerId,
     items,
     resolvedOverId,
     resolvedPastHalfway,
     shouldTrackSorting,
-    active,
-    activeIndex,
-    collisionOverId,
-    collisions,
-    hasContainerCollision,
-    overIndex,
   ]);
 
   const rectsForSorting =
@@ -368,18 +331,4 @@ function getDroppableRects(
   }
 
   return rects;
-}
-
-function summarizeSortingCollisions(
-  collisions: Array<Collision> | null,
-  limit: number,
-): Array<{ id: string; pastHalfway: boolean | null }> {
-  if (!collisions || collisions.length === 0) {
-    return [];
-  }
-
-  return collisions.slice(0, limit).map((collision) => ({
-    id: String(collision.id),
-    pastHalfway: collision.pastHalfway ?? null,
-  }));
 }

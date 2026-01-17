@@ -21,7 +21,7 @@ import {
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -29,72 +29,6 @@ let lastPastHalfwayByOverId: Record<string, boolean> = {};
 let lastResolvedOverId: string | number | null = null;
 let lastResolvedPastHalfway: boolean | null = null;
 let lastResolvedTriggerDistCondition: boolean | null = null;
-let lastMoveResolvedOverId: string | number | null = null;
-let lastMoveCollisionSignature: string | null = null;
-let lastMoveCollisionCount: number | null = null;
-const DND_DEBUG_COLLISION_LIMIT = 8;
-let dndLogSequence = 0;
-
-function shouldLogDnd(): boolean {
-  if (!useDndState.getState().isMovingFree) {
-    return false;
-  }
-  return true;
-}
-
-function summarizeCollisions(
-  collisions: DragOverEvent["collisions"] | null,
-): Array<{
-  id: string;
-  pastHalfway: boolean | null;
-  intersectionRatio: number | null;
-  absTriggerDist: number | null;
-  rect: { top: number; left: number; width: number; height: number } | null;
-}> {
-  if (!collisions || collisions.length === 0) {
-    return [];
-  }
-
-  return collisions.slice(0, DND_DEBUG_COLLISION_LIMIT).map((collision) => ({
-    id: String(collision.id),
-    pastHalfway: collision.pastHalfway ?? null,
-    intersectionRatio: collision.data?.intersectionRatio ?? null,
-    absTriggerDist: collision.data?.absTriggerDist ?? null,
-    rect: summarizeRect(collision.data?.droppable?.shape?.boundingRectangle),
-  }));
-}
-
-function summarizeCollisionIds(
-  collisions: DragOverEvent["collisions"] | null,
-): { ids: string[]; total: number } {
-  if (!collisions || collisions.length === 0) {
-    return { ids: [], total: 0 };
-  }
-
-  return {
-    ids: collisions
-      .slice(0, DND_DEBUG_COLLISION_LIMIT)
-      .map((collision) => String(collision.id)),
-    total: collisions.length,
-  };
-}
-
-function getOverIdCollisionMatch(
-  overId: string | number | null,
-  collisions: DragOverEvent["collisions"] | null,
-): boolean | null {
-  if (!overId) {
-    return null;
-  }
-
-  if (!collisions || collisions.length === 0) {
-    return false;
-  }
-
-  return collisions.some(
-    (collision) => String(collision.id) === String(overId),
-  );
-}
 
 function getCollisionTriggerDistCondition(
   overId: string | number | null,
@@ -121,44 +55,6 @@ function getCollisionTriggerDistCondition(
   return Boolean(fallback);
 }
 
-function summarizeRect(
-  rect:
-    | {
-        top: number;
-        left: number;
-        width: number;
-        height: number;
-      }
-    | null
-    | undefined,
-): { top: number; left: number; width: number; height: number } | null {
-  if (!rect) {
-    return null;
-  }
-
-  return {
-    top: Math.round(rect.top),
-    left: Math.round(rect.left),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-  };
-}
-
-function logDnd(label: string, payload: Record<string, unknown>): void {
-  if (!shouldLogDnd()) {
-    return;
-  }
-
-  dndLogSequence += 1;
-  const serialized = JSON.stringify({
-    seq: dndLogSequence,
-    ts: Date.now(),
-    label,
-    ...payload,
-  });
-  console.log(serialized);
-}
-
 function resetLastPastHalfwayByOverId() {
   lastPastHalfwayByOverId = {};
 }
@@ -169,20 +65,9 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
-function resetLastMoveState() {
-  lastMoveResolvedOverId = null;
-  lastMoveCollisionSignature = null;
-  lastMoveCollisionCount = null;
-}
-
-function logOverSkip(reason: string, payload: Record<string, unknown> = {}) {
-  logDnd("free-move over skip", { reason, ...payload });
-}
-
 export function onDragStart({ active }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
-  resetLastMoveState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
@@ -204,21 +89,13 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({
-  active,
-  collisions,
-  over,
-  activeRect,
-  pointerCoordinates,
-}: DragMoveEvent) {
+function onDragMove({ active, collisions, over }: DragMoveEvent) {
   const dndState = useDndState.getState();
   const overCandidate = collisions?.[0] ?? over;
   const overCandidateId = overCandidate ? String(overCandidate.id) : null;
   const resolvedOverId = getOverId(overCandidate, collisions);
   const triggerDistCondition =
     getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false;
-  const collisionSummary = summarizeCollisionIds(collisions);
-  const collisionSignature = collisionSummary.ids.join(",");
   const pastHalfway = getOverCollisionPastHalfway(resolvedOverId, collisions);
   const resolvedOverIdKey = resolvedOverId ? String(resolvedOverId) : null;
   const hasLastPastHalfway =
@@ -246,38 +123,9 @@ function onDragMove({
     pastHalfwayChanged &&
     resolvedOverIdKey &&
     resolvedOverIdKey === dndState.overId;
-  const shouldLogMove =
-    resolvedOverIdKey !== lastMoveResolvedOverId ||
-    collisionSignature !== lastMoveCollisionSignature ||
-    collisionSummary.total !== lastMoveCollisionCount;
 
   if (triggerDistChanged) {
     useDndState.setState({ triggerDistCondition });
-  }
-
-  if (shouldLogMove) {
-    logDnd("free-move move", {
-      activeId: String(active.id),
-      overId: resolvedOverIdKey,
-      overCandidateId,
-      pastHalfway,
-      triggerDistCondition,
-      dndStateOverId: dndState.overId,
-      dndStateTriggerDistCondition: dndState.triggerDistCondition,
-      activeRect: summarizeRect(activeRect),
-      pointerCoordinates: pointerCoordinates
-        ? {
-            x: Math.round(pointerCoordinates.x),
-            y: Math.round(pointerCoordinates.y),
-          }
-        : null,
-      collisionIds: collisionSummary.ids,
-      collisionCount: collisionSummary.total,
-      collisions: summarizeCollisions(collisions),
-    });
-    lastMoveResolvedOverId = resolvedOverIdKey;
-    lastMoveCollisionSignature = collisionSignature;
-    lastMoveCollisionCount = collisionSummary.total;
   }
 
   if (shouldUpdateForTrigger || shouldUpdateForPastHalfway || overIdChanged) {
@@ -286,8 +134,6 @@ function onDragMove({
       over: overCandidate,
       collisions,
       calledFromOnDragMove: true,
-      activeRect,
-      pointerCoordinates,
     });
   }
 
@@ -309,14 +155,8 @@ function onDragOver({
   over,
   collisions,
   calledFromOnDragMove,
-  activeRect,
-  pointerCoordinates,
 }: DragOverEvent & { calledFromOnDragMove?: boolean }) {
   if (!collisions) {
-    logOverSkip("collisions-null", {
-      activeId: String(active.id),
-      overCandidateId: over ? String(over.id) : null,
-    });
     return;
   }
 
@@ -343,12 +183,6 @@ function onDragOver({
     lastResolvedTriggerDistCondition = dndState.triggerDistCondition;
     removeDndChild(dndSectionId);
     setNullBehavior(null);
-    logOverSkip("collisions-empty", {
-      activeId: String(active.id),
-      overCandidateId: over ? String(over.id) : null,
-      dndStateOverId: dndState.overId,
-      dndStateTriggerDistCondition: dndState.triggerDistCondition,
-    });
     return;
   }
 
@@ -364,32 +198,6 @@ function onDragOver({
     return;
   }
 
-  const collisionSummary = summarizeCollisionIds(collisions);
-  logDnd("free-move over", {
-    activeId: String(active.id),
-    overId: overId ? String(overId) : null,
-    overCandidateId: over ? String(over.id) : null,
-    pastHalfway,
-    triggerDistCondition,
-    calledFromOnDragMove: Boolean(calledFromOnDragMove),
-    overIdInCollisions: getOverIdCollisionMatch(overId, collisions),
-    previousResolvedOverId: lastResolvedOverId,
-    previousResolvedPastHalfway: lastResolvedPastHalfway,
-    previousResolvedTriggerDistCondition: lastResolvedTriggerDistCondition,
-    dndStateOverId: dndState.overId,
-    dndStateTriggerDistCondition: dndState.triggerDistCondition,
-    activeRect: summarizeRect(activeRect),
-    pointerCoordinates: pointerCoordinates
-      ? {
-          x: Math.round(pointerCoordinates.x),
-          y: Math.round(pointerCoordinates.y),
-        }
-      : null,
-    collisionIds: collisionSummary.ids,
-    collisionCount: collisionSummary.total,
-    collisions: summarizeCollisions(collisions),
-  });
-
   lastResolvedOverId = overId;
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
@@ -402,19 +210,12 @@ function onDragOver({
       oldParentId,
       dndSectionId,
       collisions,
-      activeRect,
-      pointerCoordinates,
     });
     return;
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
   if (!calledFromOnDragMove && overId && getTimeDiff(dndState, overId) < 100) {
-    logOverSkip("recent-overId", {
-      activeId: String(active.id),
-      overId: String(overId),
-      timeDiff: getTimeDiff(dndState, overId),
-    });
     setNullBehavior(overId);
     return;
   }
@@ -425,10 +226,6 @@ function onDragOver({
   if (!overId) {
     removeDndChild(dndSectionId);
     setNullBehavior(overId);
-    logOverSkip("overId-null", {
-      activeId: String(active.id),
-      overCandidateId: over ? String(over.id) : null,
-    });
     return;
   }
 
@@ -440,18 +237,12 @@ function onDragOver({
       oldParentId,
       dndSectionId,
       collisions,
-      activeRect,
-      pointerCoordinates,
     });
     return;
   }
 
   // Dragging over the temporary section
   if (dndSectionId === overId) {
-    logOverSkip("over-temp", {
-      activeId: String(active.id),
-      overId: String(overId),
-    });
     setNullBehavior(overId);
     return;
   }
@@ -467,8 +258,6 @@ function onDragOver({
     newParentId,
     dndChildrenState,
     collisions,
-    activeRect,
-    pointerCoordinates,
   });
 }
 
@@ -480,8 +269,6 @@ function maybeMoveToNewParent({
   newParentId,
   dndChildrenState,
   collisions,
-  activeRect,
-  pointerCoordinates,
 }: DragOverEvent & {
   dndSectionId: string;
   oldParentId: string;
@@ -500,14 +287,6 @@ function maybeMoveToNewParent({
     overIdKey === oldParentId &&
     newParentId !== oldParentId
   ) {
-    logDnd("free-move reparent skip", {
-      activeId: String(active.id),
-      dndSectionId,
-      overId: overIdKey,
-      oldParentId,
-      newParentId,
-      reason: "over-current-parent",
-    });
     setNullBehavior(overId);
     return;
   }
@@ -517,11 +296,6 @@ function maybeMoveToNewParent({
   if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
     removeDndChild(dndSectionId);
     useDndState.setState({ behaviorDropType, overId });
-    logDnd("free-move invalid drop", {
-      activeId: String(active.id),
-      overId: overId ? String(overId) : null,
-      newParentId,
-    });
     return;
   }
 
@@ -547,13 +321,6 @@ function maybeMoveToNewParent({
     newParentNumChildren > 0 &&
     !tempInNewParent
   ) {
-    logDnd("free-move remove temp", {
-      activeId: String(active.id),
-      dndSectionId,
-      overId: String(overId),
-      newParentId,
-      newParentNumChildren,
-    });
     removeDndChild(dndSectionId);
     return;
   }
@@ -572,27 +339,6 @@ function maybeMoveToNewParent({
     ) {
       index = pastHalfway ? newParentChildren.length : 0;
     }
-    logDnd("free-move reparent", {
-      activeId: String(active.id),
-      dndSectionId,
-      oldParentId,
-      newParentId,
-      overId: overId ? String(overId) : null,
-      overIndex,
-      pastHalfway,
-      index,
-      newParentChildrenLength: newParentChildren.length,
-      overIdInCollisions: getOverIdCollisionMatch(overId, collisions),
-      collisionIds: summarizeCollisionIds(collisions).ids,
-      collisionCount: summarizeCollisionIds(collisions).total,
-      activeRect: summarizeRect(activeRect),
-      pointerCoordinates: pointerCoordinates
-        ? {
-            x: Math.round(pointerCoordinates.x),
-            y: Math.round(pointerCoordinates.y),
-          }
-        : null,
-    });
     addDndChild(oldParentId, newParentId, dndSectionId, index);
   } else {
     const activeIndex = newParentChildren.indexOf(dndSectionId);
@@ -604,27 +350,6 @@ function maybeMoveToNewParent({
         newParentChildren.length,
       );
       if (nextIndex !== activeIndex) {
-        logDnd("free-move reorder", {
-          activeId: String(active.id),
-          dndSectionId,
-          parentId: newParentId,
-          overId: overId ? String(overId) : null,
-          activeIndex,
-          overIndex,
-          pastHalfway,
-          nextIndex,
-          newParentChildrenLength: newParentChildren.length,
-          overIdInCollisions: getOverIdCollisionMatch(overId, collisions),
-          collisionIds: summarizeCollisionIds(collisions).ids,
-          collisionCount: summarizeCollisionIds(collisions).total,
-          activeRect: summarizeRect(activeRect),
-          pointerCoordinates: pointerCoordinates
-            ? {
-                x: Math.round(pointerCoordinates.x),
-                y: Math.round(pointerCoordinates.y),
-              }
-            : null,
-        });
         addDndChild(oldParentId, newParentId, dndSectionId, nextIndex);
       }
     }
@@ -640,8 +365,6 @@ function leftDistBehavior({
   oldParentId,
   dndSectionId,
   collisions,
-  activeRect,
-  pointerCoordinates,
 }) {
   const overId = getOverId(over, collisions);
   // Consider overId to be the new parent, if it's not the temp section.
@@ -654,8 +377,6 @@ function leftDistBehavior({
       newParentId: overId,
       dndChildrenState,
       collisions,
-      activeRect,
-      pointerCoordinates,
     });
   }
 }
@@ -728,27 +449,8 @@ function getOverCollisionPastHalfway(
       overIdKey,
     );
     if (hasLastPastHalfway) {
-      const collisionSummary = summarizeCollisionIds(collisions);
-      logDnd("pastHalfway fallback", {
-        overId: overIdKey,
-        resolvedId: null,
-        collisionIds: collisionSummary.ids,
-        collisionCount: collisionSummary.total,
-        fallbackSource: "last-known",
-        fallbackValue: lastPastHalfwayByOverId[overIdKey],
-      });
       return lastPastHalfwayByOverId[overIdKey];
     }
-
-    const collisionSummary = summarizeCollisionIds(collisions);
-    logDnd("pastHalfway fallback", {
-      overId: overIdKey,
-      resolvedId: null,
-      collisionIds: collisionSummary.ids,
-      collisionCount: collisionSummary.total,
-      fallbackSource: "none",
-      fallbackValue: null,
-    });
     return null;
   }
 
@@ -767,74 +469,12 @@ function getCollisionOverId(
     return null;
   }
 
-  let bestId: string | number | null = null;
-  let bestDepth = -1;
-  let bestParentId: string | null = null;
-  let resolvedReason = "none";
-  const state = useProjectState.getState();
-  const dndChildrenState = useDndChildren.getState();
-  const collisionDepths: Array<{ id: string; depth: number }> = [];
-  let collisionIndex = 0;
-
-  for (const collision of collisions) {
-    const collisionId = collision.id;
-    const depth = getSectionDepth(String(collisionId), state);
-    if (collisionIndex < DND_DEBUG_COLLISION_LIMIT) {
-      collisionDepths.push({ id: String(collisionId), depth });
-    }
-    collisionIndex += 1;
-  }
-
   const bestCollision = pickBestCollision(collisions);
   if (bestCollision) {
-    bestId = bestCollision.id;
-    const bestIdStr = String(bestId);
-    bestDepth = getSectionDepth(bestIdStr, state);
-    const parentId = dndChildrenState.y[bestIdStr];
-    if (parentId) {
-      bestParentId = parentId;
-      resolvedReason = "compare-child";
-    } else {
-      resolvedReason = "compare-collision";
-    }
+    return bestCollision.id;
   }
 
-  let resolvedId: string | number | null = null;
-  if (bestId) {
-    resolvedId = bestId;
-  } else if (collisions[0]?.id) {
-    resolvedId = collisions[0].id;
-    resolvedReason = "first-collision";
-  }
-
-  const collisionSummary = summarizeCollisionIds(collisions);
-  logDnd("collision over resolve", {
-    collisionIds: collisionSummary.ids,
-    collisionCount: collisionSummary.total,
-    collisionDepths,
-    bestId: bestId ? String(bestId) : null,
-    bestDepth,
-    bestParentId,
-    resolvedId: resolvedId ? String(resolvedId) : null,
-    resolvedReason,
-  });
-
-  return resolvedId ?? null;
-}
-
-function getSectionDepth(sectionId: string, state: ZustandProjectState) {
-  if (!state.sections[sectionId]) {
-    return -1;
-  }
-
-  let depth = 0;
-  let parentId = state.parentSectionMap[sectionId];
-  while (parentId) {
-    depth += 1;
-    parentId = state.parentSectionMap[parentId];
-  }
-
-  return depth;
+  return collisions[0]?.id ?? null;
 }
 
 function getSectionIsGlobalVariables(sectionId: string) {

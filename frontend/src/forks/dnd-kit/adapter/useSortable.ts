@@ -11,7 +11,6 @@ import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useDndMode } from "../dndState";
-import { logSortDnd } from "../sortingLog";
 import { Context } from "./SortableContext";
 import {
   isValidIndex,
@@ -187,16 +186,6 @@ export function useSortable({
   const isDraggingActive = isDragging || (isSorting && isActiveItem);
   const shouldDisableTransition =
     dndMode.isSorting && wasDragActiveRef.current && itemsHaveChanged;
-  const lastTransitionLogRef = useRef<{
-    transition: string | null;
-    isDragging: boolean;
-    isDraggingActive: boolean;
-    isSorting: boolean;
-    disableTransforms: boolean;
-    disableTransition: boolean;
-    overIndex: number;
-    activeIndex: number;
-  } | null>(null);
   const displaceItem =
     isSorting &&
     !disableTransforms &&
@@ -233,63 +222,6 @@ export function useSortable({
     disableTransforms,
     forceDisabledTransition: shouldDisableTransition,
   });
-  const transitionKey = transitionValue ?? null;
-
-  useEffect(() => {
-    if (!dndMode.isSorting || !isActiveItem) {
-      lastTransitionLogRef.current = null;
-      return;
-    }
-
-    const nextLog = {
-      transition: transitionKey,
-      isDragging,
-      isDraggingActive,
-      isSorting,
-      disableTransforms,
-      disableTransition: shouldDisableTransition,
-      overIndex,
-      activeIndex,
-    };
-    const lastLog = lastTransitionLogRef.current;
-    if (
-      !lastLog ||
-      lastLog.transition !== nextLog.transition ||
-      lastLog.isDragging !== nextLog.isDragging ||
-      lastLog.isDraggingActive !== nextLog.isDraggingActive ||
-      lastLog.isSorting !== nextLog.isSorting ||
-      lastLog.disableTransforms !== nextLog.disableTransforms ||
-      lastLog.disableTransition !== nextLog.disableTransition ||
-      lastLog.overIndex !== nextLog.overIndex ||
-      lastLog.activeIndex !== nextLog.activeIndex
-    ) {
-      logSortDnd("sorting transition", {
-        id: String(id),
-        transition: transitionKey,
-        isDragging,
-        isDraggingActive,
-        isSorting,
-        disableTransforms,
-        disableTransition: shouldDisableTransition,
-        overIndex,
-        activeIndex,
-        itemsLength: items.length,
-      });
-      lastTransitionLogRef.current = nextLog;
-    }
-  }, [
-    activeIndex,
-    disableTransforms,
-    dndMode.isSorting,
-    id,
-    isActiveItem,
-    isDragging,
-    isDraggingActive,
-    isSorting,
-    items.length,
-    overIndex,
-    transitionKey,
-  ]);
 
   useEffect(() => {
     sortable.draggable.disabled = Boolean(disabled.draggable);
