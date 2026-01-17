@@ -509,12 +509,6 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
-export async function route_set_project_config_codegen_targets(
-  x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setProjectConfigCodegenTargets", x);
-}
-
 export async function route_set_gen_code_prefix(
   x: gt.SetGenCodePrefixRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -723,12 +717,6 @@ export async function route_set_text_block_meta_control_style(
   x: gt.SetTextBlockMetaControlStyleRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockMetaControlStyle", x);
-}
-
-export async function route_set_section_with_params_display_mode(
-  x: gt.SetSectionWithParamsDisplayModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionWithParamsDisplayMode", x);
 }
 
 export async function route_set_callable_hide_params(

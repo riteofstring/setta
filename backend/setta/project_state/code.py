@@ -126,37 +126,6 @@ def create_snapshot_run_command_from_sections(
     )
 
 
-def create_snapshot_run_command_from_code_sections_only(
-    *,
-    dbe: DBE,
-    snapshot_root: Path,
-    entry_section_id: ID | None,
-    section_inputs: dict[ID, SnapshotSectionInput],
-) -> str:
-    if entry_section_id is None:
-        raise KeyError("Missing entry code section for run.")
-    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
-    for section_id, (code, binding, run_command_builder) in section_inputs.items():
-        snapshot_sections[section_id] = SnapshotCodeSection(
-            code=code,
-            binding=binding,
-            run_command_builder=run_command_builder,
-        )
-    target_folder = create_timestamped_folder(snapshot_root)
-    code_paths: dict[ID, Path] = {}
-    for section_id, section in snapshot_sections.items():
-        code_paths[section_id] = write_snapshot_file(
-            dbe,
-            target_folder,
-            section.binding,
-            section.code,
-        )
-    if entry_section_id not in code_paths:
-        raise KeyError(f"Missing code section for run: {entry_section_id}")
-    section = snapshot_sections[entry_section_id]
-    return section.run_command_builder(code_paths[entry_section_id])
-
-
 class Code(ABC):
     def __init__(self, dbe: DBE, code_files: "CodeFiles", binding: "CodeFileBinding"):
         self.dbe = dbe

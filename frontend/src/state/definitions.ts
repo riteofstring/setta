@@ -99,7 +99,6 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
-          yamlValues: {},
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
@@ -452,11 +451,6 @@ export const useMisc = withProjectState(
       })),
     ),
   ),
-);
-
-// maps from variantId to yaml metadata
-const useOriginalYamlObj = withProjectState(
-  createWithEqualityFn(withResetFn(() => {})),
 );
 
 export type ChatDetails = {

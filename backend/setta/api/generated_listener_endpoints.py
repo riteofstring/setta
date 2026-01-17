@@ -59,7 +59,6 @@ from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.project_config import (
     Position,
-    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -69,7 +68,6 @@ from setta.types.section_impls import (
     ChatSectionState,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -577,12 +575,6 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    codegenTargets: list[ProjectCodegenPythonTarget]
-
-
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -643,13 +635,6 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
-
-
-class ListenerSetSectionWithParamsDisplayModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    displayMode: SectionWithParamsDisplayMode
 
 
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
@@ -1151,11 +1136,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
 
-    async def set_project_config_codegen_targets(
-        self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_project_config_codegen_targets", payload)
-
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
     ) -> None:
@@ -1200,11 +1180,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionVariantNameRequestPayload
     ) -> None:
         return await self._caller("route_set_section_variant_name", payload)
-
-    async def set_section_with_params_display_mode(
-        self, payload: ListenerSetSectionWithParamsDisplayModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_with_params_display_mode", payload)
 
     async def set_show_param_display_names(
         self, payload: ListenerSetShowParamDisplayNamesRequestPayload

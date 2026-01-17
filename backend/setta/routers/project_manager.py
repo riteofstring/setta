@@ -63,7 +63,6 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
-    SetProjectConfigCodegenTargetsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -73,7 +72,6 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
-    SetSectionWithParamsDisplayModeRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -508,15 +506,6 @@ async def route_set_text_block_text(
     await manager.set_text_block_text(x)
 
 
-@router.post(Route.SET_PROJECT_CONFIG_CODEGEN_TARGETS)
-async def route_set_project_config_codegen_targets(
-    x: SetProjectConfigCodegenTargetsRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_project_config_codegen_targets(x)
-
-
 @router.post(Route.SET_GEN_CODE_PREFIX)
 async def route_set_gen_code_prefix(
     x: SetGenCodePrefixRequest, ctx: RuntimeContextFromRequest
@@ -820,15 +809,6 @@ async def route_set_text_block_meta_control_style(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_text_block_meta_control_style(x)
-
-
-@router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)
-async def route_set_section_with_params_display_mode(
-    x: SetSectionWithParamsDisplayModeRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_with_params_display_mode(x)
 
 
 @router.post(Route.SET_CALLABLE_HIDE_PARAMS)
