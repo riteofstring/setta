@@ -4,7 +4,10 @@ import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { isBaseSectionWithParamsImpl, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 import { ParamDndProvider } from "./ParamDndContext";
 

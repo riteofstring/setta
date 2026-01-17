@@ -59,8 +59,7 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
 
   const direction = event.shiftKey ? -1 : 1;
   const startScope =
-    currentScope ??
-    getFirstScopeWithFocusable(orderedScopes, direction > 0);
+    currentScope ?? getFirstScopeWithFocusable(orderedScopes, direction > 0);
   if (!startScope) {
     return false;
   }
@@ -168,7 +167,10 @@ function resolveNextFocusable({
     return null;
   }
 
-  const fallbackElement = getFallbackElement(scopedResult.focusables, direction);
+  const fallbackElement = getFallbackElement(
+    scopedResult.focusables,
+    direction,
+  );
   if (!fallbackElement) {
     return null;
   }
@@ -181,10 +183,7 @@ function findWrapScopeWithFocusable(
   currentScope: TabScopeRegistration,
   direction: number,
 ): { scope: TabScopeRegistration; focusables: HTMLElement[] } | null {
-  const wrapScope = getFirstScopeWithFocusable(
-    orderedScopes,
-    direction > 0,
-  );
+  const wrapScope = getFirstScopeWithFocusable(orderedScopes, direction > 0);
   if (!wrapScope || wrapScope.scopeId === currentScope.scopeId) {
     return null;
   }

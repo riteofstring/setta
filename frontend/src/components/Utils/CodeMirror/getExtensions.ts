@@ -149,8 +149,8 @@ function getKeyMapArray({
   if (indentWithTab) {
     keymapArray.push({
       key: "Shift-Tab",
-      preventDefault: false,
-      stopPropagation: false,
+      preventDefault: true,
+      stopPropagation: true,
       run: (view) => {
         indentLess(view);
       },
@@ -161,11 +161,10 @@ function getKeyMapArray({
     keymapArray.push({
       key: "Tab",
       preventDefault: false,
-      stopPropagation: false,
+      stopPropagation: true,
       run: (view) => {
         let completionResult = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {
-          // let the focus manager handle navigation; keep completion behavior
           completionResult = acceptCompletion(view);
         } else if (indentWithTab) {
           indentMore(view);
@@ -173,7 +172,6 @@ function getKeyMapArray({
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
         }
-        // keep CodeMirror state updates while allowing tab navigation to bubble
         return indentWithTab || completionResult;
       },
     });

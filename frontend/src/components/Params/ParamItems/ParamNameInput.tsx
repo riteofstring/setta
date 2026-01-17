@@ -10,6 +10,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { focusOnSection } from "utils/focusManager";
 import {
   route_set_code_obj_display_name,
   route_set_code_obj_name,
@@ -18,7 +19,6 @@ import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { focusOnSection } from "utils/focusManager";
 
 export function ParamNameInput({
   border,
