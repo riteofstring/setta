@@ -508,6 +508,18 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
   ),
 );
 
+type ChatSectionChatIdsState = {
+  bySectionId: Record<string, string | null | undefined>;
+};
+
+export const useChatSectionChatIds = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ChatSectionChatIdsState>(() => ({
+      bySectionId: {},
+    })),
+  ),
+);
+
 type AIFollowState = {
   enabled: boolean;
   isFollowTransitioning: boolean;
