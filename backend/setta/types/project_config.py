@@ -142,13 +142,14 @@ def _apply_codegen_mode(include_in_codegen: bool, mode: SectionCodegenMode) -> b
 def _is_representation_supported(
     section_type: SectionType, representation: SectionRepresentationMode
 ) -> bool:
-    if representation is SectionRepresentationMode.json:
-        return True
     if section_type is SectionType.Chat:
-        return representation is SectionRepresentationMode.file
+        return representation in (
+            SectionRepresentationMode.json,
+            SectionRepresentationMode.file,
+        )
     if section_type is SectionType.Draw:
         return representation is SectionRepresentationMode.base64
-    return False
+    return representation is SectionRepresentationMode.json
 
 
 def resolve_section_codegen_policy(

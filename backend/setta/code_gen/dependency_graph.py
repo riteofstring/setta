@@ -19,7 +19,6 @@ from setta.types.dependency_key import (
     create_dep_key,
 )
 from setta.types.dependency_value import (
-    Base64DependencyValue,
     DependencyValueType,
     FileReadDependencyValue,
     LiteralDependencyValue,
@@ -327,15 +326,12 @@ class DependencyGraph:
         section_impl = ctx.section_impl
         if not isinstance(section_impl, DrawSectionImpl):
             return
-        rendered_value = section_impl.renderedValue
         representation = ctx.codegen_policy.representation
         if representation is not SectionRepresentationMode.base64:
             raise ValueError(
                 f"Unsupported representation {representation.value} for Draw section {ctx.section_id}"
             )
-        dependency_value = (
-            Base64DependencyValue(rendered_value) if rendered_value else None
-        )
+        dependency_value = None
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,

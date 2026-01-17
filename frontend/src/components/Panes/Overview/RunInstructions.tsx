@@ -470,8 +470,12 @@ export function RunInstructions() {
                   const typePolicy = sectionPolicy.typePolicies[sectionType];
                   const representationOptions =
                     getRepresentationOptions(sectionType);
+                  const representationOptionsWithFallback =
+                    representationOptions.includes(typePolicy.representation)
+                      ? representationOptions
+                      : [typePolicy.representation, ...representationOptions];
                   const representationDisabled =
-                    representationOptions.length === 1;
+                    representationOptionsWithFallback.length === 1;
                   return (
                     <div key={sectionType} className="flex items-center gap-2">
                       <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
@@ -521,7 +525,7 @@ export function RunInstructions() {
                           });
                         }}
                       >
-                        {representationOptions.map((option) => (
+                        {representationOptionsWithFallback.map((option) => (
                           <option key={option} value={option}>
                             {option}
                           </option>
@@ -896,7 +900,7 @@ function getRepresentationOptions(
     return ["json", "file"];
   }
   if (sectionType === SectionTypeEnum.Draw) {
-    return ["json", "base64"];
+    return ["base64"];
   }
   return ["json"];
 }
