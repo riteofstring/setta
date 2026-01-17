@@ -12,18 +12,13 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import {
-  useProjectState,
-  useSettings,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useProjectState, useSettings } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
 import {
-  getEdgesStripHeightKey,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -76,12 +71,7 @@ export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
 function EdgesStrip({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
-  const edgesStripRef = useRef<HTMLDivElement | null>(null);
-  const lastHeightRef = useRef(0);
-  const lastPortsKeyRef = useRef<string | null>(null);
-  const heightKey = getEdgesStripHeightKey(sectionId);
-  const { inputPorts, outputPorts, shouldRoundBottom, positionAndSizeLocked } =
-    useProjectState((state) => {
+  const { inputPorts, outputPorts } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
       sectionId,
@@ -107,115 +97,24 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       label:
         port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
     }));
-    const filteredPinned = filterEdgeInputs(
-      pinned.requiredParamIdsToPaths,
-      pinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const filteredUnpinned = filterEdgeInputs(
-      unpinned.requiredParamIdsToPaths,
-      unpinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
-    const hasUnpinnedParams =
-      !impl.hideUnpinnedParams && filteredUnpinned.topLevelParamIds.length > 0;
-    return {
-      inputPorts,
-      outputPorts,
-      shouldRoundBottom: !hasPinnedParams && !hasUnpinnedParams,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-    };
+    return { inputPorts, outputPorts };
   }, _.isEqual);
 
-  const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
-
-  const portsKey = `${inputPorts
-    .map((port) => port.label)
-    .join("|")}::${outputPorts.map((port) => port.label).join("|")}`;
-
-  useEffect(() => {
-    if (!hasEdges) {
-      const currentHeight = useTemporaryMiscState.getState()[heightKey];
-      if (currentHeight !== 0) {
-        lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
-      }
-      return;
-    }
-
-    const node = edgesStripRef.current;
-    if (!node) {
-      return;
-    }
-
-    const shouldReset = lastPortsKeyRef.current !== portsKey;
-    if (shouldReset) {
-      lastPortsKeyRef.current = portsKey;
-      lastHeightRef.current = 0;
-    }
-    let allowDecrease = shouldReset;
-
-    const updateHeight = (height: number) => {
-      const nextHeight = Math.ceil(height);
-      if (!allowDecrease && nextHeight <= lastHeightRef.current) {
-        return;
-      }
-      if (lastHeightRef.current === nextHeight) {
-        return;
-      }
-      lastHeightRef.current = nextHeight;
-      useTemporaryMiscState.setState({ [heightKey]: nextHeight });
-      if (allowDecrease) {
-        allowDecrease = false;
-      }
-    };
-
-    const measureHeight = () => {
-      const measuredHeight = Math.max(
-        node.scrollHeight,
-        node.getBoundingClientRect().height,
-      );
-      updateHeight(measuredHeight);
-    };
-
-    const observer = new ResizeObserver(() => {
-      measureHeight();
-    });
-
-    observer.observe(node);
-    measureHeight();
-
-    return () => observer.disconnect();
-  }, [hasEdges, heightKey, portsKey]);
-
-  if (!hasEdges) {
+  if (inputPorts.length === 0 && outputPorts.length === 0) {
     return null;
   }
 
-  let roundedBottomClassName = "";
-  if (shouldRoundBottom) {
-    roundedBottomClassName = positionAndSizeLocked
-      ? "rounded-b-sm"
-      : "rounded-b-xl";
-  }
-
   return (
-    <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
-      ref={edgesStripRef}
-    >
-      <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
-      <div className="grid grid-cols-2">
-        <div className="flex flex-col px-2 pb-3">
-          <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
-            In
-          </div>
-          <div className="flex flex-col gap-1 pt-1">
-            {inputPorts.map((port) => (
-              <div
-                key={port.id}
-              className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+    <section className="section-w-full section-row-pin-main -mt-1 flex flex-col gap-2 rounded-md border border-blue-100 bg-blue-50/60 px-2 py-2 shadow-sm dark:border-setta-700/40 dark:bg-blue-950/30">
+      <header className="flex items-center gap-1 text-[0.6rem] font-semibold uppercase text-blue-600/70 dark:text-blue-300/60">
+        <span className="tracking-[0.2em]">Edges</span>
+      </header>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          {inputPorts.map((port) => (
+            <div
+              key={port.id}
+              className="relative flex items-center gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
             >
               <Handle
                 id={port.id}
@@ -229,17 +128,12 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
               <span className="truncate">{port.label}</span>
             </div>
           ))}
-          </div>
         </div>
-        <div className="flex flex-col px-2 pb-3">
-          <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
-            Out
-          </div>
-          <div className="flex flex-col gap-1 pt-1">
-            {outputPorts.map((port) => (
-              <div
-                key={port.id}
-              className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+        <div className="flex flex-col gap-1">
+          {outputPorts.map((port) => (
+            <div
+              key={port.id}
+              className="relative flex items-center justify-end gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
             >
               <span className="truncate">{port.label}</span>
               <Handle
@@ -253,73 +147,35 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
               />
             </div>
           ))}
-          </div>
         </div>
       </div>
     </section>
   );
 }
 
-type MaxNestedDepth = {
-  pinned: number;
-  unpinned: number;
-};
-
-type GetPinnedParamsProps = {
-  sectionId: string;
-  outerRef: React.RefObject<HTMLDivElement | null>;
-  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
-};
-
-type ResizablePinnedAreaProps = {
-  sectionId: string;
-  topLevelParamIds: Array<string>;
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  outerRef: React.RefObject<HTMLDivElement | null>;
-  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  shouldRoundBottom: boolean;
-  positionAndSizeLocked: boolean;
-};
-
 function GetPinnedParams({
   sectionId,
   outerRef,
   handleColumnResizeStart,
   setMaxNestedDepth,
-}: GetPinnedParamsProps) {
-  const {
-    requiredParamIdsToPaths,
-    topLevelParamIds,
-    shouldRoundBottom,
-    positionAndSizeLocked,
-  } = useProjectState((x) => {
+}) {
+  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) => {
     const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
       x,
       sectionId,
       true,
       true,
     );
-    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const filtered = filterEdgeInputs(
+    return filterEdgeInputs(
       requiredParamIdsToPaths,
       topLevelParamIds,
       impl.edgeInputParams,
     );
-    let shouldRoundBottom = false;
-    if (impl.hideUnpinnedParams || unpinned.topLevelParamIds.length === 0) {
-      shouldRoundBottom = true;
-    }
-    return {
-      ...filtered,
-      shouldRoundBottom,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-    };
   }, _.isEqual);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
@@ -336,8 +192,6 @@ function GetPinnedParams({
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         outerRef={outerRef}
         handleColumnResizeStart={handleColumnResizeStart}
-        shouldRoundBottom={shouldRoundBottom}
-        positionAndSizeLocked={positionAndSizeLocked}
       />
     )
   );
@@ -349,9 +203,7 @@ function ResizablePinnedArea({
   requiredParamIdsToPaths,
   outerRef,
   handleColumnResizeStart,
-  shouldRoundBottom,
-  positionAndSizeLocked,
-}: ResizablePinnedAreaProps) {
+}) {
   const { sectionHeight, height } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -399,17 +251,11 @@ function ResizablePinnedArea({
       : outerRef.current?.clientHeight ?? initialMaxHeight;
 
   const { ref, isScrollable } = useIsScrollable();
-  let roundedBottomClassName = "";
-  if (shouldRoundBottom) {
-    roundedBottomClassName = positionAndSizeLocked
-      ? "rounded-b-sm"
-      : "rounded-b-xl";
-  }
 
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className={`relative flex max-h-[50%] w-full flex-col items-start border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${roundedBottomClassName}`}
+      className="relative -mt-1 flex max-h-[50%] w-full flex-col items-start border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}

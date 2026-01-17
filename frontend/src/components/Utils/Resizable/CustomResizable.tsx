@@ -5,10 +5,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import {
-  adjustSizeToBeAtLeastMin,
-  setSelfParentSiblingChildrenWidths,
-} from "state/actions/sections/sectionSizes";
+import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
   useMisc,
@@ -112,17 +109,12 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    const clampedSize = clampChangedSize({
-      changedSize,
-      minHeight,
-      minWidth,
-    });
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         updatedSectionSizes = setSelfParentSiblingChildrenWidths(
           sectionId,
-          clampedSize,
+          changedSize,
           state,
         );
       },
@@ -337,39 +329,4 @@ function useAspectRatio(sectionId: string) {
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.resizeEvent[sectionId] = resizeEvent;
-}
-
-function clampChangedSize({
-  changedSize,
-  minHeight,
-  minWidth,
-}: {
-  changedSize: Partial<SectionSize>;
-  minHeight: number;
-  minWidth: number;
-}) {
-  const clampedSize = { ...changedSize };
-  const hasHeight = typeof changedSize.height === "number";
-  const hasWidth = typeof changedSize.width === "number";
-
-  if (hasHeight && hasWidth) {
-    const adjusted = adjustSizeToBeAtLeastMin(
-      changedSize.height,
-      changedSize.width,
-      minHeight,
-      minWidth,
-    );
-    clampedSize.height = adjusted.height;
-    clampedSize.width = adjusted.width;
-    return clampedSize;
-  }
-
-  if (hasHeight && changedSize.height < minHeight) {
-    clampedSize.height = minHeight;
-  }
-  if (hasWidth && changedSize.width < minWidth) {
-    clampedSize.width = minWidth;
-  }
-
-  return clampedSize;
 }
