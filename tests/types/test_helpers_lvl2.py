@@ -19,6 +19,7 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_sections,
     get_curr_top_level_param_ids,
+    set_chat_section_chat_id,
 )
 from setta.types.project_config import (
     Position,
@@ -27,7 +28,13 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import BaseDictSectionImpl, SectionSize, SectionType
+from setta.types.id import ID
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    ChatSectionImpl,
+    SectionSize,
+    SectionType,
+)
 
 
 class AddKwargTests(unittest.TestCase):
@@ -102,6 +109,32 @@ class DeleteSectionsTests(unittest.TestCase):
         self.assertNotIn(section_id, self.project_state.sections)
         self.assertNotIn(section_id, self.project_state.projectConfig.sectionVariantMap)
         self.project_state.validate_code_file_bindings()
+
+
+class ChatSectionChatIdTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_set_chat_section_chat_id_updates_impl(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        chat_id = ID("chat-1")
+
+        set_chat_section_chat_id(self.project_state, section_id, chat_id)
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        self.assertEqual(section_impl.chatId, chat_id)
 
 
 class ChangeParamImplTests(unittest.TestCase):

@@ -17,6 +17,7 @@ from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -267,11 +268,26 @@ class IFrameSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
 
 
+class ChatSectionState(BaseModel, extra="forbid"):
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    inputText: str = ""
+    waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
+
+
 class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Chat] = SectionType.Chat
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=405, height=405)
     )
+    managed: bool = False
+    llmConfigId: str | None = None
+    chatId: ID | None = None
+    deepThink: bool = False
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    inputText: str = ""
+    waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
 
 
 class BrowserSectionImpl(BaseSectionImpl):

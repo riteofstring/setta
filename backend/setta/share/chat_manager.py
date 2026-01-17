@@ -99,7 +99,6 @@ class ShareChatManager:
         chat_id: ID | None,
         message: "BaseChatMessageUnion",
         llm_config_id: str,
-        project_config_id: ID,
         share_session_id: str | None = None,
     ) -> "Chat":
         session_id = self._require_share_session_id(share_session_id)
@@ -107,7 +106,6 @@ class ShareChatManager:
             chat_id,
             message,
             llm_config_id,
-            project_config_id,
         )
 
     def get_all_chat_metadata(self, share_session_id: str | None = None):
@@ -122,10 +120,13 @@ class ShareChatManager:
         self,
         chat: "Chat",
         deepThink: bool,
+        active_project_config_id: ID,
         share_session_id: str | None = None,
     ) -> None:
         session_id = self._require_share_session_id(share_session_id)
-        self._get_or_create_manager(session_id).start_processing_query(chat, deepThink)
+        self._get_or_create_manager(session_id).start_processing_query(
+            chat, deepThink, active_project_config_id
+        )
 
     async def request_stop_streaming(
         self, chat_id: ID, share_session_id: str | None = None

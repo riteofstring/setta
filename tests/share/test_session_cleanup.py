@@ -167,7 +167,6 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 None,
                 message,
                 "primary",
-                project_config_id,
                 share_session_id=session.id,
             )
             self.assertIn(session.id, chat_manager._managers)
