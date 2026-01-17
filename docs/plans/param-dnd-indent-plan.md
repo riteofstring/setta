@@ -98,11 +98,17 @@
 - Automated:
   - Backend unit tests for `move_params_*` helpers in `tests/` (no mocks).
 
+## Decisions
+- Indent auto-converts a non-parent param into `NestedParam`.
+- Unindent that leaves an empty `NestedParam` converts it back to `CodeParam` with value `"{}"`.
+- Reorder/indent/unindent is disabled while `paramFilter` is active.
+- Structural ops (drag, indent, move up/down) require selection within a single parent for now.
+- Pinned/unpinned are filtered views of the same tree with shared selection.
+- Move/indent operations use visible-sibling semantics (skip hidden siblings).
+- Drag uses the visible list to compute insertion, but updates the full `children` list.
+
 ## Open questions
-- Should indent auto-convert a non-parent param into a `NestedParam`, or require manual conversion?
-- Should empty nested params be auto-removed on unindent?
-- Should reorder be disabled when `paramFilter` is active, or should it operate on the full tree?
-- How should we handle selections spanning multiple parents or pinned/unpinned duplicates?
+- None.
 
 ## Suggested default shortcuts
 - Indent: `Tab`
