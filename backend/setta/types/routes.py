@@ -151,6 +151,7 @@ class Route(str, Enum):
     APPEND_DRAW_AREA_LAYER_ITEM = "/appendDrawAreaLayerItem"
     MOVE_SECTION = "/moveSection"
     MOVE_PARAMS = "/moveParams"
+    MOVE_PARAM_GROUPS = "/moveParamGroups"
     INDENT_PARAMS = "/indentParams"
     UNINDENT_PARAMS = "/unindentParams"
     GROUP_SECTIONS = "/groupSections"

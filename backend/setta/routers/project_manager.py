@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
     IndentParamsRequest,
+    MoveParamGroupsRequest,
     MoveParamsRequest,
     MoveSectionRequest,
     OutputAccessorCompletionRequest,
@@ -935,6 +936,15 @@ async def route_move_params(x: MoveParamsRequest, ctx: RuntimeContextFromRequest
     await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.move_params(x)
+
+
+@router.post(Route.MOVE_PARAM_GROUPS)
+async def route_move_param_groups(
+    x: MoveParamGroupsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.move_param_groups(x)
 
 
 @router.post(Route.INDENT_PARAMS)

@@ -22,6 +22,7 @@ import type { ZustandProjectState } from "state/definitions";
 import { useProjectState } from "state/definitions";
 import {
   route_indent_params,
+  route_move_param_groups,
   route_move_params,
   route_unindent_params,
 } from "utils/generatedEndpoints";
@@ -29,7 +30,6 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { insertIntoArray } from "utils/utils";
 
 type ParamSelectionBase = {
   sectionId: string;
@@ -38,6 +38,83 @@ type ParamSelectionBase = {
   parentById: Record<string, string | null>;
   visibleIds: Set<string>;
 };
+
+type ParamMoveGroup = {
+  paramIds: string[];
+  newParentId: string;
+  newIndex: number;
+};
+
+function insertItems<T>(arr: T[], index: number, items: T[]): T[] {
+  return [...arr.slice(0, index), ...items, ...arr.slice(index)];
+}
+
+function applyParamMove(
+  state: ZustandProjectState,
+  sectionId: string,
+  move: ParamMoveGroup,
+) {
+  if (move.paramIds.length === 0) {
+    return;
+  }
+  const rootId = getParamRootId(state, sectionId);
+  const parentById = buildParamParentMap(state, sectionId, rootId);
+  const oldParentId = parentById[move.paramIds[0]] ?? null;
+  if (!oldParentId) {
+    return;
+  }
+  const oldParentImpl = getCurrEffectiveCodeObjImpl(
+    state,
+    sectionId,
+    oldParentId,
+  );
+  if (!isBaseParentCodeObjImpl(oldParentImpl)) {
+    return;
+  }
+  const orderedParamIds = orderParamIdsByParent(
+    state,
+    sectionId,
+    oldParentId,
+    move.paramIds,
+  );
+  const paramSet = new Set(orderedParamIds);
+  const remaining = oldParentImpl.children.filter((id) => !paramSet.has(id));
+
+  if (move.newParentId === oldParentId) {
+    if (move.newIndex < 0 || move.newIndex > remaining.length) {
+      return;
+    }
+    const nextChildren = insertItems(remaining, move.newIndex, orderedParamIds);
+    setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
+      children: nextChildren,
+    });
+    return;
+  }
+
+  const newParentImpl = getCurrEffectiveCodeObjImpl(
+    state,
+    sectionId,
+    move.newParentId,
+  );
+  if (!isBaseParentCodeObjImpl(newParentImpl)) {
+    return;
+  }
+  const newRemaining = newParentImpl.children.filter((id) => !paramSet.has(id));
+  if (move.newIndex < 0 || move.newIndex > newRemaining.length) {
+    return;
+  }
+  const nextNewChildren = insertItems(
+    newRemaining,
+    move.newIndex,
+    orderedParamIds,
+  );
+  setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
+    children: remaining,
+  });
+  setCurrEffectiveCodeObjImplValue(state, sectionId, move.newParentId, {
+    children: nextNewChildren,
+  });
+}
 
 export function selectOnlyParam(sectionId: string, paramId: string) {
   const state = useProjectState.getState();
@@ -83,70 +160,10 @@ export function moveParamsWithBackend({
   }
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const rootId = getParamRootId(state, sectionId);
-      const parentById = buildParamParentMap(state, sectionId, rootId);
-      const oldParentId = parentById[paramIds[0]] ?? null;
-      if (!oldParentId) {
-        return;
-      }
-      const oldParentImpl = getCurrEffectiveCodeObjImpl(
-        state,
-        sectionId,
-        oldParentId,
-      );
-      if (!isBaseParentCodeObjImpl(oldParentImpl)) {
-        return;
-      }
-      const orderedParamIds = orderParamIdsByParent(
-        state,
-        sectionId,
-        oldParentId,
+      applyParamMove(state, sectionId, {
         paramIds,
-      );
-      const paramSet = new Set(orderedParamIds);
-      const remaining = oldParentImpl.children.filter(
-        (id) => !paramSet.has(id),
-      );
-
-      if (newParentId === oldParentId) {
-        if (newIndex < 0 || newIndex > remaining.length) {
-          return;
-        }
-        const nextChildren = insertIntoArray(
-          remaining,
-          newIndex,
-          orderedParamIds,
-        );
-        setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
-          children: nextChildren,
-        });
-        return;
-      }
-
-      const newParentImpl = getCurrEffectiveCodeObjImpl(
-        state,
-        sectionId,
         newParentId,
-      );
-      if (!isBaseParentCodeObjImpl(newParentImpl)) {
-        return;
-      }
-      const newRemaining = newParentImpl.children.filter(
-        (id) => !paramSet.has(id),
-      );
-      if (newIndex < 0 || newIndex > newRemaining.length) {
-        return;
-      }
-      const nextNewChildren = insertIntoArray(
-        newRemaining,
         newIndex,
-        orderedParamIds,
-      );
-      setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
-        children: remaining,
-      });
-      setCurrEffectiveCodeObjImplValue(state, sectionId, newParentId, {
-        children: nextNewChildren,
       });
     },
     send: (frontendOpId) =>
@@ -156,6 +173,32 @@ export function moveParamsWithBackend({
         paramIds,
         newParentId,
         newIndex,
+        frontendOpId,
+      }),
+  });
+}
+
+function moveParamGroupsWithBackend({
+  sectionId,
+  moves,
+}: {
+  sectionId: string;
+  moves: ParamMoveGroup[];
+}) {
+  if (moves.length === 0) {
+    return;
+  }
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      for (const move of moves) {
+        applyParamMove(state, sectionId, move);
+      }
+    },
+    send: (frontendOpId) =>
+      route_move_param_groups({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        moves,
         frontendOpId,
       }),
   });
@@ -195,64 +238,43 @@ export function moveSelectedParamsDown(): boolean {
   return moveSelectedParamsByOffset(1);
 }
 
+function buildVisibleSelectionGroups(
+  visibleSiblings: string[],
+  selectedSet: Set<string>,
+): string[][] {
+  const groups: string[][] = [];
+  let current: string[] = [];
+  for (const id of visibleSiblings) {
+    if (selectedSet.has(id)) {
+      current.push(id);
+      continue;
+    }
+    if (current.length > 0) {
+      groups.push(current);
+      current = [];
+    }
+  }
+  if (current.length > 0) {
+    groups.push(current);
+  }
+  return groups;
+}
+
 function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   const context = getParamMovementContext();
   if (!context) {
     return false;
   }
   const { sectionId, rootSelected, sharedParent, tree } = context;
-  const visibleSiblings = tree.visibleChildrenByParent[sharedParent] ?? [];
+  let visibleSiblings = tree.visibleChildrenByParent[sharedParent] ?? [];
   if (visibleSiblings.length === 0) {
     return false;
   }
   const selectedSet = new Set(rootSelected);
-  const orderedVisibleSelected = visibleSiblings.filter((id) =>
-    selectedSet.has(id),
-  );
-  if (orderedVisibleSelected.length === 0) {
+  const groups = buildVisibleSelectionGroups(visibleSiblings, selectedSet);
+  if (groups.length === 0) {
     return false;
   }
-  const firstSelectedId = orderedVisibleSelected[0];
-  const lastSelectedId =
-    orderedVisibleSelected[orderedVisibleSelected.length - 1];
-  const firstIndex = visibleSiblings.indexOf(firstSelectedId);
-  const lastIndex = visibleSiblings.indexOf(lastSelectedId);
-  if (firstIndex < 0 || lastIndex < 0) {
-    return false;
-  }
-  const remainingVisible = visibleSiblings.filter((id) => !selectedSet.has(id));
-  let targetVisibleIndex: number | null = null;
-  if (direction < 0) {
-    let prevId: string | null = null;
-    for (let i = firstIndex - 1; i >= 0; i -= 1) {
-      const candidate = visibleSiblings[i];
-      if (!selectedSet.has(candidate)) {
-        prevId = candidate;
-        break;
-      }
-    }
-    if (!prevId) {
-      return false;
-    }
-    targetVisibleIndex = remainingVisible.indexOf(prevId);
-  } else {
-    let nextId: string | null = null;
-    for (let i = lastIndex + 1; i < visibleSiblings.length; i += 1) {
-      const candidate = visibleSiblings[i];
-      if (!selectedSet.has(candidate)) {
-        nextId = candidate;
-        break;
-      }
-    }
-    if (!nextId) {
-      return false;
-    }
-    targetVisibleIndex = remainingVisible.indexOf(nextId) + 1;
-  }
-  if (targetVisibleIndex === null) {
-    return false;
-  }
-
   const state = useProjectState.getState();
   const parentImpl = getCurrEffectiveCodeObjImpl(
     state,
@@ -262,27 +284,85 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   if (!isBaseParentCodeObjImpl(parentImpl)) {
     return false;
   }
-  const orderedIds = orderParamIdsByParent(
-    state,
-    sectionId,
-    sharedParent,
-    rootSelected,
-  );
-  const newIndex = resolveFullIndexForVisibleInsertion({
-    targetVisibleIndex,
-    movingIds: new Set(orderedIds),
-    visibleSiblings,
-    fullChildren: parentImpl.children,
-  });
-  if (newIndex === null) {
+  let fullChildren = [...parentImpl.children];
+  const groupsToProcess = direction < 0 ? groups : [...groups].reverse();
+  const moves: ParamMoveGroup[] = [];
+
+  for (const group of groupsToProcess) {
+    const movingIds = new Set(group);
+    const firstId = group[0];
+    const lastId = group[group.length - 1];
+    const firstIndex = visibleSiblings.indexOf(firstId);
+    const lastIndex = visibleSiblings.indexOf(lastId);
+    if (firstIndex < 0 || lastIndex < 0) {
+      continue;
+    }
+
+    const remainingVisible = visibleSiblings.filter((id) => !movingIds.has(id));
+    let targetVisibleIndex: number | null = null;
+    if (direction < 0) {
+      let prevId: string | null = null;
+      for (let i = firstIndex - 1; i >= 0; i -= 1) {
+        const candidate = visibleSiblings[i];
+        if (!selectedSet.has(candidate)) {
+          prevId = candidate;
+          break;
+        }
+      }
+      if (!prevId) {
+        continue;
+      }
+      targetVisibleIndex = remainingVisible.indexOf(prevId);
+    } else {
+      let nextId: string | null = null;
+      for (let i = lastIndex + 1; i < visibleSiblings.length; i += 1) {
+        const candidate = visibleSiblings[i];
+        if (!selectedSet.has(candidate)) {
+          nextId = candidate;
+          break;
+        }
+      }
+      if (!nextId) {
+        continue;
+      }
+      targetVisibleIndex = remainingVisible.indexOf(nextId) + 1;
+    }
+    if (targetVisibleIndex === null) {
+      continue;
+    }
+
+    const orderedGroupIds = fullChildren.filter((id) => movingIds.has(id));
+    const newIndex = resolveFullIndexForVisibleInsertion({
+      targetVisibleIndex,
+      movingIds,
+      visibleSiblings,
+      fullChildren,
+    });
+    if (newIndex === null) {
+      continue;
+    }
+
+    moves.push({
+      paramIds: orderedGroupIds,
+      newParentId: sharedParent,
+      newIndex,
+    });
+    visibleSiblings = insertItems(
+      remainingVisible,
+      targetVisibleIndex,
+      orderedGroupIds,
+    );
+    fullChildren = insertItems(
+      fullChildren.filter((id) => !movingIds.has(id)),
+      newIndex,
+      orderedGroupIds,
+    );
+  }
+
+  if (moves.length === 0) {
     return false;
   }
-  moveParamsWithBackend({
-    sectionId,
-    paramIds: orderedIds,
-    newParentId: sharedParent,
-    newIndex,
-  });
+  moveParamGroupsWithBackend({ sectionId, moves });
   return true;
 }
 

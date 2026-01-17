@@ -198,6 +198,28 @@ class MoveParamsRequest(ProjectManagerRequestWithSection):
     )
 
 
+class MoveParamGroup(BaseModel):
+    """Single ordered move operation for parameters."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to move.",
+    )
+    newParentId: ID = Field(
+        description="Parent code object that will receive the parameters.",
+    )
+    newIndex: int = Field(
+        description="Index within the new parent's children list.",
+    )
+
+
+class MoveParamGroupsRequest(ProjectManagerRequestWithSection):
+    """Apply multiple parameter move operations as a single batch."""
+
+    moves: list[MoveParamGroup] = Field(
+        description="Ordered param move operations to apply.",
+    )
+
+
 class IndentParamsRequest(ProjectManagerRequestWithSection):
     """Indent parameters under the previous sibling."""
 

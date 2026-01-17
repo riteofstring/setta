@@ -4,6 +4,7 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
+    MoveParamGroup,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
 )
@@ -338,6 +339,13 @@ class ListenerKillSubprocessesRequestPayload(TypedDict):
 
 class ListenerListenerCoverageRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
+
+
+class ListenerMoveParamGroupsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    moves: list[MoveParamGroup]
 
 
 class ListenerMoveParamsRequestPayload(TypedDict):
@@ -1005,6 +1013,11 @@ class RouterEndpointAPI:
         self, payload: ListenerKillSubprocessesRequestPayload
     ) -> None:
         return await self._caller("route_kill_subprocesses", payload)
+
+    async def move_param_groups(
+        self, payload: ListenerMoveParamGroupsRequestPayload
+    ) -> None:
+        return await self._caller("route_move_param_groups", payload)
 
     async def move_params(self, payload: ListenerMoveParamsRequestPayload) -> None:
         return await self._caller("route_move_params", payload)

@@ -97,6 +97,7 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
     IndentParamsRequest,
+    MoveParamGroupsRequest,
     MoveParamsRequest,
     MoveSectionRequest,
     OutputAccessorCompletionRequest,
@@ -2043,6 +2044,20 @@ class BaseProjectManager(ABC):
             x.newParentId,
             x.newIndex,
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def move_param_groups(self, x: MoveParamGroupsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        for move in x.moves:
+            move_params_to_parent(
+                self.settings_file.settings,
+                project_state,
+                x.sectionId,
+                move.paramIds,
+                move.newParentId,
+                move.newIndex,
+            )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

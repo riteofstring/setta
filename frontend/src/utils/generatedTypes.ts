@@ -412,6 +412,7 @@ export const RouteEnum = {
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   MOVE_SECTION: "/moveSection",
   MOVE_PARAMS: "/moveParams",
+  MOVE_PARAM_GROUPS: "/moveParamGroups",
   INDENT_PARAMS: "/indentParams",
   UNINDENT_PARAMS: "/unindentParams",
   GROUP_SECTIONS: "/groupSections",
@@ -5703,6 +5704,23 @@ const IndentParamsRequestSchema = z.object({
 
 export type IndentParamsRequestInput = z.input<
   typeof IndentParamsRequestSchema
+>;
+
+const MoveParamGroupSchema = z.object({
+  paramIds: z.array(IDSchema),
+  newParentId: IDSchema,
+  newIndex: z.int(),
+});
+
+const MoveParamGroupsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  moves: z.array(MoveParamGroupSchema),
+});
+
+export type MoveParamGroupsRequestInput = z.input<
+  typeof MoveParamGroupsRequestSchema
 >;
 
 const MoveParamsRequestSchema = z.object({

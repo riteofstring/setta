@@ -803,6 +803,12 @@ export async function route_move_params(
   return await post("/moveParams", x);
 }
 
+export async function route_move_param_groups(
+  x: gt.MoveParamGroupsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParamGroups", x);
+}
+
 export async function route_indent_params(
   x: gt.IndentParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
