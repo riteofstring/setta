@@ -3246,7 +3246,7 @@ const SectionCodegenPolicySchema = z.object({
 
 type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
 
-function createSectionCodegenPolicy(
+export function createSectionCodegenPolicy(
   options: Partial<SectionCodegenPolicy> = {},
 ): SectionCodegenPolicy {
   return SectionCodegenPolicySchema.parse(options);
