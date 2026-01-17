@@ -69,7 +69,7 @@ class ChatHistoryClient:
         }
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.create_chat(payload)
+        return _coerce_chat(await self._project_manager.create_chat(payload))
 
     async def get(
         self,
@@ -80,7 +80,7 @@ class ChatHistoryClient:
         payload: dict[str, object] = {"chatId": chat_id}
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.get_chat(payload)
+        return _coerce_chat(await self._project_manager.get_chat(payload))
 
     async def append(
         self,
@@ -92,7 +92,7 @@ class ChatHistoryClient:
         payload: dict[str, object] = {"chatId": chat_id, "messages": messages}
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.append_chat_messages(payload)
+        return _coerce_chat(await self._project_manager.append_chat_messages(payload))
 
     async def delete(
         self,
@@ -118,7 +118,7 @@ class ChatHistoryClient:
         }
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.set_chat_system_prompt(payload)
+        return _coerce_chat(await self._project_manager.set_chat_system_prompt(payload))
 
     async def get_all_metadata(
         self,
@@ -128,7 +128,9 @@ class ChatHistoryClient:
         payload: dict[str, object] = {}
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.get_all_chat_metadata(payload)
+        return _coerce_chat_metadata_list(
+            await self._project_manager.get_all_chat_metadata(payload)
+        )
 
     async def ensure_section_chat_id(
         self,
@@ -345,7 +347,7 @@ class ChatToolRunnerClient:
         payload: dict[str, object] = {"chatId": chat_id, "toolCalls": tool_calls}
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
-        return await self._project_manager.run_mcp_tools(payload)
+        return _coerce_tool_messages(await self._project_manager.run_mcp_tools(payload))
 
 
 class ChatSectionSyncClient:
@@ -657,6 +659,24 @@ def _should_persist_partial_message(message: AssistantChatMessage) -> bool:
             continue
         return True
     return False
+
+
+def _coerce_chat(payload: Chat | dict[str, object]) -> Chat:
+    if isinstance(payload, Chat):
+        return payload
+    return Chat.model_validate(payload)
+
+
+def _coerce_chat_metadata_list(
+    payload: list[ChatMetadata | dict[str, object]],
+) -> list[ChatMetadata]:
+    return [ChatMetadata.model_validate(entry) for entry in payload]
+
+
+def _coerce_tool_messages(
+    payload: list[ToolChatMessage | dict[str, object]],
+) -> list[ToolChatMessage]:
+    return [ToolChatMessage.model_validate(entry) for entry in payload]
 
 
 __all__ = [
