@@ -1,8 +1,3 @@
-import { useSortable } from "forks/dnd-kit/adapter";
-import {
-  applyZoomToTransform,
-  transformToString,
-} from "forks/dnd-kit/adapter/zoom";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
@@ -23,7 +18,6 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { ParamContainer } from "./ParamContainer";
-import { useParamDndState } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
@@ -69,79 +63,33 @@ function _ParamSwitch(props) {
       };
     }, _.isEqual);
 
-  const dndState = useParamDndState();
-  const dndEnabled = Boolean(dndState?.enabled);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: paramInfoId,
-    disabled: !dndEnabled,
-  });
-  const { role: _role, tabIndex: _tabIndex, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDragging ? 1000 : undefined,
-  };
-
   const hasChildren = paramChildren.length > 0;
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const handleParamMouseDown = useCallback(
+  const handleParamSelection = useCallback(
     (e) => {
-      if (!isSelectingParams) {
-        return;
+      if (useMisc.getState().isSelectingParams) {
+        e.stopPropagation(); // to prevent text input from becoming active
+        toggleParamSelected(sectionId, paramInfoId);
       }
-      e.stopPropagation();
-      e.preventDefault();
     },
-    [isSelectingParams],
-  );
-  const handleParamClick = useCallback(
-    (e) => {
-      if (!isSelectingParams) {
-        return;
-      }
-      e.stopPropagation();
-      toggleParamSelected(sectionId, paramInfoId);
-    },
-    [isSelectingParams, sectionId, paramInfoId],
+    [sectionId, paramInfoId],
   );
 
   // No need for additional useCallback since this is just a simple conditional
-  const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
-  const onMouseDownAlways = handleParamMouseDown;
+  const onMouseDownConditional = hasChildren ? handleParamSelection : undefined;
+  const onMouseDownAlways = handleParamSelection;
 
   const bg = paramIsSelected
     ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
     : "transition-colors rounded-sm";
 
   // warnings should be AMBER
-  let border = "";
-  if (hasError) {
-    border = "bg-red-200 dark:bg-red-800/30";
-  } else if (isFocusedSearchResult) {
-    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
-  } else if (isSearchResult) {
-    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
-  }
-
-  const shouldShowDropIndicator =
-    dndState?.activeId &&
-    dndState?.overId === paramInfoId &&
-    dndState?.projection;
-  const dropIndicator = shouldShowDropIndicator ? (
-    <ParamDropIndicator
-      depth={dndState.projection.depth}
-      indentWidth={dndState.indentWidth}
-      isInvalid={!dndState.isDropValid}
-    />
-  ) : null;
+  const border = hasError
+    ? "bg-red-200 dark:bg-red-800/30"
+    : isFocusedSearchResult
+      ? "outline outline-4 outline-green-500 dark:outline-green-500/80"
+      : isSearchResult
+        ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
+        : "";
 
   return (
     <ParamContainer
@@ -150,16 +98,9 @@ function _ParamSwitch(props) {
       isNestedParam={isNestedParam}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
-      onClick={handleParamClick}
       maybeErrorMessage={maybeErrorMessage}
       border={border}
       bg={bg}
-      dndAttributes={restAttributes}
-      dndListeners={listeners}
-      dndRef={setNodeRef}
-      dndStyle={dndStyle}
-      dndClassName={isDragging ? "opacity-80" : ""}
-      dndIndicator={dropIndicator}
     >
       {isKwarg ? (
         <ParamNameInput
@@ -183,31 +124,3 @@ function _ParamSwitch(props) {
 }
 
 export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
-function ParamDropIndicator({
-  depth,
-  indentWidth,
-  isInvalid,
-}: {
-  depth: number;
-  indentWidth: number;
-  isInvalid: boolean;
-}) {
-  const offset = depth * indentWidth;
-  const lineClass = isInvalid
-    ? "bg-red-500/80"
-    : "bg-blue-500/80 dark:bg-cyan-400/80";
-
-  return (
-    <>
-      <div
-        className={`pointer-events-none absolute top-0 h-[2px] ${lineClass}`}
-        style={{ left: offset, right: "0.25rem" }}
-      />
-      <div
-        className={`pointer-events-none absolute bottom-0 top-0 w-[2px] ${lineClass}`}
-        style={{ left: offset }}
-      />
-    </>
-  );
-}

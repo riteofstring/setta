@@ -8,6 +8,7 @@ import {
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
@@ -22,21 +23,33 @@ function _SectionContainer({
   isTopLevel: boolean;
   dragListeners?: any;
 }) {
-  const { visibility, isEditingViewMode, isGroup, isUserView } =
-    useProjectState((x) => {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-        sectionId,
-        x,
-      );
-      const viewMode = getActiveViewModeConfig(x);
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return {
-        visibility,
-        isEditingViewMode,
-        isUserView: viewMode.isUserFacing && !isEditingViewMode,
-        isGroup: impl.type === SectionTypeEnum.Group,
-      };
-    }, _.isEqual);
+  const {
+    visibility,
+    isEditingViewMode,
+    isGroup,
+    isUserView,
+    isGenPython,
+    hasPythonCodegen,
+  } = useProjectState((x) => {
+    const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      sectionId,
+      x,
+    );
+    const viewMode = getActiveViewModeConfig(x);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    return {
+      visibility,
+      isEditingViewMode,
+      isUserView: viewMode.isUserFacing && !isEditingViewMode,
+      isGroup: impl.type === SectionTypeEnum.Group,
+      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
+      hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
+    };
+  }, _.isEqual);
+
+  if (isGenPython && !hasPythonCodegen) {
+    return null;
+  }
 
   if (!getSectionShouldRender(visibility, isEditingViewMode)) {
     return null;

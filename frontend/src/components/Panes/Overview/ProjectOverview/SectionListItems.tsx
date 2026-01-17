@@ -1,6 +1,5 @@
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { focusOnSection } from "utils/focusManager";
 
 export type OverviewListingType = { id: string; name: string; depth: number };
 
@@ -33,22 +32,19 @@ function _SectionItem({
   checkbox: boolean;
   depth: number;
 }) {
-  const handleSelection = (shouldFocus: boolean) => {
+  const handleSelection = () => {
     goToSection(sectionId);
-    if (shouldFocus) {
-      focusOnSection(null, sectionId, true);
-    }
   };
 
   const onClick = (e: React.MouseEvent) => {
-    handleSelection(false);
+    handleSelection();
     // focusOnSection(e, sectionId);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.code === "Space") {
       e.preventDefault();
-      handleSelection(true);
+      handleSelection();
       // focusOnSection(e, sectionId);
     }
   };
@@ -68,6 +64,7 @@ function _SectionItem({
     );
   }
 
+  // The div id is used for tabbing purposes
   return (
     <li
       id={`${sectionId}-OverviewListItem`}
