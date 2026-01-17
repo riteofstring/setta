@@ -3,7 +3,6 @@
 ## Deep dive summary (current system)
 - The backend exposes an MCP server (`backend/setta/mcp/server.py`) that registers init and discoverable tools, injects docstrings into schemas, and handles ID translation between canonical and temporary IDs.
 - The LLM stack (`backend/setta/llm/llm_chat_manager.py`) injects the system prompt, streams tool calls/results, and supports tool search with deferred loading for Anthropic.
-- Chat sections already support managed vs scriptable flows, store `chatId` on the section impl, and the chat toolkit (`docs/chat-sections.md`, `docs/chat-toolkit.md`) provides listener-friendly streaming/tool helpers.
 - Tool discovery uses a BM25 search index with tags and categories, and MCP tool calls stream through `MultiMCPClient` to any configured server.
 - AIFollow highlights sections touched by tool calls and keeps the viewport in sync (`docs/ai-follow.md`).
 - Project state is the canonical source of truth (sections, params, variants, artifacts), with codegen + LSP sync (`backend/setta/project_state/base_project_manager.py`).
@@ -15,7 +14,7 @@
 - No prompt template assets or versioning; prompts live as chat history only.
 - No eval harness for running prompts over datasets or scoring outputs.
 - No run/replay artifact that captures inputs, tool calls, and results in one place.
-- No per-agent tool allowlists or sandbox profiles beyond the per-LLM-config MCP server filters.
+- No per-agent tool allowlists or sandbox profiles beyond the MCP server list.
 - No explicit context budget controls or memory lenses for prompt construction.
 
 ## Plan
@@ -43,8 +42,7 @@
 - Implement `AgentRunner` in `backend/setta/llm/agent_runner.py`:
   - Accepts `AgentProfile` + input payload and streams `RunEvent`s.
   - Supports sub-agent calls by spawning child runs with isolated tool state.
-  - Reuse `setta.llm.chat_toolkit.managed` (stream assembler + action executor) so tool execution, previews, and AIFollow stay consistent.
-  - Enforce tool allowlists by filtering tool definitions before LLM requests and passing `allowed_server_ids` into managed tool execution.
+  - Enforces tool allowlists by filtering tool definitions before LLM requests.
 - Extend `LLMChatManager` with a `run_sub_agent` method used by `run_skill`.
 - Persist run logs to `setta_files/agent_runs` with the project snapshot and temporary ID map for replay.
 
@@ -100,10 +98,10 @@
 - Add REST routes for prompt CRUD in `backend/setta/routers/agentic.py`.
 
 ### Chat section integration
-- Reuse `ChatSectionImpl.chatId` plus the existing `get_chat_section_chat_id`/`set_chat_section_chat_id` routes (no separate `chat_sections.json`).
-- Add agent linkage fields on `ChatSectionImpl` as needed (for example `agentProfileId`, `agentRunId`) and update project manager requests if we need to persist them.
-- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to branch between the current managed LLM flow and agentic run routes based on agent selection.
-- Chat section settings already expose managed/LLM config/deep think; add the agent profile picker and define how it interacts with LLM config selection.
+- Add a map from chat section id to chat id in `setta_files/chat_sections.json`.
+- Add routes to create/attach chat sessions for Chat sections.
+- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to call the agentic chat routes.
+- Add agent profile and LLM config pickers in the Chat section config pane.
 
 ### Frontend updates
 - Add `PromptArea` layout in `frontend/src/components/Section/Layouts/PromptArea.tsx`.
