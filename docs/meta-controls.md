@@ -34,6 +34,13 @@ their values and action events propagate, and how they appear in generated code 
     `SectionDependencyKey` and a JSON payload (string) that includes
     `actionMode` and `controlParamId`. The event timestamp is stored on
     `timestampMs`.
+  - Payload example:
+    ```json
+    {
+      "actionMode": "WEBSOCKET_LISTENER",
+      "controlParamId": "param-id"
+    }
+    ```
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the

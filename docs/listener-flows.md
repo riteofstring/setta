@@ -31,7 +31,25 @@ Key paths:
   `backend/setta/websockets/listener_registry.py`
 - Listener realtime/action handling: `backend/setta/api/listener.py`
 
-## Flow B: Meta control persistence -> project state
+## Flow B: Chat send/stop -> listeners
+```
+Chat input send/stop
+  -> if scriptable mode:
+       update local chat state + route_set_chat_section_state
+  -> send RealtimeDependencyEvent (SectionDependencyKey + chat action payload)
+  -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
+      -> WMHPythonScriptSender fan-out
+           - action events -> sockets with matching dependencies or realtime wildcard (deps=[])
+  -> SettaListener batches events into ctx.events, schedules callbacks (debounce/throttle)
+```
+
+Key paths:
+- Chat UI + realtime emit: `frontend/src/components/Section/Layouts/ChatArea.tsx`,
+  `frontend/src/state/actions/websocketReceive.ts`
+- Listener action handling: `backend/setta/api/listener.py`
+- Listener helpers: `backend/setta/api/chat_toolkit.py`
+
+## Flow C: Meta control persistence -> project state
 ```
 UI change
   -> debounced route_set_param_entered_value (50ms)
@@ -52,7 +70,7 @@ Key paths:
   `backend/setta/project_state/base_project_manager.py`,
   `backend/setta/types/helpers_lvl2.py`
 
-## Flow C: Listener callback -> emit_to_frontend -> project state + artifacts
+## Flow D: Listener callback -> emit_to_frontend -> project state + artifacts
 ```
 Listener callback
   -> emit_to_frontend()

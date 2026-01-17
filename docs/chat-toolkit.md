@@ -29,6 +29,34 @@ async def on_chat(state, ctx) -> None:
 ```
 Use `ListenerDependencyMode.ALWAYS` if you also need snapshots.
 
+## Event contract (send/stop)
+Chat actions arrive as JSON strings in `event.payload`:
+
+Send:
+```json
+{
+  "action": "send",
+  "sectionId": "section-id",
+  "messageId": "message-id",
+  "text": "hello",
+  "role": "user",
+  "timestampMs": 1710000000000,
+  "managed": true
+}
+```
+
+Stop:
+```json
+{
+  "action": "stop",
+  "sectionId": "section-id",
+  "timestampMs": 1710000000000,
+  "managed": false
+}
+```
+
+Use the `managed` flag if you need to branch between managed and scriptable behavior.
+
 ## Example: streaming + tools (session helper)
 ```python
 from setta.api.chat_toolkit import ChatSession, ToolCallBuilder, on_chat_send_event
