@@ -2688,30 +2688,53 @@ def indent_params(
     ordered_param_ids = [param_id for param_id in children if param_id in normalized]
     if not ordered_param_ids:
         raise KeyError("No params found to indent.")
-    first_id = ordered_param_ids[0]
-    first_index = children.index(first_id)
-    previous_id: ID | None = None
-    for idx in range(first_index - 1, -1, -1):
-        candidate = children[idx]
-        if candidate not in ordered_param_ids:
-            previous_id = candidate
-            break
-    if previous_id is None:
-        raise ValueError("No previous sibling available for indent.")
-    prev_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, previous_id, BaseParamCodeObjImpl
-    )
-    if not isinstance(prev_impl, BaseParentCodeObjImpl):
-        change_param_impl(
-            settings, p, section_id, previous_id, CodeObjType.NestedParam.name
+    if len(ordered_param_ids) != len(normalized):
+        missing = [param_id for param_id in normalized if param_id not in children]
+        raise KeyError(f"Params not found under parent {parent_id}: {missing}")
+    selected_set = set(ordered_param_ids)
+    groups: list[list[ID]] = []
+    current_group: list[ID] = []
+    for child_id in children:
+        if child_id in selected_set:
+            current_group.append(child_id)
+        elif current_group:
+            groups.append(current_group)
+            current_group = []
+    if current_group:
+        groups.append(current_group)
+
+    for group in groups:
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, section_id, parent_id, BaseParentCodeObjImpl
         )
-    prev_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, previous_id, BaseParentCodeObjImpl
-    )
-    new_index = len(prev_parent_impl.children)
-    move_params_to_parent(
-        settings, p, section_id, ordered_param_ids, previous_id, new_index
-    )
+        children = list(parent_impl.children)
+        ordered_group = [param_id for param_id in children if param_id in group]
+        if not ordered_group:
+            continue
+        first_id = ordered_group[0]
+        first_index = children.index(first_id)
+        previous_id: ID | None = None
+        for idx in range(first_index - 1, -1, -1):
+            candidate = children[idx]
+            if candidate not in selected_set:
+                previous_id = candidate
+                break
+        if previous_id is None:
+            raise ValueError("No previous sibling available for indent.")
+        prev_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, section_id, previous_id, BaseParamCodeObjImpl
+        )
+        if not isinstance(prev_impl, BaseParentCodeObjImpl):
+            change_param_impl(
+                settings, p, section_id, previous_id, CodeObjType.NestedParam.name
+            )
+        prev_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, section_id, previous_id, BaseParentCodeObjImpl
+        )
+        new_index = len(prev_parent_impl.children)
+        move_params_to_parent(
+            settings, p, section_id, ordered_group, previous_id, new_index
+        )
 
 
 def unindent_params(

@@ -268,6 +268,36 @@ class ParamMoveTests(unittest.TestCase):
         )
         self.assertEqual(parent_impl.children, [self.param_ids[1]])
 
+    def test_indent_non_contiguous_groups(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [param_ids[0], param_ids[2]])
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.children, [param_ids[1]])
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.children, [param_ids[3]])
+
     def test_unindent_converts_empty_nested(self) -> None:
         indent_params(
             self.settings,
