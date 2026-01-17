@@ -23,15 +23,14 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
 - Code sections (SectionType.Code) -> imperative logic, helpers, listeners; update with `set_code`.
-- GenPythonCode section -> read-only mirror of generated code; only present when Python codegen is enabled.
-- Python codegen target settings (`projectConfig.codegenTargets` entry for `python`) hold `genCodePrefix` and `genCodeSuffix`.
+- GenPythonCode section -> read-only mirror of generated code; never edit directly.
 - `genCodePrefix` -> imports and shared helpers used by generated expressions; update with `set_gen_code_prefix`.
 - `genCodeSuffix` -> minimal postamble (default: `state = SettaState()`); only change via `set_gen_code_suffix` if asked.
 - Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces and do not emit generated values.
 
 ## Generated code pipeline
-- The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py` when Python codegen is enabled.
-- The generator emits: `genCodePrefix` + blank lines + generated body + blank lines + `genCodeSuffix` from the Python target settings.
+- The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py`.
+- The generator emits: `genCodePrefix` + blank lines + generated body + blank lines + `genCodeSuffix`.
 - Default suffix is `state = SettaState()`; keep it unless explicitly asked to change it.
 - Add imports needed by generated callables or param expressions in `genCodePrefix`
   using `set_gen_code_prefix`. The generated body assumes those names exist.
