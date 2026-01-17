@@ -96,7 +96,6 @@ async function onFreeMoveEnd({
   let newIndex: number | null = null;
   let position: Position | null = null;
   let pastHalfway: boolean | null = null;
-  let indexSource: "placeholder" | "collision" | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
   const hasCollisions = Boolean(collisions && collisions.length > 0);
 
@@ -114,7 +113,6 @@ async function onFreeMoveEnd({
     activeIdx = children.indexOf(dndSectionId);
     if (activeIdx >= 0) {
       newIndex = activeIdx;
-      indexSource = "placeholder";
     } else {
       const overCollision =
         collisions?.find((collision) => String(collision.id) === overId) ??
@@ -125,7 +123,6 @@ async function onFreeMoveEnd({
       } else {
         newIndex = 0;
       }
-      indexSource = "collision";
     }
   }
   // dropping nested section onto pane

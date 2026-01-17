@@ -1,10 +1,6 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { useDragDropMonitor } from "@dnd-kit/react";
-import {
-  resetCollisionHysteresis,
-  updateCollisionHysteresis,
-} from "./collision";
 import { promoteBestCollision } from "./collisionCompare";
 import type {
   ClientRect,
@@ -26,10 +22,6 @@ type DndMonitorHandlers = Partial<{
 
 export function useDndMonitor(handlers: DndMonitorHandlers): void {
   useDragDropMonitor({
-    onCollision: (event) => {
-      const collisions = event.collisions as SettaCollision[];
-      updateCollisionHysteresis(collisions);
-    },
     onDragStart: (event) => {
       const mapped = mapDragStartEvent(event);
       if (!mapped) {
@@ -57,7 +49,6 @@ export function useDndMonitor(handlers: DndMonitorHandlers): void {
     onDragEnd: (event, manager) => {
       const mapped = mapDragEvent(event, manager, event.canceled);
       if (!mapped) {
-        resetCollisionHysteresis();
         return;
       }
 
@@ -66,8 +57,6 @@ export function useDndMonitor(handlers: DndMonitorHandlers): void {
       } else {
         handlers.onDragEnd?.(mapped);
       }
-
-      resetCollisionHysteresis();
     },
   });
 }

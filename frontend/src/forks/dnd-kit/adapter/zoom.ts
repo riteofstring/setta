@@ -1,6 +1,3 @@
-import type { DragOperation } from "@dnd-kit/abstract";
-import { configurator, Modifier } from "@dnd-kit/abstract";
-import type { Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Transform } from "./types";
 
@@ -37,18 +34,3 @@ export function transformToString(transform: Transform | null): string {
 
   return `${translate} scaleX(${scaleX}) scaleY(${scaleY})`;
 }
-
-class ZoomModifier extends Modifier {
-  apply({ transform }: DragOperation): Coordinates {
-    const zoom = getZoomScale();
-    if (!zoom || zoom === 1) {
-      return transform;
-    }
-    return {
-      x: transform.x / zoom,
-      y: transform.y / zoom,
-    };
-  }
-}
-
-const ZoomAwareModifier = configurator(ZoomModifier)();

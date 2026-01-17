@@ -1,4 +1,4 @@
-import type { Collision, UniqueIdentifier } from "@dnd-kit/abstract";
+import type { Collision } from "@dnd-kit/abstract";
 import type { Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 
@@ -21,14 +21,6 @@ export type Transform = {
 export type Disabled = {
   draggable?: boolean;
   droppable?: boolean;
-};
-
-type SortableData = {
-  sortable: {
-    containerId: UniqueIdentifier;
-    items: UniqueIdentifier[];
-    index: number;
-  };
 };
 
 export type DndData<
