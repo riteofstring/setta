@@ -40,11 +40,13 @@ export function useTerminal({
   setHasScrollbar: (value: boolean) => void;
 }) {
   const terminalRef = useRef(null); // Ref for the terminal container
+  const terminalReadyRef = useRef(false);
   const fitAddon = useFitAddon();
   const isShareMode = useShareSession((x) => x.isShareMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
+    terminalReadyRef.current = false;
     if (isShareMode && !shareSessionId) {
       return;
     }
@@ -68,11 +70,20 @@ export function useTerminal({
       );
       if (focusTarget instanceof HTMLElement) {
         focusTarget.focus({ preventScroll: true });
-        clearPendingSectionTextFocus(sectionId);
-        return;
+        terminal.focus();
+        const active = document.activeElement;
+        if (
+          terminalReadyRef.current &&
+          terminalRef.current &&
+          active instanceof HTMLElement &&
+          terminalRef.current.contains(active)
+        ) {
+          clearPendingSectionTextFocus(sectionId);
+          return;
+        }
       }
       terminal.focus();
-      if (attempt < 120) {
+      if (attempt < 240) {
         requestAnimationFrame(() => focusTerminalInput(attempt + 1));
       }
     };
@@ -99,6 +110,7 @@ export function useTerminal({
 
     function onInitialMessage(message) {
       if (message.data === C.SETTA_TERMINAL_READY) {
+        terminalReadyRef.current = true;
         const attachAddon = new AttachAddon(ws, {
           bidirectional: !isShareMode,
         });

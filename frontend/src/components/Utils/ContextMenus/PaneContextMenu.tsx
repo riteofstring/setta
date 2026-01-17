@@ -103,7 +103,8 @@ export function PaneContextMenu() {
   }
 
   function onMenuKeyDownCapture(event: KeyboardEvent<HTMLDivElement>) {
-    if (isEditableTarget(event.target)) {
+    const isEditable = isEditableTarget(event.target);
+    if (isEditable && !didNavigateListRef.current) {
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) {
