@@ -184,6 +184,36 @@ class UpdateParamImplConfigRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class MoveParamsRequest(ProjectManagerRequestWithSection):
+    """Reorder or reparent parameters within a section."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to move.",
+    )
+    newParentId: ID = Field(
+        description="Parent code object that will receive the parameters.",
+    )
+    newIndex: int = Field(
+        description="Index within the new parent's children list.",
+    )
+
+
+class IndentParamsRequest(ProjectManagerRequestWithSection):
+    """Indent parameters under the previous sibling."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to indent.",
+    )
+
+
+class UnindentParamsRequest(ProjectManagerRequestWithSection):
+    """Unindent parameters to the parent's parent."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to unindent.",
+    )
+
+
 class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     """Create a new section anchored at the top level of the canvas."""
 

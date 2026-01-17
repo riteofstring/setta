@@ -325,12 +325,28 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
+class ListenerIndentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+
+
 class ListenerKillSubprocessesRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
 class ListenerListenerCoverageRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
+
+
+class ListenerMoveParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+    newParentId: ID
+    newIndex: int
 
 
 class ListenerMoveSectionRequestPayload(TypedDict):
@@ -792,6 +808,13 @@ class ListenerUngroupGroupsRequestPayload(TypedDict):
     groupIds: list[ID]
 
 
+class ListenerUnindentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+
+
 class ListenerUnselectAllParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -975,10 +998,16 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_group_sections", payload)
 
+    async def indent_params(self, payload: ListenerIndentParamsRequestPayload) -> None:
+        return await self._caller("route_indent_params", payload)
+
     async def kill_subprocesses(
         self, payload: ListenerKillSubprocessesRequestPayload
     ) -> None:
         return await self._caller("route_kill_subprocesses", payload)
+
+    async def move_params(self, payload: ListenerMoveParamsRequestPayload) -> None:
+        return await self._caller("route_move_params", payload)
 
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)
@@ -1294,6 +1323,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUngroupGroupsRequestPayload
     ) -> None:
         return await self._caller("route_ungroup_groups", payload)
+
+    async def unindent_params(
+        self, payload: ListenerUnindentParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_unindent_params", payload)
 
     async def unselect_all_params(
         self, payload: ListenerUnselectAllParamsRequestPayload

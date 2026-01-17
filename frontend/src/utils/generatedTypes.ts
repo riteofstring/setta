@@ -411,6 +411,9 @@ export const RouteEnum = {
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   MOVE_SECTION: "/moveSection",
+  MOVE_PARAMS: "/moveParams",
+  INDENT_PARAMS: "/indentParams",
+  UNINDENT_PARAMS: "/unindentParams",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -3370,6 +3373,10 @@ const SettingsShortcutsSchema = z.object({
   runCodeShortcut: z.string().default("Mod + Enter" as const),
   runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
   paramSelect: z.string().default("Mod + Shift" as const),
+  paramIndentShortcut: z.string().default("Tab" as const),
+  paramUnindentShortcut: z.string().default("Shift + Tab" as const),
+  paramMoveUpShortcut: z.string().default("Alt + ArrowUp" as const),
+  paramMoveDownShortcut: z.string().default("Alt + ArrowDown" as const),
   formatCode: z.string().default("Shift + Alt + F" as const),
   selectionKeyCode: z.string().default("Shift" as const),
   multiSelectionKeyCode: z.string().default("Mod" as const),
@@ -5687,6 +5694,28 @@ export type GroupSectionsRequestInput = z.input<
   typeof GroupSectionsRequestSchema
 >;
 
+const IndentParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+});
+
+export type IndentParamsRequestInput = z.input<
+  typeof IndentParamsRequestSchema
+>;
+
+const MoveParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+  newParentId: IDSchema,
+  newIndex: z.int(),
+});
+
+export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
+
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6385,6 +6414,17 @@ const UngroupGroupsRequestSchema = z.object({
 
 export type UngroupGroupsRequestInput = z.input<
   typeof UngroupGroupsRequestSchema
+>;
+
+const UnindentParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+});
+
+export type UnindentParamsRequestInput = z.input<
+  typeof UnindentParamsRequestSchema
 >;
 
 const UnselectAllParamsRequestSchema = z.object({

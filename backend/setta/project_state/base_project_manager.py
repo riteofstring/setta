@@ -96,6 +96,8 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
+    IndentParamsRequest,
+    MoveParamsRequest,
     MoveSectionRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
@@ -164,6 +166,7 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
@@ -205,7 +208,9 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_section_callable_code_obj,
     group_sections,
+    indent_params,
     maybe_update_gen_python_code_section,
+    move_params_to_parent,
     move_section_to_pane,
     move_section_to_parent_section,
     reconnect_edge,
@@ -252,6 +257,7 @@ from setta.types.helpers_lvl2 import (
     toggle_variant_frozen,
     toggle_variant_json_source,
     ungroup_groups,
+    unindent_params,
     unselect_all_params,
     update_edge,
     update_param_impl_config,
@@ -2024,6 +2030,35 @@ class BaseProjectManager(ABC):
             move_section_to_parent_section(
                 project_state, x.newParentId, x.sectionId, x.newIndex
             )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def move_params(self, x: MoveParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        move_params_to_parent(
+            self.settings_file.settings,
+            project_state,
+            x.sectionId,
+            x.paramIds,
+            x.newParentId,
+            x.newIndex,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def indent_params(self, x: IndentParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        indent_params(
+            self.settings_file.settings, project_state, x.sectionId, x.paramIds
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def unindent_params(self, x: UnindentParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        unindent_params(
+            self.settings_file.settings, project_state, x.sectionId, x.paramIds
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

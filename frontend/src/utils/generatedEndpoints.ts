@@ -797,6 +797,24 @@ export async function route_move_section(
   return await post("/moveSection", x);
 }
 
+export async function route_move_params(
+  x: gt.MoveParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParams", x);
+}
+
+export async function route_indent_params(
+  x: gt.IndentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/indentParams", x);
+}
+
+export async function route_unindent_params(
+  x: gt.UnindentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/unindentParams", x);
+}
+
 export async function route_group_sections(
   x: gt.GroupSectionsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
