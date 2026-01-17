@@ -1,42 +1,61 @@
+import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
-import { useComputed } from "@dnd-kit/react/hooks";
-import { useEffect } from "react";
+import { effects } from "@dnd-kit/state";
+import { useEffect, useRef } from "react";
 import { useDndMode } from "./dndState";
 
 export function DragOperationShapeSync() {
   const manager = useDragDropManager();
   const { isSorting } = useDndMode();
-  const active = useComputed(
-    () => manager?.dragOperation.source ?? null,
-    [manager],
-  ).value;
-  const dragTransform = useComputed(
-    () => manager?.dragOperation.transform,
-    [manager],
-  ).value;
-  const isDragging = useComputed(
-    () => manager?.dragOperation.status.dragging ?? false,
-    [manager],
-  ).value;
+  const baseRectRef = useRef<BoundingRectangle | null>(null);
+  const activeIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
-    if (!manager || !isSorting || !isDragging || !active) {
+    if (!manager || !isSorting) {
+      baseRectRef.current = null;
+      activeIdRef.current = null;
       return;
     }
 
-    const droppable = manager.registry.droppables.get(active.id);
-    if (!droppable) {
-      return;
-    }
+    return effects(() => {
+      const active = manager.dragOperation.source;
+      const isDragging = manager.dragOperation.status.dragging;
+      if (!isDragging || !active) {
+        baseRectRef.current = null;
+        activeIdRef.current = null;
+        return;
+      }
 
-    const refreshedShape = droppable.refreshShape();
-    const nextShape = refreshedShape ?? droppable.shape ?? null;
-    if (!nextShape) {
-      return;
-    }
+      const activeId = active.id;
+      const droppable = manager.registry.droppables.get(activeId);
+      if (!droppable) {
+        return;
+      }
 
-    manager.dragOperation.shape = nextShape;
-  }, [active, dragTransform, isDragging, isSorting, manager]);
+      const currentShape = droppable.shape ?? null;
+      if (activeIdRef.current !== activeId || !baseRectRef.current) {
+        const refreshedShape = droppable.refreshShape();
+        const nextShape = refreshedShape ?? currentShape ?? null;
+        if (!nextShape) {
+          return;
+        }
+
+        baseRectRef.current = nextShape.boundingRectangle;
+        activeIdRef.current = activeId;
+      }
+
+      const baseRect = baseRectRef.current;
+      if (!baseRect) {
+        return;
+      }
+
+      const transform = manager.dragOperation.transform;
+      manager.dragOperation.shape = Rectangle.from(baseRect).translate(
+        transform?.x ?? 0,
+        transform?.y ?? 0,
+      );
+    });
+  }, [isSorting, manager]);
 
   return null;
 }

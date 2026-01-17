@@ -1,3 +1,4 @@
+import { useDndChildren } from "../dndChildren";
 import type { SettaCollision } from "./types";
 
 type CollisionSortableData = {
@@ -60,6 +61,26 @@ function getCollisionTriggerDist(
 ): number | null {
   const value = collision?.data?.triggerDist;
   return getCollisionNumber(value);
+}
+
+function getChildCollisionForParent(
+  collisions: SettaCollision[] | null,
+  parentCollision: SettaCollision | null,
+): SettaCollision | null {
+  if (!collisions || collisions.length === 0 || !parentCollision) {
+    return null;
+  }
+
+  const parentIdKey = String(parentCollision.id);
+  const dndChildrenState = useDndChildren.getState();
+  for (const collision of collisions) {
+    const collisionId = String(collision.id);
+    if (dndChildrenState.y[collisionId] === parentIdKey) {
+      return collision;
+    }
+  }
+
+  return null;
 }
 
 function compareCollisions(
@@ -130,7 +151,8 @@ export function pickBestCollision(
     bestCollision = compareCollisions(bestCollision, collision);
   }
 
-  return bestCollision;
+  const childCollision = getChildCollisionForParent(collisions, bestCollision);
+  return childCollision ?? bestCollision;
 }
 
 export function promoteBestCollision(
