@@ -48,6 +48,20 @@ class AgentProfile(BaseModel, extra="forbid"):
     memoryScope: JSONValue | None = None
 
 
+class PromptFormat(str, Enum):
+    jinja = "jinja"
+
+
+class PromptTemplate(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    description: str | None = None
+    template: str
+    format: PromptFormat = PromptFormat.jinja
+    inputSchema: JSONValue | None = None
+    metadata: dict[str, JSONValue] = Field(default_factory=dict)
+
+
 class RunEvent(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     type: RunEventType

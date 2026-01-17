@@ -303,6 +303,94 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
+async function route_list_agent_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentProfile>>
+> {
+  return await get("/agentic/profiles");
+}
+
+async function route_get_agent_profile(
+  profileId: gt.ID,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await get("/agentic/profiles/{profileId}", { profileId });
+}
+
+async function route_create_agent_profile(
+  x: gt.CreateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/agentic/profiles", x);
+}
+
+async function route_update_agent_profile(
+  profileId: gt.ID,
+  x: gt.UpdateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/agentic/profiles/{profileId}/update", x, { profileId });
+}
+
+async function route_delete_agent_profile(
+  profileId: gt.ID,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/agentic/profiles/{profileId}/delete", null, {
+    profileId,
+  });
+}
+
+async function route_list_agent_runs(
+  agentProfileId: gt.ID | null,
+): Promise<ResponseDataAndStatus<Array<gt.AgentRun>>> {
+  return await get("/agentic/runs", { agentProfileId });
+}
+
+async function route_get_agent_run(
+  runId: gt.ID,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await get("/agentic/runs/{runId}", { runId });
+}
+
+async function route_start_agent_run(
+  x: gt.StartAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/agentic/runs", x);
+}
+
+async function route_stop_agent_run(
+  runId: gt.ID,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/agentic/runs/{runId}/stop", null, { runId });
+}
+
+async function route_list_prompt_assets(): Promise<
+  ResponseDataAndStatus<Array<gt.PromptTemplate>>
+> {
+  return await get("/agentic/prompts");
+}
+
+async function route_get_prompt_asset(
+  promptId: gt.ID,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await get("/agentic/prompts/{promptId}", { promptId });
+}
+
+async function route_create_prompt_asset(
+  x: gt.CreatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/agentic/prompts", x);
+}
+
+async function route_update_prompt_asset(
+  promptId: gt.ID,
+  x: gt.UpdatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/agentic/prompts/{promptId}/update", x, { promptId });
+}
+
+async function route_delete_prompt_asset(
+  promptId: gt.ID,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/agentic/prompts/{promptId}/delete", null, { promptId });
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
