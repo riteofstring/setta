@@ -82,7 +82,7 @@ function _ParamSwitch(props) {
     id: paramInfoId,
     disabled: !dndEnabled,
   });
-  const { role: _role, ...restAttributes } = attributes;
+  const { role: _role, tabIndex: _tabIndex, ...restAttributes } = attributes;
   const scaledTransform = applyZoomToTransform(transform);
   const dndStyle = {
     transform: transformToString(scaledTransform),

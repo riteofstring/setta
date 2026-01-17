@@ -30,7 +30,7 @@ function ProjectOverviewCore({
   const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
 
   return (
-    <>
+    <div className="contents" data-tab-group="overview-sections">
       <ProjectName />
       <search className="nodrag relative mx-[2px] flex min-w-0 items-center pb-4 dark:text-setta-200">
         <div className="absolute left-0 grid select-none place-items-center pl-1">
@@ -56,7 +56,7 @@ function ProjectOverviewCore({
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </div>
-    </>
+    </div>
   );
 }
 

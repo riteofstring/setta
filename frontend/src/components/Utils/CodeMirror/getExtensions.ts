@@ -160,8 +160,8 @@ function getKeyMapArray({
   if (tabToAutocomplete || indentWithTab) {
     keymapArray.push({
       key: "Tab",
-      preventDefault: false,
-      stopPropagation: true,
+      preventDefault: Boolean(indentWithTab),
+      stopPropagation: Boolean(indentWithTab),
       run: (view) => {
         let completionResult = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {

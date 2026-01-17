@@ -1,5 +1,6 @@
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
+import { focusOnSection } from "utils/focusManager";
 
 export type OverviewListingType = { id: string; name: string; depth: number };
 
@@ -32,19 +33,22 @@ function _SectionItem({
   checkbox: boolean;
   depth: number;
 }) {
-  const handleSelection = () => {
+  const handleSelection = (shouldFocus: boolean) => {
     goToSection(sectionId);
+    if (shouldFocus) {
+      focusOnSection(null, sectionId, true);
+    }
   };
 
   const onClick = (e: React.MouseEvent) => {
-    handleSelection();
+    handleSelection(false);
     // focusOnSection(e, sectionId);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.code === "Space") {
       e.preventDefault();
-      handleSelection();
+      handleSelection(true);
       // focusOnSection(e, sectionId);
     }
   };

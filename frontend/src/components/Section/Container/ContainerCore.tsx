@@ -55,6 +55,7 @@ function _Container({
       style={style}
       {...commonProps}
       tabIndex={-1} // keeps section focusable for programmatic focus
+      data-section-root={sectionId}
     >
       {children}
     </div>
@@ -135,6 +136,7 @@ function ContainerGroup({
       {...commonProps}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       tabIndex={-1} // keeps section focusable for programmatic focus
+      data-section-root={sectionId}
       style={groupStyle}
     >
       <div

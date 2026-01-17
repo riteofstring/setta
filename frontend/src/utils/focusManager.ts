@@ -59,7 +59,8 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
 
   const direction = event.shiftKey ? -1 : 1;
   const startScope =
-    currentScope ?? getFirstScopeWithFocusable(orderedScopes, direction > 0);
+    currentScope ??
+    getFirstScopeWithFocusable(orderedScopes, direction > 0, target);
   if (!startScope) {
     return false;
   }
@@ -82,11 +83,11 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
 }
 
 export function focusOnSection(
-  event: KeyboardEvent | null,
+  event: { preventDefault?: () => void } | null,
   sectionId: string,
   focusOnFirstElement = true,
 ) {
-  event?.preventDefault();
+  event?.preventDefault?.();
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImpl(state, sectionId);
   const refs = useSectionRefs.getState();
@@ -144,13 +145,28 @@ function resolveNextFocusable({
     return null;
   }
 
-  const focusables = getFocusableElementsForScope(startScope);
-  const currentElement = resolveCurrentElement(target, focusables);
-  const nextElement = getNextFocusableElement(
+  const scopeFocusables = getFocusableElementsForScope(startScope, target);
+  const groupRoot =
+    startScope.behavior === "canvas"
+      ? null
+      : getTabGroupRoot(target, startScope);
+  const groupFocusables = groupRoot ? getFocusableElements(groupRoot) : null;
+  const focusables = groupFocusables ?? scopeFocusables;
+
+  let currentElement = resolveCurrentElement(target, focusables);
+  let nextElement = getNextFocusableElement(
     focusables,
     currentElement,
     direction,
   );
+  if (!nextElement && groupFocusables) {
+    currentElement = resolveCurrentElement(target, scopeFocusables);
+    nextElement = getNextFocusableElement(
+      scopeFocusables,
+      currentElement,
+      direction,
+    );
+  }
   if (nextElement) {
     return { element: nextElement, scope: startScope };
   }
@@ -159,10 +175,11 @@ function resolveNextFocusable({
     orderedScopes,
     scopeIndex,
     direction,
+    target,
   );
   const scopedResult =
     nextScopeResult ??
-    findWrapScopeWithFocusable(orderedScopes, startScope, direction);
+    findWrapScopeWithFocusable(orderedScopes, startScope, direction, target);
   if (!scopedResult) {
     return null;
   }
@@ -182,12 +199,17 @@ function findWrapScopeWithFocusable(
   orderedScopes: TabScopeRegistration[],
   currentScope: TabScopeRegistration,
   direction: number,
+  target: HTMLElement,
 ): { scope: TabScopeRegistration; focusables: HTMLElement[] } | null {
-  const wrapScope = getFirstScopeWithFocusable(orderedScopes, direction > 0);
+  const wrapScope = getFirstScopeWithFocusable(
+    orderedScopes,
+    direction > 0,
+    target,
+  );
   if (!wrapScope || wrapScope.scopeId === currentScope.scopeId) {
     return null;
   }
-  const focusables = getFocusableElementsForScope(wrapScope);
+  const focusables = getFocusableElementsForScope(wrapScope, target);
   if (focusables.length === 0) {
     return null;
   }
@@ -198,6 +220,18 @@ function getOrderedScopes(): TabScopeRegistration[] {
   return Array.from(tabScopes.values())
     .filter((scope) => scope.rootRef.current)
     .sort((a, b) => a.order - b.order);
+}
+
+function getTabGroupRoot(
+  target: HTMLElement,
+  scope: TabScopeRegistration,
+): HTMLElement | null {
+  const groupRoot = target.closest("[data-tab-group]");
+  const scopeRoot = scope.rootRef.current;
+  if (!groupRoot || !scopeRoot) {
+    return null;
+  }
+  return scopeRoot.contains(groupRoot) ? groupRoot : null;
 }
 
 function getScopeForElement(element: HTMLElement): TabScopeRegistration | null {
@@ -215,6 +249,7 @@ function getScopeForElement(element: HTMLElement): TabScopeRegistration | null {
 function getFirstScopeWithFocusable(
   orderedScopes: TabScopeRegistration[],
   forward: boolean,
+  target: HTMLElement,
 ): TabScopeRegistration | null {
   const direction = forward ? 1 : -1;
   const startIndex = forward ? 0 : orderedScopes.length - 1;
@@ -222,6 +257,7 @@ function getFirstScopeWithFocusable(
     orderedScopes,
     startIndex - direction,
     direction,
+    target,
   );
   return result?.scope ?? null;
 }
@@ -230,11 +266,12 @@ function findNextScopeWithFocusable(
   orderedScopes: TabScopeRegistration[],
   startIndex: number,
   direction: number,
+  target: HTMLElement,
 ): { scope: TabScopeRegistration; focusables: HTMLElement[] } | null {
   let idx = startIndex + direction;
   while (idx >= 0 && idx < orderedScopes.length) {
     const scope = orderedScopes[idx];
-    const focusables = getFocusableElementsForScope(scope);
+    const focusables = getFocusableElementsForScope(scope, target);
     if (focusables.length > 0) {
       return { scope, focusables };
     }
@@ -245,20 +282,42 @@ function findNextScopeWithFocusable(
 
 function getFocusableElementsForScope(
   scope: TabScopeRegistration,
+  target: HTMLElement,
 ): HTMLElement[] {
   const root = scope.rootRef.current;
   if (!root) {
     return [];
   }
   if (scope.behavior === "canvas") {
-    return getCanvasFocusableElements(root);
+    return getCanvasFocusableElements(root, target);
   }
   return getFocusableElements(root);
 }
 
-function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
+function getCanvasFocusableElements(
+  root: HTMLElement,
+  target: HTMLElement,
+): HTMLElement[] {
   const state = useProjectState.getState();
+  const sectionRoot = getSectionScopeRoot(target, state);
+  if (sectionRoot) {
+    const scopedFocusables = getFocusableElements(sectionRoot);
+    if (scopedFocusables.length > 0) {
+      return scopedFocusables;
+    }
+  }
+
   const sectionRefs = useSectionRefs.getState().withNested;
+  const activeSectionId = state.projectConfig.activeIds[0] ?? null;
+  if (activeSectionId) {
+    const activeRef = sectionRefs[activeSectionId];
+    if (activeRef) {
+      const activeFocusables = getFocusableElements(activeRef);
+      if (activeFocusables.length > 0) {
+        return activeFocusables;
+      }
+    }
+  }
   const topLevelSections = Object.entries(
     state.projectConfig.topLevelSections,
   ).map(([sectionId, layout]) => ({
@@ -295,6 +354,30 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
   }
 
   return focusables.length > 0 ? focusables : getFocusableElements(root);
+}
+
+function getSectionScopeRoot(
+  target: HTMLElement,
+  state: ReturnType<typeof useProjectState.getState>,
+): HTMLElement | null {
+  let current: HTMLElement | null = target;
+  let nearestRoot: HTMLElement | null = null;
+  while (current) {
+    if (current.hasAttribute("data-section-root")) {
+      if (!nearestRoot) {
+        nearestRoot = current;
+      }
+      const sectionId = current.getAttribute("data-section-root");
+      if (sectionId && state.sections[sectionId]) {
+        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        if (impl.type === SectionTypeEnum.Group) {
+          return current;
+        }
+      }
+    }
+    current = current.parentElement;
+  }
+  return nearestRoot;
 }
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
@@ -355,11 +438,11 @@ function getNextFocusableElement(
     return null;
   }
   if (!current) {
-    return getFallbackElement(focusables, direction);
+    return direction > 0 ? getFallbackElement(focusables, direction) : null;
   }
   const index = focusables.indexOf(current);
   if (index === -1) {
-    return getFallbackElement(focusables, direction);
+    return direction > 0 ? getFallbackElement(focusables, direction) : null;
   }
   const nextIndex = index + direction;
   if (nextIndex < 0 || nextIndex >= focusables.length) {
