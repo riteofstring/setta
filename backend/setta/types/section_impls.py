@@ -69,6 +69,11 @@ class ConfigLanguage(str, Enum):
     json = "json"
 
 
+class SectionWithParamsDisplayMode(str, Enum):
+    Gui = "Gui"
+    Yaml = "Yaml"
+
+
 class TypeErrorIgnoreState(BaseModel, extra="forbid"):
     callable: bool = False
     params: dict[ID, bool] = Field(default_factory=dict)
@@ -130,6 +135,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
