@@ -2047,6 +2047,16 @@ def set_section_hide_unpinned_params(
     )
 
 
+def set_section_pinned_params(
+    p: "ProjectStateSingleConfig", sectionId: ID, pinnedParams: list[ID]
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
+    )
+
+
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):

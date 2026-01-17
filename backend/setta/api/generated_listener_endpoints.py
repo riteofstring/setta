@@ -521,6 +521,13 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     value: str
 
 
+class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    pinnedParams: list[ID]
+
+
 class ListenerSetSectionSizesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1022,6 +1029,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionParamFilterRequestPayload
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
+
+    async def set_section_pinned_params(
+        self, payload: ListenerSetSectionPinnedParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_section_pinned_params", payload)
 
     async def set_section_sizes(
         self, payload: ListenerSetSectionSizesRequestPayload

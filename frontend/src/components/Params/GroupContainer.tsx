@@ -106,15 +106,16 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section className="section-w-full section-row-pin-main -mt-1 flex flex-col gap-2 rounded-md border border-blue-100 bg-blue-50/60 px-2 py-2 shadow-sm dark:border-setta-700/40 dark:bg-blue-950/30">
-      <header className="flex items-center gap-1 text-[0.6rem] font-semibold uppercase text-blue-600/70 dark:text-blue-300/60">
-        <span className="tracking-[0.2em]">Edges</span>
+      <header className="grid grid-cols-2 items-center text-[0.6rem] font-semibold uppercase text-blue-600/70 dark:text-blue-300/60">
+        <span className="mt-1 tracking-[0.2em]">In</span>
+        <span className="mt-1 text-right tracking-[0.2em]">Out</span>
       </header>
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
           {inputPorts.map((port) => (
             <div
               key={port.id}
-              className="relative flex items-center gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
+              className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
             >
               <Handle
                 id={port.id}
@@ -133,7 +134,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
           {outputPorts.map((port) => (
             <div
               key={port.id}
-              className="relative flex items-center justify-end gap-2 rounded-sm bg-white/80 px-2 py-1 text-[0.65rem] text-slate-700 shadow-sm dark:bg-setta-800/70 dark:text-slate-200"
+              className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
             >
               <span className="truncate">{port.label}</span>
               <Handle
