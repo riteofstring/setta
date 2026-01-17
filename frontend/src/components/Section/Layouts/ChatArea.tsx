@@ -211,20 +211,76 @@ function ScriptableChatArea({
     [projectConfigId, sectionId],
   );
 
-  const handleInputChange = useCallback(
-    (value: string) => {
-      applyChatState({
-        messages,
-        inputText: value,
-        waitingForResponse,
-        toolCallArguments,
+  const applyChatStateLocal = useCallback(
+    (nextState: ChatSectionState) => {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+          messages: nextState.messages,
+          inputText: nextState.inputText,
+          waitingForResponse: nextState.waitingForResponse,
+          toolCallArguments: nextState.toolCallArguments,
+        });
       });
     },
-    [applyChatState, messages, toolCallArguments, waitingForResponse],
+    [sectionId],
+  );
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      const current = getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      if (value === current.inputText) {
+        return;
+      }
+      const nextState = {
+        messages: current.messages,
+        inputText: value,
+        waitingForResponse: current.waitingForResponse,
+        toolCallArguments: current.toolCallArguments,
+      };
+      if (current.waitingForResponse) {
+        applyChatStateLocal(nextState);
+        return;
+      }
+      applyChatState(nextState);
+    },
+    [applyChatState, applyChatStateLocal, sectionId],
+  );
+
+  const applyChatStateWithAck = useCallback(
+    (nextState: ChatSectionState) => {
+      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
+        null;
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            messages: nextState.messages,
+            inputText: nextState.inputText,
+            waitingForResponse: nextState.waitingForResponse,
+            toolCallArguments: nextState.toolCallArguments,
+          });
+        },
+        send: (frontendOpId) => {
+          const result = route_set_chat_section_state({
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId,
+          });
+          sendPromise = result;
+          return result;
+        },
+      });
+      return sendPromise;
+    },
+    [projectConfigId, sectionId],
   );
 
   const handleSubmit = useCallback(
-    (message: string) => {
+    async (message: string) => {
       if (!message.trim()) {
         return;
       }
@@ -235,6 +291,17 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content: [createMessageTextContent({ text: message })],
       };
+      const nextMessages = [...messages, newMessage];
+      const nextState = {
+        messages: nextMessages,
+        inputText: "",
+        waitingForResponse: true,
+        toolCallArguments,
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
       emitChatSendAction({
         sectionId,
         messageId,
@@ -243,30 +310,33 @@ function ScriptableChatArea({
         managed: false,
         timestampMs,
       });
-      const nextMessages = [...messages, newMessage];
-      applyChatState({
-        messages: nextMessages,
-        inputText: "",
-        waitingForResponse: true,
-        toolCallArguments,
-      });
     },
-    [applyChatState, messages, sectionId, toolCallArguments],
+    [applyChatStateWithAck, messages, sectionId, toolCallArguments],
   );
 
-  const handleStop = useCallback(() => {
+  const handleStop = useCallback(async () => {
+    const nextState = {
+      messages,
+      inputText,
+      waitingForResponse: false,
+      toolCallArguments,
+    };
+    const sendPromise = applyChatStateWithAck(nextState);
+    if (sendPromise) {
+      await sendPromise;
+    }
     emitChatStopAction({
       sectionId,
       managed: false,
       timestampMs: Date.now(),
     });
-    applyChatState({
-      messages,
-      inputText,
-      waitingForResponse: false,
-      toolCallArguments,
-    });
-  }, [applyChatState, inputText, messages, sectionId, toolCallArguments]);
+  }, [
+    applyChatStateWithAck,
+    inputText,
+    messages,
+    sectionId,
+    toolCallArguments,
+  ]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
 

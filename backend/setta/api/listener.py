@@ -31,6 +31,9 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
+from setta.listeners.router_endpoint_local_updates import (
+    build_local_router_endpoint_updates,
+)
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
@@ -84,6 +87,8 @@ if TYPE_CHECKING:
     from websockets import ClientConnection
 
     from setta.types.id import ID
+
+    from setta.listeners.router_endpoint_local_updates import LocalDependencyUpdate
 
     from .hot_reload import ListenerHotReloader
 
@@ -1461,12 +1466,13 @@ class SettaListener:
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
         project_config_id = self._require_project_id()
+        serialized_payload = self._serialize_router_endpoint_payload(payload)
         message = WebsocketMsgListenerRouterEndpointCall(
             content=ListenerRouterEndpointCallContent(
                 projectConfigId=project_config_id,
                 callId=call_id,
                 endpointName=endpoint_name,
-                payload=self._serialize_router_endpoint_payload(payload),
+                payload=serialized_payload,
             )
         )
         logger.debug(
@@ -1477,9 +1483,48 @@ class SettaListener:
         )
         await self._send_websocket_payload(message.model_dump_json())
         try:
-            return await future
+            result = await future
         finally:
             self._pending_router_endpoint_calls.pop(call_id, None)
+        updates = build_local_router_endpoint_updates(
+            endpoint_name=endpoint_name,
+            payload=serialized_payload,
+        )
+        self._apply_local_dependency_updates(updates=updates)
+        return result
+
+    def _apply_local_dependency_updates(
+        self,
+        *,
+        updates: list["LocalDependencyUpdate"],
+    ) -> None:
+        runtime_state = self._runtime_state
+        if runtime_state is None or runtime_state.s_instance is None:
+            return
+        if not updates:
+            return
+        graph = runtime_state.dependency_graph.graph
+        for update in updates:
+            dep_key = update.dependency_key
+            if dep_key not in graph:
+                if isinstance(dep_key, SectionDependencyKey):
+                    raise KeyError(
+                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId=None"
+                    )
+                if isinstance(dep_key, SectionParamDependencyKey):
+                    raise KeyError(
+                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId={dep_key.codeObjId}"
+                    )
+                raise KeyError(f"Unknown dependency id: {dep_key}")
+            node = graph[dep_key]
+            hydrated = self._set_dependency_value(
+                runtime_state,
+                runtime_state.s_instance,
+                node.full_path_name,
+                update.value,
+                node,
+            )
+            self._dependency_cache[node.full_path_name] = hydrated
 
     def _serialize_listener_artifact_updates(
         self,
