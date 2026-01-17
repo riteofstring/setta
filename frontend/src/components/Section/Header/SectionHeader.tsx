@@ -5,7 +5,6 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -34,9 +33,6 @@ function _SectionHeader({
   isRoot,
 }: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -68,8 +64,7 @@ function _SectionHeader({
           </StandardPopover>
         )}
         {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
           <>
             <RunButton sectionId={sectionId} />
             <ToggleEntryCodeBlockButton

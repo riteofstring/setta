@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_code import ProjectGenPythonCode
+
 from tests.utils.manager_fixture import real_settings_manager
 
 
@@ -48,6 +50,9 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
+        config_id = self.project_config_id
+        self.assertIn(config_id, self.manager.gen_code)
+        self.assertIsInstance(self.manager.gen_code[config_id], ProjectGenPythonCode)
 
     async def asyncTearDown(self) -> None:
         await self._exit_stack.aclose()
