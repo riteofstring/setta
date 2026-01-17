@@ -2527,6 +2527,25 @@ def _resolve_param_move_context(
     section_id: ID,
     param_ids: list[ID],
 ):
+    section_impl, root_id, parent_map, normalized = _resolve_param_selection(
+        p, section_id, param_ids
+    )
+    parent_id = parent_map[normalized[0]]
+    if parent_id is None:
+        raise ValueError(
+            f"Param {normalized[0]} has no parent in section {section_id}."
+        )
+    for param_id in normalized[1:]:
+        if parent_map[param_id] != parent_id:
+            raise ValueError("Param selection spans multiple parents.")
+    return section_impl, root_id, parent_map, parent_id, normalized
+
+
+def _resolve_param_selection(
+    p: "ProjectStateSingleConfig",
+    section_id: ID,
+    param_ids: list[ID],
+):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, BaseSectionWithParamsImpl
     )
@@ -2540,24 +2559,16 @@ def _resolve_param_move_context(
     for param_id in normalized:
         if param_id not in parent_map:
             raise KeyError(f"Param {param_id} not found in section {section_id}.")
-    parent_id = parent_map[normalized[0]]
-    if parent_id is None:
-        raise ValueError(
-            f"Param {normalized[0]} has no parent in section {section_id}."
-        )
-    for param_id in normalized[1:]:
-        if parent_map[param_id] != parent_id:
-            raise ValueError("Param selection spans multiple parents.")
     selected_set = set(normalized)
     for param_id in normalized:
-        ancestor = parent_map.get(param_id)
+        ancestor = parent_map[param_id]
         while ancestor is not None:
             if ancestor in selected_set:
                 raise ValueError(
                     "Param selection includes both ancestor and descendant."
                 )
-            ancestor = parent_map.get(ancestor)
-    return section_impl, root_id, parent_map, parent_id, normalized
+            ancestor = parent_map[ancestor]
+    return section_impl, root_id, parent_map, normalized
 
 
 def _ensure_valid_new_parent(
@@ -2720,7 +2731,7 @@ def indent_params(
                 previous_id = candidate
                 break
         if previous_id is None:
-            raise ValueError("No previous sibling available for indent.")
+            continue
         prev_impl = get_curr_effective_code_obj_impl_with_type_guard(
             p, section_id, previous_id, BaseParamCodeObjImpl
         )
@@ -2743,35 +2754,53 @@ def unindent_params(
     section_id: ID,
     param_ids: list[ID],
 ):
-    _, _, parent_map, parent_id, normalized = _resolve_param_move_context(
-        p, section_id, param_ids
-    )
-    grandparent_id = parent_map.get(parent_id)
-    if grandparent_id is None:
-        raise ValueError("Cannot unindent top-level params.")
-    grandparent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, grandparent_id, BaseParentCodeObjImpl
-    )
-    grandparent_children = list(grandparent_impl.children)
-    if parent_id not in grandparent_children:
-        raise KeyError(f"Parent {parent_id} missing from grandparent children.")
-    new_index = grandparent_children.index(parent_id) + 1
-    move_params_to_parent(
-        settings, p, section_id, normalized, grandparent_id, new_index
-    )
-    old_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, parent_id, BaseParentCodeObjImpl
-    )
-    if not old_parent_impl.children and old_parent_impl.type == CodeObjType.NestedParam:
-        change_param_impl(
-            settings, p, section_id, parent_id, CodeObjType.CodeParam.name
+    _, _, parent_map, normalized = _resolve_param_selection(p, section_id, param_ids)
+    params_by_parent: dict[ID, list[ID]] = {}
+    parents_in_order: list[ID] = []
+    for param_id in normalized:
+        parent_id = parent_map[param_id]
+        if parent_id is None:
+            raise ValueError(f"Param {param_id} has no parent in section {section_id}.")
+        if parent_id not in params_by_parent:
+            params_by_parent[parent_id] = []
+            parents_in_order.append(parent_id)
+        params_by_parent[parent_id].append(param_id)
+
+    for parent_id in parents_in_order:
+        grandparent_id = parent_map[parent_id]
+        if grandparent_id is None:
+            continue
+        grandparent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, section_id, grandparent_id, BaseParentCodeObjImpl
         )
-        set_curr_effective_code_obj_impl_value(
+        grandparent_children = list(grandparent_impl.children)
+        if parent_id not in grandparent_children:
+            raise KeyError(f"Parent {parent_id} missing from grandparent children.")
+        new_index = grandparent_children.index(parent_id) + 1
+        move_params_to_parent(
+            settings,
             p,
             section_id,
-            parent_id,
-            BaseChildlessCodeObjImplArgsWithCallable(value="{}"),
+            params_by_parent[parent_id],
+            grandparent_id,
+            new_index,
         )
+        old_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            p, section_id, parent_id, BaseParentCodeObjImpl
+        )
+        if (
+            not old_parent_impl.children
+            and old_parent_impl.type == CodeObjType.NestedParam
+        ):
+            change_param_impl(
+                settings, p, section_id, parent_id, CodeObjType.CodeParam.name
+            )
+            set_curr_effective_code_obj_impl_value(
+                p,
+                section_id,
+                parent_id,
+                BaseChildlessCodeObjImplArgsWithCallable(value="{}"),
+            )
 
 
 def delete_code_obj(p: "ProjectStateCore", codeObjId: ID):

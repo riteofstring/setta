@@ -326,6 +326,42 @@ class ParamMoveTests(unittest.TestCase):
         )
         self.assertEqual(parent_impl.value, "{}")
 
+    def test_unindent_multi_parent_selection(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, param_ids)
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.value, "{}")
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.value, "{}")
+
 
 class SmartLayoutTests(unittest.TestCase):
     def setUp(self) -> None:

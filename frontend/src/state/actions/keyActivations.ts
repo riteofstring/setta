@@ -189,6 +189,20 @@ function parseShortcut(shortcutString) {
   };
 }
 
+function isTabLikeShortcut(shortcut) {
+  if (!shortcut) {
+    return false;
+  }
+  const parsed = parseShortcut(shortcut.toLowerCase());
+  return (
+    parsed.keys.size === 1 &&
+    parsed.keys.has("Tab") &&
+    !parsed.mod &&
+    !parsed.ctrl &&
+    !parsed.alt
+  );
+}
+
 function isShortcutPressed(e, parsedShortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, keys } = parsedShortcut;
   if (_isMacOs) {
@@ -431,6 +445,10 @@ function addKeepKeyDownConditions(sInfo, _isMacOs) {
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
   const shortcutsNeededForExtraProcessing = {};
+  const indentShortcutIsTab = isTabLikeShortcut(shortcuts.paramIndentShortcut);
+  const unindentShortcutIsTab = isTabLikeShortcut(
+    shortcuts.paramUnindentShortcut,
+  );
 
   function addToShortcutsNeededForExtraProcessing(
     name,
@@ -509,14 +527,22 @@ export function attachKeyEventListeners() {
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
     // [shortcuts.formatCode, formatCode],
-    [
-      shortcuts.paramIndentShortcut,
-      (e) => runParamShortcut(indentSelectedParams, e),
-    ],
-    [
-      shortcuts.paramUnindentShortcut,
-      (e) => runParamShortcut(unindentSelectedParams, e),
-    ],
+    ...(indentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramIndentShortcut,
+            (e) => runParamShortcut(indentSelectedParams, e),
+          ],
+        ]),
+    ...(unindentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramUnindentShortcut,
+            (e) => runParamShortcut(unindentSelectedParams, e),
+          ],
+        ]),
     [
       shortcuts.paramMoveUpShortcut,
       (e) => runParamShortcut(moveSelectedParamsUp, e),

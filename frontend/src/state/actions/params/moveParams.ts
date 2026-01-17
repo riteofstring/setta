@@ -31,6 +31,14 @@ import {
 } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 
+type ParamSelectionBase = {
+  sectionId: string;
+  rootId: string;
+  rootSelected: string[];
+  parentById: Record<string, string | null>;
+  visibleIds: Set<string>;
+};
+
 export function selectOnlyParam(sectionId: string, paramId: string) {
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -167,7 +175,7 @@ export function indentSelectedParams(): boolean {
 }
 
 export function unindentSelectedParams(): boolean {
-  const context = getParamMovementContext();
+  const context = getParamUnindentContext();
   if (!context) {
     return false;
   }
@@ -278,12 +286,7 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   return true;
 }
 
-function getParamMovementContext(): {
-  sectionId: string;
-  rootSelected: string[];
-  sharedParent: string;
-  tree: ReturnType<typeof buildParamTreeView>;
-} | null {
+function getParamSelectionBase(): ParamSelectionBase | null {
   const state = useProjectState.getState();
   const selectedSectionId = resolveSectionWithSelectedParams(state);
   if (!selectedSectionId) {
@@ -308,12 +311,6 @@ function getParamMovementContext(): {
   if (rootSelected.length === 0) {
     return null;
   }
-  const sharedParent = getSharedParentId(parentById, rootSelected);
-  if (!sharedParent) {
-    addTemporaryNotification("Param selection spans multiple parents.");
-    return null;
-  }
-
   const visibleIds = buildVisibleParamIdSet(state, selectedSectionId);
   for (const selectedId of rootSelected) {
     if (!visibleIds.has(selectedId)) {
@@ -321,30 +318,67 @@ function getParamMovementContext(): {
       return null;
     }
   }
+  return {
+    sectionId: selectedSectionId,
+    rootId,
+    rootSelected,
+    parentById,
+    visibleIds,
+  };
+}
+
+function getParamMovementContext(): {
+  sectionId: string;
+  rootSelected: string[];
+  sharedParent: string;
+  tree: ReturnType<typeof buildParamTreeView>;
+} | null {
+  const base = getParamSelectionBase();
+  if (!base) {
+    return null;
+  }
+  const sharedParent = getSharedParentId(base.parentById, base.rootSelected);
+  if (!sharedParent) {
+    addTemporaryNotification("Param selection spans multiple parents.");
+    return null;
+  }
+
+  const state = useProjectState.getState();
   const rootImpl = getCurrEffectiveCodeObjImpl(
     state,
-    selectedSectionId,
-    rootId,
+    base.sectionId,
+    base.rootId,
   );
   const topLevelParamIds = isBaseParentCodeObjImpl(rootImpl)
-    ? rootImpl.children.filter((id) => visibleIds.has(id))
+    ? rootImpl.children.filter((id) => base.visibleIds.has(id))
     : [];
   const visibleMap: Record<string, string[]> = {};
-  for (const id of visibleIds) {
+  for (const id of base.visibleIds) {
     visibleMap[id] = [];
   }
   const tree = buildParamTreeView(
     state,
-    selectedSectionId,
+    base.sectionId,
     topLevelParamIds,
     visibleMap,
   );
   return {
-    sectionId: selectedSectionId,
-    rootSelected,
+    sectionId: base.sectionId,
+    rootSelected: base.rootSelected,
     sharedParent,
     tree,
   };
+}
+
+function getParamUnindentContext(): {
+  sectionId: string;
+  rootSelected: string[];
+} | null {
+  const base = getParamSelectionBase();
+  if (!base) {
+    return null;
+  }
+  return { sectionId: base.sectionId, rootSelected: base.rootSelected };
 }
 
 function resolveSectionWithSelectedParams(

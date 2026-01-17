@@ -5097,7 +5097,7 @@ const BaseSectionWithParamsImplSchema = z.object({
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
-type BaseSectionWithParamsImpl = z.infer<
+export type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
