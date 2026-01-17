@@ -57,15 +57,6 @@ Stop:
 
 Use the `managed` flag if you need to branch between managed and scriptable behavior.
 
-## LLM config ids
-Listener chat history always requires an LLM config id. Use a real configured id for managed/LLM-backed flows (and MCP tools), or use the reserved id `scriptable` for scriptable-only chats. `scriptable` does not need to exist in `llm_config.json` and disables MCP tool access for that chat.
-
-## Choosing a response pattern
-Pick one of these patterns and stick to its API surface:
-- One-shot reply: use `ChatSession.complete(...)` after `open_from_event(...)`.
-- Streaming reply: use `ChatSession.stream_text(...)` or `ChatSession.stream(...)`; inside the stream callback, call `text_delta(...)` and `tool_call_delta(...)`.
-- `text_delta(...)` and `tool_call_delta(...)` require an active assistant message started by `stream(...)`; calling them without a stream raises "no active assistant message".
-
 ## Example: streaming + tools (session helper)
 ```python
 from setta.api.chat_toolkit import ChatSession, ToolCallBuilder, on_chat_send_event
@@ -110,9 +101,9 @@ from setta.api.chat_toolkit import (
     ChatToolRunnerClient,
     ToolCallBuilder,
     message_text,
+    user_message,
     on_chat_send_event,
 )
-from setta.types.chat_messages import UserChatMessage
 
 history = ChatHistoryClient(ctx.project_manager)
 stream = ChatStreamEmitterClient(ctx.project_manager, section_id=section_id)
@@ -123,17 +114,11 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-first_message = UserChatMessage(
-    id=event.messageId,
-    content=[message_text(event.text)],
-)
-chat_id, created = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     section_id=section_id,
     llm_config_id="my-llm",
-    first_message=first_message,
+    first_message=user_message([message_text(event.text)]),
 )
-if not created:
-    await history.append(chat_id=chat_id, messages=[first_message])
 
 assembler = ChatStreamAssembler()
 assistant = assembler.start_assistant_message()
@@ -183,8 +168,8 @@ from setta.api.chat_toolkit import (
     assistant_message,
     message_text,
     on_chat_send_event,
+    user_message,
 )
-from setta.types.chat_messages import UserChatMessage
 
 history = ChatHistoryClient(ctx.project_manager)
 sync = ChatSectionSyncClient(ctx.project_manager)
@@ -193,19 +178,13 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-first_message = UserChatMessage(
-    id=event.messageId,
-    content=[message_text(event.text)],
-)
-chat_id, created = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     section_id=section_id,
-    llm_config_id="scriptable",
-    first_message=first_message,
+    llm_config_id="my-llm",
+    first_message=user_message([message_text(event.text)]),
 )
-if not created:
-    await history.append(chat_id=chat_id, messages=[first_message])
 
-reply = event.text
+reply = provider.complete(event.text)
 assistant_msg = assistant_message([message_text(reply)])
 await history.append(chat_id=chat_id, messages=[assistant_msg])
 await sync.update_from_chat(section_id=section_id, chat_id=chat_id)

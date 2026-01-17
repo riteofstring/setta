@@ -28,7 +28,6 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -641,10 +640,6 @@ class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
 
 class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
-
-
-class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
-    displayMode: SectionWithParamsDisplayMode
 
 
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
