@@ -40,6 +40,7 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.chats.load import load_chat
 from setta.project_state.code import (
     create_snapshot_run_command_from_sections,
 )
@@ -1930,7 +1931,14 @@ class BaseProjectManager(ABC):
             x.sectionId,
             ChatSectionImpl,
         )
-        return section_impl.chatId
+        chat_id = section_impl.chatId
+        if chat_id is None:
+            return None
+        if load_chat(self.dbe, chat_id) is not None:
+            return chat_id
+        set_chat_section_chat_id(project_state, x.sectionId, None)
+        await self.update_and_broadcast_project_state(project_state)
+        return None
 
     @enqueue_method
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:

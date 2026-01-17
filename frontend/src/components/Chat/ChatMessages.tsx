@@ -25,6 +25,7 @@ type AssistantChatMessage = Extract<
   BaseChatMessageUnion,
   { role: ChatRoleEnum.assistant }
 >;
+type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
 
@@ -75,6 +76,22 @@ function formatToolArgs(args: unknown) {
   } catch {
     return String(args);
   }
+}
+
+function ChatImage({ url, className }: { url: string; className?: string }) {
+  const baseClassName =
+    "max-h-64 w-auto max-w-full rounded-md border border-setta-200/70 bg-white";
+  const combinedClassName = className
+    ? `${baseClassName} ${className}`
+    : baseClassName;
+  return (
+    <img
+      src={url}
+      alt="Chat attachment"
+      className={combinedClassName}
+      loading="lazy"
+    />
+  );
 }
 
 const ThinkingBox = memo(function ThinkingBox({
@@ -145,10 +162,8 @@ const ThinkingBox = memo(function ThinkingBox({
 
 function ToolCallAccordionStatus({
   success,
-  isStreaming,
 }: {
   success: boolean | undefined;
-  isStreaming: boolean;
 }) {
   if (success === true) {
     return (
@@ -158,11 +173,6 @@ function ToolCallAccordionStatus({
   if (success === false) {
     return (
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
-    );
-  }
-  if (isStreaming) {
-    return (
-      <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
     );
   }
   return (
@@ -175,13 +185,11 @@ const ToolCallItem = memo(function ToolCallItem({
   args,
   result,
   success,
-  isStreaming,
 }: {
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
   success: boolean | undefined;
-  isStreaming: boolean;
 }) {
   const resultDisplay = (() => {
     if (typeof result === "string") {
@@ -221,10 +229,7 @@ const ToolCallItem = memo(function ToolCallItem({
           <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
             {name}
           </div>
-          <ToolCallAccordionStatus
-            success={success}
-            isStreaming={isStreaming}
-          />
+          <ToolCallAccordionStatus success={success} />
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
@@ -258,7 +263,7 @@ function StreamItem({
   item,
   isStreaming,
 }: {
-  item: AssistantChatMessage["content"][number];
+  item: ChatContentItem;
   isStreaming: boolean;
 }) {
   switch (item.type) {
@@ -279,6 +284,8 @@ function StreamItem({
           isStreaming={isStreaming}
         />
       );
+    case "image_url":
+      return <ChatImage url={item.image_url.url} />;
     default:
       return null;
   }
@@ -294,23 +301,42 @@ function LLMChatBubble({ children }: { children: ReactNode }) {
   );
 }
 
+function UserChatBubble({ children }: { children: ReactNode }) {
+  return (
+    <div className="my-4 flex justify-end">
+      <div className="flex w-fit max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SystemChatBubble({ children }: { children: ReactNode }) {
+  return (
+    <div className="my-3 flex justify-center">
+      <div className="flex max-w-[min(90%,800px)] cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const USER_MARKDOWN_CLASS =
+  "prose prose-sm text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
+const SYSTEM_MARKDOWN_CLASS =
+  "prose prose-sm text-setta-600 dark:prose-invert prose-p:text-xs prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
+
 const ChatMessage = memo(function ChatMessage({
   message,
   toolResultsById,
   toolCallArguments,
   isStreaming,
-  waitingForResponse,
 }: {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
   isStreaming: boolean;
-  waitingForResponse: boolean;
 }) {
-  if (message.role === ChatRoleEnum.tool) {
-    return null;
-  }
-
   if (message.role === ChatRoleEnum.assistant) {
     const toolCalls = message.tool_calls ?? [];
     const showAssistantSpinner =
@@ -350,7 +376,6 @@ const ChatMessage = memo(function ChatMessage({
               args={argsToDisplay}
               result={formatToolResult(toolResult)}
               success={toolResult ? !toolResult.is_error : undefined}
-              isStreaming={Boolean(waitingForResponse && !toolResult)}
             />
           );
         })}
@@ -358,15 +383,55 @@ const ChatMessage = memo(function ChatMessage({
     );
   }
 
+  const content = message.content ?? [];
+  let textClassName = USER_MARKDOWN_CLASS;
+  let imageClassName = "border-white/30";
+  let Wrapper = UserChatBubble;
+  if (message.role === ChatRoleEnum.system) {
+    textClassName = SYSTEM_MARKDOWN_CLASS;
+    imageClassName = "";
+    Wrapper = SystemChatBubble;
+  }
+  const resolvedImageClassName = imageClassName || undefined;
+
   return (
-    <div className="my-4 flex justify-end">
-      <MarkdownContent
-        content={message.content?.[0]?.text ?? ""}
-        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400"
-        role={message.role}
-        isStreaming={false}
-      />
-    </div>
+    <Wrapper>
+      {content.map((item, idx) => {
+        const key = `${message.id}-${idx}`;
+        if (item.type === C.LLM_TEXT) {
+          return (
+            <MarkdownContent
+              key={key}
+              content={item.text}
+              className={textClassName}
+              role={message.role}
+              isStreaming={false}
+            />
+          );
+        }
+        if (item.type === C.LLM_THINKING) {
+          return (
+            <MarkdownContent
+              key={key}
+              content={item.thinking}
+              className={`${textClassName} italic`}
+              role={message.role}
+              isStreaming={false}
+            />
+          );
+        }
+        if (item.type === "image_url") {
+          return (
+            <ChatImage
+              key={key}
+              url={item.image_url.url}
+              className={resolvedImageClassName}
+            />
+          );
+        }
+        return null;
+      })}
+    </Wrapper>
   );
 });
 
@@ -396,7 +461,6 @@ function ChatMessages({
         isStreaming={
           waitingForResponse && message.role === ChatRoleEnum.assistant
         }
-        waitingForResponse={waitingForResponse}
       />,
     );
   }
@@ -419,7 +483,6 @@ function ChatMessages({
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
         isStreaming={true}
-        waitingForResponse={waitingForResponse}
       />,
     );
   }
@@ -474,14 +537,31 @@ function formatToolResult(
     return undefined;
   }
   if (Array.isArray(toolResult.content) && toolResult.content.length > 0) {
-    return toolResult.content
+    const renderedEntries = toolResult.content
       .map((entry) => {
         if (entry.type === "text") {
           return entry.text;
         }
+        if (entry.type === "tool_reference") {
+          return `Tool reference: ${entry.tool_name}`;
+        }
+        if (entry.type === "resource") {
+          const label = entry.resource?.uri
+            ? `Resource: ${entry.resource.uri}`
+            : "Resource";
+          return entry.resource?.mimeType
+            ? `${label} (${entry.resource.mimeType})`
+            : label;
+        }
+        if (entry.type === "image") {
+          return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
+        }
         return JSON.stringify(entry, null, 2);
       })
-      .join("\n\n");
+      .filter((entry) => entry.trim().length > 0);
+    if (renderedEntries.length > 0) {
+      return renderedEntries.join("\n\n");
+    }
   }
   return toolResult.result;
 }

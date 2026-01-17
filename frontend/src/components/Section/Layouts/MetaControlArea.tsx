@@ -184,7 +184,10 @@ function MetaControlValueArea({
         type: DependencyKeyTypeEnum.Section,
         sectionId,
       },
-      payload: null,
+      payload: JSON.stringify({
+        actionMode: buttonConfig.actionMode,
+        controlParamId,
+      }),
     });
   }
 

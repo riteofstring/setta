@@ -7,7 +7,6 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useCallback, useMemo } from "react";
-import { setChatSectionChatIdLocal } from "state/actions/ai";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -123,23 +122,24 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     [deepThink, managed, updateSettings],
   );
 
-  const handleNewChat = useCallback(async () => {
+  const handleNewChat = useCallback(() => {
     if (isDisabled || !managed) {
       return;
     }
-    setChatSectionChatIdLocal(sectionId, undefined);
-    await route_set_chat_section_chat_id({
-      projectConfigId,
-      sectionId,
-      chatId: null,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+          chatId: null,
+        });
+      },
+      send: () =>
+        route_set_chat_section_chat_id({
+          projectConfigId,
+          sectionId,
+          chatId: null,
+        }),
     });
-  }, [
-    isDisabled,
-    managed,
-    projectConfigId,
-    sectionId,
-    setChatSectionChatIdLocal,
-  ]);
+  }, [isDisabled, managed, projectConfigId, sectionId]);
 
   const configPlaceholder = noConfigsAvailable
     ? "Add an LLM config or API key"

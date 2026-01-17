@@ -8,12 +8,10 @@ import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/use
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ChatSectionChatIdUpdate,
   clearPendingChatDetails,
   getDefaultChatDetails,
   getLLMChat,
   initializePendingChatDetails,
-  setChatSectionChatIdLocal,
   submitMessage,
 } from "state/actions/ai";
 import {
@@ -23,16 +21,10 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import {
-  useAIStore,
-  useChatSectionChatIds,
-  useProjectState,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import {
-  route_get_chat_section_chat_id,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
   route_stop_llm_chat,
@@ -65,6 +57,11 @@ type ChatStopActionPayload = {
 };
 
 type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
+
+type ChatSectionChatId = string | null;
+type ChatSectionChatIdUpdate =
+  | ChatSectionChatId
+  | ((current: ChatSectionChatId) => ChatSectionChatId);
 
 type EmitChatSendActionArgs = {
   sectionId: string;
@@ -150,7 +147,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       toolCallArguments: impl.toolCallArguments,
       isFrozen: impl.isFrozen,
     };
-  }, _.isEqual);
+  }, shallow);
 
   if (managed) {
     return (
@@ -369,13 +366,14 @@ function ManagedChatArea({
   useHydrateLLMState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const chatId = useChatSectionChatIds((state) => state.bySectionId[sectionId]);
-  const setChatIdState = useCallback(
-    (nextChatId: string | null | undefined) => {
-      setChatSectionChatIdLocal(sectionId, nextChatId);
-    },
-    [sectionId],
-  );
+  const chatId = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    return impl.chatId;
+  });
 
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
@@ -412,52 +410,39 @@ function ManagedChatArea({
   }
 
   useEffect(() => {
-    let cancelled = false;
-    const loadChatId = async () => {
-      const res = await route_get_chat_section_chat_id({
-        projectConfigId,
-        sectionId,
-      });
-      if (!res200(res)) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      const resolvedChatId = res.data ?? undefined;
-      setChatIdState(resolvedChatId);
-    };
-    void loadChatId();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectConfigId, sectionId, setChatIdState]);
-
-  useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
     getLLMChat(chatId);
   }, [chatId]);
 
-  const persistChatId = useCallback(
-    async (nextChatId: string | null | undefined) => {
-      const storedChatId = typeof nextChatId === "string" ? nextChatId : null;
-      await route_set_chat_section_chat_id({
-        projectConfigId,
+  const setChatId = useCallback(
+    (next: ChatSectionChatIdUpdate) => {
+      const currentState = useProjectState.getState();
+      const currentChatId = getCurrEffectiveSectionImplOfType(
+        currentState,
         sectionId,
-        chatId: storedChatId,
+        SectionTypeEnum.Chat,
+      ).chatId;
+      const resolved = typeof next === "function" ? next(currentChatId) : next;
+      if (resolved === currentChatId) {
+        return;
+      }
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            chatId: resolved,
+          });
+        },
+        send: () =>
+          route_set_chat_section_chat_id({
+            projectConfigId,
+            sectionId,
+            chatId: resolved,
+          }),
       });
     },
     [projectConfigId, sectionId],
-  );
-
-  const setChatId = useCallback(
-    (next: ChatSectionChatIdUpdate) => {
-      const resolved = setChatSectionChatIdLocal(sectionId, next);
-      void persistChatId(resolved);
-    },
-    [persistChatId, sectionId],
   );
 
   const handleNewChatStart = useCallback(() => {
@@ -473,7 +458,7 @@ function ManagedChatArea({
           return currentChatId;
         }
         if (!succeeded || !newChatId) {
-          return undefined;
+          return null;
         }
         return newChatId;
       });
@@ -499,7 +484,7 @@ function ManagedChatArea({
         managed: true,
         timestampMs,
       });
-      const isFirstMessage = chatId === undefined;
+      const isFirstMessage = chatId === null;
       if (isFirstMessage) {
         handleNewChatStart();
       }
@@ -508,7 +493,7 @@ function ManagedChatArea({
       let succeeded = false;
       try {
         submittedChatId = await submitMessage(
-          chatId ?? null,
+          chatId,
           message,
           deepThink,
           llmConfigId,

@@ -779,7 +779,7 @@ export async function route_set_chat_section_state(
   return await post("/setChatSectionState", x);
 }
 
-export async function route_get_chat_section_chat_id(
+async function route_get_chat_section_chat_id(
   x: gt.GetChatSectionChatIdRequestInput,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getChatSectionChatId", x);
