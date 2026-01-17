@@ -10,6 +10,7 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { RiPlayList2Fill } from "react-icons/ri";
+import { useRef } from "react";
 import {
   useBackendLogEvents,
   useLocalStorage,
@@ -21,7 +22,7 @@ import {
   OverviewTabNamePrettified,
   PaneNameEnum,
 } from "utils/constants";
-import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
+import { useTabScope } from "utils/focusManager";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
@@ -36,6 +37,12 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 export function Overview() {
+  const overviewRef = useRef<HTMLDivElement>(null);
+  useTabScope({
+    scopeId: "overview",
+    order: 10,
+    rootRef: overviewRef,
+  });
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -67,12 +74,12 @@ export function Overview() {
     requiredTabs: null,
   };
 
-  // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
     <div
       id="OverviewPane"
       className="contents"
-      onKeyDown={overviewPaneOnKeyDown}
+      ref={overviewRef}
+      data-tab-scope="overview"
     >
       <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<OverviewTabName>

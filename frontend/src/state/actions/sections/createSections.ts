@@ -17,7 +17,7 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { focusOnSectionSearch } from "utils/tabbingLogic";
+import { focusOnSectionSearch } from "utils/focusManager";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import {
   createTopLevelSectionLayoutDict,

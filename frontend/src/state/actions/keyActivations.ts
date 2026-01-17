@@ -40,8 +40,10 @@ import {
   moveSelectedParamsUp,
   unindentSelectedParams,
 } from "state/actions/params/moveParams";
-import { useSettings } from "state/definitions";
-import { tabFromDocumentBody } from "utils/tabbingLogic";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { useProjectState, useSettings } from "state/definitions";
+import { handleTabNavigation } from "utils/focusManager";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
   selectAll,
@@ -448,8 +450,8 @@ export function attachKeyEventListeners() {
   }
 
   const conditionAndAction = [
-    ["tab", tabFromDocumentBody],
-    ["shift + tab", tabFromDocumentBody],
+    ["tab", handleTabKeyDown],
+    ["shift + tab", handleTabKeyDown],
     [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
@@ -700,6 +702,34 @@ function onEscapeKey() {
   //   clearActiveSectionIds();
   // }
   removeFrozenFloatingBox();
+}
+
+function handleTabKeyDown(event: KeyboardEvent) {
+  if (hasSelectedParams()) {
+    if (event.shiftKey) {
+      unindentSelectedParams();
+    } else {
+      indentSelectedParams();
+    }
+    event.preventDefault();
+    return;
+  }
+
+  const didHandle = handleTabNavigation(event);
+  if (didHandle) {
+    event.preventDefault();
+  }
+}
+
+function hasSelectedParams(): boolean {
+  const state = useProjectState.getState();
+  for (const sectionId of Object.keys(state.sections)) {
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function activateSelectionKeyPressed() {

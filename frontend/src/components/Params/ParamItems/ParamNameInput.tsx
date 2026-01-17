@@ -18,7 +18,7 @@ import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { focusOnSection } from "utils/tabbingLogic";
+import { focusOnSection } from "utils/focusManager";
 
 export function ParamNameInput({
   border,

@@ -149,9 +149,8 @@ function getKeyMapArray({
   if (indentWithTab) {
     keymapArray.push({
       key: "Shift-Tab",
-      // if tab controls indent, then always prevent default and stop propagation
-      preventDefault: true,
-      stopPropagation: true,
+      preventDefault: false,
+      stopPropagation: false,
       run: (view) => {
         indentLess(view);
       },
@@ -161,12 +160,12 @@ function getKeyMapArray({
   if (tabToAutocomplete || indentWithTab) {
     keymapArray.push({
       key: "Tab",
-      preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
-      stopPropagation: true,
+      preventDefault: false,
+      stopPropagation: false,
       run: (view) => {
         let completionResult = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {
-          // trigger preventDefault & stopPropagation based on completion
+          // let the focus manager handle navigation; keep completion behavior
           completionResult = acceptCompletion(view);
         } else if (indentWithTab) {
           indentMore(view);
@@ -174,8 +173,7 @@ function getKeyMapArray({
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
         }
-        // if tab controls indent, then we never want to propagate the keystroke, so return true
-        // otherwise it depends on the completion result
+        // keep CodeMirror state updates while allowing tab navigation to bubble
         return indentWithTab || completionResult;
       },
     });

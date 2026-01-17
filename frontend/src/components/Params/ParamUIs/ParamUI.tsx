@@ -17,7 +17,7 @@ import {
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { focusOnSection } from "utils/tabbingLogic";
+import { focusOnSection } from "utils/focusManager";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
