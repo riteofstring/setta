@@ -1,11 +1,16 @@
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
   useChatSectionChatIds,
+  useProjectState,
   useToolArgumentPreview,
+  type ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -19,8 +24,10 @@ import {
 import {
   AllLLMConfigs,
   APIKeys,
+  AssistantChatMessage,
   BaseChatMessageUnion,
   ChatRoleEnum,
+  ChatSectionState,
   createMessageTextContent,
   createMessageThinkingContent,
   LLMStreamingResponse,
@@ -30,6 +37,7 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  SectionTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -199,6 +207,33 @@ export async function submitMessage(
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
+  const sectionId = msg.sectionId;
+  if (sectionId) {
+    applyChatSectionStreamDelta(sectionId, chunk);
+    if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
+      applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+      clearToolArgumentPreviewByToolCallId(
+        getCurrProjectConfigId(),
+        chunk.result.tool_call_id,
+      );
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+      const toolCallIds =
+        chunk.message.role === ChatRoleEnum.assistant
+          ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
+          : [];
+      clearToolArgumentPreviewByToolCallIds(
+        getCurrProjectConfigId(),
+        toolCallIds,
+      );
+      return;
+    }
+    return;
+  }
   switch (chunk.type) {
     case StreamingEventTypeEnum.MESSAGE_START:
       handleMessageStart(chatId, chunk);
@@ -224,6 +259,27 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     default:
       return chunk satisfies never;
   }
+}
+
+type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+
+function applyChatSectionStreamDelta(
+  sectionId: string,
+  chunk: ChatSectionStreamChunk,
+): void {
+  useProjectState.setState((state) => {
+    const currentState = getChatSectionStateFromStore(state, sectionId);
+    if (!currentState) {
+      return;
+    }
+    const nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
+    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+      messages: nextState.messages,
+      inputText: nextState.inputText,
+      waitingForResponse: nextState.waitingForResponse,
+      toolCallArguments: nextState.toolCallArguments,
+    });
+  });
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
@@ -339,6 +395,12 @@ function handleToolArgumentPreviewDelta(
   chunk: ToolArgumentPreviewDeltaEvent,
 ) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
+  applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+}
+
+function applyToolArgumentPreviewDeltaToPreviewStore(
+  chunk: ToolArgumentPreviewDeltaEvent,
+) {
   const projectConfigId = getCurrProjectConfigId();
   useToolArgumentPreview.setState((state) => {
     const previewState =
@@ -685,4 +747,283 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = message;
   return nextMessages;
+}
+
+function getChatSectionStateFromStore(
+  state: ZustandProjectState,
+  sectionId: string,
+): ChatSectionState | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  const effective = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  if (effective.type !== SectionTypeEnum.Chat) {
+    return null;
+  }
+  const chatImpl = effective as {
+    type: SectionTypeEnum.Chat;
+    messages: BaseChatMessageUnion[];
+    inputText: string;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  };
+  return {
+    messages: [...(chatImpl.messages ?? [])],
+    inputText: chatImpl.inputText ?? "",
+    waitingForResponse: Boolean(chatImpl.waitingForResponse),
+    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
+  };
+}
+
+function applyStreamDeltaToChatSectionState(
+  state: ChatSectionState,
+  chunk: ChatSectionStreamChunk,
+): ChatSectionState {
+  let messages = [...state.messages];
+  let toolCallArguments = { ...state.toolCallArguments };
+  let waitingForResponse = state.waitingForResponse;
+  const inputText = state.inputText;
+
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.MESSAGE_START: {
+      messages = upsertMessage(messages, chunk.message);
+      waitingForResponse = true;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.DELTA: {
+      messages = applyMessageDeltaToChatMessages(messages, chunk);
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_CALL_DELTA: {
+      const result = applyToolCallDeltaToChatMessages(
+        messages,
+        toolCallArguments,
+        chunk,
+      );
+      messages = result.messages;
+      toolCallArguments = result.toolCallArguments;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA: {
+      const result = applyToolCallDeltaToChatMessages(
+        messages,
+        toolCallArguments,
+        chunk,
+      );
+      messages = result.messages;
+      toolCallArguments = result.toolCallArguments;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_RESULT: {
+      messages = upsertMessage(messages, chunk.result);
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.MESSAGE_STOP: {
+      waitingForResponse = false;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
+      messages = upsertMessage(messages, chunk.message);
+      waitingForResponse = false;
+      toolCallArguments = {};
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    default: {
+      chunk satisfies never;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+  }
+}
+
+function applyMessageDeltaToChatMessages(
+  messages: Array<BaseChatMessageUnion>,
+  chunk: MessageDeltaEvent,
+): Array<BaseChatMessageUnion> {
+  if (!chunk.content || chunk.content.length === 0) {
+    return messages;
+  }
+  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
+    messages,
+    chunk.message_id,
+  );
+  let mutated = false;
+  const content = [...assistant.content];
+  for (const delta of chunk.content ?? []) {
+    if (delta.type === "text_delta") {
+      const index = normalizeChatContentIndex(delta.index, content.length);
+      const block = ensureTextContentBlock(content, index);
+      if (delta.text) {
+        block.text += delta.text;
+        mutated = true;
+      }
+      continue;
+    }
+    if (delta.type === "thinking_delta") {
+      const index = normalizeChatContentIndex(delta.index, content.length);
+      const block = ensureThinkingContentBlock(content, index);
+      const thinkingUpdate = delta.thinking ?? "";
+      const signatureUpdate = delta.signature;
+      let blockMutated = false;
+      if (thinkingUpdate) {
+        block.thinking += thinkingUpdate;
+        blockMutated = true;
+      }
+      if (signatureUpdate !== undefined) {
+        block.signature = signatureUpdate ?? "";
+        blockMutated = true;
+      }
+      if (blockMutated) {
+        mutated = true;
+      }
+      continue;
+    }
+    delta satisfies never;
+  }
+  if (!mutated) {
+    return updatedMessages;
+  }
+  assistant.content = content;
+  return updatedMessages;
+}
+
+function applyToolCallDeltaToChatMessages(
+  messages: Array<BaseChatMessageUnion>,
+  toolCallArguments: Record<string, string>,
+  chunk: ToolCallDeltaEvent | ToolArgumentPreviewDeltaEvent,
+): {
+  messages: Array<BaseChatMessageUnion>;
+  toolCallArguments: Record<string, string>;
+} {
+  const nextToolCallArguments = {
+    ...toolCallArguments,
+    [chunk.tool_call_id]:
+      (toolCallArguments[chunk.tool_call_id] ?? "") + chunk.arguments_delta,
+  };
+  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
+    messages,
+    chunk.message_id,
+  );
+  const toolCalls = [...(assistant.tool_calls ?? [])];
+  const existingIndex = toolCalls.findIndex(
+    (entry) => entry.id === chunk.tool_call_id,
+  );
+  if (existingIndex === -1) {
+    toolCalls.push(createToolCallPlaceholder(chunk));
+  } else if (chunk.tool_name) {
+    const existingCall = toolCalls[existingIndex];
+    if (existingCall.function.name !== chunk.tool_name) {
+      toolCalls[existingIndex] = {
+        ...existingCall,
+        function: {
+          ...existingCall.function,
+          name: chunk.tool_name,
+        },
+      };
+    }
+  }
+  assistant.tool_calls = toolCalls.length > 0 ? toolCalls : null;
+  return {
+    messages: updatedMessages,
+    toolCallArguments: nextToolCallArguments,
+  };
+}
+
+function ensureAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
+  messageId: string,
+): {
+  messages: Array<BaseChatMessageUnion>;
+  assistant: AssistantChatMessage;
+} {
+  const existingIndex = messages.findIndex((entry) => entry.id === messageId);
+  if (existingIndex !== -1) {
+    const existing = messages[existingIndex];
+    if (existing.role === ChatRoleEnum.assistant) {
+      const assistant: AssistantChatMessage = {
+        ...existing,
+        content: [...existing.content],
+        tool_calls: existing.tool_calls ? [...existing.tool_calls] : null,
+      };
+      const nextMessages = [...messages];
+      nextMessages[existingIndex] = assistant;
+      return { messages: nextMessages, assistant };
+    }
+  }
+  const assistant: AssistantChatMessage = {
+    id: messageId,
+    role: ChatRoleEnum.assistant,
+    content: [],
+    tool_calls: null,
+  };
+  return { messages: [...messages, assistant], assistant };
+}
+
+function normalizeChatContentIndex(
+  index: number | null | undefined,
+  currentLength: number,
+): number {
+  if (index === null || index === undefined) {
+    return Math.max(currentLength - 1, 0);
+  }
+  if (index < 0) {
+    return 0;
+  }
+  return index;
 }

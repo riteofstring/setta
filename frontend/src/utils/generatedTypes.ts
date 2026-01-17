@@ -816,6 +816,8 @@ const AssistantChatMessageSchema = z.object({
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
+export type AssistantChatMessage = z.infer<typeof AssistantChatMessageSchema>;
+
 const UserChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("user").default(ChatRoleEnum.user),
@@ -3069,6 +3071,7 @@ const LLMStreamingResponseSchema = z.object({
     MessageStopEventSchema,
     MessageFinalizedEventSchema,
   ]),
+  sectionId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
@@ -5380,17 +5383,6 @@ export type DocstringToMarkdownRequestInput = z.input<
   typeof DocstringToMarkdownRequestSchema
 >;
 
-const SetChatSectionStateRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  state: ChatSectionStateSchema,
-});
-
-export type SetChatSectionStateRequestInput = z.input<
-  typeof SetChatSectionStateRequestSchema
->;
-
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
@@ -5957,6 +5949,17 @@ const SetChatSectionSettingsRequestSchema = z.object({
 
 export type SetChatSectionSettingsRequestInput = z.input<
   typeof SetChatSectionSettingsRequestSchema
+>;
+
+const SetChatSectionStateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  state: ChatSectionStateSchema,
+});
+
+export type SetChatSectionStateRequestInput = z.input<
+  typeof SetChatSectionStateRequestSchema
 >;
 
 const CodeFileBindingUpdateSchema = z.object({

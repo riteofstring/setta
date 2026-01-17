@@ -1,6 +1,5 @@
 from setta.llm.chat_store import DBEChatStore
-from setta.llm.chat_toolkit import ChatHistory, ToolRunner, apply_stream_delta
-from setta.project_state.project_manager_types import SetChatSectionStateRequest
+from setta.llm.chat_toolkit import ChatHistory, ToolRunner
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.chat import Chat, ChatMetadata
@@ -15,10 +14,8 @@ from setta.types.chat_toolkit import (
     RunMcpToolsRequest,
     SetChatSystemPromptRequest,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapshot
 from setta.types.routes import Route
-from setta.types.section_impls import ChatSectionImpl, ChatSectionState
 
 router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
 
@@ -141,24 +138,9 @@ async def route_emit_chat_stream_delta(
     ctx: RuntimeContextFromRequest,
 ) -> None:
     await ctx.enforce_llm_allowed()
-    project_manager = ctx.get_project_manager(x.projectConfigId)
-    project_state = project_manager.get_single_config_state(x.projectConfigId)
-    chat_impl = get_curr_effective_section_impl_with_type_guard(
-        project_state,
-        x.sectionId,
-        ChatSectionImpl,
-    )
-    current_state = ChatSectionState(
-        messages=chat_impl.messages,
-        inputText=chat_impl.inputText,
-        waitingForResponse=chat_impl.waitingForResponse,
-        toolCallArguments=chat_impl.toolCallArguments,
-    )
-    next_state = apply_stream_delta(state=current_state, chunk=x.chunk)
-    await project_manager.set_chat_section_state(
-        SetChatSectionStateRequest(
-            projectConfigId=x.projectConfigId,
-            sectionId=x.sectionId,
-            state=next_state,
-        )
+    await ctx.state.websocket_msg_handler.send_streaming_response(
+        chatId=x.chatId,
+        chunk=x.chunk,
+        section_id=x.sectionId,
+        share_session_id=ctx.share_session_id,
     )
