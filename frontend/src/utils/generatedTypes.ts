@@ -4853,7 +4853,6 @@ const ChatMetadataSchema = z.object({
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
 const AppendChatMessagesRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   messages: z.array(
     z.discriminatedUnion("role", [
@@ -4870,7 +4869,6 @@ export type AppendChatMessagesRequestInput = z.input<
 >;
 
 const CreateChatRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   llmConfigId: z.string(),
   firstMessage: z.union([
     SystemChatMessageSchema,
@@ -4883,14 +4881,12 @@ const CreateChatRequestSchema = z.object({
 export type CreateChatRequestInput = z.input<typeof CreateChatRequestSchema>;
 
 const DeleteChatRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
 });
 
 export type DeleteChatRequestInput = z.input<typeof DeleteChatRequestSchema>;
 
 const EmitChatStreamDeltaRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   sectionId: IDSchema,
   chatId: IDSchema,
   chunk: z.union([
@@ -4908,23 +4904,19 @@ export type EmitChatStreamDeltaRequestInput = z.input<
   typeof EmitChatStreamDeltaRequestSchema
 >;
 
-const GetAllChatMetadataRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
-});
+const GetAllChatMetadataRequestSchema = z.object({});
 
 export type GetAllChatMetadataRequestInput = z.input<
   typeof GetAllChatMetadataRequestSchema
 >;
 
 const GetChatRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
 });
 
 export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
 
 const RunMcpToolsRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   toolCalls: z.array(ToolCallSchema),
 });
@@ -4932,7 +4924,6 @@ const RunMcpToolsRequestSchema = z.object({
 export type RunMcpToolsRequestInput = z.input<typeof RunMcpToolsRequestSchema>;
 
 const SetChatSystemPromptRequestSchema = z.object({
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   systemPrompt: z.string(),
 });

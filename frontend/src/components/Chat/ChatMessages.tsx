@@ -26,6 +26,8 @@ type AssistantChatMessage = Extract<
   { role: ChatRoleEnum.assistant }
 >;
 
+type ToolResultValue = ToolChatMessage["result"] | string;
+
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
@@ -177,13 +179,17 @@ const ToolCallItem = memo(function ToolCallItem({
 }: {
   name: string;
   args: unknown;
-  result: string | undefined;
+  result: ToolResultValue | undefined;
   success: boolean | undefined;
   isStreaming: boolean;
 }) {
   const resultDisplay = (() => {
-    if (typeof result === "string" && result.trim().length > 0) {
-      return result;
+    if (typeof result === "string") {
+      if (result.trim().length > 0) {
+        return result;
+      }
+    } else if (typeof result === "number" || typeof result === "boolean") {
+      return String(result);
     }
     if (result && typeof result === "object") {
       try {
@@ -454,7 +460,9 @@ function buildToolResultMap(
   return map;
 }
 
-function formatToolResult(toolResult: ToolChatMessage | undefined) {
+function formatToolResult(
+  toolResult: ToolChatMessage | undefined,
+): ToolResultValue | undefined {
   if (!toolResult) {
     return undefined;
   }

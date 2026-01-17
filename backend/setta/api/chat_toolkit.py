@@ -61,25 +61,19 @@ class ChatHistoryClient:
         *,
         llm_config_id: str,
         first_message: BaseChatMessageUnion,
-        project_config_id: ID | None = None,
     ) -> Chat:
         payload: dict[str, object] = {
             "llmConfigId": llm_config_id,
             "firstMessage": first_message,
         }
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         return _coerce_chat(await self._project_manager.create_chat(payload))
 
     async def get(
         self,
         *,
         chat_id: ID,
-        project_config_id: ID | None = None,
     ) -> Chat:
         payload: dict[str, object] = {"chatId": chat_id}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         return _coerce_chat(await self._project_manager.get_chat(payload))
 
     async def append(
@@ -87,22 +81,16 @@ class ChatHistoryClient:
         *,
         chat_id: ID,
         messages: list[BaseChatMessageUnion],
-        project_config_id: ID | None = None,
     ) -> Chat:
         payload: dict[str, object] = {"chatId": chat_id, "messages": messages}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         return _coerce_chat(await self._project_manager.append_chat_messages(payload))
 
     async def delete(
         self,
         *,
         chat_id: ID,
-        project_config_id: ID | None = None,
     ) -> None:
         payload: dict[str, object] = {"chatId": chat_id}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         await self._project_manager.delete_chat(payload)
 
     async def set_system_prompt(
@@ -110,26 +98,16 @@ class ChatHistoryClient:
         *,
         chat_id: ID,
         system_prompt: str,
-        project_config_id: ID | None = None,
     ) -> Chat:
         payload: dict[str, object] = {
             "chatId": chat_id,
             "systemPrompt": system_prompt,
         }
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         return _coerce_chat(await self._project_manager.set_chat_system_prompt(payload))
 
-    async def get_all_metadata(
-        self,
-        *,
-        project_config_id: ID | None = None,
-    ) -> list[ChatMetadata]:
-        payload: dict[str, object] = {}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
+    async def get_all_metadata(self) -> list[ChatMetadata]:
         return _coerce_chat_metadata_list(
-            await self._project_manager.get_all_chat_metadata(payload)
+            await self._project_manager.get_all_chat_metadata({})
         )
 
     async def ensure_section_chat_id(
@@ -138,22 +116,16 @@ class ChatHistoryClient:
         section_id: ID,
         llm_config_id: str,
         first_message: BaseChatMessageUnion,
-        project_config_id: ID | None = None,
     ) -> tuple[ID, bool]:
         payload: dict[str, object] = {"sectionId": section_id}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         chat_id = await self._project_manager.get_chat_section_chat_id(payload)
         if chat_id:
             return ID(chat_id), False
         chat = await self.create(
             llm_config_id=llm_config_id,
             first_message=first_message,
-            project_config_id=project_config_id,
         )
         set_payload: dict[str, object] = {"sectionId": section_id, "chatId": chat.id}
-        if project_config_id is not None:
-            set_payload["projectConfigId"] = project_config_id
         await self._project_manager.set_chat_section_chat_id(set_payload)
         return chat.id, True
 
@@ -342,11 +314,8 @@ class ChatToolRunnerClient:
         *,
         chat_id: ID,
         tool_calls: list[ToolCall],
-        project_config_id: ID | None = None,
     ) -> list[ToolChatMessage]:
         payload: dict[str, object] = {"chatId": chat_id, "toolCalls": tool_calls}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         return _coerce_tool_messages(await self._project_manager.run_mcp_tools(payload))
 
 
@@ -367,12 +336,8 @@ class ChatSectionSyncClient:
         waiting_for_response: bool = False,
         input_text: str = "",
         tool_call_arguments: dict[str, str] | None = None,
-        project_config_id: ID | None = None,
     ) -> None:
-        chat = await self._history.get(
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
+        chat = await self._history.get(chat_id=chat_id)
         state = build_chat_section_state(
             messages=chat.messages,
             input_text=input_text,
@@ -382,7 +347,6 @@ class ChatSectionSyncClient:
         await self.update_state(
             section_id=section_id,
             state=state,
-            project_config_id=project_config_id,
         )
 
     async def update_state(
@@ -390,11 +354,8 @@ class ChatSectionSyncClient:
         *,
         section_id: ID,
         state: ChatSectionState,
-        project_config_id: ID | None = None,
     ) -> None:
         payload: dict[str, object] = {"sectionId": section_id, "state": state}
-        if project_config_id is not None:
-            payload["projectConfigId"] = project_config_id
         await self._project_manager.set_chat_section_state(payload)
 
 
@@ -408,7 +369,6 @@ class ChatSession:
         stream: ChatStreamEmitterClient,
         tools: ChatToolRunnerClient,
         sync: ChatSectionSyncClient,
-        project_config_id: ID | None = None,
     ) -> None:
         self.section_id = section_id
         self.chat_id = chat_id
@@ -416,7 +376,6 @@ class ChatSession:
         self._stream = stream.with_section(section_id)
         self._tools = tools
         self._sync = sync
-        self._project_config_id = project_config_id
         self._assembler = ChatStreamAssembler()
         self._assistant_builder: AssistantMessageBuilder | None = None
 
@@ -487,7 +446,6 @@ class ChatSession:
         await self._history.append(
             chat_id=self.chat_id,
             messages=[assistant_message],
-            project_config_id=self._project_config_id,
         )
         await self._stream.emit_message_finalized(
             chat_id=self.chat_id,
@@ -498,19 +456,16 @@ class ChatSession:
             tool_results = await self._tools.run(
                 chat_id=self.chat_id,
                 tool_calls=assistant_message.tool_calls,
-                project_config_id=self._project_config_id,
             )
             await self._history.append(
                 chat_id=self.chat_id,
                 messages=tool_results,
-                project_config_id=self._project_config_id,
             )
 
         await self._sync.update_from_chat(
             section_id=self.section_id,
             chat_id=self.chat_id,
             waiting_for_response=False,
-            project_config_id=self._project_config_id,
         )
         self._assistant_builder = None
         return assistant_message
@@ -534,13 +489,11 @@ class ChatSession:
         await self._history.append(
             chat_id=self.chat_id,
             messages=[assistant_message],
-            project_config_id=self._project_config_id,
         )
         await self._sync.update_from_chat(
             section_id=self.section_id,
             chat_id=self.chat_id,
             waiting_for_response=False,
-            project_config_id=self._project_config_id,
         )
         self._assistant_builder = None
         return assistant_message
@@ -585,7 +538,6 @@ class ChatSession:
                 section_id=self.section_id,
                 chat_id=self.chat_id,
                 waiting_for_response=False,
-                project_config_id=self._project_config_id,
             )
             return
 
@@ -598,13 +550,11 @@ class ChatSession:
             await self._history.append(
                 chat_id=self.chat_id,
                 messages=[assistant_message],
-                project_config_id=self._project_config_id,
             )
         await self._sync.update_from_chat(
             section_id=self.section_id,
             chat_id=self.chat_id,
             waiting_for_response=False,
-            project_config_id=self._project_config_id,
         )
 
     def _require_builder(self) -> AssistantMessageBuilder:

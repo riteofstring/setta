@@ -6,7 +6,7 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ChatSectionChatIdUpdate,
   clearPendingChatDetails,
@@ -193,83 +193,25 @@ function ScriptableChatArea({
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
-  const [draftInputText, setDraftInputText] = useState<string | null>(null);
-
-  const applyChatState = useCallback(
-    (nextState: ChatSectionState) => {
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-            messages: nextState.messages,
-            inputText: nextState.inputText,
-            waitingForResponse: nextState.waitingForResponse,
-            toolCallArguments: nextState.toolCallArguments,
-          });
-        },
-        send: (frontendOpId) =>
-          route_set_chat_section_state({
-            projectConfigId,
-            sectionId,
-            state: nextState,
-            frontendOpId,
-          }),
-      });
-    },
-    [projectConfigId, sectionId],
-  );
 
   const handleInputChange = useCallback(
     (value: string) => {
-      const current = getCurrEffectiveSectionImplOfType(
-        useProjectState.getState(),
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-      if (current.waitingForResponse) {
-        setDraftInputText(value);
-        return;
-      }
-      if (value === current.inputText) {
-        return;
-      }
-      const nextState = {
-        messages: current.messages,
-        inputText: value,
-        waitingForResponse: current.waitingForResponse,
-        toolCallArguments: current.toolCallArguments,
-      };
-      applyChatState(nextState);
+      useProjectState.setState((state) => {
+        const current = getCurrEffectiveSectionImplOfType(
+          state,
+          sectionId,
+          SectionTypeEnum.Chat,
+        );
+        if (value === current.inputText) {
+          return;
+        }
+        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+          inputText: value,
+        });
+      });
     },
-    [applyChatState, sectionId],
+    [sectionId],
   );
-
-  useEffect(() => {
-    if (waitingForResponse) {
-      return;
-    }
-    if (draftInputText === null) {
-      return;
-    }
-    if (draftInputText === inputText) {
-      setDraftInputText(null);
-      return;
-    }
-    const nextState = {
-      messages,
-      inputText: draftInputText,
-      waitingForResponse,
-      toolCallArguments,
-    };
-    applyChatState(nextState);
-    setDraftInputText(null);
-  }, [
-    applyChatState,
-    draftInputText,
-    inputText,
-    messages,
-    toolCallArguments,
-    waitingForResponse,
-  ]);
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
@@ -359,11 +301,6 @@ function ScriptableChatArea({
     toolCallArguments,
   ]);
 
-  let effectiveInputText = inputText;
-  if (waitingForResponse && draftInputText !== null) {
-    effectiveInputText = draftInputText;
-  }
-
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
 
   return (
@@ -379,7 +316,7 @@ function ScriptableChatArea({
         placeholderText="Type a message..."
         waitingForResponse={waitingForResponse}
         disabled={isFrozen}
-        value={effectiveInputText}
+        value={inputText}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onStop={handleStop}
@@ -475,9 +412,6 @@ function ManagedChatArea({
 
   const persistChatId = useCallback(
     async (nextChatId: string | null | undefined) => {
-      if (nextChatId === null) {
-        return;
-      }
       const storedChatId = typeof nextChatId === "string" ? nextChatId : null;
       await route_set_chat_section_chat_id({
         projectConfigId,

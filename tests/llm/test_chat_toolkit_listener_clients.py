@@ -20,7 +20,6 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
             dbe = DBE(Path(temp_dir))
             history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            project_config_id = ID("project-1")
             section_id = ID("section-1")
             section_chat_ids: dict[ID, ID] = {}
 
@@ -66,7 +65,6 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                 section_id=section_id,
                 llm_config_id=llm_config.id,
                 first_message=user_message([message_text("Hello listener")]),
-                project_config_id=project_config_id,
             )
             self.assertTrue(created)
 
@@ -74,38 +72,29 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                 section_id=section_id,
                 llm_config_id=llm_config.id,
                 first_message=user_message([message_text("Hello listener")]),
-                project_config_id=project_config_id,
             )
             self.assertEqual(chat_id_repeat, chat_id)
             self.assertFalse(created_repeat)
-            chat = await client.get(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-            )
+            chat = await client.get(chat_id=chat_id)
             self.assertIsNone(chat.projectConfigId)
 
             updated = await client.append(
                 chat_id=chat_id,
                 messages=[assistant_message([message_text("Reply")])],
-                project_config_id=project_config_id,
             )
             self.assertEqual(len(updated.messages), 2)
 
             updated = await client.set_system_prompt(
                 chat_id=chat_id,
                 system_prompt="System prompt",
-                project_config_id=project_config_id,
             )
             self.assertEqual(updated.systemPrompt, "System prompt")
 
-            metadata = await client.get_all_metadata(
-                project_config_id=project_config_id
-            )
+            metadata = await client.get_all_metadata()
             self.assertTrue(metadata)
             self.assertIsNone(metadata[0].projectConfigId)
 
     async def test_tool_runner_client_coerces_messages(self) -> None:
-        project_config_id = ID("project-1")
         chat_id = ID("chat-1")
 
         async def router_caller(endpoint_name: str, payload: object) -> object:
@@ -136,7 +125,6 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
         messages = await client.run(
             chat_id=chat_id,
             tool_calls=[tool_call],
-            project_config_id=project_config_id,
         )
 
         self.assertTrue(messages)

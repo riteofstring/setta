@@ -27,7 +27,6 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
             dbe = DBE(Path(temp_dir))
             history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            project_config_id = ID("project-1")
             section_id = ID("section-1")
             first_message = UserChatMessage(
                 content=[MessageTextContent(text="Hello")],
@@ -35,7 +34,6 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
             chat = history.create(
                 first_message=first_message,
                 llm_config=llm_config,
-                project_config_id=project_config_id,
             )
             section_states: dict[ID, ChatSectionState] = {
                 section_id: build_chat_section_state(messages=chat.messages),
@@ -80,7 +78,6 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
                 stream=stream_client,
                 tools=tools_client,
                 sync=sync_client,
-                project_config_id=project_config_id,
             )
 
             async def provider_stream() -> AsyncIterator[str]:

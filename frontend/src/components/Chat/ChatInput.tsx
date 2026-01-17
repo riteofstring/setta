@@ -36,22 +36,24 @@ export const ChatInput = memo(function ChatInput({
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
       const nextValue = event.target.value;
-      if (onChange) {
-        onChange(nextValue);
+      if (isControlled) {
+        onChange?.(nextValue);
         return;
       }
       setInternalValue(nextValue);
+      onChange?.(nextValue);
     },
-    [onChange],
+    [isControlled, onChange],
   );
 
   const clearInput = useCallback(() => {
-    if (onChange) {
-      onChange("");
+    if (isControlled) {
+      onChange?.("");
       return;
     }
     setInternalValue("");
-  }, [onChange]);
+    onChange?.("");
+  }, [isControlled, onChange]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
