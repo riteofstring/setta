@@ -98,7 +98,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
-  [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Chat]: [],
   [SectionTypeEnum.Browser]: [],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 

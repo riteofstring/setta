@@ -36,7 +36,7 @@ def copy_chat_messages(
 def build_new_chat(
     first_message: BaseChatMessageUnion,
     llm_config: LLMConfig,
-    project_config_id: ID | None = None,
+    project_config_id: ID,
 ) -> Chat:
     name = create_new_chat_name(first_message)
     return Chat(
@@ -81,7 +81,7 @@ def create_new_chat(
     dbe: "DBE",
     first_message: BaseChatMessageUnion,
     llm_config: LLMConfig,
-    project_config_id: ID | None = None,
+    project_config_id: ID,
 ) -> Chat:
     chat = build_new_chat(first_message, llm_config, project_config_id)
     return _persist_chat(dbe, chat)
