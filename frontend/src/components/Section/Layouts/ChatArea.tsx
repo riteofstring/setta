@@ -1,112 +1,605 @@
+import { ChatInput } from "components/Chat/ChatInput";
+import { ChatMessageList } from "components/Chat/ChatMessages";
+import {
+  buildLLMConfigGroups,
+  countLLMConfigs,
+} from "components/Chat/llmConfigUtils";
+import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useState } from "react";
-import { IoSend } from "react-icons/io5";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ChatSectionChatIdUpdate,
+  clearPendingChatDetails,
+  getDefaultChatDetails,
+  getLLMChat,
+  initializePendingChatDetails,
+  setChatSectionChatIdLocal,
+  submitMessage,
+} from "state/actions/ai";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
+import {
+  useAIStore,
+  useChatSectionChatIds,
+  useProjectState,
+} from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { CodeBlock } from "./TextBlock";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_get_chat_section_chat_id,
+  route_set_chat_section_chat_id,
+  route_set_chat_section_state,
+  route_stop_llm_chat,
+} from "utils/generatedEndpoints";
+import {
+  ChatRoleEnum,
+  ChatSectionState,
+  DependencyKeyTypeEnum,
+  SectionTypeEnum,
+  createMessageTextContent,
+} from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
+import { shallow } from "zustand/shallow";
 
-export function ChatArea({ sectionId }) {
-  const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
-    _.pick(x, ["value"]),
-  );
-  const artifact = Object.values(loadedArtifacts)[0];
+type ChatSendActionPayload = {
+  action: "send";
+  sectionId: string;
+  messageId: string;
+  text: string;
+  role: ChatRoleEnum;
+  timestampMs: number;
+  managed: boolean;
+};
+
+type ChatStopActionPayload = {
+  action: "stop";
+  sectionId: string;
+  timestampMs: number;
+  managed: boolean;
+};
+
+type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
+
+type EmitChatSendActionArgs = {
+  sectionId: string;
+  messageId: string;
+  text: string;
+  role: ChatRoleEnum;
+  managed: boolean;
+  timestampMs: number;
+};
+
+type EmitChatStopActionArgs = {
+  sectionId: string;
+  managed: boolean;
+  timestampMs: number;
+};
+
+function emitChatAction(payload: ChatActionPayload) {
+  sendRealtimeDependencyEvent({
+    dependencyKey: {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId: payload.sectionId,
+    },
+    payload: JSON.stringify(payload),
+    timestampMs: payload.timestampMs,
+  });
+}
+
+function emitChatSendAction({
+  sectionId,
+  messageId,
+  text,
+  role,
+  managed,
+  timestampMs,
+}: EmitChatSendActionArgs) {
+  emitChatAction({
+    action: "send",
+    sectionId,
+    messageId,
+    text,
+    role,
+    timestampMs,
+    managed,
+  });
+}
+
+function emitChatStopAction({
+  sectionId,
+  managed,
+  timestampMs,
+}: EmitChatStopActionArgs) {
+  emitChatAction({
+    action: "stop",
+    sectionId,
+    managed,
+    timestampMs,
+  });
+}
+
+export function ChatArea({ sectionId }: { sectionId: string }) {
+  const {
+    managed,
+    llmConfigId,
+    deepThink,
+    messages,
+    inputText,
+    waitingForResponse,
+    toolCallArguments,
+    isFrozen,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    return {
+      managed: impl.managed,
+      llmConfigId: impl.llmConfigId,
+      deepThink: impl.deepThink,
+      messages: impl.messages,
+      inputText: impl.inputText,
+      waitingForResponse: impl.waitingForResponse,
+      toolCallArguments: impl.toolCallArguments,
+      isFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
+
+  if (managed) {
+    return (
+      <ManagedChatArea
+        sectionId={sectionId}
+        llmConfigId={llmConfigId}
+        deepThink={deepThink}
+      />
+    );
+  }
 
   return (
-    Boolean(artifact) && (
-      <ChatAreaCore sectionId={sectionId} messages={artifact.value} />
-    )
+    <ScriptableChatArea
+      sectionId={sectionId}
+      messages={messages}
+      inputText={inputText}
+      waitingForResponse={waitingForResponse}
+      toolCallArguments={toolCallArguments}
+      isFrozen={isFrozen}
+    />
   );
 }
 
-function ChatAreaCore({ sectionId, messages }) {
-  const [newMessage, setNewMessage] = useState("");
-  const [pendingUserMessages, setPendingUserMessages] = useState([]);
+type ScriptableChatAreaProps = {
+  sectionId: string;
+  messages: Array<ChatSectionState["messages"][number]>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  isFrozen: boolean;
+};
+
+function ScriptableChatArea({
+  sectionId,
+  messages,
+  inputText,
+  waitingForResponse,
+  toolCallArguments,
+  isFrozen,
+}: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
+  const projectConfigId = getCurrProjectConfigId();
+  const [draftInputText, setDraftInputText] = useState<string | null>(null);
 
-  const handleSubmit = (e) => {
-    if (e) {
-      e.preventDefault();
+  const applyChatState = useCallback(
+    (nextState: ChatSectionState) => {
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            messages: nextState.messages,
+            inputText: nextState.inputText,
+            waitingForResponse: nextState.waitingForResponse,
+            toolCallArguments: nextState.toolCallArguments,
+          });
+        },
+        send: (frontendOpId) =>
+          route_set_chat_section_state({
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId,
+          }),
+      });
+    },
+    [projectConfigId, sectionId],
+  );
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      const current = getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      if (current.waitingForResponse) {
+        setDraftInputText(value);
+        return;
+      }
+      if (value === current.inputText) {
+        return;
+      }
+      const nextState = {
+        messages: current.messages,
+        inputText: value,
+        waitingForResponse: current.waitingForResponse,
+        toolCallArguments: current.toolCallArguments,
+      };
+      applyChatState(nextState);
+    },
+    [applyChatState, sectionId],
+  );
+
+  useEffect(() => {
+    if (waitingForResponse) {
+      return;
     }
-    if (newMessage.trim() === "") return;
-    setPendingUserMessages((x) => [
-      ...x,
-      { role: "user", content: newMessage },
-    ]);
-    setNewMessage("");
-  };
-
-  // Add an onKeyDown handler
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault(); // Prevent default to avoid new line
-      handleSubmit();
+    if (draftInputText === null) {
+      return;
     }
-  };
+    if (draftInputText === inputText) {
+      setDraftInputText(null);
+      return;
+    }
+    const nextState = {
+      messages,
+      inputText: draftInputText,
+      waitingForResponse,
+      toolCallArguments,
+    };
+    applyChatState(nextState);
+    setDraftInputText(null);
+  }, [
+    applyChatState,
+    draftInputText,
+    inputText,
+    messages,
+    toolCallArguments,
+    waitingForResponse,
+  ]);
 
-  useDeepCompareEffect(() => {
-    setPendingUserMessages([]);
-  }, [messages]);
+  const applyChatStateWithAck = useCallback(
+    (nextState: ChatSectionState) => {
+      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
+        null;
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            messages: nextState.messages,
+            inputText: nextState.inputText,
+            waitingForResponse: nextState.waitingForResponse,
+            toolCallArguments: nextState.toolCallArguments,
+          });
+        },
+        send: (frontendOpId) => {
+          const result = route_set_chat_section_state({
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId,
+          });
+          sendPromise = result;
+          return result;
+        },
+      });
+      return sendPromise;
+    },
+    [projectConfigId, sectionId],
+  );
+
+  const handleSubmit = useCallback(
+    async (message: string) => {
+      if (!message.trim()) {
+        return;
+      }
+      const messageId = createNewId();
+      const timestampMs = Date.now();
+      const newMessage = {
+        id: messageId,
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: message })],
+      };
+      const nextMessages = [...messages, newMessage];
+      const nextState = {
+        messages: nextMessages,
+        inputText: "",
+        waitingForResponse: true,
+        toolCallArguments,
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
+      emitChatSendAction({
+        sectionId,
+        messageId,
+        text: message,
+        role: ChatRoleEnum.user,
+        managed: false,
+        timestampMs,
+      });
+    },
+    [applyChatStateWithAck, messages, sectionId, toolCallArguments],
+  );
+
+  const handleStop = useCallback(async () => {
+    const nextState = {
+      messages,
+      inputText,
+      waitingForResponse: false,
+      toolCallArguments,
+    };
+    const sendPromise = applyChatStateWithAck(nextState);
+    if (sendPromise) {
+      await sendPromise;
+    }
+    emitChatStopAction({
+      sectionId,
+      managed: false,
+      timestampMs: Date.now(),
+    });
+  }, [
+    applyChatStateWithAck,
+    inputText,
+    messages,
+    sectionId,
+    toolCallArguments,
+  ]);
+
+  let effectiveInputText = inputText;
+  if (waitingForResponse && draftInputText !== null) {
+    effectiveInputText = draftInputText;
+  }
+
+  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
 
   return (
-    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col `}>
-      <div
-        className={`${
-          isScrollable ? NO_WHEEL_CLASS_NAME : ""
-        } flex flex-1 flex-col-reverse overflow-y-auto px-4`}
-        ref={ref}
-      >
-        {/* The flex-col-reverse trick is to keep the scrollbar at the bottom: https://stackoverflow.com/a/44051405. Wrapped messages in a div to maintain correct visual order */}
-        <div>
-          {[...messages, ...pendingUserMessages].map((message, idx) => (
-            <div
-              key={idx}
-              className={`my-4 flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                className={`prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text px-4 py-2.5 ${
-                  message.role === "user"
-                    ? "rounded-t-lg rounded-bl-lg bg-blue-500 text-white prose-headings:text-blue-200 dark:bg-blue-700"
-                    : "rounded-b-lg rounded-tr-lg bg-setta-100 text-setta-800 prose-headings:text-setta-600 dark:bg-setta-700/50 dark:text-setta-50 dark:prose-headings:text-setta-300"
-                } dark:prose-invert   prose-headings:tracking-tighter   prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words`}
-                components={{
-                  code: CodeBlock,
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={waitingForResponse}
+        toolCallArguments={toolCallArguments}
+        className={scrollClassName}
+        scrollRef={ref}
+      />
+      <ChatInput
+        placeholderText="Type a message..."
+        waitingForResponse={waitingForResponse}
+        disabled={isFrozen}
+        value={effectiveInputText}
+        onChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onStop={handleStop}
+      />
+    </div>
+  );
+}
 
-      {/* Message input */}
-      <form onSubmit={handleSubmit} className="px-4 pb-2 pt-2">
-        <div className="flex space-x-2">
-          <textarea
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            className={`${isScrollable ? NO_WHEEL_CLASS_NAME : ""} nodrag max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-100 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content]  hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500  dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700`}
-          />
-          <button
-            type="submit"
-            className="mb-3 cursor-pointer self-end px-2 py-0.5 text-setta-500  hover:text-blue-500 focus:text-blue-500 focus:outline-none focus:ring-0 dark:hover:text-blue-700 "
-          >
-            <IoSend />
-          </button>
-        </div>
-      </form>
+type ManagedChatAreaProps = {
+  sectionId: string;
+  llmConfigId: string | null;
+  deepThink: boolean;
+};
+
+function ManagedChatArea({
+  sectionId,
+  llmConfigId,
+  deepThink,
+}: ManagedChatAreaProps) {
+  useHydrateLLMState();
+  const { ref, isScrollable } = useIsScrollable();
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const chatId = useChatSectionChatIds((state) => state.bySectionId[sectionId]);
+  const setChatIdState = useCallback(
+    (nextChatId: string | null | undefined) => {
+      setChatSectionChatIdLocal(sectionId, nextChatId);
+    },
+    [sectionId],
+  );
+
+  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+    (state) => {
+      if (chatId === null) {
+        return state.pendingChatDetails ?? getDefaultChatDetails();
+      }
+      if (typeof chatId !== "string") {
+        return getDefaultChatDetails();
+      }
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    },
+    shallow,
+  );
+
+  const { apiKeys, allLLMConfigs } = useAIStore(
+    (state) => ({
+      apiKeys: state.apiKeys,
+      allLLMConfigs: state.allLLMConfigs,
+    }),
+    _.isEqual,
+  );
+
+  const availableConfigGroups = useMemo(
+    () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
+    [allLLMConfigs, apiKeys],
+  );
+  const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
+
+  let placeholderText = "Type a message...";
+  if (noConfigsAvailable) {
+    placeholderText = "Add API key!";
+  } else if (!llmConfigId) {
+    placeholderText = "Select an LLM";
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadChatId = async () => {
+      const res = await route_get_chat_section_chat_id({
+        projectConfigId,
+        sectionId,
+      });
+      if (!res200(res)) {
+        return;
+      }
+      if (cancelled) {
+        return;
+      }
+      const resolvedChatId = res.data ?? undefined;
+      setChatIdState(resolvedChatId);
+    };
+    void loadChatId();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectConfigId, sectionId, setChatIdState]);
+
+  useEffect(() => {
+    if (typeof chatId !== "string") {
+      return;
+    }
+    getLLMChat(chatId);
+  }, [chatId]);
+
+  const persistChatId = useCallback(
+    async (nextChatId: string | null | undefined) => {
+      if (nextChatId === null) {
+        return;
+      }
+      const storedChatId = typeof nextChatId === "string" ? nextChatId : null;
+      await route_set_chat_section_chat_id({
+        projectConfigId,
+        sectionId,
+        chatId: storedChatId,
+      });
+    },
+    [projectConfigId, sectionId],
+  );
+
+  const setChatId = useCallback(
+    (next: ChatSectionChatIdUpdate) => {
+      const resolved = setChatSectionChatIdLocal(sectionId, next);
+      void persistChatId(resolved);
+    },
+    [persistChatId, sectionId],
+  );
+
+  const handleNewChatStart = useCallback(() => {
+    initializePendingChatDetails();
+    setChatId(null);
+  }, [setChatId]);
+
+  const handleNewChatSettled = useCallback(
+    (newChatId: string | null, succeeded: boolean) => {
+      clearPendingChatDetails();
+      setChatId((currentChatId) => {
+        if (currentChatId !== null) {
+          return currentChatId;
+        }
+        if (!succeeded || !newChatId) {
+          return undefined;
+        }
+        return newChatId;
+      });
+    },
+    [setChatId],
+  );
+
+  const handleSubmit = useCallback(
+    async (message: string) => {
+      if (!message.trim()) {
+        return;
+      }
+      if (!llmConfigId) {
+        return;
+      }
+      const messageId = createNewId();
+      const timestampMs = Date.now();
+      emitChatSendAction({
+        sectionId,
+        messageId,
+        text: message,
+        role: ChatRoleEnum.user,
+        managed: true,
+        timestampMs,
+      });
+      const isFirstMessage = chatId === undefined;
+      if (isFirstMessage) {
+        handleNewChatStart();
+      }
+
+      let submittedChatId: string | null = null;
+      let succeeded = false;
+      try {
+        submittedChatId = await submitMessage(
+          chatId ?? null,
+          message,
+          deepThink,
+          llmConfigId,
+          messageId,
+        );
+        succeeded = Boolean(submittedChatId);
+      } catch (err) {
+        console.error("Failed to submit LLM chat message", err);
+      } finally {
+        if (isFirstMessage) {
+          handleNewChatSettled(submittedChatId, succeeded);
+        }
+      }
+    },
+    [
+      chatId,
+      deepThink,
+      handleNewChatSettled,
+      handleNewChatStart,
+      llmConfigId,
+      sectionId,
+    ],
+  );
+
+  const handleStop = useCallback(async () => {
+    if (typeof chatId !== "string") {
+      return;
+    }
+    emitChatStopAction({
+      sectionId,
+      managed: true,
+      timestampMs: Date.now(),
+    });
+    await route_stop_llm_chat({ chatId });
+  }, [chatId, sectionId]);
+
+  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
+  const isDisabled = !llmConfigId || noConfigsAvailable;
+
+  return (
+    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={waitingForResponse}
+        toolCallArguments={toolCallArguments}
+        className={scrollClassName}
+        scrollRef={ref}
+      />
+      <ChatInput
+        placeholderText={placeholderText}
+        waitingForResponse={waitingForResponse}
+        disabled={isDisabled}
+        onSubmit={handleSubmit}
+        onStop={handleStop}
+      />
     </div>
   );
 }

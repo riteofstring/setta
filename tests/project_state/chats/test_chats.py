@@ -125,6 +125,28 @@ class ChatStorageTests(unittest.TestCase):
         metadata_after_delete = load_all_chat_metadata(self.dbe)
         self.assertEqual([chat_two.id], [m.id for m in metadata_after_delete])
 
+    def test_delete_chat_clears_chat_section_mapping(self):
+        chat = create_new_chat(
+            self.dbe,
+            create_message("Section chat"),
+            create_llm_config(),
+            project_config_id=DEFAULT_PROJECT_CONFIG_ID,
+        )
+        section_id = ID("section-chat-1")
+        self.dbe.set_chat_section_chat_id(
+            DEFAULT_PROJECT_CONFIG_ID, section_id, chat.id
+        )
+        self.assertEqual(
+            chat.id,
+            self.dbe.get_chat_section_chat_id(DEFAULT_PROJECT_CONFIG_ID, section_id),
+        )
+
+        delete_chat(self.dbe, chat.id)
+
+        self.assertIsNone(
+            self.dbe.get_chat_section_chat_id(DEFAULT_PROJECT_CONFIG_ID, section_id)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,7 @@ import { withProjectState, withResetFn } from "state/utils";
 import { getNowDate } from "utils/timestamps";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import type { Disabled } from "./adapter";
+import { Disabled } from "./CustomSortable/types";
 import { BehaviorDropType } from "./dropTypes";
 
 export type ZustandDndState = {
@@ -14,7 +14,6 @@ export type ZustandDndState = {
   triggerDistCondition: boolean;
   isSorting: boolean;
   isMovingFree: boolean;
-  pendingDeactivation: boolean;
   disabled: Record<string, Disabled>;
   width: number | null;
   height: number | null;
@@ -32,7 +31,6 @@ export const useDndState = withProjectState(
         triggerDistCondition: false,
         isSorting: false,
         isMovingFree: false,
-        pendingDeactivation: false,
         disabled: {},
         width: null,
         height: null,
@@ -58,41 +56,20 @@ export function setActiveDnd(
 }
 
 export function activateDndSortingMode() {
-  useDndState.setState({
-    isSorting: true,
-    isMovingFree: false,
-    pendingDeactivation: false,
-  });
+  useDndState.setState({ isSorting: true, isMovingFree: false });
 }
 
 export function activateDndMovingFreeMode() {
-  useDndState.setState({
-    isSorting: false,
-    isMovingFree: true,
-    pendingDeactivation: false,
-  });
+  useDndState.setState({ isSorting: false, isMovingFree: true });
 }
 
-function resetDndState() {
+export function deactivateDnd() {
   const initialState = useDndState.getInitialState();
   useDndState.setState((state) => ({
     ...initialState,
     disabled: state.disabled,
   }));
   manualDndChildrenReset();
-}
-
-export function deactivateDnd() {
-  const { isMovingFree, isSorting } = useDndState.getState();
-  if (!isMovingFree && !isSorting) {
-    return;
-  }
-
-  useDndState.setState({ pendingDeactivation: true });
-}
-
-export function forceDeactivateDnd() {
-  resetDndState();
 }
 
 export function setDndDisabled(sectionId: string, disabled: Disabled) {
