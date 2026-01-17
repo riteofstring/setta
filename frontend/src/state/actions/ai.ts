@@ -4,6 +4,7 @@ import {
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
+  useChatSectionChatIds,
   useToolArgumentPreview,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
@@ -94,6 +95,23 @@ export function initializePendingChatDetails() {
 
 export function clearPendingChatDetails() {
   useAIStore.setState({ pendingChatDetails: null });
+}
+
+type ChatSectionChatId = string | null | undefined;
+export type ChatSectionChatIdUpdate =
+  | ChatSectionChatId
+  | ((current: ChatSectionChatId) => ChatSectionChatId);
+
+export function setChatSectionChatIdLocal(
+  sectionId: string,
+  next: ChatSectionChatIdUpdate,
+): ChatSectionChatId {
+  const current = useChatSectionChatIds.getState().bySectionId[sectionId];
+  const resolved = typeof next === "function" ? next(current) : next;
+  useChatSectionChatIds.setState((state) => ({
+    bySectionId: { ...state.bySectionId, [sectionId]: resolved },
+  }));
+  return resolved;
 }
 
 export async function getLLMChat(chatId: string) {

@@ -220,6 +220,24 @@ class DBE:
             section_map[section_key] = str(chatId)
         self.write_json(self.chat_sections, data)
 
+    def delete_chat_section_chat_id(self, projectConfigId: ID, chatId: ID) -> None:
+        data = self.read_chat_sections()
+        project_key = str(projectConfigId)
+        if project_key not in data:
+            return
+        section_map = data[project_key]
+        chat_key = str(chatId)
+        removed = False
+        for section_key, section_chat_id in list(section_map.items()):
+            if section_chat_id == chat_key:
+                del section_map[section_key]
+                removed = True
+        if not removed:
+            return
+        if not section_map:
+            del data[project_key]
+        self.write_json(self.chat_sections, data)
+
     def delete_chat_section_ids(
         self, projectConfigId: ID, sectionIds: list[ID]
     ) -> None:

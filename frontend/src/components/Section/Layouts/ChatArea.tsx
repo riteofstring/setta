@@ -6,12 +6,14 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
+  ChatSectionChatIdUpdate,
   clearPendingChatDetails,
   getDefaultChatDetails,
   getLLMChat,
   initializePendingChatDetails,
+  setChatSectionChatIdLocal,
   submitMessage,
 } from "state/actions/ai";
 import {
@@ -21,7 +23,11 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  useAIStore,
+  useChatSectionChatIds,
+  useProjectState,
+} from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
@@ -376,8 +382,12 @@ function ManagedChatArea({
   useHydrateLLMState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const [chatId, setChatIdState] = useState<string | null | undefined>(
-    undefined,
+  const chatId = useChatSectionChatIds((state) => state.bySectionId[sectionId]);
+  const setChatIdState = useCallback(
+    (nextChatId: string | null | undefined) => {
+      setChatSectionChatIdLocal(sectionId, nextChatId);
+    },
+    [sectionId],
   );
 
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
@@ -434,7 +444,7 @@ function ManagedChatArea({
     return () => {
       cancelled = true;
     };
-  }, [projectConfigId, sectionId]);
+  }, [projectConfigId, sectionId, setChatIdState]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -459,20 +469,11 @@ function ManagedChatArea({
   );
 
   const setChatId = useCallback(
-    (
-      next:
-        | string
-        | null
-        | undefined
-        | ((value: string | null | undefined) => string | null | undefined),
-    ) => {
-      setChatIdState((current) => {
-        const resolved = typeof next === "function" ? next(current) : next;
-        void persistChatId(resolved);
-        return resolved;
-      });
+    (next: ChatSectionChatIdUpdate) => {
+      const resolved = setChatSectionChatIdLocal(sectionId, next);
+      void persistChatId(resolved);
     },
-    [persistChatId],
+    [persistChatId, sectionId],
   );
 
   const handleNewChatStart = useCallback(() => {
