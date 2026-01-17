@@ -10,12 +10,7 @@ from setta.llm.example_config import seed_llm_config_example_file
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
 from setta.types.id import ID
-from setta.types.llm_config import (
-    SCRIPTABLE_LLM_CONFIG_ID,
-    AllLLMConfigs,
-    LLMConfig,
-    MCPServerConfig,
-)
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 
 DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
 
@@ -130,36 +125,6 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
                     }
                 }
             )
-
-
-class ListenerConfigResolutionTests(unittest.TestCase):
-    def test_resolves_scriptable_id(self) -> None:
-        configs = AllLLMConfigs()
-        resolved = configs.resolve_listener_config(SCRIPTABLE_LLM_CONFIG_ID)
-
-        self.assertEqual(resolved.id, SCRIPTABLE_LLM_CONFIG_ID)
-        self.assertEqual(resolved.model, SCRIPTABLE_LLM_CONFIG_ID)
-        self.assertEqual(resolved.mcpServerIds, [])
-        self.assertTrue(resolved.temporary)
-        self.assertIsNone(resolved.provider)
-
-    def test_rejects_empty_listener_id(self) -> None:
-        configs = AllLLMConfigs()
-        with self.assertRaises(ValueError):
-            configs.resolve_listener_config("")
-
-    def test_rejects_unknown_listener_id(self) -> None:
-        configs = AllLLMConfigs()
-        with self.assertRaises(ValueError):
-            configs.resolve_listener_config("missing-config")
-
-    def test_resolves_real_config(self) -> None:
-        config = LLMConfig(id="primary", model="gpt-5.1")
-        configs = AllLLMConfigs(configs={"primary": config})
-        resolved = configs.resolve_listener_config("primary")
-
-        self.assertEqual(resolved.id, "primary")
-        self.assertEqual(resolved.model, "gpt-5.1")
 
 
 class MCPServerSelectionTests(unittest.TestCase):

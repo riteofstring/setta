@@ -26,7 +26,6 @@ Scriptable mode keeps chat state inside the section:
 - The UI updates `messages`, `inputText`, `waitingForResponse`, and `toolCallArguments` via `route_set_chat_section_state` (optimistic).
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
-- Listener chat history requires an LLM config id; use `scriptable` for scriptable-only chats.
 
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
