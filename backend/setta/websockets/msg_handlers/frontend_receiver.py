@@ -8,12 +8,12 @@ from setta.types.generated.websocket_unions import (
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerRealtimeDelta,
-    RealtimeDependencyEventContent,
+    RealtimeActionEventContent,
     RealtimeUIChangeContent,
 )
 from setta.types.websocket import (
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgRealtimeDependencyEvent,
+    WebsocketMsgRealtimeActionEvent,
     WebsocketMsgRealtimeUIChange,
 )
 from setta.websockets.msg_handlers.base import (
@@ -64,13 +64,13 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             )
             return
 
-        if isinstance(m, WebsocketMsgRealtimeDependencyEvent):
+        if isinstance(m, WebsocketMsgRealtimeActionEvent):
             share_session_id = (
                 self.require_share_session_id(fromWebsocketId)
                 if self.share_mode
                 else None
             )
-            await self._handle_realtime_dependency_event(
+            await self._handle_realtime_action_event(
                 m.content, share_session_id=share_session_id
             )
 
@@ -101,9 +101,9 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             share_session_id=share_session_id,
         )
 
-    async def _handle_realtime_dependency_event(
+    async def _handle_realtime_action_event(
         self,
-        content: RealtimeDependencyEventContent,
+        content: RealtimeActionEventContent,
         *,
         share_session_id: str | None,
     ) -> None:
@@ -111,9 +111,9 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             content.projectConfigId,
             share_session_id=share_session_id,
         )
-        await self.realtime_event_hub.emit_dependency_event(
+        await self.realtime_event_hub.emit_action_event(
             project_config_id=content.projectConfigId,
-            dependency_events=[content.dependencyEvent],
+            action_events=[content.actionEvent],
             share_session_id=share_session_id,
         )
 

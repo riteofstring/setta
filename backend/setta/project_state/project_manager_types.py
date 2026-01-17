@@ -24,10 +24,10 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -642,12 +642,20 @@ class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
 
 
+class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
+    displayMode: SectionWithParamsDisplayMode
+
+
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
     hideParams: bool
 
 
 class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
+
+
+class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
+    pinnedParams: list[ID]
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
@@ -669,24 +677,6 @@ class SetBrowserHideColumnRequest(ProjectManagerRequestWithSection):
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
-
-
-class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
-
-
-class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
-    state: ChatSectionState
-
-
-class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    pass
-
-
-class SetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    chatId: ID | None
 
 
 class SetSocialUrlRequest(ProjectManagerRequestWithSection):

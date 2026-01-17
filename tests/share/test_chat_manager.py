@@ -8,6 +8,7 @@ from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.session_store import MemorySessionStore
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
@@ -55,7 +56,7 @@ def _write_share_project(
     return project_config
 
 
-def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore]:
+def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID]:
     dbe = DBE(root)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
@@ -73,7 +74,7 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore]:
         share_session_store,
         llm_config=llm_config,
     )
-    return manager, share_session_store
+    return manager, share_session_store, share_runtime_state.default_project_config_id
 
 
 class ShareChatManagerTests(unittest.TestCase):
@@ -86,7 +87,7 @@ class ShareChatManagerTests(unittest.TestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            manager, _ = _build_manager(root)
+            manager, _, _ = _build_manager(root)
 
             with self.assertRaises(KeyError):
                 manager.get_all_chat_metadata()
@@ -100,7 +101,7 @@ class ShareChatManagerTests(unittest.TestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            manager, session_store = _build_manager(root)
+            manager, session_store, project_config_id = _build_manager(root)
             session_one = session_store.create_session()
             session_two = session_store.create_session()
             message = UserChatMessage(
@@ -111,6 +112,7 @@ class ShareChatManagerTests(unittest.TestCase):
                 None,
                 message,
                 "primary",
+                project_config_id,
                 share_session_id=session_one.id,
             )
 

@@ -6,7 +6,9 @@ import {
   CodeObjTypeEnum,
   Position,
   SectionTypeEnum,
+  TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
@@ -29,7 +31,20 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.ListRoot },
     },
     { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
-    { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
+    {
+      name: "Markdown",
+      implSpecs: {
+        type: SectionTypeEnum.TextBlock,
+        format: TextBlockFormatEnum.Markdown,
+      },
+    },
+    {
+      name: "Plain text",
+      implSpecs: {
+        type: SectionTypeEnum.TextBlock,
+        format: TextBlockFormatEnum.Plaintext,
+      },
+    },
   ];
 
   if (!singletonSections.GlobalVariables) {
@@ -181,10 +196,17 @@ export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
   position: Position | null = null,
 ) {
-  createTopLevelSection({
+  void createTopLevelSection({
     implType: menuItem.implSpecs.type,
     controlCodeObjType: menuItem.controlCodeObjType,
     implOverrides: menuItem.implSpecs,
     position,
+  }).then((sectionId) => {
+    if (!sectionId) {
+      return;
+    }
+    if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
+      focusOnSectionSearch(sectionId);
+    }
   });
 }
