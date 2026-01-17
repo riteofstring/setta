@@ -1,6 +1,6 @@
-import { useEffect } from "react";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
+import { useEffect } from "react";
 import { useDndMode } from "./dndState";
 
 export function DragOperationShapeSync() {

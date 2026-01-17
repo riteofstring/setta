@@ -1,9 +1,9 @@
-import { useMemo, useRef } from "react";
-import { useDraggable as useDndKitDraggable } from "@dnd-kit/react";
 import type { UseDraggableInput } from "@dnd-kit/react";
+import { useDraggable as useDndKitDraggable } from "@dnd-kit/react";
+import { useMemo, useRef } from "react";
 import type { DndData } from "./types";
 
-export type UseDraggableArguments = Omit<
+type UseDraggableArguments = Omit<
   UseDraggableInput<DndData>,
   "data" | "element" | "handle"
 > & {
@@ -25,12 +25,7 @@ export function useDraggable({
   }, [data]);
 
   const elementRef = useRef<Element | null>(null);
-  const {
-    ref,
-    handleRef,
-    isDragging,
-    draggable,
-  } = useDndKitDraggable({
+  const { ref, handleRef, isDragging, draggable } = useDndKitDraggable({
     ...input,
     data: wrappedData,
   });

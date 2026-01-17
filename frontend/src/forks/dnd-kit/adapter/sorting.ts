@@ -31,9 +31,7 @@ export function isValidIndex(index: number | null): index is number {
   return index !== null && index >= 0;
 }
 
-export function normalizeDisabled(
-  disabled: boolean | Disabled,
-): Disabled {
+export function normalizeDisabled(disabled: boolean | Disabled): Disabled {
   if (typeof disabled === "boolean") {
     return {
       draggable: disabled,

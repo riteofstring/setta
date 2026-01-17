@@ -1,5 +1,3 @@
-import { useContext, useEffect, useMemo, useRef } from "react";
-import { useComputed } from "@dnd-kit/react/hooks";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import {
   RestrictToHorizontalAxis,
@@ -8,9 +6,19 @@ import {
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
+import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import { useDndMode } from "../dndState";
+import { logSortDnd } from "../sortingLog";
 import { Context } from "./SortableContext";
+import {
+  isValidIndex,
+  itemsEqual,
+  rectSortingStrategy,
+  resolveStrategyResult,
+} from "./sorting";
 import type {
   ClientRect,
   Disabled,
@@ -19,22 +27,14 @@ import type {
   SortingStrategy,
   Transform,
 } from "./types";
-import {
-  itemsEqual,
-  isValidIndex,
-  resolveStrategyResult,
-  rectSortingStrategy,
-} from "./sorting";
 import { useCollisionDetector } from "./useCollisionDetector";
-import { useDndMode } from "../dndState";
-import { logSortDnd } from "../sortingLog";
 
-export type SortableTransition = {
+type SortableTransition = {
   duration?: number;
   easing?: string;
 };
 
-export type UseSortableArguments = {
+type UseSortableArguments = {
   id: UniqueIdentifier;
   data?: Record<string, unknown>;
   disabled?: boolean | Disabled;
@@ -74,24 +74,22 @@ export function useSortable({
   const index = items.indexOf(id);
   const dndMode = useDndMode();
   const manager = useDragDropManager();
-  const isDragActive = useComputed(
-    () => {
-      if (!manager) {
-        return false;
-      }
+  const isDragActive = useComputed(() => {
+    if (!manager) {
+      return false;
+    }
 
-      const status = manager.dragOperation.status;
-      return status.dragging || status.initializing;
-    },
-    [manager],
-  ).value;
+    const status = manager.dragOperation.status;
+    return status.dragging || status.initializing;
+  }, [manager]).value;
   const shouldTrackSorting = dndMode.isSorting && isDragActive;
   const disableFeedback = dndMode.isSorting;
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
   if (dndMode.isSorting) {
-    const containerIsHorizontal = getSectionIsHorizontalOrientation(containerId);
+    const containerIsHorizontal =
+      getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
     ];
@@ -134,38 +132,29 @@ export function useSortable({
   });
   const listeners = {};
   const isOver = isDropTarget;
-  const activeRect = useComputed(
-    () => {
-      if (!shouldTrackSorting) {
-        return null;
-      }
+  const activeRect = useComputed(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
 
-      return manager?.dragOperation.shape?.current
-        ? toClientRect(manager.dragOperation.shape.current.boundingRectangle)
-        : null;
-    },
-    [manager, shouldTrackSorting],
-  ).value;
-  const dragTransform = useComputed(
-    () => {
-      if (!shouldTrackSorting) {
-        return null;
-      }
+    return manager?.dragOperation.shape?.current
+      ? toClientRect(manager.dragOperation.shape.current.boundingRectangle)
+      : null;
+  }, [manager, shouldTrackSorting]).value;
+  const dragTransform = useComputed(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
 
-      return toTransform(manager?.dragOperation.transform);
-    },
-    [manager, shouldTrackSorting],
-  ).value;
-  const collisions = useComputed(
-    () => {
-      if (!shouldTrackSorting) {
-        return null;
-      }
+    return toTransform(manager?.dragOperation.transform);
+  }, [manager, shouldTrackSorting]).value;
+  const collisions = useComputed(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
 
-      return manager?.collisionObserver.collisions ?? null;
-    },
-    [manager, shouldTrackSorting],
-  ).value as SettaCollision[] | null;
+    return manager?.collisionObserver.collisions ?? null;
+  }, [manager, shouldTrackSorting]).value as SettaCollision[] | null;
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
   const wasDragActiveRef = useRef(false);
@@ -308,11 +297,7 @@ export function useSortable({
   }, [disabled, sortable]);
 
   useEffect(() => {
-    if (
-      dndMode.isSorting &&
-      isDragActive &&
-      !isDraggingActive
-    ) {
+    if (dndMode.isSorting && isDragActive && !isDraggingActive) {
       sortable.transition = transition ?? null;
       return;
     }

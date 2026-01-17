@@ -4,11 +4,13 @@ import type { Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Transform } from "./types";
 
-export function getZoomScale(): number {
+function getZoomScale(): number {
   return useReactFlow.getState().transform[2];
 }
 
-export function applyZoomToTransform(transform: Transform | null): Transform | null {
+export function applyZoomToTransform(
+  transform: Transform | null,
+): Transform | null {
   if (!transform) {
     return null;
   }
@@ -49,4 +51,4 @@ class ZoomModifier extends Modifier {
   }
 }
 
-export const ZoomAwareModifier = configurator(ZoomModifier)();
+const ZoomAwareModifier = configurator(ZoomModifier)();

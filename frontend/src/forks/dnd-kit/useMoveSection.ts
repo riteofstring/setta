@@ -17,9 +17,9 @@ import type { DragEndEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
-import { getOverId } from "./useDropType";
-import { getSortingOverState } from "./sortingOverState";
 import { logSortDnd } from "./sortingLog";
+import { getSortingOverState } from "./sortingOverState";
+import { getOverId } from "./useDropType";
 
 function onSortEnd({
   active,
@@ -168,7 +168,8 @@ async function onFreeMoveEnd({
       indexSource = "placeholder";
     } else {
       const overCollision =
-        collisions?.find((collision) => String(collision.id) === overId) ?? null;
+        collisions?.find((collision) => String(collision.id) === overId) ??
+        null;
       pastHalfway = Boolean(overCollision?.pastHalfway);
       if (overIdx >= 0) {
         newIndex = pastHalfway ? overIdx + 1 : overIdx;
@@ -177,7 +178,6 @@ async function onFreeMoveEnd({
       }
       indexSource = "collision";
     }
-
   }
   // dropping nested section onto pane
   else if (!overId) {
@@ -297,7 +297,10 @@ function getPastHalfwayFromCollisions(
 function summarizeSortingCollisions(
   collisions: DragEndEvent["collisions"] | null,
   limit: number,
-): { items: Array<{ id: string; pastHalfway: boolean | null }>; total: number } {
+): {
+  items: Array<{ id: string; pastHalfway: boolean | null }>;
+  total: number;
+} {
   if (!collisions || collisions.length === 0) {
     return { items: [], total: 0 };
   }

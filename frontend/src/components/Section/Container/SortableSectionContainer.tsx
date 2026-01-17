@@ -1,8 +1,11 @@
 import { useSortable } from "forks/dnd-kit/adapter";
+import {
+  applyZoomToTransform,
+  transformToString,
+} from "forks/dnd-kit/adapter/zoom";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
-import { applyZoomToTransform, transformToString } from "forks/dnd-kit/adapter/zoom";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
@@ -92,7 +95,9 @@ function _SortableCore({
   isDragging,
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
-  const scaledTransform = applyZoomToTransform(applyTransform ? transform : null);
+  const scaledTransform = applyZoomToTransform(
+    applyTransform ? transform : null,
+  );
   const transformX = scaledTransform ? scaledTransform.x : null;
   const transformY = scaledTransform ? scaledTransform.y : null;
   const transformScaleX = scaledTransform ? scaledTransform.scaleX : null;

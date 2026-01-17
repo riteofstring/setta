@@ -1,11 +1,11 @@
-import { useMemo, useRef } from "react";
-import { useDroppable as useDndKitDroppable } from "@dnd-kit/react";
-import type { UseDroppableInput } from "@dnd-kit/react";
 import type { CollisionDetector } from "@dnd-kit/abstract";
+import type { UseDroppableInput } from "@dnd-kit/react";
+import { useDroppable as useDndKitDroppable } from "@dnd-kit/react";
+import { useMemo, useRef } from "react";
 import type { DndData } from "./types";
 import { useCollisionDetector } from "./useCollisionDetector";
 
-export type UseDroppableArguments = Omit<
+type UseDroppableArguments = Omit<
   UseDroppableInput<DndData>,
   "data" | "element" | "collisionDetector"
 > & {
@@ -13,7 +13,11 @@ export type UseDroppableArguments = Omit<
   collisionDetector?: CollisionDetector;
 };
 
-export function useDroppable({ data, collisionDetector, ...input }: UseDroppableArguments) {
+export function useDroppable({
+  data,
+  collisionDetector,
+  ...input
+}: UseDroppableArguments) {
   const wrappedData = useMemo<DndData | undefined>(() => {
     if (!data) {
       return undefined;

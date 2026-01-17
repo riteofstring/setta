@@ -1,21 +1,21 @@
-import { useComputed } from "@dnd-kit/react/hooks";
 import type { Collision, UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
-import React, { useEffect, useMemo, useRef, useId } from "react";
+import { useComputed } from "@dnd-kit/react/hooks";
+import React, { useEffect, useId, useMemo, useRef } from "react";
 import { getDndSectionId, useDndMode } from "../dndState";
+import { logSortDnd } from "../sortingLog";
 import {
   clearSortingOverState,
   setSortingOverState,
 } from "../sortingOverState";
-import { logSortDnd } from "../sortingLog";
-import type { ClientRect, Disabled, SortingStrategy } from "./types";
 import {
   getSortedRects,
   itemsEqual,
   normalizeDisabled,
   rectSortingStrategy,
 } from "./sorting";
+import type { ClientRect, Disabled, SortingStrategy } from "./types";
 
 interface Props {
   children: React.ReactNode;
@@ -63,17 +63,14 @@ export function SortableContext({
 }: Props) {
   const manager = useDragDropManager();
   const dndMode = useDndMode();
-  const isDragActive = useComputed(
-    () => {
-      if (!manager) {
-        return false;
-      }
+  const isDragActive = useComputed(() => {
+    if (!manager) {
+      return false;
+    }
 
-      const status = manager.dragOperation.status;
-      return status.dragging || status.initializing;
-    },
-    [manager],
-  ).value;
+    const status = manager.dragOperation.status;
+    return status.dragging || status.initializing;
+  }, [manager]).value;
   const shouldTrackSorting = dndMode.isSorting && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
@@ -85,26 +82,20 @@ export function SortableContext({
     [userDefinedItems],
   );
   const emptyRects = useMemo(() => new Map<UniqueIdentifier, ClientRect>(), []);
-  const active = useComputed(
-    () => {
-      if (!shouldTrackSorting) {
-        return null;
-      }
+  const active = useComputed(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
 
-      return manager?.dragOperation.source ?? null;
-    },
-    [manager, shouldTrackSorting],
-  ).value;
-  const collisions = useComputed<Array<Collision> | null>(
-    () => {
-      if (!shouldTrackSorting) {
-        return null;
-      }
+    return manager?.dragOperation.source ?? null;
+  }, [manager, shouldTrackSorting]).value;
+  const collisions = useComputed<Array<Collision> | null>(() => {
+    if (!shouldTrackSorting) {
+      return null;
+    }
 
-      return manager?.collisionObserver.collisions ?? null;
-    },
-    [manager, shouldTrackSorting],
-  ).value;
+    return manager?.collisionObserver.collisions ?? null;
+  }, [manager, shouldTrackSorting]).value;
   const collisionOverId = useMemo(() => {
     if (!shouldTrackSorting) {
       return null;
@@ -122,19 +113,17 @@ export function SortableContext({
 
     return collisions.some((collision) => collision.id === containerId);
   }, [collisions, containerId, shouldTrackSorting]);
-  const droppableRects = useComputed(
-    () => {
-      if (!shouldTrackSorting) {
-        return emptyRects;
-      }
+  const droppableRects = useComputed(() => {
+    if (!shouldTrackSorting) {
+      return emptyRects;
+    }
 
-      return getDroppableRects(manager?.registry.droppables ?? []);
-    },
-    [emptyRects, manager, shouldTrackSorting],
-  ).value;
-  const frozenDroppableRectsRef = useRef<
-    Map<UniqueIdentifier, ClientRect> | null
-  >(null);
+    return getDroppableRects(manager?.registry.droppables ?? []);
+  }, [emptyRects, manager, shouldTrackSorting]).value;
+  const frozenDroppableRectsRef = useRef<Map<
+    UniqueIdentifier,
+    ClientRect
+  > | null>(null);
   const lastSortLogRef = useRef<{
     overId: string | null;
     pastHalfway: boolean | null;
@@ -166,7 +155,13 @@ export function SortableContext({
     }
 
     return manager?.dragOperation.target?.id ?? null;
-  }, [collisionOverId, hasContainerCollision, items, manager, shouldTrackSorting]);
+  }, [
+    collisionOverId,
+    hasContainerCollision,
+    items,
+    manager,
+    shouldTrackSorting,
+  ]);
   const resolvedPastHalfway = useMemo(() => {
     if (!shouldTrackSorting || !resolvedOverId || !collisions) {
       return null;

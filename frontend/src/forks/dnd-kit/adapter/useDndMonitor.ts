@@ -1,6 +1,11 @@
-import { useDragDropMonitor } from "@dnd-kit/react";
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
+import { useDragDropMonitor } from "@dnd-kit/react";
+import {
+  resetCollisionHysteresis,
+  updateCollisionHysteresis,
+} from "./collision";
+import { promoteBestCollision } from "./collisionCompare";
 import type {
   ClientRect,
   DragCancelEvent,
@@ -10,13 +15,8 @@ import type {
   DragStartEvent,
   SettaCollision,
 } from "./types";
-import {
-  resetCollisionHysteresis,
-  updateCollisionHysteresis,
-} from "./collision";
-import { promoteBestCollision } from "./collisionCompare";
 
-export type DndMonitorHandlers = Partial<{
+type DndMonitorHandlers = Partial<{
   onDragStart: (event: DragStartEvent) => void;
   onDragMove: (event: DragMoveEvent) => void;
   onDragOver: (event: DragOverEvent) => void;

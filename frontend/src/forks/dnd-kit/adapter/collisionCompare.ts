@@ -36,7 +36,9 @@ function getCollisionNumber(value: unknown): number | null {
   return value;
 }
 
-function getCollisionIntersectionRatio(collision: SettaCollision | null): number {
+function getCollisionIntersectionRatio(
+  collision: SettaCollision | null,
+): number {
   const value = collision?.data?.intersectionRatio;
   const resolved = getCollisionNumber(value);
   if (resolved === null) {
@@ -60,7 +62,7 @@ function getCollisionTriggerDist(
   return getCollisionNumber(value);
 }
 
-export function compareCollisions(
+function compareCollisions(
   a: SettaCollision | null,
   b: SettaCollision | null,
 ): SettaCollision | null {

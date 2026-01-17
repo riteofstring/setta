@@ -1,3 +1,4 @@
+import type { Disabled } from "forks/dnd-kit/adapter";
 import {
   horizontalListSortingStrategy,
   SortableContext,
@@ -7,7 +8,6 @@ import { useDisableSortable } from "forks/dnd-kit/useDndUtils";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useDndState } from "./dndState";
 import { getDndParentId } from "./useDropType";
-import type { Disabled } from "forks/dnd-kit/adapter";
 
 export function DNDSortable({
   sectionId,

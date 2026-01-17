@@ -1,3 +1,4 @@
+import { pickBestCollision } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addDndChild,
   removeDndChild,
@@ -22,7 +23,6 @@ import {
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
-import { pickBestCollision } from "forks/dnd-kit/adapter/collisionCompare";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
 let lastPastHalfwayByOverId: Record<string, boolean> = {};
@@ -91,7 +91,9 @@ function getOverIdCollisionMatch(
     return false;
   }
 
-  return collisions.some((collision) => String(collision.id) === String(overId));
+  return collisions.some(
+    (collision) => String(collision.id) === String(overId),
+  );
 }
 
 function getCollisionTriggerDistCondition(
@@ -217,10 +219,7 @@ function onDragMove({
     getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false;
   const collisionSummary = summarizeCollisionIds(collisions);
   const collisionSignature = collisionSummary.ids.join(",");
-  const pastHalfway = getOverCollisionPastHalfway(
-    resolvedOverId,
-    collisions,
-  );
+  const pastHalfway = getOverCollisionPastHalfway(resolvedOverId, collisions);
   const resolvedOverIdKey = resolvedOverId ? String(resolvedOverId) : null;
   const hasLastPastHalfway =
     resolvedOverIdKey !== null &&
@@ -231,9 +230,7 @@ function onDragMove({
   const lastPastHalfway = hasLastPastHalfway
     ? lastPastHalfwayByOverId[resolvedOverIdKey]
     : null;
-  const dndStateOverIdKey = dndState.overId
-    ? String(dndState.overId)
-    : null;
+  const dndStateOverIdKey = dndState.overId ? String(dndState.overId) : null;
   const pastHalfwayChanged =
     hasLastPastHalfway &&
     pastHalfway !== null &&
@@ -493,8 +490,7 @@ function maybeMoveToNewParent({
 }) {
   const overId = getOverId(over, collisions);
   const newParentChildren = dndChildrenState.x[newParentId] ?? [];
-  const pastHalfway =
-    getOverCollisionPastHalfway(overId, collisions) ?? false;
+  const pastHalfway = getOverCollisionPastHalfway(overId, collisions) ?? false;
   const overIdKey = overId ? String(overId) : null;
   const tempInNewParent = newParentChildren.includes(dndSectionId);
 
@@ -596,7 +592,7 @@ function maybeMoveToNewParent({
             y: Math.round(pointerCoordinates.y),
           }
         : null,
-      });
+    });
     addDndChild(oldParentId, newParentId, dndSectionId, index);
   } else {
     const activeIndex = newParentChildren.indexOf(dndSectionId);

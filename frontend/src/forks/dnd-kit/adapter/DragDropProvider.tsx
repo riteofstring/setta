@@ -1,9 +1,14 @@
-import type { PropsWithChildren } from "react";
-import { DragDropProvider as DndKitProvider } from "@dnd-kit/react";
 import type { Modifiers, Sensors } from "@dnd-kit/abstract";
-import { AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
+import { AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
+import { DragDropProvider as DndKitProvider } from "@dnd-kit/react";
+import type { PropsWithChildren } from "react";
+import {
+  resetCollisionHysteresis,
+  updateCollisionHysteresis,
+} from "./collision";
+import { promoteBestCollision } from "./collisionCompare";
 import type {
   ClientRect,
   DragCancelEvent,
@@ -13,11 +18,6 @@ import type {
   DragStartEvent,
   SettaCollision,
 } from "./types";
-import {
-  resetCollisionHysteresis,
-  updateCollisionHysteresis,
-} from "./collision";
-import { promoteBestCollision } from "./collisionCompare";
 
 type Props = PropsWithChildren<{
   sensors?: Sensors<DragDropManager>;
@@ -29,7 +29,9 @@ type Props = PropsWithChildren<{
   onDragCancel?: (event: DragCancelEvent) => void;
 }>;
 
-const plugins = defaultPreset.plugins.filter((plugin) => plugin !== AutoScroller);
+const plugins = defaultPreset.plugins.filter(
+  (plugin) => plugin !== AutoScroller,
+);
 
 export function DragDropProvider({
   children,

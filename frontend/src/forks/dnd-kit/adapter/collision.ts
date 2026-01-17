@@ -3,13 +3,13 @@ import {
   CollisionType,
   type CollisionDetector,
 } from "@dnd-kit/abstract";
-import type { Draggable, Droppable } from "@dnd-kit/dom";
+import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
-import type { ClientRect, SettaCollision } from "./types";
 import { pickBestCollision } from "./collisionCompare";
+import type { ClientRect, SettaCollision } from "./types";
 
 let prevCollisionId: Draggable["id"] | null = null;
 let prevPastHalfway: boolean | null = null;
@@ -18,7 +18,6 @@ let prevPointerX: number | null = null;
 let prevPointerY: number | null = null;
 let prevPointerDirectionX: number | null = null;
 let prevPointerDirectionY: number | null = null;
-
 
 type DndEntityData = {
   isTopLevel?: boolean;
@@ -74,7 +73,9 @@ export const customCollisionDetection: CollisionDetector = ({
   const absTriggerDist = Math.abs(triggerDist);
 
   const baseRatio =
-    prevCollisionId === droppable.id ? intersectionRatio * 1.1 : intersectionRatio;
+    prevCollisionId === droppable.id
+      ? intersectionRatio * 1.1
+      : intersectionRatio;
 
   const collisionValue = getCollisionScore({
     isSortable: Boolean(containerId),
@@ -317,10 +318,7 @@ function getTriggerDistCondition({
     return false;
   }
 
-  if (
-    droppableData.hasNested &&
-    droppableData.onlyChildId !== activeId
-  ) {
+  if (droppableData.hasNested && droppableData.onlyChildId !== activeId) {
     return false;
   }
 

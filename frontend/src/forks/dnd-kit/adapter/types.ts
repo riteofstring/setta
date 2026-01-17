@@ -23,7 +23,7 @@ export type Disabled = {
   droppable?: boolean;
 };
 
-export type SortableData = {
+type SortableData = {
   sortable: {
     containerId: UniqueIdentifier;
     items: UniqueIdentifier[];
@@ -31,10 +31,11 @@ export type SortableData = {
   };
 };
 
-export type DndData<T extends Record<string, unknown> = Record<string, unknown>> =
-  {
-    current: T;
-  };
+export type DndData<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  current: T;
+};
 
 export type SettaCollision = Collision & {
   pastHalfway?: boolean;
@@ -47,7 +48,7 @@ export type SettaCollision = Collision & {
   };
 };
 
-export type DragEvent = {
+type DragEvent = {
   activatorEvent: Event | null;
   active: Draggable;
   collisions: SettaCollision[] | null;

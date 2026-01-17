@@ -6,7 +6,10 @@ function shouldLogSorting(): boolean {
   return useDndState.getState().isSorting;
 }
 
-export function logSortDnd(label: string, payload: Record<string, unknown>): void {
+export function logSortDnd(
+  label: string,
+  payload: Record<string, unknown>,
+): void {
   if (!shouldLogSorting()) {
     return;
   }

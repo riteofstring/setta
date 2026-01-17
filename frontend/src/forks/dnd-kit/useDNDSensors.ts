@@ -1,6 +1,6 @@
 import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
-import { useDndState } from "./dndState";
 import { useShareCapabilities } from "state/hooks/share";
+import { useDndState } from "./dndState";
 
 export function useDNDSensors() {
   const { canEditLayout } = useShareCapabilities();
