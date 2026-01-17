@@ -34,8 +34,7 @@ export function addDndChild(
     }
 
     const existingChildren = state.x[newParentId] ?? [];
-    const nextChildren = existingChildren.filter((x) => x !== childId);
-    state.x[newParentId] = insertIntoArray(nextChildren, index, childId);
+    state.x[newParentId] = insertIntoArray(existingChildren, index, childId);
     state.y[childId] = newParentId;
   });
 }
@@ -56,22 +55,12 @@ export function replaceDndSectionWithTemp(id: string) {
   useDndChildren.setState((state) => {
     const parentId = state.y[id];
     if (parentId) {
-      const tempId = getDndSectionId(id);
-      for (const [key, children] of Object.entries(state.x)) {
-        const nextChildren = children.filter((childId) => childId !== tempId);
-        if (nextChildren.length !== children.length) {
-          state.x[key] = nextChildren;
-        }
-      }
-
       const currChildren = state.x[parentId] ?? [];
       const index = currChildren.indexOf(id);
       if (index === -1) {
-        state.x[parentId] = [...currChildren, tempId];
-        state.y[tempId] = parentId;
-        delete state.y[id];
         return;
       }
+      const tempId = getDndSectionId(id);
       currChildren[index] = tempId;
       state.y[tempId] = parentId;
       delete state.y[id];

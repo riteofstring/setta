@@ -90,6 +90,7 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
@@ -114,6 +115,9 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetChatSectionChatIdRequest,
+    SetChatSectionSettingsRequest,
+    SetChatSectionStateRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -213,6 +217,9 @@ from setta.types.helpers_lvl2 import (
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
+    set_chat_section_chat_id,
+    set_chat_section_settings,
+    set_chat_section_state,
     set_code,
     set_code_file_binding,
     set_default_section_variant,
@@ -272,6 +279,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
@@ -1883,6 +1891,24 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_settings(
+            project_state,
+            x.sectionId,
+            x.managed,
+            x.llmConfigId,
+            x.deepThink,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_chat_section_state(self, x: SetChatSectionStateRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_state(project_state, x.sectionId, x.state)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
@@ -1892,6 +1918,24 @@ class BaseProjectManager(ABC):
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def get_chat_section_chat_id(
+        self, x: GetChatSectionChatIdRequest
+    ) -> ID | None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            ChatSectionImpl,
+        )
+        return section_impl.chatId
+
+    @enqueue_method
+    async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
         await self.update_and_broadcast_project_state(project_state)
 
     async def _apply_listener_emit_updates_to_state(

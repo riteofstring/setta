@@ -67,7 +67,6 @@ async def route_get_llm_response(
             x.chatId,
             x.message,
             x.llmConfigId,
-            x.projectConfigId,
             **chat_manager_kwargs,
         )
     except Exception as exc:
@@ -79,6 +78,7 @@ async def route_get_llm_response(
         ctx.state.chat_manager.start_processing_query(
             chat,
             x.deepThink,
+            x.projectConfigId,
             **chat_manager_kwargs,
         )
         return chat.id

@@ -105,3 +105,4 @@ LLMStreamingResponseChunk = (
 class LLMStreamingResponse(BaseModel):
     chatId: ID
     chunk: LLMStreamingResponseChunk
+    sectionId: ID | None = None
