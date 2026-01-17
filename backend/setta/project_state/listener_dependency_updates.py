@@ -6,13 +6,14 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
+    set_chat_section_state,
     set_param_entered_value,
     set_text_block_text,
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import SectionType
+from setta.types.section_impls import ChatSectionState, SectionType
 
 
 class ListenerDependencyUpdateError(ValueError):
@@ -95,6 +96,12 @@ def _apply_section_update(
     if impl.type is SectionType.TextBlock:
         literal = _expect_literal_value(dependency_name=section_id, value=value)
         set_text_block_text(project_state, section_id, literal.payload)
+        return None
+
+    if impl.type is SectionType.Chat:
+        literal = _expect_literal_value(dependency_name=section_id, value=value)
+        state = ChatSectionState.model_validate_json(literal.payload)
+        set_chat_section_state(project_state, section_id, state)
         return None
 
     if impl.type is SectionType.Image:
