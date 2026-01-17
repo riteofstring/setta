@@ -88,9 +88,6 @@ def create_new_chat(
 
 
 def delete_chat(dbe: "DBE", chat_id: ID) -> None:
-    chat = load_chat(dbe, chat_id)
-    if chat and chat.projectConfigId is not None:
-        dbe.delete_chat_section_chat_id(chat.projectConfigId, chat_id)
     dbe.delete_chat_file(chat_id)
 
 

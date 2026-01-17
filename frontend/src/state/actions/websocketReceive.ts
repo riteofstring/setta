@@ -21,7 +21,8 @@ import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  DependencyEvent,
+  CodeObjType,
+  ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
@@ -31,7 +32,7 @@ import {
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
-  WebsocketMsgRealtimeDependencyEvent,
+  WebsocketMsgRealtimeActionEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
@@ -370,29 +371,34 @@ function emitRealtimeDependencyValue(
   sendMessage(message);
 }
 
-type DependencyEventInput = {
-  dependencyKey: BaseDependencyKeyUnion;
+type ControlActionEventInput = {
+  controlName: string;
+  actionId: string;
+  actionControlType: CodeObjType;
   payload?: string | null;
-  timestampMs?: number;
 };
 
-export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
+export function sendRealtimeControlAction(
+  action: ControlActionEventInput,
+): void {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
 
-  const dependencyEvent: DependencyEvent = {
-    dependencyKey: event.dependencyKey,
-    payload: event.payload ?? null,
-    timestampMs: event.timestampMs ?? Date.now(),
+  const actionEvent: ControlActionEvent = {
+    controlName: action.controlName,
+    actionId: action.actionId,
+    actionControlType: action.actionControlType,
+    payload: action.payload ?? null,
+    timestampMs: Date.now(),
   };
-  const message: WebsocketMsgRealtimeDependencyEvent = {
+  const message: WebsocketMsgRealtimeActionEvent = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeActionEvent,
     content: {
       projectConfigId,
-      dependencyEvent,
+      actionEvent,
     },
   };
   sendMessage(message);
