@@ -1,6 +1,9 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from setta.llm.chat_store import MemoryChatStore
+from setta.database.db_objs import DBE
+from setta.llm.chat_store import DBEChatStore
 from setta.llm.chat_toolkit import (
     ChatHistory,
     assistant_message,
@@ -13,8 +16,6 @@ from setta.types.llm_config import LLMConfig
 
 class ChatHistoryTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.store = MemoryChatStore()
-        self.history = ChatHistory(self.store)
         self.llm_config = LLMConfig(
             id="test-llm",
             model="gpt-test",
@@ -23,22 +24,26 @@ class ChatHistoryTests(unittest.TestCase):
         self.project_config_id = ID("project-123")
 
     def test_create_append_and_delete_chat(self) -> None:
-        first_message = user_message([message_text("Hello toolkit")])
-        chat = self.history.create(
-            first_message=first_message,
-            llm_config=self.llm_config,
-            project_config_id=self.project_config_id,
-        )
+        with TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            history = ChatHistory(DBEChatStore(dbe))
 
-        loaded = self.history.require(chat.id)
-        self.assertEqual(loaded.messages[0].content[0].text, "Hello toolkit")
+            first_message = user_message([message_text("Hello toolkit")])
+            chat = history.create(
+                first_message=first_message,
+                llm_config=self.llm_config,
+                project_config_id=self.project_config_id,
+            )
 
-        reply = assistant_message([message_text("Welcome")])
-        updated = self.history.append(chat.id, [reply])
-        self.assertEqual(len(updated.messages), 2)
+            loaded = history.require(chat.id)
+            self.assertEqual(loaded.messages[0].content[0].text, "Hello toolkit")
 
-        with_prompt = self.history.set_system_prompt(chat.id, "System prompt")
-        self.assertEqual(with_prompt.systemPrompt, "System prompt")
+            reply = assistant_message([message_text("Welcome")])
+            updated = history.append(chat.id, [reply])
+            self.assertEqual(len(updated.messages), 2)
 
-        self.history.delete(chat.id)
-        self.assertIsNone(self.history.get(chat.id))
+            with_prompt = history.set_system_prompt(chat.id, "System prompt")
+            self.assertEqual(with_prompt.systemPrompt, "System prompt")
+
+            history.delete(chat.id)
+            self.assertIsNone(history.get(chat.id))
