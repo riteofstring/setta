@@ -58,7 +58,6 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
-from setta.types.project_config import get_python_codegen_target_with_type_guard
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -76,11 +75,10 @@ def build_python_code_generator(
     dep_graph: DependencyGraph,
 ) -> PythonCodeGenerator:
     project_config = project_state.projectConfig
-    python_target = get_python_codegen_target_with_type_guard(project_config)
     return PythonCodeGenerator(
         dep_graph,
-        python_target.genCodePrefix,
-        python_target.genCodeSuffix,
+        project_config.genCodePrefix,
+        project_config.genCodeSuffix,
         value_mode=PythonValueMode.PACKAGED_RUNTIME,
     )
 
