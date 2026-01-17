@@ -9,6 +9,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
@@ -55,6 +56,8 @@ export function getExtensions({
     extensions.push(python());
   } else if (language === "javascript") {
     extensions.push(javascript());
+  } else if (language === "yaml") {
+    extensions.push(yaml());
   } else if (language === "json") {
     extensions.push(json());
   } else if (language === "markdown") {
