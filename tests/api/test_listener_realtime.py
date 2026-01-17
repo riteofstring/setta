@@ -24,8 +24,8 @@ from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
 from setta.types.listener import (
-    DependencyEvent,
-    ListenerDependencyEventContent,
+    ControlActionEvent,
+    ListenerActionEventContent,
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -414,16 +414,11 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             project_name=project_state.projectConfig.name,
             share_session_id="session-a",
         )
-        action_calls: list[list[str | None]] = []
-        section_id = next(iter(project_state.sections))
-        dependency_key = create_dep_key(sectionId=section_id)
+        action_calls: list[list[str]] = []
 
-        @listener.listen(
-            deps=(dependency_key,),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
-        )
+        @listener.listen(actions=("action-id",))
         def on_action(state, ctx):
-            action_calls.append([event.payload for event in ctx.events])
+            action_calls.append([event.controlName for event in ctx.actions])
 
         await listener._process_snapshot(
             project_state,
@@ -438,13 +433,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if spec.function is on_action
         )
 
-        await listener._handle_dependency_event(
-            ListenerDependencyEventContent(
+        await listener._handle_action_event(
+            ListenerActionEventContent(
                 projectConfigId=project_state.projectConfig.id,
                 shareSessionId="session-a",
-                dependencyEvents=[
-                    DependencyEvent(
-                        dependencyKey=dependency_key,
+                actionEvents=[
+                    ControlActionEvent(
+                        controlName="Control-A",
+                        actionId="action-id",
+                        actionControlType=CodeObjType.ButtonParam,
                         payload="payload-a",
                         timestampMs=1,
                     )
@@ -454,13 +451,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
-        await listener._handle_dependency_event(
-            ListenerDependencyEventContent(
+        await listener._handle_action_event(
+            ListenerActionEventContent(
                 projectConfigId=project_state.projectConfig.id,
                 shareSessionId="session-a",
-                dependencyEvents=[
-                    DependencyEvent(
-                        dependencyKey=dependency_key,
+                actionEvents=[
+                    ControlActionEvent(
+                        controlName="Control-B",
+                        actionId="action-id",
+                        actionControlType=CodeObjType.ButtonParam,
                         payload="payload-b",
                         timestampMs=2,
                     )
@@ -470,7 +469,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
-        self.assertEqual(action_calls, [["payload-a"], ["payload-b"]])
+        self.assertEqual(action_calls, [["Control-A"], ["Control-B"]])
         self.assertEqual(listener._get_last_realtime_sequence(), 2)
 
     async def test_action_rejects_mismatched_share_session(self) -> None:
@@ -479,13 +478,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             project_name=project_state.projectConfig.name,
             share_session_id="session-a",
         )
-        section_id = next(iter(project_state.sections))
-        dependency_key = create_dep_key(sectionId=section_id)
 
-        @listener.listen(
-            deps=(dependency_key,),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
-        )
+        @listener.listen(actions=("action-id",))
         def on_action(state, ctx):
             pass
 
@@ -497,13 +491,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
 
         with self.assertRaises(ValueError):
-            await listener._handle_dependency_event(
-                ListenerDependencyEventContent(
+            await listener._handle_action_event(
+                ListenerActionEventContent(
                     projectConfigId=project_state.projectConfig.id,
                     shareSessionId="session-b",
-                    dependencyEvents=[
-                        DependencyEvent(
-                            dependencyKey=dependency_key,
+                    actionEvents=[
+                        ControlActionEvent(
+                            controlName="Control-B",
+                            actionId="action-id",
+                            actionControlType=CodeObjType.ButtonParam,
                             payload="payload-b",
                             timestampMs=2,
                         )
@@ -565,139 +561,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
         )
 
-    async def test_realtime_only_callbacks_skip_snapshot(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        realtime_calls: list[dict[str, Any]] = []
-
-        @listener.listen(
-            deps=("Welcome",),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
-        )
-        def on_realtime(state, ctx):
-            realtime_calls.append(dict(ctx.changed))
-
-        websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
-
-        await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
-
-        self.assertEqual(realtime_calls, [])
-
-        realtime_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_realtime
-        )
-        dependency_key = self._get_structured_dependency(realtime_spec)
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-        await listener._scheduler.flush(realtime_spec.callback_id)
-
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
-
-    async def test_default_dependency_mode_omitted_deps_is_refresh_only(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        refresh_calls: list[dict[str, Any]] = []
-
-        @listener.listen()
-        def on_refresh(state, ctx):
-            refresh_calls.append(dict(ctx.changed))
-
-        websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
-
-        await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
-
-        self.assertEqual(refresh_calls, [{}])
-
-        refresh_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_refresh
-        )
-        self.assertEqual(
-            refresh_spec.dependency_mode,
-            ListenerDependencyMode.REFRESH_ONLY,
-        )
-
-        section_id = next(iter(project_state.sections))
-        dependency_key = create_dep_key(sectionId=section_id)
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-        await asyncio.sleep(0)
-
-        self.assertEqual(refresh_calls, [{}])
-
-    async def test_realtime_only_wildcard_skips_snapshot(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        realtime_calls: list[dict[str, Any]] = []
-
-        @listener.listen(
-            deps=(),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
-        )
-        def on_realtime(state, ctx):
-            realtime_calls.append(dict(ctx.changed))
-
-        websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
-
-        await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
-
-        self.assertEqual(realtime_calls, [])
-
-        section_id = next(iter(project_state.sections))
-        dependency_key = create_dep_key(sectionId=section_id)
-        realtime_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_realtime
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-        await listener._scheduler.flush(realtime_spec.callback_id)
-
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
-
         refreshed_state = project_state.model_copy(deep=True)
         self._set_snapshot_section_text(refreshed_state, "Updated")
 
@@ -706,7 +569,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+        self.assertEqual(
+            refresh_calls,
+            [{"Welcome": "Hello"}, {}],
+        )
+        self.assertEqual(
+            realtime_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
 
     async def test_any_dependency_callbacks_receive_all_deltas(self) -> None:
         project_state = self._build_project_state()
@@ -714,10 +584,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         any_calls: list[dict[str, Any]] = []
         specific_calls: list[dict[str, Any]] = []
 
-        @listener.listen(
-            deps=(),
-            dependency_mode=ListenerDependencyMode.ALWAYS,
-        )
+        @listener.listen(dependency_mode=ListenerDependencyMode.ANY_DEPENDENCY)
         def on_any(state, ctx):
             any_calls.append(dict(ctx.changed))
 

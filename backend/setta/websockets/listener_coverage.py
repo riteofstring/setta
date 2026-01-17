@@ -3,7 +3,10 @@ from typing import Iterable
 
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
-from setta.types.listener import ListenerCoverageSnapshot, ListenerDependencyMode
+from setta.types.listener import (
+    ListenerCoverageSnapshot,
+    ListenerDependencyMode,
+)
 from setta.websockets.listener_registry import ListenerRegistration
 
 
@@ -41,8 +44,10 @@ class ListenerCoverageTracker:
             for callback in registration.callbacks.values():
                 if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
                     continue
-                if not callback.dependencies:
+                if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
                     has_realtime_wildcard = True
+                    continue
+                if not callback.dependencies:
                     continue
                 dependency_keys.update(d for d in callback.dependencies)
 
