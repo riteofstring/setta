@@ -51,7 +51,15 @@ export const DummyDragOverlay = forwardRef<
     () => manager?.dragOperation.status.dropped ?? false,
     [manager],
   ).value;
+  const shouldRenderOverlay = useComputed(
+    () => manager?.dragOperation.status.initialized ?? false,
+    [manager],
+  ).value;
   const overlayStyle = isDropped ? { opacity: 0 } : undefined;
+
+  if (!shouldRenderOverlay) {
+    return null;
+  }
 
   return createPortal(
     <DragOverlay style={overlayStyle}>
