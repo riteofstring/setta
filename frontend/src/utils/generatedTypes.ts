@@ -9,6 +9,7 @@ import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
 import { z } from "zod";
 
 const IDSchema = z.string();
+export type ID = z.infer<typeof IDSchema>;
 
 export type ObjectValues<T> = T[keyof T];
 export const ControlCodeObjTypeSet = new Set([
@@ -76,6 +77,28 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "Dict",
   "GlobalVariables",
 ]);
+
+const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+const PromptFormatEnum = { jinja: "jinja" } as const;
+
+const RunEventTypeEnum = {
+  status: "status",
+  message: "message",
+  stream: "stream",
+  tool_call: "tool_call",
+  tool_result: "tool_result",
+  file_edit: "file_edit",
+  shell_command: "shell_command",
+  approval: "approval",
+  error: "error",
+} as const;
 
 export const ArtifactTypeEnum = {
   Image: "Image",
@@ -259,20 +282,6 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
-export const ProjectCodegenLanguageEnum = { python: "python" } as const;
-
-const SectionCodegenModeEnum = {
-  inherit: "inherit",
-  include: "include",
-  exclude: "exclude",
-} as const;
-
-const SectionRepresentationModeEnum = {
-  json: "json",
-  file: "file",
-  base64: "base64",
-} as const;
-
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
   read_write: "read_write",
@@ -334,6 +343,17 @@ export const RouteEnum = {
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
+  AGENT_PROFILES: "/agentic/profiles",
+  AGENT_PROFILE: "/agentic/profiles/{profileId}",
+  UPDATE_AGENT_PROFILE: "/agentic/profiles/{profileId}/update",
+  DELETE_AGENT_PROFILE: "/agentic/profiles/{profileId}/delete",
+  AGENT_RUNS: "/agentic/runs",
+  AGENT_RUN: "/agentic/runs/{runId}",
+  STOP_AGENT_RUN: "/agentic/runs/{runId}/stop",
+  PROMPT_ASSETS: "/agentic/prompts",
+  PROMPT_ASSET: "/agentic/prompts/{promptId}",
+  UPDATE_PROMPT_ASSET: "/agentic/prompts/{promptId}/update",
+  DELETE_PROMPT_ASSET: "/agentic/prompts/{promptId}/delete",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -382,7 +402,6 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
-  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -518,6 +537,8 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  PromptAssetsUpdated: "PromptAssetsUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -525,6 +546,297 @@ const SaveConflictStrategyEnum = {
   backup: "backup",
   overwrite: "overwrite",
 } as const;
+
+const MessageTextContentSchema = z.object({
+  type: z.literal("text").default("text" as const),
+  text: z.string(),
+});
+
+export type MessageTextContent = z.infer<typeof MessageTextContentSchema>;
+
+export function createMessageTextContent(
+  options: Partial<MessageTextContent> = {},
+): MessageTextContent {
+  return MessageTextContentSchema.parse(options);
+}
+
+const MessageImageUrlSchema = z.object({
+  url: z.string(),
+  detail: z.union([z.literal(["auto", "low", "high"]), z.null()]).default(null),
+});
+
+const MessageImageUrlContentSchema = z.object({
+  type: z.literal("image_url").default("image_url" as const),
+  image_url: MessageImageUrlSchema,
+});
+
+export type MessageImageUrlContent = z.infer<
+  typeof MessageImageUrlContentSchema
+>;
+
+const MessageThinkingContentSchema = z.object({
+  type: z.literal("thinking").default("thinking" as const),
+  thinking: z.string().default("" as const),
+  signature: z.union([z.string(), z.null()]).default("" as const),
+});
+
+export type MessageThinkingContent = z.infer<
+  typeof MessageThinkingContentSchema
+>;
+
+export function createMessageThinkingContent(
+  options: Partial<MessageThinkingContent> = {},
+): MessageThinkingContent {
+  return MessageThinkingContentSchema.parse(options);
+}
+
+const SystemChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("system").default(ChatRoleEnum.system),
+  content: z
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
+    .default([]),
+});
+
+const ToolCallFunctionSchema = z.object({
+  name: z.string(),
+  arguments: z.record(z.string(), z.any()).default({}),
+});
+
+const ToolCallSchema = z.object({
+  id: z.string().default(create_new_id),
+  type: z.literal("function").default("function" as const),
+  function: ToolCallFunctionSchema,
+});
+
+export type ToolCall = z.infer<typeof ToolCallSchema>;
+
+const AssistantChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("assistant").default(ChatRoleEnum.assistant),
+  content: z
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
+    .default([]),
+  tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
+});
+
+export type AssistantChatMessage = z.infer<typeof AssistantChatMessageSchema>;
+
+const UserChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("user").default(ChatRoleEnum.user),
+  content: z
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
+    .default([]),
+});
+
+const AnnotationsSchema = z.object({
+  audience: z
+    .union([z.array(z.literal(["user", "assistant"])), z.null()])
+    .default(null),
+  priority: z.union([z.number(), z.null()]).default(null),
+});
+
+const TextContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+const ImageContentSchema = z.object({
+  type: z.literal("image"),
+  data: z.string(),
+  mimeType: z.string(),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+const TextResourceContentsSchema = z.object({
+  uri: z.url(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  text: z.string(),
+});
+
+const BlobResourceContentsSchema = z.object({
+  uri: z.url(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  blob: z.string(),
+});
+
+const EmbeddedResourceSchema = z.object({
+  type: z.literal("resource"),
+  resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+const ToolReferenceContentSchema = z.object({
+  type: z.literal("tool_reference").default("tool_reference" as const),
+  tool_name: z.string(),
+});
+
+const ToolChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("tool").default(ChatRoleEnum.tool),
+  tool_call_id: z.string(),
+  tool_name: z.union([z.string(), z.null()]).default(null),
+  arguments: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default({}),
+  result: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  content: z
+    .array(
+      z.union([
+        TextContentSchema,
+        ImageContentSchema,
+        EmbeddedResourceSchema,
+        ToolReferenceContentSchema,
+      ]),
+    )
+    .default([]),
+  is_error: z.boolean().default(false),
+  started_at: z.iso.datetime().default(get_now_timestamp),
+  completed_at: z.union([z.iso.datetime(), z.null()]).default(null),
+});
+
+export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
+
+const MessageStartEventSchema = z.object({
+  type: z
+    .literal("message_start")
+    .default(StreamingEventTypeEnum.MESSAGE_START),
+  message: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
+});
+
+export type MessageStartEvent = z.infer<typeof MessageStartEventSchema>;
+
+const MessageTextDeltaSchema = z.object({
+  type: z.literal("text_delta").default("text_delta" as const),
+  index: z.int(),
+  text: z.string(),
+});
+
+const MessageThinkingDeltaSchema = z.object({
+  type: z.literal("thinking_delta").default("thinking_delta" as const),
+  index: z.int(),
+  thinking: z.string(),
+  signature: z.union([z.string(), z.null()]).default(null),
+});
+
+const MessageDeltaEventSchema = z.object({
+  type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
+  message_id: z.string(),
+  content: z
+    .union([
+      z.array(z.union([MessageTextDeltaSchema, MessageThinkingDeltaSchema])),
+      z.null(),
+    ])
+    .default(null),
+});
+
+export type MessageDeltaEvent = z.infer<typeof MessageDeltaEventSchema>;
+
+const ToolCallDeltaEventSchema = z.object({
+  type: z
+    .literal("tool_call_delta")
+    .default(StreamingEventTypeEnum.TOOL_CALL_DELTA),
+  message_id: z.string(),
+  tool_call_id: z.string(),
+  arguments_delta: z.string(),
+  tool_name: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
+
+const ToolResultEventSchema = z.object({
+  type: z.literal("tool_result").default(StreamingEventTypeEnum.TOOL_RESULT),
+  result: ToolChatMessageSchema,
+});
+
+export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
+
+const ToolArgumentPreviewDeltaEventSchema = z.object({
+  type: z
+    .literal("tool_argument_preview_delta")
+    .default(StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA),
+  message_id: z.string(),
+  tool_call_id: z.string(),
+  tool_name: z.string(),
+  arguments_delta: z.string(),
+  preview_kind: z.enum(ToolArgumentPreviewKindEnum),
+  target_ids_by_type: z.record(
+    z.literal(["section", "codeObj"]),
+    z.array(IDSchema),
+  ),
+  preview_value_delta: z.string(),
+});
+
+export type ToolArgumentPreviewDeltaEvent = z.infer<
+  typeof ToolArgumentPreviewDeltaEventSchema
+>;
+
+const MessageStopEventSchema = z.object({
+  type: z.literal("message_stop").default(StreamingEventTypeEnum.MESSAGE_STOP),
+  message_id: z.string(),
+});
+
+const MessageFinalizedEventSchema = z.object({
+  type: z
+    .literal("message_finalized")
+    .default(StreamingEventTypeEnum.MESSAGE_FINALIZED),
+  message: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
+});
+
+export type MessageFinalizedEvent = z.infer<typeof MessageFinalizedEventSchema>;
 
 const BrushStrokeSchema = z.object({
   strokeStyle: z.string(),
@@ -746,199 +1058,6 @@ const APIKeysSchema = z.record(z.string(), z.string());
 
 export type APIKeys = z.infer<typeof APIKeysSchema>;
 
-const MessageTextContentSchema = z.object({
-  type: z.literal("text").default("text" as const),
-  text: z.string(),
-});
-
-export type MessageTextContent = z.infer<typeof MessageTextContentSchema>;
-
-export function createMessageTextContent(
-  options: Partial<MessageTextContent> = {},
-): MessageTextContent {
-  return MessageTextContentSchema.parse(options);
-}
-
-const MessageImageUrlSchema = z.object({
-  url: z.string(),
-  detail: z.union([z.literal(["auto", "low", "high"]), z.null()]).default(null),
-});
-
-const MessageImageUrlContentSchema = z.object({
-  type: z.literal("image_url").default("image_url" as const),
-  image_url: MessageImageUrlSchema,
-});
-
-export type MessageImageUrlContent = z.infer<
-  typeof MessageImageUrlContentSchema
->;
-
-const MessageThinkingContentSchema = z.object({
-  type: z.literal("thinking").default("thinking" as const),
-  thinking: z.string().default("" as const),
-  signature: z.union([z.string(), z.null()]).default("" as const),
-});
-
-export type MessageThinkingContent = z.infer<
-  typeof MessageThinkingContentSchema
->;
-
-export function createMessageThinkingContent(
-  options: Partial<MessageThinkingContent> = {},
-): MessageThinkingContent {
-  return MessageThinkingContentSchema.parse(options);
-}
-
-const SystemChatMessageSchema = z.object({
-  id: z.string().default(create_new_id),
-  role: z.literal("system").default(ChatRoleEnum.system),
-  content: z
-    .array(
-      z.union([
-        MessageTextContentSchema,
-        MessageImageUrlContentSchema,
-        MessageThinkingContentSchema,
-      ]),
-    )
-    .default([]),
-});
-
-const ToolCallFunctionSchema = z.object({
-  name: z.string(),
-  arguments: z.record(z.string(), z.any()).default({}),
-});
-
-const ToolCallSchema = z.object({
-  id: z.string().default(create_new_id),
-  type: z.literal("function").default("function" as const),
-  function: ToolCallFunctionSchema,
-});
-
-export type ToolCall = z.infer<typeof ToolCallSchema>;
-
-const AssistantChatMessageSchema = z.object({
-  id: z.string().default(create_new_id),
-  role: z.literal("assistant").default(ChatRoleEnum.assistant),
-  content: z
-    .array(
-      z.union([
-        MessageTextContentSchema,
-        MessageImageUrlContentSchema,
-        MessageThinkingContentSchema,
-      ]),
-    )
-    .default([]),
-  tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
-});
-
-export type AssistantChatMessage = z.infer<typeof AssistantChatMessageSchema>;
-
-const UserChatMessageSchema = z.object({
-  id: z.string().default(create_new_id),
-  role: z.literal("user").default(ChatRoleEnum.user),
-  content: z
-    .array(
-      z.union([
-        MessageTextContentSchema,
-        MessageImageUrlContentSchema,
-        MessageThinkingContentSchema,
-      ]),
-    )
-    .default([]),
-});
-
-const AnnotationsSchema = z.object({
-  audience: z
-    .union([z.array(z.literal(["user", "assistant"])), z.null()])
-    .default(null),
-  priority: z.union([z.number(), z.null()]).default(null),
-});
-
-const TextContentSchema = z.object({
-  type: z.literal("text"),
-  text: z.string(),
-  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-const ImageContentSchema = z.object({
-  type: z.literal("image"),
-  data: z.string(),
-  mimeType: z.string(),
-  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-const TextResourceContentsSchema = z.object({
-  uri: z.url(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  text: z.string(),
-});
-
-const BlobResourceContentsSchema = z.object({
-  uri: z.url(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  blob: z.string(),
-});
-
-const EmbeddedResourceSchema = z.object({
-  type: z.literal("resource"),
-  resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
-  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-const ToolReferenceContentSchema = z.object({
-  type: z.literal("tool_reference").default("tool_reference" as const),
-  tool_name: z.string(),
-});
-
-const ToolChatMessageSchema = z.object({
-  id: z.string().default(create_new_id),
-  role: z.literal("tool").default(ChatRoleEnum.tool),
-  tool_call_id: z.string(),
-  tool_name: z.union([z.string(), z.null()]).default(null),
-  arguments: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default({}),
-  result: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-  content: z
-    .array(
-      z.union([
-        TextContentSchema,
-        ImageContentSchema,
-        EmbeddedResourceSchema,
-        ToolReferenceContentSchema,
-      ]),
-    )
-    .default([]),
-  is_error: z.boolean().default(false),
-  started_at: z.iso.datetime().default(get_now_timestamp),
-  completed_at: z.union([z.iso.datetime(), z.null()]).default(null),
-});
-
-export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
-
 const BaseChatMessageUnionSchema = z.union([
   SystemChatMessageSchema,
   AssistantChatMessageSchema,
@@ -947,104 +1066,6 @@ const BaseChatMessageUnionSchema = z.union([
 ]);
 
 export type BaseChatMessageUnion = z.infer<typeof BaseChatMessageUnionSchema>;
-
-const MessageStartEventSchema = z.object({
-  type: z
-    .literal("message_start")
-    .default(StreamingEventTypeEnum.MESSAGE_START),
-  message: z.union([
-    SystemChatMessageSchema,
-    AssistantChatMessageSchema,
-    UserChatMessageSchema,
-    ToolChatMessageSchema,
-  ]),
-});
-
-export type MessageStartEvent = z.infer<typeof MessageStartEventSchema>;
-
-const MessageTextDeltaSchema = z.object({
-  type: z.literal("text_delta").default("text_delta" as const),
-  index: z.int(),
-  text: z.string(),
-});
-
-const MessageThinkingDeltaSchema = z.object({
-  type: z.literal("thinking_delta").default("thinking_delta" as const),
-  index: z.int(),
-  thinking: z.string(),
-  signature: z.union([z.string(), z.null()]).default(null),
-});
-
-const MessageDeltaEventSchema = z.object({
-  type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
-  message_id: z.string(),
-  content: z
-    .union([
-      z.array(z.union([MessageTextDeltaSchema, MessageThinkingDeltaSchema])),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type MessageDeltaEvent = z.infer<typeof MessageDeltaEventSchema>;
-
-const ToolCallDeltaEventSchema = z.object({
-  type: z
-    .literal("tool_call_delta")
-    .default(StreamingEventTypeEnum.TOOL_CALL_DELTA),
-  message_id: z.string(),
-  tool_call_id: z.string(),
-  arguments_delta: z.string(),
-  tool_name: z.union([z.string(), z.null()]).default(null),
-});
-
-export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
-
-const ToolResultEventSchema = z.object({
-  type: z.literal("tool_result").default(StreamingEventTypeEnum.TOOL_RESULT),
-  result: ToolChatMessageSchema,
-});
-
-export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
-
-const ToolArgumentPreviewDeltaEventSchema = z.object({
-  type: z
-    .literal("tool_argument_preview_delta")
-    .default(StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA),
-  message_id: z.string(),
-  tool_call_id: z.string(),
-  tool_name: z.string(),
-  arguments_delta: z.string(),
-  preview_kind: z.enum(ToolArgumentPreviewKindEnum),
-  target_ids_by_type: z.record(
-    z.literal(["section", "codeObj"]),
-    z.array(IDSchema),
-  ),
-  preview_value_delta: z.string(),
-});
-
-export type ToolArgumentPreviewDeltaEvent = z.infer<
-  typeof ToolArgumentPreviewDeltaEventSchema
->;
-
-const MessageStopEventSchema = z.object({
-  type: z.literal("message_stop").default(StreamingEventTypeEnum.MESSAGE_STOP),
-  message_id: z.string(),
-});
-
-const MessageFinalizedEventSchema = z.object({
-  type: z
-    .literal("message_finalized")
-    .default(StreamingEventTypeEnum.MESSAGE_FINALIZED),
-  message: z.union([
-    SystemChatMessageSchema,
-    AssistantChatMessageSchema,
-    UserChatMessageSchema,
-    ToolChatMessageSchema,
-  ]),
-});
-
-export type MessageFinalizedEvent = z.infer<typeof MessageFinalizedEventSchema>;
 
 const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
@@ -3178,98 +3199,6 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
-const SectionTypeCodegenPolicySchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
-
-function createSectionTypeCodegenPolicy(
-  options: Partial<SectionTypeCodegenPolicy> = {},
-): SectionTypeCodegenPolicy {
-  return SectionTypeCodegenPolicySchema.parse(options);
-}
-
-const SectionCodegenOverrideSchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-const SectionCodegenPolicySchema = z.object({
-  allowlist: z
-    .union([z.array(z.enum(SectionTypeEnum)), z.null()])
-    .default(() => [
-      SectionTypeEnum.Callable,
-      SectionTypeEnum.Dict,
-      SectionTypeEnum.ListRoot,
-      SectionTypeEnum.Group,
-      SectionTypeEnum.GlobalVariables,
-      SectionTypeEnum.TextBlock,
-      SectionTypeEnum.Draw,
-      SectionTypeEnum.MetaControl,
-    ]),
-  exclude: z.array(IDSchema).default([]),
-  typePolicies: z
-    .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
-    .default(() => ({
-      Callable: createSectionTypeCodegenPolicy(),
-      Dict: createSectionTypeCodegenPolicy(),
-      ListRoot: createSectionTypeCodegenPolicy(),
-      Group: createSectionTypeCodegenPolicy(),
-      Image: createSectionTypeCodegenPolicy(),
-      Chart: createSectionTypeCodegenPolicy(),
-      Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.base64,
-      }),
-      TextBlock: createSectionTypeCodegenPolicy(),
-      MetaControl: createSectionTypeCodegenPolicy(),
-      Social: createSectionTypeCodegenPolicy(),
-      GlobalVariables: createSectionTypeCodegenPolicy(),
-      Code: createSectionTypeCodegenPolicy(),
-      GenPythonCode: createSectionTypeCodegenPolicy(),
-      Terminal: createSectionTypeCodegenPolicy(),
-      IFrame: createSectionTypeCodegenPolicy(),
-      Chat: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      Browser: createSectionTypeCodegenPolicy(),
-    })),
-  sectionOverrides: z
-    .record(IDSchema, SectionCodegenOverrideSchema)
-    .default({}),
-});
-
-type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
-
-function createSectionCodegenPolicy(
-  options: Partial<SectionCodegenPolicy> = {},
-): SectionCodegenPolicy {
-  return SectionCodegenPolicySchema.parse(options);
-}
-
-const ProjectCodegenPythonTargetSchema = z.object({
-  language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
-  generateMetadata: z.boolean().default(false),
-  sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
-});
-
-export type ProjectCodegenPythonTarget = z.infer<
-  typeof ProjectCodegenPythonTargetSchema
->;
-
-export function createProjectCodegenPythonTarget(
-  options: Partial<ProjectCodegenPythonTarget> = {},
-): ProjectCodegenPythonTarget {
-  return ProjectCodegenPythonTargetSchema.parse(options);
-}
-
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3314,9 +3243,8 @@ const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  codegenTargets: z
-    .array(ProjectCodegenPythonTargetSchema)
-    .default(() => [createProjectCodegenPythonTarget()]),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("state = SettaState()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -4672,6 +4600,87 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
+const AgentProfileSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.union([z.string(), z.null()]).default(null),
+  systemPrompt: z.union([z.string(), z.null()]).default(null),
+  llmConfigId: z.string(),
+  toolAllowlist: z.union([z.array(z.string()), z.null()]).default(null),
+  memoryScope: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+});
+
+export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+
+const AgentProfilesUpdateContentSchema = z.object({
+  profiles: z.array(AgentProfileSchema),
+});
+
+const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AgentProfilesUpdateContentSchema,
+  messageType: z
+    .literal("AgentProfilesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
+});
+
+const PromptTemplateSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.union([z.string(), z.null()]).default(null),
+  template: z.string(),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.jinja),
+  inputSchema: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  metadata: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+});
+
+export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
+
+const PromptAssetsUpdateContentSchema = z.object({
+  prompts: z.array(PromptTemplateSchema),
+});
+
+const WebsocketMsgPromptAssetsUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: PromptAssetsUpdateContentSchema,
+  messageType: z
+    .literal("PromptAssetsUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.PromptAssetsUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4723,6 +4732,8 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
+  WebsocketMsgAgentProfilesUpdatedSchema,
+  WebsocketMsgPromptAssetsUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -4930,6 +4941,108 @@ const FolderContentItemSchema = z.object({
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
+
+const RunCostsSchema = z.object({
+  inputTokens: z.union([z.int(), z.null()]).default(null),
+  outputTokens: z.union([z.int(), z.null()]).default(null),
+  totalTokens: z.union([z.int(), z.null()]).default(null),
+  totalCost: z.union([z.number(), z.null()]).default(null),
+  currency: z.union([z.string(), z.null()]).default(null),
+});
+
+const RunEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  type: z.enum(RunEventTypeEnum),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+  inputs: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  outputs: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  status: z.union([z.enum(AgentRunStatusEnum), z.null()]).default(null),
+  costs: z.union([RunCostsSchema, z.null()]).default(null),
+  toolCall: z.union([ToolCallSchema, z.null()]).default(null),
+  toolResult: z.union([ToolChatMessageSchema, z.null()]).default(null),
+  streamChunk: z
+    .union([
+      MessageStartEventSchema,
+      MessageDeltaEventSchema,
+      ToolCallDeltaEventSchema,
+      ToolResultEventSchema,
+      ToolArgumentPreviewDeltaEventSchema,
+      MessageStopEventSchema,
+      MessageFinalizedEventSchema,
+      z.null(),
+    ])
+    .default(null),
+  metadata: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+});
+
+const AgentRunSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  inputs: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  outputs: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  toolCalls: z.array(ToolCallSchema).default([]),
+  status: z.enum(AgentRunStatusEnum).default(AgentRunStatusEnum.queued),
+  startedAt: z.iso.datetime().default(get_now_timestamp),
+  completedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  costs: z.union([RunCostsSchema, z.null()]).default(null),
+  events: z.array(RunEventSchema).default([]),
+});
+
+export type AgentRun = z.infer<typeof AgentRunSchema>;
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -5355,6 +5468,58 @@ const WebsocketMsgSchema = z.object({
 });
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
+
+const CreateAgentProfileRequestSchema = z.object({
+  profile: AgentProfileSchema,
+});
+
+export type CreateAgentProfileRequestInput = z.input<
+  typeof CreateAgentProfileRequestSchema
+>;
+
+const CreatePromptTemplateRequestSchema = z.object({
+  prompt: PromptTemplateSchema,
+});
+
+export type CreatePromptTemplateRequestInput = z.input<
+  typeof CreatePromptTemplateRequestSchema
+>;
+
+const StartAgentRunRequestSchema = z.object({
+  agentProfileId: IDSchema,
+  inputs: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+});
+
+export type StartAgentRunRequestInput = z.input<
+  typeof StartAgentRunRequestSchema
+>;
+
+const UpdateAgentProfileRequestSchema = z.object({
+  profile: AgentProfileSchema,
+});
+
+export type UpdateAgentProfileRequestInput = z.input<
+  typeof UpdateAgentProfileRequestSchema
+>;
+
+const UpdatePromptTemplateRequestSchema = z.object({
+  prompt: PromptTemplateSchema,
+});
+
+export type UpdatePromptTemplateRequestInput = z.input<
+  typeof UpdatePromptTemplateRequestSchema
+>;
 
 const DeleteLLMChatRequestSchema = z.object({
   chatId: IDSchema,
@@ -6195,16 +6360,6 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
->;
-
-const SetProjectConfigCodegenTargetsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
-});
-
-export type SetProjectConfigCodegenTargetsRequestInput = z.input<
-  typeof SetProjectConfigCodegenTargetsRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({

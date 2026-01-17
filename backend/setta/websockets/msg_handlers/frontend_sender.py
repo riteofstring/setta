@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
+from setta.types.agentic import AgentProfile, PromptTemplate
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
@@ -36,9 +37,12 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
+    AgentProfilesUpdateContent,
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
+    PromptAssetsUpdateContent,
     WebsocketConnectionType,
+    WebsocketMsgAgentProfilesUpdated,
     WebsocketMsgAIFollowToolArgumentsUpdate,
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllProjectMetadata,
@@ -49,6 +53,7 @@ from setta.types.websocket import (
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgPromptAssetsUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
@@ -361,6 +366,32 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self._broadcast_frontend(
             WebsocketMsgLLMApiKeysUpdated(content=payload),
+            share_session_id,
+        )
+
+    async def broadcast_agent_profiles_update(
+        self,
+        profiles: list[AgentProfile],
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
+            WebsocketMsgAgentProfilesUpdated(
+                content=AgentProfilesUpdateContent(profiles=profiles)
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_prompt_assets_update(
+        self,
+        prompts: list[PromptTemplate],
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
+            WebsocketMsgPromptAssetsUpdated(
+                content=PromptAssetsUpdateContent(prompts=prompts)
+            ),
             share_session_id,
         )
 

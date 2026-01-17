@@ -1,4 +1,3 @@
-import * as Switch from "@radix-ui/react-switch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
@@ -19,7 +18,6 @@ import {
 } from "state/actions/sectionInfos";
 import {
   CustomRunItem,
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useRunControl,
@@ -29,14 +27,7 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  getPythonCodegenTarget,
-  projectConfigHasPythonCodegen,
-} from "utils/codegenTargets";
-import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
-import {
-  createProjectCodegenPythonTarget,
   isBaseParentSectionImpl,
-  ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
   type Core,
@@ -47,12 +38,6 @@ import {
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 type RunSnapshotModeChoice = RunSnapshotMode | "default";
-
-const TOGGLE_ROOT_CLASSES =
-  "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
-const TOGGLE_THUMB_CLASSES =
-  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
-const TOGGLE_LABEL_CLASSES = "text-[10px] text-setta-500 dark:text-setta-400";
 
 const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
   value: RunSnapshotMode;
@@ -91,8 +76,7 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
 export function RunInstructions() {
   const { canRun } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const projectConfig = useProjectState((x) => x.projectConfig);
-  const projectConfigId = projectConfig.id;
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const runSnapshotModeOverride = useLocalStorage(
     (x) => x.runSnapshotModeByProjectConfigId[projectConfigId],
   );
@@ -111,38 +95,6 @@ export function RunInstructions() {
       continuousRunCustomRunId: x.continuousRunCustomRunId,
     }));
   const runnableCodeBlocks = useRunnableCodeBlockListing();
-  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
-  const currentPythonTarget = getPythonCodegenTarget(projectConfig);
-  const nonPythonTargets = projectConfig.codegenTargets.filter(
-    (target) => target.language !== ProjectCodegenLanguageEnum.python,
-  );
-
-  const handleCodegenTargetToggle = (checked: boolean): void => {
-    if (isShareMode) {
-      return;
-    }
-    const nextTargets = checked
-      ? [
-          ...nonPythonTargets,
-          currentPythonTarget ?? createProjectCodegenPythonTarget(),
-        ]
-      : nonPythonTargets;
-    void route_set_project_config_codegen_targets({
-      projectConfigId,
-      codegenTargets: nextTargets,
-    });
-    useAllProjectMetadata.setState((state) => ({
-      ...state,
-      projectMetadata: state.projectMetadata.map((entry) =>
-        entry.id === projectConfigId
-          ? { ...entry, codegenTargets: nextTargets }
-          : entry,
-      ),
-    }));
-    useProjectState.setState((state) => {
-      state.projectConfig.codegenTargets = nextTargets;
-    });
-  };
 
   React.useEffect(() => {
     if (!canRun) {
@@ -224,29 +176,6 @@ export function RunInstructions() {
               </option>
             ))}
           </select>
-        </div>
-      )}
-      {!isShareMode && (
-        <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-              Codegen Targets
-            </div>
-            <div className="text-[11px] text-setta-600 dark:text-setta-300">
-              Enable generated code sections for this project.
-            </div>
-          </div>
-          <div className="ml-2 flex items-center gap-1">
-            <span className={TOGGLE_LABEL_CLASSES}>Python</span>
-            <Switch.Root
-              className={TOGGLE_ROOT_CLASSES}
-              checked={pythonCodegenEnabled}
-              disabled={isShareMode}
-              onCheckedChange={handleCodegenTargetToggle}
-            >
-              <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-            </Switch.Root>
-          </div>
         </div>
       )}
 
@@ -405,7 +334,6 @@ function useRunnableCodeBlockListing() {
     const outputList: Array<RunnableCodeBlock> = [];
     const viewMode = getActiveViewModeConfig(x);
     const { isEditingViewMode } = x.projectConfig;
-    const pythonCodegenEnabled = projectConfigHasPythonCodegen(x.projectConfig);
     for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
@@ -416,7 +344,6 @@ function useRunnableCodeBlockListing() {
         x,
         viewMode,
         isEditingViewMode,
-        pythonCodegenEnabled,
         outputList,
       );
     }
@@ -431,13 +358,11 @@ function getRunnableCodeBlockListingHelper(
   x: ZustandProjectState,
   viewMode: ViewModeConfig,
   isEditingViewMode: boolean,
-  pythonCodegenEnabled: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {
   const isRunnable =
     sectionImpl.type === SectionTypeEnum.Code ||
-    (pythonCodegenEnabled &&
-      sectionImpl.type === SectionTypeEnum.GenPythonCode);
+    sectionImpl.type === SectionTypeEnum.GenPythonCode;
 
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
@@ -463,7 +388,6 @@ function getRunnableCodeBlockListingHelper(
         x,
         viewMode,
         isEditingViewMode,
-        pythonCodegenEnabled,
         outputList,
       );
     }
