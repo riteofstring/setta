@@ -8,6 +8,7 @@ can grow into multi-language generation later.
 - Allow each project config to enable/disable generated code explicitly.
 - Keep the Python codegen path intact for standard projects.
 - Ensure settings-only projects never create generated Python files or LSP sessions.
+- Keep manual `Code` sections runnable even when `codegenTargets` is empty.
 - Lay groundwork for multiple codegen targets in a single project.
 
 ## Non-Goals (for this pass)
@@ -32,20 +33,27 @@ can grow into multi-language generation later.
   code is written.
 
 ## Backend Behavior Updates
-- Skip Python code generation entirely when the project lacks a Python target.
+- Skip Python code generation entirely when the project lacks a Python target,
+  but keep manual code sections fully active.
   - `ProjectStateSingleConfig.validate_code_file_bindings` should only create
     `genCodeBinding` when Python is enabled; otherwise keep it `None`.
   - `CodeFiles._generate_bindings_for_config` should skip GenPython bindings
     if `genCodeBinding` is `None`.
   - `BaseProjectManager._refresh_codegen_state` should:
-    - Short-circuit when Python is disabled.
     - Clean up any cached `ProjectGenPythonCode` for that config.
-    - Avoid LSP sync calls for generated code.
-- Guard all gen-code-only operations with explicit checks and clear errors:
-  - `create_run_command`, `type_check`, completions, `set_callable`,
+    - Skip generator work + LSP sync for generated code only.
+    - Still build/update `ProjectPythonCode`/`ProjectBashCode` entries for
+      manual `Code` sections (including LSP for Python code sections).
+- Guard gen-code-only operations with explicit checks and clear errors:
+  - `type_check`, gen-code completions, `set_callable`,
     `gen_code_prefix_completion`, `gen_code_suffix_completion`.
   - If Python is disabled, raise a clear `KeyError` or return a no-op response
     depending on the endpoint’s semantics.
+- Update `create_run_command` to allow running manual `Code` sections even when
+  Python codegen is disabled.
+  - If `sectionId` (or `entryCodeBlockId`) targets a manual code section, run it.
+  - If no runnable section is specified and Python codegen is disabled, raise a
+    clear error.
 - Ensure share/deployment paths don’t force gen code bindings:
   - Update `ShareRuntimeState._ensure_gen_code_binding` to no-op if Python is
     not enabled.
@@ -67,7 +75,14 @@ can grow into multi-language generation later.
 - Read `projectConfig.codegenTargets` to drive UI:
   - Hide “Show Generated Python” in the section menu when Python is disabled.
   - Hide GenPythonCode sections in run lists if Python codegen is disabled.
-  - Disable or hide Python-only actions (run button, codegen completions).
+  - Keep manual `Code` sections in run lists regardless of codegen targets.
+  - Disable or adjust only gen-code-specific actions; keep code-section
+    run actions and code completions intact.
+- Main run button behavior:
+  - If Python codegen is disabled and `entryCodeBlockId` points to a manual code
+    section, run that section.
+  - If there is no entry code block, disable the main run button or show a
+    clear prompt.
 - Add UI to edit project codegen targets (likely in Overview > Project Config):
   - Toggle Python codegen on/off per project.
   - When toggled off, remove the GenPythonCode section (if present) or mark it
@@ -85,7 +100,9 @@ can grow into multi-language generation later.
 ## Tests
 - Backend unit tests:
   - Settings project creates no `genCodeBinding`.
-  - `create_run_command` errors with a clear message when Python is disabled.
+  - `create_run_command` runs manual code sections even when Python is disabled.
+  - `create_run_command` errors with a clear message when there is no runnable
+    section and Python is disabled.
   - `validate_code_file_bindings` leaves GenPythonCode binding empty when no
     Python target exists.
   - Share runtime state skips gen code binding creation for non-Python configs.
