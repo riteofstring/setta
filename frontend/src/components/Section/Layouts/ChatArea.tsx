@@ -6,7 +6,7 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChatSectionChatIdUpdate,
   clearPendingChatDetails,
@@ -193,6 +193,7 @@ function ScriptableChatArea({
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
+  const [draftInputText, setDraftInputText] = useState<string | null>(null);
 
   const applyChatState = useCallback(
     (nextState: ChatSectionState) => {
@@ -217,20 +218,6 @@ function ScriptableChatArea({
     [projectConfigId, sectionId],
   );
 
-  const applyChatStateLocal = useCallback(
-    (nextState: ChatSectionState) => {
-      useProjectState.setState((state) => {
-        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-          messages: nextState.messages,
-          inputText: nextState.inputText,
-          waitingForResponse: nextState.waitingForResponse,
-          toolCallArguments: nextState.toolCallArguments,
-        });
-      });
-    },
-    [sectionId],
-  );
-
   const handleInputChange = useCallback(
     (value: string) => {
       const current = getCurrEffectiveSectionImplOfType(
@@ -238,6 +225,10 @@ function ScriptableChatArea({
         sectionId,
         SectionTypeEnum.Chat,
       );
+      if (current.waitingForResponse) {
+        setDraftInputText(value);
+        return;
+      }
       if (value === current.inputText) {
         return;
       }
@@ -247,14 +238,38 @@ function ScriptableChatArea({
         waitingForResponse: current.waitingForResponse,
         toolCallArguments: current.toolCallArguments,
       };
-      if (current.waitingForResponse) {
-        applyChatStateLocal(nextState);
-        return;
-      }
       applyChatState(nextState);
     },
-    [applyChatState, applyChatStateLocal, sectionId],
+    [applyChatState, sectionId],
   );
+
+  useEffect(() => {
+    if (waitingForResponse) {
+      return;
+    }
+    if (draftInputText === null) {
+      return;
+    }
+    if (draftInputText === inputText) {
+      setDraftInputText(null);
+      return;
+    }
+    const nextState = {
+      messages,
+      inputText: draftInputText,
+      waitingForResponse,
+      toolCallArguments,
+    };
+    applyChatState(nextState);
+    setDraftInputText(null);
+  }, [
+    applyChatState,
+    draftInputText,
+    inputText,
+    messages,
+    toolCallArguments,
+    waitingForResponse,
+  ]);
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
@@ -344,6 +359,11 @@ function ScriptableChatArea({
     toolCallArguments,
   ]);
 
+  let effectiveInputText = inputText;
+  if (waitingForResponse && draftInputText !== null) {
+    effectiveInputText = draftInputText;
+  }
+
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
 
   return (
@@ -359,7 +379,7 @@ function ScriptableChatArea({
         placeholderText="Type a message..."
         waitingForResponse={waitingForResponse}
         disabled={isFrozen}
-        value={inputText}
+        value={effectiveInputText}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onStop={handleStop}
