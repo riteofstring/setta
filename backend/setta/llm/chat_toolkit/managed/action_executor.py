@@ -25,7 +25,7 @@ from .actions import (
 )
 from .ai_follow import build_tool_result_follow_ids
 from .sanitization import sanitize_tool_arguments
-from .tool_runner import build_missing_tool_result
+from .tool_runner import build_disallowed_tool_result, build_missing_tool_result
 from .tool_search import build_search_tool_chat_message, run_local_search_tool
 from .utils import is_setta_tool_name
 
@@ -152,32 +152,42 @@ class ManagedActionExecutor:
                 available_tools=available_tools,
                 annotations_by_name=annotations_by_name,
             )
-        elif tool_name not in self._mcp_client.routing:
-            self._logger.warning(
-                "MCP tool %s is not registered; skipping call",
-                tool_name,
-            )
-            call_result = build_missing_tool_result(
-                tool_name,
-                self._search_tool_name,
-            )
         else:
-            try:
-                meta = None
-                if action.share_session_id and is_setta_tool_name(tool_name):
-                    meta = {"shareSessionId": action.share_session_id}
-                call_result = await self._mcp_client.call_tool(
-                    tool_name,
-                    arguments,
-                    meta=meta,
-                )
-            except Exception:
-                self._logger.exception(
-                    "MCP tool invocation failed for chat %s (tool=%s)",
-                    action.chat_id,
+            route = self._mcp_client.routing.get(tool_name)
+            if route is None:
+                self._logger.warning(
+                    "MCP tool %s is not registered; skipping call",
                     tool_name,
                 )
-                raise
+                call_result = build_missing_tool_result(
+                    tool_name,
+                    self._search_tool_name,
+                )
+            else:
+                server_id, _ = route
+                if server_id not in action.allowed_server_ids:
+                    self._logger.warning(
+                        "MCP tool %s is not allowed; skipping call",
+                        tool_name,
+                    )
+                    call_result = build_disallowed_tool_result(tool_name)
+                else:
+                    try:
+                        meta = None
+                        if action.share_session_id and is_setta_tool_name(tool_name):
+                            meta = {"shareSessionId": action.share_session_id}
+                        call_result = await self._mcp_client.call_tool(
+                            tool_name,
+                            arguments,
+                            meta=meta,
+                        )
+                    except Exception:
+                        self._logger.exception(
+                            "MCP tool invocation failed for chat %s (tool=%s)",
+                            action.chat_id,
+                            tool_name,
+                        )
+                        raise
         completed_at = get_now_timestamp()
 
         sanitized_arguments = sanitize_tool_arguments(self._dbe, arguments)

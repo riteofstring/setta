@@ -63,12 +63,22 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
             api = RouterEndpointAPI(router_caller)
             client = ChatHistoryClient(api)
 
-            chat_id = await client.ensure_section_chat_id(
+            chat_id, created = await client.ensure_section_chat_id(
                 section_id=section_id,
                 llm_config_id=llm_config.id,
                 first_message=user_message([message_text("Hello listener")]),
                 project_config_id=project_config_id,
             )
+            self.assertTrue(created)
+
+            chat_id_repeat, created_repeat = await client.ensure_section_chat_id(
+                section_id=section_id,
+                llm_config_id=llm_config.id,
+                first_message=user_message([message_text("Hello listener")]),
+                project_config_id=project_config_id,
+            )
+            self.assertEqual(chat_id_repeat, chat_id)
+            self.assertFalse(created_repeat)
             chat = await client.get(
                 chat_id=chat_id,
                 project_config_id=project_config_id,

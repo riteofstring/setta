@@ -139,13 +139,13 @@ class ChatHistoryClient:
         llm_config_id: str,
         first_message: BaseChatMessageUnion,
         project_config_id: ID | None = None,
-    ) -> ID:
+    ) -> tuple[ID, bool]:
         payload: dict[str, object] = {"sectionId": section_id}
         if project_config_id is not None:
             payload["projectConfigId"] = project_config_id
         chat_id = await self._project_manager.get_chat_section_chat_id(payload)
         if chat_id:
-            return ID(chat_id)
+            return ID(chat_id), False
         chat = await self.create(
             llm_config_id=llm_config_id,
             first_message=first_message,
@@ -155,7 +155,7 @@ class ChatHistoryClient:
         if project_config_id is not None:
             set_payload["projectConfigId"] = project_config_id
         await self._project_manager.set_chat_section_chat_id(set_payload)
-        return chat.id
+        return chat.id, True
 
 
 class ChatStreamEmitterClient:
@@ -441,12 +441,13 @@ class ChatSession:
             id=resolved_event.messageId,
             content=[MessageTextContent(text=resolved_event.text)],
         )
-        chat_id = await history.ensure_section_chat_id(
+        chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
             llm_config_id=llm_config_id,
             first_message=user_message,
         )
-        await history.append(chat_id=chat_id, messages=[user_message])
+        if not created:
+            await history.append(chat_id=chat_id, messages=[user_message])
 
         return cls(
             section_id=section_id,

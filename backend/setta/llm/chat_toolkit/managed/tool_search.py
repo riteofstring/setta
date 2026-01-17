@@ -27,6 +27,8 @@ def run_local_search_tool(
     limit = arguments.get("limit")
     if limit is None:
         limit = 2
+    elif isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError("limit must be an integer")
 
     entries = build_tool_search_entries_from_llm_definitions(
         available_tools,

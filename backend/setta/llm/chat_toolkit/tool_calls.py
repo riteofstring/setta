@@ -74,5 +74,8 @@ class ToolCallAccumulator:
         for tool_call in calls:
             buffer = self._argument_buffers.get(tool_call.id, "")
             if buffer:
-                tool_call.function.arguments = json.loads(buffer)
+                try:
+                    tool_call.function.arguments = json.loads(buffer)
+                except json.JSONDecodeError:
+                    tool_call.function.arguments = {}
         return calls

@@ -77,7 +77,7 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-chat_id = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     project_config_id=ctx.project_config_id,
     section_id=section_id,
     llm_config_id="my-llm",
@@ -138,7 +138,7 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-chat_id = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     project_config_id=ctx.project_config_id,
     section_id=section_id,
     llm_config_id="my-llm",

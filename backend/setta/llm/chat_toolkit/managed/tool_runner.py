@@ -38,3 +38,14 @@ def build_missing_tool_result(
         structuredContent={"error": message, "tool_name": tool_name},
         isError=True,
     )
+
+
+def build_disallowed_tool_result(
+    tool_name: str,
+) -> CallToolResult:
+    message = f"MCP tool '{tool_name}' is not allowed for this chat."
+    return CallToolResult(
+        content=[TextContent(type="text", text=message)],
+        structuredContent={"error": message, "tool_name": tool_name},
+        isError=True,
+    )

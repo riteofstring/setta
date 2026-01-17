@@ -63,6 +63,14 @@ class ManagedToolSearchTests(unittest.TestCase):
         ]
         self.assertIn(tool_name, reference_blocks)
 
+    def test_search_tool_rejects_non_integer_limit(self) -> None:
+        with self.assertRaises(ValueError):
+            run_local_search_tool(
+                arguments={"query": "alpha", "limit": "two"},
+                available_tools={},
+                annotations_by_name={},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

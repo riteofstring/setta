@@ -27,6 +27,19 @@ class ToolCallAccumulatorTests(unittest.TestCase):
         self.assertEqual(calls[0].function.arguments, {"value": "ok"})
         self.assertEqual(calls[1].function.arguments, {"flag": True})
 
+    def test_finalize_handles_invalid_json(self) -> None:
+        accumulator = ToolCallAccumulator()
+        accumulator.apply_delta(
+            tool_call_id="call-1",
+            arguments_delta='{"value":',
+            tool_name="setta__one",
+        )
+
+        calls = accumulator.finalize()
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].function.arguments, {})
+
     def test_builder_parses_dict_and_json_string(self) -> None:
         built = ToolCallBuilder.from_name_and_args(
             name="setta__alpha",

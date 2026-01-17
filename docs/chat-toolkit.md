@@ -63,7 +63,7 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-chat_id = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     section_id=section_id,
     llm_config_id="my-llm",
     first_message=user_message([message_text(event.text)]),
@@ -127,7 +127,7 @@ event = on_chat_send_event(ctx, section_id=section_id)
 if not event:
     return
 
-chat_id = await history.ensure_section_chat_id(
+chat_id, _ = await history.ensure_section_chat_id(
     section_id=section_id,
     llm_config_id="my-llm",
     first_message=user_message([message_text(event.text)]),
