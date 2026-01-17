@@ -16,6 +16,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
 )
 from setta.types.edges import EdgePort
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -24,7 +25,6 @@ from setta.types.section_impls import (
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -44,7 +44,6 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
-    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
@@ -162,8 +161,14 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=405, height=405)
     )
-    agentProfileId: ID | None = None
-    agentRunId: ID | None = None
+    managed: bool = False
+    llmConfigId: str | None = None
+    chatId: ID | None = None
+    deepThink: bool = False
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    inputText: str = ""
+    waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
 
 
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

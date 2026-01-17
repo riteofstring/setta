@@ -65,9 +65,9 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    ChatSectionState,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -308,6 +308,12 @@ class ListenerGetChatRequestPayload(TypedDict):
     chatId: ID
 
 
+class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+
+
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -319,12 +325,28 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
+class ListenerIndentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+
+
 class ListenerKillSubprocessesRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
 class ListenerListenerCoverageRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
+
+
+class ListenerMoveParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+    newParentId: ID
+    newIndex: int
 
 
 class ListenerMoveSectionRequestPayload(TypedDict):
@@ -459,12 +481,27 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
     chartType: ChartType
 
 
+class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    chatId: ID | None
+
+
 class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
-    agentProfileId: ID | None
-    agentRunId: ID | None
+    managed: bool
+    llmConfigId: str | None
+    deepThink: bool
+
+
+class ListenerSetChatSectionStateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    state: ChatSectionState
 
 
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
@@ -614,13 +651,6 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
-
-
-class ListenerSetSectionWithParamsDisplayModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    displayMode: SectionWithParamsDisplayMode
 
 
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
@@ -776,6 +806,13 @@ class ListenerUngroupGroupsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     groupIds: list[ID]
+
+
+class ListenerUnindentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
 
 
 class ListenerUnselectAllParamsRequestPayload(TypedDict):
@@ -941,6 +978,11 @@ class RouterEndpointAPI:
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
         return await self._caller("route_get_chat", payload)
 
+    async def get_chat_section_chat_id(
+        self, payload: ListenerGetChatSectionChatIdRequestPayload
+    ) -> str | None:
+        return await self._caller("route_get_chat_section_chat_id", payload)
+
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
@@ -956,10 +998,16 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_group_sections", payload)
 
+    async def indent_params(self, payload: ListenerIndentParamsRequestPayload) -> None:
+        return await self._caller("route_indent_params", payload)
+
     async def kill_subprocesses(
         self, payload: ListenerKillSubprocessesRequestPayload
     ) -> None:
         return await self._caller("route_kill_subprocesses", payload)
+
+    async def move_params(self, payload: ListenerMoveParamsRequestPayload) -> None:
+        return await self._caller("route_move_params", payload)
 
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)
@@ -1041,10 +1089,20 @@ class RouterEndpointAPI:
     async def set_chart_type(self, payload: ListenerSetChartTypeRequestPayload) -> None:
         return await self._caller("route_set_chart_type", payload)
 
+    async def set_chat_section_chat_id(
+        self, payload: ListenerSetChatSectionChatIdRequestPayload
+    ) -> None:
+        return await self._caller("route_set_chat_section_chat_id", payload)
+
     async def set_chat_section_settings(
         self, payload: ListenerSetChatSectionSettingsRequestPayload
     ) -> None:
         return await self._caller("route_set_chat_section_settings", payload)
+
+    async def set_chat_section_state(
+        self, payload: ListenerSetChatSectionStateRequestPayload
+    ) -> None:
+        return await self._caller("route_set_chat_section_state", payload)
 
     async def set_chat_system_prompt(
         self, payload: ListenerSetChatSystemPromptRequestPayload
@@ -1151,11 +1209,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionVariantNameRequestPayload
     ) -> None:
         return await self._caller("route_set_section_variant_name", payload)
-
-    async def set_section_with_params_display_mode(
-        self, payload: ListenerSetSectionWithParamsDisplayModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_with_params_display_mode", payload)
 
     async def set_show_param_display_names(
         self, payload: ListenerSetShowParamDisplayNamesRequestPayload
@@ -1270,6 +1323,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUngroupGroupsRequestPayload
     ) -> None:
         return await self._caller("route_ungroup_groups", payload)
+
+    async def unindent_params(
+        self, payload: ListenerUnindentParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_unindent_params", payload)
 
     async def unselect_all_params(
         self, payload: ListenerUnselectAllParamsRequestPayload

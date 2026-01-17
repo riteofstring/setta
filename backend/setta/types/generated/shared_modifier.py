@@ -10,6 +10,12 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
+)
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
@@ -26,7 +32,6 @@ from setta.types.section_impls import (
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -39,8 +44,6 @@ class SharedModifier(TypedDict):
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeLayerIdx: NotRequired[int]
-    agentProfileId: NotRequired[ID | None]
-    agentRunId: NotRequired[ID | None]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
@@ -51,6 +54,7 @@ class SharedModifier(TypedDict):
     callable: NotRequired[ID | None]
     canvasMode: NotRequired[DrawAreaMode]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
+    chatId: NotRequired[ID | None]
     children: NotRequired[list[ID]]
     choices: NotRequired[list[str]]
     code: NotRequired[str]
@@ -66,7 +70,6 @@ class SharedModifier(TypedDict):
     deepThink: NotRequired[bool]
     defaultVal: NotRequired[str]
     description: NotRequired[str]
-    displayMode: NotRequired[SectionWithParamsDisplayMode]
     drawThrottleDelay: NotRequired[int]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
@@ -80,6 +83,7 @@ class SharedModifier(TypedDict):
     id: NotRequired[ID]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     imagePath: NotRequired[str]
+    inputText: NotRequired[str]
     isFrozen: NotRequired[bool]
     isHorizontalOrientation: NotRequired[bool]
     isInOtherProjectConfigs: NotRequired[bool]
@@ -90,7 +94,14 @@ class SharedModifier(TypedDict):
     jsonSourceMissing: NotRequired[bool]
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
+    llmConfigId: NotRequired[str | None]
+    managed: NotRequired[bool]
     max: NotRequired[float | int]
+    messages: NotRequired[
+        list[
+            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+        ]
+    ]
     metaControlParamId: NotRequired[ID | None]
     metaControlStyle: NotRequired[bool]
     min: NotRequired[float | int]
@@ -113,8 +124,10 @@ class SharedModifier(TypedDict):
     step: NotRequired[float | int]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
+    toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
     typesColumnWidth: NotRequired[float | None]
     url: NotRequired[str]
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode]
+    waitingForResponse: NotRequired[bool]

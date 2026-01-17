@@ -303,94 +303,6 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
-export async function route_list_agent_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.AgentProfile>>
-> {
-  return await get("/agentic/profiles");
-}
-
-export async function route_get_agent_profile(
-  profileId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await get("/agentic/profiles/{profileId}", { profileId });
-}
-
-export async function route_create_agent_profile(
-  x: gt.CreateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/agentic/profiles", x);
-}
-
-export async function route_update_agent_profile(
-  profileId: gt.ID,
-  x: gt.UpdateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/agentic/profiles/{profileId}/update", x, { profileId });
-}
-
-export async function route_delete_agent_profile(
-  profileId: gt.ID,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/agentic/profiles/{profileId}/delete", null, {
-    profileId,
-  });
-}
-
-export async function route_list_agent_runs(
-  agentProfileId: gt.ID | null,
-): Promise<ResponseDataAndStatus<Array<gt.AgentRun>>> {
-  return await get("/agentic/runs", { agentProfileId });
-}
-
-export async function route_get_agent_run(
-  runId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await get("/agentic/runs/{runId}", { runId });
-}
-
-export async function route_start_agent_run(
-  x: gt.StartAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/agentic/runs", x);
-}
-
-export async function route_stop_agent_run(
-  runId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/agentic/runs/{runId}/stop", null, { runId });
-}
-
-export async function route_list_prompt_assets(): Promise<
-  ResponseDataAndStatus<Array<gt.PromptTemplate>>
-> {
-  return await get("/agentic/prompts");
-}
-
-export async function route_get_prompt_asset(
-  promptId: gt.ID,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await get("/agentic/prompts/{promptId}", { promptId });
-}
-
-export async function route_create_prompt_asset(
-  x: gt.CreatePromptTemplateRequestInput,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await post("/agentic/prompts", x);
-}
-
-export async function route_update_prompt_asset(
-  promptId: gt.ID,
-  x: gt.UpdatePromptTemplateRequestInput,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
-  return await post("/agentic/prompts/{promptId}/update", x, { promptId });
-}
-
-export async function route_delete_prompt_asset(
-  promptId: gt.ID,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/agentic/prompts/{promptId}/delete", null, { promptId });
-}
-
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -807,12 +719,6 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
-export async function route_set_section_with_params_display_mode(
-  x: gt.SetSectionWithParamsDisplayModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionWithParamsDisplayMode", x);
-}
-
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -861,6 +767,24 @@ export async function route_set_chat_section_settings(
   return await post("/setChatSectionSettings", x);
 }
 
+export async function route_set_chat_section_state(
+  x: gt.SetChatSectionStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setChatSectionState", x);
+}
+
+async function route_get_chat_section_chat_id(
+  x: gt.GetChatSectionChatIdRequestInput,
+): Promise<ResponseDataAndStatus<string | null>> {
+  return await post("/getChatSectionChatId", x);
+}
+
+export async function route_set_chat_section_chat_id(
+  x: gt.SetChatSectionChatIdRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setChatSectionChatId", x);
+}
+
 export async function route_set_social_url(
   x: gt.SetSocialUrlRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -871,6 +795,24 @@ export async function route_move_section(
   x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/moveSection", x);
+}
+
+export async function route_move_params(
+  x: gt.MoveParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParams", x);
+}
+
+export async function route_indent_params(
+  x: gt.IndentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/indentParams", x);
+}
+
+export async function route_unindent_params(
+  x: gt.UnindentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/unindentParams", x);
 }
 
 export async function route_group_sections(
