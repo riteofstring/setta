@@ -25,7 +25,7 @@ def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:
 
 
 def _resolve_llm_config(ctx: RuntimeContextFromRequest, llm_config_id: str):
-    return ctx.state.chat_manager.config.resolve_config(llm_config_id)
+    return ctx.state.chat_manager.config.resolve_listener_config(llm_config_id)
 
 
 @router.post(Route.GET_LISTENER_COVERAGE)
