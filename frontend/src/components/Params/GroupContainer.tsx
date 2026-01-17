@@ -1,6 +1,6 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
-import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import { Handle } from "forks/xyflow/core/components/Handle";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
@@ -30,6 +30,28 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
+type ResizeHandleDirection =
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "topRight"
+  | "bottomRight"
+  | "bottomLeft"
+  | "topLeft";
+type ResizeDelta = { height: number; width: number };
+type ResizeStartArgs = [
+  event: MouseEvent | TouchEvent,
+  direction: ResizeHandleDirection,
+  ref: HTMLElement,
+];
+type ResizeArgs = [
+  event: MouseEvent | TouchEvent,
+  direction: ResizeHandleDirection,
+  ref: HTMLElement,
+  delta: ResizeDelta,
+];
+
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
@@ -47,7 +69,7 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
 
   return (
     <div
-      className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2"
+      className="section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-hidden pt-2"
       ref={outerRef}
     >
       {waitingForResult ? (
@@ -172,10 +194,9 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     };
 
     const measureHeight = () => {
-      const measuredHeight = Math.max(
-        node.scrollHeight,
-        node.getBoundingClientRect().height,
-      );
+      const zoom = useReactFlow.getState().transform[2];
+      const rectHeight = node.getBoundingClientRect().height / zoom;
+      const measuredHeight = Math.max(node.scrollHeight, rectHeight);
       updateHeight(measuredHeight);
     };
 
@@ -202,7 +223,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
       ref={edgesStripRef}
     >
       <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
@@ -372,18 +393,52 @@ function ResizablePinnedArea({
     _.isEqual,
   );
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
+  const isPinnedManual = typeof height === "number";
+  const resizeStartHeightRef = useRef<number | null>(null);
+  const didResizeRef = useRef(false);
 
-  function onResizeStop(...props) {
-    const { height } = getChangedSize({
-      props,
-      sizeMode: { height: SIZE_MODE.any },
-    });
+  function onResizeStart(...props: ResizeStartArgs) {
+    const [, , ref] = props;
+    didResizeRef.current = false;
+    const parsedHeight = Number.parseFloat(ref.style.height);
+    resizeStartHeightRef.current = Number.isFinite(parsedHeight)
+      ? parsedHeight
+      : ref.offsetHeight;
+  }
+
+  function onResize(...props: ResizeArgs) {
+    const [, , , delta] = props;
+    if (delta.height === 0 && delta.width === 0) {
+      return;
+    }
+    didResizeRef.current = true;
+  }
+
+  function onResizeStop(...props: ResizeArgs) {
+    const [, , ref, delta] = props;
+    const didResize = didResizeRef.current;
+    didResizeRef.current = false;
+    const startHeight = resizeStartHeightRef.current;
+    resizeStartHeightRef.current = null;
+    if (!didResize || (delta.height === 0 && delta.width === 0)) {
+      return;
+    }
+    let nextHeight = Number.parseFloat(ref.style.height);
+    if (!Number.isFinite(nextHeight)) {
+      if (typeof startHeight !== "number") {
+        return;
+      }
+      nextHeight = startHeight + delta.height;
+    }
+    if (!Number.isFinite(nextHeight)) {
+      return;
+    }
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
         state,
         sectionId,
         {
-          pinnedAreaHeight: height,
+          pinnedAreaHeight: Math.max(nextHeight, pinnedParamsAreaMinHeight),
         },
       );
     });
@@ -409,9 +464,11 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className={`relative flex max-h-[50%] w-full flex-col items-start border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 max-h-[50%] w-full flex-col items-start border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${isPinnedManual ? "flex-none" : "flex-initial"} ${roundedBottomClassName}`}
       as="section"
       size={{ height }}
+      onResizeStart={onResizeStart}
+      onResize={onResize}
       onResizeStop={onResizeStop}
       minHeight={pinnedParamsAreaMinHeight}
       maxHeight={maxHeight}
@@ -459,21 +516,41 @@ function GetUnpinnedParams({
   setMaxNestedDepth,
 }) {
   const { ref, isScrollable } = useIsScrollable();
-  const hideUnpinnedParams = useProjectState((x) => {
+  const { hideUnpinnedParams, hasUnpinnedParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    return impl.hideUnpinnedParams;
-  });
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    return {
+      hideUnpinnedParams: impl.hideUnpinnedParams,
+      hasUnpinnedParams:
+        !impl.hideUnpinnedParams &&
+        filteredUnpinned.topLevelParamIds.length > 0,
+    };
+  }, _.isEqual);
+  const { pinnedParamsAreaMinHeight } = useSettings((x) => ({
+    pinnedParamsAreaMinHeight:
+      x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
+  }));
 
   return (
     <div
       className={`section-args-nested grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
         isScrollable ? "nowheel" : ""
-      } min-w-0 !max-w-full`}
+      } min-h-0 min-w-0 !max-w-full ${hasUnpinnedParams ? "flex-auto" : ""}`}
       ref={ref}
+      style={
+        hasUnpinnedParams
+          ? { minHeight: pinnedParamsAreaMinHeight }
+          : undefined
+      }
     >
       {!hideUnpinnedParams && (
         <GetUnpinnedParamsCore

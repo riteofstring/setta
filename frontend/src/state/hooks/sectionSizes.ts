@@ -254,22 +254,30 @@ export function useSectionMinMaxDims(sectionId: string) {
         baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;
       }
       const pinned = getCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = getCurrShownParamIds(x, sectionId, false, true);
       const edgeInputSet = new Set(impl.edgeInputParams);
       const hasPinnedParams = pinned.topLevelParamIds.some(
         (paramId) => !edgeInputSet.has(paramId),
       );
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
       const hasEdges =
         impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
-        let pinnedAreaHeight = sizingPolicy.globals.pinnedParamsAreaMinHeight;
         if (typeof impl.pinnedAreaHeight === "number") {
-          pinnedAreaHeight = Math.max(
+          requiredParamsHeight += Math.max(
             impl.pinnedAreaHeight,
             sizingPolicy.globals.pinnedParamsAreaMinHeight,
           );
+        } else {
+          requiredParamsHeight +=
+            sizingPolicy.globals.pinnedParamsAreaMinHeight;
         }
-        requiredParamsHeight += pinnedAreaHeight;
+      }
+      if (hasUnpinnedParams) {
+        requiredParamsHeight += sizingPolicy.globals.pinnedParamsAreaMinHeight;
       }
       if (hasEdges) {
         requiredParamsHeight += edgesStripHeight;

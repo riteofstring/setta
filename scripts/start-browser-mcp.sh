@@ -2,32 +2,71 @@
 set -euo pipefail
 
 DEBUG_PORT="${DEBUG_PORT:-9222}"
-PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp}"
 CHROME_BIN="${CHROME_BIN:-}"
+AGENT_BROWSER_MCP_BIN="${AGENT_BROWSER_MCP_BIN:-}"
 FOREGROUND="0"
-MODE="playwriter"
+MODE="agent-browser"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+AGENT_BROWSER_EXTRA_ARGS=()
+
+profile_suffix() {
+  local root="$1"
+
+  if command -v shasum >/dev/null 2>&1; then
+    printf "%s" "$root" | shasum -a 256 | awk '{print substr($1,1,12)}'
+    return
+  fi
+
+  if command -v md5 >/dev/null 2>&1; then
+    printf "%s" "$root" | md5 -q 2>/dev/null | awk '{print substr($1,1,12)}'
+    return
+  fi
+
+  basename "$root" | tr ' ' '_'
+}
+
+PROFILE_SUFFIX="$(profile_suffix "$ROOT_DIR")"
+PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}}"
+PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}}"
+MCP_RUN_DIR="${ROOT_DIR}/setta_files/run/mcp"
+
+write_pid() {
+  mkdir -p "$MCP_RUN_DIR"
+  printf "%s\n" "$2" > "$1"
+}
 
 usage() {
   cat <<'EOF'
-Usage: start-browser-mcp.sh [--devtools] [--foreground]
+Usage: start-browser-mcp.sh [--agent-browser] [--playwriter] [--devtools] [--foreground] [-- ...]
 
-Default mode starts your normal Chrome for Playwriter (extension-based).
+Default mode starts Vercel's agent-browser MCP server.
+Use --playwriter to open a dedicated Chrome profile for Playwriter (extension-based).
 Use --devtools to start a dedicated Chrome/Chromium instance with remote
 debugging enabled for chrome-devtools-mcp. This is separate from your main profile.
 
 Environment variables:
   DEBUG_PORT   Remote debugging port (default: 9222)
-  PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp)
+  PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
+  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: /tmp/chrome-profile-playwriter-mcp-<repo>)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
+  AGENT_BROWSER_MCP_BIN  Path to agent-browser-mcp binary (auto-detected if unset)
 
 Flags:
+  --agent-browser  Start the agent-browser MCP server (default)
+  --playwriter     Open Chrome for Playwriter
   --devtools    Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground  Keep the debug browser attached to this terminal (devtools only)
+  --            Pass remaining args to agent-browser-mcp
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --agent-browser)
+      MODE="agent-browser"
+      shift
+      ;;
     --devtools)
       MODE="devtools"
       shift
@@ -35,6 +74,11 @@ while [[ $# -gt 0 ]]; do
     --playwriter)
       MODE="playwriter"
       shift
+      ;;
+    --)
+      shift
+      AGENT_BROWSER_EXTRA_ARGS+=("$@")
+      break
       ;;
     --foreground)
       FOREGROUND="1"
@@ -51,6 +95,36 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$MODE" == "agent-browser" ]]; then
+  if [[ "$FOREGROUND" == "1" ]]; then
+    echo "--foreground only applies to --devtools mode." >&2
+    exit 1
+  fi
+
+  if [[ -z "$AGENT_BROWSER_MCP_BIN" ]]; then
+    if [[ -x "${ROOT_DIR}/frontend/node_modules/.bin/agent-browser-mcp" ]]; then
+      AGENT_BROWSER_MCP_BIN="${ROOT_DIR}/frontend/node_modules/.bin/agent-browser-mcp"
+    elif command -v agent-browser-mcp >/dev/null 2>&1; then
+      AGENT_BROWSER_MCP_BIN="agent-browser-mcp"
+    elif command -v pnpm >/dev/null 2>&1; then
+      AGENT_BROWSER_MCP_BIN="pnpm"
+      AGENT_BROWSER_EXTRA_ARGS=(
+        -C
+        "${ROOT_DIR}/frontend"
+        exec
+        agent-browser-mcp
+        "${AGENT_BROWSER_EXTRA_ARGS[@]}"
+      )
+    else
+      echo "agent-browser-mcp not found. Install it with: pnpm -C frontend add -D --save-exact agent-browser-mcp" >&2
+      exit 1
+    fi
+  fi
+
+  write_pid "${MCP_RUN_DIR}/agent-browser.pid" "$$"
+  exec "$AGENT_BROWSER_MCP_BIN" "${AGENT_BROWSER_EXTRA_ARGS[@]}"
+fi
 
 if [[ -z "$CHROME_BIN" ]]; then
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then
@@ -76,8 +150,14 @@ if [[ "$MODE" == "playwriter" ]]; then
     echo "--foreground only applies to --devtools mode." >&2
     exit 1
   fi
-  "$CHROME_BIN" about:blank >/dev/null 2>&1 &
-  echo "Playwriter mode: open Chrome with the Playwriter extension and click it on a tab to connect."
+  mkdir -p "$PLAYWRITER_PROFILE_DIR"
+  "$CHROME_BIN" \
+    --user-data-dir="$PLAYWRITER_PROFILE_DIR" \
+    --no-first-run \
+    --no-default-browser-check \
+    about:blank >/dev/null 2>&1 &
+  write_pid "${MCP_RUN_DIR}/playwriter.pid" "$!"
+  echo "Playwriter mode: install the extension in ${PLAYWRITER_PROFILE_DIR} and click it on a tab to connect."
   echo "Use --devtools when you want chrome-devtools-mcp instead."
   exit 0
 fi
@@ -93,6 +173,7 @@ mkdir -p "$PROFILE_DIR"
 
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
+  write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
   exec "$CHROME_BIN" \
     --remote-debugging-port="$DEBUG_PORT" \
     --user-data-dir="$PROFILE_DIR" \
@@ -106,6 +187,7 @@ else
     --no-first-run \
     --no-default-browser-check \
     about:blank >/dev/null 2>&1 &
+  write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
   echo "To stop the debug browser, quit that Chrome window or kill its process."
 fi
