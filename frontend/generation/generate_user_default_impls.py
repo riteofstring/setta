@@ -202,7 +202,6 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
-    SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
     CodeFileBinding
@@ -219,6 +218,7 @@ from setta.types.code_obj_impls import (
 )
 
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 
 """
 

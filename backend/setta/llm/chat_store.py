@@ -34,7 +34,7 @@ class ChatStore(ABC):
         self,
         first_message: BaseChatMessageUnion,
         llm_config: LLMConfig,
-        project_config_id: ID,
+        project_config_id: ID | None = None,
     ) -> Chat:
         raise NotImplementedError
 
@@ -67,7 +67,7 @@ class DBEChatStore(ChatStore):
         self,
         first_message: BaseChatMessageUnion,
         llm_config: LLMConfig,
-        project_config_id: ID,
+        project_config_id: ID | None = None,
     ) -> Chat:
         return create_new_chat(
             self.dbe,
@@ -108,7 +108,7 @@ class MemoryChatStore(ChatStore):
         self,
         first_message: BaseChatMessageUnion,
         llm_config: LLMConfig,
-        project_config_id: ID,
+        project_config_id: ID | None = None,
     ) -> Chat:
         chat = build_new_chat(first_message, llm_config, project_config_id)
         self._chats[chat.id] = chat
