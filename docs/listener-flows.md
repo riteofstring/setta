@@ -15,7 +15,7 @@ UI change
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
       -> WMHPythonScriptSender fan-out
            - realtime deltas -> sockets with matching dependencies or realtime wildcard
-           - action events -> sockets with matching dependencies or action wildcard
+           - action events -> sockets with matching dependencies or realtime wildcard (deps=[])
   -> SettaListener applies deltas/action events, schedules callbacks (debounce/throttle)
 ```
 

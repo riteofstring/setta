@@ -6,6 +6,29 @@ This toolkit gives listener authors composable helpers for chat history, message
 - Core utilities live under `setta.llm.chat_toolkit` (history, message builders, stream assembler, tool calls, tool runner, and section sync).
 - Listener-friendly helpers live under `setta.api.chat_toolkit` (history client, stream emitter, tool runner client, section sync client, and session helper).
 
+## Listener wiring
+Chat send/stop clicks emit realtime dependency events for the chat section. Register a callback with the chat section dependency and a realtime dependency mode, then use the helpers to parse `ctx.events`:
+```python
+from setta.api import SettaListener
+from setta.api.chat_toolkit import on_chat_send_event
+from setta.types.listener import ListenerDependencyMode
+
+listener = SettaListener(project_name="Demo Project")
+
+
+@listener.listen(
+    deps=["Chat"],
+    dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+)
+async def on_chat(state, ctx) -> None:
+    section_id = ctx.ids.section_id("Chat")
+    event = on_chat_send_event(ctx, section_id=section_id)
+    if not event:
+        return
+    ...
+```
+Use `ListenerDependencyMode.ALWAYS` if you also need snapshots.
+
 ## Example: streaming + tools (session helper)
 ```python
 from setta.api.chat_toolkit import ChatSession, ToolCallBuilder, on_chat_send_event
@@ -140,4 +163,4 @@ await sync.update_from_chat(section_id=section_id, chat_id=chat_id)
 ```
 
 ## Stop actions
-Chat sections emit a stop action when the user clicks the stop button. Use `on_chat_stop_event` or `on_chat_action_event` to react, then call `ChatSession.cancel()` to persist partial assistant content and clear `waitingForResponse`.
+Chat sections emit a stop action when the user clicks the stop button. Use `on_chat_stop_event` or `on_chat_action_event` to read it from `ctx.events`, then call `ChatSession.cancel()` to persist partial assistant content and clear `waitingForResponse`.

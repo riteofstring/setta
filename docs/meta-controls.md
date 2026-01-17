@@ -31,7 +31,9 @@ their values and action events propagate, and how they appear in generated code 
 - Button controls:
   - No persisted value is written.
   - Frontend sends `RealtimeDependencyEvent` with the section's
-    `SectionDependencyKey` and a `null` payload.
+    `SectionDependencyKey` and a JSON payload (string) that includes
+    `actionMode` and `controlParamId`. The event timestamp is stored on
+    `timestampMs`.
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the

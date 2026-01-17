@@ -107,8 +107,10 @@ listener.start()
 ```
 
 ## Action events (specific and wildcard)
-Strings: `Demo Project` is the project name; `run-analysis` is the section dependency name for a Meta Control button you want to handle; `dependency=%s payload=%s` and `received %d action(s)` are log message templates.
+Strings: `Demo Project` is the project name; `run-analysis` is the section dependency name for a Meta Control button you want to handle; `dependency=%s payload=%s` (payload is a JSON string) and `received %d event(s)` are log message templates.
 ```python
+import json
+
 from setta.api import SettaListener
 from setta.types.listener import ListenerDependencyMode
 
@@ -121,7 +123,8 @@ listener = SettaListener(project_name="Demo Project")
 )
 def on_run_action(state, ctx) -> None:
     for event in ctx.events:
-        ctx.log.info("dependency=%s payload=%s", event.dependencyKey, event.payload)
+        payload = json.loads(event.payload) if event.payload else None
+        ctx.log.info("dependency=%s payload=%s", event.dependencyKey, payload)
 
 
 @listener.listen(
@@ -129,7 +132,7 @@ def on_run_action(state, ctx) -> None:
     dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
 )
 def on_any_action(state, ctx) -> None:
-    ctx.log.info("received %d action(s)", len(ctx.events))
+    ctx.log.info("received %d event(s)", len(ctx.events))
 
 
 listener.start()
