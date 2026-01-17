@@ -18,7 +18,10 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { focusOnSectionSearch } from "utils/tabbingLogic";
+import {
+  focusOnSectionSearch,
+  focusOnSectionTextInput,
+} from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import {
   createTopLevelSectionLayoutDict,
@@ -69,7 +72,29 @@ export async function createTopLevelSection({
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
   }
+  setActiveSectionIdAndUpdateZIndex(sectionId);
+  ensureSectionOnTop(sectionId);
+  if (
+    implType === SectionTypeEnum.TextBlock ||
+    implType === SectionTypeEnum.Code ||
+    implType === SectionTypeEnum.Terminal
+  ) {
+    focusOnSectionTextInput(sectionId);
+  }
   return sectionId;
+}
+
+function ensureSectionOnTop(sectionId: string, attempt = 0) {
+  const nodeInternals = useNodeInternals.getState().x;
+  if (nodeInternals.has(sectionId)) {
+    setActiveSectionIdAndUpdateZIndex(sectionId);
+    return;
+  }
+  if (attempt < 20) {
+    requestAnimationFrame(() =>
+      ensureSectionOnTop(sectionId, attempt + 1),
+    );
+  }
 }
 
 async function addSectionInEmptySpace(
@@ -89,15 +114,12 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
-  });
+  addSectionInEmptySpace(SectionTypeEnum.Group);
 }
 
 export function addTerminalInEmptySpace() {

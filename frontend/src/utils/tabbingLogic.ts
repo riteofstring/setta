@@ -209,3 +209,35 @@ const firstFocusableElement = (container) => {
 export function focusOnSectionSearch(sectionId: string) {
   document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
 }
+
+const pendingSectionTextFocus = new Set<string>();
+
+export function isPendingSectionTextFocus(sectionId: string) {
+  return pendingSectionTextFocus.has(sectionId);
+}
+
+export function clearPendingSectionTextFocus(sectionId: string) {
+  pendingSectionTextFocus.delete(sectionId);
+}
+
+export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
+  if (attempt === 0) {
+    pendingSectionTextFocus.add(sectionId);
+  }
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
+  const focusTarget = ref?.querySelector?.(
+    '[contenteditable="true"], .cm-content, .xterm-helper-textarea, .xterm textarea',
+  );
+  if (focusTarget instanceof HTMLElement) {
+    clearPendingSectionTextFocus(sectionId);
+    focusTarget.focus({ preventScroll: true });
+    return;
+  }
+  if (attempt < 120) {
+    requestAnimationFrame(() =>
+      focusOnSectionTextInput(sectionId, attempt + 1),
+    );
+  }
+}

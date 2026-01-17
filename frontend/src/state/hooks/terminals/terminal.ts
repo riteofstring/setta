@@ -6,6 +6,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import {
+  clearPendingSectionTextFocus,
+  isPendingSectionTextFocus,
+} from "utils/tabbingLogic";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
@@ -55,6 +59,28 @@ export function useTerminal({
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
+    const focusTerminalInput = (attempt = 0) => {
+      if (!isPendingSectionTextFocus(sectionId)) {
+        return;
+      }
+      const focusTarget = terminalRef.current?.querySelector?.(
+        ".xterm-helper-textarea, .xterm textarea",
+      );
+      if (focusTarget instanceof HTMLElement) {
+        focusTarget.focus({ preventScroll: true });
+        clearPendingSectionTextFocus(sectionId);
+        return;
+      }
+      terminal.focus();
+      if (attempt < 120) {
+        requestAnimationFrame(() => focusTerminalInput(attempt + 1));
+      }
+    };
+
+    if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+      requestAnimationFrame(() => focusTerminalInput());
+    }
+
     const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
 
     terminal.onResize((size) => {
@@ -77,6 +103,9 @@ export function useTerminal({
           bidirectional: !isShareMode,
         });
         terminal.loadAddon(attachAddon);
+        if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+          requestAnimationFrame(() => focusTerminalInput());
+        }
         ws.removeEventListener("message", onInitialMessage);
       }
     }

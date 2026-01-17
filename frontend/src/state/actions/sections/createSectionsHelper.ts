@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { useProjectState } from "state/definitions";
 import {
   BaseSectionImplUnion,
@@ -207,7 +206,6 @@ export function createTopLevelSectionFromImplSpecs(
       return;
     }
     if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
-      setActiveSectionIdAndUpdateZIndex(sectionId);
       focusOnSectionSearch(sectionId);
     }
   });
