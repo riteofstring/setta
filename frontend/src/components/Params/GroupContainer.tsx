@@ -29,6 +29,7 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
+import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
 
 type ResizeHandleDirection =
   | "top"
@@ -39,7 +40,6 @@ type ResizeHandleDirection =
   | "bottomRight"
   | "bottomLeft"
   | "topLeft";
-type ResizeDelta = { height: number; width: number };
 type ResizeStartArgs = [
   event: MouseEvent | TouchEvent,
   direction: ResizeHandleDirection,
@@ -423,14 +423,15 @@ function ResizablePinnedArea({
     if (!didResize || (delta.height === 0 && delta.width === 0)) {
       return;
     }
-    let nextHeight = Number.parseFloat(ref.style.height);
-    if (!Number.isFinite(nextHeight)) {
-      if (typeof startHeight !== "number") {
-        return;
-      }
-      nextHeight = startHeight + delta.height;
-    }
-    if (!Number.isFinite(nextHeight)) {
+    const parsedHeight = Number.parseFloat(ref.style.height);
+    const nextHeight = getPinnedResizeHeight({
+      didResize,
+      delta,
+      startHeight,
+      styleHeight: Number.isFinite(parsedHeight) ? parsedHeight : null,
+      minHeight: pinnedParamsAreaMinHeight,
+    });
+    if (nextHeight === null) {
       return;
     }
     useProjectState.setState((state) => {
@@ -438,7 +439,7 @@ function ResizablePinnedArea({
         state,
         sectionId,
         {
-          pinnedAreaHeight: Math.max(nextHeight, pinnedParamsAreaMinHeight),
+          pinnedAreaHeight: nextHeight,
         },
       );
     });
