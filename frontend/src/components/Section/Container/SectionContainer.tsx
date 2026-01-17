@@ -30,23 +30,22 @@ function _SectionContainer({
     isUserView,
     isGenPython,
     hasPythonCodegen,
-  } =
-    useProjectState((x) => {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-        sectionId,
-        x,
-      );
-      const viewMode = getActiveViewModeConfig(x);
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return {
-        visibility,
-        isEditingViewMode,
-        isUserView: viewMode.isUserFacing && !isEditingViewMode,
-        isGroup: impl.type === SectionTypeEnum.Group,
-        isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
-        hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
-      };
-    }, _.isEqual);
+  } = useProjectState((x) => {
+    const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      sectionId,
+      x,
+    );
+    const viewMode = getActiveViewModeConfig(x);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    return {
+      visibility,
+      isEditingViewMode,
+      isUserView: viewMode.isUserFacing && !isEditingViewMode,
+      isGroup: impl.type === SectionTypeEnum.Group,
+      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
+      hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
+    };
+  }, _.isEqual);
 
   if (isGenPython && !hasPythonCodegen) {
     return null;

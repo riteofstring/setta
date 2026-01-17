@@ -24,9 +24,9 @@ export async function runCodeBlock(sectionId: string | null) {
       return;
     }
     if (
-      sectionId === null
-      && (!projectConfig.entryCodeBlockId
-        || projectConfig.entryCodeBlockId === gen_section_id)
+      sectionId === null &&
+      (!projectConfig.entryCodeBlockId ||
+        projectConfig.entryCodeBlockId === gen_section_id)
     ) {
       addTemporaryNotification("Select a manual entry code block to run.");
       return;

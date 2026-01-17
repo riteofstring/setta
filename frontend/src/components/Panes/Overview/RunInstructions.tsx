@@ -34,8 +34,8 @@ import {
 } from "utils/codegenTargets";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
-  isBaseParentSectionImpl,
   createProjectCodegenPythonTarget,
+  isBaseParentSectionImpl,
   ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
