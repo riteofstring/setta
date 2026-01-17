@@ -8,7 +8,6 @@ from .messages import (
     tool_reference,
     user_message,
 )
-from .section_sync import apply_stream_delta, build_chat_section_state
 from .stream_assembler import ChatStreamAssembler
 from .tool_calls import ToolCallAccumulator, ToolCallBuilder
 from .tool_runner import ToolRunner
@@ -19,9 +18,7 @@ __all__ = [
     "ToolCallAccumulator",
     "ToolCallBuilder",
     "ToolRunner",
-    "apply_stream_delta",
     "assistant_message",
-    "build_chat_section_state",
     "message_image_url",
     "message_text",
     "message_thinking",

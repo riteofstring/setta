@@ -65,7 +65,6 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -309,12 +308,6 @@ class ListenerGetChatRequestPayload(TypedDict):
     chatId: ID
 
 
-class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-
-
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -466,26 +459,12 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
     chartType: ChartType
 
 
-class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    chatId: ID | None
-
-
 class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     agentProfileId: ID | None
     agentRunId: ID | None
-
-
-class ListenerSetChatSectionStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    state: ChatSectionState
 
 
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
@@ -962,11 +941,6 @@ class RouterEndpointAPI:
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
         return await self._caller("route_get_chat", payload)
 
-    async def get_chat_section_chat_id(
-        self, payload: ListenerGetChatSectionChatIdRequestPayload
-    ) -> str | None:
-        return await self._caller("route_get_chat_section_chat_id", payload)
-
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
@@ -1067,20 +1041,10 @@ class RouterEndpointAPI:
     async def set_chart_type(self, payload: ListenerSetChartTypeRequestPayload) -> None:
         return await self._caller("route_set_chart_type", payload)
 
-    async def set_chat_section_chat_id(
-        self, payload: ListenerSetChatSectionChatIdRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_chat_id", payload)
-
     async def set_chat_section_settings(
         self, payload: ListenerSetChatSectionSettingsRequestPayload
     ) -> None:
         return await self._caller("route_set_chat_section_settings", payload)
-
-    async def set_chat_section_state(
-        self, payload: ListenerSetChatSectionStateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_state", payload)
 
     async def set_chat_system_prompt(
         self, payload: ListenerSetChatSystemPromptRequestPayload

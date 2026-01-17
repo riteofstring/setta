@@ -1,19 +1,15 @@
-import {
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
-  useProjectState,
   useToolArgumentPreview,
-  type ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
+  route_get_agent_run,
   route_get_all_llm_chat_metadata,
   route_get_llm_api_keys,
   route_get_llm_chat,
@@ -23,10 +19,11 @@ import {
 import {
   AllLLMConfigs,
   APIKeys,
+  AgentRun,
+  AgentRunStatusEnum,
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatRoleEnum,
-  ChatSectionState,
   createMessageTextContent,
   createMessageThinkingContent,
   LLMStreamingResponse,
@@ -36,7 +33,7 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
-  SectionTypeEnum,
+  RunEventTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -130,6 +127,29 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
+export async function hydrateAgentRunChatDetails(runId: string) {
+  const res = await route_get_agent_run({ runId });
+  if (!res200(res)) {
+    return null;
+  }
+  const details = buildChatDetailsFromAgentRun(res.data);
+  updateChatDetails(runId, () => details);
+  return details;
+}
+
+export function primeAgentRunChatDetails(run: AgentRun) {
+  const details = buildChatDetailsFromAgentRun(run);
+  updateChatDetails(run.id, () => details);
+}
+
+export function stopAgentRunChatDetails(runId: string) {
+  updateChatDetails(runId, (details) => ({
+    ...details,
+    waitingForResponse: false,
+    toolCallArguments: {},
+  }));
+}
+
 export async function getAllLLMChatMetadata() {
   const res = await route_get_all_llm_chat_metadata();
   if (res200(res)) {
@@ -191,7 +211,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const sectionId = msg.sectionId;
   if (sectionId) {
-    applyChatSectionStreamDelta(sectionId, chunk);
+    applyChatDetailsStreamDelta(chatId, chunk);
     if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
       applyToolArgumentPreviewDeltaToPreviewStore(chunk);
       return;
@@ -245,23 +265,13 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
 
-function applyChatSectionStreamDelta(
-  sectionId: string,
+function applyChatDetailsStreamDelta(
+  chatId: string,
   chunk: ChatSectionStreamChunk,
 ): void {
-  useProjectState.setState((state) => {
-    const currentState = getChatSectionStateFromStore(state, sectionId);
-    if (!currentState) {
-      return;
-    }
-    const nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
-    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-      messages: nextState.messages,
-      inputText: nextState.inputText,
-      waitingForResponse: nextState.waitingForResponse,
-      toolCallArguments: nextState.toolCallArguments,
-    });
-  });
+  updateChatDetails(chatId, (details) =>
+    applyStreamDeltaToChatDetails(details, chunk),
+  );
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
@@ -731,65 +741,21 @@ function upsertMessage(
   return nextMessages;
 }
 
-function getChatSectionStateFromStore(
-  state: ZustandProjectState,
-  sectionId: string,
-): ChatSectionState | null {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return null;
-  }
-  const effective = {
-    ...impl,
-    ...core.sharedModifier,
-    ...variant.modifier,
-  };
-  if (effective.type !== SectionTypeEnum.Chat) {
-    return null;
-  }
-  const chatImpl = effective as {
-    type: SectionTypeEnum.Chat;
-    messages: BaseChatMessageUnion[];
-    inputText: string;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-  };
-  return {
-    messages: [...(chatImpl.messages ?? [])],
-    inputText: chatImpl.inputText ?? "",
-    waitingForResponse: Boolean(chatImpl.waitingForResponse),
-    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
-  };
-}
-
-function applyStreamDeltaToChatSectionState(
-  state: ChatSectionState,
+function applyStreamDeltaToChatDetails(
+  state: ChatDetails,
   chunk: ChatSectionStreamChunk,
-): ChatSectionState {
+): ChatDetails {
   let messages = [...state.messages];
   let toolCallArguments = { ...state.toolCallArguments };
   let waitingForResponse = state.waitingForResponse;
-  const inputText = state.inputText;
 
   switch (chunk.type) {
     case StreamingEventTypeEnum.MESSAGE_START: {
       messages = upsertMessage(messages, chunk.message);
       waitingForResponse = true;
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -797,8 +763,8 @@ function applyStreamDeltaToChatSectionState(
     case StreamingEventTypeEnum.DELTA: {
       messages = applyMessageDeltaToChatMessages(messages, chunk);
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -812,8 +778,8 @@ function applyStreamDeltaToChatSectionState(
       messages = result.messages;
       toolCallArguments = result.toolCallArguments;
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -827,8 +793,8 @@ function applyStreamDeltaToChatSectionState(
       messages = result.messages;
       toolCallArguments = result.toolCallArguments;
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -836,8 +802,8 @@ function applyStreamDeltaToChatSectionState(
     case StreamingEventTypeEnum.TOOL_RESULT: {
       messages = upsertMessage(messages, chunk.result);
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -845,8 +811,8 @@ function applyStreamDeltaToChatSectionState(
     case StreamingEventTypeEnum.MESSAGE_STOP: {
       waitingForResponse = false;
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -856,8 +822,8 @@ function applyStreamDeltaToChatSectionState(
       waitingForResponse = false;
       toolCallArguments = {};
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -865,8 +831,8 @@ function applyStreamDeltaToChatSectionState(
     default: {
       chunk satisfies never;
       return {
+        ...state,
         messages,
-        inputText,
         waitingForResponse,
         toolCallArguments,
       };
@@ -1008,4 +974,68 @@ function normalizeChatContentIndex(
     return 0;
   }
   return index;
+}
+
+function buildChatDetailsFromAgentRun(run: AgentRun): ChatDetails {
+  let details: ChatDetails = {
+    ...getDefaultChatDetails(),
+    waitingForResponse: isAgentRunActiveStatus(run.status),
+  };
+  const inputsText = formatAgentRunInputs(run.inputs);
+  if (inputsText) {
+    details = {
+      ...details,
+      messages: [
+        ...details.messages,
+        buildAgentRunUserMessage(run.id, inputsText),
+      ],
+    };
+  }
+  for (const event of run.events ?? []) {
+    if (event.type !== RunEventTypeEnum.stream) {
+      continue;
+    }
+    if (!event.streamChunk) {
+      continue;
+    }
+    details = applyStreamDeltaToChatDetails(details, event.streamChunk);
+  }
+  return details;
+}
+
+function buildAgentRunUserMessage(
+  runId: string,
+  text: string,
+): BaseChatMessageUnion {
+  return {
+    id: `${runId}-user`,
+    role: ChatRoleEnum.user,
+    content: [createMessageTextContent({ text })],
+  };
+}
+
+function formatAgentRunInputs(inputs: AgentRun["inputs"]): string | null {
+  if (inputs === null || inputs === undefined) {
+    return null;
+  }
+  if (typeof inputs === "string") {
+    if (!inputs.trim()) {
+      return null;
+    }
+    return inputs;
+  }
+  try {
+    return JSON.stringify(inputs, null, 2);
+  } catch {
+    return String(inputs);
+  }
+}
+
+function isAgentRunActiveStatus(
+  status: AgentRun["status"] | null | undefined,
+): boolean {
+  return (
+    status === AgentRunStatusEnum.queued ||
+    status === AgentRunStatusEnum.running
+  );
 }

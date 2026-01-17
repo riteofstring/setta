@@ -103,7 +103,6 @@ from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
     ChatSectionImpl,
-    ChatSectionState,
     CodeFileBinding,
     ConfigLanguage,
     DrawSectionImpl,
@@ -2121,39 +2120,6 @@ def set_chat_section_settings(
         ChatSectionImplArgsWithCallable(
             agentProfileId=agentProfileId,
             agentRunId=agentRunId,
-        ),
-    )
-
-
-def set_chat_section_chat_id(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    chatId: ID | None,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChatSectionImplArgsWithCallable(
-            chatId=chatId,
-        ),
-    )
-
-
-def set_chat_section_state(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    state: ChatSectionState,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChatSectionImplArgsWithCallable(
-            messages=state.messages,
-            inputText=state.inputText,
-            waitingForResponse=state.waitingForResponse,
-            toolCallArguments=state.toolCallArguments,
         ),
     )
 

@@ -24,7 +24,6 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
     SectionType,
@@ -679,18 +678,6 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     agentProfileId: ID | None
     agentRunId: ID | None
-
-
-class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
-    state: ChatSectionState
-
-
-class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    pass
-
-
-class SetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    chatId: ID | None
 
 
 class SetSocialUrlRequest(ProjectManagerRequestWithSection):

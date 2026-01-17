@@ -1,8 +1,6 @@
-from typing import Literal
-
 from pydantic import BaseModel
 
-from setta.types.chat_messages import ChatRole, ToolCall
+from setta.types.chat_messages import ToolCall
 from setta.types.chat_stream_events import LLMStreamingResponseChunk
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
@@ -46,23 +44,3 @@ class EmitChatStreamDeltaRequest(BaseModel):
     sectionId: ID
     chatId: ID
     chunk: LLMStreamingResponseChunk
-
-
-class ChatSendEvent(BaseModel):
-    action: Literal["send"] = "send"
-    sectionId: ID
-    messageId: str
-    text: str
-    role: ChatRole
-    timestampMs: int
-    managed: bool
-
-
-class ChatStopEvent(BaseModel):
-    action: Literal["stop"] = "stop"
-    sectionId: ID
-    timestampMs: int
-    managed: bool
-
-
-ChatActionEvent = ChatSendEvent | ChatStopEvent

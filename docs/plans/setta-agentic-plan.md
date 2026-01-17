@@ -104,6 +104,7 @@ focuses on internal agent primitives that external adapters build on.
 - Add agent linkage fields on `ChatSectionImpl` as needed (for example `agentProfileId`, `agentRunId`) and update project manager requests if we need to persist them.
 - Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to branch between the current managed LLM flow and agentic run routes based on agent selection.
 - Chat section settings already expose managed/LLM config/deep think; add the agent profile picker and define how it interacts with LLM config selection.
+- Preserve Chat sections as scriptable + non-managed: keep the chat toolkit flows and managed toggle intact; agentic runs are additive and must not remove the existing non-managed path.
 
 ### Frontend updates
 - Add `PromptArea` layout in `frontend/src/components/Section/Layouts/PromptArea.tsx`.
@@ -133,5 +134,6 @@ focuses on internal agent primitives that external adapters build on.
 - Prompt templates start as `setta_files/prompts/*.json`.
 - Use Jinja-style templates (`{{ var }}`) as the default.
 - Chat sections are the default entry point for agentic projects.
+- Chat sections must remain usable in both managed and non-managed mode; keep the chat toolkit as a supported control surface.
 - Skip tags in the MVP; add optional tagging later only if filtering becomes a need.
 - Use a dedicated `SectionType.Prompt` for first-class prompt nodes on the canvas.
