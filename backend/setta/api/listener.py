@@ -65,6 +65,7 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
 )
+from setta.types.project_config import get_python_codegen_target_with_type_guard
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
@@ -1065,10 +1066,11 @@ class SettaListener:
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
         project_config = project_state.projectConfig
+        python_target = get_python_codegen_target_with_type_guard(project_config)
         code_generator = PythonCodeGenerator(
             dep_graph,
-            project_config.genCodePrefix,
-            project_config.genCodeSuffix,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
             value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:
