@@ -1,7 +1,7 @@
 import type { CollisionDetector } from "@dnd-kit/abstract";
 import type { UseDroppableInput } from "@dnd-kit/react";
 import { useDroppable as useDndKitDroppable } from "@dnd-kit/react";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type { DndData } from "./types";
 import { useCollisionDetector } from "./useCollisionDetector";
 
@@ -26,22 +26,18 @@ export function useDroppable({
     return { current: data };
   }, [data]);
   const defaultCollisionDetector = useCollisionDetector();
-  const elementRef = useRef<Element | null>(null);
-  const { ref, isDropTarget, droppable } = useDndKitDroppable({
+  const { ref, isDropTarget } = useDndKitDroppable({
     ...input,
     data: wrappedData,
     collisionDetector: collisionDetector ?? defaultCollisionDetector,
   });
 
   const setNodeRef = (element: Element | null) => {
-    elementRef.current = element;
     ref(element);
   };
 
   return {
     setNodeRef,
-    node: elementRef,
     isOver: isDropTarget,
-    droppable,
   };
 }
