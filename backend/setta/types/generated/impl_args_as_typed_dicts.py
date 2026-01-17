@@ -7,6 +7,12 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
+)
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
@@ -31,6 +37,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -59,6 +66,7 @@ class CoreArgs(TypedDict):
                 "callable",
                 "canvasMode",
                 "chartSettings",
+                "chatId",
                 "children",
                 "choices",
                 "code",
@@ -71,8 +79,10 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
+                "deepThink",
                 "defaultVal",
                 "description",
+                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -86,6 +96,7 @@ class CoreArgs(TypedDict):
                 "id",
                 "ignoreTypeErrors",
                 "imagePath",
+                "inputText",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -96,7 +107,10 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
+                "llmConfigId",
+                "managed",
                 "max",
+                "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
@@ -119,12 +133,14 @@ class CoreArgs(TypedDict):
                 "step",
                 "text",
                 "textDisplayMode",
+                "toolCallArguments",
                 "topLevelParamId",
                 "type",
                 "typesColumnWidth",
                 "url",
                 "value",
                 "viewMode",
+                "waitingForResponse",
             ]
         ]
     ]
@@ -189,6 +205,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -216,6 +233,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
+    ]
+    displayMode: NotRequired[
+        SectionWithParamsDisplayMode
+        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
     ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[
@@ -518,12 +539,54 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
+    managed: NotRequired[bool]
+    llmConfigId: NotRequired[str | None]
+    chatId: NotRequired[ID | None]
+    deepThink: NotRequired[bool]
+    messages: NotRequired[
+        list[
+            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+        ]
+    ]
+    inputText: NotRequired[str]
+    waitingForResponse: NotRequired[bool]
+    toolCallArguments: NotRequired[dict[str, str]]
 
 
 class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Chat]
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
+    ]
+    managed: NotRequired[bool | Callable[[bool], bool]]
+    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    deepThink: NotRequired[bool | Callable[[bool], bool]]
+    messages: NotRequired[
+        list[
+            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+        ]
+        | Callable[
+            [
+                list[
+                    SystemChatMessage
+                    | AssistantChatMessage
+                    | UserChatMessage
+                    | ToolChatMessage
+                ]
+            ],
+            list[
+                SystemChatMessage
+                | AssistantChatMessage
+                | UserChatMessage
+                | ToolChatMessage
+            ],
+        ]
+    ]
+    inputText: NotRequired[str | Callable[[str], str]]
+    waitingForResponse: NotRequired[bool | Callable[[bool], bool]]
+    toolCallArguments: NotRequired[
+        dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
     ]
 
 
