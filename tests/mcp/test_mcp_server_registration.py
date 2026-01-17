@@ -301,7 +301,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 None,
                 user_message,
                 "default",
-                ID(project_config_id),
             )
 
             tool_call = ToolCall(
@@ -314,7 +313,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
 
             execute_action = build_execute_tool_calls_action(
-                project_config_id=chat.projectConfigId,
+                project_config_id=ID(project_config_id),
                 chat_id=chat.id,
                 tool_calls=[tool_call],
                 allowed_server_ids=set(

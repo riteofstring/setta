@@ -203,7 +203,6 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
-    get_all_sections_for_deletion_or_copying,
     get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
@@ -218,6 +217,7 @@ from setta.types.helpers_lvl2 import (
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
+    set_chat_section_chat_id,
     set_chat_section_settings,
     set_chat_section_state,
     set_code,
@@ -279,6 +279,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
@@ -1358,15 +1359,7 @@ class BaseProjectManager(ABC):
         """Remove the specified sections and broadcast the updated project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        sections_to_delete = get_all_sections_for_deletion_or_copying(
-            project_state, x.sectionIds
-        )
         delete_sections(project_state, x.sectionIds)
-        if sections_to_delete:
-            self.dbe.delete_chat_section_ids(
-                x.projectConfigId,
-                sections_to_delete,
-            )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1931,15 +1924,19 @@ class BaseProjectManager(ABC):
     async def get_chat_section_chat_id(
         self, x: GetChatSectionChatIdRequest
     ) -> ID | None:
-        return self.dbe.get_chat_section_chat_id(x.projectConfigId, x.sectionId)
+        project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            ChatSectionImpl,
+        )
+        return section_impl.chatId
 
     @enqueue_method
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
-        self.dbe.set_chat_section_chat_id(
-            x.projectConfigId,
-            x.sectionId,
-            x.chatId,
-        )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
+        await self.update_and_broadcast_project_state(project_state)
 
     async def _apply_listener_emit_updates_to_state(
         self,

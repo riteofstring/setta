@@ -13,6 +13,7 @@ AllImplFields = Literal[
     "callable",
     "canvasMode",
     "chartSettings",
+    "chatId",
     "children",
     "choices",
     "code",

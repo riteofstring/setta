@@ -40,15 +40,18 @@ class ManagedToolCallAccumulator:
         if entry.function.name:
             tool_call.function.name = entry.function.name
 
+        raw_arguments = entry.function.arguments
+        arguments_delta = raw_arguments if isinstance(raw_arguments, str) else ""
         buffer = self._state.argument_buffers.get(index, "")
-        buffer += entry.function.arguments
+        if arguments_delta:
+            buffer += arguments_delta
         self._state.argument_buffers[index] = buffer
 
         tool_name = tool_call.function.name.strip() or None
         return ToolCallDeltaEvent(
             message_id=self._assistant_message.id,
             tool_call_id=tool_call.id,
-            arguments_delta=entry.function.arguments,
+            arguments_delta=arguments_delta,
             tool_name=tool_name,
         )
 

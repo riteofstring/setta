@@ -87,7 +87,6 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 
 @dataclass
 class AIFollowState:
-    project_config_id: ID
     ids_by_type: dict[FollowIdType, list[ID]]
 
 
@@ -122,8 +121,8 @@ class LLMChatManager:
         self._raw_env_vars: APIKeys = {}
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
-        self._ai_follow_state: dict[ID, AIFollowState] = {}
-        self._chat_prompt_cache: dict[ID, str] = {}
+        self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
+        self._chat_prompt_cache: dict[tuple[ID, ID], str] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
@@ -153,7 +152,6 @@ class LLMChatManager:
         chat_id: ID | None,
         message: BaseChatMessageUnion,
         llm_config_id: str,
-        project_config_id: ID,
     ) -> Chat:
         if chat_id:
             chat = self.chat_store.get_chat(chat_id)
@@ -161,26 +159,32 @@ class LLMChatManager:
                 updated = self.chat_store.save_messages(chat.id, [message])
                 return updated or chat
         llm_config = self.config.resolve_config(llm_config_id)
-        return self.chat_store.create_new_chat(
-            message,
-            llm_config,
-            project_config_id=project_config_id,
-        )
+        return self.chat_store.create_new_chat(message, llm_config)
 
     def get_all_chat_metadata(self):
         return self.chat_store.get_all_chat_metadata()
 
     def delete_chat(self, chat_id: ID) -> None:
         self.chat_store.delete_chat(chat_id)
-        self._ai_follow_state.pop(chat_id, None)
-        self._chat_prompt_cache.pop(chat_id, None)
+        self._clear_ai_follow_state(chat_id)
+        self._clear_chat_prompt_cache(chat_id)
+
+    def _clear_ai_follow_state(self, chat_id: ID) -> None:
+        keys_to_drop = [key for key in self._ai_follow_state if key[1] == chat_id]
+        for key in keys_to_drop:
+            del self._ai_follow_state[key]
+
+    def _clear_chat_prompt_cache(self, chat_id: ID) -> None:
+        keys_to_drop = [key for key in self._chat_prompt_cache if key[0] == chat_id]
+        for key in keys_to_drop:
+            del self._chat_prompt_cache[key]
 
     def get_ai_follow_snapshot(
         self, project_config_id: ID
     ) -> list[AIFollowToolArgumentsUpdateContent]:
         snapshot: list[AIFollowToolArgumentsUpdateContent] = []
-        for chat_id, state in self._ai_follow_state.items():
-            if state.project_config_id != project_config_id:
+        for (state_project_config_id, chat_id), state in self._ai_follow_state.items():
+            if state_project_config_id != project_config_id:
                 continue
             ids_by_type = normalize_ids_by_type(state.ids_by_type)
             if not ids_by_type:
@@ -208,6 +212,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deepThink: bool,
+        active_project_config_id: ID,
     ) -> None:
         existing = self._tasks.get(chat.id)
         if existing and not existing.done():
@@ -215,11 +220,9 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
-        project_config_id = (
-            str(chat.projectConfigId) if chat.projectConfigId is not None else None
-        )
+        project_config_id = str(active_project_config_id)
         task = spawn_background_task(
-            self.process_query(chat, deepThink),
+            self.process_query(chat, deepThink, active_project_config_id),
             label="llm-chat-stream",
             project_config_id=project_config_id,
             extra_values={"chat_id": str(chat.id)},
@@ -232,9 +235,18 @@ class LLMChatManager:
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
         self._tasks[chat.id] = task
 
-    async def process_query(self, chat: Chat, deepThink: bool):
+    async def process_query(
+        self,
+        chat: Chat,
+        deepThink: bool,
+        active_project_config_id: ID,
+    ):
         while True:
-            payload = await self._build_llm_request_payload(chat, deepThink)
+            payload = await self._build_llm_request_payload(
+                chat,
+                deepThink,
+                active_project_config_id,
+            )
 
             assistant_message = AssistantChatMessage(
                 content=[],
@@ -282,7 +294,7 @@ class LLMChatManager:
                         tool_call_accumulator,
                         preview_state,
                         chunk,
-                        chat.projectConfigId,
+                        active_project_config_id,
                     )
 
                 await self._apply_actions(
@@ -302,12 +314,12 @@ class LLMChatManager:
                         exc_info=error,
                     )
                 await self._maybe_emit_tool_call_follow_update(
-                    chat.projectConfigId,
+                    active_project_config_id,
                     chat.id,
                     parsed_tool_calls,
                 )
                 execute_action = build_execute_tool_calls_action(
-                    project_config_id=chat.projectConfigId,
+                    project_config_id=active_project_config_id,
                     chat_id=chat.id,
                     tool_calls=assistant_message.tool_calls or [],
                     allowed_server_ids=set(
@@ -321,7 +333,7 @@ class LLMChatManager:
                     await self._apply_actions(
                         [
                             UpdateAIFollowAction(
-                                project_config_id=chat.projectConfigId,
+                                project_config_id=active_project_config_id,
                                 chat_id=chat.id,
                                 ids_by_type={},
                             )
@@ -373,7 +385,7 @@ class LLMChatManager:
                             exc_info=error,
                         )
                     await self._maybe_emit_tool_call_follow_update(
-                        chat.projectConfigId,
+                        active_project_config_id,
                         chat.id,
                         parsed_tool_calls,
                     )
@@ -396,7 +408,7 @@ class LLMChatManager:
                 await self._apply_actions(
                     [
                         UpdateAIFollowAction(
-                            project_config_id=chat.projectConfigId,
+                            project_config_id=active_project_config_id,
                             chat_id=chat.id,
                             ids_by_type={},
                         )
@@ -419,14 +431,14 @@ class LLMChatManager:
                     label="llm-chat-stream",
                     message="LLM streaming failed; aborting response",
                     severity=SettaBackendLogEventSeverity.error,
-                    project_config_id=chat.projectConfigId,
+                    project_config_id=active_project_config_id,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
                 )
                 await self._apply_actions(
                     [
                         UpdateAIFollowAction(
-                            project_config_id=chat.projectConfigId,
+                            project_config_id=active_project_config_id,
                             chat_id=chat.id,
                             ids_by_type={},
                         )
@@ -484,6 +496,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deep_think: bool,
+        active_project_config_id: ID,
     ) -> dict[str, Any]:
         """
         Normalize a persisted chat into the kwargs expected by the LLM client.
@@ -491,7 +504,10 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        system_prompt = await self._build_system_prompt(chat)
+        system_prompt = await self._build_system_prompt(
+            chat,
+            active_project_config_id=active_project_config_id,
+        )
         if chat.systemPrompt != system_prompt:
             chat.systemPrompt = system_prompt
             if self.chat_store.get_chat(chat.id) is not None:
@@ -576,18 +592,22 @@ class LLMChatManager:
             values.append(ANTHROPIC_TOOL_SEARCH_BETA_HEADER)
         return ", ".join(values)
 
-    async def _build_system_prompt(self, chat: Chat) -> str:
-        cached = self._chat_prompt_cache.get(chat.id)
+    async def _build_system_prompt(
+        self,
+        chat: Chat,
+        *,
+        active_project_config_id: ID,
+    ) -> str:
+        cache_key = (chat.id, active_project_config_id)
+        cached = self._chat_prompt_cache.get(cache_key)
         if cached:
             return cached
         prompt = self.system_prompt
-        project_config_id = chat.projectConfigId
-        if project_config_id is not None:
-            temporary_project_config_id = self._ensure_temporary_project_id(
-                project_config_id
-            )
-            prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
-        self._chat_prompt_cache[chat.id] = prompt
+        temporary_project_config_id = self._ensure_temporary_project_id(
+            active_project_config_id
+        )
+        prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
+        self._chat_prompt_cache[cache_key] = prompt
         return prompt
 
     def _ensure_temporary_project_id(self, project_config_id: ID) -> ID:
@@ -918,7 +938,7 @@ class LLMChatManager:
         tool_call_accumulator: ManagedToolCallAccumulator,
         preview_state: ManagedToolArgumentPreviewState,
         chunk: ModelResponseStream,
-        project_config_id: ID,
+        active_project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -942,7 +962,7 @@ class LLMChatManager:
             delta,
             tool_call_accumulator,
             preview_state,
-            project_config_id,
+            active_project_config_id,
         )
 
     async def _handle_text_deltas(
@@ -1130,7 +1150,7 @@ class LLMChatManager:
         delta: Delta,
         tool_call_accumulator: ManagedToolCallAccumulator,
         preview_state: ManagedToolArgumentPreviewState,
-        project_config_id: ID,
+        active_project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
@@ -1140,6 +1160,7 @@ class LLMChatManager:
             tool_call_event = tool_call_accumulator.apply_delta(entry)
             if not tool_call_event:
                 continue
+            arguments_delta = tool_call_event.arguments_delta
             tokens: list[PartialJsonStringToken] | None = None
             buffer = tool_call_accumulator.state.argument_buffers.get(entry.index, "")
             tool_name = tool_call_event.tool_name or ""
@@ -1155,7 +1176,7 @@ class LLMChatManager:
                 tool_call_state=tool_call_accumulator.state,
                 preview_state=preview_state,
                 tool_call_index=entry.index,
-                arguments_delta=entry.function.arguments,
+                arguments_delta=arguments_delta,
                 tokens=tokens,
                 dbe=self.dbe,
                 tool_argument_metadata_by_name=(
@@ -1168,7 +1189,7 @@ class LLMChatManager:
                 [EmitChunkAction(chat_id, preview_event or tool_call_event)]
             )
             await self._maybe_emit_streaming_follow_update(
-                project_config_id,
+                active_project_config_id,
                 chat_id,
                 assistant_message,
                 tool_call_accumulator.state,
@@ -1177,7 +1198,7 @@ class LLMChatManager:
 
     async def _maybe_emit_streaming_follow_update(
         self,
-        project_config_id: ID,
+        active_project_config_id: ID,
         chat_id: ID,
         assistant_message: AssistantChatMessage,
         tool_call_state: ManagedToolCallState,
@@ -1195,7 +1216,7 @@ class LLMChatManager:
         await self._apply_actions(
             [
                 UpdateAIFollowAction(
-                    project_config_id=project_config_id,
+                    project_config_id=active_project_config_id,
                     chat_id=chat_id,
                     ids_by_type=ids_by_type,
                 )
@@ -1204,7 +1225,7 @@ class LLMChatManager:
 
     async def _maybe_emit_tool_call_follow_update(
         self,
-        project_config_id: ID,
+        active_project_config_id: ID,
         chat_id: ID,
         tool_calls: list[ToolCall],
     ) -> None:
@@ -1218,7 +1239,7 @@ class LLMChatManager:
         await self._apply_actions(
             [
                 UpdateAIFollowAction(
-                    project_config_id=project_config_id,
+                    project_config_id=active_project_config_id,
                     chat_id=chat_id,
                     ids_by_type=ids_by_type,
                 )
@@ -1231,10 +1252,8 @@ class LLMChatManager:
         project_config_id: ID,
         ids_by_type: dict[FollowIdType, list[ID]],
     ) -> bool:
-        if chat_id not in self._ai_follow_state:
-            return False
-        state = self._ai_follow_state[chat_id]
-        if state.project_config_id != project_config_id:
+        state = self._ai_follow_state.get((project_config_id, chat_id))
+        if state is None:
             return False
         return ids_by_type_to_sets(state.ids_by_type) == ids_by_type_to_sets(
             ids_by_type
@@ -1255,9 +1274,8 @@ class LLMChatManager:
             logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
             return
         payload_ids_by_type = dict(normalized_ids_by_type)
-        self._ai_follow_state[chat_id] = AIFollowState(
-            project_config_id=project_config_id,
-            ids_by_type=payload_ids_by_type,
+        self._ai_follow_state[(project_config_id, chat_id)] = AIFollowState(
+            ids_by_type=payload_ids_by_type
         )
         logger.debug(
             "Broadcasting AI follow update for chat %s (ids_by_type=%s)",

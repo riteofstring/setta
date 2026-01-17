@@ -25,7 +25,7 @@ class ChatHistory:
         self,
         first_message: BaseChatMessageUnion,
         llm_config: LLMConfig,
-        project_config_id: ID,
+        project_config_id: ID | None = None,
     ) -> Chat:
         return self._chat_store.create_new_chat(
             first_message=first_message,

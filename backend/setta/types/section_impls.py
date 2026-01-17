@@ -288,6 +288,7 @@ class ChatSectionImpl(BaseSectionImpl):
     )
     managed: bool = False
     llmConfigId: str | None = None
+    chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""

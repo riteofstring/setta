@@ -10,7 +10,6 @@ from setta.llm.chat_toolkit import (
     message_text,
     user_message,
 )
-from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 
 
@@ -21,7 +20,6 @@ class ChatHistoryTests(unittest.TestCase):
             model="gpt-test",
             provider="test",
         )
-        self.project_config_id = ID("project-123")
 
     def test_create_append_and_delete_chat(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -32,7 +30,6 @@ class ChatHistoryTests(unittest.TestCase):
             chat = history.create(
                 first_message=first_message,
                 llm_config=self.llm_config,
-                project_config_id=self.project_config_id,
             )
 
             loaded = history.require(chat.id)

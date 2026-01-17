@@ -1173,6 +1173,7 @@ const SharedModifierSchema = z.object({
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
     .optional(),
+  chatId: z.union([IDSchema, z.null()]).optional(),
   children: z.array(IDSchema).optional(),
   choices: z.array(z.string()).optional(),
   code: z.string().optional(),
@@ -1287,6 +1288,7 @@ const CoreSchema = z.object({
         "callable",
         "canvasMode",
         "chartSettings",
+        "chatId",
         "children",
         "choices",
         "code",
@@ -1759,6 +1761,7 @@ const ChatSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
+  chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
     .array(
@@ -2873,6 +2876,7 @@ const ChatSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
   llmConfigId: z.union([z.string(), z.null()]).optional(),
+  chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
   messages: z
     .array(
@@ -3773,6 +3777,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
+  chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
     .array(
@@ -4823,7 +4828,7 @@ const ChatSchema = z.object({
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   messages: z.array(
     z.union([
       SystemChatMessageSchema,
@@ -4842,13 +4847,13 @@ const ChatMetadataSchema = z.object({
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
 const AppendChatMessagesRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   messages: z.array(
     z.discriminatedUnion("role", [
@@ -4865,7 +4870,7 @@ export type AppendChatMessagesRequestInput = z.input<
 >;
 
 const CreateChatRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   llmConfigId: z.string(),
   firstMessage: z.union([
     SystemChatMessageSchema,
@@ -4878,14 +4883,14 @@ const CreateChatRequestSchema = z.object({
 export type CreateChatRequestInput = z.input<typeof CreateChatRequestSchema>;
 
 const DeleteChatRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
 });
 
 export type DeleteChatRequestInput = z.input<typeof DeleteChatRequestSchema>;
 
 const EmitChatStreamDeltaRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   sectionId: IDSchema,
   chatId: IDSchema,
   chunk: z.union([
@@ -4904,7 +4909,7 @@ export type EmitChatStreamDeltaRequestInput = z.input<
 >;
 
 const GetAllChatMetadataRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type GetAllChatMetadataRequestInput = z.input<
@@ -4912,14 +4917,14 @@ export type GetAllChatMetadataRequestInput = z.input<
 >;
 
 const GetChatRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
 });
 
 export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
 
 const RunMcpToolsRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   toolCalls: z.array(ToolCallSchema),
 });
@@ -4927,7 +4932,7 @@ const RunMcpToolsRequestSchema = z.object({
 export type RunMcpToolsRequestInput = z.input<typeof RunMcpToolsRequestSchema>;
 
 const SetChatSystemPromptRequestSchema = z.object({
-  projectConfigId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: IDSchema,
   systemPrompt: z.string(),
 });

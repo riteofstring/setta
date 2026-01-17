@@ -109,7 +109,7 @@ def _build_chat(llm_config: LLMConfig) -> Chat:
     return Chat(
         id=ID("chat-uuid"),
         name="Tool payload chat",
-        projectConfigId=ID("project-uuid"),
+        projectConfigId=None,
         llmConfig=llm_config,
         messages=[
             UserChatMessage(content=[MessageTextContent(text="Hello tools")])
@@ -126,7 +126,7 @@ def _build_chat_with_tool_reference(
     return Chat(
         id=ID("chat-uuid"),
         name="Tool reference chat",
-        projectConfigId=ID("project-uuid"),
+        projectConfigId=None,
         llmConfig=llm_config,
         messages=[
             UserChatMessage(content=[MessageTextContent(text="Search for tools")]),
@@ -137,6 +137,9 @@ def _build_chat_with_tool_reference(
             ),
         ],
     )
+
+
+_ACTIVE_PROJECT_CONFIG_ID = ID("project-uuid")
 
 
 class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
@@ -155,6 +158,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             tools = payload["tools"]
@@ -198,6 +202,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             tools = payload["tools"]
@@ -251,6 +256,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             extra_headers = payload.get("extra_headers")
@@ -279,6 +285,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             extra_headers = payload.get("extra_headers")
@@ -314,6 +321,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             tool_messages = [
@@ -356,6 +364,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             tool_messages = [
@@ -387,6 +396,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
 
             tools = payload["tools"]
@@ -501,6 +511,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
             )
             payload_tool_names = {
                 tool["function"]["name"] for tool in payload["tools"]
@@ -568,7 +579,7 @@ class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
             )
 
             execute_action = build_execute_tool_calls_action(
-                project_config_id=chat.projectConfigId,
+                project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
                 chat_id=chat.id,
                 tool_calls=[tool_call],
                 allowed_server_ids=set(
@@ -606,7 +617,7 @@ class PromptCacheTests(unittest.IsolatedAsyncioTestCase):
             chat = Chat(
                 id=ID("chat-uuid"),
                 name="Prompt cache chat",
-                projectConfigId=ID(project_config_id),
+                projectConfigId=None,
                 llmConfig=llm_config,
                 messages=[
                     UserChatMessage(content=[MessageTextContent(text="Hello prompt")])
@@ -616,6 +627,7 @@ class PromptCacheTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=ID(project_config_id),
             )
             first_prompt = payload["messages"][0]["content"][0]["text"]
             self.assertIn("## Active project config", first_prompt)
@@ -637,6 +649,7 @@ class PromptCacheTests(unittest.IsolatedAsyncioTestCase):
             payload = await manager._build_llm_request_payload(
                 chat,
                 deep_think=False,
+                active_project_config_id=ID(project_config_id),
             )
             second_prompt = payload["messages"][0]["content"][0]["text"]
             self.assertEqual(first_prompt, second_prompt)

@@ -66,6 +66,7 @@ class CoreArgs(TypedDict):
                 "callable",
                 "canvasMode",
                 "chartSettings",
+                "chatId",
                 "children",
                 "choices",
                 "code",
@@ -540,6 +541,7 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
     llmConfigId: NotRequired[str | None]
+    chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
     messages: NotRequired[
         list[
@@ -558,6 +560,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
     llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[

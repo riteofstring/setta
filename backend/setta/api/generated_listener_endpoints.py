@@ -87,7 +87,7 @@ class ListenerAddKwargRequestPayload(TypedDict):
 
 
 class ListenerAppendChatMessagesRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     chatId: ID
     messages: list[
         SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -132,7 +132,7 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
 
 
 class ListenerCreateChatRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     llmConfigId: str
     firstMessage: (
         SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -221,7 +221,7 @@ class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
 
 
 class ListenerDeleteChatRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     chatId: ID
 
 
@@ -272,7 +272,7 @@ class ListenerDeleteViewModeRequestPayload(TypedDict):
 
 
 class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     sectionId: ID
     chatId: ID
     chunk: (
@@ -306,11 +306,11 @@ class ListenerGenCodeSuffixCompletionRequestPayload(TypedDict):
 
 
 class ListenerGetAllChatMetadataRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
 
 
 class ListenerGetChatRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     chatId: ID
 
 
@@ -396,7 +396,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     chatId: ID
     toolCalls: list[ToolCall]
 
@@ -496,7 +496,7 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
 
 
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
+    projectConfigId: NotRequired[ID | None]
     chatId: ID
     systemPrompt: str
 

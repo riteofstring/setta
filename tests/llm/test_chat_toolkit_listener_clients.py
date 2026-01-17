@@ -37,7 +37,6 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                     chat = history.create(
                         first_message=payload["firstMessage"],
                         llm_config=llm_config,
-                        project_config_id=project_config_id,
                     )
                     return chat.model_dump(mode="json")
                 if endpoint_name == "route_get_chat":
@@ -83,7 +82,7 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                 chat_id=chat_id,
                 project_config_id=project_config_id,
             )
-            self.assertEqual(chat.projectConfigId, project_config_id)
+            self.assertIsNone(chat.projectConfigId)
 
             updated = await client.append(
                 chat_id=chat_id,
@@ -103,7 +102,7 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                 project_config_id=project_config_id
             )
             self.assertTrue(metadata)
-            self.assertEqual(metadata[0].projectConfigId, project_config_id)
+            self.assertIsNone(metadata[0].projectConfigId)
 
     async def test_tool_runner_client_coerces_messages(self) -> None:
         project_config_id = ID("project-1")

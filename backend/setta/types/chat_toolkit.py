@@ -11,45 +11,45 @@ from setta.types.id import ID
 
 
 class CreateChatRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     llmConfigId: str
     firstMessage: BaseChatMessageUnionWithDiscriminator
 
 
 class GetChatRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     chatId: ID
 
 
 class AppendChatMessagesRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     chatId: ID
     messages: list[BaseChatMessageUnionWithDiscriminator]
 
 
 class DeleteChatRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     chatId: ID
 
 
 class SetChatSystemPromptRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     chatId: ID
     systemPrompt: str
 
 
 class GetAllChatMetadataRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
 
 
 class RunMcpToolsRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     chatId: ID
     toolCalls: list[ToolCall]
 
 
 class EmitChatStreamDeltaRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: ID | None = None
     sectionId: ID
     chatId: ID
     chunk: LLMStreamingResponseChunk

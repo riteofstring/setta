@@ -55,7 +55,6 @@ async def route_create_chat(
     return history.create(
         first_message=x.firstMessage,
         llm_config=llm_config,
-        project_config_id=x.projectConfigId,
     )
 
 
@@ -110,7 +109,7 @@ async def route_get_all_chat_metadata(
     await ctx.enforce_llm_allowed()
     history = _chat_history(ctx)
     metadata = history.list_metadata()
-    return [entry for entry in metadata if entry.projectConfigId == x.projectConfigId]
+    return metadata
 
 
 @router.post(Route.RUN_MCP_TOOLS)

@@ -55,6 +55,7 @@ class SharedModifier(TypedDict):
     callable: NotRequired[ID | None]
     canvasMode: NotRequired[DrawAreaMode]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
+    chatId: NotRequired[ID | None]
     children: NotRequired[list[ID]]
     choices: NotRequired[list[str]]
     code: NotRequired[str]

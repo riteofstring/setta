@@ -26,7 +26,7 @@ def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
         data = dbe.read_json(path)
         if not data:
             continue
-        required_keys = {"id", "name", "lastUpdated", "llmConfig", "projectConfigId"}
+        required_keys = {"id", "name", "lastUpdated", "llmConfig"}
         if not required_keys.issubset(data.keys()):
             logger.debug(
                 "Skipping chat metadata from %s because required fields are missing",
@@ -41,7 +41,7 @@ def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
                         "name": data["name"],
                         "lastUpdated": data["lastUpdated"],
                         "llmConfig": data["llmConfig"],
-                        "projectConfigId": data["projectConfigId"],
+                        "projectConfigId": data.get("projectConfigId"),
                     }
                 )
             )
