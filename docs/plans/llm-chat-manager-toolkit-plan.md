@@ -183,37 +183,37 @@ These behaviors must remain unchanged:
   - waitingForResponse and toolCallArguments state matches current behavior.
 
 ## Implementation plan
-1) **Introduce managed toolkit modules**
+1) **Introduce managed toolkit modules** - DONE
    - Create the modules under `backend/setta/llm/chat_toolkit/managed/`.
    - Move the relevant logic from `LLMChatManager` into these modules with minimal changes.
 
-2) **Add managed module unit tests**
+2) **Add managed module unit tests** - DONE
    - Stream assembler block index behavior for mixed text/thinking.
    - Tool call accumulator with index-based deltas and lenient finalize parsing.
    - Tool runner behavior for search tool, missing tool, and sanitization.
    - Tool argument preview extraction and AI-follow id extraction.
    - Tests should use real types and production logic (no mocks).
 
-3) **Wire managed modules into LLMChatManager**
+3) **Wire managed modules into LLMChatManager** - DONE
    - Replace internal stream assembly and tool-call buffering.
    - Replace `_run_tool_calls` and `_dispatch_tool_call` with `managed/tool_runner`
      plus `managed/action_executor` for execution.
    - Replace AI-follow and preview logic with managed modules.
    - Replace chat_store access with `ChatHistory`.
 
-4) **Delete obsolete LLMChatManager helpers**
+4) **Delete obsolete LLMChatManager helpers** - DONE
    - Remove legacy stream parsing/assembly helpers now covered by managed modules.
    - Remove tool-call delta parsing and sanitization utilities that are duplicated.
 
-5) **Manual verification**
+5) **Manual verification** - TODO
    - Managed chat: streaming text, tool calls, and tool results show correctly.
    - Stop streaming: partial message persisted and state cleaned up.
    - Search tool: tool references appear and tool definitions are usable in follow-up calls.
 
 ## Tests
-- Unit tests for managed modules and core toolkit interop.
-- Integration tests for `LLMChatManager` streaming and tool execution paths.
-- Validate with real MCP client wiring; avoid mocks.
+- Managed module unit tests added (stream assembler, tool calls, tool search, sanitization, ai-follow, action executor).
+- `LLMChatManager` tests updated to use managed helpers where applicable.
+- Integration coverage for end-to-end streaming/tool execution remains optional; add if desired.
 
 ## Risks
 - Managed modules introduce additional dependencies (DBE, MCP annotations, websocket sender).

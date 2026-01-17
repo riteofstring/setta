@@ -72,6 +72,7 @@
    - Manual: create a Chat section in managed mode, pick an LLM, send messages, refresh to confirm persistence.
    - Manual: create a Chat section in scriptable mode and verify listeners can alter the state.
    - Manual: create multiple Chat sections and verify they keep separate chat sessions.
+   - NOTE: Manual validation has not been run yet in this repo state.
 
 ## Open questions
 - Should `managed` be the default for new Chat sections, or be opt-in via templates?

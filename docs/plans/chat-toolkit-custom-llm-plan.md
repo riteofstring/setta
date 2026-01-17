@@ -12,10 +12,11 @@
 - Redesign chat UI or introduce new section types.
 
 ## Current state
-- `LLMChatManager` is monolithic and LiteLLM-specific (`backend/setta/llm/llm_chat_manager.py`).
-- Scriptable Chat sections require listeners to implement history, streaming, and tool calls from scratch.
-- Listener router endpoints only include project_manager/terminals/listener/lsp routes; AI routes are not exposed.
-- Chat persistence utilities exist in `backend/setta/project_state/chats/` and `backend/setta/llm/chat_store.py`.
+- Core toolkit modules exist under `backend/setta/llm/chat_toolkit/` (history, messages, stream assembler, tool calls, tool runner, section sync).
+- Listener router endpoints expose chat toolkit routes in `backend/setta/routers/listener.py`.
+- Listener helpers live in `backend/setta/api/chat_toolkit.py` and are exported from `backend/setta/api/__init__.py`.
+- Docs/examples exist in `docs/chat-toolkit.md`.
+- Core chat persistence utilities remain in `backend/setta/project_state/chats/` and `backend/setta/llm/chat_store.py`.
 
 ## Proposal
 Introduce a modular chat toolkit with provider-agnostic helpers plus a listener-facing client layer.
@@ -236,17 +237,18 @@ All request models must include `projectConfigId` to satisfy listener endpoint r
 2) Tool call deltas are ignored or handled by custom tool logic.
 
 ## Implementation plan
-1) Extract reusable utilities from `LLMChatManager` into `backend/setta/llm/chat_toolkit/`.
-2) Add new request/response types for toolkit endpoints in a non-generated types module.
-3) Implement listener router endpoints in `backend/setta/routers/listener.py`.
-4) Update `backend/setta/api/generated_listener_endpoints.py` via the existing codegen flow if needed.
-5) Build listener toolkit classes in `backend/setta/api/chat_toolkit.py` and export from `backend/setta/api/__init__.py`.
-6) Add docs/examples showing custom-provider usage and partial adoption patterns.
-7) Add backend tests for:
+1) Extract reusable utilities from `LLMChatManager` into `backend/setta/llm/chat_toolkit/` - DONE
+2) Add new request/response types for toolkit endpoints in a non-generated types module - DONE
+3) Implement listener router endpoints in `backend/setta/routers/listener.py` - DONE
+4) Update `backend/setta/api/generated_listener_endpoints.py` via the existing codegen flow if needed - DONE
+5) Build listener toolkit classes in `backend/setta/api/chat_toolkit.py` and export from `backend/setta/api/__init__.py` - DONE
+6) Add docs/examples showing custom-provider usage and partial adoption patterns - DONE
+7) Add backend tests for - DONE
    - Chat history operations (use `MemoryChatStore` or DBE-backed fixtures).
    - Stream assembler delta handling (text + tool call).
    - Tool call accumulator and tool runner integration.
-8) Manual validation:
+   - Section state sync (`apply_stream_delta`) coverage.
+8) Manual validation - TODO:
    - Scriptable Chat section with custom provider streaming and tool calls.
    - History persistence across reloads.
    - Multiple Chat sections with isolated histories.
