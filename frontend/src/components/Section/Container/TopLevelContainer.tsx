@@ -1,4 +1,4 @@
-import { useDraggable, useDroppable } from "forks/dnd-kit/CustomCore";
+import { useDraggable, useDroppable } from "forks/dnd-kit/adapter";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
