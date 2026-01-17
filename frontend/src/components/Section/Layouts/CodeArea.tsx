@@ -35,7 +35,10 @@ import {
   useToolArgumentPreview,
 } from "state/definitions";
 import { C } from "utils/c";
-import { getPythonCodegenTarget } from "utils/codegenTargets";
+import {
+  getPythonCodegenTarget,
+  projectConfigHasPythonCodegen,
+} from "utils/codegenTargets";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -325,7 +328,29 @@ function BashCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
-  const { code, prefix, suffix, hasPythonCodegen } = useProjectState((x) => {
+  const hasPythonCodegen = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
+  if (!hasPythonCodegen) {
+    return <GenPythonCodeAreaDisabled />;
+  }
+  return <GenPythonCodeAreaContent sectionId={sectionId} />;
+}
+
+function GenPythonCodeAreaDisabled() {
+  return (
+    <article
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title flex h-full w-full cursor-auto items-start rounded-lg`}
+    >
+      <div className="mx-3 w-full rounded border border-setta-200/60 bg-white/70 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+        Python codegen is disabled for this project.
+      </div>
+    </article>
+  );
+}
+
+function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
+  const { code, prefix, suffix } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -336,17 +361,8 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
       code: impl.code,
       prefix: pythonTarget?.genCodePrefix ?? "",
       suffix: pythonTarget?.genCodeSuffix ?? "",
-      hasPythonCodegen: pythonTarget !== null,
     };
   });
-
-  if (!hasPythonCodegen) {
-    return (
-      <div className="mx-3 rounded border border-setta-200/60 bg-white/70 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
-        Python codegen is disabled for this project.
-      </div>
-    );
-  }
 
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
   const [value, setValue] = useState<string>(combinedDoc);
