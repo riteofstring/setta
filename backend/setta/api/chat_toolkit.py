@@ -471,10 +471,17 @@ class ChatSession:
             message=self._assistant_builder.preview(),
         )
 
-        async for chunk in provider_stream:
-            normalized = normalize_chunk(chunk)
-            if inspect.isawaitable(normalized):
-                await normalized
+        completed = False
+        try:
+            async for chunk in provider_stream:
+                normalized = normalize_chunk(chunk)
+                if inspect.isawaitable(normalized):
+                    await normalized
+            completed = True
+        finally:
+            if not completed:
+                await self.cancel()
+                self._assistant_builder = None
 
         assistant_message = self._assistant_builder.finalize()
         await self._history.append(
