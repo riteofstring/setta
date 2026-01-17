@@ -151,6 +151,11 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
+export const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
+
+export function getEdgesStripHeightKey(sectionId: string) {
+  return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
 
 const MODEL_GROUPS = [
   {
