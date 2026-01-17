@@ -6,6 +6,12 @@ import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
 
+from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
+from setta.llm.chat_toolkit.managed.tool_search import (
+    build_search_tool_chat_message,
+    parse_search_tool_results,
+    run_local_search_tool,
+)
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
@@ -422,12 +428,12 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
 
             first_tool = sorted(available.keys())[0]
             query = first_tool.split("__", 1)[-1].replace("_", " ")
-            call_result = manager._run_local_search_tool(
+            call_result = run_local_search_tool(
                 arguments={"query": query, "limit": 1},
                 available_tools=available,
                 annotations_by_name=annotations,
             )
-            search_results = manager._parse_search_tool_results(call_result)
+            search_results = parse_search_tool_results(call_result)
             self.assertTrue(search_results)
 
             tool_call = ToolCall(
@@ -436,7 +442,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                     arguments={"query": query, "limit": 1},
                 )
             )
-            tool_message = manager._build_search_tool_chat_message(
+            tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
@@ -465,7 +471,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                     arguments={"query": "missing tool", "limit": 1},
                 )
             )
-            tool_message = manager._build_search_tool_chat_message(
+            tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
@@ -510,7 +516,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
 
             first_tool = sorted(available.keys())[0]
             query = first_tool.split("__", 1)[-1].replace("_", " ")
-            call_result = manager._run_local_search_tool(
+            call_result = run_local_search_tool(
                 arguments={"query": query, "limit": 1},
                 available_tools=available,
                 annotations_by_name=annotations,
@@ -522,7 +528,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                     arguments={"query": query, "limit": 1},
                 )
             )
-            tool_message = manager._build_search_tool_chat_message(
+            tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
@@ -561,7 +567,20 @@ class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            tool_message = await manager._dispatch_tool_call(chat, tool_call)
+            execute_action = build_execute_tool_calls_action(
+                project_config_id=chat.projectConfigId,
+                chat_id=chat.id,
+                tool_calls=[tool_call],
+                allowed_server_ids=set(
+                    manager._resolve_mcp_server_ids(chat.llmConfig)
+                ),
+                share_session_id=manager.share_session_id,
+            )
+            if execute_action is None:
+                raise AssertionError("Expected tool execution action")
+            tool_results = await manager._apply_actions([execute_action])
+            self.assertEqual(len(tool_results), 1)
+            tool_message = tool_results[0]
 
             self.assertTrue(tool_message.is_error)
             self.assertEqual(tool_message.tool_name, tool_name)

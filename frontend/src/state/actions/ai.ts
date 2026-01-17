@@ -4,6 +4,7 @@ import {
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
+  useChatSectionChatIds,
   useToolArgumentPreview,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
@@ -96,6 +97,23 @@ export function clearPendingChatDetails() {
   useAIStore.setState({ pendingChatDetails: null });
 }
 
+type ChatSectionChatId = string | null | undefined;
+export type ChatSectionChatIdUpdate =
+  | ChatSectionChatId
+  | ((current: ChatSectionChatId) => ChatSectionChatId);
+
+export function setChatSectionChatIdLocal(
+  sectionId: string,
+  next: ChatSectionChatIdUpdate,
+): ChatSectionChatId {
+  const current = useChatSectionChatIds.getState().bySectionId[sectionId];
+  const resolved = typeof next === "function" ? next(current) : next;
+  useChatSectionChatIds.setState((state) => ({
+    bySectionId: { ...state.bySectionId, [sectionId]: resolved },
+  }));
+  return resolved;
+}
+
 export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
@@ -139,6 +157,7 @@ export async function submitMessage(
   message: string,
   deepThink: boolean,
   llmConfigId: string,
+  messageId?: string,
 ): Promise<string | null> {
   if (!message.trim()) {
     return null;
@@ -146,7 +165,7 @@ export async function submitMessage(
 
   // Add user message immediately for responsive UI
   const userMessage = {
-    id: createNewId(),
+    id: messageId ?? createNewId(),
     role: ChatRoleEnum.user,
     content: [createMessageTextContent({ text: message })],
   };
