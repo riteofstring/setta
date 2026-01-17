@@ -39,6 +39,7 @@ class DBE:
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
+        self.chat_sections = self.path / "chat_sections.json"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
         self.share_manifest = self.path / "manifest.json"
@@ -183,6 +184,75 @@ class DBE:
         if projectConfigId:
             return [s for s in data if s.projectConfigId == projectConfigId]
         return data
+
+    def read_chat_sections(self) -> dict[str, dict[str, str]]:
+        data = self.read_json(self.chat_sections)
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def get_chat_section_chat_id(self, projectConfigId: ID, sectionId: ID) -> ID | None:
+        data = self.read_chat_sections()
+        project_key = str(projectConfigId)
+        if project_key not in data:
+            return None
+        section_map = data[project_key]
+        section_key = str(sectionId)
+        if section_key not in section_map:
+            return None
+        return ID(section_map[section_key])
+
+    def set_chat_section_chat_id(
+        self, projectConfigId: ID, sectionId: ID, chatId: ID | None
+    ) -> None:
+        data = self.read_chat_sections()
+        project_key = str(projectConfigId)
+        if project_key not in data:
+            data[project_key] = {}
+        section_map = data[project_key]
+        section_key = str(sectionId)
+        if chatId is None:
+            if section_key in section_map:
+                del section_map[section_key]
+            if not section_map:
+                del data[project_key]
+        else:
+            section_map[section_key] = str(chatId)
+        self.write_json(self.chat_sections, data)
+
+    def delete_chat_section_chat_id(self, projectConfigId: ID, chatId: ID) -> None:
+        data = self.read_chat_sections()
+        project_key = str(projectConfigId)
+        if project_key not in data:
+            return
+        section_map = data[project_key]
+        chat_key = str(chatId)
+        removed = False
+        for section_key, section_chat_id in list(section_map.items()):
+            if section_chat_id == chat_key:
+                del section_map[section_key]
+                removed = True
+        if not removed:
+            return
+        if not section_map:
+            del data[project_key]
+        self.write_json(self.chat_sections, data)
+
+    def delete_chat_section_ids(
+        self, projectConfigId: ID, sectionIds: list[ID]
+    ) -> None:
+        data = self.read_chat_sections()
+        project_key = str(projectConfigId)
+        if project_key not in data:
+            return
+        section_map = data[project_key]
+        for section_id in sectionIds:
+            section_key = str(section_id)
+            if section_key in section_map:
+                del section_map[section_key]
+        if not section_map:
+            del data[project_key]
+        self.write_json(self.chat_sections, data)
 
     def write_notifications(self, notifications: list[SettaNotification]):
         data = [n.model_dump() for n in notifications]
