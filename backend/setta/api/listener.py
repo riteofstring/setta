@@ -65,6 +65,11 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
 )
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    get_python_codegen_target_with_type_guard,
+    project_config_has_codegen_language,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
@@ -976,6 +981,18 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
+        if not project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        ):
+            logger.error(
+                "Listener %s requires python codegen; disabled for project %s",
+                self._log_identifier,
+                incoming_project_id,
+            )
+            self.stop()
+            raise RuntimeError("Listener requires python codegen to be enabled.")
+
         try:
             runtime_state = self._build_runtime_state(project_state)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
@@ -1065,10 +1082,11 @@ class SettaListener:
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
         project_config = project_state.projectConfig
+        python_target = get_python_codegen_target_with_type_guard(project_config)
         code_generator = PythonCodeGenerator(
             dep_graph,
-            project_config.genCodePrefix,
-            project_config.genCodeSuffix,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
             value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:

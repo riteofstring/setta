@@ -24,7 +24,12 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, ViewModeConfig
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    ProjectConfig,
+    ViewModeConfig,
+    project_config_has_codegen_language,
+)
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -252,6 +257,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         )
         gen_code_path = build_gen_code_path(code_root, self.projectConfig.name)
         gen_code_binding: CodeFileBinding | None = None
+        python_codegen_enabled = project_config_has_codegen_language(
+            self.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
             core = self.sections[section_id]
@@ -266,10 +275,20 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 continue
             if effective_impl.codeFileBinding is not None:
                 if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                    gen_code_binding = effective_impl.codeFileBinding
+                    if python_codegen_enabled:
+                        gen_code_binding = effective_impl.codeFileBinding
+                    else:
+                        set_effective_impl_value(
+                            base_impl,
+                            core,
+                            variant,
+                            BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
+                        )
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                if not python_codegen_enabled:
+                    continue
                 canonical_path = gen_code_path
                 access_mode = CodeFileAccessMode.write_only
             else:
@@ -292,7 +311,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             )
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 gen_code_binding = binding
-        if gen_code_binding is None:
+        if gen_code_binding is None and python_codegen_enabled:
             gen_code_binding = CodeFileBinding(
                 canonical_path=normalize_path(gen_code_path),
                 access_mode=CodeFileAccessMode.write_only,
