@@ -20,6 +20,7 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_top_level_param_ids,
     set_chat_section_chat_id,
+    set_chat_section_settings,
 )
 from setta.types.project_config import (
     Position,
@@ -135,6 +136,31 @@ class ChatSectionChatIdTests(unittest.TestCase):
             ChatSectionImpl,
         )
         self.assertEqual(section_impl.chatId, chat_id)
+
+    def test_set_chat_section_settings_updates_agent_fields(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        agent_profile_id = ID("agent-profile-1")
+        agent_run_id = ID("agent-run-1")
+
+        set_chat_section_settings(
+            self.project_state,
+            section_id,
+            agent_profile_id,
+            agent_run_id,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        self.assertEqual(section_impl.agentProfileId, agent_profile_id)
+        self.assertEqual(section_impl.agentRunId, agent_run_id)
 
 
 class ChangeParamImplTests(unittest.TestCase):

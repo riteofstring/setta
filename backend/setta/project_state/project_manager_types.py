@@ -17,7 +17,6 @@ from setta.types.generated.unions import (
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
-    ProjectCodegenTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -389,16 +388,8 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
-class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the enabled code generation targets for a project."""
-
-    codegenTargets: list[ProjectCodegenTarget] = Field(
-        description="Ordered list of enabled codegen targets.",
-    )
-
-
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text prepended to generated Python code (python target only)."""
+    """Update the text prepended to generated Python code."""
 
     genCodePrefix: str = Field(
         description="Arbitrary prefix inserted at the start of generated code files.",
@@ -406,7 +397,7 @@ class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text appended to generated Python code (python target only)."""
+    """Update the text appended to generated Python code."""
 
     genCodeSuffix: str = Field(
         description="Suffix appended to the end of generated code files.",
@@ -686,9 +677,8 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
+    agentProfileId: ID | None
+    agentRunId: ID | None
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
