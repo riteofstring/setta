@@ -20,6 +20,7 @@ can grow into multi-language generation later.
 - Add a project-level language/target list instead of a single implicit Python target.
   - Example: `ProjectConfig.codegenTargets: list[ProjectCodegenTarget]`.
   - Each target includes `language` and language-specific settings.
+- Enforce unique languages per project (reject duplicate language entries).
 - Introduce `ProjectCodegenLanguage` enum (start with `python`).
 - Move `genCodePrefix`/`genCodeSuffix` into the Python target settings so each
   future language can carry its own template metadata.
@@ -54,6 +55,9 @@ can grow into multi-language generation later.
   - If `sectionId` (or `entryCodeBlockId`) targets a manual code section, run it.
   - If no runnable section is specified and Python codegen is disabled, raise a
     clear error.
+  - If `entryCodeBlockId` points to the GenPythonCode section and Python codegen
+    is disabled, clear the entry and require the user to select a manual code
+    section.
 - Ensure share/deployment paths don’t force gen code bindings:
   - Update `ShareRuntimeState._ensure_gen_code_binding` to no-op if Python is
     not enabled.
@@ -79,10 +83,10 @@ can grow into multi-language generation later.
   - Disable or adjust only gen-code-specific actions; keep code-section
     run actions and code completions intact.
 - Main run button behavior:
-  - If Python codegen is disabled and `entryCodeBlockId` points to a manual code
-    section, run that section.
-  - If there is no entry code block, disable the main run button or show a
-    clear prompt.
+  - Require an explicit entry code section when Python codegen is disabled.
+  - If `entryCodeBlockId` points to a manual code section, run that section.
+  - If `entryCodeBlockId` is unset or points to GenPythonCode when codegen is
+    disabled, clear it and disable the run button with a clear prompt.
 - Add UI to edit project codegen targets (likely in Overview > Project Config):
   - Toggle Python codegen on/off per project.
   - When toggled off, remove the GenPythonCode section (if present) or mark it
