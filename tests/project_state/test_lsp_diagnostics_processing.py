@@ -17,7 +17,11 @@ from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObj
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    TopLevelSectionLayout,
+    get_python_codegen_target_with_type_guard,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import CallableSectionImpl, TypeErrorIgnoreState
 
@@ -110,11 +114,13 @@ def build_project_state(param_value: str):
 
 def build_code_generator(project_state: ProjectStateSingleConfig):
     dep_graph = DependencyGraph(project_state)
-    project_config = project_state.projectConfig
+    python_target = get_python_codegen_target_with_type_guard(
+        project_state.projectConfig
+    )
     code_generator = PythonCodeGenerator(
         dep_graph,
-        project_config.genCodePrefix,
-        project_config.genCodeSuffix,
+        python_target.genCodePrefix,
+        python_target.genCodeSuffix,
         value_mode=PythonValueMode.PACKAGED_RUNTIME,
     )
     code_generator.generate_code()

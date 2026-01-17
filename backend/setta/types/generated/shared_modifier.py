@@ -45,8 +45,6 @@ class SharedModifier(TypedDict):
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeLayerIdx: NotRequired[int]
-    agentProfileId: NotRequired[ID | None]
-    agentRunId: NotRequired[ID | None]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]

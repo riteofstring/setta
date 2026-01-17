@@ -2111,16 +2111,18 @@ def set_text_block_format(
 def set_chat_section_settings(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
-    agentProfileId: ID | None,
-    agentRunId: ID | None,
+    managed: bool,
+    llmConfigId: str | None,
+    deepThink: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
     set_curr_effective_section_impl_value(
         p,
         sectionId,
         ChatSectionImplArgsWithCallable(
-            agentProfileId=agentProfileId,
-            agentRunId=agentRunId,
+            managed=managed,
+            llmConfigId=llmConfigId,
+            deepThink=deepThink,
         ),
     )
 

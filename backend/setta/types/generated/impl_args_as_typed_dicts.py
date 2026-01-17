@@ -25,6 +25,7 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
+    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -56,8 +57,6 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
-                "agentProfileId",
-                "agentRunId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -157,8 +156,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    genCodePrefix: NotRequired[str]
-    genCodeSuffix: NotRequired[str]
+    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -545,8 +543,6 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     llmConfigId: NotRequired[str | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
-    agentProfileId: NotRequired[ID | None]
-    agentRunId: NotRequired[ID | None]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -566,8 +562,6 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
-    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    agentRunId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

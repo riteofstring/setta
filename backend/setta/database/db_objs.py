@@ -7,7 +7,6 @@ from typing import Any
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
-from setta.types.agentic import AgentProfile, AgentRun, PromptTemplate
 from setta.types.id import (
     ID,
     CanonicalToTemporaryIDMap,
@@ -40,9 +39,6 @@ class DBE:
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
-        self.agent_profiles = self.path / "agent_profiles.json"
-        self.agent_runs = self.path / "agent_runs"
-        self.prompts_dir = self.path / "prompts"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
         self.share_manifest = self.path / "manifest.json"
@@ -216,83 +212,6 @@ class DBE:
 
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
-
-    def read_agent_profiles(self) -> list[AgentProfile]:
-        payload = self.read_json(self.agent_profiles)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("agent_profiles.json must contain a list")
-        return [AgentProfile.model_validate(item) for item in payload]
-
-    def write_agent_profiles(self, profiles: list[AgentProfile]) -> None:
-        payload = [profile.model_dump(mode="json") for profile in profiles]
-        self.write_json(self.agent_profiles, payload)
-
-    def agent_run_path(self, run_id: ID) -> Path:
-        return self.agent_runs / f"{run_id}.json"
-
-    def read_agent_run(self, run_id: ID) -> AgentRun | None:
-        path = self.agent_run_path(run_id)
-        if not path.exists():
-            return None
-        payload = self.read_json(path)
-        if not payload:
-            raise ValueError(f"Agent run file is empty: {path}")
-        return AgentRun.model_validate(payload)
-
-    def write_agent_run(self, run: AgentRun) -> None:
-        self.write_json(self.agent_run_path(run.id), run.model_dump(mode="json"))
-
-    def list_agent_run_paths(self) -> list[Path]:
-        if not self.agent_runs.exists():
-            return []
-        return sorted(self.agent_runs.glob("*.json"))
-
-    def read_agent_runs(self) -> list[AgentRun]:
-        runs: list[AgentRun] = []
-        for path in self.list_agent_run_paths():
-            payload = self.read_json(path)
-            if not payload:
-                raise ValueError(f"Agent run file is empty: {path}")
-            runs.append(AgentRun.model_validate(payload))
-        return runs
-
-    def prompt_path(self, prompt_id: ID) -> Path:
-        return self.prompts_dir / f"{prompt_id}.json"
-
-    def read_prompt(self, prompt_id: ID) -> PromptTemplate | None:
-        path = self.prompt_path(prompt_id)
-        if not path.exists():
-            return None
-        payload = self.read_json(path)
-        if not payload:
-            raise ValueError(f"Prompt file is empty: {path}")
-        return PromptTemplate.model_validate(payload)
-
-    def write_prompt(self, prompt: PromptTemplate) -> None:
-        self.write_json(self.prompt_path(prompt.id), prompt.model_dump(mode="json"))
-
-    def delete_prompt(self, prompt_id: ID) -> None:
-        path = self.prompt_path(prompt_id)
-        lock = self.get_file_lock(path)
-        with lock:
-            if path.exists():
-                path.unlink()
-
-    def list_prompt_paths(self) -> list[Path]:
-        if not self.prompts_dir.exists():
-            return []
-        return sorted(self.prompts_dir.glob("*.json"))
-
-    def read_prompts(self) -> list[PromptTemplate]:
-        prompts: list[PromptTemplate] = []
-        for path in self.list_prompt_paths():
-            payload = self.read_json(path)
-            if not payload:
-                raise ValueError(f"Prompt file is empty: {path}")
-            prompts.append(PromptTemplate.model_validate(payload))
-        return prompts
 
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
