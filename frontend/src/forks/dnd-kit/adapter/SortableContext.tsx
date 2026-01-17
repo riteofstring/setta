@@ -214,16 +214,23 @@ export function SortableContext({
       return;
     }
 
+    if (!collisions || collisions.length === 0) {
+      clearSortingOverState(containerId);
+      return;
+    }
+
     const resolvedId =
       resolvedOverId && items.includes(String(resolvedOverId))
         ? String(resolvedOverId)
         : null;
     if (!resolvedId) {
+      clearSortingOverState(containerId);
       return;
     }
 
     setSortingOverState(containerId, resolvedId, resolvedPastHalfway);
   }, [
+    collisions,
     containerId,
     items,
     resolvedOverId,

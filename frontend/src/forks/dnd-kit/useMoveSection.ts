@@ -251,10 +251,6 @@ function resolveSortingOverId({
   fallbackOverId: string | null;
   over: DragEndEvent["over"] | null;
 }): string | null {
-  if (fallbackOverId && items.includes(fallbackOverId)) {
-    return fallbackOverId;
-  }
-
   const collisionOverId = getSortingOverIdFromCollisions(collisions, items);
   if (collisionOverId) {
     return collisionOverId;
@@ -263,6 +259,12 @@ function resolveSortingOverId({
   const overId = over ? String(over.id) : null;
   if (overId && items.includes(overId)) {
     return overId;
+  }
+
+  if (collisions && collisions.length > 0) {
+    if (fallbackOverId && items.includes(fallbackOverId)) {
+      return fallbackOverId;
+    }
   }
 
   return null;
