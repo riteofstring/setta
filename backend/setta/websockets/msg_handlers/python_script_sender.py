@@ -9,15 +9,15 @@ from setta.types.id import (
     TemporaryToCanonicalIDMap,
 )
 from setta.types.listener import (
-    DependencyEvent,
-    ListenerDependencyEventContent,
+    ControlActionEvent,
+    ListenerActionEventContent,
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
-    WebsocketMsgListenerDependencyEvent,
+    WebsocketMsgListenerActionEvent,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
@@ -136,24 +136,24 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             else:
                 await self.websocket_manager.send_message(message, websocket_id)
 
-    async def send_dependency_event(
+    async def send_action_event(
         self,
         *,
         projectConfigId: ID,
-        dependencyEvents: list[DependencyEvent],
+        actionEvents: list[ControlActionEvent],
         sequence: int,
         share_session_id: str | None = None,
     ):
-        if not dependencyEvents:
-            raise ValueError("dependencyEvents must contain at least one entry")
-        content = ListenerDependencyEventContent(
+        if not actionEvents:
+            raise ValueError("actionEvents must contain at least one entry")
+        content = ListenerActionEventContent(
             projectConfigId=projectConfigId,
             shareSessionId=share_session_id,
-            dependencyEvents=dependencyEvents,
+            actionEvents=actionEvents,
             sequence=sequence,
         )
         logger.debug(
-            "sending listener dependency event for project config %s (sequence=%s session=%s)",
+            "sending listener action event for project config %s (sequence=%s session=%s)",
             projectConfigId,
             sequence,
             share_session_id,
@@ -162,9 +162,9 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         for (
             registration,
             matching_callbacks,
-        ) in self.listener_registry.iter_callbacks_matching_dependencies(
+        ) in self.listener_registry.iter_callbacks_matching_actions(
             project_config_id=projectConfigId,
-            dependency_keys=(event.dependencyKey for event in dependencyEvents),
+            action_ids=(event.actionId for event in actionEvents),
             share_session_id=share_session_id,
         ):
             if matching_callbacks:
@@ -172,19 +172,19 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
 
         if not sockets_to_notify:
             logger.debug(
-                "no listener sockets registered for dependency events %s (project config %s)",
-                [event.dependencyKey for event in dependencyEvents],
+                "no listener sockets registered for action events %s (project config %s)",
+                [event.actionId for event in actionEvents],
                 projectConfigId,
             )
             return
 
-        message = WebsocketMsgListenerDependencyEvent(content=content)
+        message = WebsocketMsgListenerActionEvent(content=content)
         temporary_message = None
         for websocket_id in sockets_to_notify:
             if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
                 if temporary_message is None:
                     temporary_content = self._convert_outgoing_to_temporary(content)
-                    temporary_message = WebsocketMsgListenerDependencyEvent(
+                    temporary_message = WebsocketMsgListenerActionEvent(
                         content=temporary_content
                     )
                 await self.websocket_manager.send_message(
