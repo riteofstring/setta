@@ -422,11 +422,21 @@ export function getOverId(
   collisions: DragOverEvent["collisions"] | null,
 ) {
   const collisionOver = getCollisionOverId(collisions);
-  if (collisionOver) {
-    return collisionOver;
+  const resolvedOverId = collisionOver ?? (over ? over.id : null);
+  if (!resolvedOverId || !collisions || collisions.length === 0) {
+    return resolvedOverId;
   }
 
-  return over ? over.id : null;
+  const resolvedOverIdKey = String(resolvedOverId);
+  const dndChildrenState = useDndChildren.getState();
+  for (const collision of collisions) {
+    const collisionId = String(collision.id);
+    if (dndChildrenState.y[collisionId] === resolvedOverIdKey) {
+      return collision.id;
+    }
+  }
+
+  return resolvedOverId;
 }
 
 function getOverCollisionPastHalfway(
