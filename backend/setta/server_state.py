@@ -9,6 +9,7 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.llm.agentic_watcher import AgenticWatcher
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
@@ -246,6 +247,7 @@ class SettaFastAPIState:
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
         )
+        self.agentic_watcher: AgenticWatcher = self._defer_attr("agentic_watcher")
 
         self.init_status = BackendInitializationStatus()
         mode_label = "share" if self.share_mode else "backend"
@@ -386,6 +388,12 @@ class SettaFastAPIState:
                 self.dbe,
             )
             self.llm_config_watcher.start()
+            self.agentic_watcher = AgenticWatcher(
+                self.specific_file_watcher,
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            self.agentic_watcher.start()
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
