@@ -115,6 +115,7 @@ class AgenticRouterTests(unittest.IsolatedAsyncioTestCase):
             state.dbe.write_prompt(prompt)
 
             with runtime_context(state, "session-a") as ctx:
+                section_id = ID("section-1")
                 profiles = await route_list_agent_profiles(ctx)
                 self.assertEqual([profile], profiles)
                 loaded_profile = await route_get_agent_profile(profile.id, ctx)
@@ -129,11 +130,13 @@ class AgenticRouterTests(unittest.IsolatedAsyncioTestCase):
                     StartAgentRunRequest(
                         agentProfileId=profile.id,
                         inputs={"goal": "ship"},
+                        sectionId=section_id,
                     ),
                     ctx,
                 )
                 self.assertEqual(AgentRunStatus.queued, run.status)
                 self.assertEqual(profile.id, run.agentProfileId)
+                self.assertEqual(section_id, run.sectionId)
 
                 fetched = await route_get_agent_run(run.id, ctx)
                 self.assertEqual(run.id, fetched.id)
