@@ -71,5 +71,4 @@
 - Use `PYTHONPATH=<snapshot_root>` and module path `_<timestamp>.setta_gen` for share runs.
 
 ## Open questions (remaining)
-- Behavior when a representation mode is chosen that a section type does not support
-  (raise vs ignore vs fallback).
+- None. Unsupported representation modes should raise a hard error.
