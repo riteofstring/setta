@@ -181,54 +181,6 @@ export async function route_get_listener_coverage(
   return await post("/getListenerCoverage", x);
 }
 
-async function route_create_chat(
-  x: gt.CreateChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/createChat", x);
-}
-
-async function route_get_chat(
-  x: gt.GetChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/getChat", x);
-}
-
-async function route_append_chat_messages(
-  x: gt.AppendChatMessagesRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/appendChatMessages", x);
-}
-
-async function route_delete_chat(
-  x: gt.DeleteChatRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteChat", x);
-}
-
-async function route_set_chat_system_prompt(
-  x: gt.SetChatSystemPromptRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/setChatSystemPrompt", x);
-}
-
-async function route_get_all_chat_metadata(
-  x: gt.GetAllChatMetadataRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllChatMetadata", x);
-}
-
-async function route_run_mcp_tools(
-  x: gt.RunMcpToolsRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.ToolChatMessage>>> {
-  return await post("/runMcpTools", x);
-}
-
-async function route_emit_chat_stream_delta(
-  x: gt.EmitChatStreamDeltaRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/emitChatStreamDelta", x);
-}
-
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -765,30 +717,6 @@ export async function route_set_text_block_format(
   x: gt.SetTextBlockFormatRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockFormat", x);
-}
-
-export async function route_set_chat_section_settings(
-  x: gt.SetChatSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionSettings", x);
-}
-
-export async function route_set_chat_section_state(
-  x: gt.SetChatSectionStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionState", x);
-}
-
-export async function route_get_chat_section_chat_id(
-  x: gt.GetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<string | null>> {
-  return await post("/getChatSectionChatId", x);
-}
-
-export async function route_set_chat_section_chat_id(
-  x: gt.SetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionChatId", x);
 }
 
 export async function route_set_social_url(
