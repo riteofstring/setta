@@ -14,6 +14,7 @@ import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
+import { ShowYaml } from "./ShowYaml";
 import { ToggleGroupOverflowMode } from "./ToggleGroupOverflowMode";
 import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
 import { ToggleMetaControlLook } from "./ToggleMetaControlLook";
@@ -116,6 +117,7 @@ function getMenuItems(uiTypeName) {
         CreateNewVariantButton,
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
+        ShowYaml,
         ClearValues,
         ResetToDefaultVersion,
       ];
@@ -124,6 +126,7 @@ function getMenuItems(uiTypeName) {
       return [
         CreateNewVariantButton,
         HideShowUnpinnedParamsButton,
+        ShowYaml,
         ClearValues,
         ResetToDefaultVersion,
       ];
