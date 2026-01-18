@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,7 +25,10 @@ def process_completion_response(response: Any) -> list[CodeMirrorCompletion]:
 def process_completion(items: list[dict[str, Any]]) -> list[CodeMirrorCompletion]:
     content: list[CodeMirrorCompletion] = []
     for x in items:
-        c = CodeMirrorCompletion(label=x["label"], type=type_mapping[x["kind"]])
+        label = x["label"]
+        if _is_temp_snapshot_label(label):
+            continue
+        c = CodeMirrorCompletion(label=label, type=type_mapping[x["kind"]])
         content.append(c)
 
     return content
@@ -58,3 +62,10 @@ type_mapping = {
     25: "Operator",
     26: "TypeParameter",
 }
+
+# Hide temp completion snapshot modules (e.g., setta_gen__<uuid>).
+_TEMP_SNAPSHOT_LABEL = re.compile(r"__[0-9a-f]{32}$")
+
+
+def _is_temp_snapshot_label(label: str) -> bool:
+    return bool(_TEMP_SNAPSHOT_LABEL.search(label))

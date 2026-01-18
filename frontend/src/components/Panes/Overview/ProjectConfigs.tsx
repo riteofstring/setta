@@ -12,6 +12,11 @@ import {
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { ProjectConfig } from "utils/generatedTypes";
 
+const TOGGLE_ROOT_CLASSES =
+  "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
+const TOGGLE_THUMB_CLASSES =
+  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
+
 export function ProjectConfigs() {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
@@ -21,21 +26,17 @@ export function ProjectConfigs() {
     _.isEqual,
   );
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
-  const toggleRootClasses =
-    "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
-  const toggleThumbClasses =
-    "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
   return (
     <>
       <aside className="mb-2 flex items-center justify-between">
         <p className="text-xs text-setta-500">Toggle config previews.</p>
         <Switch.Root
-          className={toggleRootClasses}
+          className={TOGGLE_ROOT_CLASSES}
           checked={previewEnabled}
           onCheckedChange={toggleProjectConfigPreviewEnabled}
         >
-          <Switch.Thumb className={toggleThumbClasses} />
+          <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
         </Switch.Root>
       </aside>
       {/* 
