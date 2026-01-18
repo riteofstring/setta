@@ -366,11 +366,7 @@ function getTriggerDistCondition({
 
   const zoom = useReactFlow.getState().transform[2];
   const threshold =
-    droppableData.type === "param"
-      ? 30
-      : containerIsHorizontal
-        ? 20
-        : 100;
+    droppableData.type === "param" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;
 }

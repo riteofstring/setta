@@ -5,9 +5,9 @@ import type {
   DragOverEvent,
   DragStartEvent,
 } from "forks/dnd-kit/adapter";
-import type { SettaCollision } from "forks/dnd-kit/adapter/types";
 import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
+import type { SettaCollision } from "forks/dnd-kit/adapter/types";
 import {
   addParamChild,
   getParamDndParentId,
@@ -470,7 +470,11 @@ function updateParamDragOver({
   );
   const selectionSet = new Set(paramState.draggingIds);
   const overIsDescendant = hasParentForOverId
-    ? isDescendantOfSelection(paramState.parentById, normalizedOverId, selectionSet)
+    ? isDescendantOfSelection(
+        paramState.parentById,
+        normalizedOverId,
+        selectionSet,
+      )
     : false;
 
   const newParentId = resolveParamDragParent({

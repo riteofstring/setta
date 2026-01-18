@@ -29,9 +29,9 @@ import {
   route_unindent_params,
 } from "utils/generatedEndpoints";
 import {
+  CodeObjTypeEnum,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
-  CodeObjTypeEnum,
 } from "utils/generatedTypes";
 
 type ParamSelectionBase = {
