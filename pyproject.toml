@@ -72,4 +72,5 @@ include = [
 artifacts = [
     "backend/setta/static/frontend/**",
     "backend/setta/agentic/external_adapters/sidecars/**",
+    "backend/setta/vendor/node/**",
 ]

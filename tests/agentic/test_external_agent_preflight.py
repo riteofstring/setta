@@ -93,6 +93,21 @@ class ExternalAgentPreflightTests(unittest.TestCase):
             any("Node executable not found" in issue for issue in status.issues)
         )
 
+    def test_check_node_uses_command_path(self) -> None:
+        if os.name == "nt":
+            self.skipTest("Shell script node stub is not supported on Windows")
+        tmp_dir = TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        script_path = Path(tmp_dir.name) / "node"
+        script_path.write_text("#!/bin/sh\necho \"v18.0.0\"\n", encoding="utf-8")
+        script_path.chmod(0o755)
+
+        node_path, node_version, node_issue = preflight._check_node(str(script_path))
+
+        self.assertIsNone(node_issue)
+        self.assertEqual(node_path, str(script_path))
+        self.assertEqual(node_version, "v18.0.0")
+
     def test_sdk_version_reflects_sidecar_install(self) -> None:
         tmp = self._temp_cwd()
         dbe = DBE(tmp / "setta_files")

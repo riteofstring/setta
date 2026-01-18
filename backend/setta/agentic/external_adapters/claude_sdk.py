@@ -19,6 +19,7 @@ from setta.agentic.external_adapters.stream_utils import (
     iter_stream_lines,
     parse_json_line,
 )
+from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -141,7 +142,7 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
-        node_path = context.config.commandPath or "node"
+        node_path = resolve_node_command(context.config.commandPath)
         return [node_path, str(_SIDECAR_PATH)]
 
     @staticmethod

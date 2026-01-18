@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from setta.agentic.node_runtime import resolve_node_command
 from setta.database.db_objs import DBE
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -121,8 +122,11 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> ExternalAgentEnvVarStat
 
 
 def _check_node(command_path: str | None) -> tuple[str | None, str | None, str | None]:
-    node_command = command_path or "node"
-    node_path = shutil.which(node_command)
+    node_command = resolve_node_command(command_path)
+    if Path(node_command).is_file():
+        node_path = node_command
+    else:
+        node_path = shutil.which(node_command)
     if not node_path:
         return None, None, f"Node executable not found ({node_command})"
     result = subprocess.run(
