@@ -2,13 +2,16 @@ import unittest
 
 from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     derive_chat_name,
     get_run_chat_id,
     get_run_llm_config_id,
     get_run_project_config_id,
     get_run_type,
+    is_chat_run,
     is_llm_chat_run,
+    is_scriptable_chat_run,
 )
 from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
@@ -36,6 +39,7 @@ class ChatViewTests(unittest.TestCase):
 
         self.assertEqual(get_run_type(run), LLM_CHAT_RUN_TYPE)
         self.assertTrue(is_llm_chat_run(run))
+        self.assertTrue(is_chat_run(run))
         self.assertEqual(get_run_chat_id(run), ID("chat-1"))
         self.assertEqual(get_run_project_config_id(run), ID("project-1"))
 
@@ -50,6 +54,17 @@ class ChatViewTests(unittest.TestCase):
         )
         self.assertEqual(get_run_chat_id(run_with_event), ID("chat-2"))
         self.assertEqual(get_run_project_config_id(run_with_event), ID("project-2"))
+
+        scriptable = AgentRun(
+            inputs={
+                "runType": SCRIPTABLE_CHAT_RUN_TYPE,
+                "chatId": "chat-3",
+                "projectConfigId": "project-3",
+            },
+        )
+        self.assertEqual(get_run_type(scriptable), SCRIPTABLE_CHAT_RUN_TYPE)
+        self.assertTrue(is_scriptable_chat_run(scriptable))
+        self.assertTrue(is_chat_run(scriptable))
 
     def test_build_chat_state_from_stream_events(self) -> None:
         user_message = UserChatMessage(

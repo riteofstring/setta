@@ -31,12 +31,6 @@ from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 router = SettaProjectContextAPIRouter()
 
 
-def _chat_manager_kwargs(ctx: RuntimeContextFromRequest) -> dict[str, str]:
-    if ctx.share_mode:
-        return {"share_session_id": ctx.share_session_id}
-    return {}
-
-
 def _get_llm_chat_runs(
     *,
     dbe,
@@ -109,32 +103,6 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        if x.llmConfigId is None:
-            raise HTTPException(status_code=400, detail="LLM config is required")
-        chat_manager_kwargs = _chat_manager_kwargs(ctx)
-        try:
-            chat = ctx.state.chat_manager.get_or_create_chat(
-                x.chatId,
-                x.message,
-                x.llmConfigId,
-                **chat_manager_kwargs,
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500, detail="Failed to enqueue LLM request"
-            ) from exc
-
-        if chat:
-            ctx.state.chat_manager.start_processing_query(
-                chat,
-                x.deepThink,
-                x.projectConfigId,
-                **chat_manager_kwargs,
-            )
-            return chat.id
-        return None
-
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")
 
@@ -185,9 +153,6 @@ async def route_get_all_llm_chat_metadata(
     ctx: RuntimeContextFromRequest,
 ) -> list[ChatMetadata]:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        return ctx.state.chat_manager.get_all_chat_metadata(**_chat_manager_kwargs(ctx))
-
     runs = _get_llm_chat_runs(dbe=ctx.state.dbe)
     latest_by_chat: dict[ID, AgentRun] = {}
     for run in runs:
@@ -223,12 +188,6 @@ async def route_delete_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> None:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        return ctx.state.chat_manager.delete_chat(
-            x.chatId,
-            **_chat_manager_kwargs(ctx),
-        )
-
     runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
     for run in runs:
         if run.status == AgentRunStatus.running:
@@ -243,13 +202,6 @@ async def route_stop_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> None:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        await ctx.state.chat_manager.request_stop_streaming(
-            x.chatId,
-            **_chat_manager_kwargs(ctx),
-        )
-        return None
-
     runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
     running_runs = [run for run in runs if run.status == AgentRunStatus.running]
     latest_run = _select_latest_run(running_runs)
@@ -265,30 +217,6 @@ async def route_get_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> GetLLMChatRequestResponse:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        chat = ctx.state.chat_manager.get_chat(
-            x.chatId,
-            **_chat_manager_kwargs(ctx),
-        )
-        if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
-
-        waiting_for_response = ctx.state.chat_manager.is_waiting_for_response(
-            x.chatId,
-            **_chat_manager_kwargs(ctx),
-        )
-        current_stream = ctx.state.chat_manager.get_current_stream(
-            x.chatId,
-            **_chat_manager_kwargs(ctx),
-        )
-        messages = chat.messages
-        merge_db_messages_with_current_stream(messages, current_stream)
-        return GetLLMChatRequestResponse(
-            messages=messages,
-            waitingForResponse=waiting_for_response,
-            llmConfig=chat.llmConfig,
-        )
-
     runs = _get_llm_chat_runs(
         dbe=ctx.state.dbe,
         chat_id=x.chatId,
@@ -316,23 +244,4 @@ async def route_get_ai_follow_snapshot(
     ctx: RuntimeContextFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
     await ctx.enforce_llm_allowed()
-    if ctx.share_mode:
-        return ctx.state.chat_manager.get_ai_follow_snapshot(
-            x.projectConfigId,
-            **_chat_manager_kwargs(ctx),
-        )
     return ctx.state.agent_runner.get_ai_follow_snapshot(x.projectConfigId)
-
-
-def merge_db_messages_with_current_stream(
-    db_messages: list[BaseChatMessageUnion], current_stream: list[BaseChatMessageUnion]
-):
-    # Create a set of existing message IDs for efficient lookup
-    existing_ids = {message.id for message in db_messages}
-
-    # Loop through current_stream and append messages that aren't already in chat
-    for message in current_stream:
-        if message.id not in existing_ids:
-            db_messages.append(message)
-            # Add to existing_ids to track what we've added
-            existing_ids.add(message.id)

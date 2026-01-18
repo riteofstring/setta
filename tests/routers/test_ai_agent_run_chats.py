@@ -168,7 +168,7 @@ class TestState:
 
 
 class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
-    async def test_share_mode_requires_llm_config_id(self) -> None:
+    async def test_share_mode_blocks_llm_when_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-llm-config-guard"
             root = _build_share_deployment_root(tmpdir, project_config_name)
@@ -202,8 +202,8 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                         runtime_ctx,
                     )
 
-            self.assertEqual(ctx.exception.status_code, 400)
-            self.assertEqual(ctx.exception.detail, "LLM config is required")
+            self.assertEqual(ctx.exception.status_code, 403)
+            self.assertEqual(ctx.exception.detail, "Share LLM support is not enabled.")
 
     async def test_get_llm_chat_from_agent_run(self) -> None:
         with TemporaryDirectory() as tmpdir:

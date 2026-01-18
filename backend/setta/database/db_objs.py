@@ -38,7 +38,6 @@ class DBE:
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
-        self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
         self.agent_profiles = self.path / "agent_profiles.json"
@@ -239,30 +238,6 @@ class DBE:
         if content:
             content += "\n"
         self.write(self.dot_env, content)
-
-    def chat_path(self, chat_id: ID) -> Path:
-        return self.chats / f"{chat_id}.json"
-
-    def read_chat(self, chat_id: ID) -> dict | None:
-        path = self.chat_path(chat_id)
-        if not path.exists():
-            return None
-        return self.read_json(path)
-
-    def write_chat(self, chat_id: ID, data: Any):
-        self.write_json(self.chat_path(chat_id), data)
-
-    def list_chat_paths(self) -> list[Path]:
-        if not self.chats.exists():
-            return []
-        return sorted(self.chats.glob("*.json"))
-
-    def delete_chat_file(self, chat_id: ID):
-        path = self.chat_path(chat_id)
-        lock = self.get_file_lock(path)
-        with lock:
-            if path.exists():
-                path.unlink()
 
     def read_agent_profiles(self) -> list[dict]:
         payload = self.read_json(self.agent_profiles)

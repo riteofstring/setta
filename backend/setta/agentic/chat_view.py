@@ -3,11 +3,11 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
+from setta.agentic.chat_names import create_new_chat_name
 from setta.llm.chat_toolkit.section_sync import (
     apply_stream_delta,
     build_chat_section_state,
 )
-from setta.project_state.chats.save import create_new_chat_name
 from setta.types.agentic import AgentRun, AgentRunStatus
 from setta.types.chat_stream_events import LLMStreamingResponseChunk
 from setta.types.generated.chat_messages import (
@@ -19,6 +19,7 @@ from setta.types.section_impls import ChatSectionState
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 LLM_CHAT_RUN_TYPE = "llm_chat"
+SCRIPTABLE_CHAT_RUN_TYPE = "scriptable_chat"
 
 _STREAM_CHUNK_ADAPTER = TypeAdapter(LLMStreamingResponseChunk)
 
@@ -37,6 +38,20 @@ def is_llm_chat_run(run: AgentRun) -> bool:
     if not run_type:
         return False
     return run_type == LLM_CHAT_RUN_TYPE
+
+
+def is_scriptable_chat_run(run: AgentRun) -> bool:
+    run_type = get_run_type(run)
+    if not run_type:
+        return False
+    return run_type == SCRIPTABLE_CHAT_RUN_TYPE
+
+
+def is_chat_run(run: AgentRun) -> bool:
+    run_type = get_run_type(run)
+    if not run_type:
+        return False
+    return run_type in {LLM_CHAT_RUN_TYPE, SCRIPTABLE_CHAT_RUN_TYPE}
 
 
 def get_run_chat_id(run: AgentRun) -> ID | None:

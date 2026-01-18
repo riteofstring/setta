@@ -224,8 +224,8 @@ async def route_create_prompt_template(
     x: CreatePromptTemplateRequest,
     ctx: RuntimeContextFromRequest,
 ) -> PromptTemplate:
-    await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating prompt templates.")
+    await ctx.enforce_llm_allowed()
     template = PromptTemplate(
         name=x.name,
         description=x.description,
@@ -248,8 +248,8 @@ async def route_update_prompt_template(
     x: UpdatePromptTemplateRequest,
     ctx: RuntimeContextFromRequest,
 ) -> PromptTemplate:
-    await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating prompt templates.")
+    await ctx.enforce_llm_allowed()
     existing = load_prompt_template(ctx.state.dbe, x.template.id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
@@ -267,8 +267,8 @@ async def route_delete_prompt_template(
     x: DeletePromptTemplateRequest,
     ctx: RuntimeContextFromRequest,
 ) -> None:
-    await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow deleting prompt templates.")
+    await ctx.enforce_llm_allowed()
     existing = load_prompt_template(ctx.state.dbe, x.templateId)
     if existing is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
