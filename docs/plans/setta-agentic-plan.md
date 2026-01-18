@@ -86,14 +86,14 @@ Backward compatibility is not required, but user-visible features must be preser
 - Integrate runs into Chat sections as the default entry point (agentic sessions per chat section).
 - Keep ProjectLevelAI for project-level setup/automation workflows.
 
-### Phase 5: Context and memory controls (deferred)
+## Future work (out of scope)
+### Context and memory controls
 - Add per-agent context sources:
   - Project summary (current default).
   - Selected sections or file snippets.
   - Memory cards with explicit pin/forget controls.
 - Add a context budget preview in the chat UI (tokens per source).
 
-## Future work (out of scope)
 ### Eval harness
 - Add an eval runner:
   - Accepts JSONL datasets with input and expected output.
