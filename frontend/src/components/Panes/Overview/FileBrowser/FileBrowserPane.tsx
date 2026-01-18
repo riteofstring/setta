@@ -404,14 +404,36 @@ export function FileBrowserPane() {
       if (flattenedItems.length === 0) {
         return;
       }
-      const currentIndex = selectedIndex >= 0 ? selectedIndex : 0;
-      const currentItem = flattenedItems[currentIndex];
+      if (selectedIndex < 0) {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          const nextIndex = 0;
+          const nextItem = flattenedItems[nextIndex];
+          if (nextItem) {
+            handleSelect(nextItem.fullPath);
+            listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
+          }
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          const nextIndex = flattenedItems.length - 1;
+          const nextItem = flattenedItems[nextIndex];
+          if (nextItem) {
+            handleSelect(nextItem.fullPath);
+            listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
+          }
+        }
+        return;
+      }
+      const currentItem = flattenedItems[selectedIndex];
       if (!currentItem) {
         return;
       }
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        const nextIndex = Math.min(currentIndex + 1, flattenedItems.length - 1);
+        const nextIndex = Math.min(
+          selectedIndex + 1,
+          flattenedItems.length - 1,
+        );
         const nextItem = flattenedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);
@@ -421,7 +443,7 @@ export function FileBrowserPane() {
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        const nextIndex = Math.max(currentIndex - 1, 0);
+        const nextIndex = Math.max(selectedIndex - 1, 0);
         const nextItem = flattenedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);

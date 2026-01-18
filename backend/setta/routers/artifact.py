@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 from typing import NotRequired, TypedDict, TypeVar
@@ -250,13 +251,19 @@ def route_get_folder_contents(
             continue
         if _should_ignore(item.name, ignore_patterns):
             continue
-        entry: FolderContentItem = {
-            "name": item.name,
-            "type": "folder" if item.is_dir() else "file",
-            "fullPath": _format_browser_path(item, share_mode=ctx.share_mode),
-        }
+        stat_result = None
         if include_mtime or include_size:
             stat_result = item.stat()
+        if stat_result is None:
+            is_dir = item.is_dir()
+        else:
+            is_dir = stat.S_ISDIR(stat_result.st_mode)
+        entry: FolderContentItem = {
+            "name": item.name,
+            "type": "folder" if is_dir else "file",
+            "fullPath": _format_browser_path(item, share_mode=ctx.share_mode),
+        }
+        if stat_result is not None:
             if include_mtime:
                 entry["mtime"] = stat_result.st_mtime
             if include_size:
