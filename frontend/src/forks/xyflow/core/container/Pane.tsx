@@ -7,10 +7,7 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import {
-  clearActiveSectionIds,
-  setActiveSectionIds,
-} from "state/actions/activeSections";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
 import { SelectionModeEnum } from "utils/generatedTypes";
@@ -63,7 +60,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       useMisc.setState({ mouseDownDrawArea: false });
       return;
     }
-    clearActiveSectionIds();
+    applyActiveSectionChange({ interaction: "pane-click" });
     useMisc.setState({
       lastPaneClickLocation: screenToFlowPosition({
         x: event.clientX,
@@ -98,7 +95,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     const { x, y } = getEventPosition(event, containerBounds.current);
 
-    clearActiveSectionIds();
+    applyActiveSectionChange({ interaction: "selection-rect", selectedIds: [] });
 
     useReactFlow.setState({
       userSelectionRect: {
@@ -143,7 +140,10 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
       prevSelectedNodesCount.current = selectedNodeIds.length;
-      setActiveSectionIds(selectedNodeIds);
+      applyActiveSectionChange({
+        interaction: "selection-rect",
+        selectedIds: selectedNodeIds,
+      });
     }
 
     useReactFlow.setState({

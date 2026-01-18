@@ -25,7 +25,6 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -38,7 +37,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -83,7 +81,6 @@ class CoreArgs(TypedDict):
                 "deepThink",
                 "defaultVal",
                 "description",
-                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -122,7 +119,7 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderedImagePath",
+                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -151,13 +148,13 @@ class ProjectConfigArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
     showParamDisplayNames: NotRequired[bool]
-    allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -206,7 +203,6 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
-    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -235,10 +231,6 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
     ]
-    displayMode: NotRequired[
-        SectionWithParamsDisplayMode
-        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
-    ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[
         list[EdgePort] | Callable[[list[EdgePort]], list[EdgePort]]
@@ -247,10 +239,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -385,7 +379,6 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[DrawAreaLayer]]
-    renderedImagePath: NotRequired[str | None]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -405,7 +398,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     layers: NotRequired[
         list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
-    renderedImagePath: NotRequired[str | None | Callable[[str | None], str | None]]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
@@ -512,20 +504,6 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
         Literal[SectionType.GenPythonCode]
         | Callable[
             [Literal[SectionType.GenPythonCode]], Literal[SectionType.GenPythonCode]
-        ]
-    ]
-
-
-class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
-    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
-
-
-class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.GenPythonMetadata]
-        | Callable[
-            [Literal[SectionType.GenPythonMetadata]],
-            Literal[SectionType.GenPythonMetadata],
         ]
     ]
 

@@ -17,7 +17,6 @@ from setta.types.generated.unions import (
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
-    ProjectCodegenTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -29,7 +28,6 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -103,10 +101,6 @@ class RunCodeRequest(BaseModel):
     runSnapshotMode: RunSnapshotMode | None = Field(
         default=None,
         description="Optional run snapshot mode override for this run.",
-    )
-    drawSnapshotsBySectionId: dict[ID, str] | None = Field(
-        default=None,
-        description="Optional base64 PNG payloads for draw sections keyed by section id.",
     )
 
 
@@ -187,6 +181,58 @@ class UpdateParamImplConfigRequest(ProjectManagerRequestWithSectionParam):
 
     newConfig: dict = Field(
         description="Arbitrary dict serialized into the implementation config.",
+    )
+
+
+class MoveParamsRequest(ProjectManagerRequestWithSection):
+    """Reorder or reparent parameters within a section."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to move.",
+    )
+    newParentId: ID = Field(
+        description="Parent code object that will receive the parameters.",
+    )
+    newIndex: int = Field(
+        description="Index within the new parent's children list.",
+    )
+
+
+class MoveParamGroup(BaseModel):
+    """Single ordered move operation for parameters."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to move.",
+    )
+    newParentId: ID = Field(
+        description="Parent code object that will receive the parameters.",
+    )
+    newIndex: int = Field(
+        description="Index within the new parent's children list.",
+    )
+
+
+class MoveParamGroupsRequest(ProjectManagerRequestWithSection):
+    """Apply multiple parameter move operations as a single batch."""
+
+    moves: list[MoveParamGroup] = Field(
+        description="Ordered param move operations to apply.",
+    )
+
+
+class IndentParamsRequest(ProjectManagerRequestWithSection):
+    """Indent parameters under the previous sibling."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to indent.",
+    )
+
+
+class UnindentParamsRequest(ProjectManagerRequestWithSection):
+    """Unindent parameters to the parent's parent."""
+
+    paramIds: list[ID] = Field(
+        description="Ordered parameter identifiers to unindent.",
     )
 
 
@@ -385,12 +431,6 @@ class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
-class SetVariantJsonSourceKeysRequest(ProjectManagerRequestWithSectionVariant):
-    jsonSourceKeys: list[str] = Field(
-        description="Key path within the JSON source to scope this section to.",
-    )
-
-
 class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSectionVariant):
     filepath: str
 
@@ -399,16 +439,8 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
-class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the enabled code generation targets for a project."""
-
-    codegenTargets: list[ProjectCodegenTarget] = Field(
-        description="Ordered list of enabled codegen targets.",
-    )
-
-
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text prepended to generated Python code (python target only)."""
+    """Update the text prepended to generated Python code."""
 
     genCodePrefix: str = Field(
         description="Arbitrary prefix inserted at the start of generated code files.",
@@ -416,7 +448,7 @@ class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text appended to generated Python code (python target only)."""
+    """Update the text appended to generated Python code."""
 
     genCodeSuffix: str = Field(
         description="Suffix appended to the end of generated code files.",
@@ -660,10 +692,6 @@ class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
 
 class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
-
-
-class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
-    displayMode: SectionWithParamsDisplayMode
 
 
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):

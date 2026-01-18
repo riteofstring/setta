@@ -7,14 +7,10 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { CodeLanguage } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
+import { focusOnSectionSearch } from "utils/focusManager";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
-  route_create_top_level_section,
-  route_set_section_name,
-} from "utils/generatedEndpoints";
-import {
-  CodeFileAccessModeEnum,
   CreateTopLevelSectionRequestInput,
   Position,
   SectionType,
@@ -22,14 +18,11 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { focusOnSectionSearch } from "utils/tabbingLogic";
-import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import { applyActiveSectionChange } from "../activeSectionController";
 import {
   createTopLevelSectionLayoutDict,
-  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "../sectionInfos";
-import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionArgs = {
   implType: CreateTopLevelSectionRequestInput["implType"];
@@ -91,14 +84,14 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
   });
 }
 
@@ -157,57 +150,4 @@ export function getEmptySpacePosition() {
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
   return { x: x + positionOffset.x, y: y + positionOffset.y };
-}
-
-type OpenFileInCodeSectionArgs = {
-  filePath: string;
-  fileName: string;
-  codeLanguage: CodeLanguage;
-};
-
-export async function openFileInCodeSection({
-  filePath,
-  fileName,
-  codeLanguage,
-}: OpenFileInCodeSectionArgs) {
-  if (useShareSession.getState().isShareMode) {
-    return null;
-  }
-  const projectState = useProjectState.getState();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    if (impl.type !== SectionTypeEnum.Code) {
-      continue;
-    }
-    const binding = impl.codeFileBinding;
-    if (!binding) {
-      continue;
-    }
-    if (binding.canonical_path === filePath) {
-      goToSection(sectionId);
-      return sectionId;
-    }
-  }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.Code,
-    implOverrides: {
-      type: SectionTypeEnum.Code,
-      codeLanguage,
-      codeFileBinding: {
-        canonical_path: filePath,
-        access_mode: CodeFileAccessModeEnum.read_write,
-      },
-    },
-    position: null,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await route_set_section_name({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: newSectionId,
-    name: fileName,
-  });
-  goToSection(newSectionId);
-  return newSectionId;
 }

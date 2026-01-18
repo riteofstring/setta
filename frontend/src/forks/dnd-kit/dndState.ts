@@ -16,6 +16,14 @@ export type ZustandDndState = {
   isMovingFree: boolean;
   pendingDeactivation: boolean;
   disabled: Record<string, Disabled>;
+  activeRect: {
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } | null;
   width: number | null;
   height: number | null;
   behaviorDropType: BehaviorDropType | null;
@@ -34,6 +42,7 @@ export const useDndState = withProjectState(
         isMovingFree: false,
         pendingDeactivation: false,
         disabled: {},
+        activeRect: null,
         width: null,
         height: null,
         behaviorDropType: null,
@@ -48,10 +57,12 @@ export function setActiveDnd(
   isTopLevel: boolean,
   width: number,
   height: number,
+  activeRect: ZustandDndState["activeRect"],
 ) {
   useDndState.setState({
     activeId: id,
     activeIsTopLevel: isTopLevel,
+    activeRect,
     width,
     height,
   });
