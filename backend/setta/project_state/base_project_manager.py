@@ -378,6 +378,10 @@ def _apply_run_overrides(
                 raise KeyError(f"Unknown section id: {section_id}")
             if variant_id not in project_state.sectionVariants:
                 raise KeyError(f"Unknown variant id: {variant_id}")
+            if variant_id not in project_state.sections[section_id].variants:
+                raise KeyError(
+                    f"Variant {variant_id} is not part of section {section_id}"
+                )
             set_section_variant(project_state, section_id, variant_id)
     if param_overrides:
         for key, value in param_overrides.items():

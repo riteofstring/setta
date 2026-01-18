@@ -103,7 +103,9 @@ class RunOverride:
     entry_section_id: ID | None = None
     run_snapshot_mode: RunSnapshotMode | None = None
     section_variant_overrides: dict[ID, ID] = field(default_factory=dict)
-    param_overrides: dict[tuple[ID, ID], str] = field(default_factory=dict)
+    param_overrides: dict[SectionParamDependencyKey | tuple[ID, ID], str] = field(
+        default_factory=dict
+    )
     tags: dict[str, str] = field(default_factory=dict)
 
     def copy(self) -> "RunOverride":
@@ -387,11 +389,12 @@ class SettaRunner:
 
     def _encode_param_overrides(
         self,
-        overrides: dict[tuple[ID, ID], str],
+        overrides: dict[SectionParamDependencyKey | tuple[ID, ID], str],
     ) -> dict[str, str]:
         return {
             f"{section_id}:{param_id}": value
-            for (section_id, param_id), value in overrides.items()
+            for key, value in overrides.items()
+            for section_id, param_id in [_normalize_param_key(key)]
         }
 
     def _load_project_metadata(self) -> list[ProjectConfig]:

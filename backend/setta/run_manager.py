@@ -41,6 +41,7 @@ class DetachedRunManager:
         self._runs_root = self._dbe.runtime_root / "runs"
         self._runs_root.mkdir(parents=True, exist_ok=True)
         self._processes: dict[str, subprocess.Popen] = {}
+        self._canceled: set[str] = set()
         self._lock = threading.Lock()
 
     def start_run(self, spec: DetachedRunSpec) -> RunStatusResponse:
@@ -96,7 +97,9 @@ class DetachedRunManager:
 
     def get_status(self, run_id: str) -> RunStatusResponse:
         meta = self._load_meta(run_id)
-        if meta.status != RunStatus.running or meta.pid is None:
+        if meta.pid is None:
+            return meta
+        if meta.status not in (RunStatus.running, RunStatus.canceled):
             return meta
         with self._lock:
             proc = self._processes.get(run_id)
@@ -104,18 +107,29 @@ class DetachedRunManager:
             exit_code = proc.poll()
             if exit_code is None:
                 return meta
+            if meta.status == RunStatus.canceled:
+                meta = meta.model_copy(
+                    update={
+                        "exitCode": exit_code,
+                        "exitedAtMs": _now_ms(),
+                    }
+                )
+                self._write_meta(meta)
+                return meta
             return self._finalize_run(meta, exit_code)
         if _is_pid_running(meta.pid):
-            meta = meta.model_copy(update={"status": RunStatus.lost})
-            self._write_meta(meta)
+            if meta.status == RunStatus.running:
+                meta = meta.model_copy(update={"status": RunStatus.lost})
+                self._write_meta(meta)
             return meta
-        meta = meta.model_copy(
-            update={
-                "status": RunStatus.lost,
-                "exitedAtMs": _now_ms(),
-            }
-        )
-        self._write_meta(meta)
+        if meta.status == RunStatus.running:
+            meta = meta.model_copy(
+                update={
+                    "status": RunStatus.lost,
+                    "exitedAtMs": _now_ms(),
+                }
+            )
+            self._write_meta(meta)
         return meta
 
     def cancel_run(self, run_id: str) -> RunStatusResponse:
@@ -131,7 +145,10 @@ class DetachedRunManager:
             raise KeyError(f"Run {run_id} has no pid")
         with self._lock:
             proc = self._processes.get(run_id)
+            self._canceled.add(run_id)
         if proc is None:
+            with self._lock:
+                self._canceled.discard(run_id)
             return self.get_status(run_id)
         if os.name == "nt":
             proc.terminate()
@@ -150,12 +167,16 @@ class DetachedRunManager:
         exit_code = proc.wait()
         with self._lock:
             self._processes.pop(run_id, None)
+            canceled = run_id in self._canceled
+            if canceled:
+                self._canceled.remove(run_id)
         meta = self._load_meta(run_id)
-        if meta.status == RunStatus.canceled:
+        if canceled or meta.status == RunStatus.canceled:
             meta = meta.model_copy(
                 update={
                     "exitCode": exit_code,
                     "exitedAtMs": _now_ms(),
+                    "status": RunStatus.canceled,
                 }
             )
             self._write_meta(meta)

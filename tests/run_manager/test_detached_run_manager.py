@@ -115,6 +115,26 @@ class DetachedRunManagerTests(unittest.TestCase):
             status = self.manager.get_status(response.runId)
         self.assertEqual(status.status, RunStatus.canceled)
 
+    def test_canceled_run_records_exit_code(self) -> None:
+        command = f'"{sys.executable}" -c "import time; time.sleep(5)"'
+        snapshot_path = self.root / "snapshots" / "run"
+        spec = DetachedRunSpec(
+            command=command,
+            snapshot_path=snapshot_path,
+            project_config_id=ID("config"),
+            entry_section_id=ID("section"),
+            tags={},
+        )
+        response = self.manager.start_run(spec)
+        self.manager.cancel_run(response.runId)
+        status = self.manager.get_status(response.runId)
+        deadline = time.time() + 5
+        while status.exitCode is None and time.time() < deadline:
+            time.sleep(0.05)
+            status = self.manager.get_status(response.runId)
+        self.assertEqual(status.status, RunStatus.canceled)
+        self.assertIsNotNone(status.exitCode)
+
     def test_cancel_untracked_run_marks_lost(self) -> None:
         command = f'"{sys.executable}" -c "import time; time.sleep(1.0)"'
         snapshot_path = self.root / "snapshots" / "run"

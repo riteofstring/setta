@@ -324,6 +324,34 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
         finally:
             manager.shutdown()
 
+    async def test_create_run_command_with_overrides_rejects_mismatched_variant(
+        self,
+    ) -> None:
+        (
+            manager,
+            project_config,
+            code_section,
+            _,
+            _,
+            dict_section,
+            _,
+        ) = self._build_manager_and_state()
+        dict_variant_id = dict_section.variants[0]
+        try:
+            with self.assertRaises(KeyError):
+                await manager.create_run_command_with_overrides(
+                    RunDetachedRequest(
+                        projectConfigId=project_config.id,
+                        entrySectionId=code_section.id,
+                        runSnapshotMode=RunSnapshotMode.never,
+                        sectionVariantOverrides={
+                            code_section.id: dict_variant_id,
+                        },
+                    )
+                )
+        finally:
+            manager.shutdown()
+
     async def test_create_run_command_with_overrides_snapshots_file_on_never(self) -> None:
         (
             manager,
