@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
-from setta.llm.agent_runner import AgentRunner
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
@@ -25,12 +25,12 @@ class DotEnvWatcher:
     def __init__(
         self,
         specific_file_watcher: "SpecificFileWatcher",
-        agent_runner: AgentRunner,
+        chat_manager: LLMChatManager,
         websocket_msg_handler: WMHFrontendSender,
         dbe: DBE,
     ) -> None:
         self.specific_file_watcher = specific_file_watcher
-        self.agent_runner = agent_runner
+        self.chat_manager = chat_manager
         self.websocket_msg_handler = websocket_msg_handler
         self.dbe = dbe
 
@@ -64,7 +64,7 @@ class DotEnvWatcher:
             )
             return
 
-        self.agent_runner.update_api_keys(env_vars)
+        self.chat_manager.update_api_keys(env_vars)
         await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.agent_runner.api_keys
+            self.chat_manager.api_keys
         )

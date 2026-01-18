@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, assert_never
 import rpack
 
 from setta.database.utils import create_new_id
-from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -52,7 +51,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
-    ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
     CoreArgs,
@@ -61,7 +59,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
-    PromptSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
 )
@@ -104,16 +101,12 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSectionImpl,
     CallableSectionImpl,
-    ChatSectionImpl,
-    ChatSectionState,
     CodeFileBinding,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptFormat,
-    PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -2054,6 +2047,16 @@ def set_section_hide_unpinned_params(
     )
 
 
+def set_section_pinned_params(
+    p: "ProjectStateSingleConfig", sectionId: ID, pinnedParams: list[ID]
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
+    )
+
+
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):
@@ -2109,129 +2112,6 @@ def set_text_block_format(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
-    )
-
-
-def _render_prompt_section(
-    template: str,
-    inputs: dict[str, str],
-    format: PromptFormat,
-) -> PromptRenderResult:
-    if format is not PromptFormat.Jinja:
-        raise ValueError(f"Unsupported prompt format {format}")
-    return render_prompt(template, inputs)
-
-
-def set_prompt_section_template(
-    p: "ProjectStateSingleConfig", sectionId: ID, template: str
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = _render_prompt_section(template, impl.inputs, impl.format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            template=template,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
-
-
-def set_prompt_section_inputs(
-    p: "ProjectStateSingleConfig", sectionId: ID, inputs: dict[str, str]
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = _render_prompt_section(impl.template, inputs, impl.format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            inputs=inputs,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
-
-
-def set_prompt_section_format(
-    p: "ProjectStateSingleConfig", sectionId: ID, format: PromptFormat
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = _render_prompt_section(impl.template, impl.inputs, format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            format=format,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
-
-
-def set_chat_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    managed: bool,
-    llmConfigId: str | None,
-    agentProfileId: ID | None,
-    externalAgentConfigId: ID | None,
-    deepThink: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChatSectionImplArgsWithCallable(
-            managed=managed,
-            llmConfigId=llmConfigId,
-            agentProfileId=agentProfileId,
-            externalAgentConfigId=externalAgentConfigId,
-            deepThink=deepThink,
-        ),
-    )
-
-
-def set_chat_section_chat_id(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    chatId: ID | None,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChatSectionImplArgsWithCallable(
-            chatId=chatId,
-        ),
-    )
-
-
-def set_chat_section_state(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    state: ChatSectionState,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChatSectionImplArgsWithCallable(
-            messages=state.messages,
-            inputText=state.inputText,
-            waitingForResponse=state.waitingForResponse,
-            toolCallArguments=state.toolCallArguments,
-        ),
     )
 
 

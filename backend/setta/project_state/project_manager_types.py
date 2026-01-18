@@ -22,10 +22,8 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
     SectionType,
@@ -389,18 +387,6 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
-class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
-    template: str
-
-
-class SetPromptInputsRequest(ProjectManagerRequestWithSection):
-    inputs: dict[str, str]
-
-
-class SetPromptFormatRequest(ProjectManagerRequestWithSection):
-    format: PromptFormat
-
-
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
     """Update the text prepended to generated Python code."""
 
@@ -668,6 +654,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
 
 
+class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
+    pinnedParams: list[ID]
+
+
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
     columnWidth: float | None
 
@@ -687,26 +677,6 @@ class SetBrowserHideColumnRequest(ProjectManagerRequestWithSection):
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
-
-
-class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
-    managed: bool
-    llmConfigId: str | None
-    agentProfileId: ID | None
-    externalAgentConfigId: ID | None = None
-    deepThink: bool
-
-
-class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
-    state: ChatSectionState
-
-
-class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    pass
-
-
-class SetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    chatId: ID | None
 
 
 class SetSocialUrlRequest(ProjectManagerRequestWithSection):

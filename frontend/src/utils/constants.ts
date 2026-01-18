@@ -90,7 +90,6 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.InfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
-  [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
@@ -99,7 +98,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
-  [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Chat]: [],
   [SectionTypeEnum.Browser]: [],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
@@ -152,6 +151,11 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
+export const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
+
+export function getEdgesStripHeightKey(sectionId: string) {
+  return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
 
 const MODEL_GROUPS = [
   {

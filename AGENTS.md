@@ -22,6 +22,7 @@
 - Keep FastAPI routers grouped by feature under `backend/setta/routers/` and name endpoint functions with verbs (`get_notifications`, `create_project_state`).
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
+- Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
@@ -70,7 +71,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 
 ## Generated types
 
-Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`. 
+Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
 
 To cleanup generated files after you've imported what you need from them, you can run pnpm full-cleanup to remove unused generated types.
 

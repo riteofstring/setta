@@ -19,8 +19,6 @@ from typing import (
     overload,
 )
 
-from setta.agentic.chat_view import get_run_chat_id, is_chat_run
-from setta.agentic.store import list_agent_runs
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -92,7 +90,6 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
@@ -117,9 +114,6 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
-    SetChatSectionChatIdRequest,
-    SetChatSectionSettingsRequest,
-    SetChatSectionStateRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -133,15 +127,13 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
-    SetPromptFormatRequest,
-    SetPromptInputsRequest,
-    SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
+    SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
@@ -222,9 +214,6 @@ from setta.types.helpers_lvl2 import (
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
-    set_chat_section_chat_id,
-    set_chat_section_settings,
-    set_chat_section_state,
     set_code,
     set_code_file_binding,
     set_default_section_variant,
@@ -234,15 +223,13 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
-    set_prompt_section_format,
-    set_prompt_section_inputs,
-    set_prompt_section_template,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
+    set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
@@ -287,7 +274,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
@@ -1671,24 +1657,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_prompt_template(self, x: SetPromptTemplateRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_prompt_section_template(project_state, x.sectionId, x.template)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_prompt_inputs(self, x: SetPromptInputsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_prompt_format(self, x: SetPromptFormatRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_prompt_section_format(project_state, x.sectionId, x.format)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
@@ -1882,6 +1850,12 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
@@ -1917,26 +1891,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_chat_section_settings(
-            project_state,
-            x.sectionId,
-            x.managed,
-            x.llmConfigId,
-            x.agentProfileId,
-            x.externalAgentConfigId,
-            x.deepThink,
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def set_chat_section_state(self, x: SetChatSectionStateRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_chat_section_state(project_state, x.sectionId, x.state)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
@@ -1946,35 +1900,6 @@ class BaseProjectManager(ABC):
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def get_chat_section_chat_id(
-        self, x: GetChatSectionChatIdRequest
-    ) -> ID | None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            x.sectionId,
-            ChatSectionImpl,
-        )
-        chat_id = section_impl.chatId
-        if chat_id is None:
-            return None
-        runs = list_agent_runs(self.dbe)
-        for run in runs:
-            if not is_chat_run(run):
-                continue
-            if get_run_chat_id(run) == chat_id:
-                return chat_id
-        set_chat_section_chat_id(project_state, x.sectionId, None)
-        await self.update_and_broadcast_project_state(project_state)
-        return None
-
-    @enqueue_method
-    async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
         await self.update_and_broadcast_project_state(project_state)
 
     async def _apply_listener_emit_updates_to_state(
