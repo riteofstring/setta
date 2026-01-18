@@ -133,7 +133,7 @@ function ContainerGroup({
         overflowMode ? "min-h-0 min-w-0" : ""
       } ${className}`}
       {...commonProps}
-      onClick={getOnSectionClick(sectionId, isActiveSection)}
+      onClick={getOnSectionClick(sectionId)}
       tabIndex={-1} // keeps section focusable for programmatic focus
       style={groupStyle}
     >

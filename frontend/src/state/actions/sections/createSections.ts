@@ -18,7 +18,7 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import { applyActiveSectionChange } from "../activeSectionController";
 import {
   createTopLevelSectionLayoutDict,
   getCurrProjectConfigId,
@@ -84,14 +84,14 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
   });
 }
 
