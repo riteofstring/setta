@@ -11,16 +11,30 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { C } from "utils/c";
 import {
+  APPROVAL_TOOL_NAME,
+  type ApprovalPayload,
+  type AskUserQuestionPayload,
+  QUESTION_TOOL_NAME,
+  TODO_TOOL_NAME,
+  type TodoListPayload,
+  normalizeToolName,
+  parseAnswers,
+  parseApprovalPayload,
+  parseAskUserQuestionPayload,
+  parseTodoPayload,
+  resolveToolCallArguments,
+} from "utils/claudeTools";
+import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
+  ToolChatMessage,
 } from "utils/generatedTypes";
+import { ApprovalCard } from "./ApprovalCard";
+import { QuestionCard } from "./QuestionCard";
+import { TodoListCard } from "./TodoListCard";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
-type ToolChatMessage = Extract<
-  BaseChatMessageUnion,
-  { role: ChatRoleEnum.tool }
->;
 type AssistantChatMessage = Extract<
   BaseChatMessageUnion,
   { role: ChatRoleEnum.assistant }
@@ -28,6 +42,13 @@ type AssistantChatMessage = Extract<
 type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
+
+type ToolCallContext = {
+  todoPayloadById: Record<string, TodoListPayload>;
+  questionPayloadById: Record<string, AskUserQuestionPayload>;
+  approvalPayloadById: Record<string, ApprovalPayload>;
+  latestTodoCallId: string | null;
+};
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -162,8 +183,10 @@ const ThinkingBox = memo(function ThinkingBox({
 
 function ToolCallAccordionStatus({
   success,
+  isStreaming,
 }: {
   success: boolean | undefined;
+  isStreaming: boolean;
 }) {
   if (success === true) {
     return (
@@ -175,8 +198,13 @@ function ToolCallAccordionStatus({
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
   }
+  if (isStreaming) {
+    return (
+      <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
+    );
+  }
   return (
-    <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
+    <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-300/70" />
   );
 }
 
@@ -185,11 +213,13 @@ const ToolCallItem = memo(function ToolCallItem({
   args,
   result,
   success,
+  isStreaming,
 }: {
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
   success: boolean | undefined;
+  isStreaming: boolean;
 }) {
   const resultDisplay = (() => {
     if (typeof result === "string") {
@@ -229,7 +259,10 @@ const ToolCallItem = memo(function ToolCallItem({
           <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
             {name}
           </div>
-          <ToolCallAccordionStatus success={success} />
+          <ToolCallAccordionStatus
+            success={success}
+            isStreaming={isStreaming}
+          />
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
@@ -294,7 +327,7 @@ function StreamItem({
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink flex-col gap-2 cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
         {children}
       </div>
     </div>
@@ -331,26 +364,72 @@ const ChatMessage = memo(function ChatMessage({
   toolResultsById,
   toolCallArguments,
   isStreaming,
+  toolCallContext,
 }: {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
   isStreaming: boolean;
+  toolCallContext: ToolCallContext;
 }) {
   if (message.role === ChatRoleEnum.assistant) {
     const toolCalls = message.tool_calls ?? [];
-    const showAssistantSpinner =
-      isStreaming && message.content.length === 0 && toolCalls.length === 0;
+    const showAssistantSpinner = isStreaming && toolCalls.length === 0;
     return (
       <LLMChatBubble>
-        {showAssistantSpinner && (
-          <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
-        )}
         {message.content.map((item, idx) => (
           <StreamItem key={idx} item={item} isStreaming={isStreaming} />
         ))}
+        {showAssistantSpinner && (
+          <div className="flex items-center">
+            <i className="gg-spinner !scale-75 text-blue-500/70" />
+          </div>
+        )}
         {toolCalls.map((toolCall: ToolCall) => {
           const toolResult = toolResultsById[toolCall.id];
+          const questionPayload =
+            toolCallContext.questionPayloadById[toolCall.id];
+          if (questionPayload) {
+            const resolvedAnswers = resolveQuestionAnswers(
+              questionPayload,
+              toolResult,
+            );
+            return (
+              <QuestionCard
+                key={toolCall.id}
+                toolCallId={toolCall.id}
+                payload={questionPayload}
+                resolvedAnswers={resolvedAnswers}
+              />
+            );
+          }
+          const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
+          if (todoPayload) {
+            const summaryOnly =
+              toolCallContext.latestTodoCallId !== toolCall.id;
+            return (
+              <TodoListCard
+                key={toolCall.id}
+                todos={todoPayload.todos}
+                summaryOnly={summaryOnly}
+              />
+            );
+          }
+          const approvalPayload =
+            toolCallContext.approvalPayloadById[toolCall.id];
+          if (approvalPayload) {
+            return (
+              <ApprovalCard
+                key={toolCall.id}
+                toolCallId={toolCall.id}
+                toolName={approvalPayload.toolName ?? null}
+                toolType={approvalPayload.toolType ?? null}
+                input={approvalPayload.input}
+                toolResult={toolResult}
+                isStreaming={isStreaming}
+              />
+            );
+          }
           const argsFromAssistant = toolCall.function?.arguments;
           const pendingArgs = toolCallArguments?.[toolCall.id];
           let argsToDisplay = pendingArgs;
@@ -365,17 +444,18 @@ const ChatMessage = memo(function ChatMessage({
           ) {
             argsToDisplay = argsFromAssistant;
           }
+          const rawToolName =
+            toolResult?.tool_name ||
+            toolCall.function?.name ||
+            `Tool call ${toolCall.id}`;
           return (
             <ToolCallItem
               key={toolCall.id}
-              name={
-                toolResult?.tool_name ||
-                toolCall.function?.name ||
-                `Tool call ${toolCall.id}`
-              }
+              name={rawToolName}
               args={argsToDisplay}
               result={formatToolResult(toolResult)}
               success={toolResult ? !toolResult.is_error : undefined}
+              isStreaming={isStreaming}
             />
           );
         })}
@@ -435,6 +515,22 @@ const ChatMessage = memo(function ChatMessage({
   );
 });
 
+function resolveQuestionAnswers(
+  payload: AskUserQuestionPayload,
+  toolResult: ToolChatMessage | undefined,
+): Record<string, string> | null {
+  if (toolResult) {
+    const parsed = parseAnswers(toolResult.result);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  if (payload.answers) {
+    return payload.answers;
+  }
+  return null;
+}
+
 function ChatMessages({
   messages,
   waitingForResponse,
@@ -450,6 +546,10 @@ function ChatMessages({
     () => buildToolResultMap(allMessages),
     [allMessages],
   );
+  const toolCallContext = useMemo(
+    () => buildToolCallContext(allMessages, toolCallArguments),
+    [allMessages, toolCallArguments],
+  );
   const output: ReactNode[] = [];
   for (const message of messages) {
     output.push(
@@ -461,6 +561,7 @@ function ChatMessages({
         isStreaming={
           waitingForResponse && message.role === ChatRoleEnum.assistant
         }
+        toolCallContext={toolCallContext}
       />,
     );
   }
@@ -517,6 +618,75 @@ export const ChatMessageList = memo(function ChatMessageList({
     </div>
   );
 });
+
+function buildToolCallContext(
+  messages: Array<BaseChatMessageUnion>,
+  toolCallArguments: Record<string, string>,
+): ToolCallContext {
+  const todoPayloadById: Record<string, TodoListPayload> = {};
+  const questionPayloadById: Record<string, AskUserQuestionPayload> = {};
+  const approvalPayloadById: Record<string, ApprovalPayload> = {};
+  const todoOrder: string[] = [];
+
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    const toolCalls = message.tool_calls ?? [];
+    for (const toolCall of toolCalls) {
+      const normalizedName = normalizeToolName(toolCall.function?.name);
+      const resolvedArgs = resolveToolCallArguments(
+        toolCall,
+        toolCallArguments,
+      );
+      if (!normalizedName) {
+        continue;
+      }
+      if (normalizedName === APPROVAL_TOOL_NAME) {
+        const approvalPayload = parseApprovalPayload(resolvedArgs);
+        if (!approvalPayload) {
+          continue;
+        }
+        const approvalToolName = normalizeToolName(approvalPayload.toolName);
+        if (approvalToolName === QUESTION_TOOL_NAME) {
+          const questionPayload = parseAskUserQuestionPayload(
+            approvalPayload.input,
+          );
+          if (questionPayload) {
+            questionPayloadById[toolCall.id] = questionPayload;
+          }
+        } else {
+          approvalPayloadById[toolCall.id] = approvalPayload;
+        }
+        continue;
+      }
+      if (normalizedName === TODO_TOOL_NAME) {
+        const todoPayload = parseTodoPayload(resolvedArgs);
+        if (todoPayload) {
+          todoPayloadById[toolCall.id] = todoPayload;
+          todoOrder.push(toolCall.id);
+        }
+        continue;
+      }
+      if (normalizedName === QUESTION_TOOL_NAME) {
+        const questionPayload = parseAskUserQuestionPayload(resolvedArgs);
+        if (questionPayload) {
+          questionPayloadById[toolCall.id] = questionPayload;
+        }
+      }
+    }
+  }
+
+  const latestTodoCallId = todoOrder.length
+    ? todoOrder[todoOrder.length - 1]
+    : null;
+  return {
+    todoPayloadById,
+    questionPayloadById,
+    approvalPayloadById,
+    latestTodoCallId,
+  };
+}
 
 function buildToolResultMap(
   messages: Array<BaseChatMessageUnion>,

@@ -19,6 +19,7 @@ from setta.types.generated.chart_settings_unions import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
+from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -31,6 +32,7 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
+    Prompt = "Prompt"
     MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
@@ -67,6 +69,11 @@ class CodeLanguage(str, Enum):
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
+
+
+class SectionWithParamsDisplayMode(str, Enum):
+    Gui = "Gui"
+    Yaml = "Yaml"
 
 
 class TypeErrorIgnoreState(BaseModel, extra="forbid"):
@@ -130,6 +137,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
@@ -232,6 +240,19 @@ class TextBlockSectionImpl(BaseSectionImpl):
     text: str = ""
 
 
+class PromptSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Prompt] = SectionType.Prompt
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
+
+
 class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
     metaControlParamId: ID | None = None
@@ -281,7 +302,8 @@ class ChatSectionImpl(BaseSectionImpl):
         default_factory=lambda: SectionSize(width=405, height=405)
     )
     managed: bool = False
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
+    agentProfileId: ID | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)

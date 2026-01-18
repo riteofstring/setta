@@ -49,6 +49,9 @@ Key paths:
 - Listener action handling: `backend/setta/api/listener.py`
 - Listener helpers: `backend/setta/api/chat_toolkit.py`
 
+Note:
+- Listener chat history accepts an internal `engineConfigId`, or `None` for scriptable-only chats (no LLM).
+
 ## Flow C: Meta control persistence -> project state
 ```
 UI change
