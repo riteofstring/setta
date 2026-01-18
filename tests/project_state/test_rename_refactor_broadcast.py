@@ -99,7 +99,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         for section_id, section_core in state.sections.items():
             try:
                 param_ids = get_curr_top_level_param_ids(state, section_id)
-            except TypeError:
+            except (TypeError, ValueError):
                 continue
             for param_id in param_ids:
                 try:
@@ -374,7 +374,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             for section_id, section_core in state_before.sections.items():
                 try:
                     param_ids = get_curr_top_level_param_ids(state_before, section_id)
-                except TypeError:
+                except (TypeError, ValueError):
                     continue
                 for param_id in param_ids:
                     try:
@@ -498,7 +498,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             for section_id, section_core in state_before.sections.items():
                 try:
                     param_ids = get_curr_top_level_param_ids(state_before, section_id)
-                except TypeError:
+                except (TypeError, ValueError):
                     continue
                 for param_id in param_ids:
                     try:

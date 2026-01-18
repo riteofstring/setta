@@ -76,6 +76,8 @@ CODE_LANGUAGE_EXTENSIONS = {
     CodeLanguage.plaintext: "txt",
 }
 
+RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
+
 
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: ID | None = None

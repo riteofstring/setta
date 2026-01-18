@@ -265,6 +265,109 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(command.startswith("bash "))
 
+    async def test_create_run_command_rejects_non_runnable_language(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            name="NoCodegen",
+            codegenTargets=[],
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+        await manager._refresh_codegen_state(project_state)
+
+        with self.assertRaises(ValueError):
+            await manager.create_run_command(
+                RunCodeRequest(
+                    projectConfigId=project_config.id,
+                    sectionId=section.id,
+                    runSnapshotMode=RunSnapshotMode.never,
+                )
+            )
+        manager.shutdown()
+
+    async def test_refresh_codegen_state_writes_non_runnable_code(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            name="NoCodegen",
+            codegenTargets=[],
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        binding_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section.id,
+            CodeSectionImpl,
+        )
+        self.assertIsNotNone(binding_impl.codeFileBinding)
+        binding_path = binding_impl.codeFileBinding.canonical_path
+
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+        await manager._process_queue_task_started.wait()
+        await manager._refresh_codegen_state(project_state)
+        manager.shutdown()
+
+        self.assertTrue(binding_path.exists())
+        self.assertEqual(binding_path.read_text(encoding="utf-8"), code_impl.code)
+
     async def test_create_run_command_requires_entry_section_when_python_disabled(
         self,
     ) -> None:

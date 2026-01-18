@@ -33,7 +33,7 @@ from setta.types.project_config import (
     ProjectCodegenLanguage,
     project_config_has_codegen_language,
 )
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import RUNNABLE_CODE_LANGUAGES, ProjectStateBackend
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
@@ -49,9 +49,6 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
-
-RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 
 
 class ShareRuntimeState:
