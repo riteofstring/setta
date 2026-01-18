@@ -146,6 +146,51 @@ function CustomResizableCore({
     useMisc.setState({ mouseDownDraggingSection: false });
   }
 
+  useEffect(() => {
+    const nextSize: Partial<SectionSize> = {};
+    if (
+      sizeMode.height !== SIZE_MODE.auto_only &&
+      typeof size.height === "number" &&
+      size.height < minHeight
+    ) {
+      nextSize.height = minHeight;
+    }
+    if (
+      sizeMode.width !== SIZE_MODE.auto_only &&
+      typeof size.width === "number" &&
+      size.width < minWidth
+    ) {
+      nextSize.width = minWidth;
+    }
+    if (_.size(nextSize) === 0) {
+      return;
+    }
+    let updatedSectionSizes: Record<string, SectionSize> = {};
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+          sectionId,
+          nextSize,
+          state,
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_sizes({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionSizes: updatedSectionSizes,
+          frontendOpId,
+        }),
+    });
+  }, [
+    minHeight,
+    minWidth,
+    sectionId,
+    size.height,
+    size.width,
+    sizeMode.height,
+    sizeMode.width,
+  ]);
+
   const heightResizable =
     minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
@@ -239,9 +284,9 @@ function CustomResizableSuperCore({
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
-    right: handleBaseClassName,
-    bottom: handleBaseClassName,
-    bottomRight: handleBaseClassName,
+    right: `${handleBaseClassName} section-resize-handle section-resize-handle-right`,
+    bottom: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom`,
+    bottomRight: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom-right`,
   };
   const metaControlHandleBaseClassName =
     "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";

@@ -19,7 +19,7 @@ test("pinned params resize behavior", async ({ page }) => {
   const sections = page.locator('section[class*="card-section"]');
   await ensureProjectConfig(page, sections);
 
-  const callableSection = await findCallableSection(
+  let callableSection = await findCallableSection(
     page,
     sections,
   );
@@ -33,8 +33,8 @@ test("pinned params resize behavior", async ({ page }) => {
   await ensureImportMath(page);
 
   await focusSectionFromOverview(page, callableName);
-  const paramGroup = callableSection.locator("div.section-row-pin-main").first();
-  const unpinnedArea = paramGroup
+  let paramGroup = callableSection.locator("div.section-row-pin-main").first();
+  let unpinnedArea = paramGroup
     .locator(":scope > div.section-args-nested")
     .first();
   const editableRows = await ensureEditableArgRows(
@@ -54,7 +54,7 @@ test("pinned params resize behavior", async ({ page }) => {
     .getByRole("button", { name: "Convert to edge connectors" })
     .click();
 
-  const edgesStrip = paramGroup
+  let edgesStrip = paramGroup
     .locator(":scope > section.section-row-pin-main")
     .first();
   await expect(edgesStrip).toBeVisible();
@@ -80,10 +80,10 @@ test("pinned params resize behavior", async ({ page }) => {
     .getByRole("button", { name: "Pin selected args" })
     .click();
 
-  const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
+  let pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
   await expect(pinnedArea).toBeVisible();
 
-  const pinnedRows = pinnedArea.locator(
+  let pinnedRows = pinnedArea.locator(
     "article.section-args-nested-key-value",
   );
   unpinnedRows = unpinnedArea.locator(
@@ -96,10 +96,10 @@ test("pinned params resize behavior", async ({ page }) => {
     .poll(async () => unpinnedRows.count())
     .toBeGreaterThanOrEqual(1);
 
-  const edgesHeight = await getHeight(edgesStrip);
+  let edgesHeight = await getHeight(edgesStrip);
   const pinnedRowHeight = await getOffsetHeight(pinnedRows.first());
   const unpinnedRowHeight = await getOffsetHeight(unpinnedRows.first());
-  const pinnedList = pinnedArea.locator("div.section-args-nested");
+  let pinnedList = pinnedArea.locator("div.section-args-nested");
 
   await dragResize(page, callableSection, {
     handle: "bottom",
@@ -201,6 +201,103 @@ test("pinned params resize behavior", async ({ page }) => {
     Math.abs(pinnedHeightAfterSectionClick - pinnedHeightManual),
   ).toBeLessThanOrEqual(2);
 
+  await page.reload();
+  await ensureAppReady(page);
+  const sectionsAfterReload = page.locator('section[class*="card-section"]');
+  await ensureProjectConfig(page, sectionsAfterReload);
+  const namedCallableSection = findSectionCandidates(
+    page,
+    callableName,
+  ).first();
+  if ((await namedCallableSection.count()) > 0) {
+    callableSection = namedCallableSection;
+  } else {
+    callableSection = await findCallableSection(page, sectionsAfterReload);
+  }
+  await focusSectionFromOverview(page, callableName);
+  await callableSection.locator("header.section-title").first().click({
+    force: true,
+  });
+  paramGroup = callableSection.locator("div.section-row-pin-main").first();
+  unpinnedArea = paramGroup.locator(":scope > div.section-args-nested").first();
+  pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
+  pinnedList = pinnedArea.locator("div.section-args-nested");
+  pinnedRows = pinnedArea.locator("article.section-args-nested-key-value");
+  unpinnedRows = unpinnedArea.locator("article.section-args-nested-key-value");
+  edgesStrip = paramGroup.locator(":scope > section.section-row-pin-main").first();
+  await expect(edgesStrip).toBeVisible();
+  await expect.poll(async () => pinnedRows.count()).toBeGreaterThan(0);
+  await expect.poll(async () => unpinnedRows.count()).toBeGreaterThan(0);
+  edgesHeight = await getHeight(edgesStrip);
+
+  const pinnedHeightAfterReload = await getHeight(pinnedArea);
+  expect(Math.abs(pinnedHeightAfterReload - pinnedHeightManual)).toBeLessThanOrEqual(
+    3,
+  );
+
+  const sectionHeightBeforeReloadResize = await getHeight(callableSection);
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: 400,
+    outside: 6,
+  });
+  const sectionHeightAfterReloadResize = await getHeight(callableSection);
+  expect(sectionHeightAfterReloadResize).toBeGreaterThan(
+    sectionHeightBeforeReloadResize + 20,
+  );
+  const pinnedHeightAfterReloadResize = await getHeight(pinnedArea);
+  expect(
+    Math.abs(pinnedHeightAfterReloadResize - pinnedHeightAfterReload),
+  ).toBeLessThanOrEqual(2);
+
+  const pinnedRowHeightAfterReload = await getOffsetHeight(pinnedRows.first());
+  const unpinnedRowHeightAfterReload = await getOffsetHeight(
+    unpinnedRows.first(),
+  );
+  const layoutMetricsAfterReload = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  const availableHeightAfterReload = Math.max(
+    layoutMetricsAfterReload.paramGroupHeight -
+      layoutMetricsAfterReload.edgesHeight -
+      (layoutMetricsAfterReload.unpinnedRowHeight +
+        layoutMetricsAfterReload.unpinnedPadding),
+    0,
+  );
+  const expectedPinnedMaxAfterReload = Math.min(
+    availableHeightAfterReload,
+    layoutMetricsAfterReload.pinnedContentHeight,
+  );
+  const expectedPinnedMinAfterReload =
+    pinnedRowHeightAfterReload +
+    layoutMetricsAfterReload.pinnedHeaderHeight +
+    layoutMetricsAfterReload.pinnedPadding +
+    layoutMetricsAfterReload.pinnedBorderHeight;
+  const canGrow = expectedPinnedMaxAfterReload - pinnedHeightAfterReloadResize > 6;
+  const canShrink =
+    pinnedHeightAfterReloadResize - expectedPinnedMinAfterReload > 6;
+  const preferredDelta = canGrow ? 60 : canShrink ? -60 : 60;
+  await dragPinnedResize(page, pinnedArea, preferredDelta);
+  let pinnedHeightAfterSecondResize = await getHeight(pinnedArea);
+  if (
+    Math.abs(pinnedHeightAfterSecondResize - pinnedHeightAfterReloadResize) <= 2
+  ) {
+    const fallbackDelta = preferredDelta > 0 ? -60 : 60;
+    await dragPinnedResize(page, pinnedArea, fallbackDelta);
+    pinnedHeightAfterSecondResize = await getHeight(pinnedArea);
+  }
+  if (
+    Math.abs(pinnedHeightAfterSecondResize - pinnedHeightAfterReloadResize) <= 2
+  ) {
+    throw new Error("Pinned params area did not resize after reload.");
+  }
+  pinnedHeightManual = pinnedHeightAfterSecondResize;
+
   await dragResize(page, callableSection, {
     handle: "bottom",
     dx: 0,
@@ -209,11 +306,11 @@ test("pinned params resize behavior", async ({ page }) => {
   });
   const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
   expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-    unpinnedRowHeight - 2,
+    unpinnedRowHeightAfterReload - 2,
   );
   const pinnedMetricsAfterShrink = await getScrollMetrics(pinnedList);
   expect(pinnedMetricsAfterShrink.clientHeight).toBeGreaterThanOrEqual(
-    pinnedRowHeight - 2,
+    pinnedRowHeightAfterReload - 2,
   );
 
   await dragResize(page, callableSection, {
@@ -244,12 +341,9 @@ async function ensureProjectConfig(
   if ((await sections.count()) > 0) {
     return;
   }
-  const currentUrl = page.url();
-  await page.getByRole("menuitem", { name: "File" }).click();
-  await page.getByRole("menuitem", { name: "New Config" }).click();
-  await expect.poll(() => page.url()).not.toBe(currentUrl);
-  await page.waitForSelector(".react-flow__pane");
-  await expect.poll(async () => sections.count()).toBeGreaterThan(0);
+  throw new Error(
+    "No sections found. Open a project config with a callable section before running this test.",
+  );
 }
 
 async function ensureAppReady(page: Page): Promise<void> {
@@ -311,6 +405,10 @@ async function ensureImportMath(
     }
   }
 
+  if (await hasImportMathInCodeAreas(page)) {
+    return;
+  }
+
   const codeSection = findSectionCandidates(page, "__pw_code__").first();
   if ((await codeSection.count()) === 0) {
     return;
@@ -326,6 +424,18 @@ async function ensureImportMath(
 
   await page.keyboard.press(JUMP_TO_START_SHORTCUT);
   await page.keyboard.type("import math\n");
+}
+
+async function hasImportMathInCodeAreas(page: Page): Promise<boolean> {
+  const codeAreas = page.locator("article.section-full-no-title");
+  const count = await codeAreas.count();
+  for (let i = 0; i < count; i += 1) {
+    const text = await getSectionText(codeAreas.nth(i));
+    if (/\bimport math\b/.test(text)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function findSectionCandidates(page: Page, name: string): Locator {
@@ -465,6 +575,20 @@ async function dragResize(
     outside,
   }: { handle: DragHandle; dx: number; dy: number; outside: number },
 ): Promise<void> {
+  const handleLocator = getResizeHandleLocator(target, handle);
+  if ((await handleLocator.count()) > 0) {
+    await handleLocator.scrollIntoViewIfNeeded();
+    const handleBox = await handleLocator.boundingBox();
+    if (handleBox) {
+      const x = handleBox.x + handleBox.width / 2;
+      const y = handleBox.y + handleBox.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + dx, y + dy);
+      await page.mouse.up();
+      return;
+    }
+  }
   const box = await getBox(target);
   const point = getHandlePoint(box, handle, outside);
   await page.mouse.move(point.x, point.y);
@@ -479,6 +603,12 @@ async function clickResizeHandle(
   handle: DragHandle,
   outside: number,
 ): Promise<void> {
+  const handleLocator = getResizeHandleLocator(target, handle);
+  if ((await handleLocator.count()) > 0) {
+    await handleLocator.scrollIntoViewIfNeeded();
+    await handleLocator.click({ force: true });
+    return;
+  }
   const box = await getBox(target);
   const point = getHandlePoint(box, handle, outside);
   await page.mouse.click(point.x, point.y);
@@ -506,6 +636,14 @@ function getHandlePoint(
   }
 
   return { x, y };
+}
+
+function getResizeHandleLocator(target: Locator, handle: DragHandle): Locator {
+  const handleClass =
+    handle === "bottomRight"
+      ? "section-resize-handle-bottom-right"
+      : `section-resize-handle-${handle}`;
+  return target.locator(`.${handleClass}`).first();
 }
 
 async function getBox(target: Locator): Promise<Box> {
@@ -568,7 +706,11 @@ async function getPinnedLayoutMetrics(
   return page.evaluate(
     ({ paramGroup, pinnedArea, unpinnedArea, edgesStrip }) => {
       const paramGroupHeight = paramGroup.clientHeight;
-      const edgesHeight = edgesStrip.clientHeight;
+      const edgesStyle = window.getComputedStyle(edgesStrip);
+      const edgesMarginHeight =
+        (Number.parseFloat(edgesStyle.marginTop) || 0) +
+        (Number.parseFloat(edgesStyle.marginBottom) || 0);
+      const edgesHeight = edgesStrip.clientHeight + edgesMarginHeight;
       const pinnedHeight = pinnedArea.clientHeight;
       const unpinnedHeight = unpinnedArea.clientHeight;
       const pinnedList = pinnedArea.querySelector(
@@ -597,10 +739,19 @@ async function getPinnedLayoutMetrics(
           Number.parseFloat(pinnedWrapperStyle.paddingBottom)
         : 0;
       const pinnedHeaderHeight = pinnedHeader?.offsetHeight ?? 0;
+      const pinnedStyle = window.getComputedStyle(pinnedArea);
+      const pinnedBorderHeight =
+        (Number.parseFloat(pinnedStyle.borderTopWidth) || 0) +
+        (Number.parseFloat(pinnedStyle.borderBottomWidth) || 0);
+      const pinnedMinHeight = Number.parseFloat(pinnedStyle.minHeight) || 0;
+      const pinnedMaxHeight = Number.parseFloat(pinnedStyle.maxHeight) || 0;
       const pinnedListScrollHeight = pinnedList?.scrollHeight ?? 0;
       const pinnedListClientHeight = pinnedList?.clientHeight ?? 0;
       const pinnedContentHeight =
-        pinnedListScrollHeight + pinnedHeaderHeight + pinnedPadding;
+        pinnedListScrollHeight +
+        pinnedHeaderHeight +
+        pinnedPadding +
+        pinnedBorderHeight;
       const edgesInputCount = edgesStrip.querySelectorAll(
         "div.grid > div:first-child div.flex.flex-col.gap-1 > div",
       ).length;
@@ -616,6 +767,9 @@ async function getPinnedLayoutMetrics(
         unpinnedPadding,
         pinnedHeaderHeight,
         pinnedPadding,
+        pinnedBorderHeight,
+        pinnedMinHeight,
+        pinnedMaxHeight,
         pinnedListScrollHeight,
         pinnedListClientHeight,
         pinnedContentHeight,

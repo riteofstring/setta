@@ -26,6 +26,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
@@ -656,6 +657,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):

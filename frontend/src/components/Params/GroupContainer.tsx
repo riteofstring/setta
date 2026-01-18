@@ -3,12 +3,20 @@ import { Handle } from "forks/xyflow/core/components/Handle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createEdgeFromConnection } from "state/actions/edges";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
   getParamDisplayName,
+  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
@@ -30,6 +38,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { route_set_section_pinned_area_height } from "utils/generatedEndpoints";
 import { GetParamSwitch } from "./GetParamSwitch";
 import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
 
@@ -204,8 +213,13 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     const measureHeight = () => {
       const zoom = useReactFlow.getState().transform[2];
       const rectHeight = node.getBoundingClientRect().height / zoom;
-      const measuredHeight = Math.max(node.scrollHeight, rectHeight);
-      updateHeight(measuredHeight);
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight =
+        Math.max(node.scrollHeight, rectHeight) + marginHeight;
+      updateHeight(Math.max(measuredHeight, 0));
     };
 
     const observer = new ResizeObserver(() => {
@@ -446,6 +460,30 @@ function ResizablePinnedArea({
     ? resolvedUnpinnedMinHeight
     : 0;
 
+  const persistPinnedAreaHeight = useCallback(
+    (nextHeight: number) => {
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+            state,
+            sectionId,
+            {
+              pinnedAreaHeight: nextHeight,
+            },
+          );
+        },
+        send: (frontendOpId) =>
+          route_set_section_pinned_area_height({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            pinnedAreaHeight: nextHeight,
+            frontendOpId,
+          }),
+      });
+    },
+    [sectionId],
+  );
+
   function onResizeStart(...props: ResizeStartArgs) {
     const [, , ref] = props;
     didResizeRef.current = false;
@@ -493,19 +531,22 @@ function ResizablePinnedArea({
     if (nextHeight === null) {
       return;
     }
-    lastMaxHeightRef.current =
+    const resolvedMaxHeight =
       typeof maxHeight === "number" && Number.isFinite(maxHeight)
         ? maxHeight
         : null;
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-        state,
-        sectionId,
-        {
-          pinnedAreaHeight: nextHeight,
-        },
-      );
-    });
+    let clampedHeight = Math.round(nextHeight);
+    if (resolvedMaxHeight !== null && clampedHeight > resolvedMaxHeight) {
+      clampedHeight = resolvedMaxHeight;
+    }
+    if (clampedHeight < resolvedMinHeight) {
+      clampedHeight = resolvedMinHeight;
+    }
+    const isAtMax =
+      resolvedMaxHeight !== null &&
+      Math.abs(clampedHeight - resolvedMaxHeight) <= 2;
+    lastMaxHeightRef.current = isAtMax ? resolvedMaxHeight : null;
+    persistPinnedAreaHeight(clampedHeight);
   }
 
   useEffect(() => {
@@ -522,7 +563,8 @@ function ResizablePinnedArea({
       const zoom = useReactFlow.getState().transform[2] ?? 1;
       const rectHeight = node.getBoundingClientRect().height;
       const nextHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
-      setMeasuredContainerHeight(nextHeight > 0 ? nextHeight : null);
+      const roundedHeight = Math.ceil(nextHeight);
+      setMeasuredContainerHeight(roundedHeight > 0 ? roundedHeight : null);
     };
     update();
     const observer = new ResizeObserver(() => {
@@ -548,15 +590,25 @@ function ResizablePinnedArea({
       const padding =
         Number.parseFloat(style.paddingTop) +
         Number.parseFloat(style.paddingBottom);
+      const section = wrapper.closest("section");
+      const sectionStyle = section ? window.getComputedStyle(section) : null;
+      const borderHeight = sectionStyle
+        ? Number.parseFloat(sectionStyle.borderTopWidth) +
+          Number.parseFloat(sectionStyle.borderBottomWidth)
+        : 0;
       const headerHeight = headerRef.current?.offsetHeight ?? 0;
       const listHeight = list.scrollHeight;
-      const nextHeight = Math.ceil(listHeight + headerHeight + padding);
+      const nextHeight = Math.ceil(
+        listHeight + headerHeight + padding + borderHeight,
+      );
       setContentHeight(nextHeight > 0 ? nextHeight : null);
       const row = list.querySelector(
         "article.section-args-nested-key-value, article.section-lg-value",
       );
       const rowHeight = row ? row.offsetHeight : 0;
-      const nextMinHeight = Math.ceil(rowHeight + headerHeight + padding);
+      const nextMinHeight = Math.ceil(
+        rowHeight + headerHeight + padding + borderHeight,
+      );
       const resolvedMinHeight = nextMinHeight > 0 ? nextMinHeight : 0;
       setMinContentHeight(resolvedMinHeight > 0 ? resolvedMinHeight : null);
       useTemporaryMiscState.setState({
@@ -580,7 +632,7 @@ function ResizablePinnedArea({
     initialMaxHeight ??
     infiniteMaxHeight;
   const availableHeight = Math.max(
-    containerHeight - edgesStripHeight - reservedUnpinnedHeight,
+    Math.ceil(containerHeight - edgesStripHeight - reservedUnpinnedHeight),
     0,
   );
   const maxHeight =
@@ -595,7 +647,7 @@ function ResizablePinnedArea({
   const resolvedMinHeight = minHeight;
   const resolvedHeight =
     typeof height === "number" && Number.isFinite(maxHeight)
-      ? Math.min(height, maxHeight)
+      ? Math.min(Math.max(height, resolvedMinHeight), maxHeight)
       : height;
 
   useLayoutEffect(() => {
@@ -611,22 +663,16 @@ function ResizablePinnedArea({
       return;
     }
     if (Math.abs(height - lastMax) > 2) {
+      lastMaxHeightRef.current = null;
       return;
     }
     if (Math.abs(maxHeight - lastMax) <= 2) {
       return;
     }
-    lastMaxHeightRef.current = maxHeight;
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-        state,
-        sectionId,
-        {
-          pinnedAreaHeight: maxHeight,
-        },
-      );
-    });
-  }, [height, maxHeight, sectionId]);
+    const roundedMaxHeight = Math.round(maxHeight);
+    lastMaxHeightRef.current = roundedMaxHeight;
+    persistPinnedAreaHeight(roundedMaxHeight);
+  }, [height, maxHeight, persistPinnedAreaHeight]);
 
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
@@ -663,10 +709,11 @@ function ResizablePinnedArea({
       handleStyles={{
         bottom: {
           bottom: "0px",
-          height: "14px",
+          height: "18px",
           left: 0,
           right: 0,
           width: "100%",
+          zIndex: 5,
         },
       }}
     >
