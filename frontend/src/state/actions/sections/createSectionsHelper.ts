@@ -30,6 +30,7 @@ export function useCreateSectionsList() {
     },
     { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
+    { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
   ];
 
   if (!singletonSections.GlobalVariables) {
