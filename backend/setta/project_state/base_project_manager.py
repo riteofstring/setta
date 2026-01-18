@@ -180,6 +180,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -1867,6 +1868,16 @@ class BaseProjectManager(ABC):
                 raise HTTPException(
                     status_code=400,
                     detail=f"jsonSourceKeys path not found: {joined}",
+                )
+            processed_id = processed.hierarchy.name_path_to_id[key_path]
+            variant_id = processed.keyValueInfo.codeObjVariantMap[processed_id]
+            variant_info = processed.keyValueInfo.codeObjVariants[variant_id]
+            impl = processed.keyValueInfo.codeObjImpls[variant_info.impl]
+            if not isinstance(impl, BaseParentCodeObjImpl):
+                joined = ".".join(x.jsonSourceKeys) if x.jsonSourceKeys else "<root>"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"jsonSourceKeys must resolve to an object: {joined}",
                 )
 
         set_variant_json_source_keys(

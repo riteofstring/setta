@@ -131,16 +131,12 @@ def build_json_source_updates(
 def apply_json_source_updates(
     existing: dict, updates: list[tuple[list[str], dict]]
 ) -> dict:
-    root_updates = [subtree for key_path, subtree in updates if not key_path]
-    nested_updates = [(key_path, subtree) for key_path, subtree in updates if key_path]
     output = existing
-    if root_updates:
-        if len(root_updates) == 1 and not nested_updates:
-            output = root_updates[0]
-        else:
-            for root_update in root_updates:
-                output = _deep_merge_dicts(output, root_update)
-    for key_path, subtree in nested_updates:
+    ordered_updates = sorted(updates, key=lambda item: len(item[0]))
+    for key_path, subtree in ordered_updates:
+        if not key_path:
+            output = subtree
+            continue
         current = output
         for path_part in key_path[:-1]:
             if path_part not in current:
@@ -152,7 +148,12 @@ def apply_json_source_updates(
                         "JSON source path conflicts with a non-dict value."
                     )
             current = current[path_part]
-        current[key_path[-1]] = subtree
+        leaf_key = key_path[-1]
+        existing_value = current.get(leaf_key)
+        if isinstance(existing_value, dict) and isinstance(subtree, dict):
+            current[leaf_key] = _deep_merge_dicts(existing_value, subtree)
+        else:
+            current[leaf_key] = subtree
     return output
 
 

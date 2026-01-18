@@ -8,7 +8,10 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
-from setta.project_state.jsonSource.save import save_json_source_data
+from setta.project_state.jsonSource.save import (
+    apply_json_source_updates,
+    save_json_source_data,
+)
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -191,3 +194,15 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         self.assertIn("app", updated)
         self.assertIn("features", updated)
         self.assertTrue(updated["features"]["flags"]["betaMode"])
+
+    def test_apply_updates_root_replaces_existing_with_nested_override(self) -> None:
+        existing = {
+            "app": {"name": "Setta", "debug": True},
+            "legacy": {"enabled": True},
+        }
+        updates = [
+            ([], {"app": {"name": "Setta"}}),
+            (["app"], {"debug": False}),
+        ]
+        updated = apply_json_source_updates(existing, updates)
+        self.assertEqual(updated, {"app": {"name": "Setta", "debug": False}})
