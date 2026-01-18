@@ -1,13 +1,19 @@
 import itertools
 import random
 from dataclasses import dataclass, field
+from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.project_state.project_manager_types import (
     RunDetachedResponse,
     RunStatusResponse,
 )
+from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
@@ -209,11 +215,18 @@ class SettaRunner:
         project_name: str | None = None,
         project_config_id: ID | None = None,
         base_url: str | None = None,
+        auth_headers: dict[str, str] | None = None,
+        bootstrap_token: str | None = None,
+        workspace_root: Path | str | None = None,
     ) -> None:
         self._project_name = project_name
         self._project_config_id = project_config_id
         self._base_url = (base_url or C.BACKEND).rstrip("/")
         self._session = requests.Session()
+        self._auth_headers = dict(auth_headers) if auth_headers is not None else None
+        self._bootstrap_token = bootstrap_token.strip() if bootstrap_token else None
+        self._workspace_root = self._resolve_workspace_root(workspace_root)
+        self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
         self._default_project_config_id: ID | None = None
 
@@ -256,10 +269,85 @@ class SettaRunner:
         return RunStatusResponse(**data)
 
     def _post(self, route: Route, payload: dict) -> dict:
+        self._ensure_auth_headers()
         url = f"{self._base_url}{Route.PREFIX.value}{route.value}"
         response = self._session.post(url, json=payload)
         response.raise_for_status()
         return response.json()
+
+    def _ensure_auth_headers(self) -> None:
+        if self._resolved_auth_headers is not None:
+            return
+        headers = self._resolve_auth_headers()
+        self._session.headers.update(headers)
+        self._resolved_auth_headers = headers
+
+    def _resolve_auth_headers(self) -> dict[str, str]:
+        if self._auth_headers is not None:
+            return dict(self._auth_headers)
+        if self._bootstrap_token is not None:
+            cookie_value = self._consume_bootstrap_token(self._bootstrap_token)
+            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+        session_info = load_current_session_secret()
+        if session_info is not None:
+            session_metadata, secret = session_info
+            cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+        cookie_value = self._load_cookie_from_sessions()
+        if cookie_value is not None:
+            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+        raise ValueError(
+            "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
+            "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
+            "workspace)."
+        )
+
+    def _consume_bootstrap_token(self, token: str) -> str:
+        origin = _origin_from_backend_url(self._base_url)
+        consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+        response = self._session.post(consume_url, json={"token": token})
+        response.raise_for_status()
+        cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
+        if not cookie_value:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        return cookie_value
+
+    def _load_cookie_from_sessions(self) -> str | None:
+        registry = self._build_session_registry()
+        if registry is None:
+            return None
+        sessions = registry.find_sessions_by_workspace(self._workspace_root)
+        if not sessions:
+            return None
+        base_host, base_port = _parse_base_url(self._base_url)
+        if base_host is not None or base_port is not None:
+            matching = [
+                session
+                for session in sessions
+                if _session_matches_base_url(session, base_host, base_port)
+            ]
+            if matching:
+                sessions = matching
+        sessions.sort(key=lambda session: session.startedAt, reverse=True)
+        selected = sessions[0]
+        secret_path = registry.resolve_secret_path(selected)
+        if not secret_path.exists():
+            return None
+        secret = secret_path.read_bytes()
+        return AUTH_COOKIE_MANAGER.mint(selected.id, secret)
+
+    def _build_session_registry(self) -> SessionRegistry | None:
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
+            return None
+        return SessionRegistry(sessions_root=sessions_root)
+
+    def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
+        if workspace_root is None:
+            return Path.cwd().resolve()
+        if isinstance(workspace_root, Path):
+            return workspace_root.expanduser().resolve()
+        return Path(workspace_root).expanduser().resolve()
 
     def _get_project_state(self) -> ProjectStateSingleConfig:
         project_config_id = self._resolve_project_config_id(None)
@@ -308,3 +396,38 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
+
+
+def _origin_from_backend_url(backend_url: str) -> str:
+    parsed = urlparse(backend_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid backend URL: {backend_url}")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:
+    parsed = urlparse(base_url)
+    return _normalize_host(parsed.hostname), parsed.port
+
+
+def _normalize_host(host: str | None) -> str | None:
+    if host is None:
+        return None
+    cleaned = host.strip()
+    if cleaned.startswith("[") and cleaned.endswith("]"):
+        cleaned = cleaned[1:-1]
+    if cleaned == "0.0.0.0" or cleaned == "localhost":
+        return "127.0.0.1"
+    if cleaned == "::":
+        return "::1"
+    return cleaned
+
+
+def _session_matches_base_url(
+    session: SessionMetadata, base_host: str | None, base_port: int | None
+) -> bool:
+    if base_port is not None and session.port != base_port:
+        return False
+    if base_host is None:
+        return True
+    return _normalize_host(session.host) == base_host
