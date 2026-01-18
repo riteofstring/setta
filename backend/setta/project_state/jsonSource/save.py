@@ -131,11 +131,16 @@ def build_json_source_updates(
 def apply_json_source_updates(
     existing: dict, updates: list[tuple[list[str], dict]]
 ) -> dict:
+    root_updates = [subtree for key_path, subtree in updates if not key_path]
+    nested_updates = [(key_path, subtree) for key_path, subtree in updates if key_path]
     output = existing
-    for key_path, subtree in updates:
-        if not key_path:
-            output = subtree
-            continue
+    if root_updates:
+        if len(root_updates) == 1 and not nested_updates:
+            output = root_updates[0]
+        else:
+            for root_update in root_updates:
+                output = _deep_merge_dicts(output, root_update)
+    for key_path, subtree in nested_updates:
         current = output
         for path_part in key_path[:-1]:
             if path_part not in current:
@@ -149,6 +154,15 @@ def apply_json_source_updates(
             current = current[path_part]
         current[key_path[-1]] = subtree
     return output
+
+
+def _deep_merge_dicts(base: dict, update: dict) -> dict:
+    for key, value in update.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            base[key] = _deep_merge_dicts(base[key], value)
+        else:
+            base[key] = value
+    return base
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

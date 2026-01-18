@@ -133,3 +133,61 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         self.assertIn("paths", updated)
         self.assertIn("rollouts", updated["features"])
         self.assertTrue(updated["features"]["flags"]["betaMode"])
+
+    def test_save_merges_root_and_nested_updates(self) -> None:
+        payload = {
+            "app": {"name": "Setta Demo", "version": "1.2.3"},
+            "features": {"flags": {"newUI": True, "betaMode": False}},
+        }
+        filename = normalize_path(Path(self._tmpdir.name) / "sample.json")
+        write_json_source_payload(filename, payload, self.dbe)
+
+        section_root, variant_root = self._create_json_source_section([], filename)
+        section_nested, variant_nested = self._create_json_source_section(
+            ["features"], filename
+        )
+        processed = self.json_source.process_json_object(payload)
+        json_sources = {filename: processed}
+        load_json_sources_into_data_structures(
+            self.project_state,
+            json_sources,
+            [
+                (section_root, variant_root),
+                (section_nested, variant_nested),
+            ],
+        )
+
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_nested, BaseDictSectionImpl
+        )
+        hierarchy = traverse_hierarchy(
+            self.project_state.codeObjs,
+            self.project_state.codeObjImpls,
+            self.project_state.codeObjVariants,
+            impl.codeObjVariantMap,
+            get_top_level_param_ids(self.project_state, impl),
+            options=TraversalOptions(
+                build_id_to_name_path=True,
+                build_name_path_to_id=True,
+                name_path_prefix=tuple(impl.jsonSourceKeys),
+            ),
+        )
+        beta_mode_id = hierarchy.name_path_to_id[("features", "flags", "betaMode")]
+        beta_mode_variant_id = impl.codeObjVariantMap[beta_mode_id]
+        beta_mode_core = self.project_state.codeObjs[beta_mode_id]
+        beta_variant, beta_base_impl, _ = get_variant_base_and_effective_code_obj_impl(
+            self.project_state, beta_mode_core, beta_mode_variant_id
+        )
+        self.assertIsInstance(beta_base_impl, BaseChildlessCodeObjImpl)
+        set_effective_impl_value(
+            beta_base_impl,
+            beta_mode_core,
+            beta_variant,
+            BaseChildlessCodeObjImplArgsWithCallable(value=json.dumps(True)),
+        )
+
+        save_json_source_data(self.dbe, self.project_state)
+        updated = read_json_source_payload(filename, self.dbe)
+        self.assertIn("app", updated)
+        self.assertIn("features", updated)
+        self.assertTrue(updated["features"]["flags"]["betaMode"])

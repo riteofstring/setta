@@ -1872,7 +1872,12 @@ class BaseProjectManager(ABC):
         set_variant_json_source_keys(
             project_state, x.sectionId, x.variantId, x.jsonSourceKeys
         )
-        await self.update(project_state)
+        async with self._project_state_lock.write_lock():
+            project_state.validate_for_update(validate_code_file_bindings=True)
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
         load_fn = self.load_json_sources.__wrapped__
         await load_fn(
             self,
