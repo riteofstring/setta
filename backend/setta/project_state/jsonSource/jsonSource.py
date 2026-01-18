@@ -213,10 +213,11 @@ class JSONSource:
     ) -> dict[Path, ProcessedJSONInfo]:
         json_sources: dict[Path, ProcessedJSONInfo] = {}
         for path in paths:
-            if not path.exists():
+            normalized = normalize_path(path)
+            if not normalized.exists():
                 continue
-            payload = read_json_source_payload(path, self.dbe)
-            json_sources[path] = self.process_json_object(payload)
+            payload = read_json_source_payload(normalized, self.dbe)
+            json_sources[normalized] = self.process_json_object(payload)
         return json_sources
 
     def get_section_variants_for_json_source_update(

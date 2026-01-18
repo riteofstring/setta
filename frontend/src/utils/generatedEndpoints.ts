@@ -521,6 +521,12 @@ export async function route_toggle_variant_json_source(
   return await post("/toggleVariantJsonSource", x);
 }
 
+export async function route_set_variant_json_source_keys(
+  x: gt.SetVariantJsonSourceKeysRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setVariantJsonSourceKeys", x);
+}
+
 export async function route_delete_json_source_file_and_variant(
   x: gt.DeleteJSONSourceFileAndVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

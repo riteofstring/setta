@@ -162,6 +162,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
+    SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -184,6 +185,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -259,6 +261,7 @@ from setta.types.helpers_lvl2 import (
     set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
+    set_variant_json_source_keys,
     toggle_group_orientation,
     toggle_minimized,
     toggle_param_selected,
@@ -2006,6 +2009,61 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if not project_state.projectConfig.allowJsonSourceKeyEdits:
+            raise HTTPException(
+                status_code=403,
+                detail="JSON source key edits are disabled for this project.",
+            )
+        variant = project_state.sectionVariants[x.variantId]
+        filename = normalize_path(variant.name)
+        processed = None
+        if filename.exists():
+            processed_updates = self.json_source.process_json_source_files([filename])
+            processed = processed_updates.get(filename)
+            if processed is not None:
+                self.json_source.json_sources[filename] = processed
+            else:
+                self.json_source.json_sources.pop(filename, None)
+        else:
+            self.json_source.json_sources.pop(filename, None)
+        if processed is not None:
+            key_path = tuple(x.jsonSourceKeys)
+            if key_path not in processed.hierarchy.name_path_to_id:
+                joined = ".".join(x.jsonSourceKeys) if x.jsonSourceKeys else "<root>"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"jsonSourceKeys path not found: {joined}",
+                )
+            processed_id = processed.hierarchy.name_path_to_id[key_path]
+            variant_id = processed.keyValueInfo.codeObjVariantMap[processed_id]
+            variant_info = processed.keyValueInfo.codeObjVariants[variant_id]
+            impl = processed.keyValueInfo.codeObjImpls[variant_info.impl]
+            if not isinstance(impl, BaseParentCodeObjImpl):
+                joined = ".".join(x.jsonSourceKeys) if x.jsonSourceKeys else "<root>"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"jsonSourceKeys must resolve to an object: {joined}",
+                )
+
+        set_variant_json_source_keys(
+            project_state, x.sectionId, x.variantId, x.jsonSourceKeys
+        )
+        async with self._project_state_lock.write_lock():
+            project_state.validate_for_update(validate_code_file_bindings=True)
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        load_fn = self.load_json_sources.__wrapped__
+        await load_fn(
+            self,
+            json_sources=self.json_source.json_sources,
+            section_variants_to_load=[(x.sectionId, x.variantId)],
+        )
 
     @enqueue_method
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):

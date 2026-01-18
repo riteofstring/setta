@@ -394,6 +394,7 @@ export const RouteEnum = {
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
+  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
@@ -3368,6 +3369,7 @@ const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   showParamDisplayNames: z.boolean().default(false),
+  allowJsonSourceKeyEdits: z.boolean().default(true),
   previewImgColor: z
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
@@ -6525,6 +6527,18 @@ const SetTypeErrorIgnoreRequestSchema = z.object({
 
 export type SetTypeErrorIgnoreRequestInput = z.input<
   typeof SetTypeErrorIgnoreRequestSchema
+>;
+
+const SetVariantJsonSourceKeysRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  variantId: IDSchema,
+  jsonSourceKeys: z.array(z.string()),
+});
+
+export type SetVariantJsonSourceKeysRequestInput = z.input<
+  typeof SetVariantJsonSourceKeysRequestSchema
 >;
 
 const SetViewModeNameRequestSchema = z.object({
