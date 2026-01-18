@@ -36,6 +36,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
+from setta.types.prompt import PromptTemplateList
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -56,6 +57,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
     AgentProfilesUpdated = "AgentProfilesUpdated"
+    PromptTemplatesUpdated = "PromptTemplatesUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -223,6 +225,13 @@ class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
     content: AgentProfileList
     messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
         WebsocketMsgTypeForFrontend.AgentProfilesUpdated
+    )
+
+
+class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
+    content: PromptTemplateList
+    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
+        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
     )
 
 

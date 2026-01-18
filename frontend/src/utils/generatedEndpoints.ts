@@ -357,6 +357,36 @@ async function route_get_agent_runs(): Promise<
   return await get("/getAgentRuns");
 }
 
+async function route_get_prompt_templates(): Promise<
+  ResponseDataAndStatus<Array<gt.PromptTemplate>>
+> {
+  return await get("/getPromptTemplates");
+}
+
+async function route_get_prompt_template(
+  x: gt.GetPromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/getPromptTemplate", x);
+}
+
+async function route_create_prompt_template(
+  x: gt.CreatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/createPromptTemplate", x);
+}
+
+async function route_update_prompt_template(
+  x: gt.UpdatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/updatePromptTemplate", x);
+}
+
+async function route_delete_prompt_template(
+  x: gt.DeletePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deletePromptTemplate", x);
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -561,6 +591,24 @@ export async function route_set_text_block_text(
   x: gt.SetTextBlockTextRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockText", x);
+}
+
+async function route_set_prompt_template(
+  x: gt.SetPromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptTemplate", x);
+}
+
+async function route_set_prompt_inputs(
+  x: gt.SetPromptInputsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptInputs", x);
+}
+
+async function route_set_prompt_format(
+  x: gt.SetPromptFormatRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptFormat", x);
 }
 
 export async function route_set_gen_code_prefix(

@@ -132,6 +132,9 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
+    SetPromptFormatRequest,
+    SetPromptInputsRequest,
+    SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -230,6 +233,9 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
+    set_prompt_section_format,
+    set_prompt_section_inputs,
+    set_prompt_section_template,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -1661,6 +1667,24 @@ class BaseProjectManager(ABC):
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_text(project_state, x.sectionId, x.text)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_template(self, x: SetPromptTemplateRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_template(project_state, x.sectionId, x.template)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_inputs(self, x: SetPromptInputsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_format(self, x: SetPromptFormatRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_format(project_state, x.sectionId, x.format)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

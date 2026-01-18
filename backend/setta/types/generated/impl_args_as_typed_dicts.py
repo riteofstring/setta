@@ -34,6 +34,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -97,6 +98,7 @@ class CoreArgs(TypedDict):
                 "ignoreTypeErrors",
                 "imagePath",
                 "inputText",
+                "inputs",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -114,6 +116,7 @@ class CoreArgs(TypedDict):
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
+                "missingVariables",
                 "name",
                 "overflowMode",
                 "paramFilter",
@@ -121,6 +124,8 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
+                "renderError",
+                "renderedText",
                 "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
@@ -131,6 +136,7 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
+                "template",
                 "text",
                 "textDisplayMode",
                 "toolCallArguments",
@@ -442,6 +448,29 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
+
+
+class PromptSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Prompt]]
+    template: NotRequired[str]
+    format: NotRequired[PromptFormat]
+    inputs: NotRequired[dict[str, str]]
+    renderedText: NotRequired[str]
+    missingVariables: NotRequired[list[str]]
+    renderError: NotRequired[str | None]
+
+
+class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Prompt]
+        | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
+    ]
+    template: NotRequired[str | Callable[[str], str]]
+    format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
+    inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]
+    renderedText: NotRequired[str | Callable[[str], str]]
+    missingVariables: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    renderError: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):

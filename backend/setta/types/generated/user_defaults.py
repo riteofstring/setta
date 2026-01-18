@@ -23,6 +23,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -123,6 +124,18 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
+
+
+class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

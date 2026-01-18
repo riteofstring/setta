@@ -8,21 +8,30 @@ from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.routers.agentic import (
     CreateAgentProfileRequest,
+    CreatePromptTemplateRequest,
     DeleteAgentProfileRequest,
+    DeletePromptTemplateRequest,
     GetAgentProfileRequest,
     GetAgentRunRequest,
+    GetPromptTemplateRequest,
     StartAgentRunRequest,
     StopAgentRunRequest,
     UpdateAgentProfileRequest,
+    UpdatePromptTemplateRequest,
     route_create_agent_profile,
+    route_create_prompt_template,
     route_delete_agent_profile,
+    route_delete_prompt_template,
     route_get_agent_profile,
     route_get_agent_profiles,
     route_get_agent_run,
     route_get_agent_runs,
+    route_get_prompt_template,
+    route_get_prompt_templates,
     route_start_agent_run,
     route_stop_agent_run,
     route_update_agent_profile,
+    route_update_prompt_template,
 )
 from setta.types.agentic import AgentRunStatus
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
@@ -41,6 +50,7 @@ class _AgenticTestState:
     wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
     agent_runner: AgentRunner | None = None
+    prompt_template_watcher: object | None = None
 
 
 class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
@@ -140,3 +150,57 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
                 profiles = await route_get_agent_profiles(ctx)
                 self.assertEqual(profiles, [])
+
+    async def test_prompt_template_crud(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_prompt_template(
+                    CreatePromptTemplateRequest(
+                        name="Greeting",
+                        description="Greeting template",
+                        template="Hello {{ name }}",
+                        inputSchema={"name": {"type": "string"}},
+                        metadata={"category": "greeting"},
+                    ),
+                    ctx,
+                )
+
+                templates = await route_get_prompt_templates(ctx)
+                self.assertEqual(len(templates), 1)
+                self.assertEqual(templates[0].id, created.id)
+
+                fetched = await route_get_prompt_template(
+                    GetPromptTemplateRequest(templateId=created.id),
+                    ctx,
+                )
+                self.assertEqual(fetched.template, "Hello {{ name }}")
+
+                updated = created.model_copy(
+                    update={
+                        "description": "Updated greeting",
+                        "template": "Hey {{ name }}",
+                    }
+                )
+                updated_template = await route_update_prompt_template(
+                    UpdatePromptTemplateRequest(template=updated),
+                    ctx,
+                )
+                self.assertEqual(updated_template.description, "Updated greeting")
+                self.assertEqual(updated_template.template, "Hey {{ name }}")
+
+                await route_delete_prompt_template(
+                    DeletePromptTemplateRequest(templateId=updated_template.id),
+                    ctx,
+                )
+                templates = await route_get_prompt_templates(ctx)
+                self.assertEqual(templates, [])

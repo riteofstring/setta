@@ -3,6 +3,7 @@ from typing import Any
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
 from setta.types.id import ID
+from setta.types.prompt import PromptTemplate
 from setta.utils.timestamps import get_now_timestamp
 
 
@@ -61,3 +62,28 @@ def list_agent_runs(dbe: DBE) -> list[AgentRun]:
             continue
         runs.append(AgentRun.model_validate(payload))
     return runs
+
+
+def list_prompt_templates(dbe: DBE) -> list[PromptTemplate]:
+    prompts: list[PromptTemplate] = []
+    for path in dbe.list_prompt_paths():
+        payload = dbe.read_json(path)
+        if not payload:
+            continue
+        prompts.append(PromptTemplate.model_validate(payload))
+    return prompts
+
+
+def load_prompt_template(dbe: DBE, prompt_id: ID) -> PromptTemplate | None:
+    payload = dbe.read_prompt(prompt_id)
+    if payload is None:
+        return None
+    return PromptTemplate.model_validate(payload)
+
+
+def save_prompt_template(dbe: DBE, prompt: PromptTemplate) -> None:
+    dbe.write_prompt(prompt.id, prompt.model_dump(mode="json"))
+
+
+def delete_prompt_template(dbe: DBE, prompt_id: ID) -> None:
+    dbe.delete_prompt_file(prompt_id)

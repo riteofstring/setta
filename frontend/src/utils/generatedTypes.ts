@@ -196,6 +196,7 @@ export const SectionTypeEnum = {
   Chart: "Chart",
   Draw: "Draw",
   TextBlock: "TextBlock",
+  Prompt: "Prompt",
   MetaControl: "MetaControl",
   Social: "Social",
   GlobalVariables: "GlobalVariables",
@@ -231,6 +232,8 @@ export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
@@ -342,6 +345,11 @@ export const RouteEnum = {
   STOP_AGENT_RUN: "/stopAgentRun",
   GET_AGENT_RUN: "/getAgentRun",
   GET_AGENT_RUNS: "/getAgentRuns",
+  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
+  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
+  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
+  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
+  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -385,6 +393,9 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
+  SET_PROMPT_INPUTS: "/setPromptInputs",
+  SET_PROMPT_FORMAT: "/setPromptFormat",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -521,6 +532,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
   AgentProfilesUpdated: "AgentProfilesUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1213,7 +1225,9 @@ const SharedModifierSchema = z.object({
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   eraserBrushSize: z.int().optional(),
   folder: z.string().optional(),
-  format: z.enum(TextBlockFormatEnum).optional(),
+  format: z
+    .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
+    .optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1222,6 +1236,7 @@ const SharedModifierSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   imagePath: z.string().optional(),
   inputText: z.string().optional(),
+  inputs: z.record(z.string(), z.string()).optional(),
   isFrozen: z.boolean().optional(),
   isHorizontalOrientation: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
@@ -1248,6 +1263,7 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
+  missingVariables: z.array(z.string()).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1255,6 +1271,8 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
+  renderError: z.union([z.string(), z.null()]).optional(),
+  renderedText: z.string().optional(),
   renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
@@ -1265,6 +1283,7 @@ const SharedModifierSchema = z.object({
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
+  template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
@@ -1337,6 +1356,7 @@ const CoreSchema = z.object({
         "ignoreTypeErrors",
         "imagePath",
         "inputText",
+        "inputs",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",
@@ -1354,6 +1374,7 @@ const CoreSchema = z.object({
         "metaControlParamId",
         "metaControlStyle",
         "min",
+        "missingVariables",
         "name",
         "overflowMode",
         "paramFilter",
@@ -1361,6 +1382,8 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
+        "renderError",
+        "renderedText",
         "renderedValue",
         "requestBody",
         "requestHeaderKey",
@@ -1371,6 +1394,7 @@ const CoreSchema = z.object({
         "showSectionTitle",
         "size",
         "step",
+        "template",
         "text",
         "textDisplayMode",
         "toolCallArguments",
@@ -1607,6 +1631,31 @@ const TextBlockSectionImplSchema = z.object({
 });
 
 type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
+
+const PromptSectionImplSchema = z.object({
+  type: z.literal("Prompt").default(SectionTypeEnum.Prompt),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  template: z.string().default("" as const),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputs: z.record(z.string(), z.string()).default({}),
+  renderedText: z.string().default("" as const),
+  missingVariables: z.array(z.string()).default([]),
+  renderError: z.union([z.string(), z.null()]).default(null),
+});
+
+type PromptSectionImpl = z.infer<typeof PromptSectionImplSchema>;
 
 const MetaControlSectionImplSchema = z.object({
   type: z.literal("MetaControl").default(SectionTypeEnum.MetaControl),
@@ -2088,6 +2137,7 @@ const ProjectStateCoreSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
@@ -2289,6 +2339,7 @@ const BaseSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
   TextBlockSectionImplSchema,
+  PromptSectionImplSchema,
   MetaControlSectionImplSchema,
   SocialSectionImplSchema,
   GlobalVariablesSectionImplSchema,
@@ -2805,6 +2856,29 @@ const TextBlockSectionImplArgsSchema = z.object({
 
 type TextBlockSectionImplArgs = z.infer<typeof TextBlockSectionImplArgsSchema>;
 
+const PromptSectionImplArgsSchema = z.object({
+  type: z.literal("Prompt").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  template: z.string().optional(),
+  format: z.enum(PromptFormatEnum).optional(),
+  inputs: z.record(z.string(), z.string()).optional(),
+  renderedText: z.string().optional(),
+  missingVariables: z.array(z.string()).optional(),
+  renderError: z.union([z.string(), z.null()]).optional(),
+});
+
+type PromptSectionImplArgs = z.infer<typeof PromptSectionImplArgsSchema>;
+
 const MetaControlSectionImplArgsSchema = z.object({
   type: z.literal("MetaControl").optional(),
   id: IDSchema.optional(),
@@ -3287,6 +3361,7 @@ const ProjectStateSingleConfigSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
@@ -4051,6 +4126,32 @@ function createUserDefaultMetaControlSectionImpl(
   return UserDefaultMetaControlSectionImplSchema.parse(options);
 }
 
+const UserDefaultPromptSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  template: z.string().default("" as const),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputs: z.record(z.string(), z.string()).default({}),
+  renderedText: z.string().default("" as const),
+  missingVariables: z.array(z.string()).default([]),
+  renderError: z.union([z.string(), z.null()]).default(null),
+});
+
+type UserDefaultPromptSectionImpl = z.infer<
+  typeof UserDefaultPromptSectionImplSchema
+>;
+
+function createUserDefaultPromptSectionImpl(
+  options: Partial<UserDefaultPromptSectionImpl> = {},
+): UserDefaultPromptSectionImpl {
+  return UserDefaultPromptSectionImplSchema.parse(options);
+}
+
 const UserDefaultSocialSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
@@ -4400,6 +4501,9 @@ const SettingsStateSchema = z.object({
   metaControlSectionDefault: UserDefaultMetaControlSectionImplSchema.default(
     createUserDefaultMetaControlSectionImpl,
   ),
+  promptSectionDefault: UserDefaultPromptSectionImplSchema.default(
+    createUserDefaultPromptSectionImpl,
+  ),
   socialSectionDefault: UserDefaultSocialSectionImplSchema.default(
     createUserDefaultSocialSectionImpl,
   ),
@@ -4606,6 +4710,30 @@ const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
 });
 
+const PromptTemplateSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  template: z.string(),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputSchema: z.record(z.string(), z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
+});
+
+export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
+
+const PromptTemplateListSchema = z.object({
+  templates: z.array(PromptTemplateSchema),
+});
+
+const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: PromptTemplateListSchema,
+  messageType: z
+    .literal("PromptTemplatesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4658,6 +4786,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
   WebsocketMsgAgentProfilesUpdatedSchema,
+  WebsocketMsgPromptTemplatesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -5326,12 +5455,33 @@ export type CreateAgentProfileRequestInput = z.input<
   typeof CreateAgentProfileRequestSchema
 >;
 
+const CreatePromptTemplateRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  template: z.string(),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputSchema: z.record(z.string(), z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
+});
+
+export type CreatePromptTemplateRequestInput = z.input<
+  typeof CreatePromptTemplateRequestSchema
+>;
+
 const DeleteAgentProfileRequestSchema = z.object({
   profileId: IDSchema,
 });
 
 export type DeleteAgentProfileRequestInput = z.input<
   typeof DeleteAgentProfileRequestSchema
+>;
+
+const DeletePromptTemplateRequestSchema = z.object({
+  templateId: IDSchema,
+});
+
+export type DeletePromptTemplateRequestInput = z.input<
+  typeof DeletePromptTemplateRequestSchema
 >;
 
 const GetAgentProfileRequestSchema = z.object({
@@ -5347,6 +5497,14 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetPromptTemplateRequestSchema = z.object({
+  templateId: IDSchema,
+});
+
+export type GetPromptTemplateRequestInput = z.input<
+  typeof GetPromptTemplateRequestSchema
+>;
 
 const StartAgentRunRequestSchema = z.object({
   profileId: IDSchema,
@@ -5371,6 +5529,14 @@ const UpdateAgentProfileRequestSchema = z.object({
 
 export type UpdateAgentProfileRequestInput = z.input<
   typeof UpdateAgentProfileRequestSchema
+>;
+
+const UpdatePromptTemplateRequestSchema = z.object({
+  template: PromptTemplateSchema,
+});
+
+export type UpdatePromptTemplateRequestInput = z.input<
+  typeof UpdatePromptTemplateRequestSchema
 >;
 
 const DeleteLLMChatRequestSchema = z.object({
@@ -5670,6 +5836,7 @@ const CreateTopLevelSectionRequestSchema = z.object({
         ChartSectionImplArgsSchema,
         DrawSectionImplArgsSchema,
         TextBlockSectionImplArgsSchema,
+        PromptSectionImplArgsSchema,
         MetaControlSectionImplArgsSchema,
         SocialSectionImplArgsSchema,
         GlobalVariablesSectionImplArgsSchema,
@@ -6212,6 +6379,39 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
+>;
+
+const SetPromptFormatRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  format: z.enum(PromptFormatEnum),
+});
+
+export type SetPromptFormatRequestInput = z.input<
+  typeof SetPromptFormatRequestSchema
+>;
+
+const SetPromptInputsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  inputs: z.record(z.string(), z.string()),
+});
+
+export type SetPromptInputsRequestInput = z.input<
+  typeof SetPromptInputsRequestSchema
+>;
+
+const SetPromptTemplateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  template: z.string(),
+});
+
+export type SetPromptTemplateRequestInput = z.input<
+  typeof SetPromptTemplateRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({
@@ -6908,6 +7108,11 @@ export type ImplArgsBundleMap = {
       TextBlockSectionImplArgs,
       TextBlockSectionImpl
     >;
+  };
+
+  PromptSection: {
+    impl: PromptSectionImpl;
+    args: ImplArgsBundleWithUpdaters<PromptSectionImplArgs, PromptSectionImpl>;
   };
 
   MetaControlSection: {

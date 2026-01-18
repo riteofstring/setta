@@ -51,6 +51,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
+    PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -63,6 +64,7 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
 )
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
@@ -192,6 +194,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | ChartSectionImplArgs
         | DrawSectionImplArgs
         | TextBlockSectionImplArgs
+        | PromptSectionImplArgs
         | MetaControlSectionImplArgs
         | SocialSectionImplArgs
         | GlobalVariablesSectionImplArgs
@@ -574,6 +577,27 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     sectionId: ID
     paramInfoId: ID
     value: str
+
+
+class ListenerSetPromptFormatRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    format: PromptFormat
+
+
+class ListenerSetPromptInputsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    inputs: dict[str, str]
+
+
+class ListenerSetPromptTemplateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    template: str
 
 
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
@@ -1143,6 +1167,21 @@ class RouterEndpointAPI:
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
+
+    async def set_prompt_format(
+        self, payload: ListenerSetPromptFormatRequestPayload
+    ) -> None:
+        return await self._caller("route_set_prompt_format", payload)
+
+    async def set_prompt_inputs(
+        self, payload: ListenerSetPromptInputsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_prompt_inputs", payload)
+
+    async def set_prompt_template(
+        self, payload: ListenerSetPromptTemplateRequestPayload
+    ) -> None:
+        return await self._caller("route_set_prompt_template", payload)
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload

@@ -36,6 +36,7 @@ from setta.types.project_state import (
     AllProjectMetadata,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
@@ -51,6 +52,7 @@ from setta.types.websocket import (
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
@@ -375,6 +377,19 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         await self._broadcast_frontend(
             WebsocketMsgAgentProfilesUpdated(
                 content=AgentProfileList(profiles=profiles)
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_prompt_templates_update(
+        self,
+        templates: list[PromptTemplate],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPromptTemplatesUpdated(
+                content=PromptTemplateList(templates=templates)
             ),
             share_session_id,
         )

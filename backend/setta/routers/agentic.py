@@ -4,15 +4,20 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.agentic.store import (
+    delete_prompt_template,
     list_agent_runs,
+    list_prompt_templates,
     load_agent_profiles,
     load_agent_run,
+    load_prompt_template,
     save_agent_profiles,
+    save_prompt_template,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.agentic import AgentProfile, AgentRun
 from setta.types.id import ID
+from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -50,6 +55,27 @@ class StopAgentRunRequest(BaseModel):
 
 class GetAgentRunRequest(BaseModel):
     runId: ID
+
+
+class CreatePromptTemplateRequest(BaseModel):
+    name: str
+    description: str = ""
+    template: str
+    format: PromptFormat = PromptFormat.Jinja
+    inputSchema: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpdatePromptTemplateRequest(BaseModel):
+    template: PromptTemplate
+
+
+class GetPromptTemplateRequest(BaseModel):
+    templateId: ID
+
+
+class DeletePromptTemplateRequest(BaseModel):
+    templateId: ID
 
 
 @router.get(Route.GET_AGENT_PROFILES)
@@ -172,3 +198,84 @@ async def route_get_agent_runs(
 ) -> list[AgentRun]:
     await ctx.enforce_llm_allowed()
     return list_agent_runs(ctx.state.dbe)
+
+
+@router.get(Route.GET_PROMPT_TEMPLATES)
+async def route_get_prompt_templates(
+    ctx: RuntimeContextFromRequest,
+) -> list[PromptTemplate]:
+    await ctx.enforce_llm_allowed()
+    return list_prompt_templates(ctx.state.dbe)
+
+
+@router.post(Route.GET_PROMPT_TEMPLATE)
+async def route_get_prompt_template(
+    x: GetPromptTemplateRequest, ctx: RuntimeContextFromRequest
+) -> PromptTemplate:
+    await ctx.enforce_llm_allowed()
+    template = load_prompt_template(ctx.state.dbe, x.templateId)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    return template
+
+
+@router.post(Route.CREATE_PROMPT_TEMPLATE)
+async def route_create_prompt_template(
+    x: CreatePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> PromptTemplate:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow creating prompt templates.")
+    template = PromptTemplate(
+        name=x.name,
+        description=x.description,
+        template=x.template,
+        format=x.format,
+        inputSchema=x.inputSchema,
+        metadata=x.metadata,
+    )
+    save_prompt_template(ctx.state.dbe, template)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return template
+
+
+@router.post(Route.UPDATE_PROMPT_TEMPLATE)
+async def route_update_prompt_template(
+    x: UpdatePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> PromptTemplate:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating prompt templates.")
+    existing = load_prompt_template(ctx.state.dbe, x.template.id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    save_prompt_template(ctx.state.dbe, x.template)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return x.template
+
+
+@router.post(Route.DELETE_PROMPT_TEMPLATE)
+async def route_delete_prompt_template(
+    x: DeletePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow deleting prompt templates.")
+    existing = load_prompt_template(ctx.state.dbe, x.templateId)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    delete_prompt_template(ctx.state.dbe, x.templateId)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return None

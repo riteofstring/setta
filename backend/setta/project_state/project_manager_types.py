@@ -22,6 +22,7 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
@@ -386,6 +387,18 @@ class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSectionVari
 
 class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
+
+
+class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
+    template: str
+
+
+class SetPromptInputsRequest(ProjectManagerRequestWithSection):
+    inputs: dict[str, str]
+
+
+class SetPromptFormatRequest(ProjectManagerRequestWithSection):
+    format: PromptFormat
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):

@@ -4,14 +4,19 @@ from tempfile import TemporaryDirectory
 
 from setta.agentic.store import (
     create_agent_run,
+    delete_prompt_template,
     list_agent_runs,
+    list_prompt_templates,
     load_agent_profiles,
     load_agent_run,
+    load_prompt_template,
     save_agent_profiles,
     save_agent_run,
+    save_prompt_template,
 )
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, AgentRunStatus
+from setta.types.prompt import PromptTemplate
 
 
 class AgenticStoreTests(unittest.TestCase):
@@ -64,3 +69,30 @@ class AgenticStoreTests(unittest.TestCase):
             runs = list_agent_runs(dbe)
             self.assertEqual(len(runs), 1)
             self.assertEqual(runs[0].id, run.id)
+
+    def test_prompt_templates_roundtrip(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = self._build_dbe(tmpdir)
+            template = PromptTemplate(
+                name="Greeting",
+                description="Greeting template",
+                template="Hello {{ name }}",
+                inputSchema={"name": {"type": "string"}},
+                metadata={"category": "greeting"},
+            )
+
+            save_prompt_template(dbe, template)
+
+            loaded = load_prompt_template(dbe, template.id)
+            self.assertIsNotNone(loaded)
+            if loaded is None:
+                return
+            self.assertEqual(loaded.template, template.template)
+            self.assertEqual(loaded.inputSchema, template.inputSchema)
+            self.assertEqual(loaded.metadata, template.metadata)
+
+            templates = list_prompt_templates(dbe)
+            self.assertEqual([entry.id for entry in templates], [template.id])
+
+            delete_prompt_template(dbe, template.id)
+            self.assertEqual(list_prompt_templates(dbe), [])

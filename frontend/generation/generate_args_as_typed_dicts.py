@@ -110,6 +110,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     TextBlockDisplayMode,
     TextBlockFormat,
+    PromptFormat,
     SectionType,
     SectionSizeMode,
     SectionWithParamsDisplayMode,

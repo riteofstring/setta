@@ -217,6 +217,12 @@ class DBE:
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
 
+    def read_prompts_example(self) -> Any:
+        return self.read_json(self.prompts_example)
+
+    def write_prompts_example(self, payload: Any) -> None:
+        self.write_json(self.prompts_example, payload)
+
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
         if raw is None:
@@ -291,6 +297,33 @@ class DBE:
 
     def delete_agent_run_file(self, run_id: ID) -> None:
         path = self.agent_run_path(run_id)
+        lock = self.get_file_lock(path)
+        with lock:
+            if path.exists():
+                path.unlink()
+
+    def prompt_path(self, prompt_id: ID) -> Path:
+        return self.prompts / f"{prompt_id}.json"
+
+    def read_prompt(self, prompt_id: ID) -> dict | None:
+        path = self.prompt_path(prompt_id)
+        if not path.exists():
+            return None
+        data = self.read_json(path)
+        if not data:
+            return None
+        return data
+
+    def write_prompt(self, prompt_id: ID, payload: dict) -> None:
+        self.write_json(self.prompt_path(prompt_id), payload)
+
+    def list_prompt_paths(self) -> list[Path]:
+        if not self.prompts.exists():
+            return []
+        return sorted(self.prompts.glob("*.json"))
+
+    def delete_prompt_file(self, prompt_id: ID) -> None:
+        path = self.prompt_path(prompt_id)
         lock = self.get_file_lock(path)
         with lock:
             if path.exists():

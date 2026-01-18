@@ -19,6 +19,7 @@ from setta.types.generated.chart_settings_unions import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
+from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -31,6 +32,7 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
+    Prompt = "Prompt"
     MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
@@ -236,6 +238,19 @@ class TextBlockSectionImpl(BaseSectionImpl):
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
+
+
+class PromptSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Prompt] = SectionType.Prompt
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
 
 
 class MetaControlSectionImpl(BaseSectionImpl):
