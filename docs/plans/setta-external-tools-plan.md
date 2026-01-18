@@ -366,7 +366,8 @@ Storage:
 ### Phase 3: Unified orchestration (partial)
 - Add a backend run-chain orchestrator that executes multi-step workflows across Setta + external runs.
 - Persist chain metadata + child run linkage in AgentRun outputs/events.
-- Pending: UI for cross-tool trace viewer, step-level replay, and chain authoring.
+- Pending: UI for cross-tool trace viewer, step-level replay, and chain
+  authoring will be delivered via the agentic graph UI (no separate run-chain UI).
 
 ## Future work
 

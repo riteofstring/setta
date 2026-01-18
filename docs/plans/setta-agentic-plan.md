@@ -82,10 +82,13 @@ Backward compatibility is not required, but user-visible features must be preser
 ### Phase 4: UI for agents and runs (partially implemented)
 - Add a new Overview tab or sidebar panel for agent profiles and runs.
 - Add a run history viewer and a trace view that shows tool calls and results.
+- Run-chain authoring + step-level trace are handled in the agentic graph UI
+  (no standalone run-chain UI).
 - Surface per-run metadata (model, tokens, cost, duration, status).
 - Integrate runs into Chat sections as the default entry point (agentic sessions per chat section).
 - Keep ProjectLevelAI for project-level setup/automation workflows.
-- Deferred: canvas-based agentic graph UI (sections + edges) and active path highlighting.
+- Deferred: canvas-based agentic graph UI (sections + edges), active path
+  highlighting, and run-chain authoring/trace.
 
 ## Future work (out of scope)
 ### Context and memory controls
@@ -105,6 +108,7 @@ Backward compatibility is not required, but user-visible features must be preser
 ### Agentic graph UI (sections + edges)
 - Add a dedicated agentic edge type for context/flow, separate from codegen deps.
 - Visualize active context paths during runs (AIFollow-driven highlights).
+- Own run-chain authoring + trace UI (see `docs/plans/agentic-graph-ui-plan.md`).
 - See `docs/plans/agentic-graph-ui-plan.md`.
 
 ## Detailed implementation map

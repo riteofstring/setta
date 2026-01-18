@@ -8,6 +8,8 @@ conflicting with codegen dependency edges.
 - Reuse sections as context/input/output nodes for agentic runs.
 - Add a new edge type for agentic context/flow that does not affect codegen.
 - Visually highlight active sections/edges during runs (AIFollow-driven).
+- Make the graph UI the primary surface for run-chain authoring, step editing,
+  and trace viewing (no standalone run-chain UI).
 - Keep chat stream UX intact; this is additive.
 
 ## Non-goals
@@ -22,6 +24,8 @@ conflicting with codegen dependency edges.
   tool call references them.
 - **Agentic graph overlay**: UI affordances layered on the canvas, not stored as
   codegen dependencies.
+- **Run chain panel**: a graph-adjacent editor for `RunChainSpec` that launches
+  multi-step runs and exposes step-level trace.
 
 ## Data model additions
 - Add a new edge type enum value, e.g. `EdgeType.AgenticContext`.
@@ -34,8 +38,8 @@ conflicting with codegen dependency edges.
 - Canvas: draw agentic edges with distinct styling (dashed or tinted).
 - On run start: highlight edges from the active Chat section to context nodes.
 - On tool calls/AIFollow updates: highlight referenced nodes + inbound edges.
-- Run status badge on Chat section (running/failed/completed) that links to the
-  existing run history/trace viewer.
+- Run status badge on Chat section (running/failed/completed) that opens the
+  graph run panel (history + trace + chain steps).
 
 ## AIFollow integration
 - Use existing AIFollow updates to set “active” state on sections.
@@ -64,7 +68,12 @@ conflicting with codegen dependency edges.
 - Highlight nodes + edges on AIFollow updates.
 
 ### Phase D: Run badge + trace entry point
-- Add run-status badge to Chat section header; link to run history/trace.
+- Add run-status badge to Chat section header; open run history/trace panel.
+
+### Phase E: Run chain authoring + trace
+- Add a Run Chain editor that builds `RunChainSpec` and launches runs.
+- Support step-level replay/inspect using the existing AgentRun event stream.
+- Show cross-tool trace (Setta + external) in the same panel.
 
 ## Open questions
 - Should agentic edges be per-project or per-chat (default per-chat)?
