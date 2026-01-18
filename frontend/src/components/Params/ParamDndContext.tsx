@@ -15,6 +15,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -24,6 +25,7 @@ import {
   orderParamIdsByParent,
   selectOnlyParam,
 } from "state/actions/params/moveParams";
+import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   getRootSelectedParamIds,
   getSharedParentId,
@@ -81,15 +83,18 @@ export function ParamDndProvider({
   const [dragOffset, setDragOffset] = useState(0);
   const [draggingIds, setDraggingIds] = useState<string[]>([]);
 
+  useEffect(() => {
+    logParamReorder("param dnd enabled", { sectionId, enabled });
+  }, [enabled, sectionId]);
+
   const sensors = useMemo(() => {
-    if (!enabled) {
-      return [];
-    }
     const pointerSensor = PointerSensor.configure({
       activationConstraints: () => undefined,
+      // Allow drag activation from inputs while param selection mode is active.
+      preventActivation: () => false,
     });
     return [pointerSensor];
-  }, [enabled]);
+  }, []);
 
   const draggingSet = useMemo(() => new Set(draggingIds), [draggingIds]);
   const projection = useMemo(() => {
@@ -143,6 +148,7 @@ export function ParamDndProvider({
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       if (!enabled) {
+        logParamReorder("drag start ignored", { sectionId, reason: "disabled" });
         return;
       }
       const nextActiveId = String(event.active.id);
@@ -175,6 +181,14 @@ export function ParamDndProvider({
         selectOnlyParam(sectionId, nextActiveId);
       }
 
+      logParamReorder("drag start", {
+        sectionId,
+        activeId: nextActiveId,
+        selectedParams,
+        rootSelected,
+        draggingIds: nextDraggingIds,
+        sharedParent,
+      });
       setDraggingIds(nextDraggingIds);
     },
     [enabled, sectionId, tree.parentById],
@@ -211,6 +225,7 @@ export function ParamDndProvider({
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       if (!enabled) {
+        logParamReorder("drag end ignored", { sectionId, reason: "disabled" });
         resetDragState();
         return;
       }
@@ -220,6 +235,13 @@ export function ParamDndProvider({
         !isDropValid ||
         draggingIds.length === 0
       ) {
+        logParamReorder("drag end aborted", {
+          sectionId,
+          canceled: event.canceled,
+          projection,
+          isDropValid,
+          draggingIds,
+        });
         resetDragState();
         return;
       }
@@ -252,9 +274,21 @@ export function ParamDndProvider({
         fullChildren,
       });
       if (newIndex === null) {
+        logParamReorder("drag end missing index", {
+          sectionId,
+          newParentId,
+          orderedDraggingIds,
+          projection,
+        });
         resetDragState();
         return;
       }
+      logParamReorder("drag end commit", {
+        sectionId,
+        orderedDraggingIds,
+        newParentId,
+        newIndex,
+      });
       moveParamsWithBackend({
         sectionId,
         paramIds: orderedDraggingIds,

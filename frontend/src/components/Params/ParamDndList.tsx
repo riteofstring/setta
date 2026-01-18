@@ -1,6 +1,7 @@
 import _ from "lodash";
-import React from "react";
+import React, { useEffect } from "react";
 import { buildParamTreeView } from "state/actions/params/paramTree";
+import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -61,6 +62,24 @@ export function ParamDndList({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { canEditStructure } = useShareCapabilities();
   const enabled = isSelectingParams && canEditStructure && !paramFilterActive;
+
+  useEffect(() => {
+    logParamReorder("param dnd state", {
+      sectionId,
+      enabled,
+      hasTree: Boolean(tree),
+      paramFilterActive,
+      isSelectingParams,
+      canEditStructure,
+    });
+  }, [
+    sectionId,
+    enabled,
+    tree,
+    paramFilterActive,
+    isSelectingParams,
+    canEditStructure,
+  ]);
 
   if (!tree) {
     return (
