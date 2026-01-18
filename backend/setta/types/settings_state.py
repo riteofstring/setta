@@ -84,6 +84,10 @@ class SettingsShortcuts(BaseModel):
     runCodeShortcut: str = "Mod + Enter"
     runEntryCodeBlockShortcut: str = "Mod + Shift + Enter"
     paramSelect: str = "Mod + Shift"
+    paramIndentShortcut: str = "Tab"
+    paramUnindentShortcut: str = "Shift + Tab"
+    paramMoveUpShortcut: str = "Alt + ArrowUp"
+    paramMoveDownShortcut: str = "Alt + ArrowDown"
     formatCode: str = "Shift + Alt + F"
     selectionKeyCode: str = "Shift"
     multiSelectionKeyCode: str = "Mod"
@@ -250,14 +254,6 @@ class SectionSizingPolicyByType(BaseModel):
         )
     )
     GenPythonCode: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=0,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    GenPythonMetadata: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,

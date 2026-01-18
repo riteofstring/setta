@@ -16,7 +16,6 @@ from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
-from setta.utils.structured_data import write_json_source_payload
 
 
 def build_json_source_dicts(
@@ -68,7 +67,7 @@ def save_json_source_data(
 ):
     json_source_dicts = build_json_source_dicts(p, section_variant_ids)
     for filename, data in json_source_dicts.items():
-        write_json_source_payload(filename, data, dbe)
+        dbe.write_json(filename, data)
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

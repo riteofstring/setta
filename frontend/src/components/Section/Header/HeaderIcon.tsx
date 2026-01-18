@@ -8,15 +8,7 @@ import { GoDotFill } from "react-icons/go";
 import { IoChatbox } from "react-icons/io5";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
-import {
-  SiGnubash,
-  SiJavascript,
-  SiJson,
-  SiMarkdown,
-  SiPython,
-  SiTypescript,
-  SiYaml,
-} from "react-icons/si";
+import { SiGnubash, SiPython } from "react-icons/si";
 import { TbAdjustmentsHorizontal, TbFolderFilled } from "react-icons/tb";
 import {
   getCurrEffectiveSectionImpl,
@@ -61,10 +53,6 @@ export function HeaderIcon({
         />
       );
     case SectionTypeEnum.GenPythonCode:
-      return (
-        <SettaSLogo className="h-[16px] w-[16px] text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] [&>g>path]:fill-current [&>g>rect]:fill-current" />
-      );
-    case SectionTypeEnum.GenPythonMetadata:
       return (
         <SettaSLogo className="h-[16px] w-[16px] text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] [&>g>path]:fill-current [&>g>rect]:fill-current" />
       );
@@ -180,24 +168,12 @@ function CodeLanguageIcon({ sectionId, classes }) {
     }
   });
   switch (language) {
-    case CodeLanguageEnum.python:
+    case "python":
       return <SiPython className={classes} />;
-    case CodeLanguageEnum.bash:
+    case "bash":
       return <SiGnubash className={classes} />;
-    case CodeLanguageEnum.javascript:
-      return <SiJavascript className={classes} />;
-    case CodeLanguageEnum.typescript:
-      return <SiTypescript className={classes} />;
-    case CodeLanguageEnum.json:
-      return <SiJson className={classes} />;
-    case CodeLanguageEnum.yaml:
-      return <SiYaml className={classes} />;
-    case CodeLanguageEnum.markdown:
-      return <SiMarkdown className={classes} />;
-    case CodeLanguageEnum.plaintext:
-      return <PiTextTFill className={classes} />;
     default:
-      return <PiTextTFill className={classes} />;
+      return language satisfies never;
   }
 }
 
