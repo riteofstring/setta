@@ -18,9 +18,25 @@ from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
+from setta.llm.chat_toolkit.managed.ai_follow import (
+    build_tool_call_follow_ids,
+    canonicalize_ai_follow_ids_by_type,
+    extract_stream_ids_by_type_from_buffer,
+    ids_by_type_to_sets,
+    normalize_ids_by_type,
+)
+from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.logging.tasks import spawn_background_task
+from setta.mcp.client import MultiMCPClient
+from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
+from setta.types.chat_messages import ToolCall, ToolCallFunction
+from setta.types.chat_stream_events import (
+    MessageFinalizedEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
+)
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentWorkingDirStrategy,
@@ -51,16 +67,21 @@ class ExternalAgentRunner:
         *,
         share_session_id: str | None = None,
         adapter_registry: ExternalAgentAdapterRegistry | None = None,
+        mcp_client: MultiMCPClient | None = None,
     ) -> None:
         self.dbe = dbe
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
+        self.mcp_client = mcp_client
         self._adapter_registry = adapter_registry or ExternalAgentAdapterRegistry(
             adapters=[ClaudeSdkAdapter(), CodexSdkAdapter(), OpenCodeSdkAdapter()]
         )
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
         self._run_state: dict[ID, ExternalAgentRunState] = {}
+        self._tool_call_buffers: dict[ID, dict[str, str]] = {}
+        self._tool_call_names: dict[ID, dict[str, str]] = {}
+        self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     @property
@@ -98,6 +119,8 @@ class ExternalAgentRunner:
             self._tasks.pop(run_id, None)
             self._runs.pop(run_id, None)
             self._run_state.pop(run_id, None)
+            self._tool_call_buffers.pop(run_id, None)
+            self._tool_call_names.pop(run_id, None)
 
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
@@ -149,6 +172,12 @@ class ExternalAgentRunner:
                             else None,
                             "chunk": event.stream_chunk.model_dump(mode="json"),
                         },
+                    )
+                    await self._handle_stream_chunk(
+                        context.project_config_id,
+                        context.chat_id,
+                        run.id,
+                        event.stream_chunk,
                     )
             return_code = handle.return_code
             if return_code not in (None, 0):
@@ -325,3 +354,140 @@ class ExternalAgentRunner:
     def _record_event(self, run: AgentRun, event_type: str, payload: dict[str, Any]):
         run.events.append(RunEvent(type=event_type, payload=payload))
         save_agent_run(self.dbe, run)
+
+    async def _handle_stream_chunk(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        run_id: ID,
+        chunk: Any,
+    ) -> None:
+        if isinstance(chunk, ToolCallDeltaEvent):
+            self._store_tool_call_delta(run_id, chunk)
+            await self._maybe_emit_streaming_follow_update(
+                project_config_id,
+                chat_id,
+                run_id,
+                chunk,
+            )
+            return
+        if isinstance(chunk, MessageFinalizedEvent):
+            tool_calls = chunk.message.tool_calls or []
+            if not tool_calls:
+                tool_calls = self._build_tool_calls_from_buffers(run_id)
+            await self._maybe_emit_follow_update(
+                project_config_id,
+                chat_id,
+                tool_calls,
+            )
+            return
+        if isinstance(chunk, ToolResultEvent):
+            await self._broadcast_ai_follow_update(project_config_id, chat_id, {})
+
+    def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
+        buffers = self._tool_call_buffers.setdefault(run_id, {})
+        names = self._tool_call_names.setdefault(run_id, {})
+        buffers[chunk.tool_call_id] = buffers.get(chunk.tool_call_id, "") + (
+            chunk.arguments_delta or ""
+        )
+        if chunk.tool_name:
+            names[chunk.tool_call_id] = chunk.tool_name
+
+    def _build_tool_calls_from_buffers(self, run_id: ID) -> list[ToolCall]:
+        buffers = self._tool_call_buffers.get(run_id)
+        if not buffers:
+            return []
+        names = self._tool_call_names.get(run_id, {})
+        tool_calls: list[ToolCall] = []
+        for tool_call_id, args in buffers.items():
+            name = names.get(tool_call_id, "")
+            tool_calls.append(
+                ToolCall(
+                    id=tool_call_id,
+                    function=ToolCallFunction(name=name, arguments=args),
+                )
+            )
+        return tool_calls
+
+    async def _maybe_emit_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_calls: list[ToolCall],
+    ) -> None:
+        if not tool_calls or not self.mcp_client:
+            return
+        ids_by_type = build_tool_call_follow_ids(
+            tool_calls=tool_calls,
+            dbe=self.dbe,
+            annotations_by_name=self.mcp_client.tool_annotations_by_name,
+        )
+        if not ids_by_type:
+            return
+        await self._broadcast_ai_follow_update(project_config_id, chat_id, ids_by_type)
+
+    async def _maybe_emit_streaming_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        run_id: ID,
+        chunk: ToolCallDeltaEvent,
+    ) -> None:
+        if not self.mcp_client:
+            return
+        tool_name = chunk.tool_name
+        if not tool_name or not is_setta_tool_name(tool_name):
+            return
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolArguments:
+            return
+        buffers = self._tool_call_buffers.get(run_id)
+        if not buffers:
+            return
+        buffer = buffers.get(chunk.tool_call_id, "")
+        if not buffer:
+            return
+        ids_by_type = extract_stream_ids_by_type_from_buffer(
+            buffer,
+            annotations.aiFollowToolArguments.pathsByIdType,
+        )
+        normalized_ids = {id_type: list(ids) for id_type, ids in ids_by_type.items()}
+        canonical = canonicalize_ai_follow_ids_by_type(
+            self.dbe,
+            normalized_ids,
+            filter_to_known=True,
+        )
+        if not canonical:
+            return
+        await self._broadcast_ai_follow_update(project_config_id, chat_id, canonical)
+
+    async def _broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> None:
+        normalized = normalize_ids_by_type(ids_by_type)
+        if self._ai_follow_state_matches(project_config_id, chat_id, normalized):
+            return
+        if normalized:
+            self._ai_follow_state[(project_config_id, chat_id)] = dict(normalized)
+        else:
+            self._ai_follow_state.pop((project_config_id, chat_id), None)
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+            projectConfigId=project_config_id,
+            chatId=chat_id,
+            idsByType=normalized,
+            share_session_id=self.share_session_id,
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> bool:
+        state = self._ai_follow_state.get((project_config_id, chat_id))
+        if state is None:
+            return False
+        return ids_by_type_to_sets(state) == ids_by_type_to_sets(ids_by_type)

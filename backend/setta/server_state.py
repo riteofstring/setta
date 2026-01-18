@@ -416,6 +416,7 @@ class SettaFastAPIState:
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
+                mcp_client=self.mcp_client,
             )
 
             self.init_status.record("Starting background services")

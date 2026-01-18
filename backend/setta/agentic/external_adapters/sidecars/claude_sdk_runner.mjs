@@ -44,6 +44,7 @@ if (typeof input.systemPrompt === "string" && input.systemPrompt.trim()) {
 if (Array.isArray(input.allowedTools) && input.allowedTools.length > 0) {
   options.allowedTools = input.allowedTools;
 }
+options.includePartialMessages = true;
 
 const request = { prompt };
 if (Object.keys(options).length > 0) {

@@ -75,6 +75,7 @@ class CodexSdkAdapter(ExternalAgentAdapter):
             if raw is None:
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
+            _maybe_set_thread_id(handle, raw)
             for event in parser.handle(raw):
                 yield event
         if stderr_task is not None:
@@ -344,3 +345,17 @@ def _is_message_item(payload: dict[str, Any]) -> bool:
         if isinstance(raw_type, str) and raw_type:
             return raw_type in _MESSAGE_ITEM_TYPES
     return True
+
+
+def _maybe_set_thread_id(
+    handle: ExternalAgentRunHandle,
+    payload: dict[str, Any],
+) -> None:
+    if handle.thread_id:
+        return
+    raw_type = payload.get("type")
+    if raw_type not in {"thread.started", "thread.start"}:
+        return
+    thread_id = payload.get("thread_id") or payload.get("threadId")
+    if isinstance(thread_id, str) and thread_id:
+        handle.thread_id = thread_id

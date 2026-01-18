@@ -77,6 +77,7 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             if raw is None:
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
+            _maybe_set_session_id(handle, raw)
             for event in parser.handle(raw):
                 yield event
         if stderr_task is not None:
@@ -288,3 +289,25 @@ def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:
     if isinstance(raw, str) and raw:
         return raw
     return None
+
+
+def _maybe_set_session_id(
+    handle: ExternalAgentRunHandle,
+    payload: dict[str, Any],
+) -> None:
+    if handle.session_id:
+        return
+    candidates = [
+        payload.get("sessionId"),
+        payload.get("session_id"),
+        payload.get("session"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            nested = candidate.get("id") if isinstance(candidate, dict) else None
+            if isinstance(nested, str) and nested:
+                handle.session_id = nested
+                return
+        if isinstance(candidate, str) and candidate:
+            handle.session_id = candidate
+            return
