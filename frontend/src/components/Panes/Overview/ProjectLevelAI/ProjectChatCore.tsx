@@ -1,28 +1,16 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
-import {
-  Dispatch,
-  SetStateAction,
-  memo,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { Dispatch, SetStateAction, memo, useCallback, useEffect } from "react";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
-  getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
-  submitExternalAgentMessage,
   submitMessage,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import {
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
-} from "utils/generatedEndpoints";
+import { route_stop_llm_chat } from "utils/generatedEndpoints";
 import { shallow } from "zustand/shallow";
 
 function EmptyChatState() {
@@ -44,14 +32,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
   llmConfigId,
-  externalAgentConfigId,
   setChatId,
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
   deepThink: boolean;
   llmConfigId: string | null;
-  externalAgentConfigId: string | null;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
@@ -66,27 +52,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
-  const [activeExternalRunId, setActiveExternalRunId] = useState<string | null>(
-    null,
-  );
-  const isExternalEngine = externalAgentConfigId !== null;
 
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
-    if (isExternalEngine) {
-      getExternalAgentChat(chatId, null);
-      return;
-    }
     getLLMChat(chatId);
-  }, [chatId, isExternalEngine]);
+  }, [chatId]);
 
   const handleNewChatStart = useCallback(() => {
     initializePendingChatDetails();
     setChatId(null);
-    setActiveExternalRunId(null);
-  }, [setActiveExternalRunId, setChatId]);
+  }, [setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
@@ -106,14 +83,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleSubmit = useCallback(
     async (message: string) => {
-      if (!message.trim()) {
-        return;
-      }
-      if (isExternalEngine) {
-        if (!externalAgentConfigId) {
-          return;
-        }
-      } else if (!llmConfigId) {
+      if (!llmConfigId) {
         return;
       }
       const isFirstMessage = chatId === undefined;
@@ -124,33 +94,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       let submittedChatId: string | null = null;
       let succeeded = false;
       try {
-        if (isExternalEngine && externalAgentConfigId) {
-          const run = await submitExternalAgentMessage(
-            chatId ?? null,
-            message,
-            externalAgentConfigId,
-            {
-              agentProfileId: null,
-              deepThink,
-              priorMessages: messages,
-            },
-          );
-          if (run) {
-            const runChatId =
-              typeof run.inputs?.chatId === "string"
-                ? run.inputs.chatId
-                : run.id;
-            submittedChatId = runChatId;
-            setActiveExternalRunId(run.id);
-          }
-        } else {
-          submittedChatId = await submitMessage(
-            chatId ?? null,
-            message,
-            deepThink,
-            llmConfigId,
-          );
-        }
+        submittedChatId = await submitMessage(
+          chatId ?? null,
+          message,
+          deepThink,
+          llmConfigId,
+        );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
         console.error("Failed to submit LLM chat message", err);
@@ -160,33 +109,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         }
       }
     },
-    [
-      chatId,
-      deepThink,
-      externalAgentConfigId,
-      handleNewChatSettled,
-      handleNewChatStart,
-      isExternalEngine,
-      llmConfigId,
-      messages,
-    ],
+    [chatId, deepThink, handleNewChatSettled, handleNewChatStart, llmConfigId],
   );
 
   const handleStop = useCallback(async () => {
-    if (isExternalEngine) {
-      if (!activeExternalRunId) {
-        return;
-      }
-      await route_stop_external_agent_run({ runId: activeExternalRunId });
-      return;
-    }
     if (typeof chatId !== "string") {
       return;
     }
     await route_stop_llm_chat({ chatId });
-  }, [activeExternalRunId, chatId, isExternalEngine]);
+  }, [chatId]);
 
-  const isDisabled = isExternalEngine ? !externalAgentConfigId : !llmConfigId;
+  const isDisabled = !llmConfigId;
   const showEmptyState = typeof chatId === "undefined";
 
   return (
