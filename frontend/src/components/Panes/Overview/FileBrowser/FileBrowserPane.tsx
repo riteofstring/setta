@@ -603,7 +603,7 @@ function FileBrowserRow({
   return (
     <div
       style={{ ...style, paddingLeft }}
-      className={`flex items-center gap-1 pr-2 text-xs ${rowClasses}`}
+      className={`flex cursor-pointer items-center gap-1 pr-2 text-xs ${rowClasses}`}
       title={item.fullPath}
       onClick={() => onSelect(item.fullPath)}
       onDoubleClick={() => onOpen(item.fullPath)}
