@@ -80,7 +80,7 @@ export function useDisableSortable(sectionId: string) {
     }
   }
 
-  function onDragDone({ active }) {
+  function onDragDone() {
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
@@ -113,7 +113,7 @@ export function useDndProps({ sectionId, isTopLevel }) {
 
   return {
     id: sectionId,
-    data: { type: "section", isTopLevel, hasNested, onlyChildId },
+    data: { isTopLevel, hasNested, onlyChildId },
     disabled,
   };
 }

@@ -9,10 +9,12 @@ import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
+import type { CodeLanguage } from "utils/codeLanguage";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -27,6 +29,22 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   },
 });
 
+type GetExtensionsOptions = {
+  parentDivId?: string;
+  language?: CodeLanguage | null;
+  completionsFn?: CompletionSource;
+  singleLine?: boolean;
+  tabToAutocomplete?: boolean;
+  indentWithTab?: boolean;
+  onTab?: (docText: string, completionResult: boolean) => void;
+  onEscape?: (
+    expectingCompletions: ReturnType<typeof completionStatus>,
+  ) => void;
+  keyComboActions?: Record<string, (docText: string) => void>;
+  isDisabled?: boolean;
+  useJsx?: boolean;
+};
+
 export function getExtensions({
   parentDivId,
   language,
@@ -38,10 +56,10 @@ export function getExtensions({
   onEscape,
   keyComboActions,
   isDisabled,
-}: {
-  completionsFn?: CompletionSource;
-}) {
+  useJsx,
+}: GetExtensionsOptions) {
   const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const enableJsx = useJsx === true;
 
   if (parentDivId) {
     extensions.push(
@@ -53,8 +71,12 @@ export function getExtensions({
 
   if (language === "python") {
     extensions.push(python());
+  } else if (language === "typescript") {
+    extensions.push(javascript({ typescript: true, jsx: enableJsx }));
   } else if (language === "javascript") {
-    extensions.push(javascript());
+    extensions.push(javascript({ jsx: enableJsx }));
+  } else if (language === "yaml") {
+    extensions.push(yaml());
   } else if (language === "json") {
     extensions.push(json());
   } else if (language === "markdown") {
@@ -149,6 +171,7 @@ function getKeyMapArray({
   if (indentWithTab) {
     keymapArray.push({
       key: "Shift-Tab",
+      // if tab controls indent, then always prevent default and stop propagation
       preventDefault: true,
       stopPropagation: true,
       run: (view) => {
@@ -160,11 +183,12 @@ function getKeyMapArray({
   if (tabToAutocomplete || indentWithTab) {
     keymapArray.push({
       key: "Tab",
-      preventDefault: false,
+      preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
       stopPropagation: true,
       run: (view) => {
         let completionResult = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {
+          // trigger preventDefault & stopPropagation based on completion
           completionResult = acceptCompletion(view);
         } else if (indentWithTab) {
           indentMore(view);
@@ -172,6 +196,8 @@ function getKeyMapArray({
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
         }
+        // if tab controls indent, then we never want to propagate the keystroke, so return true
+        // otherwise it depends on the completion result
         return indentWithTab || completionResult;
       },
     });
