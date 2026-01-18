@@ -512,6 +512,20 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
     ]
 
 
+class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
+    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
+
+
+class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.GenPythonMetadata]
+        | Callable[
+            [Literal[SectionType.GenPythonMetadata]],
+            Literal[SectionType.GenPythonMetadata],
+        ]
+    ]
+
+
 class TerminalSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Terminal]]
 

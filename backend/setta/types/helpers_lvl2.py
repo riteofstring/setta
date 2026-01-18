@@ -57,6 +57,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
+    GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
@@ -1522,6 +1523,19 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
         return
     set_curr_effective_section_impl_value(
         p, sectionId, GenPythonCodeSectionImplArgsWithCallable(code=code)
+    )
+
+
+def maybe_update_gen_python_metadata_section(
+    p: "ProjectStateSingleConfig", code: str | None
+):
+    sectionId = p.singletonSections.GenPythonMetadata
+    if not sectionId:
+        return
+    if code is None:
+        code = ""
+    set_curr_effective_section_impl_value(
+        p, sectionId, GenPythonMetadataSectionImplArgsWithCallable(code=code)
     )
 
 

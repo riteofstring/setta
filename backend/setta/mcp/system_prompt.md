@@ -24,6 +24,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Section params -> configuration values in the dependency graph.
 - Code sections (SectionType.Code) -> imperative logic, helpers, listeners; update with `set_code`.
 - GenPythonCode section -> read-only mirror of generated code; only present when Python codegen is enabled.
+- GenPythonMetadata section -> read-only mirror of generated metadata; only present when metadata output is enabled.
 - Python codegen target settings (`projectConfig.codegenTargets` entry for `python`) hold `genCodePrefix` and `genCodeSuffix`.
 - `genCodePrefix` -> imports and shared helpers used by generated expressions; update with `set_gen_code_prefix`.
 - `genCodeSuffix` -> minimal postamble (default: `state = SettaState()`); only change via `set_gen_code_suffix` if asked.
@@ -49,7 +50,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - GlobalVariables section -> top-level params become `state.<param_name>`.
 - MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
 - TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
-- Sections outside the dependency graph (Code, GenPythonCode, Image, Chart, Browser,
+- Sections outside the dependency graph (Code, GenPythonCode, GenPythonMetadata, Image, Chart, Browser,
   Terminal, Chat, etc.) do not emit generated values.
 
 ## Meta control sections

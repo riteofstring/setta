@@ -209,6 +209,7 @@ from setta.types.helpers_lvl2 import (
     get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
+    maybe_update_gen_python_metadata_section,
     move_section_to_pane,
     move_section_to_parent_section,
     reconnect_edge,
@@ -280,6 +281,7 @@ from setta.types.project_config import (
     ProjectCodegenLanguage,
     ProjectConfig,
     ViewModeConfig,
+    get_python_codegen_target,
     get_python_codegen_target_with_type_guard,
     project_config_has_codegen_language,
 )
@@ -812,6 +814,9 @@ class BaseProjectManager(ABC):
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
+            maybe_update_gen_python_metadata_section(
+                projectState, new_gen_code.meta_code
+            )
             self.gen_code[projectConfigId] = new_gen_code
         else:
             if projectConfigId in self.gen_code:
@@ -993,26 +998,40 @@ class BaseProjectManager(ABC):
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
+        prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
             ProjectCodegenLanguage.python,
         )
+        prev_metadata_enabled = bool(
+            prev_python_target and prev_python_target.generateMetadata
+        )
         project_state.projectConfig.codegenTargets = x.codegenTargets
+        next_python_target = get_python_codegen_target(project_state.projectConfig)
         next_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
             ProjectCodegenLanguage.python,
         )
+        next_metadata_enabled = bool(
+            next_python_target and next_python_target.generateMetadata
+        )
         if prev_python_enabled and not next_python_enabled:
             project_state.genCodeBinding = None
             gen_section_id = project_state.singletonSections.GenPythonCode
+            meta_section_id = project_state.singletonSections.GenPythonMetadata
+            sections_to_delete: list[ID] = []
             if (
                 gen_section_id is not None
                 and project_state.projectConfig.entryCodeBlockId == gen_section_id
             ):
                 project_state.projectConfig.entryCodeBlockId = None
             if gen_section_id is not None:
+                sections_to_delete.append(gen_section_id)
+            if meta_section_id is not None:
+                sections_to_delete.append(meta_section_id)
+            if sections_to_delete:
                 project_state.validate_parent_section_map()
-                delete_sections(project_state, [gen_section_id])
+                delete_sections(project_state, sections_to_delete)
         if (
             next_python_enabled
             and project_state.singletonSections.GenPythonCode is None
@@ -1023,6 +1042,22 @@ class BaseProjectManager(ABC):
                 SectionType.GenPythonCode,
                 Position(),
             )
+        if next_python_enabled:
+            if prev_metadata_enabled and not next_metadata_enabled:
+                meta_section_id = project_state.singletonSections.GenPythonMetadata
+                if meta_section_id is not None:
+                    project_state.validate_parent_section_map()
+                    delete_sections(project_state, [meta_section_id])
+            if (
+                next_metadata_enabled
+                and project_state.singletonSections.GenPythonMetadata is None
+            ):
+                create_top_level_section(
+                    self.settings_file.settings,
+                    project_state,
+                    SectionType.GenPythonMetadata,
+                    Position(),
+                )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1703,6 +1738,14 @@ class BaseProjectManager(ABC):
                 SectionType.GenPythonCode,
                 Position(),
             )
+            python_target = get_python_codegen_target(new_project_config)
+            if python_target and python_target.generateMetadata:
+                create_top_level_section(
+                    self.settings_file.settings,
+                    project_state,
+                    SectionType.GenPythonMetadata,
+                    Position(),
+                )
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }

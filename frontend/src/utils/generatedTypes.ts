@@ -193,6 +193,7 @@ export const SectionTypeEnum = {
   GlobalVariables: "GlobalVariables",
   Code: "Code",
   GenPythonCode: "GenPythonCode",
+  GenPythonMetadata: "GenPythonMetadata",
   Terminal: "Terminal",
   IFrame: "IFrame",
   Chat: "Chat",
@@ -1719,6 +1720,29 @@ const GenPythonCodeSectionImplSchema = z.object({
 
 type GenPythonCodeSectionImpl = z.infer<typeof GenPythonCodeSectionImplSchema>;
 
+const GenPythonMetadataSectionImplSchema = z.object({
+  type: z
+    .literal("GenPythonMetadata")
+    .default(SectionTypeEnum.GenPythonMetadata),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
+});
+
+type GenPythonMetadataSectionImpl = z.infer<
+  typeof GenPythonMetadataSectionImplSchema
+>;
+
 const TerminalSectionImplSchema = z.object({
   type: z.literal("Terminal").default(SectionTypeEnum.Terminal),
   id: IDSchema.default(create_new_id),
@@ -2086,6 +2110,7 @@ const ProjectStateCoreSchema = z.object({
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
+        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -2287,6 +2312,7 @@ const BaseSectionImplUnionSchema = z.union([
   GlobalVariablesSectionImplSchema,
   CodeSectionImplSchema,
   GenPythonCodeSectionImplSchema,
+  GenPythonMetadataSectionImplSchema,
   TerminalSectionImplSchema,
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
@@ -2617,6 +2643,27 @@ const GenPythonCodeSectionImplArgsSchema = z.object({
 
 type GenPythonCodeSectionImplArgs = z.infer<
   typeof GenPythonCodeSectionImplArgsSchema
+>;
+
+const GenPythonMetadataSectionImplArgsSchema = z.object({
+  type: z.literal("GenPythonMetadata").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  code: z.string().optional(),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
+});
+
+type GenPythonMetadataSectionImplArgs = z.infer<
+  typeof GenPythonMetadataSectionImplArgsSchema
 >;
 
 const DictSectionImplArgsSchema = z.object({
@@ -3226,6 +3273,7 @@ const SectionCodegenPolicySchema = z.object({
       GlobalVariables: createSectionTypeCodegenPolicy(),
       Code: createSectionTypeCodegenPolicy(),
       GenPythonCode: createSectionTypeCodegenPolicy(),
+      GenPythonMetadata: createSectionTypeCodegenPolicy(),
       Terminal: createSectionTypeCodegenPolicy(),
       IFrame: createSectionTypeCodegenPolicy(),
       Chat: createSectionTypeCodegenPolicy({
@@ -3329,6 +3377,7 @@ export function createProjectConfig(
 const SingletonSectionsSchema = z.object({
   GlobalVariables: z.union([IDSchema, z.null()]).default(null),
   GenPythonCode: z.union([IDSchema, z.null()]).default(null),
+  GenPythonMetadata: z.union([IDSchema, z.null()]).default(null),
 });
 
 type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
@@ -3376,6 +3425,7 @@ const ProjectStateSingleConfigSchema = z.object({
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
+        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -3714,6 +3764,14 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
+  GenPythonMetadata: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 0.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
   Terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
@@ -4007,6 +4065,26 @@ function createUserDefaultGenPythonCodeSectionImpl(
   options: Partial<UserDefaultGenPythonCodeSectionImpl> = {},
 ): UserDefaultGenPythonCodeSectionImpl {
   return UserDefaultGenPythonCodeSectionImplSchema.parse(options);
+}
+
+const UserDefaultGenPythonMetadataSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
+});
+
+type UserDefaultGenPythonMetadataSectionImpl = z.infer<
+  typeof UserDefaultGenPythonMetadataSectionImplSchema
+>;
+
+function createUserDefaultGenPythonMetadataSectionImpl(
+  options: Partial<UserDefaultGenPythonMetadataSectionImpl> = {},
+): UserDefaultGenPythonMetadataSectionImpl {
+  return UserDefaultGenPythonMetadataSectionImplSchema.parse(options);
 }
 
 const UserDefaultGlobalVariablesSectionImplSchema = z.object({
@@ -4464,6 +4542,10 @@ const SettingsStateSchema = z.object({
   genPythonCodeSectionDefault:
     UserDefaultGenPythonCodeSectionImplSchema.default(
       createUserDefaultGenPythonCodeSectionImpl,
+    ),
+  genPythonMetadataSectionDefault:
+    UserDefaultGenPythonMetadataSectionImplSchema.default(
+      createUserDefaultGenPythonMetadataSectionImpl,
     ),
   globalVariablesSectionDefault:
     UserDefaultGlobalVariablesSectionImplSchema.default(
@@ -5650,6 +5732,7 @@ const CreateTopLevelSectionRequestSchema = z.object({
         GlobalVariablesSectionImplArgsSchema,
         CodeSectionImplArgsSchema,
         GenPythonCodeSectionImplArgsSchema,
+        GenPythonMetadataSectionImplArgsSchema,
         TerminalSectionImplArgsSchema,
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
@@ -6926,6 +7009,14 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       GenPythonCodeSectionImplArgs,
       GenPythonCodeSectionImpl
+    >;
+  };
+
+  GenPythonMetadataSection: {
+    impl: GenPythonMetadataSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      GenPythonMetadataSectionImplArgs,
+      GenPythonMetadataSectionImpl
     >;
   };
 

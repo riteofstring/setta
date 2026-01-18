@@ -513,6 +513,67 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
 
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
+function _GenPythonMetadataArea({ sectionId }: { sectionId: string }) {
+  const metadataEnabled = useProjectState(
+    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
+  );
+  if (!metadataEnabled) {
+    return <GenPythonMetadataAreaDisabled />;
+  }
+  return <GenPythonMetadataAreaContent sectionId={sectionId} />;
+}
+
+function GenPythonMetadataAreaDisabled() {
+  return null;
+}
+
+function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
+  const code = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.GenPythonMetadata,
+    );
+    return impl.code;
+  });
+
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+    useCodeAreaHeight({ sectionId });
+  const theme = useCodeMirrorStyle();
+
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+    codeAreaTabOnEnterKeyHandlers(wrapperRef);
+
+  const extensions = getExtensions({
+    parentDivId: `${sectionId}-CustomResizable`,
+    language: "python",
+    onEscape: onEscapeFocusOnArticleDiv,
+    isDisabled: true,
+  });
+
+  return (
+    <article
+      ref={wrapperRef}
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      tabIndex={0}
+      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+    >
+      <CodeMirror
+        maxHeight={maxHeight}
+        value={code}
+        theme={theme}
+        extensions={extensions}
+        onChange={() => {}}
+        onCreateEditor={handleCreateEditor}
+        indentWithTab={false}
+        basicSetup={{ tabSize: 4 }}
+      />
+    </article>
+  );
+}
+
+export const GenPythonMetadataArea = React.memo(_GenPythonMetadataArea);
+
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value: baseValue, variantIsFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(

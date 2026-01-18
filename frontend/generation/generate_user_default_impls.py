@@ -46,6 +46,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,
     "CodeSectionImpl": DEFAULT_EXCLUSIONS,
     "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,
+    "GenPythonMetadataSectionImpl": DEFAULT_EXCLUSIONS,
     "TerminalSectionImpl": DEFAULT_EXCLUSIONS,
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
