@@ -26,6 +26,8 @@ from setta.llm.chat_toolkit.managed.actions import (
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_streaming_follow_ids,
     build_tool_call_follow_ids,
+    ids_by_type_to_sets,
+    normalize_ids_by_type,
 )
 from setta.llm.chat_toolkit.managed.sanitization import sanitize_tool_arguments
 from setta.llm.chat_toolkit.managed.stream_assembler import (
@@ -55,6 +57,7 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
+from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
@@ -80,6 +83,7 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -109,6 +113,11 @@ class AgentRunContext:
     allowlist: ToolAllowlist | None
 
 
+@dataclass
+class AIFollowState:
+    ids_by_type: dict[FollowIdType, list[ID]]
+
+
 class AgentRunner:
     def __init__(
         self,
@@ -127,6 +136,7 @@ class AgentRunner:
         self._raw_env_vars: dict[str, str] = {}
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
+        self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
@@ -151,6 +161,25 @@ class AgentRunner:
     def update_api_keys(self, payload: dict[str, str]) -> None:
         self._raw_env_vars = dict(payload)
         self._sync_api_keys()
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowToolArgumentsUpdateContent]:
+        snapshot: list[AIFollowToolArgumentsUpdateContent] = []
+        for (state_project_config_id, chat_id), state in self._ai_follow_state.items():
+            if state_project_config_id != project_config_id:
+                continue
+            ids_by_type = normalize_ids_by_type(state.ids_by_type)
+            if not ids_by_type:
+                continue
+            snapshot.append(
+                AIFollowToolArgumentsUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    idsByType=ids_by_type,
+                )
+            )
+        return snapshot
 
     def _sync_api_keys(self) -> None:
         if not self._raw_env_vars:
@@ -1071,7 +1100,7 @@ class AgentRunner:
                 )
                 continue
             if isinstance(action, UpdateAIFollowAction):
-                await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+                await self._update_and_broadcast_ai_follow_update(
                     action.project_config_id,
                     action.chat_id,
                     action.ids_by_type,
@@ -1395,6 +1424,50 @@ class AgentRunner:
                 )
             ],
             context,
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> bool:
+        state = self._ai_follow_state.get((project_config_id, chat_id))
+        if state is None:
+            return False
+        return ids_by_type_to_sets(state.ids_by_type) == ids_by_type_to_sets(
+            ids_by_type
+        )
+
+    async def _update_and_broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> None:
+        normalized_ids_by_type = normalize_ids_by_type(ids_by_type)
+        if self._ai_follow_state_matches(
+            chat_id,
+            project_config_id,
+            normalized_ids_by_type,
+        ):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        if normalized_ids_by_type:
+            self._ai_follow_state[(project_config_id, chat_id)] = AIFollowState(
+                ids_by_type=dict(normalized_ids_by_type)
+            )
+        else:
+            self._ai_follow_state.pop((project_config_id, chat_id), None)
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
+            chat_id,
+            normalized_ids_by_type,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+            project_config_id,
+            chat_id,
+            normalized_ids_by_type,
         )
 
     def _should_persist_partial_message(
