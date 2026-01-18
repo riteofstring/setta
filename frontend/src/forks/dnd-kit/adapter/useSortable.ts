@@ -10,7 +10,7 @@ import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
-import { useDndMode } from "../dndState";
+import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import {
   isValidIndex,
@@ -72,7 +72,7 @@ export function useSortable({
   } = useContext(Context);
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
-  const dndMode = useDndMode();
+  const { isSorting: isSortingMode } = useDndProviderContext();
   const manager = useDragDropManager();
   const isDragActive = useComputed(() => {
     if (!manager) {
@@ -87,9 +87,7 @@ export function useSortable({
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
-  const customType =
-    (customData as { type?: string } | undefined)?.type ?? null;
-  if (dndMode.isSorting && customType !== "param") {
+  if (isSortingMode) {
     const containerIsHorizontal =
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [

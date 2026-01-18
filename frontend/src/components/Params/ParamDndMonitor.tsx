@@ -7,7 +7,6 @@ import type {
 } from "forks/dnd-kit/adapter";
 import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
-import type { SettaCollision } from "forks/dnd-kit/adapter/types";
 import {
   addParamChild,
   getParamDndParentId,
@@ -733,7 +732,6 @@ function getCollisionTriggerDistCondition(
 
   return Boolean(fallback);
 }
-
 
 function getPastHalfwayFromCollisions(
   collisions: DragOverEvent["collisions"] | null,

@@ -7,19 +7,37 @@ import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import { useDndChildren } from "../dndChildren";
 import { isTempSection } from "../dndState";
-import { useParamDndChildren } from "../paramDndChildren";
-import { isTempParam, useParamDndState } from "../paramDndState";
+import { isTempParam } from "../paramDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
 
-let prevCollisionId: Draggable["id"] | null = null;
-let prevPastHalfway: boolean | null = null;
-let prevCollisionRect: ClientRect | null = null;
-let prevPointerX: number | null = null;
-let prevPointerY: number | null = null;
-let prevPointerDirectionX: number | null = null;
-let prevPointerDirectionY: number | null = null;
+type CollisionMode = "section" | "param";
+
+type ParentByChildMap = Record<string, string | null>;
+
+type CollisionTrackerState = {
+  prevCollisionId: Draggable["id"] | null;
+  prevPastHalfway: boolean | null;
+  prevCollisionRect: ClientRect | null;
+  prevPointerX: number | null;
+  prevPointerY: number | null;
+  prevPointerDirectionX: number | null;
+  prevPointerDirectionY: number | null;
+};
+
+export type CollisionTracker = {
+  collisionDetector: CollisionDetector;
+  sortingCollisionDetector: CollisionDetector;
+  update: (collisions: SettaCollision[] | null) => void;
+  reset: () => void;
+};
+
+type CollisionTrackerOptions = {
+  mode: CollisionMode;
+  getParentByChild: () => ParentByChildMap;
+};
 
 type DndEntityData = {
   type?: string;
@@ -31,232 +49,256 @@ type DndEntityData = {
   };
 };
 
-export const customCollisionDetection: CollisionDetector = ({
-  droppable,
-  dragOperation,
-}) => {
-  const active = dragOperation.source;
-  const activeId = active?.id;
-  const activeShape = dragOperation.shape?.current ?? null;
-  const droppableShape = droppable.shape;
+export function createCollisionTracker({
+  mode,
+  getParentByChild,
+}: CollisionTrackerOptions): CollisionTracker {
+  const state: CollisionTrackerState = {
+    prevCollisionId: null,
+    prevPastHalfway: null,
+    prevCollisionRect: null,
+    prevPointerX: null,
+    prevPointerY: null,
+    prevPointerDirectionX: null,
+    prevPointerDirectionY: null,
+  };
 
-  if (!active || !activeId || !droppableShape) {
-    return null;
-  }
+  const collisionDetector: CollisionDetector = ({
+    droppable,
+    dragOperation,
+  }) => {
+    const active = dragOperation.source;
+    const activeId = active?.id;
+    const activeShape = dragOperation.shape?.current ?? null;
+    const droppableShape = droppable.shape;
 
-  const activeData = getEntityData(active);
-  const isParamDrag = activeData?.type === "param";
-
-  if (
-    isTempSection(String(droppable.id)) ||
-    isTempParam(String(droppable.id))
-  ) {
-    return null;
-  }
-
-  if (activeId === droppable.id) {
-    return null;
-  }
-
-  const activeRect = getActiveRect(activeShape);
-  if (!activeRect) {
-    return null;
-  }
-  const droppableRect = toClientRect(droppableShape.boundingRectangle);
-  const pointerCoordinates = dragOperation.position?.current ?? null;
-  let intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
-
-  if (!intersectionRatio && isParamDrag) {
-    const verticalOverlap = getVerticalOverlap(droppableRect, activeRect);
-    if (verticalOverlap > 0) {
-      // Keep param collisions alive when dragging horizontally outside the row.
-      intersectionRatio = Number(
-        (verticalOverlap * activeRect.width).toFixed(4),
-      );
+    if (!active || !activeId || !droppableShape) {
+      return null;
     }
-  }
 
-  if (!intersectionRatio) {
-    return null;
-  }
+    if (
+      isTempSection(String(droppable.id)) ||
+      (mode === "param" && isTempParam(String(droppable.id)))
+    ) {
+      return null;
+    }
 
-  const droppableData = getEntityData(droppable);
-  const containerId = droppableData?.sortable?.containerId;
-  const containerIsHorizontal =
-    !isParamDrag && containerId
-      ? getSectionIsHorizontalOrientation(containerId)
-      : false;
+    if (activeId === droppable.id) {
+      return null;
+    }
 
-  const triggerDist = containerIsHorizontal
-    ? activeRect.top - droppableRect.top
-    : activeRect.left - droppableRect.left;
-  const absTriggerDist = Math.abs(triggerDist);
+    const activeRect = getActiveRect(activeShape);
+    if (!activeRect) {
+      return null;
+    }
+    const droppableRect = toClientRect(droppableShape.boundingRectangle);
+    const pointerCoordinates = dragOperation.position?.current ?? null;
+    let intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
 
-  const baseRatio =
-    prevCollisionId === droppable.id
-      ? intersectionRatio * 1.1
-      : intersectionRatio;
+    if (!intersectionRatio && mode === "param") {
+      const verticalOverlap = getVerticalOverlap(droppableRect, activeRect);
+      if (verticalOverlap > 0) {
+        // Keep param collisions alive when dragging horizontally outside the row.
+        intersectionRatio = Number(
+          (verticalOverlap * activeRect.width).toFixed(4),
+        );
+      }
+    }
 
-  const collisionValue = getCollisionScore({
-    isSortable: Boolean(containerId),
-    intersectionRatio: baseRatio,
-    absTriggerDist,
-    triggerDist,
-  });
+    if (!intersectionRatio) {
+      return null;
+    }
 
-  const pastHalfway = getPastHalfway({
-    activeRect,
-    droppableRect,
-    containerIsHorizontal,
-    currentId: droppable.id,
-    pointerCoordinates,
-  });
+    const droppableData = getEntityData(droppable);
+    const containerId = droppableData?.sortable?.containerId;
+    const containerIsHorizontal =
+      mode === "section" && containerId
+        ? getSectionIsHorizontalOrientation(containerId)
+        : false;
 
-  const triggerDistCondition = getTriggerDistCondition({
-    activeId: String(activeId),
-    droppableData,
-    triggerDist,
-    containerIsHorizontal,
-  });
+    const triggerDist = containerIsHorizontal
+      ? activeRect.top - droppableRect.top
+      : activeRect.left - droppableRect.left;
+    const absTriggerDist = Math.abs(triggerDist);
 
-  const collision: SettaCollision = {
-    id: droppable.id,
-    priority: containerId ? CollisionPriority.High : CollisionPriority.Normal,
-    type: CollisionType.Collision,
-    value: collisionValue,
-    data: {
-      droppable,
+    const baseRatio =
+      state.prevCollisionId === droppable.id
+        ? intersectionRatio * 1.1
+        : intersectionRatio;
+
+    const collisionValue = getCollisionScore({
+      isSortable: Boolean(containerId),
+      intersectionRatio: baseRatio,
       absTriggerDist,
       triggerDist,
-      intersectionRatio: baseRatio,
-    },
-    pastHalfway,
-    triggerDistCondition,
+    });
+
+    const pastHalfway = getPastHalfway({
+      activeRect,
+      droppableRect,
+      containerIsHorizontal,
+      currentId: droppable.id,
+      pointerCoordinates,
+      state,
+    });
+
+    const triggerDistCondition = getTriggerDistCondition({
+      activeId: String(activeId),
+      droppableData,
+      triggerDist,
+      containerIsHorizontal,
+      mode,
+    });
+
+    const collision: SettaCollision = {
+      id: droppable.id,
+      priority: containerId ? CollisionPriority.High : CollisionPriority.Normal,
+      type: CollisionType.Collision,
+      value: collisionValue,
+      data: {
+        droppable,
+        absTriggerDist,
+        triggerDist,
+        intersectionRatio: baseRatio,
+      },
+      pastHalfway,
+      triggerDistCondition,
+    };
+
+    return collision;
   };
 
-  return collision;
-};
+  const sortingCollisionDetector: CollisionDetector = ({
+    droppable,
+    dragOperation,
+  }) => {
+    const active = dragOperation.source;
+    const activeShape = dragOperation.shape?.current ?? null;
+    const droppableShape = droppable.shape;
 
-export const customCollisionDetectionSorting: CollisionDetector = ({
-  droppable,
-  dragOperation,
-}) => {
-  const active = dragOperation.source;
-  const activeShape = dragOperation.shape?.current ?? null;
-  const droppableShape = droppable.shape;
+    if (!active || !droppableShape) {
+      return null;
+    }
 
-  if (!active || !droppableShape) {
-    return null;
-  }
+    if (
+      isTempSection(String(droppable.id)) ||
+      (mode === "param" && isTempParam(String(droppable.id)))
+    ) {
+      return null;
+    }
 
-  if (
-    isTempSection(String(droppable.id)) ||
-    isTempParam(String(droppable.id))
-  ) {
-    return null;
-  }
+    const activeData = getEntityData(active);
+    const droppableData = getEntityData(droppable);
+    const activeContainerId = activeData?.sortable?.containerId;
+    const droppableContainerId = droppableData?.sortable?.containerId;
 
-  const activeData = getEntityData(active);
-  const isParamDrag = activeData?.type === "param";
-  const droppableData = getEntityData(droppable);
-  const activeContainerId = activeData?.sortable?.containerId;
-  const droppableContainerId = droppableData?.sortable?.containerId;
+    if (!activeContainerId || !droppableContainerId) {
+      return null;
+    }
 
-  if (!activeContainerId || !droppableContainerId) {
-    return null;
-  }
+    if (activeContainerId !== droppableContainerId) {
+      return null;
+    }
 
-  if (activeContainerId !== droppableContainerId) {
-    return null;
-  }
+    if (active.id === droppable.id) {
+      return null;
+    }
 
-  if (active.id === droppable.id) {
-    return null;
-  }
+    const activeRect = getActiveRect(activeShape);
+    if (!activeRect) {
+      return null;
+    }
+    const droppableRect = toClientRect(droppableShape.boundingRectangle);
+    const pointerCoordinates = dragOperation.position?.current ?? null;
+    const containerIsHorizontal =
+      mode === "section"
+        ? Boolean(getSectionIsHorizontalOrientation(activeContainerId))
+        : false;
 
-  const activeRect = getActiveRect(activeShape);
-  if (!activeRect) {
-    return null;
-  }
-  const droppableRect = toClientRect(droppableShape.boundingRectangle);
-  const pointerCoordinates = dragOperation.position?.current ?? null;
-  const containerIsHorizontal = !isParamDrag
-    ? Boolean(getSectionIsHorizontalOrientation(activeContainerId))
-    : false;
+    const distance = getEdgeDistance({
+      activeRect,
+      droppableRect,
+      containerIsHorizontal,
+    });
 
-  const distance = getEdgeDistance({
-    activeRect,
-    droppableRect,
-    containerIsHorizontal,
-  });
+    if (!Number.isFinite(distance)) {
+      return null;
+    }
 
-  if (!Number.isFinite(distance)) {
-    return null;
-  }
+    const pastHalfway = getPastHalfway({
+      activeRect,
+      droppableRect,
+      containerIsHorizontal,
+      currentId: droppable.id,
+      pointerCoordinates,
+      state,
+    });
 
-  const pastHalfway = getPastHalfway({
-    activeRect,
-    droppableRect,
-    containerIsHorizontal,
-    currentId: droppable.id,
-    pointerCoordinates,
-  });
+    const collision: SettaCollision = {
+      id: droppable.id,
+      priority: CollisionPriority.Normal,
+      type: CollisionType.Collision,
+      value: 1 / (distance + 1),
+      data: {
+        droppable,
+        intersectionRatio: 0,
+      },
+      pastHalfway,
+    };
 
-  const collision: SettaCollision = {
-    id: droppable.id,
-    priority: CollisionPriority.Normal,
-    type: CollisionType.Collision,
-    value: 1 / (distance + 1),
-    data: {
-      droppable,
-      intersectionRatio: 0,
-    },
-    pastHalfway,
+    return collision;
   };
 
-  return collision;
-};
+  function update(collisions: SettaCollision[] | null): void {
+    if (!collisions || collisions.length === 0) {
+      state.prevCollisionId = null;
+      state.prevPastHalfway = null;
+      state.prevCollisionRect = null;
+      return;
+    }
 
-export function updateCollisionHysteresis(
-  collisions: SettaCollision[] | null,
-): void {
-  if (!collisions || collisions.length === 0) {
-    prevCollisionId = null;
-    prevPastHalfway = null;
-    prevCollisionRect = null;
-    return;
+    const parentByChild = getParentByChild();
+    let resolvedCollision = resolveOverCollision(collisions, parentByChild);
+    if (!resolvedCollision) {
+      resolvedCollision = collisions[0] ?? null;
+    }
+    if (!resolvedCollision) {
+      state.prevCollisionId = null;
+      state.prevPastHalfway = null;
+      state.prevCollisionRect = null;
+      return;
+    }
+    state.prevCollisionId = resolvedCollision.id;
+    state.prevPastHalfway = resolvedCollision.pastHalfway ?? null;
+    const droppableRect =
+      resolvedCollision.data?.droppable?.shape?.boundingRectangle;
+    state.prevCollisionRect = droppableRect
+      ? toClientRect(droppableRect)
+      : null;
   }
 
-  const paramDragActive = useParamDndState.getState().activeId !== null;
-  const parentByChild = paramDragActive
-    ? useParamDndChildren.getState().y
-    : undefined;
-  let resolvedCollision = resolveOverCollision(collisions, parentByChild);
-  if (!resolvedCollision) {
-    resolvedCollision = collisions[0] ?? null;
+  function reset(): void {
+    state.prevCollisionId = null;
+    state.prevPastHalfway = null;
+    state.prevCollisionRect = null;
+    state.prevPointerX = null;
+    state.prevPointerY = null;
+    state.prevPointerDirectionX = null;
+    state.prevPointerDirectionY = null;
   }
-  if (!resolvedCollision) {
-    prevCollisionId = null;
-    prevPastHalfway = null;
-    prevCollisionRect = null;
-    return;
-  }
-  prevCollisionId = resolvedCollision.id;
-  prevPastHalfway = resolvedCollision.pastHalfway ?? null;
-  const droppableRect =
-    resolvedCollision.data?.droppable?.shape?.boundingRectangle;
-  prevCollisionRect = droppableRect ? toClientRect(droppableRect) : null;
+
+  return {
+    collisionDetector,
+    sortingCollisionDetector,
+    update,
+    reset,
+  };
 }
 
-export function resetCollisionHysteresis(): void {
-  prevCollisionId = null;
-  prevPastHalfway = null;
-  prevCollisionRect = null;
-  prevPointerX = null;
-  prevPointerY = null;
-  prevPointerDirectionX = null;
-  prevPointerDirectionY = null;
-}
+export const defaultCollisionTracker = createCollisionTracker({
+  mode: "section",
+  getParentByChild: () => useDndChildren.getState().y,
+});
 
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
   return {
@@ -346,11 +388,13 @@ function getTriggerDistCondition({
   droppableData,
   triggerDist,
   containerIsHorizontal,
+  mode,
 }: {
   activeId: string;
   droppableData: DndEntityData | null;
   triggerDist: number;
   containerIsHorizontal: boolean;
+  mode: CollisionMode;
 }): boolean {
   if (!droppableData) {
     return false;
@@ -365,8 +409,7 @@ function getTriggerDistCondition({
   }
 
   const zoom = useReactFlow.getState().transform[2];
-  const threshold =
-    droppableData.type === "param" ? 30 : containerIsHorizontal ? 20 : 100;
+  const threshold = mode === "param" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;
 }
@@ -377,17 +420,21 @@ function getPastHalfway({
   containerIsHorizontal,
   currentId,
   pointerCoordinates,
+  state,
 }: {
   activeRect: ClientRect;
   droppableRect: ClientRect;
   containerIsHorizontal: boolean;
   currentId: Draggable["id"];
   pointerCoordinates: Coordinates | null;
+  state: CollisionTrackerState;
 }): boolean {
   let buffer = 0;
   const effectiveDroppableRect =
-    prevCollisionId && prevCollisionId === currentId && prevCollisionRect
-      ? prevCollisionRect
+    state.prevCollisionId &&
+    state.prevCollisionId === currentId &&
+    state.prevCollisionRect
+      ? state.prevCollisionRect
       : droppableRect;
   let referenceAxisValue = getFallbackReferenceAxisValue({
     activeRect,
@@ -395,10 +442,10 @@ function getPastHalfway({
     pointerCoordinates,
   });
 
-  updatePointerDirections(pointerCoordinates);
+  updatePointerDirections(pointerCoordinates, state);
   const axisDirection = containerIsHorizontal
-    ? prevPointerDirectionX
-    : prevPointerDirectionY;
+    ? state.prevPointerDirectionX
+    : state.prevPointerDirectionY;
   if (axisDirection !== null) {
     if (axisDirection > 0) {
       referenceAxisValue = containerIsHorizontal
@@ -411,10 +458,10 @@ function getPastHalfway({
     }
   }
 
-  if (prevCollisionId && prevCollisionId === currentId) {
-    if (prevPastHalfway === true) {
+  if (state.prevCollisionId && state.prevCollisionId === currentId) {
+    if (state.prevPastHalfway === true) {
       buffer = 10;
-    } else if (prevPastHalfway === false) {
+    } else if (state.prevPastHalfway === false) {
       buffer = -10;
     }
   }
@@ -432,31 +479,34 @@ function getPastHalfway({
   );
 }
 
-function updatePointerDirections(pointerCoordinates: Coordinates | null): void {
+function updatePointerDirections(
+  pointerCoordinates: Coordinates | null,
+  state: CollisionTrackerState,
+): void {
   if (!pointerCoordinates) {
     return;
   }
 
-  if (prevPointerX !== null) {
-    const deltaX = pointerCoordinates.x - prevPointerX;
+  if (state.prevPointerX !== null) {
+    const deltaX = pointerCoordinates.x - state.prevPointerX;
     if (deltaX > 0) {
-      prevPointerDirectionX = 1;
+      state.prevPointerDirectionX = 1;
     } else if (deltaX < 0) {
-      prevPointerDirectionX = -1;
+      state.prevPointerDirectionX = -1;
     }
   }
 
-  if (prevPointerY !== null) {
-    const deltaY = pointerCoordinates.y - prevPointerY;
+  if (state.prevPointerY !== null) {
+    const deltaY = pointerCoordinates.y - state.prevPointerY;
     if (deltaY > 0) {
-      prevPointerDirectionY = 1;
+      state.prevPointerDirectionY = 1;
     } else if (deltaY < 0) {
-      prevPointerDirectionY = -1;
+      state.prevPointerDirectionY = -1;
     }
   }
 
-  prevPointerX = pointerCoordinates.x;
-  prevPointerY = pointerCoordinates.y;
+  state.prevPointerX = pointerCoordinates.x;
+  state.prevPointerY = pointerCoordinates.y;
 }
 
 function getFallbackReferenceAxisValue({

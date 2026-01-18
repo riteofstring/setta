@@ -3,7 +3,8 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { effects } from "@dnd-kit/state";
 import { useEffect, useRef } from "react";
-import { useDndMode } from "./dndState";
+import { useDndProviderContext } from "./adapter/DndProviderContext";
+import { useDndState } from "./dndState";
 import { useParamDndState } from "./paramDndState";
 
 type DragOperationShapeSyncProps = {
@@ -14,7 +15,8 @@ export function DragOperationShapeSync({
   enabled,
 }: DragOperationShapeSyncProps = {}) {
   const manager = useDragDropManager();
-  const { isSorting } = useDndMode();
+  const { isSorting, isMovingFree } = useDndProviderContext();
+  const sectionActiveRect = useDndState((x) => x.activeRect);
   const paramActiveRect = useParamDndState((x) => x.activeRect);
   const activeDragType = useComputed(() => {
     const sourceData = manager?.dragOperation.source?.data as
@@ -23,7 +25,9 @@ export function DragOperationShapeSync({
     return sourceData?.current?.type ?? null;
   }, [manager]).value;
   const shouldSync =
-    enabled === undefined ? isSorting || activeDragType === "param" : enabled;
+    enabled === undefined
+      ? isSorting || isMovingFree || activeDragType === "param"
+      : enabled;
   const baseRectRef = useRef<BoundingRectangle | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
 
@@ -46,8 +50,7 @@ export function DragOperationShapeSync({
       const activeId = active.id;
       const droppable = manager.registry.droppables.get(activeId);
       const isParamDrag = activeDragType === "param";
-      const fallbackRect =
-        isParamDrag && paramActiveRect ? paramActiveRect : null;
+      const fallbackRect = isParamDrag ? paramActiveRect : sectionActiveRect;
 
       const currentShape = droppable?.shape ?? null;
       if (activeIdRef.current !== activeId || !baseRectRef.current) {
@@ -74,7 +77,13 @@ export function DragOperationShapeSync({
         transform?.y ?? 0,
       );
     });
-  }, [manager, shouldSync, activeDragType, paramActiveRect]);
+  }, [
+    manager,
+    shouldSync,
+    activeDragType,
+    paramActiveRect,
+    sectionActiveRect,
+  ]);
 
   return null;
 }

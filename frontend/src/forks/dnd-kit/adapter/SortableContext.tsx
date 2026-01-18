@@ -3,11 +3,12 @@ import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useId, useMemo, useRef } from "react";
-import { getDndSectionId, useDndMode } from "../dndState";
+import { getDndSectionId } from "../dndState";
 import {
   clearSortingOverState,
   setSortingOverState,
 } from "../sortingOverState";
+import { useDndProviderContext } from "./DndProviderContext";
 import {
   getSortedRects,
   itemsEqual,
@@ -65,7 +66,7 @@ export function SortableContext({
   forceSorting = false,
 }: Props) {
   const manager = useDragDropManager();
-  const dndMode = useDndMode();
+  const { isSorting, isMovingFree } = useDndProviderContext();
   const isDragActive = useComputed(() => {
     if (!manager) {
       return false;
@@ -74,14 +75,7 @@ export function SortableContext({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const activeDragType = useComputed(() => {
-    const sourceData = manager?.dragOperation.source?.data as
-      | { current?: { type?: string } }
-      | undefined;
-    return sourceData?.current?.type ?? null;
-  }, [manager]).value;
-  const sortingEnabled =
-    activeDragType !== "param" && (forceSorting || dndMode.isSorting);
+  const sortingEnabled = forceSorting || isSorting;
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
@@ -138,7 +132,7 @@ export function SortableContext({
 
   const isDragging = shouldTrackSorting && active != null;
   const activeIndex = shouldTrackSorting
-    ? getActiveIndex(active, items, dndMode.isMovingFree)
+    ? getActiveIndex(active, items, isMovingFree)
     : -1;
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
   const resolvedOverId = useMemo(() => {

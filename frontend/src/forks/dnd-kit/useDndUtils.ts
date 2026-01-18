@@ -59,9 +59,6 @@ export function useDisableSortable(sectionId: string) {
   }
 
   function enableSort({ active }) {
-    if (active.data?.current?.type === "param") {
-      return;
-    }
     if (implIsFrozen) {
       return;
     }
@@ -84,9 +81,6 @@ export function useDisableSortable(sectionId: string) {
   }
 
   function onDragDone({ active }) {
-    if (active?.data?.current?.type === "param") {
-      return;
-    }
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
