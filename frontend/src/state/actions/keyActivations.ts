@@ -740,7 +740,7 @@ function onEscapeKey() {
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {
-  if (hasSelectedParams()) {
+  if (hasSelectedParamsInActiveSections()) {
     const action = resolveTabParamAction(event);
     if (action === "indent") {
       indentSelectedParams();
@@ -782,9 +782,9 @@ function resolveTabParamAction(event: KeyboardEvent) {
   return null;
 }
 
-function hasSelectedParams(): boolean {
+function hasSelectedParamsInActiveSections(): boolean {
   const state = useProjectState.getState();
-  for (const sectionId of Object.keys(state.sections)) {
+  for (const sectionId of state.projectConfig.activeIds) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
       return true;

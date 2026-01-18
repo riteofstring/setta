@@ -65,6 +65,8 @@ function TempParamSwitch({
   const normalizedHeight =
     placeholderHeight !== null ? placeholderHeight / safeZoom : null;
 
+  const hasNested = paramChildren.length > 0;
+  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
   const {
     attributes,
     listeners,
@@ -204,7 +206,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     [isSelectingParams, sectionId, paramInfoId],
   );
 
-  const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
   const onMouseDownAlways = handleParamMouseDown;
 
   const bg = paramIsSelected
@@ -242,7 +243,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           hasChildren={hasChildren}
-          onMouseDown={onMouseDownConditional}
+          onMouseDown={hasChildren ? handleParamMouseDown : undefined}
           border={hasChildren ? border : ""}
           bg={hasChildren ? bg : ""}
         />
@@ -250,7 +251,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
         <ParamTextLabel
           sectionId={sectionId}
           paramInfoId={paramInfoId}
-          onMouseDown={onMouseDownConditional}
+          onMouseDown={hasChildren ? handleParamMouseDown : undefined}
           bg={hasChildren ? bg : ""}
         />
       )}
