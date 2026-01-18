@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
+from fastapi import HTTPException, status
+
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -34,7 +36,7 @@ from setta.types.project_config import (
     ProjectCodegenLanguage,
     project_config_has_codegen_language,
 )
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import RUNNABLE_CODE_LANGUAGES, ProjectStateBackend
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
@@ -241,6 +243,16 @@ class ShareRuntimeState:
 
         if not section_id:
             section_id = project_state.projectConfig.entryCodeBlockId
+        if section_id:
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if (
+                isinstance(section_impl, CodeSectionImpl)
+                and section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Run is only available for Python and Bash.",
+                )
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
         snapshot_section_inputs: dict[ID, SnapshotSectionInput] = {}
@@ -251,7 +263,12 @@ class ShareRuntimeState:
             ) -> str:
                 if language == CodeLanguage.python:
                     return build_python_snapshot_module_run_command(snapshot_root, path)
-                return build_bash_run_command(path, use_absolute=True, quote=True)
+                if language == CodeLanguage.bash:
+                    return build_bash_run_command(path, use_absolute=True, quote=True)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Run is only available for Python and Bash.",
+                )
 
             snapshot_section_inputs[sid] = (code, binding, run_command_builder)
 

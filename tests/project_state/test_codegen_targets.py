@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import HTTPException
+
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -360,6 +362,110 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(manager.autosave_debouncer.is_pending)
         manager.shutdown()
 
+    async def test_create_run_command_rejects_non_runnable_language(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            name="NoCodegen",
+            codegenTargets=[],
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+        await manager._refresh_codegen_state(project_state)
+
+        with self.assertRaises(HTTPException) as ctx:
+            await manager.create_run_command(
+                RunCodeRequest(
+                    projectConfigId=project_config.id,
+                    sectionId=section.id,
+                    runSnapshotMode=RunSnapshotMode.never,
+                )
+            )
+        self.assertEqual(400, ctx.exception.status_code)
+        manager.shutdown()
+
+    async def test_refresh_codegen_state_writes_non_runnable_code(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            name="NoCodegen",
+            codegenTargets=[],
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        binding_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section.id,
+            CodeSectionImpl,
+        )
+        self.assertIsNotNone(binding_impl.codeFileBinding)
+        binding_path = binding_impl.codeFileBinding.canonical_path
+
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+        await manager._process_queue_task_started.wait()
+        await manager._refresh_codegen_state(project_state)
+        manager.shutdown()
+
+        self.assertTrue(binding_path.exists())
+        self.assertEqual(binding_path.read_text(encoding="utf-8"), code_impl.code)
+
     async def test_create_run_command_requires_entry_section_when_python_disabled(
         self,
     ) -> None:
@@ -464,3 +570,176 @@ class ShareRuntimeStateCodegenTargetsTests(unittest.TestCase):
             session_state = manager.get_session_state("session-a", project_config.id)
 
             self.assertIsNone(session_state.genCodeBinding)
+
+
+class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
+    async def test_share_runtime_state_rejects_non_runnable_language(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = (
+                Path(tmpdir)
+                / "share_deployments"
+                / "no_run"
+                / "v1"
+            )
+            root.mkdir(parents=True, exist_ok=True)
+            code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+            code_impl.code = '{"ok": true}'
+            code_impl.codeFileBinding = CodeFileBinding(
+                canonical_path=Path("code/sample.json"),
+                access_mode=CodeFileAccessMode.read_write,
+            )
+            variant = Variant(
+                impl=code_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+            )
+            section = Core(
+                name="Json Block",
+                variants=[variant.id],
+                defaultVariant=variant.id,
+            )
+            project_config = ProjectConfig(
+                name="no_run",
+                codegenTargets=[],
+                entryCodeBlockId=section.id,
+                sectionVariantMap={section.id: variant.id},
+                topLevelSections={section.id: TopLevelSectionLayout()},
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={section.id: section},
+                sectionImpls={code_impl.id: code_impl},
+                sectionVariants={variant.id: variant},
+            )
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            backend = merge_single_config_into_backend(
+                ProjectStateBackend(),
+                project_state,
+            )
+            backend.defaultProjectConfigId = project_config.id
+            dbe = DBE(root)
+            dbe.write_project(backend)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                deploymentName=root.parent.name,
+                defaultProjectConfigId=project_config.id,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
+            manager.create_session_backend("session-a")
+
+            with self.assertRaises(HTTPException) as ctx:
+                await manager.create_run_command(
+                    "session-a",
+                    RunCodeRequest(
+                        projectConfigId=project_config.id,
+                        sectionId=None,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
+                    ),
+                )
+            self.assertEqual(400, ctx.exception.status_code)
+
+    async def test_share_runtime_state_snapshots_non_runnable_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = (
+                Path(tmpdir)
+                / "share_deployments"
+                / "with_assets"
+                / "v1"
+            )
+            root.mkdir(parents=True, exist_ok=True)
+            entry_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
+            entry_impl.code = "print('hi')"
+            entry_impl.codeFileBinding = CodeFileBinding(
+                canonical_path=Path("code/entry.py"),
+                access_mode=CodeFileAccessMode.read_write,
+            )
+            json_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+            json_impl.code = '{"ok": true}'
+            json_impl.codeFileBinding = CodeFileBinding(
+                canonical_path=Path("code/sample.json"),
+                access_mode=CodeFileAccessMode.read_write,
+            )
+            entry_variant = Variant(
+                impl=entry_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(entry_impl),
+            )
+            json_variant = Variant(
+                impl=json_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(json_impl),
+            )
+            entry_section = Core(
+                name="Entry Block",
+                variants=[entry_variant.id],
+                defaultVariant=entry_variant.id,
+            )
+            json_section = Core(
+                name="Json Block",
+                variants=[json_variant.id],
+                defaultVariant=json_variant.id,
+            )
+            project_config = ProjectConfig(
+                name="with_assets",
+                codegenTargets=[],
+                entryCodeBlockId=entry_section.id,
+                sectionVariantMap={
+                    entry_section.id: entry_variant.id,
+                    json_section.id: json_variant.id,
+                },
+                topLevelSections={
+                    entry_section.id: TopLevelSectionLayout(),
+                    json_section.id: TopLevelSectionLayout(),
+                },
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={
+                    entry_section.id: entry_section,
+                    json_section.id: json_section,
+                },
+                sectionImpls={
+                    entry_impl.id: entry_impl,
+                    json_impl.id: json_impl,
+                },
+                sectionVariants={
+                    entry_variant.id: entry_variant,
+                    json_variant.id: json_variant,
+                },
+            )
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            backend = merge_single_config_into_backend(
+                ProjectStateBackend(),
+                project_state,
+            )
+            backend.defaultProjectConfigId = project_config.id
+            dbe = DBE(root)
+            dbe.write_project(backend)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                deploymentName=root.parent.name,
+                defaultProjectConfigId=project_config.id,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
+            manager.create_session_backend("session-a")
+
+            await manager.create_run_command(
+                "session-a",
+                RunCodeRequest(
+                    projectConfigId=project_config.id,
+                    sectionId=None,
+                    runSnapshotMode=RunSnapshotMode.ephemeral,
+                ),
+            )
+
+            runs_root = manager.share_runs_root / "session-a"
+            snapshots = [path for path in runs_root.iterdir() if path.is_dir()]
+            self.assertEqual(1, len(snapshots))
+            snapshot_dir = snapshots[0]
+            self.assertTrue((snapshot_dir / "entry.py").exists())
+            self.assertTrue((snapshot_dir / "sample.json").exists())

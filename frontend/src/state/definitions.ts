@@ -251,6 +251,22 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
+type FileBrowserState = {
+  rootPath: string | null;
+  selectedPath: string | null;
+  expandedPaths: Record<string, boolean>;
+  filterText: string;
+};
+
+export const useFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+  })),
+);
+
 type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 

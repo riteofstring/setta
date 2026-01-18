@@ -221,7 +221,16 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
+export const CodeLanguageEnum = {
+  python: "python",
+  bash: "bash",
+  javascript: "javascript",
+  typescript: "typescript",
+  json: "json",
+  yaml: "yaml",
+  markdown: "markdown",
+  plaintext: "plaintext",
+} as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
@@ -440,6 +449,7 @@ export const RouteEnum = {
   UNSELECT_ALL_PARAMS: "/unselectAllParams",
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
   PASTE_SECTIONS: "/pasteSections",
+  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
@@ -5009,6 +5019,9 @@ type BaseSectionWithParamsImplArgs = z.infer<
 const FolderContentItemSchema = z.object({
   name: z.string(),
   type: z.string(),
+  fullPath: z.string(),
+  mtime: z.number().optional(),
+  size: z.int().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -5518,8 +5531,23 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
+const GetFileBrowserRootResponseSchema = z.object({
+  rootPath: z.string(),
+  pathSeparator: z.string(),
+  ignorePatterns: z.array(z.string()),
+});
+
+export type GetFileBrowserRootResponse = z.infer<
+  typeof GetFileBrowserRootResponseSchema
+>;
+
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
+  includeMtime: z.boolean().default(false),
+  includeSize: z.boolean().default(false),
+  includeHidden: z.boolean().default(false),
+  ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
+  maxEntries: z.union([z.int(), z.null()]).default(null),
 });
 
 export type GetFolderContentsRequestInput = z.input<

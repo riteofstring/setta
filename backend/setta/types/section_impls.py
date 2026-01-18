@@ -63,6 +63,12 @@ class SectionSize(BaseModel, extra="forbid"):
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
+    javascript = "javascript"
+    typescript = "typescript"
+    json = "json"
+    yaml = "yaml"
+    markdown = "markdown"
+    plaintext = "plaintext"
 
 
 class ConfigLanguage(str, Enum):
