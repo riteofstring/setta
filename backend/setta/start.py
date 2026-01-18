@@ -16,11 +16,13 @@ from pathlib import Path, PurePath
 
 import click
 import uvicorn
+import yaml
 
 from setta import __version__
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
+from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
@@ -867,11 +869,31 @@ def version() -> None:
     is_flag=True,
     help="Export in readable format with variants",
 )
-def export_db(readable: bool, readable_with_variants: bool) -> None:
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output path for readable export (default: setta_files/project.readable.yaml).",
+)
+def export_db(
+    readable: bool, readable_with_variants: bool, output: Path | None
+) -> None:
     if not any([readable, readable_with_variants]):
         readable_with_variants = True
 
-    # TODO
+    include_variants = readable_with_variants
+    dbe = DBE(C.SETTA_FILES_FOLDER)
+    project_state = dbe.read_project_required()
+    payload = build_readable_project_export(
+        project_state,
+        include_variants=include_variants,
+    )
+    output_path = (
+        output if output is not None else C.SETTA_FILES_FOLDER / "project.readable.yaml"
+    )
+    yaml_payload = yaml.safe_dump(payload, sort_keys=False)
+    dbe.write(output_path, yaml_payload)
+    click.echo(f"Wrote readable export to {output_path}")
 
 
 @click.command()
