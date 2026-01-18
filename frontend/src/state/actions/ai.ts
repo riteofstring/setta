@@ -13,22 +13,46 @@ import {
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_delete_llm_chat,
-  route_get_all_llm_chat_metadata,
+  route_create_agent_profile,
+  route_create_external_agent_config,
+  route_create_prompt_template,
+  route_delete_agent_profile,
+  route_delete_external_agent_config,
+  route_delete_prompt_template,
+  route_get_agent_profiles,
+  route_get_agent_runs,
+  route_get_external_agent_chat,
+  route_get_external_agent_configs,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
+  route_get_prompt_templates,
+  route_respond_external_agent_approval,
+  route_start_external_agent_run,
+  route_update_agent_profile,
+  route_update_external_agent_config,
+  route_update_prompt_template,
 } from "utils/generatedEndpoints";
 import {
+  AgentProfile,
+  AgentRun,
+  AgentRunStatusEnum,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatRoleEnum,
   ChatSectionState,
+  CreateAgentProfileRequestInput,
+  CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
   createMessageThinkingContent,
+  CreatePromptTemplateRequestInput,
+  DeleteAgentProfileRequestInput,
+  DeleteExternalAgentConfigRequestInput,
+  DeletePromptTemplateRequestInput,
+  ExternalAgentConfig,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -36,12 +60,16 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  PromptTemplate,
   SectionTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolResultEvent,
+  UpdateAgentProfileRequestInput,
+  UpdateExternalAgentConfigRequestInput,
+  UpdatePromptTemplateRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
@@ -83,6 +111,275 @@ export function receiveLLMApiKeysUpdate(payload: APIKeys) {
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: null,
   });
+}
+
+export async function loadAgentProfiles() {
+  const res = await route_get_agent_profiles();
+  if (res200(res)) {
+    receiveAgentProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentProfilesInitialLoadComplete: true,
+      agentProfilesLoadError: "Failed to load agent profiles",
+    });
+  }
+}
+
+export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
+  useAIStore.setState({
+    agentProfiles: payload,
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  });
+}
+
+export async function loadAgentRuns() {
+  const res = await route_get_agent_runs();
+  if (res200(res)) {
+    receiveAgentRunsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentRunsInitialLoadComplete: true,
+      agentRunsLoadError: "Failed to load agent runs",
+    });
+  }
+}
+
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  useAIStore.setState({
+    agentRuns: payload,
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
+  });
+}
+
+export async function loadPromptTemplates() {
+  const res = await route_get_prompt_templates();
+  if (res200(res)) {
+    receivePromptTemplatesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      promptTemplatesInitialLoadComplete: true,
+      promptTemplatesLoadError: "Failed to load prompt templates",
+    });
+  }
+}
+
+export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+  useAIStore.setState({
+    promptTemplates: payload,
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  });
+}
+
+export async function loadExternalAgentConfigs() {
+  const res = await route_get_external_agent_configs();
+  if (res200(res)) {
+    receiveExternalAgentConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentConfigsInitialLoadComplete: true,
+      externalAgentConfigsLoadError: "Failed to load external agent configs",
+    });
+  }
+}
+
+export function receiveExternalAgentConfigsUpdate(
+  payload: Array<ExternalAgentConfig>,
+) {
+  useAIStore.setState({
+    externalAgentConfigs: payload,
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  });
+}
+
+type HasId = { id: string };
+
+function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
+  const index = items.findIndex((item) => item.id === entry.id);
+  if (index === -1) {
+    return [...items, entry];
+  }
+  const next = [...items];
+  next[index] = entry;
+  return next;
+}
+
+function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
+  return items.filter((item) => item.id !== id);
+}
+
+export async function createAgentProfile(
+  payload: CreateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_create_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to create agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function updateAgentProfile(
+  payload: UpdateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_update_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to update agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function deleteAgentProfile(
+  payload: DeleteAgentProfileRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to delete agent profile",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    agentProfiles: removeById(state.agentProfiles, payload.profileId),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return true;
+}
+
+export async function createPromptTemplate(
+  payload: CreatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_create_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to create prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function updatePromptTemplate(
+  payload: UpdatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_update_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to update prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function deletePromptTemplate(
+  payload: DeletePromptTemplateRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to delete prompt template",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    promptTemplates: removeById(state.promptTemplates, payload.templateId),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return true;
+}
+
+export async function createExternalAgentConfig(
+  payload: CreateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_create_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to create external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function updateExternalAgentConfig(
+  payload: UpdateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_update_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to update external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function deleteExternalAgentConfig(
+  payload: DeleteExternalAgentConfigRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to delete external agent config",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: removeById(
+      state.externalAgentConfigs,
+      payload.configId,
+    ),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return true;
 }
 
 export function getDefaultChatDetails(): ChatDetails {
@@ -130,24 +427,45 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
-export async function getAllLLMChatMetadata() {
-  const res = await route_get_all_llm_chat_metadata();
+export async function getExternalAgentChat(
+  chatId: string,
+  projectConfigId: string | null,
+) {
+  const res = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
   if (res200(res)) {
-    useAIStore.setState({ allChatMetadata: res.data });
+    const { messages, waitingForResponse, toolCallArguments } = res.data;
+    useAIStore.setState((state) => {
+      const existingDetails = state.chatDetails[chatId];
+      const nextWaitingForResponse = waitingForResponse
+        ? existingDetails?.waitingForResponse ?? true
+        : false;
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(existingDetails ?? {}),
+            messages,
+            waitingForResponse: nextWaitingForResponse,
+            toolCallArguments,
+            llmConfig: null,
+          },
+        },
+      };
+    });
   }
-}
-
-export async function deleteLLMChat(chatId: string) {
-  await route_delete_llm_chat({ chatId });
-  await getAllLLMChatMetadata();
 }
 
 export async function submitMessage(
   chatId: string | null,
   message: string,
   deepThink: boolean,
-  llmConfigId: string,
+  llmConfigId: string | null,
   messageId?: string,
+  agentProfileId?: string | null,
 ): Promise<string | null> {
   if (!message.trim()) {
     return null;
@@ -170,6 +488,7 @@ export async function submitMessage(
       deepThink,
       chatId,
       llmConfigId,
+      agentProfileId: agentProfileId ?? null,
       projectConfigId,
     });
     if (res200(res)) {
@@ -185,6 +504,71 @@ export async function submitMessage(
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
+}
+
+type ExternalAgentSubmitOptions = {
+  agentProfileId: string | null;
+  deepThink: boolean;
+  priorMessages: Array<BaseChatMessageUnion>;
+  messageId?: string;
+};
+
+export async function submitExternalAgentMessage(
+  chatId: string | null,
+  message: string,
+  externalAgentConfigId: string,
+  options: ExternalAgentSubmitOptions,
+): Promise<AgentRun | null> {
+  if (!message.trim()) {
+    return null;
+  }
+
+  const userMessage = {
+    id: options.messageId ?? createNewId(),
+    role: ChatRoleEnum.user,
+    content: [createMessageTextContent({ text: message })],
+  };
+  const userMessageId = userMessage.id;
+
+  applyOptimisticUserMessage(chatId, userMessage);
+
+  const combinedMessages = [...options.priorMessages, userMessage];
+  const projectConfigId = getCurrProjectConfigId();
+  const inputs: Record<string, unknown> = {
+    projectConfigId,
+    deepThink: options.deepThink,
+    messages: combinedMessages,
+  };
+  if (chatId) {
+    inputs.chatId = chatId;
+  }
+
+  try {
+    const res = await route_start_external_agent_run({
+      configId: externalAgentConfigId,
+      profileId: options.agentProfileId,
+      inputs,
+    });
+    if (res200(res)) {
+      return res.data;
+    }
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    return null;
+  } catch (err) {
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    throw err;
+  }
+}
+
+export async function respondExternalAgentApproval(
+  approvalId: string,
+  approved: boolean,
+): Promise<boolean> {
+  const res = await route_respond_external_agent_approval({
+    approvalId,
+    approved,
+  });
+  return res200(res);
 }
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
@@ -244,6 +628,73 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
 }
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+
+type RunPayload = Record<string, unknown>;
+
+export function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+  const outputMessages = extractRunMessages(run.outputs);
+  if (outputMessages) {
+    return buildChatSectionState(outputMessages, false);
+  }
+
+  const inputMessages = extractRunMessages(run.inputs) ?? [];
+  let state = buildChatSectionState(
+    inputMessages,
+    run.status === AgentRunStatusEnum.running,
+  );
+  for (const event of run.events ?? []) {
+    if (event.type !== "stream_chunk") {
+      continue;
+    }
+    const chunk = extractStreamChunk(event.payload);
+    if (!chunk) {
+      continue;
+    }
+    state = applyStreamDeltaToChatSectionState(state, chunk);
+  }
+  return state;
+}
+
+function buildChatSectionState(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+): ChatSectionState {
+  return {
+    messages: [...messages],
+    inputText: "",
+    waitingForResponse,
+    toolCallArguments: {},
+  };
+}
+
+function extractRunMessages(
+  payload: RunPayload | null,
+): Array<BaseChatMessageUnion> | null {
+  if (!payload) {
+    return null;
+  }
+  const raw = payload.messages;
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as Array<BaseChatMessageUnion>;
+}
+
+function extractStreamChunk(
+  payload: RunPayload,
+): ChatSectionStreamChunk | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const rawChunk = payload.chunk;
+  if (!rawChunk || typeof rawChunk !== "object") {
+    return null;
+  }
+  if (!("type" in rawChunk)) {
+    return null;
+  }
+  return rawChunk as ChatSectionStreamChunk;
+}
 
 function applyChatSectionStreamDelta(
   sectionId: string,

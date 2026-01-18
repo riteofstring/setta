@@ -299,7 +299,7 @@ async def ensure_share_llm_allowed(
         denied_message="Share policy disallows LLM access.",
         share_session_id=share_session_id,
     )
-    if state.share_mode and not state.chat_manager:
+    if state.share_mode and state.agent_runner.disabled:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share LLM support is not enabled.",
