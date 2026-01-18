@@ -77,9 +77,67 @@
 5. UI feedback
    - Add drop indicators (line + indent guide).
    - Highlight invalid drop targets (non-parent or descendant).
- 6. Lasso selection (bonus)
+6. Lasso selection (bonus)
    - Add a lasso mode gated by a shortcut (or reuse param-select + drag on empty space).
    - While active, render a selection box and select params whose bounds intersect the box.
+
+## Hard requirement: param DnD must be exactly analogous to section free-move
+The current param DnD attempts are *not* analogous to section free-move because
+they use a separate DragDropProvider, custom projection logic, and a different
+placeholder pipeline. That divergence is the root cause of the repeated jitter,
+offset overlays, and stuck drops.
+
+We must switch to a 1:1 mirror of the section free-move architecture:
+
+1. Single global DnD provider
+   - Do not use a param-specific DragDropProvider.
+   - Route param drag handling through the existing `GlobalDndContext`.
+   - Use `useDndMonitor` and guard on `active.data.current.type === "param"` to
+     ensure section drags and param drags do not conflict.
+
+2. Temp placeholder pipeline (same as sections)
+   - Create a param-specific temp children store that mirrors
+     `frontend/src/forks/dnd-kit/dndChildren.ts`:
+     - `x`: parent param id -> ordered child ids (visible list)
+     - `y`: child param id -> parent id
+     - `replaceParamWithTemp`, `addParamChild`, `removeParamChild`,
+       `updateParamChildren`
+   - On drag start, replace the active param with a temp placeholder id.
+   - While dragging, move the temp placeholder within `x` based on the current
+     `overId` and `pastHalfway`, just like `maybeMoveToNewParent(...)` in
+     `frontend/src/forks/dnd-kit/useDropType.ts`.
+   - Render the list from the temp children store so the placeholder occupies
+     real space (items move out of the way).
+
+3. Drag event flow (mirror `useDropType` + `useMoveSection`)
+   - Add a param-specific drag handler module that mirrors the section flow:
+     - `onDragStart`: initialize param drag state, temp children, and size.
+     - `onDragMove`/`onDragOver`: update temp placeholder location.
+     - `onDragEnd`: compute `{ newParentId, newIndex }` from temp children and
+       call `moveParamsWithBackend`, then reset.
+   - Reuse collision behavior from the global adapter; do not invent new
+     projection logic. Keep the logic as close as possible to
+     `frontend/src/forks/dnd-kit/useDropType.ts`.
+
+4. DragOverlay + placeholder visuals (same pattern as sections)
+   - Use a simple overlay element (like `DummyDragOverlay`) that follows the
+     cursor.
+   - Use a temp placeholder row (like `TempDNDSection`) that stays in the list.
+   - Avoid bespoke “line indicators” for the primary placeholder; the list
+     should reflow the same way sections do in free-move.
+
+5. Zoom + shape syncing
+   - Ensure the global `DragOperationShapeSync` runs for param drags (add a
+     param-drag flag so it is enabled whenever a param drag is active).
+   - Keep scaling behavior consistent with section free-move.
+
+6. Cleanup / reset
+   - Remove or revert any param-only DnD providers, custom projection logic,
+     and independent placeholder state. The param DnD should be a thin,
+     param-specific wrapper around the section free-move pipeline.
+
+This is the only acceptable direction. Any approach that is not 1:1 with the
+section free-move DnD should be considered out of scope.
 
 ## Suggested data flow for reorder
 1. Build a flat list of visible params with `{id, parentId, depth, index}`.
