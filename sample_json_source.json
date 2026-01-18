@@ -1,0 +1,15 @@
+{
+  "settings": {
+    "paths": {
+      "app": "",
+      "data": ""
+    },
+    "featureFlags": {
+      "beta": "",
+      "logging": {
+        "level": "",
+        "rotate": ""
+      }
+    }
+  }
+}

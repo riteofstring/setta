@@ -61,11 +61,11 @@ class ChatHistoryClient:
     async def create(
         self,
         *,
-        engine_config_id: ID | None,
+        llm_config_id: str,
         first_message: BaseChatMessageUnion,
     ) -> Chat:
         payload: dict[str, object] = {
-            "engineConfigId": engine_config_id,
+            "llmConfigId": llm_config_id,
             "firstMessage": first_message,
         }
         return _coerce_chat(await self._project_manager.create_chat(payload))
@@ -116,7 +116,7 @@ class ChatHistoryClient:
         self,
         *,
         section_id: ID,
-        engine_config_id: ID | None,
+        llm_config_id: str,
         first_message: BaseChatMessageUnion,
     ) -> tuple[ID, bool]:
         payload: dict[str, object] = {"sectionId": section_id}
@@ -124,7 +124,7 @@ class ChatHistoryClient:
         if chat_id:
             return ID(chat_id), False
         chat = await self.create(
-            engine_config_id=engine_config_id,
+            llm_config_id=llm_config_id,
             first_message=first_message,
         )
         set_payload: dict[str, object] = {"sectionId": section_id, "chatId": chat.id}
@@ -387,7 +387,7 @@ class ChatSession:
         *,
         ctx: "ListenerCallbackContext",
         section_id: ID,
-        engine_config_id: ID | None,
+        llm_config_id: str,
         event: ChatSendEvent | None = None,
     ) -> "ChatSession":
         resolved_event = event or on_chat_send_event(ctx, section_id=section_id)
@@ -422,7 +422,7 @@ class ChatSession:
             raise ValueError(f"Unsupported chat role: {resolved_event.role!r}")
         chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
-            engine_config_id=engine_config_id,
+            llm_config_id=llm_config_id,
             first_message=first_message,
         )
         if not created:

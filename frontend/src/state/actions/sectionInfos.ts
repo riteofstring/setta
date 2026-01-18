@@ -347,6 +347,18 @@ export function setCurrEffectiveSectionImplValue<
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
+export function setSectionVariantImplValue<K extends keyof ImplArgsBundleMap>(
+  state: ZustandProjectState,
+  sectionId: string,
+  variantId: string,
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
+  const variant = getSectionVariant(state, variantId);
+  const impl = getSectionImpl(state, variant.impl);
+  const core = getSectionCore(state, sectionId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
+}
+
 export function setCurrEffectiveCodeObjImplValue<
   K extends keyof ImplArgsBundleMap,
 >(
