@@ -57,11 +57,11 @@ export function GetParamSwitch({
     return paramIds.filter((p) => filteredRequired.has(p));
   }, _.isEqual);
 
-  return filteredIds.map((paramId, idx) => (
+  return filteredIds.map((e, idx) => (
     <ParamSwitch
-      key={paramId}
+      key={e}
       sectionId={sectionId}
-      paramInfoId={paramId}
+      paramInfoId={e}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}

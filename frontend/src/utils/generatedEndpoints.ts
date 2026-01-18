@@ -303,6 +303,60 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
+async function route_get_agent_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentProfile>>
+> {
+  return await get("/getAgentProfiles");
+}
+
+async function route_get_agent_profile(
+  x: gt.GetAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/getAgentProfile", x);
+}
+
+async function route_create_agent_profile(
+  x: gt.CreateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/createAgentProfile", x);
+}
+
+async function route_update_agent_profile(
+  x: gt.UpdateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/updateAgentProfile", x);
+}
+
+async function route_delete_agent_profile(
+  x: gt.DeleteAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteAgentProfile", x);
+}
+
+async function route_start_agent_run(
+  x: gt.StartAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startAgentRun", x);
+}
+
+async function route_stop_agent_run(
+  x: gt.StopAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopAgentRun", x);
+}
+
+async function route_get_agent_run(
+  x: gt.GetAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/getAgentRun", x);
+}
+
+async function route_get_agent_runs(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentRun>>
+> {
+  return await get("/getAgentRuns");
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -719,6 +773,12 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
+export async function route_set_section_with_params_display_mode(
+  x: gt.SetSectionWithParamsDisplayModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionWithParamsDisplayMode", x);
+}
+
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -795,30 +855,6 @@ export async function route_move_section(
   x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/moveSection", x);
-}
-
-export async function route_move_params(
-  x: gt.MoveParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParams", x);
-}
-
-export async function route_move_param_groups(
-  x: gt.MoveParamGroupsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParamGroups", x);
-}
-
-export async function route_indent_params(
-  x: gt.IndentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/indentParams", x);
-}
-
-export async function route_unindent_params(
-  x: gt.UnindentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/unindentParams", x);
 }
 
 export async function route_group_sections(

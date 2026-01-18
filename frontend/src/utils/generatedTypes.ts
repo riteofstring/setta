@@ -77,6 +77,14 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
+const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -226,6 +234,11 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
+export const SectionWithParamsDisplayModeEnum = {
+  Gui: "Gui",
+  Yaml: "Yaml",
+} as const;
+
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
@@ -297,6 +310,7 @@ export const RouteEnum = {
   READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
+  SECTION_TO_YAML: "/sectionToYaml",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
   NEW_JSON_VERSION_NAME: "/newJsonVersionName",
   SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
@@ -319,6 +333,15 @@ export const RouteEnum = {
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENT_PROFILES: "/getAgentProfiles",
+  GET_AGENT_PROFILE: "/getAgentProfile",
+  CREATE_AGENT_PROFILE: "/createAgentProfile",
+  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
+  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
+  START_AGENT_RUN: "/startAgentRun",
+  STOP_AGENT_RUN: "/stopAgentRun",
+  GET_AGENT_RUN: "/getAgentRun",
+  GET_AGENT_RUNS: "/getAgentRuns",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -395,6 +418,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
@@ -411,10 +435,6 @@ export const RouteEnum = {
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   MOVE_SECTION: "/moveSection",
-  MOVE_PARAMS: "/moveParams",
-  MOVE_PARAM_GROUPS: "/moveParamGroups",
-  INDENT_PARAMS: "/indentParams",
-  UNINDENT_PARAMS: "/unindentParams",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -500,6 +520,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1186,6 +1207,7 @@ const SharedModifierSchema = z.object({
   deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1300,6 +1322,7 @@ const CoreSchema = z.object({
         "deepThink",
         "defaultVal",
         "description",
+        "displayMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1399,6 +1422,9 @@ const CallableSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
@@ -1433,6 +1459,9 @@ const DictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1643,6 +1672,9 @@ const GlobalVariablesSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -2618,6 +2650,7 @@ const DictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2650,6 +2683,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2722,6 +2756,7 @@ const CallableSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
@@ -3292,6 +3327,7 @@ const ProjectStateSingleConfigSchema = z.object({
   parentSectionMap: z
     .record(IDSchema, z.union([IDSchema, z.null()]))
     .default({}),
+  yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
   requiredDecodedImages: z.array(z.string()).default([]),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
@@ -3374,10 +3410,6 @@ const SettingsShortcutsSchema = z.object({
   runCodeShortcut: z.string().default("Mod + Enter" as const),
   runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
   paramSelect: z.string().default("Mod + Shift" as const),
-  paramIndentShortcut: z.string().default("Tab" as const),
-  paramUnindentShortcut: z.string().default("Shift + Tab" as const),
-  paramMoveUpShortcut: z.string().default("Alt + ArrowUp" as const),
-  paramMoveDownShortcut: z.string().default("Alt + ArrowDown" as const),
   formatCode: z.string().default("Shift + Alt + F" as const),
   selectionKeyCode: z.string().default("Shift" as const),
   multiSelectionKeyCode: z.string().default("Mod" as const),
@@ -3714,6 +3746,9 @@ const UserDefaultCallableSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
@@ -3821,6 +3856,9 @@ const UserDefaultDictSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -3900,6 +3938,9 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4541,6 +4582,30 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
+const AgentProfileSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+
+const AgentProfileListSchema = z.object({
+  profiles: z.array(AgentProfileSchema),
+});
+
+const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AgentProfileListSchema,
+  messageType: z
+    .literal("AgentProfilesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4592,6 +4657,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
+  WebsocketMsgAgentProfilesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -4688,6 +4754,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -4783,6 +4850,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
 });
@@ -4797,6 +4865,28 @@ const FolderContentItemSchema = z.object({
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
+
+const RunEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+  type: z.string(),
+  payload: z.record(z.string(), z.any()).default({}),
+});
+
+const AgentRunSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  profileId: z.union([IDSchema, z.null()]).default(null),
+  status: z.enum(AgentRunStatusEnum).default(AgentRunStatusEnum.queued),
+  startedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  finishedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  outputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  toolCalls: z.array(z.record(z.string(), z.any())).default([]),
+  cost: z.union([z.number(), z.null()]).default(null),
+  events: z.array(RunEventSchema).default([]),
+});
+
+export type AgentRun = z.infer<typeof AgentRunSchema>;
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -5040,6 +5130,9 @@ const BaseDictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -5094,11 +5187,14 @@ const BaseSectionWithParamsImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
-export type BaseSectionWithParamsImpl = z.infer<
+type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
@@ -5216,6 +5312,66 @@ const WebsocketMsgSchema = z.object({
 });
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
+
+const CreateAgentProfileRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
+});
+
+export type CreateAgentProfileRequestInput = z.input<
+  typeof CreateAgentProfileRequestSchema
+>;
+
+const DeleteAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type DeleteAgentProfileRequestInput = z.input<
+  typeof DeleteAgentProfileRequestSchema
+>;
+
+const GetAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type GetAgentProfileRequestInput = z.input<
+  typeof GetAgentProfileRequestSchema
+>;
+
+const GetAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const StartAgentRunRequestSchema = z.object({
+  profileId: IDSchema,
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartAgentRunRequestInput = z.input<
+  typeof StartAgentRunRequestSchema
+>;
+
+const StopAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopAgentRunRequestInput = z.input<
+  typeof StopAgentRunRequestSchema
+>;
+
+const UpdateAgentProfileRequestSchema = z.object({
+  profile: AgentProfileSchema,
+});
+
+export type UpdateAgentProfileRequestInput = z.input<
+  typeof UpdateAgentProfileRequestSchema
+>;
 
 const DeleteLLMChatRequestSchema = z.object({
   chatId: IDSchema,
@@ -5695,45 +5851,6 @@ export type GroupSectionsRequestInput = z.input<
   typeof GroupSectionsRequestSchema
 >;
 
-const IndentParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type IndentParamsRequestInput = z.input<
-  typeof IndentParamsRequestSchema
->;
-
-const MoveParamGroupSchema = z.object({
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-const MoveParamGroupsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  moves: z.array(MoveParamGroupSchema),
-});
-
-export type MoveParamGroupsRequestInput = z.input<
-  typeof MoveParamGroupsRequestSchema
->;
-
-const MoveParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
-
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6195,6 +6312,17 @@ export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
 >;
 
+const SetSectionWithParamsDisplayModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
+});
+
+export type SetSectionWithParamsDisplayModeRequestInput = z.input<
+  typeof SetSectionWithParamsDisplayModeRequestSchema
+>;
+
 const SetShowParamDisplayNamesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6432,17 +6560,6 @@ const UngroupGroupsRequestSchema = z.object({
 
 export type UngroupGroupsRequestInput = z.input<
   typeof UngroupGroupsRequestSchema
->;
-
-const UnindentParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type UnindentParamsRequestInput = z.input<
-  typeof UnindentParamsRequestSchema
 >;
 
 const UnselectAllParamsRequestSchema = z.object({
