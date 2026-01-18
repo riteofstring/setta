@@ -133,3 +133,35 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         self._assert_section_code_objs_exist(section_a)
         self._assert_section_code_objs_exist(section_b)
         self._assert_backend_roundtrip()
+
+    def test_missing_json_source_path_marks_missing(self) -> None:
+        section_id, variant_id = self._create_json_source_section(["missing"])
+
+        processed = self.json_source.process_json_object({"alpha": {"one": 1}})
+        json_sources = {normalize_path("sample.json"): processed}
+
+        load_json_sources_into_data_structures(
+            self.project_state,
+            json_sources,
+            [(section_id, variant_id)],
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_id, BaseDictSectionImpl
+        )
+        self.assertTrue(impl.jsonSourceMissing)
+
+    def test_json_source_leaf_path_marks_missing(self) -> None:
+        section_id, variant_id = self._create_json_source_section(["alpha", "one"])
+
+        processed = self.json_source.process_json_object({"alpha": {"one": 1}})
+        json_sources = {normalize_path("sample.json"): processed}
+
+        load_json_sources_into_data_structures(
+            self.project_state,
+            json_sources,
+            [(section_id, variant_id)],
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_id, BaseDictSectionImpl
+        )
+        self.assertTrue(impl.jsonSourceMissing)

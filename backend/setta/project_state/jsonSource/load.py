@@ -112,14 +112,34 @@ def load_json_sources_into_data_structures(
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue
             processedJson = json_sources.get(filename)
-            isMissing = processedJson is None
+            json_source_missing = processedJson is None
+            if not json_source_missing:
+                processed_id = processedJson.hierarchy.name_path_to_id.get(
+                    jsonSourceKeys
+                )
+                if processed_id is None:
+                    json_source_missing = True
+                else:
+                    processed_variant_id = processedJson.keyValueInfo.codeObjVariantMap[
+                        processed_id
+                    ]
+                    variant_info = processedJson.keyValueInfo.codeObjVariants[
+                        processed_variant_id
+                    ]
+                    processed_impl = processedJson.keyValueInfo.codeObjImpls[
+                        variant_info.impl
+                    ]
+                    if not isinstance(processed_impl, BaseParentCodeObjImpl):
+                        json_source_missing = True
             impl = set_effective_impl_value(
                 base_impl,
                 section,
                 variant,
-                BaseDictSectionImplArgsWithCallable(jsonSourceMissing=isMissing),
+                BaseDictSectionImplArgsWithCallable(
+                    jsonSourceMissing=json_source_missing
+                ),
             )
-            if isMissing:
+            if json_source_missing:
                 continue
             replacements: dict[ID, ReplacementInfo] = {}
             unmatched: dict[ID, UnmatchedCodeObjInfo] = {}
