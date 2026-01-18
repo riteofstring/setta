@@ -214,6 +214,11 @@ def route_get_folder_contents(
     x: GetFolderContentsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[FolderContentItem]:
+    if ctx.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in share mode.",
+        )
     path = _resolve_folder_path(
         x.folderPath,
         share_mode=ctx.share_mode,

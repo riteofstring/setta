@@ -517,8 +517,6 @@ class ShareRuntimeState:
                 continue
             if section_impl.codeFileBinding is None:
                 raise KeyError(f"Missing code binding for section {section_id}")
-            if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
-                continue
             output[section_id] = (
                 section_impl.code,
                 section_impl.codeFileBinding,

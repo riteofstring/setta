@@ -122,6 +122,28 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     route_get_file_browser_root(runtime_ctx)
         self.assertEqual(403, ctx.exception.status_code)
 
+    async def test_get_folder_contents_share_mode_forbidden(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-file-browser-folder"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            state = await self._build_state(
+                share_mode=True,
+                share_deployment_root=root,
+            )
+            session = state.share_session_store.create_session()
+            with runtime_context(state, session.id) as runtime_ctx:
+                with self.assertRaises(HTTPException) as ctx:
+                    route_get_folder_contents(
+                        GetFolderContentsRequest(folderPath=str(root)),
+                        runtime_ctx,
+                    )
+        self.assertEqual(403, ctx.exception.status_code)
+
     async def test_get_folder_contents_filters_hidden_and_ignored(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=CWD) as tmpdir:

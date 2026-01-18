@@ -70,6 +70,8 @@ export function FileBrowserPane() {
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const didLoadRootRef = useRef(false);
+  const rootRequestIdRef = useRef(0);
+  const folderRequestIdRef = useRef<Record<string, number>>({});
   const applyRootPathRef =
     useRef<
       (
@@ -100,14 +102,27 @@ export function FileBrowserPane() {
   }, []);
 
   const fetchFolderContents = useCallback(
-    async (folderPath: string, ignoreOverride?: string[]) => {
+    async (
+      folderPath: string,
+      ignoreOverride?: string[],
+      rootRequestId?: number,
+    ) => {
       const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
+      const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
+      const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
+      folderRequestIdRef.current[folderPath] = nextRequestId;
       setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
       const res = await route_get_folder_contents({
         folderPath,
         ignorePatterns: activeIgnorePatterns,
         maxEntries: MAX_ENTRIES,
       });
+      if (rootRequestIdRef.current !== activeRootRequestId) {
+        return;
+      }
+      if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
+        return;
+      }
       if (res200(res)) {
         const items = res.data;
         const childPaths = items.map((item) => item.fullPath);
@@ -167,6 +182,9 @@ export function FileBrowserPane() {
       }
       const separator = separatorOverride ?? pathSeparator;
       const displayName = getDisplayNameFromPath(trimmed, separator);
+      rootRequestIdRef.current += 1;
+      const rootRequestId = rootRequestIdRef.current;
+      folderRequestIdRef.current = {};
       setRootError(null);
       useFileBrowserState.setState({
         rootPath: trimmed,
@@ -184,7 +202,7 @@ export function FileBrowserPane() {
       setChildrenByPath({});
       setErrorByPath({});
       setLoadingPaths({});
-      void fetchFolderContents(trimmed, ignoreOverride);
+      void fetchFolderContents(trimmed, ignoreOverride, rootRequestId);
     },
     [fetchFolderContents, pathSeparator],
   );
