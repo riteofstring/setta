@@ -92,6 +92,8 @@ function _ParamContainer({
         ref={dndRef}
         {...(dndAttributes ?? {})}
         {...(dndListeners ?? {})}
+        tabIndex={-1}
+        role={undefined}
       >
         {!isKwarg ? (
           <div
@@ -139,6 +141,8 @@ function _ParamContainer({
       ref={dndRef}
       {...(dndAttributes ?? {})}
       {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
