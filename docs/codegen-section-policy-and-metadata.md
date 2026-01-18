@@ -7,7 +7,7 @@ This document explains how code generation decides which sections to emit and ho
 Section policy lives on the Python codegen target as `ProjectCodegenPythonTarget.sectionPolicy` (`backend/setta/types/project_config.py`). When no Python target is present, `get_section_codegen_policy` falls back to the default policy.
 
 The policy has four levers:
-- `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, and MetaControl (Image and Chat are excluded by default).
+- `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, and MetaControl.
 - `exclude`: section ids that are always excluded.
 - `typePolicies`: per-section-type defaults (mode + representation).
 - `sectionOverrides`: per-section-id overrides (mode + representation).
@@ -28,13 +28,12 @@ The result is `include_in_codegen` plus the chosen `representation`.
 The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
 - The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
-- Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat).
+- Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, MetaControl, Chat).
 
 Representation determines how section payloads are encoded:
-- `json` is the only supported representation for most non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
- - Image sections only support `file`. The graph stores a `FileReadDependencyValue` pointing at `imagePath` and the packaged runtime reads it from disk; empty image paths render `None`.
+- `json` is the only supported representation for non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
 - Chat sections support `json` or `file`. When `file` is selected and `chatId` is present, the graph stores a `FileReadDependencyValue` pointing at `setta_files/chats/<chatId>.json` and the packaged runtime reads it (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
-- Draw sections only support `file`. Any other representation raises a `ValueError`. When `renderedImagePath` is set, the graph stores a `FileReadDependencyValue` and the packaged runtime reads it from disk; if no snapshot exists, codegen emits `None`.
+- Draw sections only support `base64`. Any other representation raises a `ValueError`. When a `Base64DependencyValue` is used, the value codec decodes it in packaged runtime (`backend/setta/code_gen/value_codec.py`).
 
 ## Generated Python output
 

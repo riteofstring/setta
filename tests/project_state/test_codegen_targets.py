@@ -9,7 +9,6 @@ from setta.lsp.managers import NoopLSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
-from setta.project_state.draw_snapshots import build_draw_snapshot_path
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
@@ -32,7 +31,6 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
-    DrawSectionImpl,
     GenPythonCodeSectionImpl,
     SectionType,
 )
@@ -267,57 +265,29 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(command.startswith("bash "))
 
-    async def test_create_run_command_triggers_autosave_for_draw_snapshots(
-        self,
-    ) -> None:
-        self.settings_file.settings.backend.autosave = True
-        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.bash)
-        code_impl.code = "echo test"
-        code_variant = Variant(
+    async def test_create_run_command_rejects_non_runnable_language(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
             impl=code_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
         )
-        code_section = Core(
-            name="Script",
-            variants=[code_variant.id],
-            defaultVariant=code_variant.id,
-        )
-        draw_impl = DrawSectionImpl(name="Draw")
-        draw_variant = Variant(
-            impl=draw_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(draw_impl),
-        )
-        draw_section = Core(
-            name="Draw",
-            variants=[draw_variant.id],
-            defaultVariant=draw_variant.id,
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
         )
         project_config = ProjectConfig(
-            name="SnapshotAutosave",
+            name="NoCodegen",
             codegenTargets=[],
-            sectionVariantMap={
-                code_section.id: code_variant.id,
-                draw_section.id: draw_variant.id,
-            },
-            topLevelSections={
-                code_section.id: TopLevelSectionLayout(),
-                draw_section.id: TopLevelSectionLayout(),
-            },
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
         )
         project_state = ProjectStateSingleConfig(
             projectConfig=project_config,
-            sections={
-                code_section.id: code_section,
-                draw_section.id: draw_section,
-            },
-            sectionImpls={
-                code_impl.id: code_impl,
-                draw_impl.id: draw_impl,
-            },
-            sectionVariants={
-                code_variant.id: code_variant,
-                draw_variant.id: draw_variant,
-            },
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
         )
         project_state.validate_for_update(validate_code_file_bindings=True)
         backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
@@ -335,30 +305,68 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         )
         await manager._refresh_codegen_state(project_state)
 
-        base64_payload = (
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-            "AAAADUlEQVQImWNgYGD4DwABBAEAQkX2WQAAAABJRU5ErkJggg=="
-        )
-        payload = f"data:image/png;base64,{base64_payload}"
-        await manager.create_run_command(
-            RunCodeRequest(
-                projectConfigId=project_config.id,
-                sectionId=code_section.id,
-                runSnapshotMode=RunSnapshotMode.never,
-                drawSnapshotsBySectionId={draw_section.id: payload},
+        with self.assertRaises(ValueError):
+            await manager.create_run_command(
+                RunCodeRequest(
+                    projectConfigId=project_config.id,
+                    sectionId=section.id,
+                    runSnapshotMode=RunSnapshotMode.never,
+                )
             )
-        )
-        updated_state = manager.get_single_config_state(project_config.id)
-        updated_draw = get_curr_effective_section_impl_with_type_guard(
-            updated_state,
-            draw_section.id,
-            DrawSectionImpl,
-        )
-        expected_path = build_draw_snapshot_path(draw_section.id, C.ARTIFACTS_FOLDER)
-        self.assertEqual(expected_path.as_posix(), updated_draw.renderedImagePath)
-        self.assertTrue(expected_path.exists())
-        self.assertTrue(manager.autosave_debouncer.is_pending)
         manager.shutdown()
+
+    async def test_refresh_codegen_state_writes_non_runnable_code(self) -> None:
+        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+        code_impl.code = '{"ok": true}'
+        variant = Variant(
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            name="Json Block",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            name="NoCodegen",
+            codegenTargets=[],
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        project_state.validate_for_update(validate_code_file_bindings=True)
+        binding_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section.id,
+            CodeSectionImpl,
+        )
+        self.assertIsNotNone(binding_impl.codeFileBinding)
+        binding_path = binding_impl.codeFileBinding.canonical_path
+
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+        )
+        await manager._process_queue_task_started.wait()
+        await manager._refresh_codegen_state(project_state)
+        manager.shutdown()
+
+        self.assertTrue(binding_path.exists())
+        self.assertEqual(binding_path.read_text(encoding="utf-8"), code_impl.code)
 
     async def test_create_run_command_requires_entry_section_when_python_disabled(
         self,

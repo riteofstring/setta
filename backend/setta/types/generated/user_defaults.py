@@ -103,7 +103,6 @@ class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbi
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     layers: list[DrawAreaLayer] = Field(default_factory=list)
-    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16

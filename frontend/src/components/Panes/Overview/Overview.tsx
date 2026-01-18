@@ -10,6 +10,7 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { RiPlayList2Fill } from "react-icons/ri";
+import { TbFolder } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
@@ -28,6 +29,7 @@ import {
   TabButton,
 } from "../paneFns";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
+import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
@@ -45,6 +47,7 @@ export function Overview() {
     isShareMode: x.isShareMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
+  const showFileBrowserTab = !isShareMode;
   const showLLMTabs = !isShareMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
@@ -54,6 +57,12 @@ export function Overview() {
     ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
+  }
+  if (
+    !showFileBrowserTab &&
+    selectedTabName === OverviewTabNameEnum.FileBrowser
+  ) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
   }
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
@@ -81,6 +90,14 @@ export function Overview() {
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
+        {showFileBrowserTab && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.FileBrowser}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "Explorer" })}
+            icon={<TbFolder size={18} />}
+          />
+        )}
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ProjectConfigs}
           {...commonProps}
@@ -181,6 +198,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
+    case OverviewTabNameEnum.FileBrowser:
+      return <FileBrowserPane />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
     case OverviewTabNameEnum.RunInstructions:

@@ -52,7 +52,6 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     ChatSectionState,
     DrawSectionImpl,
-    ImageSectionImpl,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -133,7 +132,6 @@ class DependencyGraph:
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
-            SectionType.Image: self._export_image_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
         }
@@ -329,41 +327,11 @@ class DependencyGraph:
         if not isinstance(section_impl, DrawSectionImpl):
             return
         representation = ctx.codegen_policy.representation
-        if representation is not SectionRepresentationMode.file:
+        if representation is not SectionRepresentationMode.base64:
             raise ValueError(
                 f"Unsupported representation {representation.value} for Draw section {ctx.section_id}"
             )
-        dependency_value = (
-            FileReadDependencyValue(section_impl.renderedImagePath)
-            if section_impl.renderedImagePath
-            else None
-        )
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=dependency_value,
-            deps={},
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_image_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, ImageSectionImpl):
-            return
-        representation = ctx.codegen_policy.representation
-        if representation is not SectionRepresentationMode.file:
-            raise ValueError(
-                f"Unsupported representation {representation.value} for Image section {ctx.section_id}"
-            )
-        dependency_value = (
-            FileReadDependencyValue(section_impl.imagePath)
-            if section_impl.imagePath
-            else None
-        )
+        dependency_value = None
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
