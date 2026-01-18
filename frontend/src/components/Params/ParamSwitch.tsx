@@ -169,6 +169,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const dndEnabled = Boolean(dndContext?.enabled);
   const listKey = props.listKey;
   const dndId = getParamDndItemId(paramInfoId, listKey);
+  const hasNested = paramChildren.length > 0;
+  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
   const {
     attributes,
     listeners,
@@ -185,8 +187,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
       sectionId,
       listKey,
       isTopLevel: false,
-      hasNested: false,
-      onlyChildId: null,
+      hasNested,
+      onlyChildId,
     },
   });
   const { role: _role, ...restAttributes } = attributes;

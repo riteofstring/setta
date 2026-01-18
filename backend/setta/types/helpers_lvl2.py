@@ -2648,10 +2648,6 @@ def move_params_to_parent(
         new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             p, section_id, new_parent_id, BaseParentCodeObjImpl
         )
-    else:
-        new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, new_parent_id, BaseParentCodeObjImpl
-        )
 
     old_children = list(old_parent_impl.children)
     ordered_param_ids = [
