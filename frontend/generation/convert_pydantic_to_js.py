@@ -48,8 +48,6 @@ TYPE_ALIAS_EXCLUSIONS = [
     "AppStateFromWebsocket",
     "ReadyAppStateFromRequest",
     "ReadyAppStateFromWebsocket",
-    "RuntimeContextFromRequest",
-    "RuntimeContextFromWebsocket",
     "Type",
 ]
 

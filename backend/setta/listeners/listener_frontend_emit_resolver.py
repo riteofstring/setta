@@ -231,7 +231,11 @@ class ListenerFrontendEmitResolver:
             section_type = node.type
             if section_type in (SectionType.Draw, SectionType.Image):
                 return DependencyValueType.Base64
-            if section_type in (SectionType.Callable, SectionType.TextBlock):
+            if section_type in (
+                SectionType.Callable,
+                SectionType.TextBlock,
+                SectionType.Chat,
+            ):
                 return DependencyValueType.Literal
 
         raise UnsupportedListenerDependencyError(
