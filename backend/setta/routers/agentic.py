@@ -1,0 +1,281 @@
+from typing import Any
+
+from fastapi import HTTPException
+from pydantic import BaseModel, Field
+
+from setta.agentic.store import (
+    delete_prompt_template,
+    list_agent_runs,
+    list_prompt_templates,
+    load_agent_profiles,
+    load_agent_run,
+    load_prompt_template,
+    save_agent_profiles,
+    save_prompt_template,
+)
+from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.agentic import AgentProfile, AgentRun
+from setta.types.id import ID
+from setta.types.prompt import PromptFormat, PromptTemplate
+from setta.types.routes import Route
+
+router = SettaAPIRouter()
+
+
+class CreateAgentProfileRequest(BaseModel):
+    name: str
+    description: str = ""
+    systemPrompt: str = ""
+    llmConfigId: str | None = None
+    toolAllowlist: list[str] = Field(default_factory=list)
+    memoryScope: str | None = None
+
+
+class UpdateAgentProfileRequest(BaseModel):
+    profile: AgentProfile
+
+
+class GetAgentProfileRequest(BaseModel):
+    profileId: ID
+
+
+class DeleteAgentProfileRequest(BaseModel):
+    profileId: ID
+
+
+class StartAgentRunRequest(BaseModel):
+    profileId: ID
+    inputs: dict[str, Any] | None = None
+
+
+class StopAgentRunRequest(BaseModel):
+    runId: ID
+
+
+class GetAgentRunRequest(BaseModel):
+    runId: ID
+
+
+class CreatePromptTemplateRequest(BaseModel):
+    name: str
+    description: str = ""
+    template: str
+    format: PromptFormat = PromptFormat.Jinja
+    inputSchema: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpdatePromptTemplateRequest(BaseModel):
+    template: PromptTemplate
+
+
+class GetPromptTemplateRequest(BaseModel):
+    templateId: ID
+
+
+class DeletePromptTemplateRequest(BaseModel):
+    templateId: ID
+
+
+@router.get(Route.GET_AGENT_PROFILES)
+async def route_get_agent_profiles(
+    ctx: RuntimeContextFromRequest,
+) -> list[AgentProfile]:
+    await ctx.enforce_llm_allowed()
+    return load_agent_profiles(ctx.state.dbe)
+
+
+@router.post(Route.GET_AGENT_PROFILE)
+async def route_get_agent_profile(
+    x: GetAgentProfileRequest, ctx: RuntimeContextFromRequest
+) -> AgentProfile:
+    await ctx.enforce_llm_allowed()
+    profiles = load_agent_profiles(ctx.state.dbe)
+    for profile in profiles:
+        if profile.id == x.profileId:
+            return profile
+    raise HTTPException(status_code=404, detail="Agent profile not found")
+
+
+@router.post(Route.CREATE_AGENT_PROFILE)
+async def route_create_agent_profile(
+    x: CreateAgentProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentProfile:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow creating agent profiles.")
+    profiles = load_agent_profiles(ctx.state.dbe)
+    profile = AgentProfile(
+        name=x.name,
+        description=x.description,
+        systemPrompt=x.systemPrompt,
+        llmConfigId=x.llmConfigId,
+        toolAllowlist=x.toolAllowlist,
+        memoryScope=x.memoryScope,
+    )
+    profiles.append(profile)
+    save_agent_profiles(ctx.state.dbe, profiles)
+    return profile
+
+
+@router.post(Route.UPDATE_AGENT_PROFILE)
+async def route_update_agent_profile(
+    x: UpdateAgentProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentProfile:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating agent profiles.")
+    profiles = load_agent_profiles(ctx.state.dbe)
+    for idx, profile in enumerate(profiles):
+        if profile.id == x.profile.id:
+            profiles[idx] = x.profile
+            save_agent_profiles(ctx.state.dbe, profiles)
+            return x.profile
+    raise HTTPException(status_code=404, detail="Agent profile not found")
+
+
+@router.post(Route.DELETE_AGENT_PROFILE)
+async def route_delete_agent_profile(
+    x: DeleteAgentProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow deleting agent profiles.")
+    profiles = load_agent_profiles(ctx.state.dbe)
+    for idx, profile in enumerate(profiles):
+        if profile.id == x.profileId:
+            profiles.pop(idx)
+            save_agent_profiles(ctx.state.dbe, profiles)
+            return None
+    raise HTTPException(status_code=404, detail="Agent profile not found")
+
+
+@router.post(Route.START_AGENT_RUN)
+async def route_start_agent_run(
+    x: StartAgentRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    if ctx.state.agent_runner.disabled:
+        raise HTTPException(status_code=503, detail="Agent runner is not available")
+    profiles = load_agent_profiles(ctx.state.dbe)
+    for profile in profiles:
+        if profile.id == x.profileId:
+            return ctx.state.agent_runner.start_run(profile, x.inputs)
+    raise HTTPException(status_code=404, detail="Agent profile not found")
+
+
+@router.post(Route.STOP_AGENT_RUN)
+async def route_stop_agent_run(
+    x: StopAgentRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    if ctx.state.agent_runner.disabled:
+        raise HTTPException(status_code=503, detail="Agent runner is not available")
+    try:
+        return await ctx.state.agent_runner.stop_run(x.runId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(Route.GET_AGENT_RUN)
+async def route_get_agent_run(
+    x: GetAgentRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    run = load_agent_run(ctx.state.dbe, x.runId)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Agent run not found")
+    return run
+
+
+@router.get(Route.GET_AGENT_RUNS)
+async def route_get_agent_runs(
+    ctx: RuntimeContextFromRequest,
+) -> list[AgentRun]:
+    await ctx.enforce_llm_allowed()
+    return list_agent_runs(ctx.state.dbe)
+
+
+@router.get(Route.GET_PROMPT_TEMPLATES)
+async def route_get_prompt_templates(
+    ctx: RuntimeContextFromRequest,
+) -> list[PromptTemplate]:
+    await ctx.enforce_llm_allowed()
+    return list_prompt_templates(ctx.state.dbe)
+
+
+@router.post(Route.GET_PROMPT_TEMPLATE)
+async def route_get_prompt_template(
+    x: GetPromptTemplateRequest, ctx: RuntimeContextFromRequest
+) -> PromptTemplate:
+    await ctx.enforce_llm_allowed()
+    template = load_prompt_template(ctx.state.dbe, x.templateId)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    return template
+
+
+@router.post(Route.CREATE_PROMPT_TEMPLATE)
+async def route_create_prompt_template(
+    x: CreatePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> PromptTemplate:
+    ctx.require_ide_mode("Share mode does not allow creating prompt templates.")
+    await ctx.enforce_llm_allowed()
+    template = PromptTemplate(
+        name=x.name,
+        description=x.description,
+        template=x.template,
+        format=x.format,
+        inputSchema=x.inputSchema,
+        metadata=x.metadata,
+    )
+    save_prompt_template(ctx.state.dbe, template)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return template
+
+
+@router.post(Route.UPDATE_PROMPT_TEMPLATE)
+async def route_update_prompt_template(
+    x: UpdatePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> PromptTemplate:
+    ctx.require_ide_mode("Share mode does not allow updating prompt templates.")
+    await ctx.enforce_llm_allowed()
+    existing = load_prompt_template(ctx.state.dbe, x.template.id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    save_prompt_template(ctx.state.dbe, x.template)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return x.template
+
+
+@router.post(Route.DELETE_PROMPT_TEMPLATE)
+async def route_delete_prompt_template(
+    x: DeletePromptTemplateRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    ctx.require_ide_mode("Share mode does not allow deleting prompt templates.")
+    await ctx.enforce_llm_allowed()
+    existing = load_prompt_template(ctx.state.dbe, x.templateId)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    delete_prompt_template(ctx.state.dbe, x.templateId)
+    if ctx.state.prompt_template_watcher:
+        ctx.state.prompt_template_watcher.refresh()
+    await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(
+        list_prompt_templates(ctx.state.dbe)
+    )
+    return None

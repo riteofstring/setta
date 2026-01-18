@@ -312,7 +312,6 @@ def create_settings_project_state(settings_path: Path):
         topLevelSections=projectConfigChildren,
         sectionVariantMap=sectionVariantMap,
         viewport=None,
-        codegenTargets=[],
     )
     visibility_by_section_id = {section_id: True for section_id in sections.keys()}
     view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
