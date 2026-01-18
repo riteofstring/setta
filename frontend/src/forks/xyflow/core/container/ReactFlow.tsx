@@ -9,7 +9,6 @@ import {
   type UIEvent,
 } from "react";
 import { useLocalStorage, useSettings } from "state/definitions";
-import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
 import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
@@ -33,12 +32,6 @@ const ReactFlow = () => {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
-  useTabScope({
-    scopeId: "canvas",
-    order: 20,
-    rootRef: ref,
-    behavior: "canvas",
-  });
 
   useEffect(() => {
     if (ref.current) {
@@ -57,7 +50,6 @@ const ReactFlow = () => {
       className="react-flow setta-light dark:setta-dark"
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
-      data-tab-scope="canvas"
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}

@@ -113,6 +113,24 @@ export async function route_run_code(
   return await post("/runCode", x);
 }
 
+async function route_run_detached(
+  x: gt.RunDetachedRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
+  return await post("/runDetached", x);
+}
+
+async function route_get_run_status(
+  x: gt.GetRunStatusRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
+  return await post("/getRunStatus", x);
+}
+
+async function route_cancel_run(
+  x: gt.CancelRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
+  return await post("/cancelRun", x);
+}
+
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequestInput,
 ): Promise<ResponseDataAndStatus<string>> {
@@ -135,6 +153,12 @@ export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequestsInput,
 ): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/checkIfFileExists", x);
+}
+
+export async function route_get_file_browser_root(): Promise<
+  ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
+> {
+  return await post("/getFileBrowserRoot", null);
 }
 
 export async function route_get_folder_contents(
@@ -497,6 +521,12 @@ export async function route_toggle_variant_json_source(
   return await post("/toggleVariantJsonSource", x);
 }
 
+export async function route_set_variant_json_source_keys(
+  x: gt.SetVariantJsonSourceKeysRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setVariantJsonSourceKeys", x);
+}
+
 export async function route_delete_json_source_file_and_variant(
   x: gt.DeleteJSONSourceFileAndVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -507,6 +537,12 @@ export async function route_set_text_block_text(
   x: gt.SetTextBlockTextRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockText", x);
+}
+
+export async function route_set_project_config_codegen_targets(
+  x: gt.SetProjectConfigCodegenTargetsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setProjectConfigCodegenTargets", x);
 }
 
 export async function route_set_gen_code_prefix(
@@ -719,6 +755,12 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
+export async function route_set_section_with_params_display_mode(
+  x: gt.SetSectionWithParamsDisplayModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionWithParamsDisplayMode", x);
+}
+
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -795,30 +837,6 @@ export async function route_move_section(
   x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/moveSection", x);
-}
-
-export async function route_move_params(
-  x: gt.MoveParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParams", x);
-}
-
-export async function route_move_param_groups(
-  x: gt.MoveParamGroupsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParamGroups", x);
-}
-
-export async function route_indent_params(
-  x: gt.IndentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/indentParams", x);
-}
-
-export async function route_unindent_params(
-  x: gt.UnindentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/unindentParams", x);
 }
 
 export async function route_group_sections(

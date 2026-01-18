@@ -19,6 +19,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultDropdownParamCodeObjImpl,
     UserDefaultDropzoneParamCodeObjImpl,
     UserDefaultGenPythonCodeSectionImpl,
+    UserDefaultGenPythonMetadataSectionImpl,
     UserDefaultGlobalVariablesSectionImpl,
     UserDefaultGroupSectionImpl,
     UserDefaultIFrameSectionImpl,
@@ -79,6 +80,9 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     genPythonCodeSectionDefault: UserDefaultGenPythonCodeSectionImpl = Field(
         default_factory=UserDefaultGenPythonCodeSectionImpl
+    )
+    genPythonMetadataSectionDefault: UserDefaultGenPythonMetadataSectionImpl = Field(
+        default_factory=UserDefaultGenPythonMetadataSectionImpl
     )
     globalVariablesSectionDefault: UserDefaultGlobalVariablesSectionImpl = Field(
         default_factory=UserDefaultGlobalVariablesSectionImpl
@@ -192,6 +196,9 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.GenPythonCode:
             return settings.genPythonCodeSectionDefault
+
+        case SectionType.GenPythonMetadata:
+            return settings.genPythonMetadataSectionDefault
 
         case SectionType.Terminal:
             return settings.terminalSectionDefault
