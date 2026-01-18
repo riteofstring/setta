@@ -43,7 +43,6 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.utils import build_gen_code_path
@@ -246,16 +245,14 @@ class ShareRuntimeState:
             section_id = project_state.projectConfig.entryCodeBlockId
         if section_id:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if isinstance(
-                section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
+            if (
+                isinstance(section_impl, CodeSectionImpl)
+                and section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES
             ):
-                section_id = None
-            elif isinstance(section_impl, CodeSectionImpl):
-                if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Run is only available for Python and Bash.",
-                    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Run is only available for Python and Bash.",
+                )
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
         snapshot_section_inputs: dict[ID, SnapshotSectionInput] = {}

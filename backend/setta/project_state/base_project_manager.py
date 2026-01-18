@@ -44,12 +44,8 @@ from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.chats.load import load_chat
 from setta.project_state.code import (
-    build_bash_run_command,
-    build_python_module_run_command,
     create_snapshot_run_command_from_code_sections_only,
-    create_snapshot_run_command_from_code_sections_only_with_path,
     create_snapshot_run_command_from_sections,
-    create_snapshot_run_command_from_sections_with_path,
 )
 from setta.project_state.code_files import (
     CodeFileReloadPlan,
@@ -113,7 +109,6 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     RenameRefactorBroadcastContent,
     RunCodeRequest,
-    RunDetachedRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
@@ -162,6 +157,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
+    SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -184,6 +180,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -259,6 +256,7 @@ from setta.types.helpers_lvl2 import (
     set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
+    set_variant_json_source_keys,
     toggle_group_orientation,
     toggle_minimized,
     toggle_param_selected,
@@ -306,8 +304,6 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
-    GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
     SectionType,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
@@ -324,78 +320,6 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
-
-
-def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
-    pieces = key.split(":", 1)
-    if len(pieces) != 2 or not pieces[0] or not pieces[1]:
-        raise ValueError(f"Invalid param override key: {key!r}")
-    return SectionParamDependencyKey(sectionId=pieces[0], codeObjId=pieces[1])
-
-
-def _resolve_run_command_builder(
-    code_language: CodeLanguage,
-) -> Callable[[Path], str]:
-    if code_language == CodeLanguage.python:
-        return build_python_module_run_command
-    if code_language == CodeLanguage.bash:
-        return build_bash_run_command
-
-    def _unsupported(_path: Path, *, _language: CodeLanguage = code_language) -> str:
-        raise ValueError(f"Run is not supported for language {_language}")
-
-    return _unsupported
-
-
-def _build_code_section_inputs(
-    project_state: ProjectStateSingleConfig,
-) -> dict[ID, tuple[str, CodeFileBinding, Callable[[Path], str]]]:
-    section_inputs: dict[ID, tuple[str, CodeFileBinding, Callable[[Path], str]]] = {}
-    for section_id in project_state.sections.keys():
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if not isinstance(section_impl, CodeSectionImpl):
-            continue
-        binding = section_impl.codeFileBinding
-        if binding is None:
-            raise ValueError(f"Code section {section_id} missing codeFileBinding")
-        section_inputs[section_id] = (
-            section_impl.code,
-            binding,
-            _resolve_run_command_builder(section_impl.codeLanguage),
-        )
-    return section_inputs
-
-
-def _apply_run_overrides(
-    project_state: ProjectStateSingleConfig,
-    *,
-    section_variant_overrides: dict[ID, ID] | None,
-    param_overrides: dict[str, str] | None,
-) -> None:
-    if section_variant_overrides:
-        for section_id, variant_id in section_variant_overrides.items():
-            if section_id not in project_state.sections:
-                raise KeyError(f"Unknown section id: {section_id}")
-            if variant_id not in project_state.sectionVariants:
-                raise KeyError(f"Unknown variant id: {variant_id}")
-            if variant_id not in project_state.sections[section_id].variants:
-                raise KeyError(
-                    f"Variant {variant_id} is not part of section {section_id}"
-                )
-            set_section_variant(project_state, section_id, variant_id)
-    if param_overrides:
-        for key, value in param_overrides.items():
-            dep_key = _parse_param_override_key(key)
-            if dep_key.sectionId not in project_state.sections:
-                raise KeyError(f"Unknown section id: {dep_key.sectionId}")
-            if dep_key.codeObjId not in project_state.codeObjs:
-                raise KeyError(f"Unknown param id: {dep_key.codeObjId}")
-            set_param_entered_value(
-                project_state,
-                dep_key.sectionId,
-                dep_key.codeObjId,
-                value,
-            )
 
 
 class BaseProjectManager(ABC):
@@ -799,92 +723,6 @@ class BaseProjectManager(ABC):
                 section_inputs=snapshot_section_inputs,
                 gen_command_builder=gen_code.get_run_command,
             )
-
-    @enqueue_method
-    async def create_run_command_with_overrides(
-        self,
-        x: RunDetachedRequest,
-    ) -> tuple[str, Path, ID | None]:
-        project_config_id = x.projectConfigId
-        entry_section_id = x.entrySectionId
-        run_snapshot_mode = x.runSnapshotMode
-        if run_snapshot_mode == RunSnapshotMode.never:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Detached runs always snapshot; runSnapshotMode=never is not supported.",
-            )
-        async with self._project_state_lock.read_lock():
-            base_state = convert_backend_to_single_config(
-                self.project_state_backend, project_config_id
-            )
-        project_state = base_state.model_copy(deep=True)
-        _apply_run_overrides(
-            project_state,
-            section_variant_overrides=x.sectionVariantOverrides,
-            param_overrides=x.paramOverrides,
-        )
-        resolved_run_snapshot_mode = (
-            run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
-        )
-        if resolved_run_snapshot_mode == RunSnapshotMode.never:
-            resolved_run_snapshot_mode = RunSnapshotMode.ephemeral
-        if not entry_section_id:
-            entry_section_id = project_state.projectConfig.entryCodeBlockId
-        if entry_section_id:
-            section_impl = get_curr_effective_section_impl(
-                project_state, entry_section_id
-            )
-            if isinstance(
-                section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
-            ):
-                entry_section_id = None
-            elif isinstance(section_impl, CodeSectionImpl):
-                if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Run is only available for Python and Bash.",
-                    )
-        section_inputs = _build_code_section_inputs(project_state)
-        python_codegen_enabled = project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        )
-        if not python_codegen_enabled:
-            if not entry_section_id:
-                raise KeyError(
-                    "Python codegen is disabled; select a code section to run."
-                )
-            if entry_section_id not in section_inputs:
-                raise KeyError(f"Missing code section for run: {entry_section_id}")
-            command, snapshot_path = (
-                create_snapshot_run_command_from_code_sections_only_with_path(
-                    dbe=self.dbe,
-                    snapshot_root=self._resolve_run_snapshot_root(
-                        resolved_run_snapshot_mode
-                    ),
-                    entry_section_id=entry_section_id,
-                    section_inputs=section_inputs,
-                )
-            )
-            return command, snapshot_path, entry_section_id
-
-        dep_graph = DependencyGraph(project_state)
-        code_generator = build_python_code_generator(project_state, dep_graph)
-        code_generator.generate_code()
-        gen_binding = project_state.genCodeBinding
-        if gen_binding is None:
-            raise ValueError("Project state missing generated code binding")
-        command, snapshot_path = create_snapshot_run_command_from_sections_with_path(
-            dbe=self.dbe,
-            snapshot_root=self._resolve_run_snapshot_root(resolved_run_snapshot_mode),
-            entry_section_id=entry_section_id,
-            gen_code=code_generator.code,
-            gen_meta_code=code_generator.meta_code,
-            gen_binding=gen_binding,
-            section_inputs=section_inputs,
-            gen_command_builder=build_python_module_run_command,
-        )
-        return command, snapshot_path, entry_section_id
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
         if run_snapshot_mode == RunSnapshotMode.ephemeral:
@@ -2006,6 +1844,57 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if not project_state.projectConfig.allowJsonSourceKeyEdits:
+            raise HTTPException(
+                status_code=403,
+                detail="JSON source key edits are disabled for this project.",
+            )
+        variant = project_state.sectionVariants[x.variantId]
+        filename = normalize_path(variant.name)
+        processed = self.json_source.json_sources.get(filename)
+        if processed is None and filename.exists():
+            processed_updates = self.json_source.process_json_source_files([filename])
+            processed = processed_updates.get(filename)
+            if processed is not None:
+                self.json_source.json_sources[filename] = processed
+        if processed is not None:
+            key_path = tuple(x.jsonSourceKeys)
+            if key_path not in processed.hierarchy.name_path_to_id:
+                joined = ".".join(x.jsonSourceKeys) if x.jsonSourceKeys else "<root>"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"jsonSourceKeys path not found: {joined}",
+                )
+            processed_id = processed.hierarchy.name_path_to_id[key_path]
+            variant_id = processed.keyValueInfo.codeObjVariantMap[processed_id]
+            variant_info = processed.keyValueInfo.codeObjVariants[variant_id]
+            impl = processed.keyValueInfo.codeObjImpls[variant_info.impl]
+            if not isinstance(impl, BaseParentCodeObjImpl):
+                joined = ".".join(x.jsonSourceKeys) if x.jsonSourceKeys else "<root>"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"jsonSourceKeys must resolve to an object: {joined}",
+                )
+
+        set_variant_json_source_keys(
+            project_state, x.sectionId, x.variantId, x.jsonSourceKeys
+        )
+        async with self._project_state_lock.write_lock():
+            project_state.validate_for_update(validate_code_file_bindings=True)
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        load_fn = self.load_json_sources.__wrapped__
+        await load_fn(
+            self,
+            json_sources=self.json_source.json_sources,
+            section_variants_to_load=[(x.sectionId, x.variantId)],
+        )
 
     @enqueue_method
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):

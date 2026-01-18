@@ -10,6 +10,7 @@
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
+- `json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
