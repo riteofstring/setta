@@ -43,7 +43,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId=ID("section-A"), codeObjId=ID("param-1")
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -72,7 +72,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId=ID("section-A"), codeObjId=ID("param-1")
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -98,7 +98,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId=ID("section-A"), codeObjId=ID("param-1")
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -110,7 +110,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                     dependencies=[
                         create_dep_key(sectionId=ID("section-B"), codeObjId=None)
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -144,7 +144,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 )
             },
         )
@@ -169,7 +169,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId=ID("section-A"), codeObjId=ID("param-1")
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )

@@ -7,12 +7,6 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
-from setta.types.chat_messages import (
-    AssistantChatMessage,
-    SystemChatMessage,
-    ToolChatMessage,
-    UserChatMessage,
-)
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
@@ -25,7 +19,6 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -67,7 +60,6 @@ class CoreArgs(TypedDict):
                 "callable",
                 "canvasMode",
                 "chartSettings",
-                "chatId",
                 "children",
                 "choices",
                 "code",
@@ -80,7 +72,6 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
-                "deepThink",
                 "defaultVal",
                 "description",
                 "displayMode",
@@ -97,7 +88,6 @@ class CoreArgs(TypedDict):
                 "id",
                 "ignoreTypeErrors",
                 "imagePath",
-                "inputText",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -108,10 +98,7 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
-                "llmConfigId",
-                "managed",
                 "max",
-                "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
@@ -122,7 +109,7 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderedImagePath",
+                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -134,14 +121,12 @@ class CoreArgs(TypedDict):
                 "step",
                 "text",
                 "textDisplayMode",
-                "toolCallArguments",
                 "topLevelParamId",
                 "type",
                 "typesColumnWidth",
                 "url",
                 "value",
                 "viewMode",
-                "waitingForResponse",
             ]
         ]
     ]
@@ -156,7 +141,8 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -246,10 +232,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -384,7 +372,6 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[DrawAreaLayer]]
-    renderedImagePath: NotRequired[str | None]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -404,7 +391,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     layers: NotRequired[
         list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
-    renderedImagePath: NotRequired[str | None | Callable[[str | None], str | None]]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
@@ -515,20 +501,6 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
     ]
 
 
-class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
-    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
-
-
-class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.GenPythonMetadata]
-        | Callable[
-            [Literal[SectionType.GenPythonMetadata]],
-            Literal[SectionType.GenPythonMetadata],
-        ]
-    ]
-
-
 class TerminalSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Terminal]]
 
@@ -553,54 +525,12 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
-    managed: NotRequired[bool]
-    llmConfigId: NotRequired[str | None]
-    chatId: NotRequired[ID | None]
-    deepThink: NotRequired[bool]
-    messages: NotRequired[
-        list[
-            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-        ]
-    ]
-    inputText: NotRequired[str]
-    waitingForResponse: NotRequired[bool]
-    toolCallArguments: NotRequired[dict[str, str]]
 
 
 class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Chat]
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
-    ]
-    managed: NotRequired[bool | Callable[[bool], bool]]
-    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
-    chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    deepThink: NotRequired[bool | Callable[[bool], bool]]
-    messages: NotRequired[
-        list[
-            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-        ]
-        | Callable[
-            [
-                list[
-                    SystemChatMessage
-                    | AssistantChatMessage
-                    | UserChatMessage
-                    | ToolChatMessage
-                ]
-            ],
-            list[
-                SystemChatMessage
-                | AssistantChatMessage
-                | UserChatMessage
-                | ToolChatMessage
-            ],
-        ]
-    ]
-    inputText: NotRequired[str | Callable[[str], str]]
-    waitingForResponse: NotRequired[bool | Callable[[bool], bool]]
-    toolCallArguments: NotRequired[
-        dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
     ]
 
 
