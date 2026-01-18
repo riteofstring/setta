@@ -1,5 +1,4 @@
 import { addTemporaryNotification } from "state/actions/notifications";
-import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   buildParamParentMap,
   buildParamTreeView,
@@ -227,12 +226,6 @@ export function moveParamsWithBackend({
   if (paramIds.length === 0) {
     return;
   }
-  logParamReorder("move params", {
-    sectionId,
-    paramIds,
-    newParentId,
-    newIndex,
-  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       applyParamMove(state, sectionId, {
@@ -263,10 +256,6 @@ function moveParamGroupsWithBackend({
   if (moves.length === 0) {
     return;
   }
-  logParamReorder("move param groups", {
-    sectionId,
-    moves,
-  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       for (const move of moves) {
@@ -345,12 +334,6 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
     return false;
   }
   const { sectionId, rootSelected, sharedParent, tree } = context;
-  logParamReorder("move selected params", {
-    direction,
-    sectionId,
-    rootSelected,
-    sharedParent,
-  });
   let visibleSiblings = tree.visibleChildrenByParent[sharedParent] ?? [];
   if (visibleSiblings.length === 0) {
     return false;
@@ -504,14 +487,6 @@ function getParamMovementContext(): {
   }
   const sharedParent = getSharedParentId(base.parentById, base.rootSelected);
   if (!sharedParent) {
-    logParamReorder("selection spans multiple parents", {
-      sectionId: base.sectionId,
-      rootSelected: base.rootSelected,
-      parents: base.rootSelected.map((id) => ({
-        id,
-        parentId: base.parentById[id] ?? null,
-      })),
-    });
     addTemporaryNotification("Param selection spans multiple parents.");
     return null;
   }

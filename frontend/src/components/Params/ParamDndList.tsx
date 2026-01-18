@@ -1,7 +1,6 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import React, { useEffect } from "react";
-import { logParamReorder } from "state/actions/params/paramReorderDebug";
+import React from "react";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
@@ -33,7 +32,21 @@ export function ParamDndList({
   isTopLevel,
   listKey,
 }: ParamDndListProps) {
+  const paramFilterActive = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return impl.paramFilter.trim().length > 0;
+  });
+  const isSelectingParams = useMisc((x) => x.isSelectingParams);
+  const { canEditStructure } = useShareCapabilities();
+  const enabled = isSelectingParams && canEditStructure && !paramFilterActive;
   const tree = useProjectState((state) => {
+    if (!enabled) {
+      return null;
+    }
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
       sectionId,
@@ -57,35 +70,6 @@ export function ParamDndList({
       requiredParamIdsToPaths,
     );
   }, _.isEqual);
-  const paramFilterActive = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return impl.paramFilter.trim().length > 0;
-  });
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const { canEditStructure } = useShareCapabilities();
-  const enabled = isSelectingParams && canEditStructure && !paramFilterActive;
-
-  useEffect(() => {
-    logParamReorder("param dnd state", {
-      sectionId,
-      enabled,
-      hasTree: Boolean(tree),
-      paramFilterActive,
-      isSelectingParams,
-      canEditStructure,
-    });
-  }, [
-    sectionId,
-    enabled,
-    tree,
-    paramFilterActive,
-    isSelectingParams,
-    canEditStructure,
-  ]);
 
   if (!tree) {
     return (

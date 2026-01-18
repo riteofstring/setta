@@ -33,7 +33,6 @@ import {
   orderParamIdsByParent,
   selectOnlyParam,
 } from "state/actions/params/moveParams";
-import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   buildParamParentMap,
   buildParamTreeView,
@@ -248,13 +247,6 @@ function handleParamDragStart(event: DragStartEvent) {
   updateParamChildren(tree.visibleChildrenByParent);
   replaceParamsWithTemp(activeId, draggingIds);
 
-  logParamReorder("param drag start", {
-    sectionId,
-    activeId,
-    draggingIds,
-    listKey: view.listKey,
-  });
-
   setParamDndState({
     activeId,
     sectionId,
@@ -359,12 +351,6 @@ function handleParamDragEnd() {
     }
   }
 
-  logParamReorder("param drag end", {
-    sectionId: paramState.sectionId,
-    paramIds: orderedDraggingIds,
-    newParentId,
-    newIndex,
-  });
   moveParamsWithBackend({
     sectionId: paramState.sectionId,
     paramIds: orderedDraggingIds,
@@ -401,13 +387,6 @@ function updateParamDragOver({
       lastFilteredCollisionEmpty !== true
     ) {
       lastFilteredCollisionEmpty = true;
-      logParamReorder("param drag over: listKey filter empty", {
-        sectionId: paramState.sectionId,
-        activeId: paramState.activeId,
-        listKey: paramState.listKey,
-        collisionCount: collisions.length,
-        collisionIds: getCollisionIds(collisions),
-      });
     }
     if (!collisions || collisions.length === 0) {
       if (
@@ -463,40 +442,11 @@ function updateParamDragOver({
   const oldParentId =
     getParamDndParentId(getParamDndId(paramState.activeId)) ?? null;
 
-  const overCollision = findCollisionById(filteredCollisions, resolvedOverId);
-  const hasParentForOverId = Object.prototype.hasOwnProperty.call(
-    paramState.parentById,
-    normalizedOverId,
-  );
-  const selectionSet = new Set(paramState.draggingIds);
-  const overIsDescendant = hasParentForOverId
-    ? isDescendantOfSelection(
-        paramState.parentById,
-        normalizedOverId,
-        selectionSet,
-      )
-    : false;
-
   const newParentId = resolveParamDragParent({
     overId: normalizedOverId,
     parentById: paramState.parentById,
     draggingIds: paramState.draggingIds,
     triggerDistCondition,
-  });
-  logParamReorder("param drag over", {
-    sectionId: paramState.sectionId,
-    activeId: paramState.activeId,
-    listKey: paramState.listKey,
-    overId: normalizedOverId,
-    pastHalfway,
-    triggerDistCondition,
-    oldParentId,
-    newParentId,
-    hasParentForOverId,
-    overIsDescendant,
-    filteredCollisionCount: filteredCollisions.length,
-    filteredCollisionIds: getCollisionIds(filteredCollisions),
-    overCollision: getCollisionSummary(overCollision),
   });
   if (!newParentId) {
     return;
@@ -784,65 +734,6 @@ function getCollisionTriggerDistCondition(
   return Boolean(fallback);
 }
 
-function findCollisionById(
-  collisions: SettaCollision[],
-  overId: string | number | null,
-): SettaCollision | null {
-  if (!overId) {
-    return null;
-  }
-  const key = String(overId);
-  for (const collision of collisions) {
-    if (String(collision.id) === key) {
-      return collision;
-    }
-  }
-  return null;
-}
-
-function getCollisionIds(collisions: SettaCollision[]) {
-  return collisions.slice(0, 8).map((collision) => String(collision.id));
-}
-
-function getCollisionSummary(collision: SettaCollision | null) {
-  if (!collision) {
-    return null;
-  }
-
-  const droppableData = (
-    collision.data?.droppable?.data as CollisionDroppableData | undefined
-  )?.current;
-  let sortableSummary: CollisionSortableData | null = null;
-  if (droppableData?.sortable) {
-    sortableSummary = {
-      containerId: droppableData.sortable.containerId ?? null,
-      index: droppableData.sortable.index ?? null,
-    };
-  }
-
-  let droppableSummary = null;
-  if (droppableData) {
-    droppableSummary = {
-      type: droppableData.type ?? null,
-      sectionId: droppableData.sectionId ?? null,
-      listKey: droppableData.listKey ?? null,
-      isTopLevel: droppableData.isTopLevel ?? null,
-      hasNested: droppableData.hasNested ?? null,
-      onlyChildId: droppableData.onlyChildId ?? null,
-      sortable: sortableSummary,
-    };
-  }
-
-  return {
-    id: String(collision.id),
-    triggerDist: collision.data?.triggerDist ?? null,
-    absTriggerDist: collision.data?.absTriggerDist ?? null,
-    intersectionRatio: collision.data?.intersectionRatio ?? null,
-    pastHalfway: collision.pastHalfway ?? null,
-    triggerDistCondition: collision.triggerDistCondition ?? null,
-    droppable: droppableSummary,
-  };
-}
 
 function getPastHalfwayFromCollisions(
   collisions: DragOverEvent["collisions"] | null,
