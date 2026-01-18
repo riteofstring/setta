@@ -1,3 +1,4 @@
+import type { DragDropManager } from "@dnd-kit/dom";
 import { DragOverlay, useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import type {
@@ -6,6 +7,7 @@ import type {
   DragStartEvent,
 } from "forks/dnd-kit/adapter";
 import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
+import { rectFromBoundingRect } from "forks/dnd-kit/adapter/rect";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addParamChild,
@@ -92,8 +94,9 @@ let lastResolvedTriggerDistCondition: boolean | null = null;
 let lastFilteredCollisionEmpty: boolean | null = null;
 
 export function ParamDndMonitor() {
+  const manager = useDragDropManager();
   useDndMonitor({
-    onDragStart: handleParamDragStart,
+    onDragStart: (event) => handleParamDragStart(event, manager),
     onDragMove: handleParamDragMove,
     onDragOver: handleParamDragOver,
     onDragEnd: handleParamDragEnd,
@@ -185,7 +188,10 @@ export function ParamDragOverlay() {
   );
 }
 
-function handleParamDragStart(event: DragStartEvent) {
+function handleParamDragStart(
+  event: DragStartEvent,
+  manager: DragDropManager | null,
+) {
   const dragData = getParamDragData(event);
   if (!dragData) {
     return;
@@ -240,8 +246,8 @@ function handleParamDragStart(event: DragStartEvent) {
     view.topLevelParamIds,
     view.requiredParamIdsToPaths,
   );
-  const placeholderSize = measureParamDragSize(sectionId, draggingIds);
-  const activeRect = measureParamActiveRect(sectionId, activeId);
+  const placeholderSize = measureParamDragSize(manager, draggingIds);
+  const activeRect = measureParamActiveRect(manager, activeId, event.activeRect);
   const dragOffset = resolveParamDragOffset(activeRect);
   updateParamChildren(tree.visibleChildrenByParent);
   replaceParamsWithTemp(activeId, draggingIds);
@@ -751,17 +757,17 @@ function getPastHalfwayFromCollisions(
   return Boolean(match.pastHalfway);
 }
 
-function measureParamDragSize(sectionId: string, paramIds: string[]) {
+function measureParamDragSize(
+  manager: DragDropManager | null,
+  paramIds: string[],
+) {
   let width = 0;
   let height = 0;
   for (const paramId of paramIds) {
-    const elem = document.getElementById(
-      `ParamContainer-${sectionId}-${paramId}`,
-    );
-    if (!elem) {
+    const rect = getDroppableRect(manager, paramId);
+    if (!rect) {
       continue;
     }
-    const rect = elem.getBoundingClientRect();
     width = Math.max(width, rect.width);
     height += rect.height;
   }
@@ -774,22 +780,23 @@ function measureParamDragSize(sectionId: string, paramIds: string[]) {
   return { width, height };
 }
 
-function measureParamActiveRect(sectionId: string, paramId: string) {
-  const elem = document.getElementById(
-    `ParamContainer-${sectionId}-${paramId}`,
-  );
-  if (!elem) {
+function measureParamActiveRect(
+  manager: DragDropManager | null,
+  paramId: string,
+  fallbackRect: DragStartEvent["activeRect"] | null,
+) {
+  return getDroppableRect(manager, paramId) ?? fallbackRect ?? null;
+}
+
+function getDroppableRect(
+  manager: DragDropManager | null,
+  droppableId: string,
+) {
+  const shape = manager?.registry.droppables.get(droppableId)?.shape;
+  if (!shape) {
     return null;
   }
-  const rect = elem.getBoundingClientRect();
-  return {
-    top: rect.top,
-    left: rect.left,
-    right: rect.right,
-    bottom: rect.bottom,
-    width: rect.width,
-    height: rect.height,
-  };
+  return rectFromBoundingRect(shape.boundingRectangle);
 }
 
 function resolveParamDragOffset(

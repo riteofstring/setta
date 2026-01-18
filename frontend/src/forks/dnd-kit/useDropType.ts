@@ -21,7 +21,7 @@ import {
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useProjectState, useSectionRefs } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -65,30 +65,18 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
-export function onDragStart({ active }: DragStartEvent) {
+export function onDragStart({ active, activeRect }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
   }
-  const sectionRef = useSectionRefs.getState().withNested[active.id];
-  const rect = sectionRef?.getBoundingClientRect() ?? null;
-  const rawWidth = rect?.width ?? sectionRef?.clientWidth ?? 0;
-  const rawHeight = rect?.height ?? sectionRef?.clientHeight ?? 0;
-  const activeRect = rect
-    ? {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      }
-    : null;
+  const rawWidth = activeRect?.width ?? 0;
+  const rawHeight = activeRect?.height ?? 0;
   const zoom = useReactFlow.getState().transform[2];
   const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth = rawWidth;
+  const normalizedWidth = rawWidth / safeZoom;
   const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
   setActiveDnd(

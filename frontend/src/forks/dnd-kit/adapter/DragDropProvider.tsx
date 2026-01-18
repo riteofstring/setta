@@ -134,8 +134,8 @@ export function DragDropProvider({
           tracker.update(collisions);
           recordCollisionStats(collisions?.length ?? 0);
         }}
-        onDragStart={(event) => {
-          const mapped = mapDragStartEvent(event);
+        onDragStart={(event, manager) => {
+          const mapped = mapDragStartEvent(event, manager);
           if (!mapped) {
             return;
           }
