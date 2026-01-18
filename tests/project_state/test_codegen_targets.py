@@ -475,3 +475,73 @@ class ShareRuntimeStateCodegenTargetsTests(unittest.TestCase):
             session_state = manager.get_session_state("session-a", project_config.id)
 
             self.assertIsNone(session_state.genCodeBinding)
+
+
+class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
+    async def test_share_runtime_state_rejects_non_runnable_language(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = (
+                Path(tmpdir)
+                / "share_deployments"
+                / "no_run"
+                / "v1"
+            )
+            root.mkdir(parents=True, exist_ok=True)
+            code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
+            code_impl.code = '{"ok": true}'
+            code_impl.codeFileBinding = CodeFileBinding(
+                canonical_path=Path("code/sample.json"),
+                access_mode=CodeFileAccessMode.read_write,
+            )
+            variant = Variant(
+                impl=code_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+            )
+            section = Core(
+                name="Json Block",
+                variants=[variant.id],
+                defaultVariant=variant.id,
+            )
+            project_config = ProjectConfig(
+                name="no_run",
+                codegenTargets=[],
+                entryCodeBlockId=section.id,
+                sectionVariantMap={section.id: variant.id},
+                topLevelSections={section.id: TopLevelSectionLayout()},
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={section.id: section},
+                sectionImpls={code_impl.id: code_impl},
+                sectionVariants={variant.id: variant},
+            )
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            backend = merge_single_config_into_backend(
+                ProjectStateBackend(),
+                project_state,
+            )
+            backend.defaultProjectConfigId = project_config.id
+            dbe = DBE(root)
+            dbe.write_project(backend)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                deploymentName=root.parent.name,
+                defaultProjectConfigId=project_config.id,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
+            manager.create_session_backend("session-a")
+
+            with self.assertRaises(HTTPException) as ctx:
+                await manager.create_run_command(
+                    "session-a",
+                    RunCodeRequest(
+                        projectConfigId=project_config.id,
+                        sectionId=None,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
+                    ),
+                )
+            self.assertEqual(400, ctx.exception.status_code)
