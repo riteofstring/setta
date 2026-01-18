@@ -25,6 +25,7 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
+    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -37,6 +38,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -81,6 +83,7 @@ class CoreArgs(TypedDict):
                 "deepThink",
                 "defaultVal",
                 "description",
+                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -119,7 +122,6 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -153,8 +155,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    genCodePrefix: NotRequired[str]
-    genCodeSuffix: NotRequired[str]
+    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -203,6 +204,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -231,6 +233,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
     ]
+    displayMode: NotRequired[
+        SectionWithParamsDisplayMode
+        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
+    ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[
         list[EdgePort] | Callable[[list[EdgePort]], list[EdgePort]]
@@ -239,12 +245,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):

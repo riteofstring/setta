@@ -24,7 +24,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
         {"codeObjVariantMap", "pinnedParams", "selectedParams", "ignoreTypeErrors"}
     ),
     "BaseArtifactSectionImpl": DEFAULT_EXCLUSIONS.union({"artifactGroupIds"}),
-    "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS.union({"renderedValue"}),
+    "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
     "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
@@ -202,6 +202,7 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
+    SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
     CodeFileBinding

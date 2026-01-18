@@ -226,6 +226,11 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
+export const SectionWithParamsDisplayModeEnum = {
+  Gui: "Gui",
+  Yaml: "Yaml",
+} as const;
+
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
@@ -253,6 +258,20 @@ export const SettaNotificationTypeEnum = {
 export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
+
+export const ProjectCodegenLanguageEnum = { python: "python" } as const;
+
+const SectionCodegenModeEnum = {
+  inherit: "inherit",
+  include: "include",
+  exclude: "exclude",
+} as const;
+
+const SectionRepresentationModeEnum = {
+  json: "json",
+  file: "file",
+  base64: "base64",
+} as const;
 
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
@@ -297,6 +316,7 @@ export const RouteEnum = {
   READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
+  SECTION_TO_YAML: "/sectionToYaml",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
   NEW_JSON_VERSION_NAME: "/newJsonVersionName",
   SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
@@ -362,6 +382,7 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -395,6 +416,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
@@ -411,10 +433,6 @@ export const RouteEnum = {
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   MOVE_SECTION: "/moveSection",
-  MOVE_PARAMS: "/moveParams",
-  MOVE_PARAM_GROUPS: "/moveParamGroups",
-  INDENT_PARAMS: "/indentParams",
-  UNINDENT_PARAMS: "/unindentParams",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -1186,6 +1204,7 @@ const SharedModifierSchema = z.object({
   deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1233,7 +1252,6 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1300,6 +1318,7 @@ const CoreSchema = z.object({
         "deepThink",
         "defaultVal",
         "description",
+        "displayMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1338,7 +1357,6 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
-        "renderedValue",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -1399,6 +1417,9 @@ const CallableSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
@@ -1433,6 +1454,9 @@ const DictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1514,7 +1538,6 @@ const ChartSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.union([z.string(), z.null()]).default(null),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -1536,7 +1559,6 @@ const DrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.union([z.string(), z.null()]).default(null),
   layers: z.array(DrawAreaLayerSchema).default([]),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
@@ -1643,6 +1665,9 @@ const GlobalVariablesSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -2293,7 +2318,6 @@ const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.union([z.string(), z.null()]).optional(),
   dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2315,7 +2339,6 @@ const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.union([z.string(), z.null()]).optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
@@ -2618,6 +2641,7 @@ const DictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2650,6 +2674,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2722,6 +2747,7 @@ const CallableSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
@@ -3146,6 +3172,98 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
+const SectionTypeCodegenPolicySchema = z.object({
+  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
+  representation: z
+    .enum(SectionRepresentationModeEnum)
+    .default(SectionRepresentationModeEnum.json),
+});
+
+type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
+
+function createSectionTypeCodegenPolicy(
+  options: Partial<SectionTypeCodegenPolicy> = {},
+): SectionTypeCodegenPolicy {
+  return SectionTypeCodegenPolicySchema.parse(options);
+}
+
+const SectionCodegenOverrideSchema = z.object({
+  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
+  representation: z
+    .enum(SectionRepresentationModeEnum)
+    .default(SectionRepresentationModeEnum.json),
+});
+
+const SectionCodegenPolicySchema = z.object({
+  allowlist: z
+    .union([z.array(z.enum(SectionTypeEnum)), z.null()])
+    .default(() => [
+      SectionTypeEnum.Callable,
+      SectionTypeEnum.Dict,
+      SectionTypeEnum.ListRoot,
+      SectionTypeEnum.Group,
+      SectionTypeEnum.GlobalVariables,
+      SectionTypeEnum.TextBlock,
+      SectionTypeEnum.Draw,
+      SectionTypeEnum.MetaControl,
+    ]),
+  exclude: z.array(IDSchema).default([]),
+  typePolicies: z
+    .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
+    .default(() => ({
+      Callable: createSectionTypeCodegenPolicy(),
+      Dict: createSectionTypeCodegenPolicy(),
+      ListRoot: createSectionTypeCodegenPolicy(),
+      Group: createSectionTypeCodegenPolicy(),
+      Image: createSectionTypeCodegenPolicy(),
+      Chart: createSectionTypeCodegenPolicy(),
+      Draw: createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.base64,
+      }),
+      TextBlock: createSectionTypeCodegenPolicy(),
+      MetaControl: createSectionTypeCodegenPolicy(),
+      Social: createSectionTypeCodegenPolicy(),
+      GlobalVariables: createSectionTypeCodegenPolicy(),
+      Code: createSectionTypeCodegenPolicy(),
+      GenPythonCode: createSectionTypeCodegenPolicy(),
+      Terminal: createSectionTypeCodegenPolicy(),
+      IFrame: createSectionTypeCodegenPolicy(),
+      Chat: createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.file,
+      }),
+      Browser: createSectionTypeCodegenPolicy(),
+    })),
+  sectionOverrides: z
+    .record(IDSchema, SectionCodegenOverrideSchema)
+    .default({}),
+});
+
+type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
+
+export function createSectionCodegenPolicy(
+  options: Partial<SectionCodegenPolicy> = {},
+): SectionCodegenPolicy {
+  return SectionCodegenPolicySchema.parse(options);
+}
+
+const ProjectCodegenPythonTargetSchema = z.object({
+  language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("state = SettaState()" as const),
+  generateMetadata: z.boolean().default(false),
+  sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
+});
+
+export type ProjectCodegenPythonTarget = z.infer<
+  typeof ProjectCodegenPythonTargetSchema
+>;
+
+export function createProjectCodegenPythonTarget(
+  options: Partial<ProjectCodegenPythonTarget> = {},
+): ProjectCodegenPythonTarget {
+  return ProjectCodegenPythonTargetSchema.parse(options);
+}
+
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3190,8 +3308,9 @@ const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
+  codegenTargets: z
+    .array(ProjectCodegenPythonTargetSchema)
+    .default(() => [createProjectCodegenPythonTarget()]),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -3292,6 +3411,7 @@ const ProjectStateSingleConfigSchema = z.object({
   parentSectionMap: z
     .record(IDSchema, z.union([IDSchema, z.null()]))
     .default({}),
+  yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
   requiredDecodedImages: z.array(z.string()).default([]),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
@@ -3374,10 +3494,6 @@ const SettingsShortcutsSchema = z.object({
   runCodeShortcut: z.string().default("Mod + Enter" as const),
   runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
   paramSelect: z.string().default("Mod + Shift" as const),
-  paramIndentShortcut: z.string().default("Tab" as const),
-  paramUnindentShortcut: z.string().default("Shift + Tab" as const),
-  paramMoveUpShortcut: z.string().default("Alt + ArrowUp" as const),
-  paramMoveDownShortcut: z.string().default("Alt + ArrowDown" as const),
   formatCode: z.string().default("Shift + Alt + F" as const),
   selectionKeyCode: z.string().default("Shift" as const),
   multiSelectionKeyCode: z.string().default("Mod" as const),
@@ -3714,6 +3830,9 @@ const UserDefaultCallableSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
@@ -3821,6 +3940,9 @@ const UserDefaultDictSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -3900,6 +4022,9 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4613,7 +4738,6 @@ const BaseCanvasSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.union([z.string(), z.null()]).optional(),
 });
 
 type BaseCanvasSectionImplArgs = z.infer<
@@ -4688,6 +4812,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -4783,6 +4908,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
 });
@@ -4990,7 +5116,6 @@ const BaseCanvasSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.union([z.string(), z.null()]).default(null),
 });
 
 type BaseCanvasSectionImpl = z.infer<typeof BaseCanvasSectionImplSchema>;
@@ -5040,6 +5165,9 @@ const BaseDictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -5094,11 +5222,14 @@ const BaseSectionWithParamsImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
-export type BaseSectionWithParamsImpl = z.infer<
+type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
@@ -5695,45 +5826,6 @@ export type GroupSectionsRequestInput = z.input<
   typeof GroupSectionsRequestSchema
 >;
 
-const IndentParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type IndentParamsRequestInput = z.input<
-  typeof IndentParamsRequestSchema
->;
-
-const MoveParamGroupSchema = z.object({
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-const MoveParamGroupsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  moves: z.array(MoveParamGroupSchema),
-});
-
-export type MoveParamGroupsRequestInput = z.input<
-  typeof MoveParamGroupsRequestSchema
->;
-
-const MoveParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
-
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6097,6 +6189,16 @@ export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
 >;
 
+const SetProjectConfigCodegenTargetsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
+});
+
+export type SetProjectConfigCodegenTargetsRequestInput = z.input<
+  typeof SetProjectConfigCodegenTargetsRequestSchema
+>;
+
 const SetSectionColumnWidthRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6193,6 +6295,17 @@ const SetSectionVariantRequestSchema = z.object({
 
 export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
+>;
+
+const SetSectionWithParamsDisplayModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
+});
+
+export type SetSectionWithParamsDisplayModeRequestInput = z.input<
+  typeof SetSectionWithParamsDisplayModeRequestSchema
 >;
 
 const SetShowParamDisplayNamesRequestSchema = z.object({
@@ -6432,17 +6545,6 @@ const UngroupGroupsRequestSchema = z.object({
 
 export type UngroupGroupsRequestInput = z.input<
   typeof UngroupGroupsRequestSchema
->;
-
-const UnindentParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type UnindentParamsRequestInput = z.input<
-  typeof UnindentParamsRequestSchema
 >;
 
 const UnselectAllParamsRequestSchema = z.object({
