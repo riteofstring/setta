@@ -66,6 +66,7 @@ Backward compatibility is not required, but user-visible features must be preser
 - Persist run logs to `setta_files/agent_runs` with the project snapshot and temporary ID map for replay.
 
 ### Phase 3: Prompt assets and eval harness
+- Eval harness is deferred to future work; keep the prompt assets + prompt section work in this phase.
 - Introduce prompt templates as workspace assets:
   - Store templates in `setta_files/prompts/*.json` with explicit input schema and metadata.
   - Bind them to UI via an agent panel.

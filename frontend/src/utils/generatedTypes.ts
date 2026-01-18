@@ -371,6 +371,7 @@ export const RouteEnum = {
   DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
   GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
   GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
+  GET_EXTERNAL_AGENT_HEALTH: "/getExternalAgentHealth",
   CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
   UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
   DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
@@ -5265,6 +5266,44 @@ const BaseSectionImplSchema = z.object({
 });
 
 type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
+
+const ExternalAgentEnvVarStatusSchema = z.object({
+  present: z.array(z.string()).default([]),
+  missing: z.array(z.string()).default([]),
+});
+
+type ExternalAgentEnvVarStatus = z.infer<
+  typeof ExternalAgentEnvVarStatusSchema
+>;
+
+function createExternalAgentEnvVarStatus(
+  options: Partial<ExternalAgentEnvVarStatus> = {},
+): ExternalAgentEnvVarStatus {
+  return ExternalAgentEnvVarStatusSchema.parse(options);
+}
+
+const ExternalAgentPreflightStatusSchema = z.object({
+  configId: IDSchema,
+  name: z.string(),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  supported: z.boolean(),
+  available: z.boolean(),
+  issues: z.array(z.string()).default([]),
+  nodePath: z.union([z.string(), z.null()]).default(null),
+  nodeVersion: z.union([z.string(), z.null()]).default(null),
+  sdkVersion: z.union([z.string(), z.null()]).default(null),
+  cliVersion: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+  envVars: ExternalAgentEnvVarStatusSchema.default(
+    createExternalAgentEnvVarStatus,
+  ),
+});
+
+export type ExternalAgentPreflightStatus = z.infer<
+  typeof ExternalAgentPreflightStatusSchema
+>;
 
 const BaseCanvasSectionImplSchema = z.object({
   type: z.any(),

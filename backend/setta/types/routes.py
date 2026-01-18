@@ -76,6 +76,7 @@ class Route(str, Enum):
     DELETE_PROMPT_TEMPLATE = "/deletePromptTemplate"
     GET_EXTERNAL_AGENT_CONFIGS = "/getExternalAgentConfigs"
     GET_EXTERNAL_AGENT_CONFIG = "/getExternalAgentConfig"
+    GET_EXTERNAL_AGENT_HEALTH = "/getExternalAgentHealth"
     CREATE_EXTERNAL_AGENT_CONFIG = "/createExternalAgentConfig"
     UPDATE_EXTERNAL_AGENT_CONFIG = "/updateExternalAgentConfig"
     DELETE_EXTERNAL_AGENT_CONFIG = "/deleteExternalAgentConfig"

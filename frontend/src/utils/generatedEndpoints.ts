@@ -405,6 +405,12 @@ async function route_get_external_agent_config(
   return await post("/getExternalAgentConfig", x);
 }
 
+async function route_get_external_agent_health(): Promise<
+  ResponseDataAndStatus<Array<gt.ExternalAgentPreflightStatus>>
+> {
+  return await get("/getExternalAgentHealth");
+}
+
 export async function route_create_external_agent_config(
   x: gt.CreateExternalAgentConfigRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {

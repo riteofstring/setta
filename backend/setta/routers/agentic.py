@@ -3,6 +3,9 @@ from typing import Any
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
+from setta.agentic.external_agent_preflight import (
+    build_external_agent_preflight_status,
+)
 from setta.agentic.store import (
     delete_prompt_template,
     list_agent_runs,
@@ -22,6 +25,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.agentic import AgentProfile, AgentRun
 from setta.types.external_agents import (
     ExternalAgentConfig,
+    ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
@@ -389,6 +393,18 @@ async def route_get_external_agent_config(
         if config.id == x.configId:
             return config
     raise HTTPException(status_code=404, detail="External agent config not found")
+
+
+@router.get(Route.GET_EXTERNAL_AGENT_HEALTH)
+async def route_get_external_agent_health(
+    ctx: RuntimeContextFromRequest,
+) -> list[ExternalAgentPreflightStatus]:
+    await ctx.enforce_llm_allowed()
+    configs = load_external_agent_configs(ctx.state.dbe)
+    return [
+        build_external_agent_preflight_status(ctx.state.dbe, config)
+        for config in configs
+    ]
 
 
 @router.post(Route.CREATE_EXTERNAL_AGENT_CONFIG)

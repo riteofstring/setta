@@ -44,3 +44,27 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
 
 class ExternalAgentConfigList(BaseModel, extra="forbid"):
     configs: list[ExternalAgentConfig]
+
+
+class ExternalAgentEnvVarStatus(BaseModel, extra="forbid"):
+    present: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+
+
+class ExternalAgentPreflightStatus(BaseModel, extra="forbid"):
+    configId: ID
+    name: str
+    toolType: ExternalAgentToolType
+    runMode: ExternalAgentRunMode
+    supported: bool
+    available: bool
+    issues: list[str] = Field(default_factory=list)
+    nodePath: str | None = None
+    nodeVersion: str | None = None
+    sdkVersion: str | None = None
+    cliVersion: str | None = None
+    baseUrl: str | None = None
+    workingDir: str | None = None
+    envVars: ExternalAgentEnvVarStatus = Field(
+        default_factory=ExternalAgentEnvVarStatus
+    )
