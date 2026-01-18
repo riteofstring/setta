@@ -1,0 +1,1511 @@
+import asyncio
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, AsyncIterator, Iterator, Literal
+
+import litellm
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from litellm.types.llms.openai import ChatCompletionToolParam
+from litellm.types.utils import Delta, ModelResponseStream
+from litellm.utils import supports_prompt_caching
+
+from setta.agentic.run_outputs import build_run_outputs
+from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
+from setta.agentic.system_prompt import build_agent_system_prompt
+from setta.database.db_objs import DBE
+from setta.llm.api_keys import filter_env_vars_for_config
+from setta.llm.chat_store import MemoryChatStore
+from setta.llm.chat_toolkit.history import ChatHistory
+from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
+from setta.llm.chat_toolkit.managed.actions import (
+    EmitChunkAction,
+    ExecuteToolCallsAction,
+    ManagedAction,
+    UpdateAIFollowAction,
+    UpdateAIFollowResultAction,
+)
+from setta.llm.chat_toolkit.managed.ai_follow import (
+    build_streaming_follow_ids,
+    build_tool_call_follow_ids,
+    ids_by_type_to_sets,
+    normalize_ids_by_type,
+)
+from setta.llm.chat_toolkit.managed.sanitization import sanitize_tool_arguments
+from setta.llm.chat_toolkit.managed.stream_assembler import (
+    ManagedStreamAssembler,
+    StreamContentEntry,
+)
+from setta.llm.chat_toolkit.managed.tool_argument_preview import (
+    ManagedToolArgumentPreviewState,
+    PartialJsonStringToken,
+    build_preview_event,
+    scan_partial_json_strings,
+)
+from setta.llm.chat_toolkit.managed.tool_calls import (
+    ManagedToolCallAccumulator,
+    ManagedToolCallState,
+)
+from setta.llm.chat_toolkit.managed.tool_runner import (
+    build_disallowed_tool_result,
+    build_execute_tool_calls_action,
+)
+from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
+from setta.llm.config import AllLLMConfigs
+from setta.logging.tasks import spawn_background_task
+from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    build_namespaced_tool_name,
+    split_namespaced_tool_name,
+)
+from setta.mcp.tool_metadata import FollowIdType
+from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    SystemChatMessage,
+    ToolCall,
+    ToolChatMessage,
+    UserChatMessage,
+)
+from setta.types.chat_stream_events import (
+    MessageContentDelta,
+    MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
+    MessageStopEvent,
+    ToolResultEvent,
+)
+from setta.types.generated.chat_messages import (
+    BaseChatMessageTypeAdapter,
+    BaseChatMessageUnion,
+)
+from setta.types.id import ID
+from setta.types.llm_config import LLMConfig
+from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowToolArgumentsUpdateContent
+from setta.utils.constants import C
+from setta.utils.timestamps import get_now_timestamp
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
+ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
+
+
+@dataclass(frozen=True)
+class ToolAllowlist:
+    tool_names: set[str]
+    tool_basenames: set[str]
+    server_ids: set[str]
+
+
+@dataclass(frozen=True)
+class AgentRunContext:
+    run: AgentRun
+    profile: AgentProfile
+    llm_config: LLMConfig
+    project_config_id: ID
+    chat_id: ID
+    section_id: ID | None
+    deep_think: bool
+    system_prompt: str
+    allowlist: ToolAllowlist | None
+    emit_stream: bool
+    emit_ai_follow: bool
+
+
+@dataclass
+class AIFollowState:
+    ids_by_type: dict[FollowIdType, list[ID]]
+
+
+class AgentRunner:
+    def __init__(
+        self,
+        dbe: DBE,
+        mcp_client: MultiMCPClient,
+        websocket_msg_handler: WMHFrontendSender,
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        self.dbe = dbe
+        self.mcp_client = mcp_client
+        self.websocket_msg_handler = websocket_msg_handler
+        self.share_session_id = share_session_id
+        self.config: AllLLMConfigs = AllLLMConfigs()
+        self.api_keys: dict[str, str] = {}
+        self._raw_env_vars: dict[str, str] = {}
+        self._tasks: dict[ID, asyncio.Task[Any]] = {}
+        self._runs: dict[ID, AgentRun] = {}
+        self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
+        self._search_tool_name = build_namespaced_tool_name(
+            SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+        )
+        self._tool_executor = ManagedActionExecutor(
+            chat_history=ChatHistory(MemoryChatStore()),
+            websocket_msg_handler=self.websocket_msg_handler,
+            mcp_client=self.mcp_client,
+            dbe=self.dbe,
+            search_tool_name=self._search_tool_name,
+            logger=logger,
+        )
+        self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+
+    @property
+    def disabled(self) -> bool:
+        return False
+
+    def update_config(self, config: AllLLMConfigs) -> None:
+        self.config = config
+        self._sync_api_keys()
+
+    def update_api_keys(self, payload: dict[str, str]) -> None:
+        self._raw_env_vars = dict(payload)
+        self._sync_api_keys()
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowToolArgumentsUpdateContent]:
+        snapshot: list[AIFollowToolArgumentsUpdateContent] = []
+        for (state_project_config_id, chat_id), state in self._ai_follow_state.items():
+            if state_project_config_id != project_config_id:
+                continue
+            ids_by_type = normalize_ids_by_type(state.ids_by_type)
+            if not ids_by_type:
+                continue
+            snapshot.append(
+                AIFollowToolArgumentsUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    idsByType=ids_by_type,
+                )
+            )
+        return snapshot
+
+    def _sync_api_keys(self) -> None:
+        if not self._raw_env_vars:
+            self.api_keys = {}
+            return
+        self.api_keys = filter_env_vars_for_config(self._raw_env_vars, self.config)
+
+    def start_run(
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+    ) -> AgentRun:
+        context = self._build_context(profile, inputs)
+        run = context.run
+        self._runs[run.id] = run
+        save_agent_run(self.dbe, run)
+        self._record_event(
+            run,
+            "run_started",
+            {
+                "profileId": str(profile.id),
+                "llmConfigId": context.llm_config.id,
+                "projectConfigId": str(context.project_config_id),
+                "chatId": str(context.chat_id),
+                "sectionId": str(context.section_id) if context.section_id else None,
+            },
+        )
+        self._record_snapshot(run, context.project_config_id)
+        task = spawn_background_task(
+            lambda: self._run_agent(context),
+            label="agent-run",
+            project_config_id=str(context.project_config_id),
+            extra_values={"run_id": str(run.id)},
+        )
+
+        def _cleanup(_task: asyncio.Task[Any], run_id: ID) -> None:
+            self._tasks.pop(run_id, None)
+            self._runs.pop(run_id, None)
+
+        task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
+        self._tasks[run.id] = task
+        return run
+
+    async def run_sub_agent(
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+    ) -> AgentRun:
+        context = self._build_context(
+            profile,
+            inputs,
+            emit_stream=False,
+            emit_ai_follow=False,
+        )
+        run = context.run
+        save_agent_run(self.dbe, run)
+        self._record_event(
+            run,
+            "run_started",
+            {
+                "profileId": str(profile.id),
+                "llmConfigId": context.llm_config.id,
+                "projectConfigId": str(context.project_config_id),
+                "chatId": str(context.chat_id),
+                "sectionId": str(context.section_id) if context.section_id else None,
+            },
+        )
+        self._record_snapshot(run, context.project_config_id)
+        await self._run_agent(context)
+        loaded = load_agent_run(self.dbe, run.id)
+        return loaded if loaded is not None else run
+
+    async def stop_run(self, run_id: ID) -> AgentRun:
+        task = self._tasks.get(run_id)
+        if task and not task.done():
+            task.cancel()
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            raise KeyError(f"Agent run {run_id} not found")
+        run.status = AgentRunStatus.cancelled
+        run.finishedAt = get_now_timestamp()
+        save_agent_run(self.dbe, run)
+        self._record_event(run, "run_cancelled", {})
+        return run
+
+    async def _run_agent(self, context: AgentRunContext) -> None:
+        run = context.run
+        messages = self._build_initial_messages(context.run.inputs)
+        try:
+            while True:
+                payload = self._build_llm_request_payload(
+                    llm_config=context.llm_config,
+                    messages=messages,
+                    deep_think=context.deep_think,
+                    system_prompt=context.system_prompt,
+                    allowlist=context.allowlist,
+                )
+                assistant_message = AssistantChatMessage(content=[])
+                tool_call_state = ManagedToolCallState()
+                tool_call_accumulator = ManagedToolCallAccumulator(
+                    assistant_message,
+                    tool_call_state,
+                )
+                preview_state = ManagedToolArgumentPreviewState()
+                stream_assembler = ManagedStreamAssembler(assistant_message)
+
+                stop_event_sent = False
+                tool_results: list[ToolChatMessage] = []
+                try:
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                context.chat_id,
+                                MessageStartEvent(message=assistant_message),
+                            )
+                        ],
+                        context,
+                    )
+                    stream_result = await litellm.acompletion(**payload, stream=True)
+                    if not isinstance(stream_result, CustomStreamWrapper):
+                        raise TypeError(
+                            "LLM streaming must return a CustomStreamWrapper"
+                        )
+
+                    async for chunk in self._iterate_stream(stream_result):
+                        await self._handle_stream_chunk(
+                            context,
+                            assistant_message,
+                            stream_assembler,
+                            tool_call_accumulator,
+                            preview_state,
+                            chunk,
+                        )
+
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                context.chat_id,
+                                MessageStopEvent(message_id=assistant_message.id),
+                            )
+                        ],
+                        context,
+                    )
+                    stop_event_sent = True
+                    parsed_tool_calls, failures = tool_call_accumulator.finalize()
+                    for tool_call_id, error in failures.items():
+                        logger.warning(
+                            "Failed to parse tool call arguments for tool_call_id=%s",
+                            tool_call_id,
+                            exc_info=error,
+                        )
+                    await self._maybe_emit_tool_call_follow_update(
+                        context,
+                        parsed_tool_calls,
+                    )
+                    run.toolCalls.extend(
+                        [call.model_dump(mode="json") for call in parsed_tool_calls]
+                    )
+                    save_agent_run(self.dbe, run)
+
+                    tool_results = await self._execute_tool_calls(
+                        context,
+                        parsed_tool_calls,
+                    )
+                    if assistant_message.tool_calls:
+                        await self._apply_actions(
+                            [
+                                UpdateAIFollowAction(
+                                    project_config_id=context.project_config_id,
+                                    chat_id=context.chat_id,
+                                    ids_by_type={},
+                                )
+                            ],
+                            context,
+                        )
+                    messages.append(assistant_message)
+                    if tool_results:
+                        messages.extend(tool_results)
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                context.chat_id,
+                                MessageFinalizedEvent(message=assistant_message),
+                            )
+                        ],
+                        context,
+                    )
+                except asyncio.CancelledError:
+                    if not stop_event_sent:
+                        await self._apply_actions(
+                            [
+                                EmitChunkAction(
+                                    context.chat_id,
+                                    MessageStopEvent(message_id=assistant_message.id),
+                                )
+                            ],
+                            context,
+                        )
+                        stop_event_sent = True
+                    if self._should_persist_partial_message(assistant_message):
+                        parsed_tool_calls, failures = tool_call_accumulator.finalize()
+                        for tool_call_id, error in failures.items():
+                            logger.warning(
+                                "Failed to parse tool call arguments for tool_call_id=%s",
+                                tool_call_id,
+                                exc_info=error,
+                            )
+                        await self._maybe_emit_tool_call_follow_update(
+                            context,
+                            parsed_tool_calls,
+                        )
+                        messages.append(assistant_message)
+                        await self._apply_actions(
+                            [
+                                EmitChunkAction(
+                                    context.chat_id,
+                                    MessageFinalizedEvent(message=assistant_message),
+                                )
+                            ],
+                            context,
+                        )
+                    await self._apply_actions(
+                        [
+                            UpdateAIFollowAction(
+                                project_config_id=context.project_config_id,
+                                chat_id=context.chat_id,
+                                ids_by_type={},
+                            )
+                        ],
+                        context,
+                    )
+                    run.status = AgentRunStatus.cancelled
+                    run.finishedAt = get_now_timestamp()
+                    save_agent_run(self.dbe, run)
+                    self._record_event(run, "run_cancelled", {})
+                    raise
+                except Exception as exc:
+                    if not stop_event_sent:
+                        await self._apply_actions(
+                            [
+                                EmitChunkAction(
+                                    context.chat_id,
+                                    MessageStopEvent(message_id=assistant_message.id),
+                                )
+                            ],
+                            context,
+                        )
+                    await self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
+                        exc,
+                        label="agent-run",
+                        message="Agent run failed; aborting response",
+                        severity=SettaBackendLogEventSeverity.error,
+                        project_config_id=context.project_config_id,
+                        logger=logger,
+                        context={"run_id": str(run.id)},
+                    )
+                    await self._apply_actions(
+                        [
+                            UpdateAIFollowAction(
+                                project_config_id=context.project_config_id,
+                                chat_id=context.chat_id,
+                                ids_by_type={},
+                            )
+                        ],
+                        context,
+                    )
+                    run.status = AgentRunStatus.failed
+                    run.finishedAt = get_now_timestamp()
+                    save_agent_run(self.dbe, run)
+                    self._record_event(
+                        run,
+                        "run_failed",
+                        {"error": str(exc)},
+                    )
+                    return
+
+                should_continue = bool(assistant_message.tool_calls) and bool(
+                    tool_results
+                )
+                if not should_continue:
+                    break
+
+            run.status = AgentRunStatus.completed
+            run.finishedAt = get_now_timestamp()
+            run.outputs = self._build_outputs(messages)
+            save_agent_run(self.dbe, run)
+            self._record_event(run, "run_completed", {})
+        finally:
+            self._tasks.pop(run.id, None)
+            self._runs.pop(run.id, None)
+
+    async def _execute_tool_calls(
+        self,
+        context: AgentRunContext,
+        parsed_tool_calls: list[ToolCall],
+    ) -> list[ToolChatMessage]:
+        if not parsed_tool_calls:
+            return []
+        allowed_calls: list[ToolCall] = []
+        disallowed_calls: list[ToolCall] = []
+        for call in parsed_tool_calls:
+            if self._is_tool_allowed(call.function.name, context.allowlist):
+                allowed_calls.append(call)
+            else:
+                disallowed_calls.append(call)
+
+        tool_results: list[ToolChatMessage] = []
+        execute_action = build_execute_tool_calls_action(
+            project_config_id=context.project_config_id,
+            chat_id=context.chat_id,
+            tool_calls=allowed_calls,
+            allowed_server_ids=self._resolve_allowed_server_ids(
+                context.allowlist,
+                set(self._resolve_mcp_server_ids(context.llm_config)),
+            ),
+            share_session_id=self.share_session_id,
+        )
+        if execute_action is not None:
+            tool_results = await self._apply_actions([execute_action], context)
+        if disallowed_calls:
+            disallowed_results = await self._emit_disallowed_tool_results(
+                context,
+                disallowed_calls,
+            )
+            tool_results.extend(disallowed_results)
+        return tool_results
+
+    async def _emit_disallowed_tool_results(
+        self,
+        context: AgentRunContext,
+        tool_calls: list[ToolCall],
+    ) -> list[ToolChatMessage]:
+        results: list[ToolChatMessage] = []
+        for tool_call in tool_calls:
+            tool_name = tool_call.function.name.strip()
+            started_at = get_now_timestamp()
+            call_result = build_disallowed_tool_result(tool_name)
+            completed_at = get_now_timestamp()
+            sanitized_arguments = sanitize_tool_arguments(
+                self.dbe, dict(tool_call.function.arguments or {})
+            )
+            tool_chat_message = ToolChatMessage(
+                tool_call_id=tool_call.id,
+                tool_name=tool_name,
+                arguments=sanitized_arguments,
+                content=call_result.content,
+                is_error=call_result.isError,
+                result=call_result.model_dump(),
+                started_at=started_at,
+                completed_at=completed_at,
+            )
+            results.append(tool_chat_message)
+            await self._apply_actions(
+                [
+                    EmitChunkAction(
+                        context.chat_id,
+                        ToolResultEvent(result=tool_chat_message),
+                    )
+                ],
+                context,
+            )
+        return results
+
+    def _build_context(
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+        *,
+        emit_stream: bool = True,
+        emit_ai_follow: bool = True,
+    ) -> AgentRunContext:
+        project_state = self.dbe.read_project_required()
+        if project_state.defaultProjectConfigId is None:
+            raise KeyError("Project state does not define a default project config")
+        if inputs and "projectConfigId" in inputs:
+            raw_project_id = inputs["projectConfigId"]
+            if not isinstance(raw_project_id, str):
+                raise TypeError("projectConfigId must be a string")
+            project_config_id = ID(raw_project_id)
+        else:
+            project_config_id = project_state.defaultProjectConfigId
+        if project_config_id not in project_state.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        if inputs and "chatId" in inputs:
+            raw_chat_id = inputs["chatId"]
+            if not isinstance(raw_chat_id, str):
+                raise TypeError("chatId must be a string")
+            chat_id = ID(raw_chat_id)
+        else:
+            chat_id = None
+        if inputs and "sectionId" in inputs:
+            raw_section_id = inputs["sectionId"]
+            if not isinstance(raw_section_id, str):
+                raise TypeError("sectionId must be a string")
+            section_id = ID(raw_section_id)
+        else:
+            section_id = None
+        deep_think = False
+        if inputs and "deepThink" in inputs:
+            raw_deep_think = inputs["deepThink"]
+            if not isinstance(raw_deep_think, bool):
+                raise TypeError("deepThink must be a boolean")
+            deep_think = raw_deep_think
+        run = create_agent_run(profile_id=profile.id, inputs=inputs)
+        llm_config = self._resolve_llm_config(profile)
+        system_prompt = self._build_system_prompt(profile, project_config_id)
+        allowlist = self._normalize_tool_allowlist(profile)
+        return AgentRunContext(
+            run=run,
+            profile=profile,
+            llm_config=llm_config,
+            project_config_id=project_config_id,
+            chat_id=chat_id or run.id,
+            section_id=section_id,
+            deep_think=deep_think,
+            system_prompt=system_prompt,
+            allowlist=allowlist,
+            emit_stream=emit_stream,
+            emit_ai_follow=emit_ai_follow,
+        )
+
+    def _normalize_tool_allowlist(self, profile: AgentProfile) -> ToolAllowlist | None:
+        if not profile.toolAllowlist:
+            return None
+        tool_names: set[str] = set()
+        tool_basenames: set[str] = set()
+        server_ids: set[str] = set()
+        for entry in profile.toolAllowlist:
+            normalized = entry.strip()
+            if not normalized:
+                raise ValueError("toolAllowlist entries must be non-empty strings")
+            if "__" in normalized:
+                server_id, tool_name = split_namespaced_tool_name(normalized)
+                if server_id is None or not tool_name:
+                    raise ValueError(f"Invalid tool allowlist entry: {entry}")
+                if server_id not in self.config.mcpServers:
+                    raise KeyError(f"Unknown MCP server '{server_id}' in allowlist")
+                tool_names.add(normalized)
+                server_ids.add(server_id)
+            elif normalized in self.config.mcpServers:
+                server_ids.add(normalized)
+            else:
+                tool_basenames.add(normalized)
+        return ToolAllowlist(
+            tool_names=tool_names,
+            tool_basenames=tool_basenames,
+            server_ids=server_ids,
+        )
+
+    def _resolve_llm_config(self, profile: AgentProfile) -> LLMConfig:
+        llm_config_id = profile.llmConfigId
+        if not llm_config_id:
+            if self.config.default_config_id:
+                llm_config_id = self.config.default_config_id
+            elif self.config.configs:
+                llm_config_id = next(iter(self.config.configs.keys()))
+            else:
+                raise ValueError("No LLM config available for agent run")
+        return self.config.resolve_config(llm_config_id)
+
+    def _build_system_prompt(
+        self,
+        profile: AgentProfile,
+        project_config_id: ID,
+    ) -> str:
+        return build_agent_system_prompt(
+            base_prompt=self.system_prompt,
+            profile=profile,
+            project_config_id=project_config_id,
+            dbe=self.dbe,
+        )
+
+    def _record_snapshot(self, run: AgentRun, project_config_id: ID) -> None:
+        project_state = self.dbe.read_project_required()
+        _, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        self._record_event(
+            run,
+            "snapshot",
+            {
+                "projectConfigId": str(project_config_id),
+                "projectState": project_state.model_dump(mode="json"),
+                "temporaryIdMap": {
+                    str(k): str(v) for k, v in canonical_to_temporary.items()
+                },
+            },
+        )
+
+    def _build_initial_messages(
+        self, inputs: dict[str, Any] | None
+    ) -> list[BaseChatMessageUnion]:
+        messages: list[BaseChatMessageUnion] = []
+        if inputs and "messages" in inputs:
+            raw_messages = inputs["messages"]
+            if not isinstance(raw_messages, list):
+                raise TypeError("messages must be a list")
+            for raw in raw_messages:
+                messages.append(BaseChatMessageTypeAdapter.validate_python(raw))
+        if inputs and "prompt" in inputs:
+            prompt = inputs["prompt"]
+            if not isinstance(prompt, str):
+                raise TypeError("prompt must be a string")
+            if prompt.strip():
+                messages.append(
+                    UserChatMessage(
+                        content=[MessageTextContent(text=prompt)],
+                    )
+                )
+        return messages
+
+    def _build_llm_request_payload(
+        self,
+        llm_config: LLMConfig,
+        messages: list[BaseChatMessageUnion],
+        *,
+        deep_think: bool,
+        system_prompt: str,
+        allowlist: ToolAllowlist | None,
+    ) -> dict[str, Any]:
+        system_message = SystemChatMessage(
+            content=[MessageTextContent(text=system_prompt)],
+        ).to_openai_format()
+        message_payloads: list[dict[str, Any]] = [system_message]
+        for message in messages:
+            message_payloads.append(message.to_openai_format())
+        request, api_key_env = self.config.build_llm_params(llm_config)
+        if api_key_env:
+            api_key = self.api_keys.get(api_key_env)
+            if api_key:
+                request["api_key"] = api_key
+
+        server_ids = self._resolve_mcp_server_ids(llm_config)
+        use_tool_search = self._should_use_anthropic_tool_search(llm_config)
+        allow_tool_reference = bool(server_ids) and use_tool_search
+        self._strip_tool_reference_content(
+            message_payloads,
+            allow_tool_reference=allow_tool_reference,
+        )
+        request["messages"] = message_payloads
+        self._maybe_apply_cache_prompting(request, message_payloads)
+        self._apply_anthropic_tool_search_headers(
+            request,
+            use_tool_search=use_tool_search,
+            has_mcp_tools=bool(server_ids),
+        )
+        tools = self._build_tool_definitions(
+            server_ids,
+            allowlist=allowlist,
+            use_tool_search=use_tool_search,
+        )
+        if tools:
+            request["tools"] = tools
+
+        self._apply_request_overrides(request, deep_think)
+        if not request.get("model"):
+            raise ValueError("LLM config must specify a model via config or override")
+        return request
+
+    def _resolve_mcp_server_ids(self, llm_config: LLMConfig) -> list[str]:
+        return self.config.resolve_mcp_server_ids(llm_config)
+
+    def _build_tool_definitions(
+        self,
+        server_ids: list[str],
+        *,
+        allowlist: ToolAllowlist | None,
+        use_tool_search: bool,
+    ) -> list[ChatCompletionToolParam]:
+        if not server_ids:
+            return []
+        effective_server_ids = set(server_ids)
+        allowed_server_ids = self._resolve_allowed_server_ids(
+            allowlist, effective_server_ids
+        )
+        if allowed_server_ids is not None:
+            effective_server_ids = allowed_server_ids
+        if not effective_server_ids:
+            return []
+        tools = self._build_full_tool_definitions(
+            effective_server_ids,
+            defer_loading=use_tool_search,
+            include_search_tool=use_tool_search,
+            allowlist=allowlist,
+        )
+        return tools
+
+    def _build_full_tool_definitions(
+        self,
+        server_ids: set[str],
+        *,
+        defer_loading: bool,
+        include_search_tool: bool,
+        allowlist: ToolAllowlist | None,
+    ) -> list[ChatCompletionToolParam]:
+        init_tools = self.mcp_client.init_tool_definitions_for_servers(server_ids)
+        discoverable_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
+            server_ids
+        )
+        discoverable_tool_names = set(discoverable_tools.keys())
+        combined: dict[str, ChatCompletionToolParam] = {}
+        combined.update(init_tools)
+        combined.update(discoverable_tools)
+        if not combined:
+            return []
+        tool_names = sorted(combined.keys())
+        if not include_search_tool:
+            tool_names = [name for name in tool_names if name != self._search_tool_name]
+        if allowlist is not None:
+            tool_names = [
+                name for name in tool_names if self._is_tool_allowed(name, allowlist)
+            ]
+        if not tool_names:
+            return []
+        payload: list[ChatCompletionToolParam] = []
+        has_non_deferred = False
+        for name in tool_names:
+            tool_payload = dict(combined[name])
+            if defer_loading and name in discoverable_tool_names:
+                tool_payload["defer_loading"] = True
+            else:
+                has_non_deferred = True
+            payload.append(tool_payload)
+        if defer_loading and not has_non_deferred and payload:
+            payload[0].pop("defer_loading", None)
+        return payload
+
+    def _resolve_allowed_server_ids(
+        self, allowlist: ToolAllowlist | None, server_ids: set[str]
+    ) -> set[str] | None:
+        if allowlist is None or not allowlist.server_ids:
+            return None
+        return set(allowlist.server_ids) & server_ids
+
+    def _is_tool_allowed(self, tool_name: str, allowlist: ToolAllowlist | None) -> bool:
+        if allowlist is None:
+            return True
+        if tool_name in allowlist.tool_names:
+            return True
+        server_id, base_name = split_namespaced_tool_name(tool_name)
+        if base_name in allowlist.tool_basenames:
+            return True
+        if server_id and server_id in allowlist.server_ids:
+            return True
+        return False
+
+    def _apply_anthropic_tool_search_headers(
+        self,
+        request: dict[str, Any],
+        *,
+        use_tool_search: bool,
+        has_mcp_tools: bool,
+    ) -> None:
+        if not use_tool_search or not has_mcp_tools:
+            return
+        extra_headers = request.get("extra_headers")
+        if extra_headers is None:
+            extra_headers = {}
+        if not isinstance(extra_headers, dict):
+            extra_headers = {}
+        else:
+            extra_headers = dict(extra_headers)
+        existing_beta = extra_headers.get("anthropic-beta")
+        merged_beta = self._merge_anthropic_beta_header(existing_beta)
+        extra_headers["anthropic-beta"] = merged_beta
+        request["extra_headers"] = extra_headers
+
+    @staticmethod
+    def _merge_anthropic_beta_header(existing: Any) -> str:
+        values: list[str] = []
+        if isinstance(existing, str):
+            values = [value.strip() for value in existing.split(",") if value.strip()]
+        elif isinstance(existing, list):
+            values = [str(value).strip() for value in existing if str(value).strip()]
+        if ANTHROPIC_TOOL_SEARCH_BETA_HEADER not in values:
+            values.append(ANTHROPIC_TOOL_SEARCH_BETA_HEADER)
+        return ", ".join(values)
+
+    def _strip_tool_reference_content(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        allow_tool_reference: bool,
+    ) -> None:
+        if allow_tool_reference:
+            return
+        for message in messages:
+            if message.get("role") != "tool":
+                continue
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            filtered: list[Any] = []
+            tool_names: list[str] = []
+            for entry in content:
+                if isinstance(entry, dict) and entry.get("type") == "tool_reference":
+                    tool_name = entry.get("tool_name")
+                    if isinstance(tool_name, str) and tool_name:
+                        tool_names.append(tool_name)
+                    continue
+                filtered.append(entry)
+            if not tool_names:
+                continue
+            if not filtered:
+                filtered = [
+                    {
+                        "type": "text",
+                        "text": self._format_tool_reference_summary(tool_names),
+                    }
+                ]
+            message["content"] = filtered
+
+    @staticmethod
+    def _format_tool_reference_summary(tool_names: list[str]) -> str:
+        if not tool_names:
+            return "Search did not return any MCP tools."
+        if len(tool_names) == 1:
+            return f"Search returned MCP tool: {tool_names[0]}"
+        return f"Search returned MCP tools: {', '.join(tool_names)}"
+
+    def _maybe_apply_cache_prompting(
+        self,
+        request: dict[str, Any],
+        messages: list[dict[str, Any]],
+    ) -> None:
+        if request.get("cache_control_injection_points"):
+            return
+        if not messages:
+            return
+
+        model = request.get("model")
+        if not model:
+            return
+        provider = request.get("custom_llm_provider")
+
+        try:
+            supports_cache = supports_prompt_caching(
+                model=model,
+                custom_llm_provider=provider,
+            )
+        except Exception:
+            logger.debug(
+                "[cache-prompting] failed to resolve support for model=%s provider=%s",
+                model,
+                provider,
+                exc_info=True,
+            )
+            return
+
+        if not supports_cache:
+            return
+
+        request["cache_control_injection_points"] = [
+            {"location": "message", "role": "system"},
+            {
+                "location": "message",
+                "index": -1,
+            },
+        ]
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[cache-prompting] enabling cache injection for model=%s provider=%s points=%s",
+                model,
+                provider,
+                request["cache_control_injection_points"],
+            )
+
+    def _apply_request_overrides(
+        self,
+        request: dict[str, Any],
+        deep_think: bool,
+    ) -> None:
+        if not deep_think:
+            return
+        if "reasoning_effort" in request:
+            return
+
+        model_name = request.get("model")
+        provider = request.get("custom_llm_provider")
+        if not model_name:
+            raise ValueError("Deep think requires a configured model")
+        if not self._should_enable_reasoning_override(model_name, provider):
+            provider_display = provider or "default"
+            raise ValueError(
+                f"Deep think is not supported for model '{model_name}' via provider '{provider_display}'"
+            )
+
+        request["reasoning_effort"] = "high"
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[deep-think] enabling reasoning_effort=high for model=%s provider=%s",
+                model_name,
+                provider,
+            )
+
+    @staticmethod
+    def _should_enable_reasoning_override(
+        model_name: str,
+        provider: str | None,
+    ) -> bool:
+        normalized_model = model_name.lower()
+        normalized_provider = (provider or "").lower()
+
+        if AgentRunner._is_openai_reasoning_model(normalized_model):
+            if (
+                AgentRunner._is_openai_provider(normalized_provider)
+                or not normalized_provider
+            ):
+                return True
+
+        if AgentRunner._is_claude_like_model(normalized_model):
+            if (
+                AgentRunner._is_anthropic_provider(normalized_provider)
+                or not normalized_provider
+            ):
+                return True
+
+        if AgentRunner._is_gemini_like_model(normalized_model):
+            if (
+                AgentRunner._is_google_provider(normalized_provider)
+                or not normalized_provider
+            ):
+                return True
+
+        return False
+
+    @staticmethod
+    def _is_openai_reasoning_model(model_name: str) -> bool:
+        lowered = model_name.lower()
+        alias = lowered.split("/")[-1]
+        return alias.startswith(("o1", "o3", "o4", "gpt-5"))
+
+    @staticmethod
+    def _is_openai_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "openai",
+                "azure",
+            )
+        )
+
+    @staticmethod
+    def _is_claude_like_model(model_name: str) -> bool:
+        lowered = model_name.lower()
+        return "claude" in lowered or any(
+            lowered.startswith(prefix) for prefix in ("sonnet", "haiku", "opus")
+        )
+
+    @staticmethod
+    def _is_gemini_like_model(model_name: str) -> bool:
+        return "gemini" in model_name.lower()
+
+    @staticmethod
+    def _is_anthropic_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "anthropic",
+                "bedrock",
+                "bedrock-converse",
+                "aws_bedrock",
+            )
+        )
+
+    @staticmethod
+    def _is_google_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "google",
+                "vertex",
+                "gemini",
+            )
+        )
+
+    def _should_use_anthropic_tool_search(self, llm_config: LLMConfig) -> bool:
+        provider = (llm_config.provider or "").strip().lower()
+        if provider:
+            return "anthropic" in provider
+        return self._is_claude_like_model(llm_config.model)
+
+    async def _iterate_stream(
+        self, stream_result: CustomStreamWrapper
+    ) -> AsyncIterator[ModelResponseStream]:
+        async def _yield_raw_chunks() -> AsyncIterator[Any]:
+            if hasattr(stream_result, "__aiter__"):
+                async for chunk in stream_result:
+                    yield chunk
+            else:
+                for chunk in stream_result:
+                    yield chunk
+
+        async for chunk in _yield_raw_chunks():
+            if isinstance(chunk, ModelResponseStream):
+                yield chunk
+                continue
+            logger.debug(
+                "Skipping non-ModelResponseStream chunk from LLM stream: %s",
+                type(chunk),
+            )
+
+    async def _apply_actions(
+        self,
+        actions: list[ManagedAction],
+        context: AgentRunContext,
+    ) -> list[ToolChatMessage]:
+        tool_results: list[ToolChatMessage] = []
+        queue = list(actions)
+        while queue:
+            action = queue.pop(0)
+            if isinstance(action, EmitChunkAction):
+                if isinstance(action.chunk, ToolResultEvent):
+                    tool_results.append(action.chunk.result)
+                if context.emit_stream:
+                    await self.websocket_msg_handler.send_streaming_response(
+                        action.chat_id,
+                        action.chunk,
+                        section_id=context.section_id,
+                    )
+                self._record_event(
+                    context.run,
+                    "stream_chunk",
+                    {
+                        "chatId": str(action.chat_id),
+                        "sectionId": str(context.section_id)
+                        if context.section_id
+                        else None,
+                        "chunk": action.chunk.model_dump(mode="json"),
+                    },
+                )
+                continue
+            if isinstance(action, UpdateAIFollowAction):
+                if context.emit_ai_follow:
+                    await self._update_and_broadcast_ai_follow_update(
+                        action.project_config_id,
+                        action.chat_id,
+                        action.ids_by_type,
+                    )
+                continue
+            if isinstance(action, UpdateAIFollowResultAction):
+                if context.emit_ai_follow:
+                    await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+                        action.project_config_id,
+                        action.chat_id,
+                        action.ids_by_type,
+                    )
+                continue
+            if isinstance(action, ExecuteToolCallsAction):
+                next_actions = await self._tool_executor.apply(action)
+                if next_actions:
+                    queue = next_actions + queue
+        return tool_results
+
+    async def _handle_stream_chunk(
+        self,
+        context: AgentRunContext,
+        assistant_message: AssistantChatMessage,
+        stream_assembler: ManagedStreamAssembler,
+        tool_call_accumulator: ManagedToolCallAccumulator,
+        preview_state: ManagedToolArgumentPreviewState,
+        chunk: ModelResponseStream,
+    ) -> None:
+        choices = chunk.choices
+        if not choices:
+            return
+
+        choice = choices[0]
+        delta = choice.delta
+        if not delta:
+            return
+
+        await self._handle_text_deltas(
+            context,
+            assistant_message,
+            stream_assembler,
+            delta,
+        )
+
+        await self._handle_tool_call_deltas(
+            context,
+            assistant_message,
+            delta,
+            tool_call_accumulator,
+            preview_state,
+        )
+
+    async def _handle_text_deltas(
+        self,
+        context: AgentRunContext,
+        assistant_message: AssistantChatMessage,
+        stream_assembler: ManagedStreamAssembler,
+        delta: Delta,
+    ) -> None:
+        text_deltas = self._build_text_deltas(delta, stream_assembler)
+        if not text_deltas:
+            return
+        await self._apply_actions(
+            [
+                EmitChunkAction(
+                    context.chat_id,
+                    MessageDeltaEvent(
+                        message_id=assistant_message.id,
+                        content=text_deltas,
+                    ),
+                )
+            ],
+            context,
+        )
+
+    def _build_text_deltas(
+        self,
+        delta: Delta,
+        stream_assembler: ManagedStreamAssembler,
+    ) -> list[MessageContentDelta]:
+        entries = self._collect_stream_entries(delta)
+        if not entries:
+            return []
+        return stream_assembler.apply_entries(entries)
+
+    def _collect_stream_entries(self, delta: Delta) -> list[StreamContentEntry]:
+        primary_entries, has_thinking_payload = self._normalize_primary_entries(delta)
+        if has_thinking_payload:
+            return primary_entries
+
+        fallback_entries = self._collect_fallback_entries(delta)
+        if not fallback_entries:
+            return primary_entries
+        fallback_entries.extend(primary_entries)
+        return fallback_entries
+
+    def _normalize_primary_entries(
+        self, delta: Delta
+    ) -> tuple[list[StreamContentEntry], bool]:
+        entries: list[StreamContentEntry] = []
+        has_thinking_payload = False
+        for entry in self._iter_normalized_entries(delta.content, default_kind="text"):
+            entries.append(entry)
+            if entry.kind == "thinking" and entry.has_payload:
+                has_thinking_payload = True
+        return entries, has_thinking_payload
+
+    def _collect_fallback_entries(self, delta: Delta) -> list[StreamContentEntry]:
+        entries: list[StreamContentEntry] = []
+        has_thinking_entries = False
+        for block in self._iter_thinking_payloads(delta):
+            normalized = self._normalize_entry(block, default_kind="thinking")
+            if normalized and normalized.has_payload:
+                entries.append(normalized)
+                has_thinking_entries = True
+
+        if has_thinking_entries:
+            return entries
+
+        reasoning_content = getattr(delta, "reasoning_content", None)
+        if isinstance(reasoning_content, str) and reasoning_content:
+            entries.append(
+                StreamContentEntry(
+                    kind="thinking",
+                    text=reasoning_content,
+                    index=None,
+                    signature=None,
+                )
+            )
+        return entries
+
+    def _iter_normalized_entries(
+        self,
+        payload: Any,
+        *,
+        default_kind: Literal["text", "thinking"],
+    ) -> Iterator[StreamContentEntry]:
+        if payload is None:
+            return
+
+        raw_entries = payload if isinstance(payload, list) else [payload]
+        for raw_entry in raw_entries:
+            normalized = self._normalize_entry(raw_entry, default_kind=default_kind)
+            if normalized:
+                yield normalized
+
+    def _normalize_entry(
+        self,
+        raw_entry: Any,
+        *,
+        default_kind: Literal["text", "thinking"],
+    ) -> StreamContentEntry | None:
+        if isinstance(raw_entry, str):
+            if not raw_entry:
+                return None
+            return StreamContentEntry(kind=default_kind, text=raw_entry, index=None)
+
+        payload = self._coerce_stream_payload(raw_entry)
+        if payload is None:
+            return None
+
+        entry_type = payload.get("type") or default_kind
+        index = payload.get("index")
+        if entry_type == "thinking":
+            thinking_value = payload.get("thinking")
+            signature = payload.get("signature")
+            return StreamContentEntry(
+                kind="thinking",
+                text=thinking_value if isinstance(thinking_value, str) else "",
+                index=index,
+                signature=signature if isinstance(signature, str) else None,
+            )
+        if entry_type != "text":
+            return None
+
+        text_value = payload.get("text")
+        if not isinstance(text_value, str) or not text_value:
+            return None
+        return StreamContentEntry(kind="text", text=text_value, index=index)
+
+    def _coerce_stream_payload(self, entry: Any) -> dict[str, Any] | None:
+        if isinstance(entry, dict):
+            return entry
+
+        model_dump = getattr(entry, "model_dump", None)
+        if callable(model_dump):
+            try:
+                data = model_dump()
+            except Exception:
+                logger.debug("Failed to model_dump streaming entry", exc_info=True)
+            else:
+                if isinstance(data, dict):
+                    return data
+
+        dict_method = getattr(entry, "dict", None)
+        if callable(dict_method):
+            data = dict_method()
+            if isinstance(data, dict):
+                return data
+
+        payload = getattr(entry, "__dict__", None)
+        if isinstance(payload, dict):
+            return payload
+        return None
+
+    def _iter_thinking_payloads(self, delta: Delta) -> Iterator[Any]:
+        thinking_blocks: Any = getattr(delta, "thinking_blocks", None)
+        if thinking_blocks is None:
+            provider_specific_fields = getattr(delta, "provider_specific_fields", None)
+            if isinstance(provider_specific_fields, dict):
+                thinking_blocks = provider_specific_fields.get("thinking_blocks")
+            elif provider_specific_fields is not None:
+                thinking_blocks = getattr(
+                    provider_specific_fields, "thinking_blocks", None
+                )
+
+        if not thinking_blocks:
+            return
+        if isinstance(thinking_blocks, list):
+            for block in thinking_blocks:
+                yield block
+            return
+        yield thinking_blocks
+
+    async def _handle_tool_call_deltas(
+        self,
+        context: AgentRunContext,
+        assistant_message: AssistantChatMessage,
+        delta: Delta,
+        tool_call_accumulator: ManagedToolCallAccumulator,
+        preview_state: ManagedToolArgumentPreviewState,
+    ) -> None:
+        entries = delta.tool_calls
+        if not entries:
+            return
+
+        for entry in entries:
+            tool_call_event = tool_call_accumulator.apply_delta(entry)
+            if not tool_call_event:
+                continue
+            arguments_delta = tool_call_event.arguments_delta
+            tokens: list[PartialJsonStringToken] | None = None
+            buffer = tool_call_accumulator.state.argument_buffers.get(entry.index, "")
+            tool_name = tool_call_event.tool_name or ""
+            annotations = None
+            if buffer and tool_name and is_setta_tool_name(tool_name):
+                annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+                if annotations and (
+                    annotations.toolArgumentPreview or annotations.aiFollowToolArguments
+                ):
+                    tokens = scan_partial_json_strings(buffer)
+            preview_event = build_preview_event(
+                assistant_message=assistant_message,
+                tool_call_state=tool_call_accumulator.state,
+                preview_state=preview_state,
+                tool_call_index=entry.index,
+                arguments_delta=arguments_delta,
+                tokens=tokens,
+                dbe=self.dbe,
+                tool_argument_metadata_by_name=(
+                    {tool_name: annotations.toolArgumentPreview}
+                    if annotations and annotations.toolArgumentPreview
+                    else {}
+                ),
+            )
+            await self._apply_actions(
+                [EmitChunkAction(context.chat_id, preview_event or tool_call_event)],
+                context,
+            )
+            await self._maybe_emit_streaming_follow_update(
+                context,
+                assistant_message,
+                tool_call_accumulator.state,
+                {entry.index: tokens} if tokens is not None else None,
+            )
+
+    async def _maybe_emit_streaming_follow_update(
+        self,
+        context: AgentRunContext,
+        assistant_message: AssistantChatMessage,
+        tool_call_state: ManagedToolCallState,
+        tokens_by_index: dict[int, list[PartialJsonStringToken]] | None,
+    ) -> None:
+        ids_by_type = build_streaming_follow_ids(
+            assistant_message=assistant_message,
+            tool_call_state=tool_call_state,
+            tokens_by_index=tokens_by_index,
+            dbe=self.dbe,
+            annotations_by_name=self.mcp_client.tool_annotations_by_name,
+        )
+        if ids_by_type is None:
+            return
+        await self._apply_actions(
+            [
+                UpdateAIFollowAction(
+                    project_config_id=context.project_config_id,
+                    chat_id=context.chat_id,
+                    ids_by_type=ids_by_type,
+                )
+            ],
+            context,
+        )
+
+    async def _maybe_emit_tool_call_follow_update(
+        self,
+        context: AgentRunContext,
+        tool_calls: list[ToolCall],
+    ) -> None:
+        ids_by_type = build_tool_call_follow_ids(
+            tool_calls=tool_calls,
+            dbe=self.dbe,
+            annotations_by_name=self.mcp_client.tool_annotations_by_name,
+        )
+        if ids_by_type is None:
+            return
+        await self._apply_actions(
+            [
+                UpdateAIFollowAction(
+                    project_config_id=context.project_config_id,
+                    chat_id=context.chat_id,
+                    ids_by_type=ids_by_type,
+                )
+            ],
+            context,
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> bool:
+        state = self._ai_follow_state.get((project_config_id, chat_id))
+        if state is None:
+            return False
+        return ids_by_type_to_sets(state.ids_by_type) == ids_by_type_to_sets(
+            ids_by_type
+        )
+
+    async def _update_and_broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> None:
+        normalized_ids_by_type = normalize_ids_by_type(ids_by_type)
+        if self._ai_follow_state_matches(
+            chat_id,
+            project_config_id,
+            normalized_ids_by_type,
+        ):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        if normalized_ids_by_type:
+            self._ai_follow_state[(project_config_id, chat_id)] = AIFollowState(
+                ids_by_type=dict(normalized_ids_by_type)
+            )
+        else:
+            self._ai_follow_state.pop((project_config_id, chat_id), None)
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
+            chat_id,
+            normalized_ids_by_type,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+            project_config_id,
+            chat_id,
+            normalized_ids_by_type,
+        )
+
+    def _should_persist_partial_message(
+        self,
+        assistant_message: AssistantChatMessage,
+    ) -> bool:
+        for block in assistant_message.content:
+            if isinstance(block, MessageTextContent):
+                if block.text.strip():
+                    return True
+                continue
+            return True
+        if assistant_message.tool_calls:
+            return True
+        return False
+
+    def _record_event(
+        self, run: AgentRun, event_type: str, payload: dict[str, Any]
+    ) -> None:
+        run.events.append(RunEvent(type=event_type, payload=payload))
+        save_agent_run(self.dbe, run)
+
+    def _build_outputs(self, messages: list[BaseChatMessageUnion]) -> dict[str, Any]:
+        return build_run_outputs(messages)

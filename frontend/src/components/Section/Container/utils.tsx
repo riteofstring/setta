@@ -25,7 +25,6 @@ export function getBgColor(sectionTypeName: SectionTypeEnum) {
   switch (sectionTypeName) {
     case SectionTypeEnum.Code:
     case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
       return "bg-white dark:bg-setta-900";
     case SectionTypeEnum.Terminal:
       return "bg-setta-950 overflow-clip";
