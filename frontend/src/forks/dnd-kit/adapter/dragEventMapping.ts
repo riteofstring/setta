@@ -1,7 +1,6 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { promoteBestCollision } from "./collisionCompare";
-import { useParamDndChildren } from "../paramDndChildren";
 import type {
   DragEndEvent,
   DragMoveEvent,
@@ -42,7 +41,7 @@ export function mapDragEvent(
     return null;
   }
 
-  const collisions = getCollisions(manager, active);
+  const collisions = getCollisions(manager);
   return {
     activatorEvent: event.operation.activatorEvent ?? null,
     active,
@@ -53,19 +52,11 @@ export function mapDragEvent(
   };
 }
 
-function getCollisions(
-  manager: DragDropManager,
-  active: Draggable,
-): SettaCollision[] {
+function getCollisions(manager: DragDropManager): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
     return [];
   }
 
-  const activeData = active.data as { current?: { type?: string } } | undefined;
-  const isParamDrag = activeData?.current?.type === "param";
-  const parentByChild = isParamDrag
-    ? useParamDndChildren.getState().y
-    : undefined;
-  return promoteBestCollision(collisions as SettaCollision[], parentByChild);
+  return promoteBestCollision(collisions as SettaCollision[]);
 }

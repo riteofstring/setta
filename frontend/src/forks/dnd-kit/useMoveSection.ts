@@ -187,9 +187,6 @@ export function useOnDragEnd() {
   const dummyRef = useRef<HTMLDivElement>(null);
 
   function onDragEnd({ active, over, collisions, canceled }: DragEndEvent) {
-    if (active.data?.current?.type === "param") {
-      return;
-    }
     if (canceled) {
       forceDeactivateDnd();
       return;

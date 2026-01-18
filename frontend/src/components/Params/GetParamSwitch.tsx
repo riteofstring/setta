@@ -7,7 +7,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
-import { isTempParam } from "forks/dnd-kit/paramDndState";
 
 export function GetParamSwitch({
   sectionId,
@@ -55,16 +54,14 @@ export function GetParamSwitch({
       }
     }
 
-    return paramIds.filter(
-      (p) => filteredRequired.has(p) || isTempParam(p),
-    );
+    return paramIds.filter((p) => filteredRequired.has(p));
   }, _.isEqual);
 
-  return filteredIds.map((paramId, idx) => (
+  return filteredIds.map((e, idx) => (
     <ParamSwitch
-      key={paramId}
+      key={e}
       sectionId={sectionId}
-      paramInfoId={paramId}
+      paramInfoId={e}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}

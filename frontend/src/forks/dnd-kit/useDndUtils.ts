@@ -59,9 +59,6 @@ export function useDisableSortable(sectionId: string) {
   }
 
   function enableSort({ active }) {
-    if (active.data?.current?.type === "param") {
-      return;
-    }
     if (implIsFrozen) {
       return;
     }
@@ -83,10 +80,7 @@ export function useDisableSortable(sectionId: string) {
     }
   }
 
-  function onDragDone({ active }) {
-    if (active?.data?.current?.type === "param") {
-      return;
-    }
+  function onDragDone() {
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
@@ -119,7 +113,7 @@ export function useDndProps({ sectionId, isTopLevel }) {
 
   return {
     id: sectionId,
-    data: { type: "section", isTopLevel, hasNested, onlyChildId },
+    data: { isTopLevel, hasNested, onlyChildId },
     disabled,
   };
 }
