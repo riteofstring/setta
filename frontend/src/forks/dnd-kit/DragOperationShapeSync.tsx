@@ -4,21 +4,14 @@ import { effects } from "@dnd-kit/state";
 import { useEffect, useRef } from "react";
 import { useDndMode } from "./dndState";
 
-type DragOperationShapeSyncProps = {
-  enabled?: boolean;
-};
-
-export function DragOperationShapeSync({
-  enabled,
-}: DragOperationShapeSyncProps = {}) {
+export function DragOperationShapeSync() {
   const manager = useDragDropManager();
   const { isSorting } = useDndMode();
-  const shouldSync = enabled === undefined ? isSorting : enabled;
   const baseRectRef = useRef<BoundingRectangle | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
-    if (!manager || !shouldSync) {
+    if (!manager || !isSorting) {
       baseRectRef.current = null;
       activeIdRef.current = null;
       return;
@@ -62,7 +55,7 @@ export function DragOperationShapeSync({
         transform?.y ?? 0,
       );
     });
-  }, [manager, shouldSync]);
+  }, [isSorting, manager]);
 
   return null;
 }
