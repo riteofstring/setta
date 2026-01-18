@@ -189,18 +189,25 @@ function parseShortcut(shortcutString) {
   };
 }
 
-function isTabLikeShortcut(shortcut) {
+function getTabShortcutInfo(shortcut) {
   if (!shortcut) {
-    return false;
+    return null;
   }
   const parsed = parseShortcut(shortcut.toLowerCase());
-  return (
+  const isTabOnly =
     parsed.keys.size === 1 &&
     parsed.keys.has("Tab") &&
     !parsed.mod &&
     !parsed.ctrl &&
-    !parsed.alt
-  );
+    !parsed.alt;
+  if (!isTabOnly) {
+    return null;
+  }
+  return { shift: parsed.shift };
+}
+
+function isTabLikeShortcut(shortcut) {
+  return getTabShortcutInfo(shortcut) !== null;
 }
 
 function isShortcutPressed(e, parsedShortcut, _isMacOs) {
@@ -734,19 +741,45 @@ function onEscapeKey() {
 
 function handleTabKeyDown(event: KeyboardEvent) {
   if (hasSelectedParams()) {
-    if (event.shiftKey) {
-      unindentSelectedParams();
-    } else {
+    const action = resolveTabParamAction(event);
+    if (action === "indent") {
       indentSelectedParams();
+      event.preventDefault();
+      return;
     }
-    event.preventDefault();
-    return;
+    if (action === "unindent") {
+      unindentSelectedParams();
+      event.preventDefault();
+      return;
+    }
   }
 
   const didHandle = handleTabNavigation(event);
   if (didHandle) {
     event.preventDefault();
   }
+}
+
+function resolveTabParamAction(event: KeyboardEvent) {
+  const shortcuts = useSettings.getState().shortcuts;
+  const indentTab = getTabShortcutInfo(shortcuts.paramIndentShortcut);
+  const unindentTab = getTabShortcutInfo(shortcuts.paramUnindentShortcut);
+  if (event.shiftKey) {
+    if (unindentTab?.shift) {
+      return "unindent";
+    }
+    if (indentTab?.shift) {
+      return "indent";
+    }
+    return null;
+  }
+  if (indentTab && !indentTab.shift) {
+    return "indent";
+  }
+  if (unindentTab && !unindentTab.shift) {
+    return "unindent";
+  }
+  return null;
 }
 
 function hasSelectedParams(): boolean {

@@ -19,10 +19,25 @@ const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
 
 function normalizeFocusableElement(element: HTMLElement): HTMLElement {
-  if (element.classList.contains("cm-content")) {
+  const isCodeMirrorContent =
+    element.classList.contains("cm-content") || element.isContentEditable;
+  if (isCodeMirrorContent) {
     const cmEditor = element.closest(".cm-editor");
     if (cmEditor instanceof HTMLElement && cmEditor.tabIndex >= 0) {
       return cmEditor;
+    }
+    const codeMirrorRoot =
+      element.closest("[id^='CodeMirror-']") ??
+      element.closest(".cm-theme") ??
+      element.closest(".cm-editor");
+    if (codeMirrorRoot instanceof HTMLElement && codeMirrorRoot.tabIndex >= 0) {
+      return codeMirrorRoot;
+    }
+    const focusableAncestor = element.closest(
+      "[tabindex]:not([tabindex='-1'])",
+    );
+    if (focusableAncestor instanceof HTMLElement) {
+      return focusableAncestor;
     }
   }
   return element;
@@ -54,7 +69,6 @@ function performTabNavigation({
   allowInputTarget = false,
 }: TabNavigationOptions): boolean {
   const normalizedTarget = normalizeFocusableElement(target);
-
   if (normalizedTarget.closest("[data-tab-native]")) {
     return false;
   }

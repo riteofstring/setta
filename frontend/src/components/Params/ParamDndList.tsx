@@ -56,7 +56,10 @@ export function ParamDndList({
       if (!impl.callable) {
         return null;
       }
-    } else if (impl.type === SectionTypeEnum.Dict) {
+    } else if (
+      impl.type === SectionTypeEnum.Dict ||
+      impl.type === SectionTypeEnum.GlobalVariables
+    ) {
       if (!impl.topLevelParamId) {
         return null;
       }

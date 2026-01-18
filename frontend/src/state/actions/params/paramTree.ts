@@ -49,7 +49,10 @@ export function getParamRootId(
     }
     return impl.callable;
   }
-  if (impl.type === SectionTypeEnum.Dict) {
+  if (
+    impl.type === SectionTypeEnum.Dict ||
+    impl.type === SectionTypeEnum.GlobalVariables
+  ) {
     if (!impl.topLevelParamId) {
       throw new Error(`Section ${sectionId} missing top level param root.`);
     }
