@@ -501,6 +501,15 @@ function buildEventDetail(
       return `Error: ${error}`;
     }
   }
+  if (event.type === "run_completed") {
+    return "Turn completed";
+  }
+  if (event.type === "run_cancelled") {
+    return "Run cancelled";
+  }
+  if (event.type === "run_started") {
+    return "Run created";
+  }
   if (event.type === "approval_request") {
     const payload =
       isRecord(event.payload) && isRecord(event.payload.payload)
@@ -511,6 +520,31 @@ function buildEventDetail(
       return `Approval requested for ${toolName}`;
     }
     return "Approval requested";
+  }
+  if (event.type === "approval_response") {
+    const approved =
+      isRecord(event.payload) && typeof event.payload.approved === "boolean"
+        ? event.payload.approved
+        : null;
+    if (approved === null) {
+      return "Approval response recorded";
+    }
+    return approved ? "Approval granted" : "Approval denied";
+  }
+  if (event.type === "question_response") {
+    return "Question response recorded";
+  }
+  if (event.type === "tool_result") {
+    const payload = isRecord(event.payload) ? event.payload : null;
+    const toolName = payload ? getString(payload.toolName) : null;
+    const toolCallId = payload ? getString(payload.toolCallId) : null;
+    if (toolName) {
+      return `Tool result ${toolName}`;
+    }
+    if (toolCallId) {
+      return `Tool result ${toolCallId}`;
+    }
+    return "Tool result recorded";
   }
   if (!chunk) {
     return summarizePayload(event.payload);

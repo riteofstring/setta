@@ -21,7 +21,6 @@ from setta.types.chat_messages import (
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
-    MessageStartEvent,
     MessageTextDelta,
 )
 from setta.types.id import ID
@@ -52,8 +51,8 @@ class ChatViewTests(unittest.TestCase):
                 )
             ],
         )
-        self.assertEqual(get_run_chat_id(run_with_event), ID("chat-2"))
-        self.assertEqual(get_run_project_config_id(run_with_event), ID("project-2"))
+        self.assertIsNone(get_run_chat_id(run_with_event))
+        self.assertIsNone(get_run_project_config_id(run_with_event))
 
         scriptable = AgentRun(
             inputs={
@@ -66,17 +65,9 @@ class ChatViewTests(unittest.TestCase):
         self.assertTrue(is_scriptable_chat_run(scriptable))
         self.assertTrue(is_chat_run(scriptable))
 
-    def test_build_chat_state_from_stream_events(self) -> None:
+    def test_build_chat_state_ignores_stream_events(self) -> None:
         user_message = UserChatMessage(
             content=[MessageTextContent(text="Hello")],
-        )
-        assistant_id = "assistant-1"
-        start_event = MessageStartEvent(
-            message=AssistantChatMessage(id=assistant_id, content=[]),
-        )
-        delta_event = MessageDeltaEvent(
-            message_id=assistant_id,
-            content=[MessageTextDelta(index=0, text="Hi")],
         )
         run = AgentRun(
             status=AgentRunStatus.running,
@@ -90,32 +81,29 @@ class ChatViewTests(unittest.TestCase):
             events=[
                 RunEvent(
                     type="stream_chunk",
-                    payload={"chunk": start_event.model_dump(mode="json")},
-                ),
-                RunEvent(
-                    type="stream_chunk",
-                    payload={"chunk": delta_event.model_dump(mode="json")},
+                    payload={
+                        "chunk": MessageDeltaEvent(
+                            message_id="assistant-1",
+                            content=[MessageTextDelta(index=0, text="Hi")],
+                        ).model_dump(mode="json")
+                    },
                 ),
             ],
         )
 
         state = build_chat_state_from_run(run)
 
-        self.assertEqual(len(state.messages), 2)
+        self.assertEqual(len(state.messages), 1)
         self.assertTrue(state.waitingForResponse)
-        assistant_message = next(
-            message
-            for message in state.messages
-            if isinstance(message, AssistantChatMessage)
-        )
-        self.assertEqual(assistant_message.content[0].text, "Hi")
+        self.assertIsInstance(state.messages[0], UserChatMessage)
 
-    def test_get_engine_config_id_from_run_started_event(self) -> None:
+    def test_get_engine_config_id_from_inputs(self) -> None:
         run = AgentRun(
             inputs={
                 "runType": LLM_CHAT_RUN_TYPE,
                 "chatId": "chat-1",
                 "projectConfigId": "project-1",
+                "engineConfigId": "engine-1",
             },
             events=[
                 RunEvent(
@@ -126,6 +114,9 @@ class ChatViewTests(unittest.TestCase):
         )
 
         self.assertEqual(get_run_engine_config_id(run), ID("engine-1"))
+
+        missing = AgentRun(inputs={"runType": LLM_CHAT_RUN_TYPE})
+        self.assertIsNone(get_run_engine_config_id(missing))
 
     def test_outputs_override_stream(self) -> None:
         output_message = AssistantChatMessage(

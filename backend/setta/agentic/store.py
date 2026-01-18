@@ -89,13 +89,17 @@ def create_agent_run(
     *,
     profile_id: ID | None,
     inputs: dict[str, Any] | None,
+    run_id: ID | None = None,
 ) -> AgentRun:
-    return AgentRun(
-        profileId=profile_id,
-        status=AgentRunStatus.running,
-        startedAt=get_now_timestamp(),
-        inputs=inputs,
-    )
+    payload = {
+        "profileId": profile_id,
+        "status": AgentRunStatus.running,
+        "startedAt": get_now_timestamp(),
+        "inputs": inputs,
+    }
+    if run_id is not None:
+        return AgentRun(id=run_id, **payload)
+    return AgentRun(**payload)
 
 
 def load_agent_run(dbe: DBE, run_id: ID) -> AgentRun | None:

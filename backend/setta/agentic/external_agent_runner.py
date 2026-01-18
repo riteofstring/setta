@@ -13,9 +13,7 @@ from mcp.types import TextContent
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
-    get_run_chat_id,
     get_run_project_config_id,
-    get_run_sort_key,
     is_external_agent_run,
 )
 from setta.agentic.external_adapters.base import (
@@ -34,7 +32,6 @@ from setta.agentic.external_tool_allowlist import (
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
     create_agent_run,
-    list_agent_runs,
     load_agent_run,
     save_agent_run,
 )
@@ -48,6 +45,7 @@ from setta.llm.chat_toolkit.managed.ai_follow import (
     normalize_ids_by_type,
 )
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
+from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
@@ -72,6 +70,7 @@ from setta.types.external_agents import (
 )
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
@@ -88,6 +87,16 @@ _CODEX_CONFIG_NAME = "config.toml"
 _APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
 _APPROVAL_TOOL_NAME = "setta.approval"
 _ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
+_SUMMARY_EVENT_TYPES = {
+    "run_started",
+    "run_completed",
+    "run_failed",
+    "run_cancelled",
+    "approval_request",
+    "approval_response",
+    "question_response",
+    "tool_result",
+}
 
 
 @dataclass(frozen=True)
@@ -134,6 +143,7 @@ class ExternalAgentRunner:
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
         self._run_state: dict[ID, ExternalAgentRunState] = {}
+        self._chat_states: dict[ID, ChatSectionState] = {}
         self._tool_call_buffers: dict[ID, dict[str, str]] = {}
         self._tool_call_names: dict[ID, dict[str, str]] = {}
         self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
@@ -174,20 +184,23 @@ class ExternalAgentRunner:
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
     ) -> AgentRun:
-        context = self._build_context(engine_config_id, config, profile, inputs)
+        context, is_new = self._build_context(engine_config_id, config, profile, inputs)
         run = context.run
         self._runs[run.id] = run
-        save_agent_run(self.dbe, run)
-        self._record_event(
-            run,
-            "run_started",
-            {
-                "engineConfigId": str(engine_config_id),
-                "projectConfigId": str(context.project_config_id),
-                "chatId": str(context.chat_id),
-                "sectionId": str(context.section_id) if context.section_id else None,
-            },
-        )
+        self._init_chat_state(run)
+        if is_new:
+            self._record_event(
+                run,
+                "run_started",
+                {
+                    "engineConfigId": str(engine_config_id),
+                    "projectConfigId": str(context.project_config_id),
+                    "chatId": str(context.chat_id),
+                    "sectionId": str(context.section_id)
+                    if context.section_id
+                    else None,
+                },
+            )
         task = spawn_background_task(
             lambda: self._run_external_agent(context),
             label="external-agent-run",
@@ -199,6 +212,7 @@ class ExternalAgentRunner:
             self._tasks.pop(run_id, None)
             self._runs.pop(run_id, None)
             self._run_state.pop(run_id, None)
+            self._chat_states.pop(run_id, None)
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
             self._clear_pending_approvals(run_id)
@@ -249,7 +263,6 @@ class ExternalAgentRunner:
                 handle=handle, adapter=adapter
             )
             async for event in adapter.stream_events(handle, context):
-                self._record_event(run, "external_event", event.raw)
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
@@ -260,28 +273,12 @@ class ExternalAgentRunner:
                         section_id=context.section_id,
                         share_session_id=self.share_session_id,
                     )
-                    self._record_event(
-                        run,
-                        "stream_chunk",
-                        {
-                            "chatId": str(context.chat_id),
-                            "sectionId": str(context.section_id)
-                            if context.section_id
-                            else None,
-                            "chunk": event.stream_chunk.model_dump(mode="json"),
-                        },
-                    )
-                    await self._handle_stream_chunk(
-                        context.project_config_id,
-                        context.chat_id,
-                        run.id,
-                        event.stream_chunk,
-                    )
+                    await self._handle_stream_chunk(context, run, event.stream_chunk)
             self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
-            self._set_run_outputs_from_events(run, context.config)
+            self._persist_outputs_from_state(run, context.config)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -290,11 +287,13 @@ class ExternalAgentRunner:
             run.status = AgentRunStatus.cancelled
             run.finishedAt = get_now_timestamp()
             self._persist_external_session_metadata(run, handle)
+            self._persist_outputs_from_state(run, context.config)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
             self._persist_external_session_metadata(run, handle)
+            self._persist_outputs_from_state(run, context.config)
             await (
                 self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
                     exc,
@@ -319,7 +318,7 @@ class ExternalAgentRunner:
         config: ExternalAgentConfig,
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
-    ) -> ExternalAgentRunContext:
+    ) -> tuple[ExternalAgentRunContext, bool]:
         project_state = self.dbe.read_project_required()
         if project_state.defaultProjectConfigId is None:
             raise KeyError("Project state does not define a default project config")
@@ -337,17 +336,18 @@ class ExternalAgentRunner:
 
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
+            payload_inputs["chatId"] = str(chat_id)
             self._apply_session_history(
                 payload_inputs, config, engine_config_id, chat_id, project_config_id
             )
 
-        run = create_agent_run(
-            profile_id=profile.id if profile is not None else None,
-            inputs=payload_inputs,
+        run, chat_id, is_new = self._find_or_create_chat_run(
+            chat_id=chat_id,
+            engine_config_id=engine_config_id,
+            project_config_id=project_config_id,
+            profile=profile,
+            payload_inputs=payload_inputs,
         )
-        if chat_id is None:
-            chat_id = run.id
-            payload_inputs["chatId"] = str(run.id)
         system_prompt = self._build_system_prompt(profile, project_config_id)
         working_dir = self._resolve_working_dir(config)
         env = self._build_env(config)
@@ -371,7 +371,54 @@ class ExternalAgentRunner:
             working_dir=working_dir,
             env=env,
             cleanup_paths=tuple(cleanup_paths),
-        )
+        ), is_new
+
+    def _find_or_create_chat_run(
+        self,
+        *,
+        chat_id: ID | None,
+        engine_config_id: ID,
+        project_config_id: ID,
+        profile: AgentProfile | None,
+        payload_inputs: dict[str, Any],
+    ) -> tuple[AgentRun, ID, bool]:
+        profile_id = profile.id if profile is not None else None
+        if chat_id is None:
+            run = create_agent_run(profile_id=profile_id, inputs=payload_inputs)
+            chat_id = run.id
+            payload_inputs["chatId"] = str(chat_id)
+            run.inputs = payload_inputs
+            save_agent_run(self.dbe, run)
+            return run, chat_id, True
+        payload_inputs["chatId"] = str(chat_id)
+        existing = load_agent_run(self.dbe, chat_id)
+        if existing is None:
+            run = create_agent_run(
+                profile_id=profile_id,
+                inputs=payload_inputs,
+                run_id=chat_id,
+            )
+            save_agent_run(self.dbe, run)
+            return run, chat_id, True
+        if not is_external_agent_run(existing):
+            raise KeyError(f"Run {chat_id} is not an external agent run")
+        existing_project_config_id = get_run_project_config_id(existing)
+        if existing_project_config_id != project_config_id:
+            raise KeyError(
+                "Chat project config does not match existing external agent run"
+            )
+        existing_engine_config_id = self._get_run_engine_config_id(existing)
+        if existing_engine_config_id != engine_config_id:
+            raise KeyError("Chat engine config does not match existing external run")
+        existing.inputs = payload_inputs
+        if profile_id is not None:
+            existing.profileId = profile_id
+        if existing.startedAt is None:
+            existing.startedAt = get_now_timestamp()
+        existing.status = AgentRunStatus.running
+        existing.finishedAt = None
+        save_agent_run(self.dbe, existing)
+        return existing, chat_id, False
 
     def _resolve_project_config_id(
         self,
@@ -411,18 +458,18 @@ class ExternalAgentRunner:
     ) -> None:
         if "sessionId" in payload_inputs or "threadId" in payload_inputs:
             return
-        previous = self._find_latest_external_run(
-            chat_id, engine_config_id, project_config_id
-        )
-        if previous is None:
+        previous = load_agent_run(self.dbe, chat_id)
+        if previous is None or not is_external_agent_run(previous):
+            return
+        if get_run_project_config_id(previous) != project_config_id:
+            return
+        if self._get_run_engine_config_id(previous) != engine_config_id:
             return
         session_id = self._extract_output_string(previous.outputs, "sessionId")
         if session_id is None:
             run_state = self._run_state.get(previous.id)
             if run_state and run_state.handle.session_id:
                 session_id = run_state.handle.session_id
-        if session_id is None:
-            session_id = self._extract_session_id_from_events(previous)
         thread_id = self._extract_output_string(previous.outputs, "threadId")
         if config.toolType == ExternalAgentToolType.codex:
             if thread_id:
@@ -430,24 +477,6 @@ class ExternalAgentRunner:
             return
         if session_id:
             payload_inputs["sessionId"] = session_id
-
-    def _find_latest_external_run(
-        self,
-        chat_id: ID,
-        engine_config_id: ID,
-        project_config_id: ID,
-    ) -> AgentRun | None:
-        runs = [
-            run
-            for run in list_agent_runs(self.dbe)
-            if is_external_agent_run(run)
-            and get_run_chat_id(run) == chat_id
-            and get_run_project_config_id(run) == project_config_id
-            and self._get_run_engine_config_id(run) == engine_config_id
-        ]
-        if not runs:
-            return None
-        return max(runs, key=get_run_sort_key)
 
     @staticmethod
     def _get_run_engine_config_id(run: AgentRun) -> ID | None:
@@ -476,19 +505,61 @@ class ExternalAgentRunner:
             return raw
         return None
 
-    @staticmethod
-    def _extract_session_id_from_events(run: AgentRun) -> str | None:
-        for event in reversed(run.events):
-            if event.type != "external_event":
-                continue
-            payload = event.payload
-            if not isinstance(payload, dict):
-                continue
-            for key in ("session_id", "sessionId"):
-                raw = payload.get(key)
-                if isinstance(raw, str) and raw:
-                    return raw
-        return None
+    def _init_chat_state(self, run: AgentRun) -> None:
+        self._chat_states[run.id] = build_chat_state_from_run(run)
+
+    def _ensure_chat_state(self, run: AgentRun) -> ChatSectionState:
+        state = self._chat_states.get(run.id)
+        if state is None:
+            state = build_chat_state_from_run(run)
+            self._chat_states[run.id] = state
+        return state
+
+    def _apply_stream_chunk_to_state(
+        self, run: AgentRun, chunk: Any
+    ) -> ChatSectionState:
+        state = self._ensure_chat_state(run)
+        updated = apply_stream_delta(state=state, chunk=chunk)
+        self._chat_states[run.id] = updated
+        return updated
+
+    def _persist_outputs_from_state(
+        self,
+        run: AgentRun,
+        config: ExternalAgentConfig | None,
+        state: ChatSectionState | None = None,
+    ) -> None:
+        if state is None:
+            state = self._ensure_chat_state(run)
+        outputs = run.outputs or {}
+        outputs.update(build_run_outputs(state.messages))
+        metadata: dict[str, Any] = {}
+        existing_metadata = outputs.get("metadata")
+        if isinstance(existing_metadata, dict):
+            metadata.update(existing_metadata)
+        engine_config_id = self._extract_input_string(run.inputs, "engineConfigId")
+        if engine_config_id:
+            metadata["engineConfigId"] = engine_config_id
+        chat_id = self._extract_input_string(run.inputs, "chatId")
+        if chat_id:
+            metadata["chatId"] = chat_id
+        project_config_id = self._extract_input_string(run.inputs, "projectConfigId")
+        if project_config_id:
+            metadata["projectConfigId"] = project_config_id
+        if config is not None:
+            metadata["externalAgentConfigId"] = str(config.id)
+            metadata["toolType"] = config.toolType.value
+            metadata["runMode"] = config.runMode.value
+            if config.defaultModel:
+                metadata["model"] = config.defaultModel
+            if config.approvalPolicy:
+                metadata["approvalPolicy"] = config.approvalPolicy
+            if config.sandboxPolicy:
+                metadata["sandboxPolicy"] = config.sandboxPolicy
+        if metadata:
+            outputs["metadata"] = metadata
+        run.outputs = outputs
+        save_agent_run(self.dbe, run)
 
     def _build_system_prompt(
         self, profile: AgentProfile | None, project_config_id: ID
@@ -716,6 +787,8 @@ class ExternalAgentRunner:
             logger.warning("Failed to cleanup path %s", path, exc_info=exc)
 
     def _record_event(self, run: AgentRun, event_type: str, payload: dict[str, Any]):
+        if event_type not in _SUMMARY_EVENT_TYPES:
+            return
         run.events.append(RunEvent(type=event_type, payload=payload))
         save_agent_run(self.dbe, run)
 
@@ -737,86 +810,65 @@ class ExternalAgentRunner:
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 
-    def _set_run_outputs_from_events(
-        self, run: AgentRun, config: ExternalAgentConfig | None = None
-    ) -> None:
-        state = build_chat_state_from_run(run)
-        outputs = run.outputs or {}
-        outputs.update(build_run_outputs(state.messages))
-        metadata = {}
-        existing_metadata = outputs.get("metadata")
-        if isinstance(existing_metadata, dict):
-            metadata.update(existing_metadata)
-        engine_config_id = self._extract_input_string(run.inputs, "engineConfigId")
-        if engine_config_id:
-            metadata.setdefault("engineConfigId", engine_config_id)
-        chat_id = self._extract_input_string(run.inputs, "chatId")
-        if chat_id:
-            metadata.setdefault("chatId", chat_id)
-        project_config_id = self._extract_input_string(run.inputs, "projectConfigId")
-        if project_config_id:
-            metadata.setdefault("projectConfigId", project_config_id)
-        if config is not None:
-            metadata.setdefault("externalAgentConfigId", str(config.id))
-            metadata.setdefault("toolType", config.toolType.value)
-            metadata.setdefault("runMode", config.runMode.value)
-            if config.defaultModel:
-                metadata.setdefault("model", config.defaultModel)
-            if config.approvalPolicy:
-                metadata.setdefault("approvalPolicy", config.approvalPolicy)
-            if config.sandboxPolicy:
-                metadata.setdefault("sandboxPolicy", config.sandboxPolicy)
-        if metadata:
-            outputs["metadata"] = metadata
-        run.outputs = outputs
-
     async def _handle_stream_chunk(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        run_id: ID,
-        chunk: Any,
+        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
     ) -> None:
+        state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
-            self._store_tool_call_delta(run_id, chunk)
+            self._store_tool_call_delta(run.id, chunk)
             self._maybe_register_question_call(
-                run_id,
-                project_config_id,
-                chat_id,
+                run.id,
+                context.project_config_id,
+                context.chat_id,
                 chunk.tool_call_id,
                 chunk.tool_name,
             )
             await self._maybe_emit_streaming_follow_update(
-                project_config_id,
-                chat_id,
-                run_id,
+                context.project_config_id,
+                context.chat_id,
+                run.id,
                 chunk,
             )
             return
         if isinstance(chunk, MessageFinalizedEvent):
             tool_calls = chunk.message.tool_calls or []
             if not tool_calls:
-                tool_calls = self._build_tool_calls_from_buffers(run_id)
+                tool_calls = self._build_tool_calls_from_buffers(run.id)
             else:
                 tool_calls = self._normalize_tool_calls(tool_calls)
             for tool_call in tool_calls:
                 normalized = self._normalize_tool_name(tool_call.function.name)
                 if normalized == _ASK_USER_QUESTION_TOOL_NAME:
                     self._register_question_call(
-                        run_id,
-                        project_config_id,
-                        chat_id,
+                        run.id,
+                        context.project_config_id,
+                        context.chat_id,
                         tool_call.id,
                     )
             await self._maybe_emit_follow_update(
-                project_config_id,
-                chat_id,
+                context.project_config_id,
+                context.chat_id,
                 tool_calls,
             )
-            self._clear_tool_call_buffers(run_id)
+            self._clear_tool_call_buffers(run.id)
+            self._persist_outputs_from_state(run, context.config, state)
             return
         if isinstance(chunk, ToolResultEvent):
-            await self._broadcast_ai_follow_update(project_config_id, chat_id, {})
+            await self._broadcast_ai_follow_update(
+                context.project_config_id,
+                context.chat_id,
+                {},
+            )
+            self._record_event(
+                run,
+                "tool_result",
+                {
+                    "toolCallId": chunk.result.tool_call_id,
+                    "toolName": chunk.result.tool_name,
+                    "isError": chunk.result.is_error,
+                },
+            )
+            self._persist_outputs_from_state(run, context.config, state)
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
         buffers = self._tool_call_buffers.setdefault(run_id, {})
@@ -955,15 +1007,8 @@ class ExternalAgentRunner:
             section_id=context.section_id,
             share_session_id=self.share_session_id,
         )
-        self._record_event(
-            run,
-            "stream_chunk",
-            {
-                "chatId": str(context.chat_id),
-                "sectionId": str(context.section_id) if context.section_id else None,
-                "chunk": chunk.model_dump(mode="json"),
-            },
-        )
+        state = self._apply_stream_chunk_to_state(run, chunk)
+        self._persist_outputs_from_state(run, context.config, state)
         self._record_event(
             run,
             "approval_request",
@@ -1049,13 +1094,20 @@ class ExternalAgentRunner:
             section_id=state.section_id,
             share_session_id=self.share_session_id,
         )
+        await self._broadcast_ai_follow_update(
+            state.project_config_id,
+            state.chat_id,
+            {},
+        )
+        state_snapshot = self._apply_stream_chunk_to_state(run, chunk)
+        self._persist_outputs_from_state(run, None, state_snapshot)
         self._record_event(
             run,
-            "stream_chunk",
+            "tool_result",
             {
-                "chatId": str(state.chat_id),
-                "sectionId": str(state.section_id) if state.section_id else None,
-                "chunk": chunk.model_dump(mode="json"),
+                "toolCallId": tool_message.tool_call_id,
+                "toolName": tool_message.tool_name,
+                "isError": tool_message.is_error,
             },
         )
         self._record_event(
@@ -1099,13 +1151,20 @@ class ExternalAgentRunner:
             section_id=state.section_id,
             share_session_id=self.share_session_id,
         )
+        await self._broadcast_ai_follow_update(
+            state.project_config_id,
+            state.chat_id,
+            {},
+        )
+        state_snapshot = self._apply_stream_chunk_to_state(run, chunk)
+        self._persist_outputs_from_state(run, None, state_snapshot)
         self._record_event(
             run,
-            "stream_chunk",
+            "tool_result",
             {
-                "chatId": str(state.chat_id),
-                "sectionId": str(state.section_id) if state.section_id else None,
-                "chunk": chunk.model_dump(mode="json"),
+                "toolCallId": tool_message.tool_call_id,
+                "toolName": tool_message.tool_name,
+                "isError": tool_message.is_error,
             },
         )
         self._record_event(

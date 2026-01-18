@@ -446,9 +446,7 @@ def _build_tool_result(payload: dict[str, Any]) -> ToolChatMessage | None:
     tool_name = _extract_tool_name(payload)
     arguments = _extract_tool_arguments_dict(payload)
     content_text = _stringify_tool_result(raw_result)
-    content = (
-        [TextContent(type="text", text=content_text)] if content_text else []
-    )
+    content = [TextContent(type="text", text=content_text)] if content_text else []
     return ToolChatMessage(
         tool_call_id=tool_call_id,
         tool_name=tool_name,

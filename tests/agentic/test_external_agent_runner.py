@@ -5,6 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 from setta.agentic.external_adapters.base import ExternalAgentRunHandle
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
@@ -16,7 +17,7 @@ from setta.agentic.external_agent_runner import (
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
-from setta.types.agentic import AgentProfile, RunEvent
+from setta.types.agentic import AgentProfile, AgentRunStatus
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -66,6 +67,24 @@ def _build_runner(dbe: DBE) -> ExternalAgentRunner:
     return ExternalAgentRunner(dbe, frontend_sender)
 
 
+def _build_context_for_test(
+    runner: ExternalAgentRunner,
+    config: ExternalAgentConfig,
+    *,
+    engine_config_id: ID | None = None,
+    profile: AgentProfile | None = None,
+    inputs: dict[str, Any] | None = None,
+):
+    resolved_engine_id = engine_config_id or ID("engine-1")
+    context, _ = runner._build_context(
+        resolved_engine_id,
+        config,
+        profile,
+        inputs,
+    )
+    return context
+
+
 class ExternalAgentRunnerTests(unittest.TestCase):
     def test_context_defaults_chat_id_to_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -79,11 +98,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
-                profile=None,
-                inputs=None,
+                engine_config_id=engine_config_id,
             )
 
             self.assertEqual(context.chat_id, context.run.id)
@@ -101,11 +119,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
-                profile=None,
-                inputs=None,
+                engine_config_id=engine_config_id,
             )
 
             self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
@@ -130,14 +147,15 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-1"),
             )
             previous.outputs = {"threadId": "thread-123"}
             save_agent_run(dbe, previous)
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
-                profile=None,
+                engine_config_id=engine_config_id,
                 inputs={"chatId": "chat-1"},
             )
 
@@ -163,59 +181,18 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-2"),
             )
             previous.outputs = {"sessionId": "session-456"}
             save_agent_run(dbe, previous)
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
-                profile=None,
+                engine_config_id=engine_config_id,
                 inputs={"chatId": "chat-2"},
             )
-
             self.assertEqual(context.inputs.get("sessionId"), "session-456")
-
-    def test_context_inherits_session_id_from_events(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            engine_config_id = ID("engine-2b")
-            config = ExternalAgentConfig(
-                id="config-2b",
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            previous = create_agent_run(
-                profile_id=None,
-                inputs={
-                    "chatId": "chat-2b",
-                    "projectConfigId": str(project_config.id),
-                    "engineConfigId": str(engine_config_id),
-                    "runType": EXTERNAL_AGENT_RUN_TYPE,
-                },
-            )
-            previous.events.append(
-                RunEvent(
-                    type="external_event",
-                    payload={"type": "system", "session_id": "session-from-event"},
-                )
-            )
-            save_agent_run(dbe, previous)
-
-            context = runner._build_context(
-                engine_config_id,
-                config,
-                profile=None,
-                inputs={"chatId": "chat-2b"},
-            )
-
-            self.assertEqual(
-                context.inputs.get("sessionId"),
-                "session-from-event",
-            )
 
     def test_context_respects_explicit_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -237,20 +214,62 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-3"),
             )
             previous.outputs = {"sessionId": "session-old"}
             save_agent_run(dbe, previous)
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
-                profile=None,
+                engine_config_id=engine_config_id,
                 inputs={"chatId": "chat-3", "sessionId": "session-new"},
             )
 
             self.assertEqual(context.inputs.get("sessionId"), "session-new")
 
-    def test_context_inherits_session_id_per_project_config(self) -> None:
+    def test_context_reuses_chat_run_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-4")
+            config = ExternalAgentConfig(
+                id="config-4",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context, is_new = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-4"},
+            )
+            self.assertTrue(is_new)
+            self.assertEqual(context.run.id, ID("chat-4"))
+            initial_started_at = context.run.startedAt
+            context.run.status = AgentRunStatus.completed
+            context.run.finishedAt = context.run.startedAt
+            save_agent_run(dbe, context.run)
+
+            followup, is_new_followup = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-4"},
+            )
+            self.assertFalse(is_new_followup)
+            self.assertEqual(followup.run.id, context.run.id)
+            self.assertEqual(followup.run.startedAt, initial_started_at)
+            self.assertEqual(followup.run.status, AgentRunStatus.running)
+            self.assertIsNone(followup.run.finishedAt)
+            self.assertEqual(
+                followup.inputs.get("projectConfigId"),
+                str(project_config.id),
+            )
+
+    def test_context_rejects_mismatched_project_config(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config_a = ProjectConfig()
@@ -264,47 +283,35 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
             dbe.write_project(project_state)
             runner = _build_runner(dbe)
-            engine_config_id = ID("engine-4")
+            engine_config_id = ID("engine-5")
             config = ExternalAgentConfig(
-                id="config-4",
+                id="config-5",
                 name="OpenCode SDK",
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
             )
-            run_a = create_agent_run(
+            run = create_agent_run(
                 profile_id=None,
                 inputs={
-                    "chatId": "chat-4",
+                    "chatId": "chat-5",
                     "projectConfigId": str(project_config_a.id),
                     "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-5"),
             )
-            run_a.outputs = {"sessionId": "session-old"}
-            save_agent_run(dbe, run_a)
-            run_b = create_agent_run(
-                profile_id=None,
-                inputs={
-                    "chatId": "chat-4",
-                    "projectConfigId": str(project_config_b.id),
-                    "engineConfigId": str(engine_config_id),
-                    "runType": EXTERNAL_AGENT_RUN_TYPE,
-                },
-            )
-            run_b.outputs = {"sessionId": "session-new"}
-            save_agent_run(dbe, run_b)
+            save_agent_run(dbe, run)
 
-            context = runner._build_context(
-                engine_config_id,
-                config,
-                profile=None,
-                inputs={
-                    "chatId": "chat-4",
-                    "projectConfigId": str(project_config_b.id),
-                },
-            )
-
-            self.assertEqual(context.inputs.get("sessionId"), "session-new")
+            with self.assertRaises(KeyError):
+                runner._build_context(
+                    engine_config_id,
+                    config,
+                    profile=None,
+                    inputs={
+                        "chatId": "chat-5",
+                        "projectConfigId": str(project_config_b.id),
+                    },
+                )
 
     def test_opencode_config_writes_permission_key(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -373,7 +380,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
-            run = create_agent_run(profile_id=None, inputs={"chatId": "chat-4"})
+            run = create_agent_run(
+                profile_id=None,
+                inputs={"chatId": "chat-4"},
+                run_id=ID("chat-4"),
+            )
             save_agent_run(dbe, run)
             handle = ExternalAgentRunHandle(
                 run_id=run.id,
@@ -403,8 +414,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-5",
                     "projectConfigId": "config-5",
+                    "engineConfigId": "engine-5",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-5"),
             )
 
             message = AssistantChatMessage(
@@ -421,15 +434,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 ),
                 MessageFinalizedEvent(message=message),
             ]
+            state = None
             for chunk in stream_chunks:
-                run.events.append(
-                    RunEvent(
-                        type="stream_chunk",
-                        payload={"chunk": chunk.model_dump(mode="json")},
-                )
-            )
-
-            runner._set_run_outputs_from_events(run, config)
+                state = runner._apply_stream_chunk_to_state(run, chunk)
+            runner._persist_outputs_from_state(run, config, state)
 
             self.assertIsNotNone(run.outputs)
             messages = run.outputs.get("messages")
@@ -458,44 +466,26 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-7"),
             )
             message = AssistantChatMessage(
                 id="m7",
                 content=[MessageTextContent(text="Hello")],
             )
-            run.events.append(
-                RunEvent(
-                    type="stream_chunk",
-                    payload={
-                        "chunk": MessageStartEvent(
-                            message=AssistantChatMessage(id="m7", content=[])
-                        ).model_dump(mode="json")
-                    },
-                )
-            )
-            run.events.append(
-                RunEvent(
-                    type="stream_chunk",
-                    payload={
-                        "chunk": MessageDeltaEvent(
-                            message_id="m7",
-                            content=[MessageTextDelta(index=0, text="Hello")],
-                        ).model_dump(mode="json")
-                    },
-                )
-            )
-            run.events.append(
-                RunEvent(
-                    type="stream_chunk",
-                    payload={
-                        "chunk": MessageFinalizedEvent(message=message).model_dump(
-                            mode="json"
-                        )
-                    },
-                )
-            )
-
-            runner._set_run_outputs_from_events(run, config)
+            stream_chunks = [
+                MessageStartEvent(
+                    message=AssistantChatMessage(id="m7", content=[])
+                ),
+                MessageDeltaEvent(
+                    message_id="m7",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+                MessageFinalizedEvent(message=message),
+            ]
+            state = None
+            for chunk in stream_chunks:
+                state = runner._apply_stream_chunk_to_state(run, chunk)
+            runner._persist_outputs_from_state(run, config, state)
 
             self.assertIsNotNone(run.outputs)
             metadata = run.outputs.get("metadata")
@@ -523,9 +513,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
             profile = AgentProfile(name="Agent")
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
+                engine_config_id=engine_config_id,
                 profile=profile,
                 inputs={"chatId": "chat-1", "sectionId": "section-1"},
             )
@@ -604,7 +595,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(config, profile=profile, inputs=None)
+            context = _build_context_for_test(
+                runner,
+                config,
+                profile=profile,
+            )
 
             config_path = context.inputs.get("mcpConfig")
             self.assertIsInstance(config_path, str)
@@ -634,7 +629,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
             self.assertIsInstance(config_path, str)
@@ -660,7 +655,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             codex_home = context.env.get("CODEX_HOME")
             self.assertIsInstance(codex_home, str)
@@ -687,7 +682,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 approvalPolicy="on-failure",
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             codex_home = context.env.get("CODEX_HOME")
             self.assertIsInstance(codex_home, str)
@@ -716,11 +711,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
+                engine_config_id=engine_config_id,
                 profile=profile,
-                inputs=None,
             )
 
             codex_home = context.env.get("CODEX_HOME")
@@ -744,7 +739,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 approvalPolicy="ask",
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
             self.assertIsInstance(config_path, str)
@@ -770,11 +765,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(
-                engine_config_id,
+            context = _build_context_for_test(
+                runner,
                 config,
+                engine_config_id=engine_config_id,
                 profile=profile,
-                inputs=None,
             )
 
             config_path = context.env.get("OPENCODE_CONFIG")
@@ -800,7 +795,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 approvalPolicy='{"run": "ask"}',
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
             self.assertIsInstance(config_path, str)
@@ -824,7 +819,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.temp_dir,
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
 
             self.assertTrue(context.working_dir.exists())
             runner._cleanup_context(context)
@@ -842,7 +837,7 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
             )
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
             run = context.run
 
             await runner._handle_approval_request(
@@ -857,16 +852,14 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertIn("approval-1", runner._pending_approvals)
-            stream_events = [
-                event for event in run.events if event.type == "stream_chunk"
-            ]
-            self.assertTrue(stream_events)
-            chunk = stream_events[-1].payload.get("chunk")
-            self.assertIsInstance(chunk, dict)
-            self.assertEqual(chunk.get("type"), "message_start")
-            message = chunk.get("message")
-            self.assertIsInstance(message, dict)
-            tool_calls = message.get("tool_calls")
+            event_types = [event.type for event in run.events]
+            self.assertIn("approval_request", event_types)
+            self.assertNotIn("stream_chunk", event_types)
+            self.assertNotIn("external_event", event_types)
+            messages = run.outputs.get("messages") if run.outputs else None
+            self.assertIsInstance(messages, list)
+            self.assertTrue(messages)
+            tool_calls = messages[-1].get("tool_calls")
             self.assertIsInstance(tool_calls, list)
             self.assertEqual(tool_calls[0]["function"]["name"], "setta.approval")
             self.assertEqual(
@@ -888,6 +881,7 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                     "engineConfigId": "engine-1",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-1"),
             )
             save_agent_run(dbe, run)
 
@@ -921,25 +915,20 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
 
             updated = load_agent_run(dbe, run.id)
             self.assertIsNotNone(updated)
-            stream_events = [
-                event for event in updated.events if event.type == "stream_chunk"
+            event_types = [event.type for event in updated.events]
+            self.assertIn("tool_result", event_types)
+            self.assertIn("approval_response", event_types)
+            self.assertNotIn("stream_chunk", event_types)
+            self.assertNotIn("external_event", event_types)
+            messages = updated.outputs.get("messages") if updated.outputs else None
+            self.assertIsInstance(messages, list)
+            tool_messages = [
+                message for message in messages if message.get("role") == "tool"
             ]
-            self.assertTrue(stream_events)
-            tool_chunk = None
-            for event in stream_events:
-                chunk = event.payload.get("chunk")
-                if isinstance(chunk, dict) and chunk.get("type") == "tool_result":
-                    tool_chunk = chunk
-                    break
-            self.assertIsNotNone(tool_chunk)
-            tool_message = tool_chunk.get("result")
-            self.assertIsInstance(tool_message, dict)
-            content = tool_message.get("content")
-            self.assertIsInstance(content, list)
-            self.assertTrue(content)
-            first_content = content[0]
-            self.assertIsInstance(first_content, dict)
-            self.assertEqual(first_content.get("type"), "text")
+            self.assertTrue(tool_messages)
+            last_tool = tool_messages[-1]
+            self.assertEqual(last_tool.get("tool_name"), "setta.approval")
+            self.assertEqual(last_tool.get("result"), {"approved": True})
             self.assertNotIn("approval-1", runner._pending_approvals)
 
 
@@ -954,7 +943,7 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
             )
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = _build_context_for_test(runner, config)
             run = context.run
             question_payload = {
                 "questions": [
@@ -980,15 +969,14 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIn("question-1", runner._pending_questions)
             self.assertNotIn("question-1", runner._pending_approvals)
-            stream_events = [
-                event for event in run.events if event.type == "stream_chunk"
-            ]
-            self.assertTrue(stream_events)
-            chunk = stream_events[-1].payload.get("chunk")
-            self.assertIsInstance(chunk, dict)
-            message = chunk.get("message")
-            self.assertIsInstance(message, dict)
-            tool_calls = message.get("tool_calls")
+            event_types = [event.type for event in run.events]
+            self.assertIn("approval_request", event_types)
+            self.assertNotIn("stream_chunk", event_types)
+            self.assertNotIn("external_event", event_types)
+            messages = run.outputs.get("messages") if run.outputs else None
+            self.assertIsInstance(messages, list)
+            self.assertTrue(messages)
+            tool_calls = messages[-1].get("tool_calls")
             self.assertIsInstance(tool_calls, list)
             self.assertEqual(tool_calls[0]["function"]["name"], "AskUserQuestion")
             self.assertEqual(tool_calls[0]["function"]["arguments"], question_payload)
@@ -998,22 +986,25 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
-            run = create_agent_run(
-                profile_id=None,
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
                 inputs={
                     "chatId": "chat-1",
                     "sectionId": "section-1",
                     "projectConfigId": str(project_config.id),
-                    "engineConfigId": "engine-1",
-                    "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
-            save_agent_run(dbe, run)
+            run = context.run
 
             await runner._handle_stream_chunk(
-                project_config.id,
-                ID("chat-1"),
-                run.id,
+                context,
+                run,
                 ToolCallDeltaEvent(
                     message_id="message-1",
                     tool_call_id="tool-1",
@@ -1042,6 +1033,7 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                     "engineConfigId": "engine-1",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
+                run_id=ID("chat-1"),
             )
             save_agent_run(dbe, run)
 
@@ -1075,18 +1067,17 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
 
             updated = load_agent_run(dbe, run.id)
             self.assertIsNotNone(updated)
-            stream_events = [
-                event for event in updated.events if event.type == "stream_chunk"
+            event_types = [event.type for event in updated.events]
+            self.assertIn("tool_result", event_types)
+            self.assertIn("question_response", event_types)
+            self.assertNotIn("stream_chunk", event_types)
+            self.assertNotIn("external_event", event_types)
+            messages = updated.outputs.get("messages") if updated.outputs else None
+            self.assertIsInstance(messages, list)
+            tool_messages = [
+                message for message in messages if message.get("role") == "tool"
             ]
-            self.assertTrue(stream_events)
-            tool_chunk = None
-            for event in stream_events:
-                chunk = event.payload.get("chunk")
-                if isinstance(chunk, dict) and chunk.get("type") == "tool_result":
-                    tool_chunk = chunk
-                    break
-            self.assertIsNotNone(tool_chunk)
-            tool_message = tool_chunk.get("result")
-            self.assertIsInstance(tool_message, dict)
-            self.assertEqual(tool_message.get("result"), {"answers": answers})
+            self.assertTrue(tool_messages)
+            last_tool = tool_messages[-1]
+            self.assertEqual(last_tool.get("result"), {"answers": answers})
             self.assertNotIn("question-1", runner._pending_questions)

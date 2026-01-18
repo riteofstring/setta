@@ -34,12 +34,6 @@ from setta.types.chat_messages import (
     MessageTextContent,
     UserChatMessage,
 )
-from setta.types.chat_stream_events import (
-    MessageDeltaEvent,
-    MessageFinalizedEvent,
-    MessageStartEvent,
-    MessageTextDelta,
-)
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
@@ -359,7 +353,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(response.waitingForResponse)
             self.assertEqual(response.llmConfig.id, "primary")
 
-    async def test_get_external_agent_chat_from_stream_events(self) -> None:
+    async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -375,43 +369,15 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             )
             assistant_message = AssistantChatMessage(
                 id="assistant-1",
-                content=[],
-            )
-            start_event = MessageStartEvent(message=assistant_message)
-            delta_event = MessageDeltaEvent(
-                message_id=assistant_message.id,
-                content=[MessageTextDelta(index=0, text="Hi")],
-            )
-            final_message = AssistantChatMessage(
-                id=assistant_message.id,
                 content=[MessageTextContent(text="Hi")],
             )
-            final_event = MessageFinalizedEvent(message=final_message)
-            stream_events = [
-                RunEvent(
-                    type="stream_chunk",
-                    payload={"chunk": start_event.model_dump(mode="json")},
-                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
-                ),
-                RunEvent(
-                    type="stream_chunk",
-                    payload={"chunk": delta_event.model_dump(mode="json")},
-                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
-                ),
-                RunEvent(
-                    type="stream_chunk",
-                    payload={"chunk": final_event.model_dump(mode="json")},
-                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
-                ),
-            ]
             run = _build_external_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
                 started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
                 status=AgentRunStatus.running,
                 input_messages=[user_message],
-                output_messages=None,
-                stream_events=stream_events,
+                output_messages=[user_message, assistant_message],
             )
             save_agent_run(dbe, run)
 
@@ -425,7 +391,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             self.assertEqual(len(response.messages), 2)
-            self.assertFalse(response.waitingForResponse)
+            self.assertTrue(response.waitingForResponse)
             self.assertEqual(response.toolCallArguments, {})
 
     async def test_get_external_agent_chat_missing_run(self) -> None:

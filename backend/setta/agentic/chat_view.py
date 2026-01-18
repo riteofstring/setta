@@ -1,15 +1,9 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import TypeAdapter
-
 from setta.agentic.chat_names import create_new_chat_name
-from setta.llm.chat_toolkit.section_sync import (
-    apply_stream_delta,
-    build_chat_section_state,
-)
+from setta.llm.chat_toolkit.section_sync import build_chat_section_state
 from setta.types.agentic import AgentRun, AgentRunStatus
-from setta.types.chat_stream_events import LLMStreamingResponseChunk
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -21,8 +15,6 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 LLM_CHAT_RUN_TYPE = "llm_chat"
 SCRIPTABLE_CHAT_RUN_TYPE = "scriptable_chat"
 EXTERNAL_AGENT_RUN_TYPE = "external_agent"
-
-_STREAM_CHUNK_ADAPTER = TypeAdapter(LLMStreamingResponseChunk)
 
 
 def get_run_type(run: AgentRun) -> str | None:
@@ -67,42 +59,15 @@ def is_chat_run(run: AgentRun) -> bool:
 
 
 def get_run_chat_id(run: AgentRun) -> ID | None:
-    chat_id = _get_input_id(run, "chatId")
-    if chat_id is not None:
-        return chat_id
-    for event in run.events:
-        if event.type != "run_started":
-            continue
-        raw_chat_id = event.payload.get("chatId")
-        if isinstance(raw_chat_id, str) and raw_chat_id:
-            return ID(raw_chat_id)
-    return None
+    return _get_input_id(run, "chatId")
 
 
 def get_run_project_config_id(run: AgentRun) -> ID | None:
-    project_config_id = _get_input_id(run, "projectConfigId")
-    if project_config_id is not None:
-        return project_config_id
-    for event in run.events:
-        if event.type != "run_started":
-            continue
-        raw_project_id = event.payload.get("projectConfigId")
-        if isinstance(raw_project_id, str) and raw_project_id:
-            return ID(raw_project_id)
-    return None
+    return _get_input_id(run, "projectConfigId")
 
 
 def get_run_engine_config_id(run: AgentRun) -> ID | None:
-    engine_config_id = _get_input_id(run, "engineConfigId")
-    if engine_config_id is not None:
-        return engine_config_id
-    for event in run.events:
-        if event.type != "run_started":
-            continue
-        raw_engine_id = event.payload.get("engineConfigId")
-        if isinstance(raw_engine_id, str) and raw_engine_id:
-            return ID(raw_engine_id)
-    return None
+    return _get_input_id(run, "engineConfigId")
 
 
 def get_run_sort_key(run: AgentRun) -> datetime:
@@ -129,23 +94,13 @@ def get_run_last_updated(run: AgentRun) -> datetime:
 
 def build_chat_state_from_run(run: AgentRun) -> ChatSectionState:
     output_messages = _parse_output_messages(run)
-    if output_messages is not None:
-        return build_chat_section_state(messages=output_messages)
-
-    base_messages = _parse_input_messages(run)
-    state = build_chat_section_state(
-        messages=base_messages,
+    messages = (
+        output_messages if output_messages is not None else _parse_input_messages(run)
+    )
+    return build_chat_section_state(
+        messages=messages,
         waiting_for_response=run.status == AgentRunStatus.running,
     )
-    for event in run.events:
-        if event.type != "stream_chunk":
-            continue
-        chunk_payload = event.payload.get("chunk")
-        if not isinstance(chunk_payload, dict):
-            raise TypeError("Agent run stream_chunk payload must be a dict")
-        chunk = _STREAM_CHUNK_ADAPTER.validate_python(chunk_payload)
-        state = apply_stream_delta(state=state, chunk=chunk)
-    return state
 
 
 def derive_chat_name(messages: list[BaseChatMessageUnion]) -> str:

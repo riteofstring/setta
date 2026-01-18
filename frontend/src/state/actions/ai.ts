@@ -737,25 +737,17 @@ type RunPayload = Record<string, unknown>;
 export function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
   const outputMessages = extractRunMessages(run.outputs);
   if (outputMessages) {
-    return buildChatSectionState(outputMessages, false);
+    return buildChatSectionState(
+      outputMessages,
+      run.status === AgentRunStatusEnum.running,
+    );
   }
 
   const inputMessages = extractRunMessages(run.inputs) ?? [];
-  let state = buildChatSectionState(
+  return buildChatSectionState(
     inputMessages,
     run.status === AgentRunStatusEnum.running,
   );
-  for (const event of run.events ?? []) {
-    if (event.type !== "stream_chunk") {
-      continue;
-    }
-    const chunk = extractStreamChunk(event.payload);
-    if (!chunk) {
-      continue;
-    }
-    state = applyStreamDeltaToChatSectionState(state, chunk);
-  }
-  return state;
 }
 
 function buildChatSectionState(
@@ -799,22 +791,6 @@ function getRunLastUpdatedMs(run: AgentRun): number {
     return startedAt;
   }
   return 0;
-}
-
-function extractStreamChunk(
-  payload: RunPayload,
-): ChatSectionStreamChunk | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const rawChunk = payload.chunk;
-  if (!rawChunk || typeof rawChunk !== "object") {
-    return null;
-  }
-  if (!("type" in rawChunk)) {
-    return null;
-  }
-  return rawChunk as ChatSectionStreamChunk;
 }
 
 function applyChatSectionStreamDelta(
