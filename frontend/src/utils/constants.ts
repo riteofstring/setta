@@ -85,12 +85,12 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
   [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.GenPythonMetadata]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TextBlock]: [
     UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.InfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
-  [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
