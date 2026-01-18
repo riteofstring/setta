@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
+import {
+  getPythonCodegenTarget,
+  projectConfigHasPythonCodegen,
+} from "utils/codegenTargets";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
@@ -24,6 +27,9 @@ export function useCreateSectionsList() {
   );
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
+  );
+  const metadataEnabled = useProjectState(
+    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
@@ -69,6 +75,14 @@ export function useCreateSectionsList() {
       name: "Show Generated Python",
       implSpecs: {
         type: SectionTypeEnum.GenPythonCode,
+      },
+    });
+  }
+  if (metadataEnabled && !singletonSections.GenPythonMetadata) {
+    codeGroupItems.push({
+      name: "Show Generated Python Metadata",
+      implSpecs: {
+        type: SectionTypeEnum.GenPythonMetadata,
       },
     });
   }

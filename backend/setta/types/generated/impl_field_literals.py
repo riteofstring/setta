@@ -68,7 +68,6 @@ AllImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
-    "renderedValue",
     "requestBody",
     "requestHeaderKey",
     "requestHeaderValue",

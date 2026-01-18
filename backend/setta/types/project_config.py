@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
@@ -7,6 +8,7 @@ from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
 from setta.types.edges import Edge
 from setta.types.id import ID
+from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -58,10 +60,141 @@ class ProjectCodegenLanguage(str, Enum):
     python = "python"
 
 
+class SectionCodegenMode(str, Enum):
+    inherit = "inherit"
+    include = "include"
+    exclude = "exclude"
+
+
+class SectionRepresentationMode(str, Enum):
+    json = "json"
+    file = "file"
+    base64 = "base64"
+
+
+class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
+    mode: SectionCodegenMode = SectionCodegenMode.inherit
+    representation: SectionRepresentationMode = SectionRepresentationMode.json
+
+
+class SectionCodegenOverride(BaseModel, extra="forbid"):
+    mode: SectionCodegenMode = SectionCodegenMode.inherit
+    representation: SectionRepresentationMode = SectionRepresentationMode.json
+
+
+def default_section_allowlist() -> list[SectionType]:
+    return [
+        SectionType.Callable,
+        SectionType.Dict,
+        SectionType.ListRoot,
+        SectionType.Group,
+        SectionType.GlobalVariables,
+        SectionType.TextBlock,
+        SectionType.Draw,
+        SectionType.MetaControl,
+    ]
+
+
+def default_section_representation(
+    section_type: SectionType,
+) -> SectionRepresentationMode:
+    if section_type is SectionType.Chat:
+        return SectionRepresentationMode.file
+    if section_type is SectionType.Draw:
+        return SectionRepresentationMode.base64
+    return SectionRepresentationMode.json
+
+
+def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolicy]:
+    policies: dict[SectionType, SectionTypeCodegenPolicy] = {}
+    for section_type in SectionType:
+        policies[section_type] = SectionTypeCodegenPolicy(
+            representation=default_section_representation(section_type)
+        )
+    return policies
+
+
+class SectionCodegenPolicy(BaseModel, extra="forbid"):
+    allowlist: list[SectionType] | None = Field(
+        default_factory=default_section_allowlist
+    )
+    exclude: list[ID] = Field(default_factory=list)
+    typePolicies: dict[SectionType, SectionTypeCodegenPolicy] = Field(
+        default_factory=default_section_type_policies
+    )
+    sectionOverrides: dict[ID, SectionCodegenOverride] = Field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ResolvedSectionCodegenPolicy:
+    include_in_codegen: bool
+    representation: SectionRepresentationMode
+
+
+def _apply_codegen_mode(include_in_codegen: bool, mode: SectionCodegenMode) -> bool:
+    if mode is SectionCodegenMode.include:
+        return True
+    if mode is SectionCodegenMode.exclude:
+        return False
+    return include_in_codegen
+
+
+def _is_representation_supported(
+    section_type: SectionType, representation: SectionRepresentationMode
+) -> bool:
+    if section_type is SectionType.Chat:
+        return representation in (
+            SectionRepresentationMode.json,
+            SectionRepresentationMode.file,
+        )
+    if section_type is SectionType.Draw:
+        return representation is SectionRepresentationMode.base64
+    return representation is SectionRepresentationMode.json
+
+
+def resolve_section_codegen_policy(
+    section_policy: SectionCodegenPolicy,
+    section_id: ID,
+    section_type: SectionType,
+) -> ResolvedSectionCodegenPolicy:
+    allowlist = section_policy.allowlist
+    include_in_codegen = allowlist is None or section_type in allowlist
+    type_policy = section_policy.typePolicies.get(section_type)
+    if type_policy is None:
+        type_policy = SectionTypeCodegenPolicy(
+            representation=default_section_representation(section_type)
+        )
+    include_in_codegen = _apply_codegen_mode(include_in_codegen, type_policy.mode)
+    representation = type_policy.representation
+    if section_id in section_policy.exclude:
+        include_in_codegen = False
+    override = section_policy.sectionOverrides.get(section_id)
+    if override is not None:
+        include_in_codegen = _apply_codegen_mode(include_in_codegen, override.mode)
+        representation = override.representation
+    if not _is_representation_supported(section_type, representation):
+        raise ValueError(
+            f"Unsupported representation {representation.value} for section type {section_type.value}"
+        )
+    return ResolvedSectionCodegenPolicy(
+        include_in_codegen=include_in_codegen,
+        representation=representation,
+    )
+
+
+def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodegenPolicy:
+    python_target = get_python_codegen_target(project_config)
+    if python_target is None:
+        return SectionCodegenPolicy()
+    return python_target.sectionPolicy
+
+
 class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
     genCodePrefix: str = ""
     genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
+    generateMetadata: bool = False
+    sectionPolicy: SectionCodegenPolicy = Field(default_factory=SectionCodegenPolicy)
 
 
 ProjectCodegenTarget = ProjectCodegenPythonTarget

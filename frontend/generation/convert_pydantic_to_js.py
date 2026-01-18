@@ -523,7 +523,11 @@ def python_value_to_ts(value):
     elif value is None:
         return "null"
     elif isinstance(value, dict):
-        items = [f'"{k}": {python_value_to_ts(v)}' for k, v in value.items()]
+        items = []
+        for key, entry in value.items():
+            if isinstance(key, enum.Enum):
+                key = key.value
+            items.append(f'"{key}": {python_value_to_ts(entry)}')
         return f"{{{', '.join(items)}}}"
     elif isinstance(value, (list, tuple)):
         items = [python_value_to_ts(item) for item in value]

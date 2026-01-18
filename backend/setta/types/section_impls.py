@@ -36,6 +36,7 @@ class SectionType(str, Enum):
     GlobalVariables = "GlobalVariables"
     Code = "Code"
     GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
     Terminal = "Terminal"
     IFrame = "IFrame"
     Chat = "Chat"
@@ -141,7 +142,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    renderedValue: str | None = None
+    pass
 
 
 class CodeFileAccessMode(str, Enum):
@@ -261,6 +262,10 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
+
+
+class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
+    type: Literal[SectionType.GenPythonMetadata] = SectionType.GenPythonMetadata
 
 
 class TerminalSectionImpl(BaseSectionImpl):
