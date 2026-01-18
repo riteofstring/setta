@@ -389,8 +389,12 @@ Storage:
   - Surface engine-specific flags (for example allowed-tools, user-invocable, or
     permission patterns) directly in the skill UI.
 - Run trace:
-  - Emit a stream event when a skill is loaded or used.
-  - Persist the list of skills used in the run metadata.
+- Emit a stream event when a skill is loaded or used.
+- Persist the list of skills used in the run metadata.
+
+### Agentic graph UI (sections + edges)
+- Add a canvas overlay for agentic context edges and active path visualization.
+- Defer to `docs/plans/agentic-graph-ui-plan.md`.
 
 ## Testing and validation
 - Add integration tests gated by tool availability (skip if SDK/server not installed).

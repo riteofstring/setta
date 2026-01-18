@@ -85,6 +85,7 @@ Backward compatibility is not required, but user-visible features must be preser
 - Surface per-run metadata (model, tokens, cost, duration, status).
 - Integrate runs into Chat sections as the default entry point (agentic sessions per chat section).
 - Keep ProjectLevelAI for project-level setup/automation workflows.
+- Deferred: canvas-based agentic graph UI (sections + edges) and active path highlighting.
 
 ## Future work (out of scope)
 ### Context and memory controls
@@ -100,6 +101,11 @@ Backward compatibility is not required, but user-visible features must be preser
   - Runs an agent profile against each row.
   - Writes results to an artifact (JSONL + summary metrics).
 - Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
+
+### Agentic graph UI (sections + edges)
+- Add a dedicated agentic edge type for context/flow, separate from codegen deps.
+- Visualize active context paths during runs (AIFollow-driven highlights).
+- See `docs/plans/agentic-graph-ui-plan.md`.
 
 ## Detailed implementation map
 
