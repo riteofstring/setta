@@ -23,7 +23,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { ParamDndList } from "./ParamDndList";
+import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -287,13 +287,12 @@ function ResizablePinnedArea({
         className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll pr-1.5`}
         ref={ref}
       >
-        <ParamDndList
+        <GetParamSwitch
           sectionId={sectionId}
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={handleColumnResizeStart}
           isTopLevel={true}
-          listKey="pinned"
         />
       </div>
     </ResizableWithScale>
@@ -364,13 +363,12 @@ function GetUnpinnedParamsCore({
   }, [maxNestedDepth]);
 
   return (
-    <ParamDndList
+    <GetParamSwitch
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevel={true}
-      listKey="unpinned"
     />
   );
 }

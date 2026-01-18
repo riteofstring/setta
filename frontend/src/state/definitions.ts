@@ -11,6 +11,7 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AgentProfile,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
@@ -22,10 +23,12 @@ import {
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
+  ExternalAgentConfig,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
   ProjectStateSingleConfig,
+  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaNotification,
@@ -99,6 +102,7 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
+          yamlValues: {},
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
@@ -453,6 +457,11 @@ export const useMisc = withProjectState(
   ),
 );
 
+// maps from variantId to yaml metadata
+const useOriginalYamlObj = withProjectState(
+  createWithEqualityFn(withResetFn(() => {})),
+);
+
 export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
@@ -472,6 +481,15 @@ type ZustandAIStore = {
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
+  agentProfiles: Array<AgentProfile>;
+  agentProfilesInitialLoadComplete: boolean;
+  agentProfilesLoadError: string | null;
+  promptTemplates: Array<PromptTemplate>;
+  promptTemplatesInitialLoadComplete: boolean;
+  promptTemplatesLoadError: string | null;
+  externalAgentConfigs: Array<ExternalAgentConfig>;
+  externalAgentConfigsInitialLoadComplete: boolean;
+  externalAgentConfigsLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -491,6 +509,15 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
+        agentProfiles: [],
+        agentProfilesInitialLoadComplete: false,
+        agentProfilesLoadError: null,
+        promptTemplates: [],
+        promptTemplatesInitialLoadComplete: false,
+        promptTemplatesLoadError: null,
+        externalAgentConfigs: [],
+        externalAgentConfigsInitialLoadComplete: false,
+        externalAgentConfigsLoadError: null,
       }),
       {
         name: "setta_ai_data",

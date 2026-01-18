@@ -13,7 +13,7 @@ from setta.api.chat_toolkit import (
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
 from setta.database.db_objs import DBE
-from setta.llm.chat_store import DBEChatStore
+from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.types.chat_messages import (
@@ -86,7 +86,7 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_stream_exception_resets_waiting_state(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             first_message = UserChatMessage(
@@ -153,7 +153,7 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_cancel_emits_message_finalized_when_partial_message(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             first_message = UserChatMessage(
@@ -237,7 +237,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_uses_system_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             captured_messages: list[object] = []
@@ -286,7 +286,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_uses_assistant_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             captured_messages: list[object] = []
