@@ -19,6 +19,7 @@ from setta.types.generated.chart_settings_unions import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
+from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -31,12 +32,12 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
+    Prompt = "Prompt"
     MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
     Code = "Code"
     GenPythonCode = "GenPythonCode"
-    GenPythonMetadata = "GenPythonMetadata"
     Terminal = "Terminal"
     IFrame = "IFrame"
     Chat = "Chat"
@@ -63,12 +64,6 @@ class SectionSize(BaseModel, extra="forbid"):
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
-    javascript = "javascript"
-    typescript = "typescript"
-    json = "json"
-    yaml = "yaml"
-    markdown = "markdown"
-    plaintext = "plaintext"
 
 
 class ConfigLanguage(str, Enum):
@@ -148,7 +143,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    pass
+    renderedValue: str | None = None
 
 
 class CodeFileAccessMode(str, Enum):
@@ -245,6 +240,19 @@ class TextBlockSectionImpl(BaseSectionImpl):
     text: str = ""
 
 
+class PromptSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Prompt] = SectionType.Prompt
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
+
+
 class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
     metaControlParamId: ID | None = None
@@ -268,10 +276,6 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-
-
-class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
-    type: Literal[SectionType.GenPythonMetadata] = SectionType.GenPythonMetadata
 
 
 class TerminalSectionImpl(BaseSectionImpl):
@@ -299,6 +303,8 @@ class ChatSectionImpl(BaseSectionImpl):
     )
     managed: bool = False
     llmConfigId: str | None = None
+    agentProfileId: ID | None = None
+    externalAgentConfigId: ID | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
