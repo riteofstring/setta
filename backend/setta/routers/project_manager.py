@@ -83,7 +83,6 @@ from setta.project_state.project_manager_types import (
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
-    SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -488,15 +487,6 @@ async def route_toggle_variant_json_source(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.toggle_variant_json_source(x)
-
-
-@router.post(Route.SET_VARIANT_JSON_SOURCE_KEYS)
-async def route_set_variant_json_source_keys(
-    x: SetVariantJsonSourceKeysRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
-    await manager.set_variant_json_source_keys(x)
 
 
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)

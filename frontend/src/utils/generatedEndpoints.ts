@@ -113,6 +113,24 @@ export async function route_run_code(
   return await post("/runCode", x);
 }
 
+async function route_run_detached(
+  x: gt.RunDetachedRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
+  return await post("/runDetached", x);
+}
+
+async function route_get_run_status(
+  x: gt.GetRunStatusRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
+  return await post("/getRunStatus", x);
+}
+
+async function route_cancel_run(
+  x: gt.CancelRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
+  return await post("/cancelRun", x);
+}
+
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequestInput,
 ): Promise<ResponseDataAndStatus<string>> {
@@ -501,12 +519,6 @@ export async function route_toggle_variant_json_source(
   x: gt.ToggleVariantJSONSourceRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleVariantJsonSource", x);
-}
-
-export async function route_set_variant_json_source_keys(
-  x: gt.SetVariantJsonSourceKeysRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setVariantJsonSourceKeys", x);
 }
 
 export async function route_delete_json_source_file_and_variant(

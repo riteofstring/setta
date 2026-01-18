@@ -108,6 +108,39 @@ def create_snapshot_run_command(
     return gen_command_builder(gen_code_path)
 
 
+def create_snapshot_run_command_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    gen_code: str,
+    gen_meta_code: str | None,
+    gen_binding: CodeFileBinding,
+    code_sections: dict[ID, SnapshotCodeSection],
+    gen_command_builder: RunCommandBuilder,
+) -> tuple[str, Path]:
+    target_folder = create_timestamped_folder(snapshot_root)
+    gen_code_path = write_snapshot_file(dbe, target_folder, gen_binding, gen_code)
+    if gen_meta_code is not None:
+        meta_path = target_folder / GEN_CODE_META_FILENAME
+        dbe.write(meta_path, gen_meta_code)
+    code_paths: dict[ID, Path] = {}
+    for section_id, section in code_sections.items():
+        code_paths[section_id] = write_snapshot_file(
+            dbe,
+            target_folder,
+            section.binding,
+            section.code,
+        )
+    if entry_section_id:
+        if entry_section_id not in code_paths:
+            raise KeyError(f"Missing code section for run: {entry_section_id}")
+        section = code_sections[entry_section_id]
+        entry_path = code_paths[entry_section_id]
+        return section.run_command_builder(entry_path), entry_path
+    return gen_command_builder(gen_code_path), gen_code_path
+
+
 def create_snapshot_run_command_from_sections(
     *,
     dbe: DBE,
@@ -127,6 +160,36 @@ def create_snapshot_run_command_from_sections(
             run_command_builder=run_command_builder,
         )
     return create_snapshot_run_command(
+        dbe=dbe,
+        snapshot_root=snapshot_root,
+        entry_section_id=entry_section_id,
+        gen_code=gen_code,
+        gen_meta_code=gen_meta_code,
+        gen_binding=gen_binding,
+        code_sections=snapshot_sections,
+        gen_command_builder=gen_command_builder,
+    )
+
+
+def create_snapshot_run_command_from_sections_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    gen_code: str,
+    gen_meta_code: str | None,
+    gen_binding: CodeFileBinding,
+    section_inputs: dict[ID, SnapshotSectionInput],
+    gen_command_builder: RunCommandBuilder,
+) -> tuple[str, Path]:
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    return create_snapshot_run_command_with_path(
         dbe=dbe,
         snapshot_root=snapshot_root,
         entry_section_id=entry_section_id,
@@ -167,6 +230,38 @@ def create_snapshot_run_command_from_code_sections_only(
         raise KeyError(f"Missing code section for run: {entry_section_id}")
     section = snapshot_sections[entry_section_id]
     return section.run_command_builder(code_paths[entry_section_id])
+
+
+def create_snapshot_run_command_from_code_sections_only_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    section_inputs: dict[ID, SnapshotSectionInput],
+) -> tuple[str, Path]:
+    if entry_section_id is None:
+        raise KeyError("Missing entry code section for run.")
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    target_folder = create_timestamped_folder(snapshot_root)
+    code_paths: dict[ID, Path] = {}
+    for section_id, section in snapshot_sections.items():
+        code_paths[section_id] = write_snapshot_file(
+            dbe,
+            target_folder,
+            section.binding,
+            section.code,
+        )
+    if entry_section_id not in code_paths:
+        raise KeyError(f"Missing code section for run: {entry_section_id}")
+    section = snapshot_sections[entry_section_id]
+    entry_path = code_paths[entry_section_id]
+    return section.run_command_builder(entry_path), entry_path
 
 
 class Code(ABC):
