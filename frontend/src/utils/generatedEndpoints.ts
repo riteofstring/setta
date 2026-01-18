@@ -303,60 +303,6 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
-async function route_get_agent_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.AgentProfile>>
-> {
-  return await get("/getAgentProfiles");
-}
-
-async function route_get_agent_profile(
-  x: gt.GetAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/getAgentProfile", x);
-}
-
-async function route_create_agent_profile(
-  x: gt.CreateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/createAgentProfile", x);
-}
-
-async function route_update_agent_profile(
-  x: gt.UpdateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post("/updateAgentProfile", x);
-}
-
-async function route_delete_agent_profile(
-  x: gt.DeleteAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteAgentProfile", x);
-}
-
-async function route_start_agent_run(
-  x: gt.StartAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/startAgentRun", x);
-}
-
-async function route_stop_agent_run(
-  x: gt.StopAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/stopAgentRun", x);
-}
-
-async function route_get_agent_run(
-  x: gt.GetAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/getAgentRun", x);
-}
-
-async function route_get_agent_runs(): Promise<
-  ResponseDataAndStatus<Array<gt.AgentRun>>
-> {
-  return await get("/getAgentRuns");
-}
-
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -561,6 +507,12 @@ export async function route_set_text_block_text(
   x: gt.SetTextBlockTextRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockText", x);
+}
+
+export async function route_set_project_config_codegen_targets(
+  x: gt.SetProjectConfigCodegenTargetsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setProjectConfigCodegenTargets", x);
 }
 
 export async function route_set_gen_code_prefix(

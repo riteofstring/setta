@@ -41,10 +41,6 @@ class DBE:
         self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.agent_profiles = self.path / "agent_profiles.json"
-        self.agent_runs = self.path / "agent_runs"
-        self.prompts = self.path / "prompts"
-        self.prompts_example = self.path / "prompts.example.json"
         self.share_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
@@ -253,44 +249,6 @@ class DBE:
 
     def delete_chat_file(self, chat_id: ID):
         path = self.chat_path(chat_id)
-        lock = self.get_file_lock(path)
-        with lock:
-            if path.exists():
-                path.unlink()
-
-    def read_agent_profiles(self) -> list[dict]:
-        payload = self.read_json(self.agent_profiles)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("agent_profiles.json must contain a list of profiles")
-        return payload
-
-    def write_agent_profiles(self, payload: list[dict]) -> None:
-        self.write_json(self.agent_profiles, payload)
-
-    def agent_run_path(self, run_id: ID) -> Path:
-        return self.agent_runs / f"{run_id}.json"
-
-    def read_agent_run(self, run_id: ID) -> dict | None:
-        path = self.agent_run_path(run_id)
-        if not path.exists():
-            return None
-        data = self.read_json(path)
-        if not data:
-            return None
-        return data
-
-    def write_agent_run(self, run_id: ID, payload: dict) -> None:
-        self.write_json(self.agent_run_path(run_id), payload)
-
-    def list_agent_run_paths(self) -> list[Path]:
-        if not self.agent_runs.exists():
-            return []
-        return sorted(self.agent_runs.glob("*.json"))
-
-    def delete_agent_run_file(self, run_id: ID) -> None:
-        path = self.agent_run_path(run_id)
         lock = self.get_file_lock(path)
         with lock:
             if path.exists():

@@ -25,6 +25,7 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
+    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -121,7 +122,6 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -155,8 +155,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    genCodePrefix: NotRequired[str]
-    genCodeSuffix: NotRequired[str]
+    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -246,12 +245,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -511,6 +508,20 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
         Literal[SectionType.GenPythonCode]
         | Callable[
             [Literal[SectionType.GenPythonCode]], Literal[SectionType.GenPythonCode]
+        ]
+    ]
+
+
+class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
+    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
+
+
+class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.GenPythonMetadata]
+        | Callable[
+            [Literal[SectionType.GenPythonMetadata]],
+            Literal[SectionType.GenPythonMetadata],
         ]
     ]
 

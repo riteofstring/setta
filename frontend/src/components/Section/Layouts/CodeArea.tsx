@@ -36,6 +36,10 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import {
+  getPythonCodegenTarget,
+  projectConfigHasPythonCodegen,
+} from "utils/codegenTargets";
+import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -324,16 +328,31 @@ function BashCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
+  const hasPythonCodegen = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
+  if (!hasPythonCodegen) {
+    return <GenPythonCodeAreaDisabled />;
+  }
+  return <GenPythonCodeAreaContent sectionId={sectionId} />;
+}
+
+function GenPythonCodeAreaDisabled() {
+  return null;
+}
+
+function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const { code, prefix, suffix } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.GenPythonCode,
     );
+    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     return {
       code: impl.code,
-      prefix: x.projectConfig.genCodePrefix,
-      suffix: x.projectConfig.genCodeSuffix,
+      prefix: pythonTarget?.genCodePrefix ?? "",
+      suffix: pythonTarget?.genCodeSuffix ?? "",
     };
   });
 
@@ -493,6 +512,67 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 }
 
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
+
+function _GenPythonMetadataArea({ sectionId }: { sectionId: string }) {
+  const metadataEnabled = useProjectState(
+    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
+  );
+  if (!metadataEnabled) {
+    return <GenPythonMetadataAreaDisabled />;
+  }
+  return <GenPythonMetadataAreaContent sectionId={sectionId} />;
+}
+
+function GenPythonMetadataAreaDisabled() {
+  return null;
+}
+
+function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
+  const code = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.GenPythonMetadata,
+    );
+    return impl.code;
+  });
+
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+    useCodeAreaHeight({ sectionId });
+  const theme = useCodeMirrorStyle();
+
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+    codeAreaTabOnEnterKeyHandlers(wrapperRef);
+
+  const extensions = getExtensions({
+    parentDivId: `${sectionId}-CustomResizable`,
+    language: "python",
+    onEscape: onEscapeFocusOnArticleDiv,
+    isDisabled: true,
+  });
+
+  return (
+    <article
+      ref={wrapperRef}
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      tabIndex={0}
+      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+    >
+      <CodeMirror
+        maxHeight={maxHeight}
+        value={code}
+        theme={theme}
+        extensions={extensions}
+        onChange={() => {}}
+        onCreateEditor={handleCreateEditor}
+        indentWithTab={false}
+        basicSetup={{ tabSize: 4 }}
+      />
+    </article>
+  );
+}
+
+export const GenPythonMetadataArea = React.memo(_GenPythonMetadataArea);
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value: baseValue, variantIsFrozen } = useProjectState((x) => {
@@ -717,7 +797,11 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
 const debouncedSetGenCodePrefix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      state.projectConfig.genCodePrefix = value;
+      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
+      if (!pythonTarget) {
+        return;
+      }
+      pythonTarget.genCodePrefix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_prefix({
@@ -731,7 +815,11 @@ const debouncedSetGenCodePrefix = _.debounce((value: string) => {
 const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      state.projectConfig.genCodeSuffix = value;
+      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
+      if (!pythonTarget) {
+        return;
+      }
+      pythonTarget.genCodeSuffix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_suffix({
