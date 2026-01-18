@@ -33,9 +33,9 @@ data model that external adapters depend on.
 Backward compatibility is not required, but user-visible features must be preserved. External agents are additive and must not replace existing chat behavior.
 
 - Preserve managed and scriptable Chat section modes and their UI controls (LLM config selection, deep-think, new chat).
-- Keep chat toolkit helpers and routes used by listeners and Chat section state sync.
+- Keep chat toolkit helpers usable for listeners and Chat section state sync; routes can change.
 - Maintain `LLMStreamingResponse` semantics and AIFollow updates; external events must map into existing stream types.
-- Do not remove Chat section state fields or routes unless an explicit migration preserves behavior.
+- Do not remove Chat section state fields unless an explicit migration preserves behavior.
 
 ## Non-goals (for this plan)
 - Replacing Setta's native agent runner.

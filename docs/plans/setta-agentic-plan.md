@@ -26,7 +26,7 @@ Backward compatibility is not required, but user-visible features must be preser
 
 - Preserve managed and scriptable Chat section modes, including `llmConfigId`, `deepThink`, `chatId`, and `ChatSectionState`-style message rendering.
 - Keep the chat toolkit surface usable for listeners (`ChatSession`, `ChatSectionSyncClient`, `on_chat_send_event`, and streaming helpers).
-- Keep chat section routes that the toolkit and UI rely on (set/get chat section state and chat id), even if internals change.
+- Specific routes do not need to be preserved; the API surface can change as long as the UI/toolkit behavior is preserved.
 - Maintain the `LLMStreamingResponse` contract, `sectionId`-based updates, and AIFollow behavior.
 - If a replacement is necessary, provide a migration path and explicitly list feature parity before removal.
 
