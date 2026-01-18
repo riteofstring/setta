@@ -2,7 +2,7 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
-from setta.agentic.store import create_agent_run, load_agent_profiles, save_agent_run
+from setta.agentic.store import load_agent_profiles
 from setta.mcp.tool_setup import setta_tool
 from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
@@ -46,7 +46,8 @@ def run_agent_profile(
     profiles = load_agent_profiles(ctx.fastmcp.state.dbe)
     for profile in profiles:
         if profile.id == profileId:
-            run = create_agent_run(profile_id=profile.id, inputs=inputs)
-            save_agent_run(ctx.fastmcp.state.dbe, run)
-            return run
+            runner = ctx.fastmcp.state.agent_runner
+            if runner.disabled:
+                raise RuntimeError("Agent runner is not available")
+            return runner.start_run(profile, inputs)
     raise KeyError(f"Agent profile {profileId} not found")

@@ -4,6 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
+from setta.llm.agent_runner import AgentRunner
+from setta.mcp.client import MultiMCPClient
 from setta.routers.agentic import (
     CreateAgentProfileRequest,
     DeleteAgentProfileRequest,
@@ -23,6 +25,11 @@ from setta.routers.agentic import (
     route_update_agent_profile,
 )
 from setta.types.agentic import AgentRunStatus
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.runtime_context import runtime_context
 
 
@@ -31,8 +38,9 @@ class _AgenticTestState:
     dbe: DBE
     share_mode: bool = False
     share_runtime_state: None = None
-    wmh_frontend_sender: None = None
+    wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
+    agent_runner: AgentRunner | None = None
 
 
 class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
@@ -41,7 +49,35 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             setta_root = Path(tmpdir) / "setta_files"
             setta_root.mkdir(parents=True, exist_ok=True)
             dbe = DBE(setta_root)
-            state = _AgenticTestState(dbe=dbe)
+            project_config = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={project_config.id: project_config},
+                defaultProjectConfigId=project_config.id,
+            )
+            dbe.write_project(project_state)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            mcp_client = MultiMCPClient({}, disabled=True)
+            agent_runner = AgentRunner(dbe, mcp_client, frontend_sender)
+            agent_runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                    "planner-llm": LLMConfig(
+                        id="planner-llm",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                    mcpServers={},
+                )
+            )
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                agent_runner=agent_runner,
+            )
 
             with runtime_context(state) as ctx:
                 profile = await route_create_agent_profile(

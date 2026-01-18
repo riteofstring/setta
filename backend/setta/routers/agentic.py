@@ -4,19 +4,16 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.agentic.store import (
-    create_agent_run,
     list_agent_runs,
     load_agent_profiles,
     load_agent_run,
     save_agent_profiles,
-    save_agent_run,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
+from setta.types.agentic import AgentProfile, AgentRun
 from setta.types.id import ID
 from setta.types.routes import Route
-from setta.utils.timestamps import get_now_timestamp
 
 router = SettaAPIRouter()
 
@@ -134,12 +131,12 @@ async def route_start_agent_run(
     ctx: RuntimeContextFromRequest,
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
+    if ctx.state.agent_runner.disabled:
+        raise HTTPException(status_code=503, detail="Agent runner is not available")
     profiles = load_agent_profiles(ctx.state.dbe)
     for profile in profiles:
         if profile.id == x.profileId:
-            run = create_agent_run(profile_id=profile.id, inputs=x.inputs)
-            save_agent_run(ctx.state.dbe, run)
-            return run
+            return ctx.state.agent_runner.start_run(profile, x.inputs)
     raise HTTPException(status_code=404, detail="Agent profile not found")
 
 
@@ -149,13 +146,12 @@ async def route_stop_agent_run(
     ctx: RuntimeContextFromRequest,
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
-    run = load_agent_run(ctx.state.dbe, x.runId)
-    if run is None:
-        raise HTTPException(status_code=404, detail="Agent run not found")
-    run.status = AgentRunStatus.cancelled
-    run.finishedAt = get_now_timestamp()
-    save_agent_run(ctx.state.dbe, run)
-    return run
+    if ctx.state.agent_runner.disabled:
+        raise HTTPException(status_code=503, detail="Agent runner is not available")
+    try:
+        return await ctx.state.agent_runner.stop_run(x.runId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post(Route.GET_AGENT_RUN)
