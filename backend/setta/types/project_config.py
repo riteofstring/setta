@@ -98,8 +98,10 @@ def default_section_allowlist() -> list[SectionType]:
 def default_section_representation(
     section_type: SectionType,
 ) -> SectionRepresentationMode:
-    if section_type in (SectionType.Chat, SectionType.Draw, SectionType.Image):
+    if section_type is SectionType.Chat:
         return SectionRepresentationMode.file
+    if section_type is SectionType.Draw:
+        return SectionRepresentationMode.base64
     return SectionRepresentationMode.json
 
 
@@ -146,9 +148,7 @@ def _is_representation_supported(
             SectionRepresentationMode.file,
         )
     if section_type is SectionType.Draw:
-        return representation is SectionRepresentationMode.file
-    if section_type is SectionType.Image:
-        return representation is SectionRepresentationMode.file
+        return representation is SectionRepresentationMode.base64
     return representation is SectionRepresentationMode.json
 
 
