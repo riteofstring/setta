@@ -169,6 +169,22 @@ class PythonValueCodecTest(TestCase):
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
 
+    def test_draw_section_without_value_has_placeholder_comment(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Draw",
+            full_path_name="draw",
+            type=SectionType.Draw,
+            isTopLevel=True,
+            deps={},
+            value=None,
+        )
+        self.assertEqual(
+            codec.format_section(section_node),
+            "None  # draw snapshot pending (run to capture)",
+        )
+
     def test_packaged_mode_uses_helper_for_file_reads(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         rendered = codec.format_dependency_value(

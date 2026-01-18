@@ -133,7 +133,7 @@ class PythonValueCodec:
             case SectionType.Draw:
                 if node.value:
                     return self.format_dependency_value(node.value)
-                return "None"
+                return "None  # draw snapshot pending (run to capture)"
             case _:
                 return None
 
