@@ -60,18 +60,9 @@ import {
 } from "utils/generatedTypes";
 
 function debugParamDnd(
-  message: string,
-  details?: Record<string, unknown>,
-) {
-  if (!details) {
-    console.info(`[param-dnd] ${message}`);
-    return;
-  }
-
-  console.info(
-    `[param-dnd] ${message} ${JSON.stringify(details)}`,
-  );
-}
+  _message: string,
+  _details?: Record<string, unknown>,
+) {}
 
 type ParamDragData = {
   type?: string;
