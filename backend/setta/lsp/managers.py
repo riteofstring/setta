@@ -86,8 +86,19 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
 
 
 async def stop_lsps(lsps: LSPServers, lsp_readers: LSPReaders):
+    process = getattr(lsps.full, "server", None)
     await lsp_readers.stop()
     lsps.stop()
+    if process is None:
+        return
+    writer = getattr(process, "stdin", None)
+    if writer is not None:
+        writer.close()
+        await writer.wait_closed()
+    await process.wait()
+    for reader in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
+        if reader is not None:
+            await reader.read()
 
 
 def stop_file_watcher(lsp_writers):

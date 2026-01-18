@@ -70,13 +70,14 @@ export function FileBrowserPane() {
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const didLoadRootRef = useRef(false);
-  const applyRootPathRef = useRef<
-    (
-      nextRoot: string,
-      separatorOverride?: string,
-      ignoreOverride?: string[],
-    ) => void
-  >();
+  const applyRootPathRef =
+    useRef<
+      (
+        nextRoot: string,
+        separatorOverride?: string,
+        ignoreOverride?: string[],
+      ) => void
+    >();
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
