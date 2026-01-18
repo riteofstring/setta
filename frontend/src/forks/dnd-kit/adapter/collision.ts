@@ -64,7 +64,17 @@ export const customCollisionDetection: CollisionDetector = ({
   }
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
-  const intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
+  let intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
+
+  if (!intersectionRatio && isParamDrag) {
+    const verticalOverlap = getVerticalOverlap(droppableRect, activeRect);
+    if (verticalOverlap > 0) {
+      // Keep param collisions alive when dragging horizontally outside the row.
+      intersectionRatio = Number(
+        (verticalOverlap * activeRect.width).toFixed(4),
+      );
+    }
+  }
 
   if (!intersectionRatio) {
     return null;
@@ -292,6 +302,12 @@ function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
   return 0;
 }
 
+function getVerticalOverlap(entry: ClientRect, target: ClientRect): number {
+  const top = Math.max(target.top, entry.top);
+  const bottom = Math.min(target.bottom, entry.bottom);
+  return bottom - top;
+}
+
 const MAX_ABS_TRIGGER_DIST = 10000;
 const MAX_INTERSECTION_RATIO = 1_000_000;
 const SIGN_WEIGHT = 1_000_000_000_000_000;
@@ -349,7 +365,12 @@ function getTriggerDistCondition({
   }
 
   const zoom = useReactFlow.getState().transform[2];
-  const threshold = containerIsHorizontal ? 20 : 100;
+  const threshold =
+    droppableData.type === "param"
+      ? 30
+      : containerIsHorizontal
+        ? 20
+        : 100;
 
   return triggerDist > threshold * zoom;
 }

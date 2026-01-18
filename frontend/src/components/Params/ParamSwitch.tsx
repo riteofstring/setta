@@ -4,6 +4,7 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { isTempParam, useParamDndState } from "forks/dnd-kit/paramDndState";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
@@ -57,6 +58,12 @@ function TempParamSwitch({
     }),
     _.isEqual,
   );
+  const zoom = useReactFlow((state) => state.transform[2]);
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const normalizedWidth =
+    placeholderWidth !== null ? placeholderWidth / safeZoom : null;
+  const normalizedHeight =
+    placeholderHeight !== null ? placeholderHeight / safeZoom : null;
 
   const {
     attributes,
@@ -83,14 +90,14 @@ function TempParamSwitch({
     transform: transformToString(scaledTransform),
     transition,
     zIndex: isDragging ? 1000 : undefined,
-    height: placeholderHeight ?? undefined,
-    width: placeholderWidth ?? undefined,
+    height: normalizedHeight ?? undefined,
+    width: normalizedWidth ?? undefined,
   };
   const columnWidth = "var(--param-column-width, 200px)";
 
   return (
     <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-200/50 px-[2px] dark:bg-blue-900/40"
+      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
       style={{
         gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),
@@ -98,11 +105,7 @@ function TempParamSwitch({
       ref={setNodeRef}
       {...(restAttributes ?? {})}
       {...(listeners ?? {})}
-    >
-      <div className="col-span-full flex h-full items-center">
-        <div className="h-2 w-full rounded bg-blue-400/60 dark:bg-blue-500/40" />
-      </div>
-    </article>
+    />
   );
 }
 
