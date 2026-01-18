@@ -8,8 +8,6 @@ import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { isTempSection } from "../dndState";
-import { useParamDndChildren } from "../paramDndChildren";
-import { isTempParam, useParamDndState } from "../paramDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
 
@@ -22,7 +20,6 @@ let prevPointerDirectionX: number | null = null;
 let prevPointerDirectionY: number | null = null;
 
 type DndEntityData = {
-  type?: string;
   isTopLevel?: boolean;
   hasNested?: boolean;
   onlyChildId?: string | null;
@@ -44,13 +41,7 @@ export const customCollisionDetection: CollisionDetector = ({
     return null;
   }
 
-  const activeData = getEntityData(active);
-  const isParamDrag = activeData?.type === "param";
-
-  if (
-    isTempSection(String(droppable.id)) ||
-    isTempParam(String(droppable.id))
-  ) {
+  if (isTempSection(String(droppable.id))) {
     return null;
   }
 
@@ -72,10 +63,9 @@ export const customCollisionDetection: CollisionDetector = ({
 
   const droppableData = getEntityData(droppable);
   const containerId = droppableData?.sortable?.containerId;
-  const containerIsHorizontal =
-    !isParamDrag && containerId
-      ? getSectionIsHorizontalOrientation(containerId)
-      : false;
+  const containerIsHorizontal = containerId
+    ? getSectionIsHorizontalOrientation(containerId)
+    : false;
 
   const triggerDist = containerIsHorizontal
     ? activeRect.top - droppableRect.top
@@ -139,15 +129,11 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     return null;
   }
 
-  if (
-    isTempSection(String(droppable.id)) ||
-    isTempParam(String(droppable.id))
-  ) {
+  if (isTempSection(String(droppable.id))) {
     return null;
   }
 
   const activeData = getEntityData(active);
-  const isParamDrag = activeData?.type === "param";
   const droppableData = getEntityData(droppable);
   const activeContainerId = activeData?.sortable?.containerId;
   const droppableContainerId = droppableData?.sortable?.containerId;
@@ -170,9 +156,9 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
   }
   const droppableRect = toClientRect(droppableShape.boundingRectangle);
   const pointerCoordinates = dragOperation.position?.current ?? null;
-  const containerIsHorizontal = !isParamDrag
-    ? Boolean(getSectionIsHorizontalOrientation(activeContainerId))
-    : false;
+  const containerIsHorizontal = Boolean(
+    getSectionIsHorizontalOrientation(activeContainerId),
+  );
 
   const distance = getEdgeDistance({
     activeRect,
@@ -217,11 +203,7 @@ export function updateCollisionHysteresis(
     return;
   }
 
-  const paramDragActive = useParamDndState.getState().activeId !== null;
-  const parentByChild = paramDragActive
-    ? useParamDndChildren.getState().y
-    : undefined;
-  let resolvedCollision = resolveOverCollision(collisions, parentByChild);
+  let resolvedCollision = resolveOverCollision(collisions);
   if (!resolvedCollision) {
     resolvedCollision = collisions[0] ?? null;
   }
