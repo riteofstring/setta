@@ -1,19 +1,15 @@
 # Docs Overview
 
 - `code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
-- `codegen-targets.md` – describes `codegenTargets`, supported languages, and behavior when disabled.
-- `codegen-section-policy-and-metadata.md` – explains the section policy rules and the generated metadata output.
 - `ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
-- `draw-image-representation.md` – how Draw and Image sections are represented in realtime and packaged runtime.
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
-- `file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
 - `http-request-sections.md` – how HTTP request sections expose REST endpoints, resolve schemas, and send requests.
 - `mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
