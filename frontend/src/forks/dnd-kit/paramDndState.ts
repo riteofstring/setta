@@ -10,6 +10,7 @@ type ParamDndState = {
   listKey: ParamListKey | null;
   rootId: string | null;
   draggingIds: string[];
+  pendingReset: boolean;
   parentById: Record<string, string | null>;
   visibleChildrenByParent: Record<string, string[]>;
   activeRect: {
@@ -34,6 +35,7 @@ export const useParamDndState = withProjectState(
         listKey: null,
         rootId: null,
         draggingIds: [],
+        pendingReset: false,
         parentById: {},
         visibleChildrenByParent: {},
         activeRect: null,

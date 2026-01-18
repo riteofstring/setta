@@ -83,7 +83,9 @@ export function useSortable({
     return status.dragging || status.initializing;
   }, [manager]).value;
   const shouldTrackSorting = sortingEnabled && isDragActive;
-  const disableFeedback = sortingEnabled;
+  const itemType =
+    typeof customData?.type === "string" ? customData.type : null;
+  const disableFeedback = sortingEnabled || itemType === "param";
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
