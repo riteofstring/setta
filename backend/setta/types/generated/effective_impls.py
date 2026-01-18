@@ -58,7 +58,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgsWithCallable,
     NestedParamCodeObjImplArgsWithCallable,
     PasswordParamCodeObjImplArgsWithCallable,
-    PromptSectionImplArgsWithCallable,
     RotaryParamCodeObjImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
@@ -101,7 +100,6 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -176,13 +174,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: TextBlockSectionImplArgsWithCallable,
 ) -> TextBlockSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: PromptSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: PromptSectionImplArgsWithCallable,
-) -> PromptSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: MetaControlSectionImpl,

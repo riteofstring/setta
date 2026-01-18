@@ -4,21 +4,16 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from setta.agentic.engine_config_watcher import EngineConfigWatcher
-from setta.agentic.external_agent_runner import ExternalAgentRunner
-from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
-from setta.agentic.profile_watcher import AgentProfileWatcher
-from setta.agentic.prompt_watcher import PromptTemplateWatcher
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
-from setta.llm.agent_runner import AgentRunner
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MultiMCPClient
@@ -32,6 +27,7 @@ from setta.project_state.session_project_manager import (
     SessionProjectManager,
 )
 from setta.project_state.share_runtime_state import ShareRuntimeState
+from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
@@ -103,6 +99,7 @@ async def cleanup_expired_share_sessions(
     share_runtime_state: ShareRuntimeState,
     session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
+    share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,
     realtime_event_hub: RealtimeEventHub | None = None,
 ) -> list[str]:
@@ -112,6 +109,8 @@ async def cleanup_expired_share_sessions(
             await terminals.delete_terminals_for_share_session(session_id)
         if share_listener_runtime is not None:
             share_listener_runtime.drop_session_listener(session_id)
+        if share_chat_manager is not None:
+            await share_chat_manager.drop_session(session_id)
         if realtime_event_hub is not None:
             realtime_event_hub.drop_share_session_sequences(session_id)
         if share_runtime_state.has_session_state(session_id):
@@ -126,6 +125,7 @@ async def run_share_session_cleanup_loop(
     share_runtime_state: ShareRuntimeState,
     session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
+    share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,
     realtime_event_hub: RealtimeEventHub | None = None,
     *,
@@ -137,6 +137,7 @@ async def run_share_session_cleanup_loop(
             share_runtime_state,
             session_manager_switcher,
             share_listener_runtime,
+            share_chat_manager,
             terminals,
             realtime_event_hub,
         )
@@ -238,25 +239,12 @@ class SettaFastAPIState:
         )
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
-        self.agent_runner: AgentRunner = self._defer_attr("agent_runner")
+        self.chat_manager: LLMChatManager | ShareChatManager = self._defer_attr(
+            "chat_manager"
+        )
         self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
-        )
-        self.agent_profile_watcher: AgentProfileWatcher = self._defer_attr(
-            "agent_profile_watcher"
-        )
-        self.prompt_template_watcher: PromptTemplateWatcher = self._defer_attr(
-            "prompt_template_watcher"
-        )
-        self.external_agent_config_watcher: ExternalAgentConfigWatcher = (
-            self._defer_attr("external_agent_config_watcher")
-        )
-        self.engine_config_watcher: EngineConfigWatcher = self._defer_attr(
-            "engine_config_watcher"
-        )
-        self.external_agent_runner: ExternalAgentRunner = self._defer_attr(
-            "external_agent_runner"
         )
 
         self.init_status = BackendInitializationStatus()
@@ -378,56 +366,26 @@ class SettaFastAPIState:
                 llm_config.mcpServers,
                 frontend_sender=self.wmh_frontend_sender,
             )
-            self.agent_runner = AgentRunner(
+            self.chat_manager = LLMChatManager(
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
             )
-            self.agent_runner.update_config(llm_config)
-            self.agent_runner.update_api_keys(self.dbe.read_dot_env())
+            self.chat_manager.update_config(llm_config)
             self.dotenv_watcher = DotEnvWatcher(
                 self.specific_file_watcher,
-                self.agent_runner,
+                self.chat_manager,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
             self.dotenv_watcher.start()
             self.llm_config_watcher = LLMConfigWatcher(
                 self.specific_file_watcher,
-                self.agent_runner,
+                self.chat_manager,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
             self.llm_config_watcher.start()
-            self.agent_profile_watcher = AgentProfileWatcher(
-                self.specific_file_watcher,
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            self.agent_profile_watcher.start()
-            self.prompt_template_watcher = PromptTemplateWatcher(
-                self.specific_file_watcher,
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            self.prompt_template_watcher.start()
-            self.external_agent_config_watcher = ExternalAgentConfigWatcher(
-                self.specific_file_watcher,
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            self.external_agent_config_watcher.start()
-            self.engine_config_watcher = EngineConfigWatcher(
-                self.specific_file_watcher,
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            self.engine_config_watcher.start()
-            self.external_agent_runner = ExternalAgentRunner(
-                self.dbe,
-                self.wmh_frontend_sender,
-                mcp_client=self.mcp_client,
-            )
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
@@ -537,6 +495,19 @@ class SettaFastAPIState:
             self.project_manager_switcher,
             dbe=self.dbe,
         )
+        share_policy = self.share_runtime_state.share_policy
+        llm_dbe = self._resolve_share_llm_dbe()
+        llm_config = None
+        if share_policy.allowLLM:
+            llm_config = load_llm_config(llm_dbe, allow_write=False)
+            self.chat_manager = ShareChatManager(
+                llm_dbe,
+                self.wmh_frontend_sender,
+                self.share_runtime_state,
+                self.share_session_store,
+                llm_config=llm_config,
+            )
+        share_chat_manager = self.chat_manager if share_policy.allowLLM else None
         share_terminals = self.terminals
         spawn_background_task(
             run_share_session_cleanup_loop(
@@ -544,6 +515,7 @@ class SettaFastAPIState:
                 self.share_runtime_state,
                 self.project_manager_switcher,
                 share_listener_runtime=self.share_listener_runtime,
+                share_chat_manager=share_chat_manager,
                 terminals=share_terminals,
                 realtime_event_hub=self.realtime_event_hub,
                 interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
@@ -603,6 +575,15 @@ class SettaFastAPIState:
         ).resolve()
         runtime_root.mkdir(parents=True, exist_ok=True)
         return runtime_root
+
+    def _resolve_share_llm_dbe(self) -> DBE:
+        if not self.share_mode or self.share_runtime_root is None:
+            return self.dbe
+        return DBE(
+            self.share_runtime_root,
+            runtime_root=self.share_runtime_root,
+            lock_root=self.share_runtime_root,
+        )
 
     async def _maybe_delay(self) -> None:
         delay = C.BACKEND_INIT_DELAY_SECONDS
