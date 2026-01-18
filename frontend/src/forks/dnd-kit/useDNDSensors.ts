@@ -72,8 +72,9 @@ export function useSectionDndSensors() {
 
 export function useParamDndSensors() {
   const { canEditStructure } = useShareCapabilities();
+  const isSelectingParams = useMisc((state) => state.isSelectingParams);
   return useMemo(() => {
-    if (!canEditStructure) {
+    if (!canEditStructure || !isSelectingParams) {
       return [];
     }
 
@@ -113,5 +114,5 @@ export function useParamDndSensors() {
     });
 
     return [pointerSensor, keyboardSensor];
-  }, [canEditStructure]);
+  }, [canEditStructure, isSelectingParams]);
 }

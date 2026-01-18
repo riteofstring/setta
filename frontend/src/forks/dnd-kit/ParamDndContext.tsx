@@ -9,6 +9,8 @@ import {
 } from "forks/dnd-kit/adapter/collision";
 import type { SettaCollision } from "forks/dnd-kit/adapter/types";
 import { useMemo, type ReactNode } from "react";
+import { useMisc } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";
@@ -17,6 +19,9 @@ import { useParamDndSensors } from "./useDNDSensors";
 function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 
 export function ParamDndContext({ children }: { children: ReactNode }) {
+  const { canEditStructure } = useShareCapabilities();
+  const isSelectingParams = useMisc((state) => state.isSelectingParams);
+  const paramDndEnabled = canEditStructure && isSelectingParams;
   const sensors = useParamDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(() => {
     const baseTracker = createCollisionTracker({
@@ -70,9 +75,13 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
       collisionTracker={collisionTracker}
       debugLabel="param"
     >
-      <DragOperationShapeSync />
-      <ParamDndMonitor />
-      <ParamDragOverlay />
+      {paramDndEnabled && (
+        <>
+          <DragOperationShapeSync />
+          <ParamDndMonitor />
+          <ParamDragOverlay />
+        </>
+      )}
       {children}
     </DragDropProvider>
   );

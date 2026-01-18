@@ -34,7 +34,6 @@ function _ParamContainer({
   dndRef,
   dndStyle,
   dndClassName,
-  dndIndicator,
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
@@ -94,7 +93,6 @@ function _ParamContainer({
         {...(dndAttributes ?? {})}
         {...(dndListeners ?? {})}
       >
-        {dndIndicator}
         {!isKwarg ? (
           <div
             className="section-key overflow-hidden"
@@ -142,7 +140,6 @@ function _ParamContainer({
       {...(dndAttributes ?? {})}
       {...(dndListeners ?? {})}
     >
-      {dndIndicator}
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
         <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />

@@ -25,7 +25,7 @@ import {
   type ParamListKey,
 } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -203,11 +203,6 @@ export function ParamDragOverlay() {
     () => manager?.dragOperation.status.initialized ?? false,
     [manager],
   ).value;
-  const overlayMetricsRef = useRef<{
-    width: number;
-    height: number;
-    dragOffset: { x: number; y: number } | null;
-  } | null>(null);
   const overlayMetrics = activeId
     ? {
         width: placeholderWidth ?? 220,
@@ -241,16 +236,6 @@ export function ParamDragOverlay() {
     placeholderHeight,
     dragOffset,
   ]);
-
-  useEffect(() => {
-    if (activeId && overlayMetrics) {
-      overlayMetricsRef.current = overlayMetrics;
-      return;
-    }
-    if (!activeId) {
-      overlayMetricsRef.current = null;
-    }
-  }, [activeId, overlayMetrics]);
 
   if (!shouldRenderOverlay || !isParamDragActive || !overlayMetrics) {
     return null;
