@@ -22,6 +22,7 @@ interface Props {
   strategy?: SortingStrategy;
   id?: string;
   disabled?: boolean | Disabled;
+  forceSorting?: boolean;
 }
 
 interface ContextDescriptor {
@@ -34,6 +35,7 @@ interface ContextDescriptor {
   useDragOverlay: boolean;
   sortedRects: Array<ClientRect | undefined>;
   strategy: SortingStrategy;
+  sortingEnabled: boolean;
 }
 
 const ID_PREFIX = "Sortable";
@@ -51,6 +53,7 @@ export const Context = React.createContext<ContextDescriptor>({
     draggable: false,
     droppable: false,
   },
+  sortingEnabled: false,
 });
 
 export function SortableContext({
@@ -59,6 +62,7 @@ export function SortableContext({
   items: userDefinedItems,
   strategy = rectSortingStrategy,
   disabled: disabledProp = false,
+  forceSorting = false,
 }: Props) {
   const manager = useDragDropManager();
   const dndMode = useDndMode();
@@ -70,7 +74,15 @@ export function SortableContext({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const shouldTrackSorting = dndMode.isSorting && isDragActive;
+  const activeDragType = useComputed(() => {
+    const sourceData = manager?.dragOperation.source?.data as
+      | { current?: { type?: string } }
+      | undefined;
+    return sourceData?.current?.type ?? null;
+  }, [manager]).value;
+  const sortingEnabled =
+    activeDragType !== "param" && (forceSorting || dndMode.isSorting);
+  const shouldTrackSorting = sortingEnabled && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
   const items = useMemo<UniqueIdentifier[]>(
@@ -258,6 +270,7 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
+      sortingEnabled,
       useDragOverlay,
       sortedRects,
       strategy,
@@ -269,6 +282,7 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
+      sortingEnabled,
       sortedRects,
       useDragOverlay,
       strategy,
