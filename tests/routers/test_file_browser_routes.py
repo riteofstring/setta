@@ -124,7 +124,7 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_folder_contents_filters_hidden_and_ignored(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / "visible.txt").write_text("hello", encoding="utf-8")
             (root_path / "child").mkdir()
@@ -143,7 +143,7 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_folder_contents_include_hidden_and_ignore_override(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / ".env").write_text("hidden", encoding="utf-8")
             (root_path / "node_modules").mkdir()
@@ -168,7 +168,7 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / "a.txt").write_text("a", encoding="utf-8")
             (root_path / "b.txt").write_text("b", encoding="utf-8")
@@ -185,9 +185,20 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
         expected_path = (root_path / items[0]["name"]).resolve()
         self.assertEqual(expected_path, Path(items[0]["fullPath"]).resolve())
 
-    async def test_get_folder_contents_errors(self) -> None:
+    async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory() as tmpdir:
+            with runtime_context(state) as runtime_ctx:
+                with self.assertRaises(HTTPException) as ctx:
+                    route_get_folder_contents(
+                        GetFolderContentsRequest(folderPath=tmpdir),
+                        runtime_ctx,
+                    )
+        self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_get_folder_contents_errors(self) -> None:
+        state = await self._build_state()
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             file_path = root_path / "file.txt"
             file_path.write_text("hi", encoding="utf-8")

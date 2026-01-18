@@ -19,6 +19,8 @@ from typing import (
     overload,
 )
 
+from fastapi import HTTPException, status
+
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -625,7 +627,10 @@ class BaseProjectManager(ABC):
                     isinstance(section_impl, CodeSectionImpl)
                     and section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES
                 ):
-                    raise ValueError("Run is only available for Python and Bash.")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Run is only available for Python and Bash.",
+                    )
 
             if not python_codegen_enabled:
                 if not section_id:

@@ -156,10 +156,18 @@ def _resolve_folder_path(
 ) -> Path:
     if share_mode:
         return ensure_share_deployment_path(folder_path, deployment_root)
+    root = CWD.resolve()
     path = Path(folder_path)
     if path.is_absolute():
-        return path.resolve()
-    return (CWD / path).resolve()
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Folder path must be within the project root.",
+        )
+    return resolved
 
 
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:

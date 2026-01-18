@@ -197,7 +197,7 @@ function CodeLanguageIcon({ sectionId, classes }) {
     case CodeLanguageEnum.plaintext:
       return <PiTextTFill className={classes} />;
     default:
-      return <GoDotFill className={classes} />;
+      return <PiTextTFill className={classes} />;
   }
 }
 

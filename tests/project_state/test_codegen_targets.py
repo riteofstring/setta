@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import HTTPException
+
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -305,7 +307,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         )
         await manager._refresh_codegen_state(project_state)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HTTPException) as ctx:
             await manager.create_run_command(
                 RunCodeRequest(
                     projectConfigId=project_config.id,
@@ -313,6 +315,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
                     runSnapshotMode=RunSnapshotMode.never,
                 )
             )
+        self.assertEqual(400, ctx.exception.status_code)
         manager.shutdown()
 
     async def test_refresh_codegen_state_writes_non_runnable_code(self) -> None:
