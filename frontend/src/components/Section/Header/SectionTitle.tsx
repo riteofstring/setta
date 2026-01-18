@@ -107,6 +107,7 @@ function useTitleIsEditable(sectionId: string) {
     const uneditableTypes: Array<SectionType> = [
       SectionTypeEnum.GlobalVariables,
       SectionTypeEnum.GenPythonCode,
+      SectionTypeEnum.GenPythonMetadata,
     ];
 
     const s = getSectionCore(x, sectionId);
