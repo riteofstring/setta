@@ -272,6 +272,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             config_path = runner._write_opencode_config(
                 "http://localhost:8000/mcp",
                 config,
+                allowlist=None,
             )
             payload = json.loads(config_path.read_text(encoding="utf-8"))
             self.assertIn("permission", payload)
@@ -650,6 +651,38 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner._cleanup_context(context)
             self.assertFalse(config_path.exists())
 
+    def test_codex_config_writes_tool_allowlist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="Codex",
+                toolAllowlist=["setta__getProjectState", "runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=profile,
+                inputs=None,
+            )
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('enabled_tools = ["getProjectState", "runTool"]', content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
     def test_opencode_config_writes_permissions(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -668,7 +701,41 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertIsInstance(config_path, str)
             config_text = Path(str(config_path)).read_text(encoding="utf-8")
             payload = json.loads(config_text)
-            self.assertEqual(payload.get("permissions"), "ask")
+            self.assertEqual(payload.get("permission"), "ask")
+
+            runner._cleanup_context(context)
+
+    def test_opencode_config_merges_tool_allowlist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="OpenCode",
+                toolAllowlist=["setta__getProjectState"],
+            )
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=profile,
+                inputs=None,
+            )
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            permissions = payload.get("permission")
+            self.assertIsInstance(permissions, dict)
+            self.assertEqual(permissions.get("setta_*"), "deny")
+            self.assertEqual(permissions.get("setta_getProjectState"), "allow")
 
             runner._cleanup_context(context)
 
@@ -690,7 +757,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertIsInstance(config_path, str)
             config_text = Path(str(config_path)).read_text(encoding="utf-8")
             payload = json.loads(config_text)
-            permissions = payload.get("permissions")
+            permissions = payload.get("permission")
             self.assertIsInstance(permissions, dict)
             self.assertEqual(permissions.get("run"), "ask")
 

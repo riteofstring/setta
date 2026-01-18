@@ -15,9 +15,11 @@ from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
+from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import list_agent_runs, require_agent_profile
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
@@ -26,7 +28,6 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
-from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
@@ -199,18 +200,13 @@ async def route_get_llm_response(
                 status_code=503,
                 detail=f"External agent config is not available: {issues}",
             )
-        if (
-            profile is not None
-            and profile.toolAllowlist
-            and external_config.toolType != ExternalAgentToolType.claude_code
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Tool allowlists are only supported for Claude Code external runs. "
-                    "Remove toolAllowlist or choose a Claude Code config."
-                ),
+        if profile is not None and profile.toolAllowlist:
+            _, error = build_external_tool_allowlist(
+                profile.toolAllowlist,
+                server_id=SETTA_MCP_SERVER_ID,
             )
+            if error:
+                raise HTTPException(status_code=400, detail=error)
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),

@@ -27,6 +27,10 @@ from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
+from setta.agentic.external_tool_allowlist import (
+    ExternalToolAllowlist,
+    build_external_tool_allowlist,
+)
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
     create_agent_run,
@@ -46,7 +50,7 @@ from setta.llm.chat_toolkit.managed.ai_follow import (
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import split_namespaced_tool_name
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
@@ -77,7 +81,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
 _BASE_ENV_KEYS = ("PATH", "HOME", "USER", "SHELL", "TMPDIR", "TMP", "TEMP")
-_MCP_SERVER_NAME = "setta"
+_MCP_SERVER_NAME = SETTA_MCP_SERVER_ID
 _CLAUDE_MCP_CONFIG_NAME = ".mcp.json"
 _OPENCODE_CONFIG_NAME = "opencode.json"
 _CODEX_CONFIG_NAME = "config.toml"
@@ -452,6 +456,20 @@ class ExternalAgentRunner:
             dbe=self.dbe,
         )
 
+    @staticmethod
+    def _resolve_external_tool_allowlist(
+        profile: AgentProfile | None,
+    ) -> ExternalToolAllowlist | None:
+        if profile is None:
+            return None
+        allowlist, error = build_external_tool_allowlist(
+            profile.toolAllowlist,
+            server_id=_MCP_SERVER_NAME,
+        )
+        if error:
+            raise ValueError(error)
+        return allowlist
+
     def _configure_external_tools(
         self,
         *,
@@ -461,6 +479,7 @@ class ExternalAgentRunner:
         env: dict[str, str],
         cleanup_paths: list[Path],
     ) -> None:
+        allowlist = self._resolve_external_tool_allowlist(profile)
         mcp_url = self._build_setta_mcp_url()
         if config.toolType == ExternalAgentToolType.claude_code:
             config_path = self._write_claude_mcp_config(mcp_url)
@@ -471,12 +490,12 @@ class ExternalAgentRunner:
             cleanup_paths.append(config_path.parent)
             return
         if config.toolType == ExternalAgentToolType.opencode:
-            config_path = self._write_opencode_config(mcp_url, config)
+            config_path = self._write_opencode_config(mcp_url, config, allowlist)
             env["OPENCODE_CONFIG"] = str(config_path)
             cleanup_paths.append(config_path.parent)
             return
         if config.toolType == ExternalAgentToolType.codex:
-            codex_home = self._write_codex_config(mcp_url, config)
+            codex_home = self._write_codex_config(mcp_url, config, allowlist)
             env["CODEX_HOME"] = str(codex_home)
             cleanup_paths.append(codex_home)
 
@@ -494,7 +513,12 @@ class ExternalAgentRunner:
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
-    def _write_opencode_config(self, mcp_url: str, config: ExternalAgentConfig) -> Path:
+    def _write_opencode_config(
+        self,
+        mcp_url: str,
+        config: ExternalAgentConfig,
+        allowlist: ExternalToolAllowlist | None,
+    ) -> Path:
         config_dir = self._create_temp_dir("setta-opencode-mcp-")
         path = config_dir / _OPENCODE_CONFIG_NAME
         payload = {
@@ -507,12 +531,18 @@ class ExternalAgentRunner:
             }
         }
         permission = self._parse_opencode_permissions(config.approvalPolicy)
+        permission = self._merge_opencode_permissions(permission, allowlist)
         if permission is not None:
             payload["permission"] = permission
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
-    def _write_codex_config(self, mcp_url: str, config: ExternalAgentConfig) -> Path:
+    def _write_codex_config(
+        self,
+        mcp_url: str,
+        config: ExternalAgentConfig,
+        allowlist: ExternalToolAllowlist | None,
+    ) -> Path:
         config_dir = self._create_temp_dir("setta-codex-mcp-")
         path = config_dir / _CODEX_CONFIG_NAME
         lines: list[str] = []
@@ -524,8 +554,47 @@ class ExternalAgentRunner:
             lines.append(f"sandbox_mode = {json.dumps(config.sandboxPolicy)}")
         lines.append(f"[mcp_servers.{_MCP_SERVER_NAME}]")
         lines.append(f'url = "{mcp_url}"')
+        enabled_tools = self._build_codex_enabled_tools(allowlist)
+        if enabled_tools:
+            lines.append(f"enabled_tools = {json.dumps(enabled_tools)}")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return config_dir
+
+    @staticmethod
+    def _build_codex_enabled_tools(
+        allowlist: ExternalToolAllowlist | None,
+    ) -> list[str] | None:
+        if allowlist is None or allowlist.allow_all:
+            return None
+        if not allowlist.tool_names:
+            return None
+        return list(allowlist.tool_names)
+
+    @staticmethod
+    def _merge_opencode_permissions(
+        permission: Any | None,
+        allowlist: ExternalToolAllowlist | None,
+    ) -> Any | None:
+        if allowlist is None or allowlist.allow_all:
+            return permission
+        default_policy: str | None = None
+        if permission is None:
+            permission = {}
+        elif isinstance(permission, str):
+            default_policy = permission
+            permission = {}
+        if not isinstance(permission, dict):
+            raise ValueError(
+                "OpenCode permission must be a JSON object when toolAllowlist is set"
+            )
+        merged = dict(permission)
+        merged[f"{_MCP_SERVER_NAME}_*"] = "deny"
+        for tool_name in allowlist.tool_names:
+            merged.setdefault(
+                f"{_MCP_SERVER_NAME}_{tool_name}",
+                default_policy or "allow",
+            )
+        return merged
 
     @staticmethod
     def _build_claude_allowed_tools(

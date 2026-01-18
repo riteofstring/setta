@@ -7,6 +7,7 @@ from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
+from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
     delete_prompt_template,
     list_agent_runs,
@@ -22,6 +23,7 @@ from setta.agentic.store import (
     save_external_agent_configs,
     save_prompt_template,
 )
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.agentic import (
@@ -269,17 +271,13 @@ async def route_start_agent_run(
                 status_code=503,
                 detail=f"External agent config is not available: {issues}",
             )
-        if (
-            profile.toolAllowlist
-            and external_config.toolType != ExternalAgentToolType.claude_code
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Tool allowlists are only supported for Claude Code external runs. "
-                    "Remove toolAllowlist or choose a Claude Code config."
-                ),
+        if profile.toolAllowlist:
+            _, error = build_external_tool_allowlist(
+                profile.toolAllowlist,
+                server_id=SETTA_MCP_SERVER_ID,
             )
+            if error:
+                raise HTTPException(status_code=400, detail=error)
         return runner.start_run(
             resolved.engine_config.id,
             external_config,
