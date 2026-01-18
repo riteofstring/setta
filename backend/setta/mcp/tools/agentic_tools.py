@@ -32,7 +32,7 @@ def get_agent_profile(profileId: ID, ctx: Context) -> AgentProfile:
 
 
 @setta_tool
-def run_agent_profile(
+async def run_agent_profile(
     profileId: ID,
     ctx: Context,
     inputs: dict[str, Any] | None = None,
@@ -49,5 +49,5 @@ def run_agent_profile(
             runner = ctx.fastmcp.state.agent_runner
             if runner.disabled:
                 raise RuntimeError("Agent runner is not available")
-            return runner.start_run(profile, inputs)
+            return await runner.run_sub_agent(profile, inputs)
     raise KeyError(f"Agent profile {profileId} not found")

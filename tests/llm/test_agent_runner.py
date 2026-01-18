@@ -2,11 +2,11 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.agentic.store import load_agent_run
+from setta.agentic.store import load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
-from setta.types.agentic import AgentProfile
+from setta.types.agentic import AgentProfile, AgentRunStatus
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -17,6 +17,7 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -47,6 +48,17 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     )
     dbe.write_project(project_state)
     return default_id
+
+
+class _StubAgentRunner(AgentRunner):
+    async def _run_agent(self, context) -> None:
+        if context.emit_stream or context.emit_ai_follow:
+            raise AssertionError("Expected sub-agent run to disable streaming")
+        context.run.status = AgentRunStatus.completed
+        context.run.finishedAt = get_now_timestamp()
+        context.run.outputs = {"messages": []}
+        save_agent_run(self.dbe, context.run)
+        self._record_event(context.run, "run_completed", {})
 
 
 class AgentRunnerTests(unittest.TestCase):
@@ -306,6 +318,43 @@ class AgentRunnerTests(unittest.TestCase):
             self.assertIn("projectConfigId", snapshot_payload)
             self.assertIn("projectState", snapshot_payload)
             self.assertIn("temporaryIdMap", snapshot_payload)
+
+
+class AgentRunnerSubAgentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_sub_agent_records_events_and_completes(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            mcp_client = MultiMCPClient(config.mcpServers, disabled=True)
+            runner = _StubAgentRunner(dbe, mcp_client, frontend_sender)
+            runner.update_config(config)
+            runner.update_api_keys(dbe.read_dot_env())
+            profile = AgentProfile(name="Alpha", llmConfigId="primary")
+
+            run = await runner.run_sub_agent(profile, inputs={"prompt": "hello"})
+
+            self.assertEqual(run.status, AgentRunStatus.completed)
+            loaded = load_agent_run(dbe, run.id)
+            if loaded is None:
+                raise AssertionError("Expected agent run to be persisted")
+            event_types = [event.type for event in loaded.events]
+            self.assertIn("run_started", event_types)
+            self.assertIn("snapshot", event_types)
+            self.assertIn("run_completed", event_types)
 
 
 if __name__ == "__main__":

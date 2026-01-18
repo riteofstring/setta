@@ -111,6 +111,8 @@ class AgentRunContext:
     deep_think: bool
     system_prompt: str
     allowlist: ToolAllowlist | None
+    emit_stream: bool
+    emit_ai_follow: bool
 
 
 @dataclass
@@ -222,6 +224,35 @@ class AgentRunner:
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
         return run
+
+    async def run_sub_agent(
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+    ) -> AgentRun:
+        context = self._build_context(
+            profile,
+            inputs,
+            emit_stream=False,
+            emit_ai_follow=False,
+        )
+        run = context.run
+        save_agent_run(self.dbe, run)
+        self._record_event(
+            run,
+            "run_started",
+            {
+                "profileId": str(profile.id),
+                "llmConfigId": context.llm_config.id,
+                "projectConfigId": str(context.project_config_id),
+                "chatId": str(context.chat_id),
+                "sectionId": str(context.section_id) if context.section_id else None,
+            },
+        )
+        self._record_snapshot(run, context.project_config_id)
+        await self._run_agent(context)
+        loaded = load_agent_run(self.dbe, run.id)
+        return loaded if loaded is not None else run
 
     async def stop_run(self, run_id: ID) -> AgentRun:
         task = self._tasks.get(run_id)
@@ -515,7 +546,12 @@ class AgentRunner:
         return results
 
     def _build_context(
-        self, profile: AgentProfile, inputs: dict[str, Any] | None
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+        *,
+        emit_stream: bool = True,
+        emit_ai_follow: bool = True,
     ) -> AgentRunContext:
         project_state = self.dbe.read_project_required()
         if project_state.defaultProjectConfigId is None:
@@ -563,6 +599,8 @@ class AgentRunner:
             deep_think=deep_think,
             system_prompt=system_prompt,
             allowlist=allowlist,
+            emit_stream=emit_stream,
+            emit_ai_follow=emit_ai_follow,
         )
 
     def _normalize_tool_allowlist(self, profile: AgentProfile) -> ToolAllowlist | None:
@@ -1082,11 +1120,12 @@ class AgentRunner:
             if isinstance(action, EmitChunkAction):
                 if isinstance(action.chunk, ToolResultEvent):
                     tool_results.append(action.chunk.result)
-                await self.websocket_msg_handler.send_streaming_response(
-                    action.chat_id,
-                    action.chunk,
-                    section_id=context.section_id,
-                )
+                if context.emit_stream:
+                    await self.websocket_msg_handler.send_streaming_response(
+                        action.chat_id,
+                        action.chunk,
+                        section_id=context.section_id,
+                    )
                 self._record_event(
                     context.run,
                     "stream_chunk",
@@ -1100,18 +1139,20 @@ class AgentRunner:
                 )
                 continue
             if isinstance(action, UpdateAIFollowAction):
-                await self._update_and_broadcast_ai_follow_update(
-                    action.project_config_id,
-                    action.chat_id,
-                    action.ids_by_type,
-                )
+                if context.emit_ai_follow:
+                    await self._update_and_broadcast_ai_follow_update(
+                        action.project_config_id,
+                        action.chat_id,
+                        action.ids_by_type,
+                    )
                 continue
             if isinstance(action, UpdateAIFollowResultAction):
-                await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
-                    action.project_config_id,
-                    action.chat_id,
-                    action.ids_by_type,
-                )
+                if context.emit_ai_follow:
+                    await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+                        action.project_config_id,
+                        action.chat_id,
+                        action.ids_by_type,
+                    )
                 continue
             if isinstance(action, ExecuteToolCallsAction):
                 next_actions = await self._tool_executor.apply(action)
