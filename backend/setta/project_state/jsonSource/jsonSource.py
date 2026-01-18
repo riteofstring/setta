@@ -36,7 +36,6 @@ from setta.types.hierarchy_traversal import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import BaseDictSectionImpl
-from setta.utils.structured_data import read_json_source_payload
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -173,13 +172,8 @@ class JSONSource:
             )
 
             filepath = coreUpdate.fileToRead
-            if not filepath.exists():
-                if filepath in self.json_sources:
-                    del self.json_sources[filepath]
-                if len(sectionVariantsToLoad) > 0:
-                    await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
-                return
-            file_content = read_json_source_payload(filepath, self.dbe)
+            file_content = self.dbe.read_json(filepath)
+
             processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
 
@@ -215,7 +209,7 @@ class JSONSource:
         for path in paths:
             if not path.exists():
                 continue
-            payload = read_json_source_payload(path, self.dbe)
+            payload = self.dbe.read_json(path)
             json_sources[path] = self.process_json_object(payload)
         return json_sources
 

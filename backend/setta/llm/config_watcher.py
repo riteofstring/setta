@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
+from setta.llm.agent_runner import AgentRunner
 from setta.llm.config import load_llm_config
-from setta.llm.llm_chat_manager import LLMChatManager
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
@@ -28,12 +28,12 @@ class LLMConfigWatcher:
     def __init__(
         self,
         specific_file_watcher: "SpecificFileWatcher",
-        chat_manager: LLMChatManager,
+        agent_runner: AgentRunner,
         websocket_msg_handler: WMHFrontendSender,
         dbe: DBE,
     ) -> None:
         self.specific_file_watcher = specific_file_watcher
-        self.chat_manager = chat_manager
+        self.agent_runner = agent_runner
         self.websocket_msg_handler = websocket_msg_handler
         self.dbe = dbe
 
@@ -64,15 +64,15 @@ class LLMConfigWatcher:
             )
             return
 
-        self.chat_manager.update_config(config)
+        self.agent_runner.update_config(config)
         logger.info(
             "Reloaded LLM config with %s providers",
-            len(self.chat_manager.config.configs),
+            len(self.agent_runner.config.configs),
         )
 
         await self.websocket_msg_handler.broadcast_llm_config_update(
-            self.chat_manager.config
+            self.agent_runner.config
         )
         await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.chat_manager.api_keys
+            self.agent_runner.api_keys
         )
