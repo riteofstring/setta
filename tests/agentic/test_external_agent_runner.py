@@ -9,7 +9,12 @@ from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, RunEvent
-from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
+)
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -22,6 +27,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.utils.constants import C
@@ -229,6 +235,45 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             self.assertEqual(context.inputs.get("sessionId"), "session-new")
+
+    def test_ai_follow_snapshot_normalizes(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            project_config_id = ID("project-1")
+            chat_id = ID("chat-1")
+
+            runner._ai_follow_state[(project_config_id, chat_id)] = {
+                "section": [ID("section-1"), ID("section-1"), ID("section-2")]
+            }
+
+            snapshot = runner.get_ai_follow_snapshot(project_config_id)
+            self.assertEqual(len(snapshot), 1)
+            entry = snapshot[0]
+            self.assertEqual(entry.chatId, chat_id)
+            self.assertEqual(
+                entry.idsByType["section"],
+                [ID("section-1"), ID("section-2")],
+            )
+
+    def test_normalize_tool_calls_strips_mcp_prefix(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            tool_calls = [
+                ToolCall(
+                    id="call-1",
+                    function=ToolCallFunction(
+                        name="mcp__setta__create_section", arguments={}
+                    ),
+                )
+            ]
+
+            normalized = runner._normalize_tool_calls(tool_calls)
+
+            self.assertEqual(normalized[0].function.name, "setta__create_section")
 
     def test_persist_external_session_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:

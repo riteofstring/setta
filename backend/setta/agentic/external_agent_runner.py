@@ -68,6 +68,7 @@ from setta.types.external_agents import (
 )
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -128,6 +129,28 @@ class ExternalAgentRunner:
     @property
     def disabled(self) -> bool:
         return False
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowToolArgumentsUpdateContent]:
+        snapshot: list[AIFollowToolArgumentsUpdateContent] = []
+        for (
+            state_project_config_id,
+            chat_id,
+        ), ids_by_type in self._ai_follow_state.items():
+            if state_project_config_id != project_config_id:
+                continue
+            normalized_ids_by_type = normalize_ids_by_type(ids_by_type)
+            if not normalized_ids_by_type:
+                continue
+            snapshot.append(
+                AIFollowToolArgumentsUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    idsByType=normalized_ids_by_type,
+                )
+            )
+        return snapshot
 
     def start_run(
         self,
@@ -613,6 +636,8 @@ class ExternalAgentRunner:
             tool_calls = chunk.message.tool_calls or []
             if not tool_calls:
                 tool_calls = self._build_tool_calls_from_buffers(run_id)
+            else:
+                tool_calls = self._normalize_tool_calls(tool_calls)
             await self._maybe_emit_follow_update(
                 project_config_id,
                 chat_id,
@@ -630,7 +655,9 @@ class ExternalAgentRunner:
             chunk.arguments_delta or ""
         )
         if chunk.tool_name:
-            names[chunk.tool_call_id] = chunk.tool_name
+            normalized = self._normalize_tool_name(chunk.tool_name)
+            if normalized:
+                names[chunk.tool_call_id] = normalized
 
     def _build_tool_calls_from_buffers(self, run_id: ID) -> list[ToolCall]:
         buffers = self._tool_call_buffers.get(run_id)
@@ -825,7 +852,7 @@ class ExternalAgentRunner:
     ) -> None:
         if not self.mcp_client:
             return
-        tool_name = chunk.tool_name
+        tool_name = self._normalize_tool_name(chunk.tool_name)
         if not tool_name or not is_setta_tool_name(tool_name):
             return
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
@@ -881,3 +908,29 @@ class ExternalAgentRunner:
         if state is None:
             return False
         return ids_by_type_to_sets(state) == ids_by_type_to_sets(ids_by_type)
+
+    @staticmethod
+    def _normalize_tool_name(tool_name: str | None) -> str | None:
+        if not tool_name:
+            return None
+        if tool_name.startswith("mcp__"):
+            return tool_name[len("mcp__") :]
+        return tool_name
+
+    def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:
+        normalized_calls: list[ToolCall] = []
+        for call in tool_calls:
+            normalized_name = self._normalize_tool_name(call.function.name)
+            if normalized_name and normalized_name != call.function.name:
+                normalized_calls.append(
+                    call.model_copy(
+                        update={
+                            "function": call.function.model_copy(
+                                update={"name": normalized_name}
+                            )
+                        }
+                    )
+                )
+            else:
+                normalized_calls.append(call)
+        return normalized_calls

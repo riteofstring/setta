@@ -266,6 +266,18 @@ async def route_start_external_agent_run(
             profile = require_agent_profile(ctx.state.dbe, x.profileId)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if (
+        profile is not None
+        and profile.toolAllowlist
+        and config.toolType != ExternalAgentToolType.claude_code
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Tool allowlists are only supported for Claude Code external runs. "
+                "Remove toolAllowlist or choose a Claude Code config."
+            ),
+        )
     return runner.start_run(config, profile, x.inputs)
 
 

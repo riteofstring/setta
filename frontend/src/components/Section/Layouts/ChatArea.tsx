@@ -11,6 +11,7 @@ import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
+  findLatestRunningExternalRunId,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
@@ -590,17 +591,27 @@ function ManagedChatArea({
       timestampMs: Date.now(),
     });
     if (isExternalEngine) {
-      if (!activeExternalRunId) {
+      let runId = activeExternalRunId;
+      if (!runId && typeof chatId === "string") {
+        runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
+      }
+      if (!runId) {
         return;
       }
-      await route_stop_external_agent_run({ runId: activeExternalRunId });
+      await route_stop_external_agent_run({ runId });
       return;
     }
     if (typeof chatId !== "string") {
       return;
     }
     await route_stop_llm_chat({ chatId });
-  }, [activeExternalRunId, chatId, isExternalEngine, sectionId]);
+  }, [
+    activeExternalRunId,
+    chatId,
+    isExternalEngine,
+    projectConfigId,
+    sectionId,
+  ]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const isDisabled = isExternalEngine

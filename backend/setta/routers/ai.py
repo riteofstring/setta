@@ -239,4 +239,8 @@ async def route_get_ai_follow_snapshot(
     ctx: RuntimeContextFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
     await ctx.enforce_llm_allowed()
-    return ctx.state.agent_runner.get_ai_follow_snapshot(x.projectConfigId)
+    snapshot = ctx.state.agent_runner.get_ai_follow_snapshot(x.projectConfigId)
+    external_runner = ctx.state.external_agent_runner
+    if external_runner and not external_runner.disabled:
+        snapshot.extend(external_runner.get_ai_follow_snapshot(x.projectConfigId))
+    return snapshot

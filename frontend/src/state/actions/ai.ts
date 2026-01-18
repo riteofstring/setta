@@ -571,6 +571,43 @@ export async function respondExternalAgentApproval(
   return res200(res);
 }
 
+export async function findLatestRunningExternalRunId(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<string | null> {
+  const res = await route_get_agent_runs();
+  if (!res200(res)) {
+    return null;
+  }
+  const runs = res.data.filter((run) => {
+    if (run.status !== AgentRunStatusEnum.running) {
+      return false;
+    }
+    const inputs = run.inputs ?? {};
+    const runType = typeof inputs.runType === "string" ? inputs.runType : null;
+    if (runType !== "external_agent") {
+      return false;
+    }
+    const runChatId = typeof inputs.chatId === "string" ? inputs.chatId : null;
+    if (runChatId !== chatId) {
+      return false;
+    }
+    const runProjectConfigId =
+      typeof inputs.projectConfigId === "string"
+        ? inputs.projectConfigId
+        : null;
+    if (projectConfigId && runProjectConfigId !== projectConfigId) {
+      return false;
+    }
+    return true;
+  });
+  if (runs.length === 0) {
+    return null;
+  }
+  runs.sort((a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a));
+  return runs[0]?.id ?? null;
+}
+
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const sectionId = msg.sectionId;
@@ -678,6 +715,24 @@ function extractRunMessages(
     return null;
   }
   return raw as Array<BaseChatMessageUnion>;
+}
+
+function getRunLastUpdatedMs(run: AgentRun): number {
+  const eventTimestamps = (run.events ?? [])
+    .map((event) => Date.parse(event.timestamp))
+    .filter((value) => !Number.isNaN(value));
+  if (eventTimestamps.length > 0) {
+    return Math.max(...eventTimestamps);
+  }
+  const finishedAt = Date.parse(run.finishedAt ?? "");
+  if (!Number.isNaN(finishedAt)) {
+    return finishedAt;
+  }
+  const startedAt = Date.parse(run.startedAt ?? "");
+  if (!Number.isNaN(startedAt)) {
+    return startedAt;
+  }
+  return 0;
 }
 
 function extractStreamChunk(

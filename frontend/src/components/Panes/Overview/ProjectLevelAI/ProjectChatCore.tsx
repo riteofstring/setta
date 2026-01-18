@@ -11,6 +11,7 @@ import {
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import {
   clearPendingChatDetails,
+  findLatestRunningExternalRunId,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
@@ -174,10 +175,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleStop = useCallback(async () => {
     if (isExternalEngine) {
-      if (!activeExternalRunId) {
+      let runId = activeExternalRunId;
+      if (!runId && typeof chatId === "string") {
+        runId = await findLatestRunningExternalRunId(chatId, null);
+      }
+      if (!runId) {
         return;
       }
-      await route_stop_external_agent_run({ runId: activeExternalRunId });
+      await route_stop_external_agent_run({ runId });
       return;
     }
     if (typeof chatId !== "string") {
