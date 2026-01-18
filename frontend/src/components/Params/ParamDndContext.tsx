@@ -1,4 +1,4 @@
-import { PointerSensor } from "@dnd-kit/dom";
+import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import type {
   DragEndEvent,
@@ -11,6 +11,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "forks/dnd-kit/adapter";
+import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import React, {
   createContext,
   useCallback,
@@ -89,7 +90,10 @@ export function ParamDndProvider({
 
   const sensors = useMemo(() => {
     const pointerSensor = PointerSensor.configure({
-      activationConstraints: () => undefined,
+      // Require a small move so click-to-select doesn't immediately drag.
+      activationConstraints: () => [
+        new PointerActivationConstraints.Distance({ value: 5 }),
+      ],
       // Allow drag activation from inputs while param selection mode is active.
       preventActivation: () => false,
     });
@@ -334,10 +338,12 @@ export function ParamDndProvider({
         onDragEnd={handleDragEnd}
         onDragCancel={resetDragState}
       >
+        <DragOperationShapeSync enabled />
         <SortableContext
           id={sectionId}
           items={items}
           strategy={verticalListSortingStrategy}
+          forceSorting={true}
         >
           {children}
         </SortableContext>
