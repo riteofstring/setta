@@ -4,9 +4,7 @@ from pydantic import BaseModel, Field
 from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
-    derive_chat_name,
     get_run_chat_id,
-    get_run_last_updated,
     get_run_llm_config_id,
     get_run_project_config_id,
     get_run_sort_key,
@@ -19,7 +17,6 @@ from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
-from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
@@ -88,10 +85,6 @@ class GetLLMResponseRequest(BaseModel):
     agentProfileId: ID | None = None
     deepThink: bool
     projectConfigId: ID
-
-
-class DeleteLLMChatRequest(BaseModel):
-    chatId: ID
 
 
 class GetLLMChatRequest(BaseModel):
@@ -174,54 +167,6 @@ async def route_get_llm_response(
     }
     ctx.state.agent_runner.start_run(profile, inputs)
     return chat_id
-
-
-@router.post(Route.GET_ALL_LLM_CHAT_METADATA)
-async def route_get_all_llm_chat_metadata(
-    ctx: RuntimeContextFromRequest,
-) -> list[ChatMetadata]:
-    await ctx.enforce_llm_allowed()
-    runs = _get_llm_chat_runs(dbe=ctx.state.dbe)
-    latest_by_chat: dict[ID, AgentRun] = {}
-    for run in runs:
-        chat_id = get_run_chat_id(run)
-        if chat_id is None:
-            continue
-        existing = latest_by_chat.get(chat_id)
-        if existing is None or get_run_sort_key(run) > get_run_sort_key(existing):
-            latest_by_chat[chat_id] = run
-
-    metadata: list[ChatMetadata] = []
-    for chat_id, run in latest_by_chat.items():
-        llm_config_id = get_run_llm_config_id(run)
-        if not llm_config_id:
-            continue
-        llm_config = ctx.state.agent_runner.config.resolve_config(llm_config_id)
-        state = build_chat_state_from_run(run)
-        metadata.append(
-            ChatMetadata(
-                id=chat_id,
-                name=derive_chat_name(state.messages),
-                lastUpdated=get_run_last_updated(run),
-                llmConfig=llm_config,
-                projectConfigId=get_run_project_config_id(run),
-            )
-        )
-    return metadata
-
-
-@router.post(Route.DELETE_LLM_CHAT)
-async def route_delete_llm_chat(
-    x: DeleteLLMChatRequest,
-    ctx: RuntimeContextFromRequest,
-) -> None:
-    await ctx.enforce_llm_allowed()
-    runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
-    for run in runs:
-        if run.status == AgentRunStatus.running:
-            await ctx.state.agent_runner.stop_run(run.id)
-        ctx.state.dbe.delete_agent_run_file(run.id)
-    return None
 
 
 @router.post(Route.STOP_LLM_CHAT)

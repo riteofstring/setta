@@ -13,9 +13,8 @@ import {
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_delete_llm_chat,
   route_get_agent_profiles,
-  route_get_all_llm_chat_metadata,
+  route_get_agent_runs,
   route_get_external_agent_chat,
   route_get_external_agent_configs,
   route_get_llm_api_keys,
@@ -28,6 +27,7 @@ import {
 import {
   AgentProfile,
   AgentRun,
+  AgentRunStatusEnum,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
@@ -111,6 +111,26 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
     agentProfiles: payload,
     agentProfilesInitialLoadComplete: true,
     agentProfilesLoadError: null,
+  });
+}
+
+export async function loadAgentRuns() {
+  const res = await route_get_agent_runs();
+  if (res200(res)) {
+    receiveAgentRunsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentRunsInitialLoadComplete: true,
+      agentRunsLoadError: "Failed to load agent runs",
+    });
+  }
+}
+
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  useAIStore.setState({
+    agentRuns: payload,
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
   });
 }
 
@@ -231,18 +251,6 @@ export async function getExternalAgentChat(
       };
     });
   }
-}
-
-export async function getAllLLMChatMetadata() {
-  const res = await route_get_all_llm_chat_metadata();
-  if (res200(res)) {
-    useAIStore.setState({ allChatMetadata: res.data });
-  }
-}
-
-export async function deleteLLMChat(chatId: string) {
-  await route_delete_llm_chat({ chatId });
-  await getAllLLMChatMetadata();
 }
 
 export async function submitMessage(
@@ -403,6 +411,73 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
 }
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+
+type RunPayload = Record<string, unknown>;
+
+export function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+  const outputMessages = extractRunMessages(run.outputs);
+  if (outputMessages) {
+    return buildChatSectionState(outputMessages, false);
+  }
+
+  const inputMessages = extractRunMessages(run.inputs) ?? [];
+  let state = buildChatSectionState(
+    inputMessages,
+    run.status === AgentRunStatusEnum.running,
+  );
+  for (const event of run.events ?? []) {
+    if (event.type !== "stream_chunk") {
+      continue;
+    }
+    const chunk = extractStreamChunk(event.payload);
+    if (!chunk) {
+      continue;
+    }
+    state = applyStreamDeltaToChatSectionState(state, chunk);
+  }
+  return state;
+}
+
+function buildChatSectionState(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+): ChatSectionState {
+  return {
+    messages: [...messages],
+    inputText: "",
+    waitingForResponse,
+    toolCallArguments: {},
+  };
+}
+
+function extractRunMessages(
+  payload: RunPayload | null,
+): Array<BaseChatMessageUnion> | null {
+  if (!payload) {
+    return null;
+  }
+  const raw = payload.messages;
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as Array<BaseChatMessageUnion>;
+}
+
+function extractStreamChunk(
+  payload: RunPayload,
+): ChatSectionStreamChunk | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const rawChunk = payload.chunk;
+  if (!rawChunk || typeof rawChunk !== "object") {
+    return null;
+  }
+  if (!("type" in rawChunk)) {
+    return null;
+  }
+  return rawChunk as ChatSectionStreamChunk;
+}
 
 function applyChatSectionStreamDelta(
   sectionId: string,

@@ -77,7 +77,7 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
-const AgentRunStatusEnum = {
+export const AgentRunStatusEnum = {
   queued: "queued",
   running: "running",
   completed: "completed",
@@ -5670,14 +5670,6 @@ const UpdatePromptTemplateRequestSchema = z.object({
 
 export type UpdatePromptTemplateRequestInput = z.input<
   typeof UpdatePromptTemplateRequestSchema
->;
-
-const DeleteLLMChatRequestSchema = z.object({
-  chatId: IDSchema,
-});
-
-export type DeleteLLMChatRequestInput = z.input<
-  typeof DeleteLLMChatRequestSchema
 >;
 
 const GetAIFollowSnapshotRequestSchema = z.object({

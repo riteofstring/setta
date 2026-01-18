@@ -12,6 +12,7 @@ import {
 } from "utils/constants";
 import {
   AgentProfile,
+  AgentRun,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
@@ -19,7 +20,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  ChatMetadata,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -474,7 +474,6 @@ type ZustandAIStore = {
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
-  allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
@@ -484,6 +483,9 @@ type ZustandAIStore = {
   agentProfiles: Array<AgentProfile>;
   agentProfilesInitialLoadComplete: boolean;
   agentProfilesLoadError: string | null;
+  agentRuns: Array<AgentRun>;
+  agentRunsInitialLoadComplete: boolean;
+  agentRunsLoadError: string | null;
   promptTemplates: Array<PromptTemplate>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
@@ -504,7 +506,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         activeChatId: undefined,
         chatDetails: {},
         pendingChatDetails: null,
-        allChatMetadata: [],
         viewHistory: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
@@ -512,6 +513,9 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         agentProfiles: [],
         agentProfilesInitialLoadComplete: false,
         agentProfilesLoadError: null,
+        agentRuns: [],
+        agentRunsInitialLoadComplete: false,
+        agentRunsLoadError: null,
         promptTemplates: [],
         promptTemplatesInitialLoadComplete: false,
         promptTemplatesLoadError: null,

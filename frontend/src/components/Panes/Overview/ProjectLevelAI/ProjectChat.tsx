@@ -142,13 +142,9 @@ export function ProjectChat() {
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               onClick={() => {
-                if (isExternalEngine) {
-                  return;
-                }
                 useAIStore.setState({ viewHistory: !viewHistory });
               }}
               aria-label="View History"
-              disabled={isExternalEngine}
             >
               {viewHistory ? (
                 <>
@@ -211,7 +207,7 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+          <ProjectChatHistory setChatId={setChatId} />
         ) : (
           <ProjectChatCore
             chatId={chatId}

@@ -12,14 +12,11 @@ from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
-    DeleteLLMChatRequest,
     GetExternalAgentChatRequest,
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
     route_get_external_agent_chat,
-    route_delete_llm_chat,
-    route_get_all_llm_chat_metadata,
     route_get_llm_chat,
     route_get_llm_response,
     route_stop_llm_chat,
@@ -289,6 +286,59 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(response.waitingForResponse)
             self.assertEqual(response.llmConfig.id, "primary")
 
+    async def test_get_llm_chat_uses_latest_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            chat_id = ID("chat-2")
+            project_config_id = ID("project-2")
+            first_message = UserChatMessage(
+                content=[MessageTextContent(text="First chat")],
+            )
+            second_message = UserChatMessage(
+                content=[MessageTextContent(text="Second chat message")],
+            )
+            first_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                llm_config_id="primary",
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[first_message],
+                output_messages=[first_message],
+            )
+            second_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                llm_config_id="primary",
+                started_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[second_message],
+                output_messages=[second_message],
+            )
+            save_agent_run(dbe, first_run)
+            save_agent_run(dbe, second_run)
+
+            with runtime_context(state) as ctx:
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
+
+            self.assertEqual(len(response.messages), 1)
+            message = response.messages[0]
+            self.assertEqual(message.content[0].text, "Second chat message")
+            self.assertFalse(response.waitingForResponse)
+            self.assertEqual(response.llmConfig.id, "primary")
+
     async def test_get_external_agent_chat_from_stream_events(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -381,55 +431,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(exc.exception.status_code, 404)
             self.assertEqual(exc.exception.detail, "Chat not found")
 
-    async def test_get_all_llm_chat_metadata_uses_latest_run(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            chat_id = ID("chat-2")
-            project_config_id = ID("project-2")
-            first_message = UserChatMessage(
-                content=[MessageTextContent(text="First chat")],
-            )
-            second_message = UserChatMessage(
-                content=[MessageTextContent(text="Second chat message")],
-            )
-            first_run = _build_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                llm_config_id="primary",
-                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[first_message],
-                output_messages=[first_message],
-            )
-            second_run = _build_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                llm_config_id="primary",
-                started_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[second_message],
-                output_messages=[second_message],
-            )
-            save_agent_run(dbe, first_run)
-            save_agent_run(dbe, second_run)
-
-            with runtime_context(state) as ctx:
-                metadata = await route_get_all_llm_chat_metadata(ctx)
-
-            self.assertEqual(len(metadata), 1)
-            entry = metadata[0]
-            self.assertEqual(entry.id, chat_id)
-            self.assertEqual(entry.name, "Second chat message"[:30])
-            self.assertEqual(entry.lastUpdated, second_run.startedAt)
-            self.assertEqual(entry.llmConfig.id, "primary")
-
-    async def test_stop_and_delete_llm_chat(self) -> None:
+    async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -463,23 +465,3 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 return
             self.assertEqual(stopped.status, AgentRunStatus.cancelled)
             self.assertIsNotNone(stopped.finishedAt)
-
-            delete_chat_id = ID("chat-4")
-            delete_run = _build_run(
-                chat_id=delete_chat_id,
-                project_config_id=project_config_id,
-                llm_config_id="primary",
-                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
-                status=AgentRunStatus.running,
-                input_messages=[],
-                output_messages=None,
-            )
-            save_agent_run(dbe, delete_run)
-
-            with runtime_context(state) as ctx:
-                await route_delete_llm_chat(
-                    DeleteLLMChatRequest(chatId=delete_chat_id),
-                    ctx,
-                )
-
-            self.assertIsNone(load_agent_run(dbe, delete_run.id))

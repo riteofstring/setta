@@ -271,18 +271,6 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
-export async function route_get_all_llm_chat_metadata(): Promise<
-  ResponseDataAndStatus<Array<gt.ChatMetadata>>
-> {
-  return await post("/getAllLLMChatMetadata", null);
-}
-
-export async function route_delete_llm_chat(
-  x: gt.DeleteLLMChatRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteLLMChat", x);
-}
-
 export async function route_stop_llm_chat(
   x: gt.StopLLMChatRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -369,7 +357,7 @@ async function route_get_agent_run(
   return await post("/getAgentRun", x);
 }
 
-async function route_get_agent_runs(): Promise<
+export async function route_get_agent_runs(): Promise<
   ResponseDataAndStatus<Array<gt.AgentRun>>
 > {
   return await get("/getAgentRuns");
