@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
+from setta.types.agentic import AgentProfile, AgentProfileList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
@@ -35,10 +36,12 @@ from setta.types.project_state import (
     AllProjectMetadata,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
     WebsocketConnectionType,
+    WebsocketMsgAgentProfilesUpdated,
     WebsocketMsgAIFollowToolArgumentsUpdate,
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllProjectMetadata,
@@ -49,6 +52,7 @@ from setta.types.websocket import (
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
@@ -361,6 +365,32 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self._broadcast_frontend(
             WebsocketMsgLLMApiKeysUpdated(content=payload),
+            share_session_id,
+        )
+
+    async def broadcast_agent_profiles_update(
+        self,
+        profiles: list[AgentProfile],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgAgentProfilesUpdated(
+                content=AgentProfileList(profiles=profiles)
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_prompt_templates_update(
+        self,
+        templates: list[PromptTemplate],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPromptTemplatesUpdated(
+                content=PromptTemplateList(templates=templates)
+            ),
             share_session_id,
         )
 

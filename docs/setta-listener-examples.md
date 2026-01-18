@@ -239,7 +239,7 @@ listener.start()
 ```
 
 ## Emit artifact updates (example: image)
-Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose realtime payload is base64 or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
+Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose rendered value is base64, or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
 ```python
 from setta.api import SettaListener
 from setta.types.artifact import ImageArtifact

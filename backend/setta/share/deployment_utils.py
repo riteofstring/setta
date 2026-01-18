@@ -72,53 +72,41 @@ def rewrite_project_state_paths(
                         base_impl, section, variant, {"dataPath": new_path}
                     )
 
-            if isinstance(impl, DrawSectionImpl):
-                if impl.renderedImagePath:
-                    new_path = resolve_artifact_path(impl.renderedImagePath)
-                    if new_path != impl.renderedImagePath:
-                        set_effective_impl_value(
-                            base_impl,
-                            section,
-                            variant,
-                            {"renderedImagePath": new_path},
-                        )
-                if impl.layers:
-                    updated_layers = []
-                    layers_changed = False
-                    for layer in impl.layers:
-                        updated_elements = []
-                        layer_changed = False
-                        for element in layer.elements:
-                            new_data_path = resolve_artifact_path(element.dataPath)
-                            new_transform_id = resolve_artifact_path(
-                                element.transformId
-                            )
-                            if (
-                                new_data_path != element.dataPath
-                                or new_transform_id != element.transformId
-                            ):
-                                layer_changed = True
-                                updated_elements.append(
-                                    element.model_copy(
-                                        update={
-                                            "dataPath": new_data_path,
-                                            "transformId": new_transform_id,
-                                        }
-                                    )
+            if isinstance(impl, DrawSectionImpl) and impl.layers:
+                updated_layers = []
+                layers_changed = False
+                for layer in impl.layers:
+                    updated_elements = []
+                    layer_changed = False
+                    for element in layer.elements:
+                        new_data_path = resolve_artifact_path(element.dataPath)
+                        new_transform_id = resolve_artifact_path(element.transformId)
+                        if (
+                            new_data_path != element.dataPath
+                            or new_transform_id != element.transformId
+                        ):
+                            layer_changed = True
+                            updated_elements.append(
+                                element.model_copy(
+                                    update={
+                                        "dataPath": new_data_path,
+                                        "transformId": new_transform_id,
+                                    }
                                 )
-                            else:
-                                updated_elements.append(element)
-                        if layer_changed:
-                            layers_changed = True
-                            updated_layers.append(
-                                layer.model_copy(update={"elements": updated_elements})
                             )
                         else:
-                            updated_layers.append(layer)
-                    if layers_changed:
-                        set_effective_impl_value(
-                            base_impl, section, variant, {"layers": updated_layers}
+                            updated_elements.append(element)
+                    if layer_changed:
+                        layers_changed = True
+                        updated_layers.append(
+                            layer.model_copy(update={"elements": updated_elements})
                         )
+                    else:
+                        updated_layers.append(layer)
+                if layers_changed:
+                    set_effective_impl_value(
+                        base_impl, section, variant, {"layers": updated_layers}
+                    )
 
             if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
                 updated_binding = resolve_code_binding(impl.codeFileBinding)
