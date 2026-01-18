@@ -136,8 +136,9 @@ def create_snapshot_run_command_with_path(
         if entry_section_id not in code_paths:
             raise KeyError(f"Missing code section for run: {entry_section_id}")
         section = code_sections[entry_section_id]
-        return section.run_command_builder(code_paths[entry_section_id]), target_folder
-    return gen_command_builder(gen_code_path), target_folder
+        entry_path = code_paths[entry_section_id]
+        return section.run_command_builder(entry_path), entry_path
+    return gen_command_builder(gen_code_path), gen_code_path
 
 
 def create_snapshot_run_command_from_sections(
@@ -259,7 +260,8 @@ def create_snapshot_run_command_from_code_sections_only_with_path(
     if entry_section_id not in code_paths:
         raise KeyError(f"Missing code section for run: {entry_section_id}")
     section = snapshot_sections[entry_section_id]
-    return section.run_command_builder(code_paths[entry_section_id]), target_folder
+    entry_path = code_paths[entry_section_id]
+    return section.run_command_builder(entry_path), entry_path
 
 
 class Code(ABC):

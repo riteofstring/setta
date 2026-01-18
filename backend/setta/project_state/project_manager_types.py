@@ -117,6 +117,7 @@ class RunStatus(str, Enum):
     exited = "exited"
     failed = "failed"
     canceled = "canceled"
+    lost = "lost"
 
 
 class RunDetachedRequest(ProjectManagerRequestWithProjectConfig):

@@ -44,11 +44,18 @@ class SectionSummary:
 
 
 class ParamLookup:
-    def __init__(self, project_state: ProjectStateSingleConfig) -> None:
+    def __init__(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_name_map: dict[str, ID],
+    ) -> None:
         self._project_state = project_state
+        self._section_name_map = section_name_map
 
     def by_name(self, section_name: str, param_name: str) -> SectionParamDependencyKey:
-        section_id = RunnerSummary(self._project_state).section(section_name).id
+        section_id = self._section_name_map.get(section_name, section_name)
+        if section_id not in self._project_state.sections:
+            raise KeyError(f"Unknown section: {section_name}")
         section_impl = get_curr_effective_section_impl(self._project_state, section_id)
         if not isinstance(section_impl, BaseSectionWithParamsImpl):
             raise KeyError(f"Section {section_name!r} has no params")
@@ -72,7 +79,7 @@ class RunnerSummary:
             self._section_name_map[core.name] = section_id
             if core.displayName:
                 self._section_name_map[core.displayName] = section_id
-        self.params = ParamLookup(project_state)
+        self.params = ParamLookup(project_state, self._section_name_map)
 
     def section(self, name_or_id: str) -> SectionSummary:
         section_id = self._section_name_map.get(name_or_id, name_or_id)

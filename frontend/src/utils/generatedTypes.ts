@@ -6807,6 +6807,7 @@ const RunStatusEnum = {
   exited: "exited",
   failed: "failed",
   canceled: "canceled",
+  lost: "lost",
 } as const;
 
 const RunDetachedResponseSchema = z.object({

@@ -105,32 +105,38 @@ class DetachedRunManager:
             if exit_code is None:
                 return meta
             return self._finalize_run(meta, exit_code)
-        if not _is_pid_running(meta.pid):
-            meta = meta.model_copy(
-                update={
-                    "status": RunStatus.exited,
-                    "exitedAtMs": _now_ms(),
-                }
-            )
+        if _is_pid_running(meta.pid):
+            meta = meta.model_copy(update={"status": RunStatus.lost})
             self._write_meta(meta)
+            return meta
+        meta = meta.model_copy(
+            update={
+                "status": RunStatus.lost,
+                "exitedAtMs": _now_ms(),
+            }
+        )
+        self._write_meta(meta)
         return meta
 
     def cancel_run(self, run_id: str) -> RunStatusResponse:
         meta = self._load_meta(run_id)
-        if meta.status in (RunStatus.exited, RunStatus.failed, RunStatus.canceled):
+        if meta.status in (
+            RunStatus.exited,
+            RunStatus.failed,
+            RunStatus.canceled,
+            RunStatus.lost,
+        ):
             return meta
-        pid = meta.pid
-        if pid is None:
+        if meta.pid is None:
             raise KeyError(f"Run {run_id} has no pid")
         with self._lock:
             proc = self._processes.get(run_id)
-        if proc is not None:
-            if os.name == "nt":
-                proc.terminate()
-            else:
-                os.killpg(proc.pid, signal.SIGTERM)
+        if proc is None:
+            return self.get_status(run_id)
+        if os.name == "nt":
+            proc.terminate()
         else:
-            os.kill(pid, signal.SIGTERM)
+            os.killpg(proc.pid, signal.SIGTERM)
         meta = meta.model_copy(
             update={
                 "status": RunStatus.canceled,

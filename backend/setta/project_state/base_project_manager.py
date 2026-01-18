@@ -814,9 +814,12 @@ class BaseProjectManager(ABC):
             section_variant_overrides=x.sectionVariantOverrides,
             param_overrides=x.paramOverrides,
         )
+        has_overrides = bool(x.sectionVariantOverrides) or bool(x.paramOverrides)
         resolved_run_snapshot_mode = (
             run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
         )
+        if has_overrides and resolved_run_snapshot_mode == RunSnapshotMode.never:
+            resolved_run_snapshot_mode = RunSnapshotMode.ephemeral
         if not entry_section_id:
             entry_section_id = project_state.projectConfig.entryCodeBlockId
         if entry_section_id:

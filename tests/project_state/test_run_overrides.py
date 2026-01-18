@@ -29,6 +29,7 @@ from setta.types.section_impls import (
     DictSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.listener_registry import ListenerRegistry
@@ -78,6 +79,13 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
+        self._run_folder_original = C.RUN_FOLDER
+        self._run_sessions_folder_original = C.RUN_SESSIONS_FOLDER
+        self._run_logs_folder_original = C.RUN_LOGS_FOLDER
+        self._run_root = root / "run"
+        C.RUN_FOLDER = self._run_root
+        C.RUN_SESSIONS_FOLDER = self._run_root / "sessions"
+        C.RUN_LOGS_FOLDER = self._run_root / "logs"
         websocket_manager = WebsocketManager()
         listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(websocket_manager)
@@ -106,6 +114,9 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
         )
 
     def tearDown(self) -> None:
+        C.RUN_FOLDER = self._run_folder_original
+        C.RUN_SESSIONS_FOLDER = self._run_sessions_folder_original
+        C.RUN_LOGS_FOLDER = self._run_logs_folder_original
         self._tmpdir.cleanup()
 
     def _build_manager_and_state(self):
@@ -310,5 +321,37 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                         },
                     )
                 )
+        finally:
+            manager.shutdown()
+
+    async def test_create_run_command_with_overrides_snapshots_file_on_never(self) -> None:
+        (
+            manager,
+            project_config,
+            code_section,
+            _,
+            bash_variant,
+            _,
+            _,
+        ) = self._build_manager_and_state()
+        try:
+            command, snapshot_path, entry_section_id = (
+                await manager.create_run_command_with_overrides(
+                    RunDetachedRequest(
+                        projectConfigId=project_config.id,
+                        entrySectionId=code_section.id,
+                        runSnapshotMode=RunSnapshotMode.never,
+                        sectionVariantOverrides={code_section.id: bash_variant.id},
+                    )
+                )
+            )
+            self.assertTrue(command.startswith("bash "))
+            self.assertEqual(entry_section_id, code_section.id)
+            self.assertTrue(snapshot_path.exists())
+            self.assertTrue(snapshot_path.is_file())
+            self.assertTrue(
+                self._run_root.resolve() in snapshot_path.resolve().parents
+            )
+            self.assertEqual(snapshot_path.read_text().strip(), "echo hi")
         finally:
             manager.shutdown()
