@@ -4,6 +4,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import toml
+import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
@@ -100,6 +102,26 @@ class DBE:
             )
 
         self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
+
+    def read_yaml(self, path: Path) -> Any:
+        raw = self.read(path)
+        if raw is None:
+            return {}
+        return yaml.safe_load(raw)
+
+    def write_yaml(self, path: Path, data: Any) -> None:
+        payload = yaml.safe_dump(data, sort_keys=False)
+        self.write(path, payload)
+
+    def read_toml(self, path: Path) -> Any:
+        raw = self.read(path)
+        if raw is None:
+            return {}
+        return toml.loads(raw)
+
+    def write_toml(self, path: Path, data: Any) -> None:
+        payload = toml.dumps(data)
+        self.write(path, payload)
 
     def read_jsonl(self, path: Path) -> list[dict]:
         if not path.exists():

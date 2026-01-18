@@ -113,24 +113,6 @@ export async function route_run_code(
   return await post("/runCode", x);
 }
 
-async function route_run_detached(
-  x: gt.RunDetachedRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
-  return await post("/runDetached", x);
-}
-
-async function route_get_run_status(
-  x: gt.GetRunStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/getRunStatus", x);
-}
-
-async function route_cancel_run(
-  x: gt.CancelRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/cancelRun", x);
-}
-
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequestInput,
 ): Promise<ResponseDataAndStatus<string>> {

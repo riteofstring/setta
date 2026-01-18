@@ -10,6 +10,7 @@
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
+- `json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
@@ -22,6 +23,5 @@
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
 - `sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
 - `setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
-- `param-sweeps.md` – how to run parameter sweeps via the Python runner API.
 - `remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `remote-ssh-manual.md` – manual SSH tunnel steps for remote Setta without a local install.
