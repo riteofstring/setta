@@ -6,10 +6,14 @@ import { MODEL_GROUPS } from "utils/constants";
 import { route_set_llm_api_keys } from "utils/generatedEndpoints";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
-const IsolatedInput = ({ apiKeyName }) => {
+type IsolatedInputProps = {
+  apiKeyName: string;
+};
+
+const IsolatedInput = ({ apiKeyName }: IsolatedInputProps) => {
   const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
 
-  const onSetValue = (v) => {
+  const onSetValue = (v: string) => {
     useAIStore.setState((state) => ({
       apiKeys: { ...state.apiKeys, [apiKeyName]: v },
     }));
@@ -38,10 +42,17 @@ const IsolatedInput = ({ apiKeyName }) => {
   );
 };
 
-export function ProjectLLMSettings() {
+type ProjectLLMSettingsProps = {
+  className?: string;
+};
+
+export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   useHydrateLLMState();
+  const wrapperClassName = className
+    ? `flex min-h-0 flex-col gap-4 overflow-y-auto text-setta-600 dark:text-setta-400 ${className}`
+    : "flex min-h-0 flex-col gap-4 overflow-y-auto text-setta-600 dark:text-setta-400";
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
+    <div className={wrapperClassName}>
       {MODEL_GROUPS.map((group) => (
         <div
           key={group.group}
