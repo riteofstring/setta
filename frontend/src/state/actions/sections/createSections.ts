@@ -8,6 +8,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
+import { focusOnSectionSearch } from "utils/focusManager";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   CreateTopLevelSectionRequestInput,
@@ -17,7 +18,6 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import {
   createTopLevelSectionLayoutDict,
