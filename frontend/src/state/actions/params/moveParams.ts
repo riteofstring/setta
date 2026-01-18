@@ -20,7 +20,7 @@ import {
   unselectAllParams,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import {
   route_indent_params,
   route_move_param_groups,
@@ -435,6 +435,9 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
 }
 
 function getParamSelectionBase(): ParamSelectionBase | null {
+  if (useShareSession.getState().isShareMode) {
+    return null;
+  }
   const state = useProjectState.getState();
   const selectedSectionId = resolveSectionWithSelectedParams(state);
   if (!selectedSectionId) {
