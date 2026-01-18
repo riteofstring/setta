@@ -25,7 +25,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.edges import EdgePort
 from setta.types.id import ID
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
@@ -41,13 +40,11 @@ from setta.types.section_impls import (
 
 
 class SharedModifier(TypedDict):
-    # Field 'format' present with conflicting annotations: PromptFormat (PromptSectionImpl), TextBlockFormat (TextBlockSectionImpl)
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeLayerIdx: NotRequired[int]
-    agentProfileId: NotRequired[ID | None]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
@@ -79,9 +76,8 @@ class SharedModifier(TypedDict):
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
     eraserBrushSize: NotRequired[int]
-    externalAgentConfigId: NotRequired[ID | None]
     folder: NotRequired[str]
-    format: NotRequired[PromptFormat | TextBlockFormat]
+    format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
     hideColumn: NotRequired[bool]
     hideParams: NotRequired[bool]
@@ -90,7 +86,6 @@ class SharedModifier(TypedDict):
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     imagePath: NotRequired[str]
     inputText: NotRequired[str]
-    inputs: NotRequired[dict[str, str]]
     isFrozen: NotRequired[bool]
     isHorizontalOrientation: NotRequired[bool]
     isInOtherProjectConfigs: NotRequired[bool]
@@ -112,7 +107,6 @@ class SharedModifier(TypedDict):
     metaControlParamId: NotRequired[ID | None]
     metaControlStyle: NotRequired[bool]
     min: NotRequired[float | int]
-    missingVariables: NotRequired[list[str]]
     name: NotRequired[str]
     overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]
@@ -120,9 +114,7 @@ class SharedModifier(TypedDict):
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
     pinnedParams: NotRequired[list[ID]]
     positionAndSizeLocked: NotRequired[bool]
-    renderError: NotRequired[str | None]
-    renderedText: NotRequired[str]
-    renderedValue: NotRequired[str | None]
+    renderedImagePath: NotRequired[str | None]
     requestBody: NotRequired[str]
     requestHeaderKey: NotRequired[str]
     requestHeaderValue: NotRequired[str]
@@ -132,7 +124,6 @@ class SharedModifier(TypedDict):
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
-    template: NotRequired[str]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     toolCallArguments: NotRequired[dict[str, str]]

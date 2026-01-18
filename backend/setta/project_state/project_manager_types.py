@@ -17,12 +17,12 @@ from setta.types.generated.unions import (
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
+    ProjectCodegenTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
@@ -103,6 +103,10 @@ class RunCodeRequest(BaseModel):
     runSnapshotMode: RunSnapshotMode | None = Field(
         default=None,
         description="Optional run snapshot mode override for this run.",
+    )
+    drawSnapshotsBySectionId: dict[ID, str] | None = Field(
+        default=None,
+        description="Optional base64 PNG payloads for draw sections keyed by section id.",
     )
 
 
@@ -389,20 +393,16 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
-class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
-    template: str
+class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConfig):
+    """Update the enabled code generation targets for a project."""
 
-
-class SetPromptInputsRequest(ProjectManagerRequestWithSection):
-    inputs: dict[str, str]
-
-
-class SetPromptFormatRequest(ProjectManagerRequestWithSection):
-    format: PromptFormat
+    codegenTargets: list[ProjectCodegenTarget] = Field(
+        description="Ordered list of enabled codegen targets.",
+    )
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text prepended to generated Python code."""
+    """Update the text prepended to generated Python code (python target only)."""
 
     genCodePrefix: str = Field(
         description="Arbitrary prefix inserted at the start of generated code files.",
@@ -410,7 +410,7 @@ class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text appended to generated Python code."""
+    """Update the text appended to generated Python code (python target only)."""
 
     genCodeSuffix: str = Field(
         description="Suffix appended to the end of generated code files.",
@@ -692,8 +692,6 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     llmConfigId: str | None
-    agentProfileId: ID | None
-    externalAgentConfigId: ID | None = None
     deepThink: bool
 
 

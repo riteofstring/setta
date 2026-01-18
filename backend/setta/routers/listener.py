@@ -1,4 +1,4 @@
-from setta.llm.chat_store import AgentRunChatStore
+from setta.llm.chat_store import DBEChatStore
 from setta.llm.chat_toolkit import ChatHistory, ToolRunner
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
@@ -21,11 +21,11 @@ router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
 
 
 def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:
-    return ChatHistory(AgentRunChatStore(ctx.state.dbe))
+    return ChatHistory(DBEChatStore(ctx.state.dbe))
 
 
 def _resolve_llm_config(ctx: RuntimeContextFromRequest, llm_config_id: str):
-    return ctx.state.agent_runner.config.resolve_listener_config(llm_config_id)
+    return ctx.state.chat_manager.config.resolve_listener_config(llm_config_id)
 
 
 @router.post(Route.GET_LISTENER_COVERAGE)
@@ -122,7 +122,7 @@ async def route_run_mcp_tools(
     chat = history.get(x.chatId)
     if chat is None:
         raise KeyError(f"Chat {x.chatId} not found")
-    server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
+    server_ids = ctx.state.chat_manager.config.resolve_mcp_server_ids(chat.llmConfig)
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),
