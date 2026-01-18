@@ -59,3 +59,8 @@ class ExternalAgentAdapter(Protocol):
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
         raise NotImplementedError
+
+    async def send_approval_response(
+        self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool
+    ) -> None:
+        raise NotImplementedError

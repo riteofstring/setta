@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mcp.types import TextContent
+
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
@@ -47,9 +49,15 @@ from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
-from setta.types.chat_messages import ToolCall, ToolCallFunction
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    ToolCall,
+    ToolCallFunction,
+    ToolChatMessage,
+)
 from setta.types.chat_stream_events import (
     MessageFinalizedEvent,
+    MessageStartEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -72,12 +80,23 @@ _MCP_SERVER_NAME = "setta"
 _CLAUDE_MCP_CONFIG_NAME = ".mcp.json"
 _OPENCODE_CONFIG_NAME = "opencode.json"
 _CODEX_CONFIG_NAME = "config.toml"
+_APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
+_APPROVAL_TOOL_NAME = "setta.approval"
 
 
 @dataclass(frozen=True)
 class ExternalAgentRunState:
     handle: ExternalAgentRunHandle
     adapter: ExternalAgentAdapter
+
+
+@dataclass(frozen=True)
+class ExternalAgentApprovalState:
+    approval_id: str
+    run_id: ID
+    project_config_id: ID
+    chat_id: ID
+    section_id: ID | None
 
 
 class ExternalAgentRunner:
@@ -103,6 +122,7 @@ class ExternalAgentRunner:
         self._tool_call_buffers: dict[ID, dict[str, str]] = {}
         self._tool_call_names: dict[ID, dict[str, str]] = {}
         self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
+        self._pending_approvals: dict[str, ExternalAgentApprovalState] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     @property
@@ -142,6 +162,7 @@ class ExternalAgentRunner:
             self._run_state.pop(run_id, None)
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
+            self._clear_pending_approvals(run_id)
 
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
@@ -177,6 +198,9 @@ class ExternalAgentRunner:
             )
             async for event in adapter.stream_events(handle, context):
                 self._record_event(run, "external_event", event.raw)
+                if self._is_approval_request(event.raw):
+                    await self._handle_approval_request(context, run, event.raw)
+                    continue
                 if event.stream_chunk is not None:
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
@@ -410,12 +434,12 @@ class ExternalAgentRunner:
             cleanup_paths.append(config_path.parent)
             return
         if config.toolType == ExternalAgentToolType.opencode:
-            config_path = self._write_opencode_config(mcp_url)
+            config_path = self._write_opencode_config(mcp_url, config)
             env["OPENCODE_CONFIG"] = str(config_path)
             cleanup_paths.append(config_path.parent)
             return
         if config.toolType == ExternalAgentToolType.codex:
-            codex_home = self._write_codex_config(mcp_url)
+            codex_home = self._write_codex_config(mcp_url, config)
             env["CODEX_HOME"] = str(codex_home)
             cleanup_paths.append(codex_home)
 
@@ -433,7 +457,7 @@ class ExternalAgentRunner:
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
-    def _write_opencode_config(self, mcp_url: str) -> Path:
+    def _write_opencode_config(self, mcp_url: str, config: ExternalAgentConfig) -> Path:
         config_dir = self._create_temp_dir("setta-opencode-mcp-")
         path = config_dir / _OPENCODE_CONFIG_NAME
         payload = {
@@ -445,17 +469,25 @@ class ExternalAgentRunner:
                 }
             }
         }
+        permissions = self._parse_opencode_permissions(config.approvalPolicy)
+        if permissions is not None:
+            payload["permissions"] = permissions
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
-    def _write_codex_config(self, mcp_url: str) -> Path:
+    def _write_codex_config(self, mcp_url: str, config: ExternalAgentConfig) -> Path:
         config_dir = self._create_temp_dir("setta-codex-mcp-")
         path = config_dir / _CODEX_CONFIG_NAME
-        payload = [
-            f"[mcp_servers.{_MCP_SERVER_NAME}]",
-            f'url = "{mcp_url}"',
-        ]
-        path.write_text("\n".join(payload) + "\n", encoding="utf-8")
+        lines: list[str] = []
+        if config.defaultModel:
+            lines.append(f"model = {json.dumps(config.defaultModel)}")
+        if config.approvalPolicy:
+            lines.append(f"approval_policy = {json.dumps(config.approvalPolicy)}")
+        if config.sandboxPolicy:
+            lines.append(f"sandbox_mode = {json.dumps(config.sandboxPolicy)}")
+        lines.append(f"[mcp_servers.{_MCP_SERVER_NAME}]")
+        lines.append(f'url = "{mcp_url}"')
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return config_dir
 
     @staticmethod
@@ -619,6 +651,153 @@ class ExternalAgentRunner:
     def _clear_tool_call_buffers(self, run_id: ID) -> None:
         self._tool_call_buffers.pop(run_id, None)
         self._tool_call_names.pop(run_id, None)
+
+    def _clear_pending_approvals(self, run_id: ID) -> None:
+        for approval_id, state in list(self._pending_approvals.items()):
+            if state.run_id == run_id:
+                self._pending_approvals.pop(approval_id, None)
+
+    @staticmethod
+    def _is_approval_request(payload: dict[str, Any]) -> bool:
+        return payload.get("type") == _APPROVAL_REQUEST_EVENT_TYPE
+
+    async def _handle_approval_request(
+        self,
+        context: ExternalAgentRunContext,
+        run: AgentRun,
+        payload: dict[str, Any],
+    ) -> None:
+        approval_id = self._extract_approval_id(payload)
+        if approval_id is None:
+            logger.warning("Approval request missing approvalId: %s", payload)
+            return
+        self._pending_approvals[approval_id] = ExternalAgentApprovalState(
+            approval_id=approval_id,
+            run_id=run.id,
+            project_config_id=context.project_config_id,
+            chat_id=context.chat_id,
+            section_id=context.section_id,
+        )
+        tool_call = ToolCall(
+            id=approval_id,
+            function=ToolCallFunction(
+                name=_APPROVAL_TOOL_NAME,
+                arguments=self._build_approval_arguments(payload, approval_id),
+            ),
+        )
+        message = AssistantChatMessage(
+            id=approval_id,
+            content=[],
+            tool_calls=[tool_call],
+        )
+        chunk = MessageStartEvent(message=message)
+        await self.websocket_msg_handler.send_streaming_response(
+            context.chat_id,
+            chunk,
+            section_id=context.section_id,
+            share_session_id=self.share_session_id,
+        )
+        self._record_event(
+            run,
+            "stream_chunk",
+            {
+                "chatId": str(context.chat_id),
+                "sectionId": str(context.section_id) if context.section_id else None,
+                "chunk": chunk.model_dump(mode="json"),
+            },
+        )
+        self._record_event(
+            run,
+            "approval_request",
+            {"approvalId": approval_id, "payload": payload},
+        )
+
+    @staticmethod
+    def _extract_approval_id(payload: dict[str, Any]) -> str | None:
+        for key in ("approvalId", "approval_id", "id"):
+            raw = payload.get(key)
+            if isinstance(raw, str) and raw:
+                return raw
+        return None
+
+    @staticmethod
+    def _build_approval_arguments(
+        payload: dict[str, Any], approval_id: str
+    ) -> dict[str, Any]:
+        tool = payload.get("tool")
+        input_payload = payload.get("input")
+        return {
+            "approvalId": approval_id,
+            "tool": tool,
+            "input": input_payload,
+            "toolName": payload.get("toolName") or payload.get("tool_name"),
+            "toolType": payload.get("toolType") or payload.get("tool_type"),
+        }
+
+    async def respond_to_approval(self, approval_id: str, approved: bool) -> None:
+        state = self._pending_approvals.get(approval_id)
+        if state is None:
+            raise KeyError(f"Approval {approval_id} not found")
+        run_id = state.run_id
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            raise KeyError(f"Approval run {run_id} not found")
+        run_state = self._run_state.get(run_id)
+        if run_state is None:
+            raise KeyError(f"Run {run_id} is not active")
+        await run_state.adapter.send_approval_response(
+            run_state.handle, approval_id, approved
+        )
+        result_payload = {"approved": approved}
+        content_text = "Approved" if approved else "Denied"
+        tool_message = ToolChatMessage(
+            tool_call_id=approval_id,
+            tool_name=_APPROVAL_TOOL_NAME,
+            arguments={},
+            result=result_payload,
+            content=[TextContent(text=content_text)],
+            is_error=not approved,
+            completed_at=get_now_timestamp(),
+        )
+        chunk = ToolResultEvent(result=tool_message)
+        await self.websocket_msg_handler.send_streaming_response(
+            state.chat_id,
+            chunk,
+            section_id=state.section_id,
+            share_session_id=self.share_session_id,
+        )
+        self._record_event(
+            run,
+            "stream_chunk",
+            {
+                "chatId": str(state.chat_id),
+                "sectionId": str(state.section_id) if state.section_id else None,
+                "chunk": chunk.model_dump(mode="json"),
+            },
+        )
+        self._record_event(
+            run,
+            "approval_response",
+            {"approvalId": approval_id, "approved": approved},
+        )
+        self._pending_approvals.pop(approval_id, None)
+
+    @staticmethod
+    def _parse_opencode_permissions(value: str | None) -> Any | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.startswith("{") or normalized.startswith("["):
+            try:
+                parsed = json.loads(normalized)
+            except json.JSONDecodeError:
+                return normalized
+            if isinstance(parsed, dict | list):
+                return parsed
+            return normalized
+        return normalized
 
     async def _maybe_emit_follow_update(
         self,

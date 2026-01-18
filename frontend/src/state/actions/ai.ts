@@ -28,6 +28,7 @@ import {
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
+  route_respond_external_agent_approval,
   route_start_external_agent_run,
   route_update_agent_profile,
   route_update_external_agent_config,
@@ -557,6 +558,17 @@ export async function submitExternalAgentMessage(
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
+}
+
+export async function respondExternalAgentApproval(
+  approvalId: string,
+  approved: boolean,
+): Promise<boolean> {
+  const res = await route_respond_external_agent_approval({
+    approvalId,
+    approved,
+  });
+  return res200(res);
 }
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {

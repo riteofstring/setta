@@ -69,14 +69,25 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 "runId": str(context.run.id),
                 "systemPrompt": context.system_prompt,
             }
-            if context.profile and context.profile.toolAllowlist:
-                payload["allowedTools"] = list(context.profile.toolAllowlist)
+            allowed_tools = _extract_allowed_tools(context)
+            if allowed_tools:
+                payload["allowedTools"] = allowed_tools
+            mcp_config = _extract_mcp_config(context.inputs)
+            if mcp_config is not None:
+                payload["mcpConfig"] = mcp_config
+            if context.config.defaultModel:
+                payload["defaultModel"] = context.config.defaultModel
+            if context.config.approvalPolicy:
+                payload["approvalPolicy"] = context.config.approvalPolicy
+            if context.config.sandboxPolicy:
+                payload["sandboxPolicy"] = context.config.sandboxPolicy
             session_id = _extract_session_id(context.inputs)
             if session_id is not None:
                 payload["sessionId"] = session_id
-            process.stdin.write(json.dumps(payload).encode("utf-8"))
+            process.stdin.write(
+                (json.dumps({"type": "start", **payload}) + "\n").encode("utf-8")
+            )
             await process.stdin.drain()
-            process.stdin.close()
         return ExternalAgentRunHandle(run_id=context.run.id, process=process)
 
     async def stream_events(
@@ -113,6 +124,20 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
             await asyncio.wait_for(process.wait(), timeout=5)
         except asyncio.TimeoutError:
             process.kill()
+
+    async def send_approval_response(
+        self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool
+    ) -> None:
+        process = handle.process
+        if process is None or process.stdin is None:
+            raise RuntimeError("Claude SDK process stdin not available")
+        payload = {
+            "type": "approval_response",
+            "approvalId": approval_id,
+            "decision": "allow" if approved else "deny",
+        }
+        process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
+        await process.stdin.drain()
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
@@ -712,6 +737,27 @@ def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:
     if not inputs:
         return None
     raw = inputs.get("sessionId")
+    if isinstance(raw, str) and raw:
+        return raw
+    return None
+
+
+def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None:
+    inputs = context.inputs or {}
+    raw = inputs.get("allowedTools")
+    if isinstance(raw, list):
+        tools = [entry for entry in raw if isinstance(entry, str) and entry.strip()]
+        if tools:
+            return tools
+    if context.profile and context.profile.toolAllowlist:
+        return list(context.profile.toolAllowlist)
+    return None
+
+
+def _extract_mcp_config(inputs: dict[str, Any] | None) -> str | None:
+    if not inputs:
+        return None
+    raw = inputs.get("mcpConfig")
     if isinstance(raw, str) and raw:
         return raw
     return None

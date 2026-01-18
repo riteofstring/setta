@@ -81,6 +81,11 @@ class StopExternalAgentRunRequest(BaseModel):
     runId: ID
 
 
+class RespondExternalAgentApprovalRequest(BaseModel):
+    approvalId: str
+    approved: bool
+
+
 class CreatePromptTemplateRequest(BaseModel):
     name: str
     description: str = ""
@@ -279,6 +284,24 @@ async def route_stop_external_agent_run(
         return await runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(Route.RESPOND_EXTERNAL_AGENT_APPROVAL)
+async def route_respond_external_agent_approval(
+    x: RespondExternalAgentApprovalRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    runner = ctx.state.external_agent_runner
+    if runner.disabled:
+        raise HTTPException(
+            status_code=503, detail="External agent runner is not available"
+        )
+    try:
+        await runner.respond_to_approval(x.approvalId, x.approved)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return None
 
 
 @router.post(Route.GET_AGENT_RUN)

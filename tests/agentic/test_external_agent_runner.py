@@ -452,6 +452,79 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner._cleanup_context(context)
             self.assertFalse(config_path.exists())
 
+    def test_codex_config_writes_policy_fields(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                defaultModel="gpt-5-codex",
+                sandboxPolicy="workspace-write",
+                approvalPolicy="on-failure",
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('model = "gpt-5-codex"', content)
+            self.assertIn('sandbox_mode = "workspace-write"', content)
+            self.assertIn('approval_policy = "on-failure"', content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
+    def test_opencode_config_writes_permissions(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            self.assertEqual(payload.get("permissions"), "ask")
+
+            runner._cleanup_context(context)
+
+    def test_opencode_config_accepts_json_permissions(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy='{"run": "ask"}',
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            permissions = payload.get("permissions")
+            self.assertIsInstance(permissions, dict)
+            self.assertEqual(permissions.get("run"), "ask")
+
+            runner._cleanup_context(context)
+
     def test_temp_working_dir_is_cleaned(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -469,3 +542,47 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertTrue(context.working_dir.exists())
             runner._cleanup_context(context)
             self.assertFalse(context.working_dir.exists())
+
+
+class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
+    async def test_approval_request_emits_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = runner._build_context(config, profile=None, inputs=None)
+            run = context.run
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "approval-1",
+                    "tool": {"name": "shell"},
+                    "input": {"command": "ls"},
+                },
+            )
+
+            self.assertIn("approval-1", runner._pending_approvals)
+            stream_events = [
+                event for event in run.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            chunk = stream_events[-1].payload.get("chunk")
+            self.assertIsInstance(chunk, dict)
+            self.assertEqual(chunk.get("type"), "message_start")
+            message = chunk.get("message")
+            self.assertIsInstance(message, dict)
+            tool_calls = message.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(tool_calls[0]["function"]["name"], "setta.approval")
+            self.assertEqual(
+                tool_calls[0]["function"]["arguments"].get("approvalId"),
+                "approval-1",
+            )

@@ -377,6 +377,7 @@ export const RouteEnum = {
   DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
   START_EXTERNAL_AGENT_RUN: "/startExternalAgentRun",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
+  RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -5650,6 +5651,15 @@ const GetPromptTemplateRequestSchema = z.object({
 
 export type GetPromptTemplateRequestInput = z.input<
   typeof GetPromptTemplateRequestSchema
+>;
+
+const RespondExternalAgentApprovalRequestSchema = z.object({
+  approvalId: z.string(),
+  approved: z.boolean(),
+});
+
+export type RespondExternalAgentApprovalRequestInput = z.input<
+  typeof RespondExternalAgentApprovalRequestSchema
 >;
 
 const StartAgentRunRequestSchema = z.object({

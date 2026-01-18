@@ -108,6 +108,11 @@ class CodexSdkAdapter(ExternalAgentAdapter):
         except asyncio.TimeoutError:
             process.kill()
 
+    async def send_approval_response(
+        self, _handle: ExternalAgentRunHandle, _approval_id: str, _approved: bool
+    ) -> None:
+        raise RuntimeError("Codex SDK approvals are not supported in Setta")
+
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
         node_path = context.config.commandPath or "node"

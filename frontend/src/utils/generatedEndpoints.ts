@@ -351,6 +351,12 @@ export async function route_stop_external_agent_run(
   return await post("/stopExternalAgentRun", x);
 }
 
+export async function route_respond_external_agent_approval(
+  x: gt.RespondExternalAgentApprovalRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/respondExternalAgentApproval", x);
+}
+
 async function route_get_agent_run(
   x: gt.GetAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
