@@ -3,37 +3,54 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import HTTPException
+
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.routers.agentic import (
     CreateAgentProfileRequest,
+    CreateExternalAgentConfigRequest,
     CreatePromptTemplateRequest,
     DeleteAgentProfileRequest,
+    DeleteExternalAgentConfigRequest,
     DeletePromptTemplateRequest,
     GetAgentProfileRequest,
     GetAgentRunRequest,
+    GetExternalAgentConfigRequest,
     GetPromptTemplateRequest,
     StartAgentRunRequest,
     StopAgentRunRequest,
     UpdateAgentProfileRequest,
+    UpdateExternalAgentConfigRequest,
     UpdatePromptTemplateRequest,
     route_create_agent_profile,
+    route_create_external_agent_config,
     route_create_prompt_template,
     route_delete_agent_profile,
+    route_delete_external_agent_config,
     route_delete_prompt_template,
     route_get_agent_profile,
     route_get_agent_profiles,
     route_get_agent_run,
     route_get_agent_runs,
+    route_get_external_agent_config,
+    route_get_external_agent_configs,
     route_get_prompt_template,
     route_get_prompt_templates,
     route_start_agent_run,
     route_stop_agent_run,
     route_update_agent_profile,
+    route_update_external_agent_config,
     route_update_prompt_template,
 )
 from setta.types.agentic import AgentRunStatus
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
+)
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
@@ -204,3 +221,62 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
                 templates = await route_get_prompt_templates(ctx)
                 self.assertEqual(templates, [])
+
+    async def test_external_agent_config_crud(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="Codex CLI",
+                        description="CLI-based Codex",
+                        toolType=ExternalAgentToolType.codex,
+                        runMode=ExternalAgentRunMode.cli,
+                        commandPath="/usr/local/bin/codex",
+                        defaultModel="o1-mini",
+                        sandboxPolicy="read-only",
+                        approvalPolicy="on-failure",
+                        envVarWhitelist=["OPENAI_API_KEY"],
+                        workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
+                    ),
+                    ctx,
+                )
+
+                configs = await route_get_external_agent_configs(ctx)
+                self.assertEqual(len(configs), 1)
+                self.assertEqual(configs[0].id, created.id)
+
+                fetched = await route_get_external_agent_config(
+                    GetExternalAgentConfigRequest(configId=created.id),
+                    ctx,
+                )
+                self.assertEqual(fetched.name, "Codex CLI")
+
+                updated = created.model_copy(update={"name": "Codex CLI v2"})
+                updated_config = await route_update_external_agent_config(
+                    UpdateExternalAgentConfigRequest(config=updated),
+                    ctx,
+                )
+                self.assertEqual(updated_config.name, "Codex CLI v2")
+
+                await route_delete_external_agent_config(
+                    DeleteExternalAgentConfigRequest(configId=updated.id),
+                    ctx,
+                )
+                configs = await route_get_external_agent_configs(ctx)
+                self.assertEqual(configs, [])
+
+                with self.assertRaises(HTTPException):
+                    await route_get_external_agent_config(
+                        GetExternalAgentConfigRequest(configId=updated.id),
+                        ctx,
+                    )

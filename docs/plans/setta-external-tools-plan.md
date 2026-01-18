@@ -12,6 +12,26 @@ data model that external adapters depend on.
 - Respect tool-specific approval/sandbox systems while keeping Setta as the control plane.
 - Keep configuration and credentials out of project state; use env variables and workspace-level settings.
 
+## External agent docs (reference links)
+### Claude Code
+- https://code.claude.com/docs/en/overview
+- https://code.claude.com/docs/en/cli-reference
+- https://platform.claude.com/docs/en/agent-sdk/overview
+- https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk
+
+### Codex
+- https://developers.openai.com/codex/cli/reference/
+- https://developers.openai.com/codex/noninteractive/
+- https://developers.openai.com/codex/sdk/
+- https://developers.openai.com/codex/guides/agents-sdk/
+- https://developers.openai.com/codex/mcp/
+- https://developers.openai.com/resources/docs-mcp/
+
+### OpenCode
+- https://opencode.ai/docs/
+- https://opencode.ai/docs/server/
+- https://opencode.ai/docs/sdk/
+
 ## Feature preservation contract (non-negotiable)
 Backward compatibility is not required, but user-visible features must be preserved. External agents are additive and must not replace existing chat behavior.
 

@@ -8,14 +8,24 @@ from setta.agentic.store import (
     list_agent_runs,
     list_prompt_templates,
     load_agent_profiles,
+    load_external_agent_configs,
     load_agent_run,
     load_prompt_template,
+    require_external_agent_config,
     save_agent_profiles,
+    save_external_agent_configs,
     save_agent_run,
     save_prompt_template,
 )
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, AgentRunStatus
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
+)
+from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
 
 
@@ -69,6 +79,46 @@ class AgenticStoreTests(unittest.TestCase):
             runs = list_agent_runs(dbe)
             self.assertEqual(len(runs), 1)
             self.assertEqual(runs[0].id, run.id)
+
+    def test_external_agent_configs_roundtrip(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = self._build_dbe(tmpdir)
+            self.assertEqual(load_external_agent_configs(dbe), [])
+
+            configs = [
+                ExternalAgentConfig(
+                    name="Codex CLI",
+                    description="Local Codex CLI config",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.cli,
+                    commandPath="/usr/local/bin/codex",
+                    defaultModel="o1",
+                    sandboxPolicy="read-only",
+                    approvalPolicy="on-failure",
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                    workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
+                ),
+                ExternalAgentConfig(
+                    name="OpenCode Server",
+                    description="Local OpenCode server",
+                    toolType=ExternalAgentToolType.opencode,
+                    runMode=ExternalAgentRunMode.server,
+                    baseUrl="http://localhost:18181",
+                    workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
+                    workingDir="/tmp",
+                ),
+            ]
+            save_external_agent_configs(dbe, configs)
+
+            loaded = load_external_agent_configs(dbe)
+            self.assertEqual([c.id for c in configs], [c.id for c in loaded])
+            self.assertEqual(loaded[0].toolType, ExternalAgentToolType.codex)
+            self.assertEqual(loaded[1].runMode, ExternalAgentRunMode.server)
+
+            required = require_external_agent_config(dbe, configs[0].id)
+            self.assertEqual(required.id, configs[0].id)
+            with self.assertRaises(KeyError):
+                require_external_agent_config(dbe, ID("missing-config"))
 
     def test_prompt_templates_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:

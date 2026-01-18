@@ -23,6 +23,7 @@ import {
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
+  ExternalAgentConfig,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
@@ -486,6 +487,9 @@ type ZustandAIStore = {
   promptTemplates: Array<PromptTemplate>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
+  externalAgentConfigs: Array<ExternalAgentConfig>;
+  externalAgentConfigsInitialLoadComplete: boolean;
+  externalAgentConfigsLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -511,6 +515,9 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         promptTemplates: [],
         promptTemplatesInitialLoadComplete: false,
         promptTemplatesLoadError: null,
+        externalAgentConfigs: [],
+        externalAgentConfigsInitialLoadComplete: false,
+        externalAgentConfigsLoadError: null,
       }),
       {
         name: "setta_ai_data",

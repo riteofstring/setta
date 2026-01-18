@@ -2,6 +2,7 @@ from typing import Any
 
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
+from setta.types.external_agents import ExternalAgentConfig
 from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
 from setta.utils.timestamps import get_now_timestamp
@@ -15,6 +16,32 @@ def load_agent_profiles(dbe: DBE) -> list[AgentProfile]:
 def save_agent_profiles(dbe: DBE, profiles: list[AgentProfile]) -> None:
     payload = [profile.model_dump(mode="json") for profile in profiles]
     dbe.write_agent_profiles(payload)
+
+
+def load_external_agent_configs(dbe: DBE) -> list[ExternalAgentConfig]:
+    payload = dbe.read_external_agents()
+    return [ExternalAgentConfig.model_validate(entry) for entry in payload]
+
+
+def save_external_agent_configs(dbe: DBE, configs: list[ExternalAgentConfig]) -> None:
+    payload = [config.model_dump(mode="json") for config in configs]
+    dbe.write_external_agents(payload)
+
+
+def get_external_agent_config_index(
+    configs: list[ExternalAgentConfig],
+    config_id: ID,
+) -> int:
+    for idx, config in enumerate(configs):
+        if config.id == config_id:
+            return idx
+    raise KeyError(f"External agent config {config_id} not found")
+
+
+def require_external_agent_config(dbe: DBE, config_id: ID) -> ExternalAgentConfig:
+    configs = load_external_agent_configs(dbe)
+    config_idx = get_external_agent_config_index(configs, config_id)
+    return configs[config_idx]
 
 
 def get_agent_profile_index(profiles: list[AgentProfile], profile_id: ID) -> int:

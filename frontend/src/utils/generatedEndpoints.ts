@@ -387,6 +387,36 @@ async function route_delete_prompt_template(
   return await post("/deletePromptTemplate", x);
 }
 
+export async function route_get_external_agent_configs(): Promise<
+  ResponseDataAndStatus<Array<gt.ExternalAgentConfig>>
+> {
+  return await get("/getExternalAgentConfigs");
+}
+
+async function route_get_external_agent_config(
+  x: gt.GetExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/getExternalAgentConfig", x);
+}
+
+async function route_create_external_agent_config(
+  x: gt.CreateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/createExternalAgentConfig", x);
+}
+
+async function route_update_external_agent_config(
+  x: gt.UpdateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/updateExternalAgentConfig", x);
+}
+
+async function route_delete_external_agent_config(
+  x: gt.DeleteExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteExternalAgentConfig", x);
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

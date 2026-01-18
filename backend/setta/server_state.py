@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.agentic.prompt_watcher import PromptTemplateWatcher
 from setta.database.db_objs import DBE
@@ -246,6 +247,9 @@ class SettaFastAPIState:
         self.prompt_template_watcher: PromptTemplateWatcher = self._defer_attr(
             "prompt_template_watcher"
         )
+        self.external_agent_config_watcher: ExternalAgentConfigWatcher = (
+            self._defer_attr("external_agent_config_watcher")
+        )
 
         self.init_status = BackendInitializationStatus()
         mode_label = "share" if self.share_mode else "backend"
@@ -399,6 +403,12 @@ class SettaFastAPIState:
                 self.dbe,
             )
             self.prompt_template_watcher.start()
+            self.external_agent_config_watcher = ExternalAgentConfigWatcher(
+                self.specific_file_watcher,
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            self.external_agent_config_watcher.start()
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()

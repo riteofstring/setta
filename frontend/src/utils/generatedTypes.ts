@@ -221,6 +221,25 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
+const ExternalAgentRunModeEnum = {
+  cli: "cli",
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+} as const;
+
+const ExternalAgentToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+  opencode: "opencode",
+} as const;
+
+const ExternalAgentWorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -350,6 +369,11 @@ export const RouteEnum = {
   CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
   UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
   DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
+  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
+  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
+  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
+  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
+  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -533,6 +557,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
   AgentProfilesUpdated: "AgentProfilesUpdated",
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -4739,6 +4764,38 @@ const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated),
 });
 
+const ExternalAgentConfigSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  commandPath: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  defaultModel: z.union([z.string(), z.null()]).default(null),
+  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  envVarWhitelist: z.array(z.string()).default([]),
+  workingDirStrategy: z
+    .enum(ExternalAgentWorkingDirStrategyEnum)
+    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ExternalAgentConfig = z.infer<typeof ExternalAgentConfigSchema>;
+
+const ExternalAgentConfigListSchema = z.object({
+  configs: z.array(ExternalAgentConfigSchema),
+});
+
+const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ExternalAgentConfigListSchema,
+  messageType: z
+    .literal("ExternalAgentConfigsUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4792,6 +4849,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLLMApiKeysUpdatedSchema,
   WebsocketMsgAgentProfilesUpdatedSchema,
   WebsocketMsgPromptTemplatesUpdatedSchema,
+  WebsocketMsgExternalAgentConfigsUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -5460,6 +5518,27 @@ export type CreateAgentProfileRequestInput = z.input<
   typeof CreateAgentProfileRequestSchema
 >;
 
+const CreateExternalAgentConfigRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  commandPath: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  defaultModel: z.union([z.string(), z.null()]).default(null),
+  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  envVarWhitelist: z.array(z.string()).default([]),
+  workingDirStrategy: z
+    .enum(ExternalAgentWorkingDirStrategyEnum)
+    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+});
+
+export type CreateExternalAgentConfigRequestInput = z.input<
+  typeof CreateExternalAgentConfigRequestSchema
+>;
+
 const CreatePromptTemplateRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
@@ -5479,6 +5558,14 @@ const DeleteAgentProfileRequestSchema = z.object({
 
 export type DeleteAgentProfileRequestInput = z.input<
   typeof DeleteAgentProfileRequestSchema
+>;
+
+const DeleteExternalAgentConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type DeleteExternalAgentConfigRequestInput = z.input<
+  typeof DeleteExternalAgentConfigRequestSchema
 >;
 
 const DeletePromptTemplateRequestSchema = z.object({
@@ -5502,6 +5589,14 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetExternalAgentConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type GetExternalAgentConfigRequestInput = z.input<
+  typeof GetExternalAgentConfigRequestSchema
+>;
 
 const GetPromptTemplateRequestSchema = z.object({
   templateId: IDSchema,
@@ -5534,6 +5629,14 @@ const UpdateAgentProfileRequestSchema = z.object({
 
 export type UpdateAgentProfileRequestInput = z.input<
   typeof UpdateAgentProfileRequestSchema
+>;
+
+const UpdateExternalAgentConfigRequestSchema = z.object({
+  config: ExternalAgentConfigSchema,
+});
+
+export type UpdateExternalAgentConfigRequestInput = z.input<
+  typeof UpdateExternalAgentConfigRequestSchema
 >;
 
 const UpdatePromptTemplateRequestSchema = z.object({

@@ -16,6 +16,7 @@ import {
   route_delete_llm_chat,
   route_get_agent_profiles,
   route_get_all_llm_chat_metadata,
+  route_get_external_agent_configs,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
@@ -32,6 +33,7 @@ import {
   ChatSectionState,
   createMessageTextContent,
   createMessageThinkingContent,
+  ExternalAgentConfig,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -126,6 +128,28 @@ export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
     promptTemplates: payload,
     promptTemplatesInitialLoadComplete: true,
     promptTemplatesLoadError: null,
+  });
+}
+
+export async function loadExternalAgentConfigs() {
+  const res = await route_get_external_agent_configs();
+  if (res200(res)) {
+    receiveExternalAgentConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentConfigsInitialLoadComplete: true,
+      externalAgentConfigsLoadError: "Failed to load external agent configs",
+    });
+  }
+}
+
+export function receiveExternalAgentConfigsUpdate(
+  payload: Array<ExternalAgentConfig>,
+) {
+  useAIStore.setState({
+    externalAgentConfigs: payload,
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
   });
 }
 

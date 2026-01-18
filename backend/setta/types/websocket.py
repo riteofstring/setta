@@ -13,6 +13,7 @@ from setta.types.agentic import AgentProfileList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
+from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.listener import (
@@ -58,6 +59,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
     AgentProfilesUpdated = "AgentProfilesUpdated"
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
+    ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -232,6 +234,13 @@ class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
     content: PromptTemplateList
     messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
         WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
+    )
+
+
+class WebsocketMsgExternalAgentConfigsUpdated(FrontendWebsocketMsg):
+    content: ExternalAgentConfigList
+    messageType: Literal[WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated] = (
+        WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated
     )
 
 

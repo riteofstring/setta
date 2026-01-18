@@ -1,14 +1,21 @@
 import { useEffect } from "react";
-import { loadAgentProfiles, loadPromptTemplates } from "state/actions/ai";
+import {
+  loadAgentProfiles,
+  loadExternalAgentConfigs,
+  loadPromptTemplates,
+} from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 
 export function useHydrateAgenticState() {
   const {
     agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete,
+    externalAgentConfigsInitialLoadComplete,
   } = useAIStore((x) => ({
     agentProfilesInitialLoadComplete: x.agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete: x.promptTemplatesInitialLoadComplete,
+    externalAgentConfigsInitialLoadComplete:
+      x.externalAgentConfigsInitialLoadComplete,
   }));
 
   useEffect(() => {
@@ -18,5 +25,12 @@ export function useHydrateAgenticState() {
     if (!promptTemplatesInitialLoadComplete) {
       void loadPromptTemplates();
     }
-  }, [agentProfilesInitialLoadComplete, promptTemplatesInitialLoadComplete]);
+    if (!externalAgentConfigsInitialLoadComplete) {
+      void loadExternalAgentConfigs();
+    }
+  }, [
+    agentProfilesInitialLoadComplete,
+    promptTemplatesInitialLoadComplete,
+    externalAgentConfigsInitialLoadComplete,
+  ]);
 }

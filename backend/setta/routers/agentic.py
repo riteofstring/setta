@@ -9,13 +9,21 @@ from setta.agentic.store import (
     list_prompt_templates,
     load_agent_profiles,
     load_agent_run,
+    load_external_agent_configs,
     load_prompt_template,
     save_agent_profiles,
+    save_external_agent_configs,
     save_prompt_template,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.agentic import AgentProfile, AgentRun
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
+)
 from setta.types.id import ID
 from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
@@ -76,6 +84,35 @@ class GetPromptTemplateRequest(BaseModel):
 
 class DeletePromptTemplateRequest(BaseModel):
     templateId: ID
+
+
+class CreateExternalAgentConfigRequest(BaseModel):
+    name: str
+    description: str = ""
+    toolType: ExternalAgentToolType
+    runMode: ExternalAgentRunMode
+    commandPath: str | None = None
+    baseUrl: str | None = None
+    defaultModel: str | None = None
+    sandboxPolicy: str | None = None
+    approvalPolicy: str | None = None
+    envVarWhitelist: list[str] = Field(default_factory=list)
+    workingDirStrategy: ExternalAgentWorkingDirStrategy = (
+        ExternalAgentWorkingDirStrategy.project_root
+    )
+    workingDir: str | None = None
+
+
+class UpdateExternalAgentConfigRequest(BaseModel):
+    config: ExternalAgentConfig
+
+
+class GetExternalAgentConfigRequest(BaseModel):
+    configId: ID
+
+
+class DeleteExternalAgentConfigRequest(BaseModel):
+    configId: ID
 
 
 @router.get(Route.GET_AGENT_PROFILES)
@@ -279,3 +316,89 @@ async def route_delete_prompt_template(
         list_prompt_templates(ctx.state.dbe)
     )
     return None
+
+
+@router.get(Route.GET_EXTERNAL_AGENT_CONFIGS)
+async def route_get_external_agent_configs(
+    ctx: RuntimeContextFromRequest,
+) -> list[ExternalAgentConfig]:
+    await ctx.enforce_llm_allowed()
+    return load_external_agent_configs(ctx.state.dbe)
+
+
+@router.post(Route.GET_EXTERNAL_AGENT_CONFIG)
+async def route_get_external_agent_config(
+    x: GetExternalAgentConfigRequest, ctx: RuntimeContextFromRequest
+) -> ExternalAgentConfig:
+    await ctx.enforce_llm_allowed()
+    configs = load_external_agent_configs(ctx.state.dbe)
+    for config in configs:
+        if config.id == x.configId:
+            return config
+    raise HTTPException(status_code=404, detail="External agent config not found")
+
+
+@router.post(Route.CREATE_EXTERNAL_AGENT_CONFIG)
+async def route_create_external_agent_config(
+    x: CreateExternalAgentConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> ExternalAgentConfig:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow creating external agent configs.")
+    configs = load_external_agent_configs(ctx.state.dbe)
+    config = ExternalAgentConfig(
+        name=x.name,
+        description=x.description,
+        toolType=x.toolType,
+        runMode=x.runMode,
+        commandPath=x.commandPath,
+        baseUrl=x.baseUrl,
+        defaultModel=x.defaultModel,
+        sandboxPolicy=x.sandboxPolicy,
+        approvalPolicy=x.approvalPolicy,
+        envVarWhitelist=x.envVarWhitelist,
+        workingDirStrategy=x.workingDirStrategy,
+        workingDir=x.workingDir,
+    )
+    configs.append(config)
+    save_external_agent_configs(ctx.state.dbe, configs)
+    await ctx.state.wmh_frontend_sender.broadcast_external_agent_configs_update(configs)
+    return config
+
+
+@router.post(Route.UPDATE_EXTERNAL_AGENT_CONFIG)
+async def route_update_external_agent_config(
+    x: UpdateExternalAgentConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> ExternalAgentConfig:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating external agent configs.")
+    configs = load_external_agent_configs(ctx.state.dbe)
+    for idx, config in enumerate(configs):
+        if config.id == x.config.id:
+            configs[idx] = x.config
+            save_external_agent_configs(ctx.state.dbe, configs)
+            await ctx.state.wmh_frontend_sender.broadcast_external_agent_configs_update(
+                configs
+            )
+            return x.config
+    raise HTTPException(status_code=404, detail="External agent config not found")
+
+
+@router.post(Route.DELETE_EXTERNAL_AGENT_CONFIG)
+async def route_delete_external_agent_config(
+    x: DeleteExternalAgentConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow deleting external agent configs.")
+    configs = load_external_agent_configs(ctx.state.dbe)
+    for idx, config in enumerate(configs):
+        if config.id == x.configId:
+            configs.pop(idx)
+            save_external_agent_configs(ctx.state.dbe, configs)
+            await ctx.state.wmh_frontend_sender.broadcast_external_agent_configs_update(
+                configs
+            )
+            return None
+    raise HTTPException(status_code=404, detail="External agent config not found")

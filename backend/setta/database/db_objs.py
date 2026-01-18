@@ -40,6 +40,7 @@ class DBE:
         self.settings_project = self.path / "setta-settings-project.json"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
+        self.external_agents = self.path / "external_agents.json"
         self.agent_profiles = self.path / "agent_profiles.json"
         self.agent_runs = self.path / "agent_runs"
         self.prompts = self.path / "prompts"
@@ -215,6 +216,17 @@ class DBE:
 
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
+
+    def read_external_agents(self) -> list[dict]:
+        payload = self.read_json(self.external_agents)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError("external_agents.json must contain a list of configs")
+        return payload
+
+    def write_external_agents(self, payload: list[dict]) -> None:
+        self.write_json(self.external_agents, payload)
 
     def read_prompts_example(self) -> Any:
         return self.read_json(self.prompts_example)

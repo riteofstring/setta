@@ -18,6 +18,7 @@ from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
 )
+from setta.types.external_agents import ExternalAgentConfig, ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.id import ID
@@ -46,6 +47,7 @@ from setta.types.websocket import (
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
+    WebsocketMsgExternalAgentConfigsUpdated,
     WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMApiKeysUpdated,
     WebsocketMsgLLMConfigUpdated,
@@ -390,6 +392,19 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         await self._broadcast_frontend(
             WebsocketMsgPromptTemplatesUpdated(
                 content=PromptTemplateList(templates=templates)
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_external_agent_configs_update(
+        self,
+        configs: list[ExternalAgentConfig],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgExternalAgentConfigsUpdated(
+                content=ExternalAgentConfigList(configs=configs)
             ),
             share_session_id,
         )
