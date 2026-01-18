@@ -1,0 +1,10 @@
+ParamDndMonitor.tsx:67 [param-dnd] start {activeId: '7ebedf31-df0a-4523-b160-c623c1b16945', sectionId: '2eef6c81-31ce-4439-8684-b1d9c46042db', listKey: 'unpinned', draggingIds: Array(1), placeholderSize: {…}, …}
+ParamDndMonitor.tsx:67 [param-dnd] over:resolved {activeId: '7ebedf31-df0a-4523-b160-c623c1b16945', overId: '99fc0748-04f4-4b86-83b7-8806f6bede11', pastHalfway: false, triggerDistCondition: false, listKey: 'unpinned', …}
+ParamDndMonitor.tsx:67 [param-dnd] over:resolved {activeId: '7ebedf31-df0a-4523-b160-c623c1b16945', overId: '99fc0748-04f4-4b86-83b7-8806f6bede11', pastHalfway: true, triggerDistCondition: false, listKey: 'unpinned', …}
+ParamDndMonitor.tsx:67 [param-dnd] placeholder:reorder {tempId: '7ebedf31-df0a-4523-b160-c623c1b16945-TempParamDND', parentId: '37ae8507-b2c6-42c3-aa0f-2c2b9027e36b', overId: '99fc0748-04f4-4b86-83b7-8806f6bede11', activeIndex: 22, overIndex: 23, …}
+ParamDndMonitor.tsx:67 [param-dnd] over:clear-placeholder {activeId: '7ebedf31-df0a-4523-b160-c623c1b16945', emptyCollisionStreak: 2}
+ParamDndMonitor.tsx:67 [param-dnd] over:resolved {activeId: '7ebedf31-df0a-4523-b160-c623c1b16945', overId: '8c9f1b96-9962-428f-9d3a-2b253d3c29b9', pastHalfway: true, triggerDistCondition: false, listKey: 'unpinned', …}
+ParamDndMonitor.tsx:67 [param-dnd] placeholder:move-parent {tempId: '7ebedf31-df0a-4523-b160-c623c1b16945-TempParamDND', oldParentId: null, newParentId: '37ae8507-b2c6-42c3-aa0f-2c2b9027e36b', overId: '8c9f1b96-9962-428f-9d3a-2b253d3c29b9', overIndex: 23, …}
+ParamDndMonitor.tsx:67 [param-dnd] end:move {oldParentId: '37ae8507-b2c6-42c3-aa0f-2c2b9027e36b', newParentId: '37ae8507-b2c6-42c3-aa0f-2c2b9027e36b', newIndex: 24, orderedDraggingIds: Array(1)}
+websocketReceive.ts:302 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:302 {id: null, content: {…}, messageType: 'LSPDiagnostics'}

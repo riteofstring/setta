@@ -59,6 +59,17 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
+function debugParamDnd(
+  message: string,
+  details?: Record<string, unknown>,
+) {
+  if (details) {
+    console.info(`[param-dnd] ${message}`, details);
+    return;
+  }
+  console.info(`[param-dnd] ${message}`);
+}
+
 type ParamDragData = {
   type?: string;
   sectionId?: string;
@@ -92,6 +103,9 @@ let lastResolvedOverId: string | null = null;
 let lastResolvedPastHalfway: boolean | null = null;
 let lastResolvedTriggerDistCondition: boolean | null = null;
 let lastFilteredCollisionEmpty: boolean | null = null;
+type ParamDragOverInput = Pick<DragMoveEvent, "active" | "collisions" | "over">;
+let pendingParamDragOver: ParamDragOverInput | null = null;
+let paramDragOverRaf: number | null = null;
 
 export function ParamDndMonitor() {
   const manager = useDragDropManager();
@@ -249,6 +263,17 @@ function handleParamDragStart(
   const placeholderSize = measureParamDragSize(manager, draggingIds);
   const activeRect = measureParamActiveRect(manager, activeId, event.activeRect);
   const dragOffset = resolveParamDragOffset(activeRect);
+
+  debugParamDnd("start", {
+    activeId,
+    sectionId,
+    listKey: view.listKey,
+    draggingIds,
+    placeholderSize,
+    activeRect,
+    dragOffset,
+  });
+
   updateParamChildren(tree.visibleChildrenByParent);
   replaceParamsWithTemp(activeId, draggingIds);
 
@@ -269,16 +294,17 @@ function handleParamDragStart(
 }
 
 function handleParamDragMove(event: DragMoveEvent) {
-  updateParamDragOver(event);
+  scheduleParamDragOver(event);
 }
 
 function handleParamDragOver(event: DragOverEvent) {
-  updateParamDragOver(event);
+  scheduleParamDragOver(event);
 }
 
 function handleParamDragEnd() {
   const paramState = useParamDndState.getState();
   if (!paramState.activeId || !paramState.sectionId) {
+    debugParamDnd("end:missing-state");
     resetParamDragState();
     return;
   }
@@ -287,6 +313,7 @@ function handleParamDragEnd() {
   const dndChildrenState = useParamDndChildren.getState();
   const newParentId = dndChildrenState.y[tempId] ?? null;
   if (!newParentId) {
+    debugParamDnd("end:no-parent", { tempId });
     resetParamDragState();
     return;
   }
@@ -294,6 +321,7 @@ function handleParamDragEnd() {
   const tempSiblings = dndChildrenState.x[newParentId] ?? [];
   const tempIndex = tempSiblings.indexOf(tempId);
   if (tempIndex < 0) {
+    debugParamDnd("end:temp-not-found", { tempId, newParentId });
     resetParamDragState();
     return;
   }
@@ -304,6 +332,7 @@ function handleParamDragEnd() {
     paramState.parentById[paramState.draggingIds[0]] ??
     null;
   if (!oldParentId) {
+    debugParamDnd("end:no-old-parent", { tempId });
     resetParamDragState();
     return;
   }
@@ -314,6 +343,7 @@ function handleParamDragEnd() {
     paramState.draggingIds,
   );
   if (orderedDraggingIds.length === 0) {
+    debugParamDnd("end:empty-ordered", { tempId, oldParentId });
     resetParamDragState();
     return;
   }
@@ -324,6 +354,7 @@ function handleParamDragEnd() {
       new Set(orderedDraggingIds),
     )
   ) {
+    debugParamDnd("end:descendant", { newParentId, orderedDraggingIds });
     resetParamDragState();
     return;
   }
@@ -344,6 +375,11 @@ function handleParamDragEnd() {
     fullChildren,
   });
   if (newIndex === null) {
+    debugParamDnd("end:new-index-null", {
+      newParentId,
+      tempIndex,
+      orderedDraggingIds,
+    });
     resetParamDragState();
     return;
   }
@@ -351,11 +387,18 @@ function handleParamDragEnd() {
   if (newParentId === oldParentId && isBaseParentCodeObjImpl(newParentImpl)) {
     const currentIndex = newParentImpl.children.indexOf(orderedDraggingIds[0]);
     if (currentIndex === newIndex) {
+      debugParamDnd("end:noop", { newParentId, newIndex });
       resetParamDragState();
       return;
     }
   }
 
+  debugParamDnd("end:move", {
+    oldParentId,
+    newParentId,
+    newIndex,
+    orderedDraggingIds,
+  });
   moveParamsWithBackend({
     sectionId: paramState.sectionId,
     paramIds: orderedDraggingIds,
@@ -373,7 +416,7 @@ function updateParamDragOver({
   active,
   collisions,
   over,
-}: DragOverEvent | DragMoveEvent) {
+}: ParamDragOverInput) {
   if (!isParamDrag(active)) {
     return;
   }
@@ -392,24 +435,19 @@ function updateParamDragOver({
       lastFilteredCollisionEmpty !== true
     ) {
       lastFilteredCollisionEmpty = true;
-    }
-    if (!collisions || collisions.length === 0) {
-      if (
-        lastResolvedOverId === null &&
-        lastResolvedPastHalfway === null &&
-        lastResolvedTriggerDistCondition === null
-      ) {
-        return;
-      }
-      lastResolvedOverId = null;
-      lastResolvedPastHalfway = null;
-      lastResolvedTriggerDistCondition = null;
-      removeParamChild(getParamDndId(paramState.activeId));
+      debugParamDnd("over:filtered-empty", {
+        collisions: collisions.map((collision) => String(collision.id)),
+        listKey: paramState.listKey,
+      });
     }
     return;
   }
   if (lastFilteredCollisionEmpty) {
     lastFilteredCollisionEmpty = false;
+    debugParamDnd("over:filtered-resume", {
+      collisions: filteredCollisions.map((collision) => String(collision.id)),
+      listKey: paramState.listKey,
+    });
   }
   const resolvedOverId = resolveOverCollisionId(
     filteredCollisions,
@@ -443,6 +481,15 @@ function updateParamDragOver({
   lastResolvedOverId = normalizedOverId;
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
+
+  debugParamDnd("over:resolved", {
+    activeId: paramState.activeId,
+    overId: normalizedOverId,
+    pastHalfway,
+    triggerDistCondition,
+    listKey: paramState.listKey,
+    collisions: filteredCollisions.map((collision) => String(collision.id)),
+  });
 
   const oldParentId =
     getParamDndParentId(getParamDndId(paramState.activeId)) ?? null;
@@ -519,6 +566,15 @@ function maybeMovePlaceholder({
     } else {
       index = newParentChildren.length;
     }
+    debugParamDnd("placeholder:move-parent", {
+      tempId,
+      oldParentId,
+      newParentId,
+      overId,
+      overIndex,
+      index,
+      pastHalfway,
+    });
     addParamChild(oldParentId, newParentId, tempId, index);
     return;
   }
@@ -532,6 +588,15 @@ function maybeMovePlaceholder({
       newParentChildren.length,
     );
     if (nextIndex !== activeIndex) {
+      debugParamDnd("placeholder:reorder", {
+        tempId,
+        parentId: newParentId,
+        overId,
+        activeIndex,
+        overIndex,
+        nextIndex,
+        pastHalfway,
+      });
       addParamChild(oldParentId, newParentId, tempId, nextIndex);
     }
   }
@@ -702,6 +767,7 @@ function filterEdgeInputs(
 }
 
 function resetParamDragState() {
+  resetScheduledParamDragOver();
   resetParamDndChildren();
   resetParamDndState();
   resetParamDragOverState();
@@ -712,6 +778,33 @@ function resetParamDragOverState() {
   lastResolvedPastHalfway = null;
   lastResolvedTriggerDistCondition = null;
   lastFilteredCollisionEmpty = null;
+}
+
+function scheduleParamDragOver(event: ParamDragOverInput) {
+  pendingParamDragOver = {
+    active: event.active,
+    collisions: event.collisions,
+    over: event.over,
+  };
+  if (paramDragOverRaf !== null) {
+    return;
+  }
+  paramDragOverRaf = requestAnimationFrame(() => {
+    paramDragOverRaf = null;
+    const nextEvent = pendingParamDragOver;
+    pendingParamDragOver = null;
+    if (nextEvent) {
+      updateParamDragOver(nextEvent);
+    }
+  });
+}
+
+function resetScheduledParamDragOver() {
+  if (paramDragOverRaf !== null) {
+    cancelAnimationFrame(paramDragOverRaf);
+    paramDragOverRaf = null;
+  }
+  pendingParamDragOver = null;
 }
 
 function getCollisionTriggerDistCondition(
