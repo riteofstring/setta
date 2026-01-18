@@ -191,6 +191,7 @@ export async function openFileInCodeSection({
   const newSectionId = await createTopLevelSection({
     implType: SectionTypeEnum.Code,
     implOverrides: {
+      type: SectionTypeEnum.Code,
       codeLanguage,
       codeFileBinding: {
         canonical_path: filePath,
