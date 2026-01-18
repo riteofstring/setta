@@ -218,11 +218,25 @@ Example structure for `setta_files/engine_configs.json`:
 - Listener-based chat workflows still compile and run using the chat toolkit.
 
 ## Completion definition (what counts as "done")
-This plan is complete when the Acceptance checks above pass and the MVP blockers
-listed as "resolved" remain resolved.
+This plan is complete when ALL of the following are true:
+- The Acceptance checks above pass.
+- The MVP blockers listed as "resolved" remain resolved.
 
-Items labeled "partial" in the phased implementation and everything under "Future work"
-are explicitly out of scope for completion unless they are required by the Acceptance checks.
+Important: Items labeled "partial" in the phased implementation and everything under
+"Future work" are OUT OF SCOPE and do NOT block completion unless the Acceptance checks
+explicitly require them.
+
+## Completion rules (read this first)
+Use this section as the source of truth when deciding if the plan is done.
+
+Blocking requirements (must be true):
+- Acceptance checks pass.
+- MVP blockers stay resolved.
+
+Non-blocking items (do NOT prevent completion):
+- Anything labeled "partial" in the phased implementation.
+- Anything under "Future work".
+- Any additional polish or enhancements not required by the Acceptance checks.
 
 ## MVP blockers for “start external agent and chat” (resolved)
 These were required so the frontend could select Codex/Claude Code/OpenCode and hold a real multi-turn conversation.

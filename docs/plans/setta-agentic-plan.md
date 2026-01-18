@@ -39,9 +39,26 @@ Backward compatibility is not required, but user-visible features must be preser
 - Deferred: share-mode LLM supports minimal read-only Q&A about the project (post-refactor).
 
 ## Completion definition (what counts as "done")
-This plan is complete when Phases 1-4 are implemented and the Acceptance checks above pass.
-Everything explicitly marked "Deferred" or listed under "Future work" is out of scope for
-completion and is not required to mark the plan as finished.
+This plan is complete when ALL of the following are true:
+- The Acceptance checks above pass.
+- Phases 1-4 are implemented, except any items explicitly marked "Deferred" or listed
+  under "Future work" (those are OUT OF SCOPE and do NOT block completion).
+
+Important: Future work and Deferred items are not prerequisites. They are explicitly
+non-blocking and should never be used to mark this plan as incomplete.
+
+## Completion rules (read this first)
+Use this section as the source of truth when deciding if the plan is done.
+
+Blocking requirements (must be true):
+- Acceptance checks pass.
+- Phase 1-4 deliverables implemented, excluding anything marked "Deferred" or listed
+  under "Future work".
+
+Non-blocking items (do NOT prevent completion):
+- Anything under "Future work".
+- Anything explicitly marked "Deferred".
+- Any additional polish or enhancements not required by the Acceptance checks.
 
 ## Plan
 
