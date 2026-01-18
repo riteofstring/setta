@@ -1,5 +1,6 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { isTempParam } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -75,6 +76,7 @@ function _ParamContainer({
     paramInfoId,
     paramChildren,
   );
+  const hasTempChild = renderChildren.some((childId) => isTempParam(childId));
 
   return !isNestedParam ? (
     <>
@@ -111,6 +113,17 @@ function _ParamContainer({
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+        )}
+        {hasTempChild && (
+          <div className="section-args-nested section-key-value relative grid gap-y-1">
+            <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+            <GetParamSwitch
+              sectionId={sectionId}
+              paramIds={renderChildren}
+              requiredParamIdsToPaths={requiredParamIdsToPaths}
+              onResizeStart={onResizeStart}
+            />
+          </div>
         )}
       </article>
     </>
