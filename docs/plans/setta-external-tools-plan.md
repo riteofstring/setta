@@ -43,6 +43,7 @@ Backward compatibility is not required, but user-visible features must be preser
 - Supporting remote multi-tenant hosting; initial scope is local developer machines.
 
 ## External tool control surfaces (doc-backed summary)
+Note: Setta currently runs external tools via SDK-only adapters; MCP/server capabilities below are reference-only.
 
 ### Claude Code
 - Claude Agent SDK (Python/TypeScript) exposes the same agent loop and built-in tools as Claude Code.
@@ -86,13 +87,12 @@ Add an ExternalAgentAdapter interface that normalizes:
 
 Adapters:
 - ClaudeCodeAdapter (SDK-only)
-- CodexAdapter (SDK primary, MCP secondary)
-- OpenCodeAdapter (SDK primary, server secondary)
+- CodexAdapter (SDK-only)
+- OpenCodeAdapter (SDK-only)
 
 ### Execution modes
-- SDK mode (primary): use Python/TS SDKs to get structured events and better session control.
-- Server mode: connect to OpenCode's HTTP API and SSE stream.
-- MCP mode: register external MCP servers inside Setta's MultiMCPClient and treat them as tools.
+- SDK mode only: use SDKs to get structured events and better session control.
+- Server/MCP modes are deferred (not implemented).
 - No CLI fallback (SDK-only policy).
 
 ### Control plane
@@ -148,8 +148,9 @@ Adapters:
 ### Config and setup
 - Introduce `setta_files/engine_configs.json` alongside `setta_files/external_agents.json`
   and watchers so changes hot-reload without a server restart.
-- Engine configs unify internal Setta LLM and external agents (internal engines embed
-  litellm config; external engines reference an external agent config).
+- Engine configs unify internal Setta LLM and external agents (internal engines
+  reference `llm_config.json` via `settaLlmConfig.llmConfigId`; external engines
+  reference an external agent config).
 - Store only env var names in config (values sourced from `.env`), matching the
   existing LLM config pattern.
 - Add a health-check endpoint per tool to report availability, version, and
@@ -164,10 +165,7 @@ Example structure for `setta_files/engine_configs.json`:
     "name": "Setta LLM",
     "engineType": "setta_llm",
     "settaLlmConfig": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "apiKeyEnv": "OPENAI_API_KEY",
-      "mcpServerIds": ["setta"]
+      "llmConfigId": "primary"
     }
   },
   {
@@ -219,23 +217,18 @@ Example structure for `setta_files/engine_configs.json`:
 - External agent runs render in the same stream UI without breaking AIFollow.
 - Listener-based chat workflows still compile and run using the chat toolkit.
 
-## MVP blockers for “start external agent and chat” (do not skip)
-These are required so the frontend can select Codex/Claude Code/OpenCode and hold a real multi-turn conversation.
+## MVP blockers for “start external agent and chat” (resolved)
+These were required so the frontend could select Codex/Claude Code/OpenCode and hold a real multi-turn conversation.
 
-1) **SDK resolution for sidecars**
-   - The Node sidecars import SDK packages that are not installed by default.
-   - Add a dedicated `package.json` + `node_modules` near the sidecars (or another backend-owned Node workspace),
-     and ensure the sidecar process can resolve those deps (install there or set `NODE_PATH`).
-   - Update preflight checks to verify the SDKs in the same location the sidecars resolve from.
+1) **SDK resolution for sidecars** (done)
+   - Sidecar `package.json` + `node_modules` lives under `backend/setta/agentic/external_adapters/sidecars/`.
+   - Preflight checks verify SDKs from that location.
 
-2) **Persist external session/thread IDs per chat**
-   - Claude/OpenCode/Codex adapters can return `sessionId`/`threadId`, but we do not store them.
-   - Without persistence, each user message starts a fresh external session and breaks “chat with the agent.”
-   - Store the returned session/thread id in run outputs (or chat metadata) and feed it into subsequent runs.
+2) **Persist external session/thread IDs per chat** (done)
+   - `sessionId`/`threadId` are stored in run outputs and threaded into subsequent runs.
 
-3) **Preflight UX in the frontend**
-   - The backend already exposes `/getExternalAgentHealth`, but the UI doesn’t surface it.
-   - Show missing SDK/env var/node issues so users don’t discover failures only after submitting a message.
+3) **Preflight UX in the frontend** (done)
+   - External agent health is surfaced in Project Chat and Chat sections.
 
 ## Packaging plan: full self-contained wheels (pip-only install)
 Goal: `pip install setta` includes everything needed to run Codex/Claude Code/OpenCode SDK sidecars.
@@ -284,20 +277,18 @@ Goal: `pip install setta` includes everything needed to run Codex/Claude Code/Op
 ## Data model additions
 - ExternalAgentConfig (per-tool):
   - tool_id, tool_type (claude_code | codex | opencode)
-  - run_mode (mcp | server | sdk)
+  - run_mode (mcp | server | sdk; SDK-only supported today)
   - command_path / base_url
   - default_model
   - sandbox_policy / approval_policy
   - env_var_whitelist (names only, values resolved at runtime)
   - working_dir_strategy (project root, temp dir, or custom)
-- ExternalAgentRun:
-  - run_id, tool_id, tool_session_id, thread_id
-  - prompt, inputs, outputs, status
-  - event_log_path (run artifacts)
+- External runs are stored as `AgentRun` entries (no separate ExternalAgentRun type).
+  - `sessionId`/`threadId` live in AgentRun outputs for resume.
 
 Storage:
 - setta_files/external_agents.json
-- setta_files/external_runs/<run_id>.json
+- setta_files/agent_runs/<run_id>.json
 
 ## Run ownership (no-duplication strategy)
 - External runs are stored only as AgentRun artifacts.
@@ -314,7 +305,7 @@ Storage:
 
 ### Claude Code
 - Agent SDK adapter (primary):
-  - Use Python SDK for tighter integration where available.
+  - Node sidecar using `@anthropic-ai/claude-agent-sdk`.
   - Enable `setting_sources=["project"]` to read `.claude/` and `CLAUDE.md` when desired.
   - Map AgentProfile -> ClaudeAgentOptions (allowed_tools, model, permissions, etc).
   - Ensure Claude Code SKILL.md files are discovered and honored (project `.claude/skills`
@@ -324,20 +315,11 @@ Storage:
 - SDK adapter (primary):
   - Node 18+ sidecar using `@openai/codex-sdk`.
   - Use `startThread` and `run` to maintain thread affinity.
-- MCP adapter (secondary):
-  - Run `codex mcp-server` as a subprocess registered with MultiMCPClient.
-  - Use `codex` tool for new sessions and `codex-reply` for continuation.
-  - Store threadId returned in structuredContent for resuming.
 
 ### OpenCode
 - SDK adapter (primary):
   - Use `createOpencode` to start server + client, or `createOpencodeClient` to attach.
   - Use `session.prompt` for main calls and `session.prompt` with `noReply: true` for context injection.
-- Server adapter (secondary):
-  - Run `opencode serve` in headless mode, capture SSE from `/global/event`.
-  - Use `/session` and `/session/:id/message` to create runs and stream outputs.
-  - Handle permission requests with `/session/:id/permissions/:permissionID`.
-  - Use `/session/:id/init` to generate AGENTS.md when required.
 
 ## Permissions and safety
 - Default to the most restrictive sandbox/approval settings available for each tool.
@@ -349,7 +331,7 @@ Storage:
 ## UI and UX
 - Add an External Agents panel with:
   - Tool selection (Claude Code, Codex, OpenCode)
-  - Run mode selection (SDK default; MCP/Server behind advanced settings)
+  - Run mode selection (SDK only; other modes deferred/disabled)
   - Model, sandbox, and approval settings
   - Environment variable status (present/missing)
 - Add run detail view:
@@ -387,24 +369,24 @@ Storage:
 
 ## Phased implementation
 
-### Phase 0: Preflight and config
+### Phase 0: Preflight and config (implemented)
 - Add ExternalAgentConfig models and storage helpers.
 - Add detection endpoints to check tool availability and version.
 - Add environment variable validation (names only, no secrets persisted).
 
-### Phase 1: SDK-first foundation
+### Phase 1: SDK-first foundation (implemented)
 - Implement Codex SDK adapter (Node sidecar) and map structured events to RunEvents.
-- Implement Claude Agent SDK adapter if viable in Setta backend.
-- Implement OpenCode SDK adapter (start server + client via SDK).
+- Implement Claude SDK adapter (Node sidecar).
+- Implement OpenCode SDK adapter (sidecar via SDK).
 - Add basic UI for tool selection + run (Project Chat + Chat sections).
 
-### Phase 2: SDK expansion + safety
-- Normalize approval workflows for SDK adapters and wire into chat stream UI.
-- Add tool allowlists and sandbox policies to SDK calls.
-- Implement MCP adapter for Codex as a secondary execution path.
+### Phase 2: SDK expansion + safety (partial)
+- Normalize approval workflows for SDK adapters and wire into chat stream UI (Claude implemented; others pending).
+- Add tool allowlists and sandbox policies to SDK calls (Claude implemented; others pending).
+- Deferred: MCP adapter for Codex (SDK-only policy).
 
-### Phase 3: Unified orchestration
-- Add ExternalAgentRun to AgentRunner to support cross-tool composition.
+### Phase 3: Unified orchestration (deferred)
+- Extend orchestration to support cross-tool composition across Setta + external runs.
 - Allow multi-step workflows that chain Setta agent runs and external tool runs.
 - Add cross-tool trace viewer and run replay.
 

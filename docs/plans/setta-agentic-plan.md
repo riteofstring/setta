@@ -40,9 +40,9 @@ Backward compatibility is not required, but user-visible features must be preser
 
 ## Plan
 
-### Phase 1: Agent primitives
+### Phase 1: Agent primitives (implemented)
 - Add data models in `backend/setta/types/agentic.py`:
-  - `EngineConfig` (name, engineType, settaLlmConfig, externalAgentConfigId, defaults)
+  - `EngineConfig` (name, engineType, settaLlmConfig: { llmConfigId }, externalAgentConfigId, defaults: { deepThink })
   - `AgentProfile` (name, description, systemPrompt, engineConfigId, toolAllowlist, memoryScope)
   - `AgentRun` and `RunEvent` (inputs, outputs, tool calls, timestamps, status, costs)
 - Extend `backend/setta/database/db_objs.py` with paths and helpers for:
@@ -59,9 +59,8 @@ Backward compatibility is not required, but user-visible features must be preser
   - Start/stop agent runs and fetch run history.
 - Add MCP tools in `backend/setta/mcp/tools/agentic_tools.py`:
   - `list_agent_profiles`, `get_agent_profile`, `run_agent_profile`.
-  - (Optional) `list_engine_configs`, `get_engine_config`.
 
-### Phase 2: Agent runner and sub-agents
+### Phase 2: Agent runner and sub-agents (implemented)
 - Implement `AgentRunner` in `backend/setta/llm/agent_runner.py`:
   - Accepts `AgentProfile` + `EngineConfig` + input payload and streams `RunEvent`s.
   - Supports sub-agent calls by spawning child runs with isolated tool state.
@@ -70,8 +69,8 @@ Backward compatibility is not required, but user-visible features must be preser
 - Extend `LLMChatManager` with a `run_sub_agent` method used by `run_agent_profile`.
 - Persist run logs to `setta_files/agent_runs` with the project snapshot and temporary ID map for replay.
 
-### Phase 3: Prompt assets and eval harness
-- Eval harness is deferred to future work; keep the prompt assets + prompt section work in this phase.
+### Phase 3: Prompt assets and eval harness (prompt assets implemented; eval deferred)
+- Eval harness is still deferred; prompt assets + prompt section are implemented.
 - Introduce prompt templates as workspace assets:
   - Store templates in `setta_files/prompts/*.json` with explicit input schema and metadata.
   - Bind them to UI via an agent panel.
@@ -86,14 +85,14 @@ Backward compatibility is not required, but user-visible features must be preser
   - Writes results to an artifact (JSONL + summary metrics).
 - Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
 
-### Phase 4: UI for agents and runs
+### Phase 4: UI for agents and runs (partially implemented)
 - Add a new Overview tab or sidebar panel for agent profiles and runs.
 - Add a run history viewer and a trace view that shows tool calls and results.
 - Surface per-run metadata (model, tokens, cost, duration, status).
 - Integrate runs into Chat sections as the default entry point (agentic sessions per chat section).
 - Keep ProjectLevelAI for project-level setup/automation workflows.
 
-### Phase 5: Context and memory controls
+### Phase 5: Context and memory controls (deferred)
 - Add per-agent context sources:
   - Project summary (current default).
   - Selected sections or file snippets.
@@ -168,13 +167,10 @@ Example structure for `setta_files/engine_configs.json`:
     "name": "Setta LLM",
     "engineType": "setta_llm",
     "settaLlmConfig": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "apiKeyEnv": "OPENAI_API_KEY",
-      "mcpServerIds": ["setta"]
+      "llmConfigId": "primary"
     },
     "defaults": {
-      "reasoningEffort": "high"
+      "deepThink": true
     }
   },
   {
@@ -188,6 +184,6 @@ Example structure for `setta_files/engine_configs.json`:
 
 ## Migration notes (llmConfigId -> engineConfigId)
 - Replace any per-section `llmConfigId` selection with `engineConfigId`.
-- Internal engine configs should embed the previous `llm_config.json` selection details.
+- Internal engine configs should reference existing `llm_config.json` entries via `settaLlmConfig.llmConfigId`.
 - Agent profiles should move from `llmConfigId` to `engineConfigId`.
 - External engine configs reference existing `external_agents.json` entries.
