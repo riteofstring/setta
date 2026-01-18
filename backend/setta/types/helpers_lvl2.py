@@ -1597,24 +1597,6 @@ def toggle_variant_json_source(
     )
 
 
-def set_variant_json_source_keys(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    variantId: ID,
-    jsonSourceKeys: list[str],
-):
-    core = p.sections[sectionId]
-    variant, base_impl, _ = get_variant_base_and_effective_section_impl_with_type_guard(
-        p, core, variantId, BaseDictSectionImpl
-    )
-    set_effective_impl_value(
-        base_impl,
-        core,
-        variant,
-        BaseDictSectionImplArgsWithCallable(jsonSourceKeys=jsonSourceKeys),
-    )
-
-
 def toggle_variant_frozen(p: "ProjectStateSingleConfig", variantId: ID):
     p.sectionVariants[variantId].isFrozen = not p.sectionVariants[variantId].isFrozen
 

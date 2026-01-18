@@ -309,7 +309,6 @@ def create_settings_project_state(settings_path: Path):
     projectConfig = ProjectConfig(
         name="settings",
         showParamDisplayNames=True,
-        allowJsonSourceKeyEdits=False,
         topLevelSections=projectConfigChildren,
         sectionVariantMap=sectionVariantMap,
         viewport=None,
