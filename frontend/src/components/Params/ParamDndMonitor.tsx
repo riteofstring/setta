@@ -20,6 +20,7 @@ import {
 } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import { createPortal } from "react-dom";
+import { useEffect, useRef } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   buildParamParentMap,
@@ -93,6 +94,13 @@ export function ParamDndMonitor() {
 
 export function ParamDragOverlay() {
   const manager = useDragDropManager();
+  const activeDragType = useComputed(() => {
+    const sourceData = manager?.dragOperation.source?.data as
+      | { current?: { type?: string } }
+      | undefined;
+    return sourceData?.current?.type ?? null;
+  }, [manager]).value;
+  const isParamDrag = activeDragType === "param";
   const { activeId, placeholderWidth, placeholderHeight, dragOffset } =
     useParamDndState(
       (state) => ({
@@ -103,23 +111,51 @@ export function ParamDragOverlay() {
       }),
       _.isEqual,
     );
-  const isDropped = useComputed(
-    () => manager?.dragOperation.status.dropped ?? false,
+  const isDragging = useComputed(
+    () => manager?.dragOperation.status.dragging ?? false,
+    [manager],
+  ).value;
+  const isInitializing = useComputed(
+    () => manager?.dragOperation.status.initializing ?? false,
     [manager],
   ).value;
   const shouldRenderOverlay = useComputed(
     () => manager?.dragOperation.status.initialized ?? false,
     [manager],
   ).value;
-  const overlayStyle = isDropped ? { opacity: 0 } : undefined;
+  const overlayMetricsRef = useRef<{
+    width: number;
+    height: number;
+    dragOffset: { x: number; y: number } | null;
+  } | null>(null);
+  const overlayMetrics = activeId
+    ? {
+        width: placeholderWidth ?? 220,
+        height: placeholderHeight ?? 32,
+        dragOffset,
+      }
+    : overlayMetricsRef.current;
 
-  if (!shouldRenderOverlay || !activeId) {
+  useEffect(() => {
+    if (activeId && overlayMetrics) {
+      overlayMetricsRef.current = overlayMetrics;
+      return;
+    }
+    if (!activeId && !isParamDrag) {
+      overlayMetricsRef.current = null;
+    }
+  }, [activeId, isParamDrag, overlayMetrics]);
+
+  const overlayStyle =
+    isDragging || isInitializing ? undefined : { opacity: 0 };
+
+  if (!shouldRenderOverlay || !isParamDrag || !overlayMetrics) {
     return null;
   }
 
-  const offsetStyle = dragOffset
+  const offsetStyle = overlayMetrics.dragOffset
     ? {
-        transform: `translate(${-dragOffset.x}px, ${-dragOffset.y}px)`,
+        transform: `translate(${-overlayMetrics.dragOffset.x}px, ${-overlayMetrics.dragOffset.y}px)`,
       }
     : undefined;
 
@@ -128,8 +164,8 @@ export function ParamDragOverlay() {
       <div
         className="rounded-sm bg-blue-600/80 shadow-md dark:bg-blue-700/70"
         style={{
-          width: placeholderWidth ?? 220,
-          height: placeholderHeight ?? 32,
+          width: overlayMetrics.width,
+          height: overlayMetrics.height,
           ...(offsetStyle ?? {}),
         }}
       />
