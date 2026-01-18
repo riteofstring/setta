@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from setta.agentic.engine_config_watcher import EngineConfigWatcher
+from setta.agentic.example_config import seed_agentic_config_files
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
@@ -37,7 +38,7 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.constants import C
+from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.init_status import BackendInitializationStatus
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
@@ -190,6 +191,8 @@ class SettaFastAPIState:
         )
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
+            if IS_DEV_MODE:
+                seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
             share_mode=self.share_mode,

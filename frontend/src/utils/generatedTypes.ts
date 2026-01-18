@@ -4812,10 +4812,6 @@ const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated),
 });
 
-const SettaLlmEngineConfigSchema = z.object({
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
-});
-
 const EngineConfigDefaultsSchema = z.object({
   deepThink: z.union([z.boolean(), z.null()]).default(null),
 });
@@ -4832,7 +4828,7 @@ const EngineConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
   engineType: z.enum(EngineTypeEnum),
-  settaLlmConfig: z.union([SettaLlmEngineConfigSchema, z.null()]).default(null),
+  settaLlmConfigId: z.union([z.string(), z.null()]).default(null),
   externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
 });
@@ -5637,7 +5633,7 @@ export type CreateAgentProfileRequestInput = z.input<
 const CreateEngineConfigRequestSchema = z.object({
   name: z.string(),
   engineType: z.enum(EngineTypeEnum),
-  settaLlmConfig: z.union([SettaLlmEngineConfigSchema, z.null()]).default(null),
+  settaLlmConfigId: z.union([z.string(), z.null()]).default(null),
   externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
 });

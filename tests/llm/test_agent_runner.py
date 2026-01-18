@@ -11,7 +11,6 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineConfig,
     EngineType,
-    SettaLlmEngineConfig,
 )
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -61,7 +60,7 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
         id=engine_config_id,
         name="Default Engine",
         engineType=EngineType.setta_llm,
-        settaLlmConfig=SettaLlmEngineConfig(llmConfigId=llm_config_id),
+        settaLlmConfigId=llm_config_id,
     )
     save_engine_configs(dbe, [engine_config])
 

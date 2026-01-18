@@ -457,7 +457,7 @@ function ManagedChatArea({
       return null;
     }
     return (
-      selectedEngineConfig.settaLlmConfig?.llmConfigId ??
+      selectedEngineConfig.settaLlmConfigId ??
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);

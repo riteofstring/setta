@@ -64,7 +64,7 @@ Non-blocking items (do NOT prevent completion):
 
 ### Phase 1: Agent primitives (implemented)
 - Add data models in `backend/setta/types/agentic.py`:
-  - `EngineConfig` (name, engineType, settaLlmConfig: { llmConfigId }, externalAgentConfigId, defaults: { deepThink })
+  - `EngineConfig` (name, engineType, settaLlmConfigId, externalAgentConfigId, defaults: { deepThink })
   - `AgentProfile` (name, description, systemPrompt, engineConfigId, toolAllowlist, memoryScope)
   - `AgentRun` and `RunEvent` (inputs, outputs, tool calls, timestamps, status, costs)
 - Extend `backend/setta/database/db_objs.py` with paths and helpers for:
@@ -203,9 +203,7 @@ Example structure for `setta_files/engine_configs.json`:
     "id": "engine-setta-default",
     "name": "Setta LLM",
     "engineType": "setta_llm",
-    "settaLlmConfig": {
-      "llmConfigId": "primary"
-    },
+    "settaLlmConfigId": "primary",
     "defaults": {
       "deepThink": true
     }
@@ -221,6 +219,6 @@ Example structure for `setta_files/engine_configs.json`:
 
 ## Migration notes (llmConfigId -> engineConfigId)
 - Replace any per-section `llmConfigId` selection with `engineConfigId`.
-- Internal engine configs should reference existing `llm_config.json` entries via `settaLlmConfig.llmConfigId`.
+- Internal engine configs should reference existing `llm_config.json` entries via `settaLlmConfigId`.
 - Agent profiles should move from `llmConfigId` to `engineConfigId`.
 - External engine configs reference existing `external_agents.json` entries.

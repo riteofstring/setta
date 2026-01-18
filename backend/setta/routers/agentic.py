@@ -33,7 +33,6 @@ from setta.types.agentic import (
     EngineConfigDefaults,
     EngineType,
     RunChainSpec,
-    SettaLlmEngineConfig,
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -154,7 +153,7 @@ class DeleteExternalAgentConfigRequest(BaseModel):
 class CreateEngineConfigRequest(BaseModel):
     name: str
     engineType: EngineType
-    settaLlmConfig: SettaLlmEngineConfig | None = None
+    settaLlmConfigId: str | None = None
     externalAgentConfigId: ID | None = None
     defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
 
@@ -603,7 +602,7 @@ async def route_create_engine_config(
     config = EngineConfig(
         name=x.name,
         engineType=x.engineType,
-        settaLlmConfig=x.settaLlmConfig,
+        settaLlmConfigId=x.settaLlmConfigId,
         externalAgentConfigId=x.externalAgentConfigId,
         defaults=x.defaults,
     )

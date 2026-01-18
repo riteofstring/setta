@@ -50,7 +50,6 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineConfig,
     EngineType,
-    SettaLlmEngineConfig,
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -119,9 +118,7 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         id=engine_config_id,
                         name="Planner Engine",
                         engineType=EngineType.setta_llm,
-                        settaLlmConfig=SettaLlmEngineConfig(
-                            llmConfigId="planner-llm"
-                        ),
+                        settaLlmConfigId="planner-llm",
                     )
                 ],
             )

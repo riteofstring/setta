@@ -22,9 +22,7 @@ def resolve_engine_config(
 ) -> ResolvedEngineConfig:
     engine_config = require_engine_config(dbe, engine_config_id)
     if engine_config.engineType == EngineType.setta_llm:
-        llm_config_id = None
-        if engine_config.settaLlmConfig is not None:
-            llm_config_id = engine_config.settaLlmConfig.llmConfigId
+        llm_config_id = engine_config.settaLlmConfigId
         if not llm_config_id:
             if llm_configs.default_config_id:
                 llm_config_id = llm_configs.default_config_id

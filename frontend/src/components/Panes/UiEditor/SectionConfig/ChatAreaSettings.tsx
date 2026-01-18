@@ -179,7 +179,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       return null;
     }
     return (
-      selectedEngineConfig.settaLlmConfig?.llmConfigId ??
+      selectedEngineConfig.settaLlmConfigId ??
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
@@ -250,10 +250,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       }
       const nextConfig = {
         ...selectedEngineConfig,
-        settaLlmConfig: {
-          ...(selectedEngineConfig.settaLlmConfig ?? {}),
-          llmConfigId: value,
-        },
+        settaLlmConfigId: value,
       };
       void updateEngineConfig({ config: nextConfig });
     },

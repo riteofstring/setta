@@ -101,7 +101,7 @@ export function ProjectChat() {
       return null;
     }
     return (
-      selectedEngineConfig.settaLlmConfig?.llmConfigId ??
+      selectedEngineConfig.settaLlmConfigId ??
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
@@ -181,10 +181,7 @@ export function ProjectChat() {
       }
       const nextConfig = {
         ...selectedEngineConfig,
-        settaLlmConfig: {
-          ...(selectedEngineConfig.settaLlmConfig ?? {}),
-          llmConfigId: value,
-        },
+        settaLlmConfigId: value,
       };
       void updateEngineConfig({ config: nextConfig });
     },

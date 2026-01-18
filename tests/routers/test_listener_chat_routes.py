@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from setta.agentic.store import save_engine_configs
 from setta.database.db_objs import DBE
 from setta.routers.listener import CreateChatRequest, route_create_chat
-from setta.types.agentic import EngineConfig, EngineType, SettaLlmEngineConfig
+from setta.types.agentic import EngineConfig, EngineType
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, SCRIPTABLE_LLM_CONFIG_ID
@@ -68,7 +68,7 @@ class ListenerChatRouteTests(unittest.IsolatedAsyncioTestCase):
             engine_config = EngineConfig(
                 name="Primary LLM",
                 engineType=EngineType.setta_llm,
-                settaLlmConfig=SettaLlmEngineConfig(llmConfigId="primary"),
+                settaLlmConfigId="primary",
             )
             save_engine_configs(dbe, [engine_config])
             state = _ListenerRouteState(

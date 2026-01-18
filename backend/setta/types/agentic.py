@@ -14,10 +14,6 @@ class EngineType(str, Enum):
     external_agent = "external_agent"
 
 
-class SettaLlmEngineConfig(BaseModel, extra="forbid"):
-    llmConfigId: str | None = None
-
-
 class EngineConfigDefaults(BaseModel, extra="forbid"):
     deepThink: bool | None = None
 
@@ -26,7 +22,7 @@ class EngineConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str
     engineType: EngineType
-    settaLlmConfig: SettaLlmEngineConfig | None = None
+    settaLlmConfigId: str | None = None
     externalAgentConfigId: ID | None = None
     defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
 

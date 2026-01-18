@@ -149,7 +149,7 @@ Adapters:
 - Introduce `setta_files/engine_configs.json` alongside `setta_files/external_agents.json`
   and watchers so changes hot-reload without a server restart.
 - Engine configs unify internal Setta LLM and external agents (internal engines
-  reference `llm_config.json` via `settaLlmConfig.llmConfigId`; external engines
+  reference `llm_config.json` via `settaLlmConfigId`; external engines
   reference an external agent config).
 - Store only env var names in config (values sourced from `.env`), matching the
   existing LLM config pattern.
@@ -164,9 +164,7 @@ Example structure for `setta_files/engine_configs.json`:
     "id": "engine-setta-default",
     "name": "Setta LLM",
     "engineType": "setta_llm",
-    "settaLlmConfig": {
-      "llmConfigId": "primary"
-    }
+    "settaLlmConfigId": "primary"
   },
   {
     "id": "engine-claude-sdk",
