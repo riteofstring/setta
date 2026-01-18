@@ -210,13 +210,13 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
 
             artifacts_dir = root / "artifacts"
             (artifacts_dir / "image.png").touch()
-            with runtime_context(state, session.id) as runtime_ctx:
-                contents = route_get_folder_contents(
-                    GetFolderContentsRequest(folderPath=str(artifacts_dir)),
-                    runtime_ctx,
-                )
-            names = {item["name"] for item in contents}
-            self.assertIn("image.png", names)
+            with self.assertRaises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_get_folder_contents(
+                        GetFolderContentsRequest(folderPath=str(artifacts_dir)),
+                        runtime_ctx,
+                    )
+            self.assertEqual(403, ctx.exception.status_code)
 
             with self.assertRaises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
