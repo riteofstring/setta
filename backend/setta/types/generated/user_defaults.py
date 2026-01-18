@@ -23,7 +23,6 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -104,6 +103,7 @@ class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbi
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     layers: list[DrawAreaLayer] = Field(default_factory=list)
+    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
@@ -126,18 +126,6 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     text: str = ""
 
 
-class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
-    template: str = ""
-    format: PromptFormat = PromptFormat.Jinja
-    inputs: dict[str, str] = Field(default_factory=dict)
-    renderedText: str = ""
-    missingVariables: list[str] = Field(default_factory=list)
-    renderError: str | None = None
-
-
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     showSectionTitle: bool = False
 
@@ -157,6 +145,12 @@ class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid")
 
 
 class UserDefaultGenPythonCodeSectionImpl(
+    UserDefaultBaseCodeSectionImpl, extra="forbid"
+):
+    pass
+
+
+class UserDefaultGenPythonMetadataSectionImpl(
     UserDefaultBaseCodeSectionImpl, extra="forbid"
 ):
     pass

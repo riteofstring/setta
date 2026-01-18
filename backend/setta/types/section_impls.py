@@ -19,7 +19,6 @@ from setta.types.generated.chart_settings_unions import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -32,12 +31,12 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
-    Prompt = "Prompt"
     MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
     Code = "Code"
     GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
     Terminal = "Terminal"
     IFrame = "IFrame"
     Chat = "Chat"
@@ -143,7 +142,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    renderedValue: str | None = None
+    pass
 
 
 class CodeFileAccessMode(str, Enum):
@@ -217,6 +216,7 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
     layers: list[DrawAreaLayer] = Field(default_factory=list)
+    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
@@ -238,19 +238,6 @@ class TextBlockSectionImpl(BaseSectionImpl):
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
-
-
-class PromptSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Prompt] = SectionType.Prompt
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
-    template: str = ""
-    format: PromptFormat = PromptFormat.Jinja
-    inputs: dict[str, str] = Field(default_factory=dict)
-    renderedText: str = ""
-    missingVariables: list[str] = Field(default_factory=list)
-    renderError: str | None = None
 
 
 class MetaControlSectionImpl(BaseSectionImpl):
@@ -276,6 +263,10 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
+
+
+class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
+    type: Literal[SectionType.GenPythonMetadata] = SectionType.GenPythonMetadata
 
 
 class TerminalSectionImpl(BaseSectionImpl):

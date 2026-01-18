@@ -9,7 +9,6 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.agentic import AgentProfileList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
@@ -36,7 +35,6 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
-from setta.types.prompt import PromptTemplateList
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -56,8 +54,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
-    AgentProfilesUpdated = "AgentProfilesUpdated"
-    PromptTemplatesUpdated = "PromptTemplatesUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -218,20 +214,6 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     content: APIKeys
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
-    )
-
-
-class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
-    content: AgentProfileList
-    messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
-        WebsocketMsgTypeForFrontend.AgentProfilesUpdated
-    )
-
-
-class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
-    content: PromptTemplateList
-    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
-        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
     )
 
 

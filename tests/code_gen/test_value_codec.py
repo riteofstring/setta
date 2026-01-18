@@ -148,20 +148,7 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_section(section_node), "None")
 
-    def test_prompt_section_formats_as_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Prompt",
-            full_path_name="prompt",
-            type=SectionType.Prompt,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("Hello Ada"),
-        )
-        self.assertEqual(codec.format_section(section_node), "'Hello Ada'")
-
-    def test_draw_section_uses_dependency_value_helpers(self) -> None:
+    def test_draw_section_uses_file_read_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -170,12 +157,12 @@ class PythonValueCodecTest(TestCase):
             type=SectionType.Draw,
             isTopLevel=True,
             deps={},
-            value=Base64DependencyValue("c29tZQ=="),
+            value=FileReadDependencyValue("/tmp/draw.png"),
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
             rendered,
-            "_helpers.decode_base64_value('c29tZQ==')",
+            "_helpers.read_file_value('/tmp/draw.png')",
         )
         self.assertEqual(
             codec.required_imports,
