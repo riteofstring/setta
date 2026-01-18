@@ -285,10 +285,7 @@ class SettaFastAPIState:
             await self._maybe_delay()
             self.specific_file_watcher = SpecificFileWatcher()
             self.artifacts = Artifacts(
-                self.wmh_frontend_sender,
-                self.specific_file_watcher,
-                self.dbe,
-                realtime_event_hub=self.realtime_event_hub,
+                self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
             )
             self.code_files = CodeFiles(
                 self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
@@ -438,7 +435,6 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
-            realtime_event_hub=self.realtime_event_hub,
         )
         self.settings_file = SettingsFile(
             self.dbe,
