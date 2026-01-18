@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
+from setta.agentic.chat_view import (
+    EXTERNAL_AGENT_RUN_TYPE,
+    get_run_chat_id,
+    get_run_sort_key,
+    is_external_agent_run,
+)
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -16,7 +21,12 @@ from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
-from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
+from setta.agentic.store import (
+    create_agent_run,
+    list_agent_runs,
+    load_agent_run,
+    save_agent_run,
+)
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
@@ -39,6 +49,7 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
+    ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.id import ID
@@ -144,6 +155,7 @@ class ExternalAgentRunner:
 
     async def _run_external_agent(self, context: ExternalAgentRunContext) -> None:
         run = context.run
+        handle: ExternalAgentRunHandle | None = None
         try:
             adapter = self._adapter_registry.lookup(
                 context.config.toolType,
@@ -179,6 +191,7 @@ class ExternalAgentRunner:
                         run.id,
                         event.stream_chunk,
                     )
+            self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
@@ -189,10 +202,12 @@ class ExternalAgentRunner:
         except asyncio.CancelledError:
             run.status = AgentRunStatus.cancelled
             run.finishedAt = get_now_timestamp()
+            self._persist_external_session_metadata(run, handle)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
+            self._persist_external_session_metadata(run, handle)
             await (
                 self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
                     exc,
@@ -229,11 +244,14 @@ class ExternalAgentRunner:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
 
+        chat_id = self._resolve_id_input(inputs, "chatId")
+        if chat_id is not None:
+            self._apply_session_history(payload_inputs, config, chat_id)
+
         run = create_agent_run(
             profile_id=profile.id if profile is not None else None,
             inputs=payload_inputs,
         )
-        chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is None:
             chat_id = run.id
             payload_inputs["chatId"] = str(run.id)
@@ -280,6 +298,56 @@ class ExternalAgentRunner:
         if not isinstance(raw, str):
             raise TypeError(f"{key} must be a string")
         return ID(raw)
+
+    def _apply_session_history(
+        self,
+        payload_inputs: dict[str, Any],
+        config: ExternalAgentConfig,
+        chat_id: ID,
+    ) -> None:
+        if "sessionId" in payload_inputs or "threadId" in payload_inputs:
+            return
+        previous = self._find_latest_external_run(chat_id, config.id)
+        if previous is None:
+            return
+        session_id = self._extract_output_string(previous.outputs, "sessionId")
+        thread_id = self._extract_output_string(previous.outputs, "threadId")
+        if config.toolType == ExternalAgentToolType.codex:
+            if thread_id:
+                payload_inputs["threadId"] = thread_id
+            return
+        if session_id:
+            payload_inputs["sessionId"] = session_id
+
+    def _find_latest_external_run(self, chat_id: ID, config_id: ID) -> AgentRun | None:
+        runs = [
+            run
+            for run in list_agent_runs(self.dbe)
+            if is_external_agent_run(run)
+            and get_run_chat_id(run) == chat_id
+            and self._get_run_external_config_id(run) == config_id
+        ]
+        if not runs:
+            return None
+        return max(runs, key=get_run_sort_key)
+
+    @staticmethod
+    def _get_run_external_config_id(run: AgentRun) -> ID | None:
+        if not run.inputs:
+            return None
+        raw = run.inputs.get("externalAgentConfigId")
+        if isinstance(raw, str) and raw:
+            return ID(raw)
+        return None
+
+    @staticmethod
+    def _extract_output_string(outputs: dict[str, Any] | None, key: str) -> str | None:
+        if not outputs:
+            return None
+        raw = outputs.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+        return None
 
     def _build_system_prompt(
         self, profile: AgentProfile | None, project_config_id: ID
@@ -353,6 +421,24 @@ class ExternalAgentRunner:
 
     def _record_event(self, run: AgentRun, event_type: str, payload: dict[str, Any]):
         run.events.append(RunEvent(type=event_type, payload=payload))
+        save_agent_run(self.dbe, run)
+
+    def _persist_external_session_metadata(
+        self, run: AgentRun, handle: ExternalAgentRunHandle | None
+    ) -> None:
+        if handle is None:
+            return
+        outputs = run.outputs or {}
+        updated = False
+        if handle.session_id and outputs.get("sessionId") != handle.session_id:
+            outputs["sessionId"] = handle.session_id
+            updated = True
+        if handle.thread_id and outputs.get("threadId") != handle.thread_id:
+            outputs["threadId"] = handle.thread_id
+            updated = True
+        if not updated:
+            return
+        run.outputs = outputs
         save_agent_run(self.dbe, run)
 
     async def _handle_stream_chunk(

@@ -16,7 +16,7 @@ from setta.types.external_agents import (
 )
 from setta.utils.constants import CWD
 
-_NODE_VERSION_RE = re.compile(r"v?(\\d+)\\.(\\d+)\\.(\\d+)")
+_NODE_VERSION_RE = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 _SIDECAR_ROOT = Path(__file__).resolve().parent / "external_adapters" / "sidecars"
 _SIDECAR_NODE_MODULES = _SIDECAR_ROOT / "node_modules"
 
@@ -60,9 +60,7 @@ def build_external_agent_preflight_status(
             issues.append(sdk_issue)
 
         if config.toolType == ExternalAgentToolType.claude_code:
-            cli_version, cli_issue = _check_claude_cli()
-            if cli_issue:
-                issues.append(cli_issue)
+            cli_version, _ = _check_claude_cli()
 
     working_dir, working_dir_issue = _resolve_working_dir(config)
     if working_dir_issue:
