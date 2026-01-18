@@ -65,17 +65,6 @@ SINGLETON_SECTION_TYPES = set(
     ]
 )
 
-CODE_LANGUAGE_EXTENSIONS = {
-    CodeLanguage.python: "py",
-    CodeLanguage.bash: "sh",
-    CodeLanguage.javascript: "js",
-    CodeLanguage.typescript: "ts",
-    CodeLanguage.json: "json",
-    CodeLanguage.yaml: "yml",
-    CodeLanguage.markdown: "md",
-    CodeLanguage.plaintext: "txt",
-}
-
 
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: ID | None = None
@@ -332,7 +321,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 section_full_name = get_section_path_full_name(self, section_id)
                 section_slug = sanitize_name(section_full_name)
                 language = effective_impl.codeLanguage
-                extension = CODE_LANGUAGE_EXTENSIONS[language]
+                extension = "py" if language == CodeLanguage.python else "sh"
                 canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"
                 access_mode = CodeFileAccessMode.read_write
 

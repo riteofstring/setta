@@ -49,7 +49,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - ListRoot sections -> `state.<path> = [child_value0, child_value1, ...]` in order.
 - GlobalVariables section -> top-level params become `state.<param_name>`.
 - MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
-- TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
+- TextBlock -> `state.<path> = "<text>"`; Draw -> file-backed payload or None.
 - Sections outside the dependency graph (Code, GenPythonCode, GenPythonMetadata, Image, Chart, Browser,
   Terminal, Chat, etc.) do not emit generated values.
 

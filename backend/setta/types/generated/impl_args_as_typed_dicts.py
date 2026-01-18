@@ -122,6 +122,7 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
+                "renderedImagePath",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -383,6 +384,7 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[DrawAreaLayer]]
+    renderedImagePath: NotRequired[str | None]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -402,6 +404,7 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     layers: NotRequired[
         list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
+    renderedImagePath: NotRequired[str | None | Callable[[str | None], str | None]]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]

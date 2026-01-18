@@ -327,11 +327,15 @@ class DependencyGraph:
         if not isinstance(section_impl, DrawSectionImpl):
             return
         representation = ctx.codegen_policy.representation
-        if representation is not SectionRepresentationMode.base64:
+        if representation is not SectionRepresentationMode.file:
             raise ValueError(
                 f"Unsupported representation {representation.value} for Draw section {ctx.section_id}"
             )
-        dependency_value = None
+        dependency_value = (
+            FileReadDependencyValue(section_impl.renderedImagePath)
+            if section_impl.renderedImagePath
+            else None
+        )
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,

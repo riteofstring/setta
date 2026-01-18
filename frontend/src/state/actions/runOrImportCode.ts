@@ -6,12 +6,12 @@ import {
   useShareSession,
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { isRunnableCodeLanguage } from "utils/codeLanguage";
 import {
   route_kill_subprocesses,
   route_run_code,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
 import {
@@ -21,32 +21,6 @@ import {
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
-  if (sectionId) {
-    const impl = getCurrEffectiveSectionImpl(
-      useProjectState.getState(),
-      sectionId,
-    );
-    if (
-      impl.type === SectionTypeEnum.Code &&
-      !isRunnableCodeLanguage(impl.codeLanguage)
-    ) {
-      addTemporaryNotification("Run is only available for Python and Bash.");
-      return;
-    }
-  } else if (projectConfig.entryCodeBlockId) {
-    const entryImpl = getCurrEffectiveSectionImpl(
-      useProjectState.getState(),
-      projectConfig.entryCodeBlockId,
-    );
-    if (
-      entryImpl.type === SectionTypeEnum.Code &&
-      !isRunnableCodeLanguage(entryImpl.codeLanguage)
-    ) {
-      addTemporaryNotification("Run is only available for Python and Bash.");
-      return;
-    }
-  }
-
   const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
   if (!pythonCodegenEnabled) {
     const gen_section_id = singletonSections.GenPythonCode;
@@ -78,11 +52,13 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
+  const drawSnapshotsBySectionId = collectDrawSnapshotsForRun();
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
     cliId: null,
     runSnapshotMode,
+    drawSnapshotsBySectionId,
   });
 }
 
@@ -121,4 +97,18 @@ export async function stopCode() {
   route_kill_subprocesses({
     projectConfigId: getCurrProjectConfigId(),
   });
+}
+
+function collectDrawSnapshotsForRun(): Record<string, string | null> | null {
+  const state = useProjectState.getState();
+  const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);
+  const drawSectionIds = sectionIds.filter(
+    (sectionId) =>
+      getCurrEffectiveSectionImpl(state, sectionId).type ===
+      SectionTypeEnum.Draw,
+  );
+  if (drawSectionIds.length === 0) {
+    return null;
+  }
+  return collectDrawSnapshotPayloads(drawSectionIds);
 }

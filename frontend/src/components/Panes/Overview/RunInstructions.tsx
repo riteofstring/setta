@@ -900,7 +900,7 @@ function getRepresentationOptions(
     return ["json", "file"];
   }
   if (sectionType === SectionTypeEnum.Draw) {
-    return ["base64"];
+    return ["file"];
   }
   return ["json"];
 }

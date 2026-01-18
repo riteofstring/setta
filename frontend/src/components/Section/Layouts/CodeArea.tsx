@@ -39,7 +39,6 @@ import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { CodeLanguage } from "utils/codeLanguage";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -53,7 +52,7 @@ import {
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -287,7 +286,7 @@ function getGenReadOnlyLineDecorations(doc: string, from: number, to: number) {
   });
 }
 
-function _CodeArea({ sectionId }: { sectionId: string }) {
+function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -296,21 +295,18 @@ function _CodeArea({ sectionId }: { sectionId: string }) {
     );
     return impl.codeLanguage;
   });
-  if (language === CodeLanguageEnum.python) {
-    return <PythonCodeArea sectionId={sectionId} language={language} />;
+
+  switch (language) {
+    case "python":
+      return <PythonCodeArea sectionId={sectionId} language={language} />;
+    case "bash":
+      return <BashCodeArea sectionId={sectionId} language={language} />;
   }
-  return <BasicCodeArea sectionId={sectionId} language={language} />;
 }
 
 export const CodeArea = React.memo(_CodeArea);
 
-function PythonCodeArea({
-  sectionId,
-  language,
-}: {
-  sectionId: string;
-  language: CodeLanguage;
-}) {
+function PythonCodeArea({ sectionId, language }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const canUseLsp = !isShareMode;
   const completionsFn = useCallback(
@@ -327,13 +323,7 @@ function PythonCodeArea({
   );
 }
 
-function BasicCodeArea({
-  sectionId,
-  language,
-}: {
-  sectionId: string;
-  language: CodeLanguage;
-}) {
+function BashCodeArea({ sectionId, language }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
 

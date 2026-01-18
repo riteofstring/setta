@@ -137,12 +137,6 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
-export async function route_get_file_browser_root(): Promise<
-  ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
-> {
-  return await post("/getFileBrowserRoot", null);
-}
-
 export async function route_get_folder_contents(
   x: gt.GetFolderContentsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.FolderContentItem>>> {
