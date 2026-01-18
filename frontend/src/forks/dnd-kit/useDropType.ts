@@ -13,7 +13,7 @@ import {
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
   getSectionChildren,
@@ -21,7 +21,7 @@ import {
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useProjectState, useSectionRefs } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -72,41 +72,12 @@ export function onDragStart({ active }: DragStartEvent) {
   if (!active.data || !active.data.current) {
     return;
   }
-  const sectionRef = useSectionRefs.getState().withNested[active.id];
-  const rect = sectionRef?.getBoundingClientRect() ?? null;
-  const rawWidth = rect?.width ?? sectionRef?.clientWidth ?? 0;
-  const rawHeight = rect?.height ?? sectionRef?.clientHeight ?? 0;
-  const activeRect = rect
-    ? {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      }
-    : null;
-  const zoom = useReactFlow.getState().transform[2];
-  const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth = rawWidth;
-  const normalizedHeight = rawHeight / safeZoom;
+  const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
-  setActiveDnd(
-    active.id,
-    active.data.current.isTopLevel,
-    normalizedWidth,
-    normalizedHeight,
-    activeRect,
-  );
+  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
   if (dndState.isMovingFree) {
     manualDndChildrenReset();
-    requestAnimationFrame(() => {
-      const latestState = useDndState.getState();
-      if (!latestState.isMovingFree || latestState.activeId !== active.id) {
-        return;
-      }
-      replaceDndSectionWithTemp(active.id);
-    });
+    replaceDndSectionWithTemp(active.id);
   }
 }
 

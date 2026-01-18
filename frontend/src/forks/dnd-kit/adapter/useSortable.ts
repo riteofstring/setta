@@ -10,7 +10,7 @@ import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
-import { useDndProviderContext } from "./DndProviderContext";
+import { useDndMode } from "../dndState";
 import { Context } from "./SortableContext";
 import {
   isValidIndex,
@@ -66,13 +66,12 @@ export function useSortable({
     disableTransforms,
     sortedRects,
     overIndex,
-    sortingEnabled,
     useDragOverlay,
     strategy: globalStrategy,
   } = useContext(Context);
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
-  const { isSorting: isSortingMode } = useDndProviderContext();
+  const dndMode = useDndMode();
   const manager = useDragDropManager();
   const isDragActive = useComputed(() => {
     if (!manager) {
@@ -82,12 +81,12 @@ export function useSortable({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const shouldTrackSorting = sortingEnabled && isDragActive;
-  const disableFeedback = sortingEnabled;
+  const shouldTrackSorting = dndMode.isSorting && isDragActive;
+  const disableFeedback = dndMode.isSorting;
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
-  if (isSortingMode) {
+  if (dndMode.isSorting) {
     const containerIsHorizontal =
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
@@ -186,7 +185,7 @@ export function useSortable({
   const isActiveItem = index === activeIndex && activeIndex !== -1;
   const isDraggingActive = isDragging || (isSorting && isActiveItem);
   const shouldDisableTransition =
-    sortingEnabled && wasDragActiveRef.current && itemsHaveChanged;
+    dndMode.isSorting && wasDragActiveRef.current && itemsHaveChanged;
   const displaceItem =
     isSorting &&
     !disableTransforms &&
@@ -230,13 +229,13 @@ export function useSortable({
   }, [disabled, sortable]);
 
   useEffect(() => {
-    if (sortingEnabled && isDragActive && !isDraggingActive) {
+    if (dndMode.isSorting && isDragActive && !isDraggingActive) {
       sortable.transition = transition ?? null;
       return;
     }
 
     sortable.transition = null;
-  }, [sortingEnabled, isDragActive, isDraggingActive, sortable, transition]);
+  }, [dndMode.isSorting, isDragActive, isDraggingActive, sortable, transition]);
 
   return {
     attributes: attributes ?? {},
