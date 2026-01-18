@@ -137,12 +137,6 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
-export async function route_get_file_browser_root(): Promise<
-  ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
-> {
-  return await post("/getFileBrowserRoot", null);
-}
-
 export async function route_get_folder_contents(
   x: gt.GetFolderContentsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.FolderContentItem>>> {
@@ -307,6 +301,132 @@ export async function route_get_ai_follow_snapshot(
   ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
 > {
   return await post("/getAIFollowSnapshot", x);
+}
+
+export async function route_get_agent_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentProfile>>
+> {
+  return await get("/getAgentProfiles");
+}
+
+async function route_get_agent_profile(
+  x: gt.GetAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/getAgentProfile", x);
+}
+
+async function route_create_agent_profile(
+  x: gt.CreateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/createAgentProfile", x);
+}
+
+async function route_update_agent_profile(
+  x: gt.UpdateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/updateAgentProfile", x);
+}
+
+async function route_delete_agent_profile(
+  x: gt.DeleteAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteAgentProfile", x);
+}
+
+async function route_start_agent_run(
+  x: gt.StartAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startAgentRun", x);
+}
+
+async function route_stop_agent_run(
+  x: gt.StopAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopAgentRun", x);
+}
+
+async function route_start_external_agent_run(
+  x: gt.StartExternalAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startExternalAgentRun", x);
+}
+
+async function route_stop_external_agent_run(
+  x: gt.StopExternalAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopExternalAgentRun", x);
+}
+
+async function route_get_agent_run(
+  x: gt.GetAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/getAgentRun", x);
+}
+
+async function route_get_agent_runs(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentRun>>
+> {
+  return await get("/getAgentRuns");
+}
+
+export async function route_get_prompt_templates(): Promise<
+  ResponseDataAndStatus<Array<gt.PromptTemplate>>
+> {
+  return await get("/getPromptTemplates");
+}
+
+async function route_get_prompt_template(
+  x: gt.GetPromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/getPromptTemplate", x);
+}
+
+async function route_create_prompt_template(
+  x: gt.CreatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/createPromptTemplate", x);
+}
+
+async function route_update_prompt_template(
+  x: gt.UpdatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/updatePromptTemplate", x);
+}
+
+async function route_delete_prompt_template(
+  x: gt.DeletePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deletePromptTemplate", x);
+}
+
+export async function route_get_external_agent_configs(): Promise<
+  ResponseDataAndStatus<Array<gt.ExternalAgentConfig>>
+> {
+  return await get("/getExternalAgentConfigs");
+}
+
+async function route_get_external_agent_config(
+  x: gt.GetExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/getExternalAgentConfig", x);
+}
+
+async function route_create_external_agent_config(
+  x: gt.CreateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/createExternalAgentConfig", x);
+}
+
+async function route_update_external_agent_config(
+  x: gt.UpdateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/updateExternalAgentConfig", x);
+}
+
+async function route_delete_external_agent_config(
+  x: gt.DeleteExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteExternalAgentConfig", x);
 }
 
 export async function route_clear_text_field_completion(
@@ -515,10 +635,22 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
-export async function route_set_project_config_codegen_targets(
-  x: gt.SetProjectConfigCodegenTargetsRequestInput,
+export async function route_set_prompt_template(
+  x: gt.SetPromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setProjectConfigCodegenTargets", x);
+  return await post("/setPromptTemplate", x);
+}
+
+export async function route_set_prompt_inputs(
+  x: gt.SetPromptInputsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptInputs", x);
+}
+
+export async function route_set_prompt_format(
+  x: gt.SetPromptFormatRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptFormat", x);
 }
 
 export async function route_set_gen_code_prefix(

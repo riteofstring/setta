@@ -9,9 +9,9 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPServers, LSPWriters
+from setta.llm.chat_store import AgentRunChatStore
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.project_state.chats.save import create_new_chat
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
@@ -188,8 +188,8 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
         return UserChatMessage(content=[MessageTextContent(text=text)])
 
     async def test_get_chat_section_chat_id_returns_existing(self) -> None:
-        chat = create_new_chat(
-            self.dbe,
+        store = AgentRunChatStore(self.dbe)
+        chat = store.create_new_chat(
             self._create_message("Hello"),
             LLMConfig(id="test-llm", model="gpt-test"),
             project_config_id=self.project_config_id,

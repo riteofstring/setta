@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, assert_never
 import rpack
 
 from setta.database.utils import create_new_id
+from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -57,10 +58,10 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
-    GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
+    PromptSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
 )
@@ -111,6 +112,8 @@ from setta.types.section_impls import (
     GroupSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PromptFormat,
+    PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -1526,19 +1529,6 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
     )
 
 
-def maybe_update_gen_python_metadata_section(
-    p: "ProjectStateSingleConfig", code: str | None
-):
-    sectionId = p.singletonSections.GenPythonMetadata
-    if not sectionId:
-        return
-    if code is None:
-        code = ""
-    set_curr_effective_section_impl_value(
-        p, sectionId, GenPythonMetadataSectionImplArgsWithCallable(code=code)
-    )
-
-
 def delete_section_variant_or_ask(
     p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
 ):
@@ -2122,11 +2112,79 @@ def set_text_block_format(
     )
 
 
+def _render_prompt_section(
+    template: str,
+    inputs: dict[str, str],
+    format: PromptFormat,
+) -> PromptRenderResult:
+    if format is not PromptFormat.Jinja:
+        raise ValueError(f"Unsupported prompt format {format}")
+    return render_prompt(template, inputs)
+
+
+def set_prompt_section_template(
+    p: "ProjectStateSingleConfig", sectionId: ID, template: str
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(template, impl.inputs, impl.format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            template=template,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_prompt_section_inputs(
+    p: "ProjectStateSingleConfig", sectionId: ID, inputs: dict[str, str]
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(impl.template, inputs, impl.format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            inputs=inputs,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_prompt_section_format(
+    p: "ProjectStateSingleConfig", sectionId: ID, format: PromptFormat
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(impl.template, impl.inputs, format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            format=format,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
 def set_chat_section_settings(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
     managed: bool,
     llmConfigId: str | None,
+    agentProfileId: ID | None,
     deepThink: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
@@ -2136,6 +2194,7 @@ def set_chat_section_settings(
         ChatSectionImplArgsWithCallable(
             managed=managed,
             llmConfigId=llmConfigId,
+            agentProfileId=agentProfileId,
             deepThink=deepThink,
         ),
     )
