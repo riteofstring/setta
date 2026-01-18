@@ -11,7 +11,6 @@ from setta.types.section_impls import (
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     IFrameSectionImpl,
@@ -37,7 +36,6 @@ BaseSectionImplUnion = (
     | GlobalVariablesSectionImpl
     | CodeSectionImpl
     | GenPythonCodeSectionImpl
-    | GenPythonMetadataSectionImpl
     | TerminalSectionImpl
     | IFrameSectionImpl
     | ChatSectionImpl
@@ -54,9 +52,7 @@ BaseSectionWithParamsImplUnion = (
 
 BaseCanvasSectionImplUnion = ChartSectionImpl | DrawSectionImpl
 
-BaseCodeSectionImplUnion = (
-    CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl
-)
+BaseCodeSectionImplUnion = CodeSectionImpl | GenPythonCodeSectionImpl
 
 BaseParentSectionImplUnion = ListRootSectionImpl | GroupSectionImpl
 
@@ -149,7 +145,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgs,
     DrawSectionImplArgs,
     GenPythonCodeSectionImplArgs,
-    GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
@@ -175,7 +170,6 @@ BaseSectionImplArgsUnion = (
     | GlobalVariablesSectionImplArgs
     | CodeSectionImplArgs
     | GenPythonCodeSectionImplArgs
-    | GenPythonMetadataSectionImplArgs
     | TerminalSectionImplArgs
     | IFrameSectionImplArgs
     | ChatSectionImplArgs

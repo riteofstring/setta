@@ -149,12 +149,6 @@ class UserDefaultGenPythonCodeSectionImpl(
     pass
 
 
-class UserDefaultGenPythonMetadataSectionImpl(
-    UserDefaultBaseCodeSectionImpl, extra="forbid"
-):
-    pass
-
-
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=700, height=300)
