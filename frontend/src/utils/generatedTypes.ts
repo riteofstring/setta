@@ -358,6 +358,9 @@ export const RouteEnum = {
   RUN_MCP_TOOLS: "/runMcpTools",
   EMIT_CHAT_STREAM_DELTA: "/emitChatStreamDelta",
   RUN_CODE: "/runCode",
+  RUN_DETACHED: "/runDetached",
+  GET_RUN_STATUS: "/getRunStatus",
+  CANCEL_RUN: "/cancelRun",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
   SET_CALLABLE: "/setCallable",
@@ -6765,6 +6768,70 @@ const SetProjectConfigNameRequestSchema = z.object({
 export type SetProjectConfigNameRequestInput = z.input<
   typeof SetProjectConfigNameRequestSchema
 >;
+
+const CancelRunRequestSchema = z.object({
+  runId: z.string(),
+});
+
+export type CancelRunRequestInput = z.input<typeof CancelRunRequestSchema>;
+
+const GetRunStatusRequestSchema = z.object({
+  runId: z.string(),
+});
+
+export type GetRunStatusRequestInput = z.input<
+  typeof GetRunStatusRequestSchema
+>;
+
+const RunDetachedRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  entrySectionId: z.union([IDSchema, z.null()]).default(null),
+  runSnapshotMode: z
+    .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
+  sectionVariantOverrides: z
+    .union([z.record(IDSchema, IDSchema), z.null()])
+    .default(null),
+  paramOverrides: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
+  tags: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+});
+
+export type RunDetachedRequestInput = z.input<typeof RunDetachedRequestSchema>;
+
+const RunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+} as const;
+
+const RunDetachedResponseSchema = z.object({
+  runId: z.string(),
+  status: z.enum(RunStatusEnum),
+});
+
+export type RunDetachedResponse = z.infer<typeof RunDetachedResponseSchema>;
+
+const RunStatusResponseSchema = z.object({
+  runId: z.string(),
+  status: z.enum(RunStatusEnum),
+  createdAtMs: z.int(),
+  startedAtMs: z.union([z.int(), z.null()]),
+  exitedAtMs: z.union([z.int(), z.null()]),
+  exitCode: z.union([z.int(), z.null()]),
+  pid: z.union([z.int(), z.null()]),
+  command: z.string(),
+  snapshotPath: z.string(),
+  projectConfigId: IDSchema,
+  entrySectionId: z.union([IDSchema, z.null()]),
+  tags: z.record(z.string(), z.string()),
+});
+
+export type RunStatusResponse = z.infer<typeof RunStatusResponseSchema>;
 
 const CreateFileRequestSchema = z.object({
   filepath: z.string(),

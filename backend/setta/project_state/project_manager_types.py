@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 
 from pydantic import BaseModel, Field
 
@@ -108,6 +109,65 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional base64 PNG payloads for draw sections keyed by section id.",
     )
+
+
+class RunStatus(str, Enum):
+    queued = "queued"
+    running = "running"
+    exited = "exited"
+    failed = "failed"
+    canceled = "canceled"
+
+
+class RunDetachedRequest(ProjectManagerRequestWithProjectConfig):
+    entrySectionId: ID | None = Field(
+        default=None,
+        description="Optional section to run; defaults to the entry code block.",
+    )
+    runSnapshotMode: RunSnapshotMode | None = Field(
+        default=None,
+        description="Optional run snapshot mode override for this run.",
+    )
+    sectionVariantOverrides: dict[ID, ID] | None = Field(
+        default=None,
+        description="Optional section variant overrides keyed by section id.",
+    )
+    paramOverrides: dict[str, str] | None = Field(
+        default=None,
+        description='Optional parameter overrides keyed by "sectionId:paramId".',
+    )
+    tags: dict[str, str] | None = Field(
+        default=None,
+        description="Optional tags to associate with the run.",
+    )
+
+
+class RunDetachedResponse(BaseModel):
+    runId: str
+    status: RunStatus
+
+
+class RunStatusResponse(BaseModel):
+    runId: str
+    status: RunStatus
+    createdAtMs: int
+    startedAtMs: int | None
+    exitedAtMs: int | None
+    exitCode: int | None
+    pid: int | None
+    command: str
+    snapshotPath: str
+    projectConfigId: ID
+    entrySectionId: ID | None
+    tags: dict[str, str]
+
+
+class GetRunStatusRequest(BaseModel):
+    runId: str
+
+
+class CancelRunRequest(BaseModel):
+    runId: str
 
 
 class ClearTextFieldCompletionRequest(ProjectManagerRequestWithSection):

@@ -14,6 +14,7 @@ from setta.project_state.jsonSource.save import (
 )
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
+    RunDetachedRequest,
     SaveAsNewProjectConfigRequest,
 )
 from setta.project_state.readable_export import build_readable_project_export
@@ -243,6 +244,19 @@ class SessionProjectManager(BaseProjectManager):
             self.share_session_id,
             x,
         )
+
+    @BaseProjectManager.enqueue_method
+    async def create_run_command_with_overrides(
+        self,
+        x: RunDetachedRequest,
+    ) -> tuple[str, Path, ID | None]:
+        if self.share_runtime_state is None:
+            return (
+                await BaseProjectManager.create_run_command_with_overrides.__wrapped__(
+                    self, x
+                )
+            )
+        raise NotImplementedError("Share mode does not support detached run overrides.")
 
     @BaseProjectManager.enqueue_method
     async def load_json_sources(
