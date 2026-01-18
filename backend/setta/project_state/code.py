@@ -15,7 +15,7 @@ from setta.project_state.utils import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
-from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex, normalize_path
+from setta.utils.utils import compute_md5_hex, normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -40,15 +40,9 @@ def build_python_module_run_command(path: Path) -> str:
     return f"python -m {module_path}"
 
 
-def build_python_snapshot_module_run_command(snapshot_root: Path, path: Path) -> str:
-    resolved_root = snapshot_root.resolve()
-    resolved_path = path.resolve()
-    if not resolved_path.is_relative_to(resolved_root):
-        raise ValueError(f"Snapshot path {resolved_path} is not under {resolved_root}")
-    relative = resolved_path.relative_to(resolved_root)
-    module_path = convert_path_to_module_path(relative)
-    quoted_root = shlex.quote(str(resolved_root))
-    return f"PYTHONPATH={quoted_root} python -m {module_path}"
+def build_python_file_run_command(path: Path) -> str:
+    resolved = shlex.quote(str(path.resolve()))
+    return f"python {resolved}"
 
 
 def build_bash_run_command(
@@ -82,16 +76,12 @@ def create_snapshot_run_command(
     snapshot_root: Path,
     entry_section_id: ID | None,
     gen_code: str,
-    gen_meta_code: str | None,
     gen_binding: CodeFileBinding,
     code_sections: dict[ID, SnapshotCodeSection],
     gen_command_builder: RunCommandBuilder,
 ) -> str:
     target_folder = create_timestamped_folder(snapshot_root)
     gen_code_path = write_snapshot_file(dbe, target_folder, gen_binding, gen_code)
-    if gen_meta_code is not None:
-        meta_path = target_folder / GEN_CODE_META_FILENAME
-        dbe.write(meta_path, gen_meta_code)
     code_paths: dict[ID, Path] = {}
     for section_id, section in code_sections.items():
         code_paths[section_id] = write_snapshot_file(
@@ -114,7 +104,6 @@ def create_snapshot_run_command_from_sections(
     snapshot_root: Path,
     entry_section_id: ID | None,
     gen_code: str,
-    gen_meta_code: str | None,
     gen_binding: CodeFileBinding,
     section_inputs: dict[ID, SnapshotSectionInput],
     gen_command_builder: RunCommandBuilder,
@@ -131,7 +120,6 @@ def create_snapshot_run_command_from_sections(
         snapshot_root=snapshot_root,
         entry_section_id=entry_section_id,
         gen_code=gen_code,
-        gen_meta_code=gen_meta_code,
         gen_binding=gen_binding,
         code_sections=snapshot_sections,
         gen_command_builder=gen_command_builder,

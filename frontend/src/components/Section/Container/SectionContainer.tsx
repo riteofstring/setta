@@ -8,10 +8,7 @@ import {
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  getPythonCodegenTarget,
-  projectConfigHasPythonCodegen,
-} from "utils/codegenTargets";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
@@ -32,9 +29,7 @@ function _SectionContainer({
     isGroup,
     isUserView,
     isGenPython,
-    isGenPythonMetadata,
     hasPythonCodegen,
-    hasMetadata,
   } = useProjectState((x) => {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       sectionId,
@@ -42,23 +37,17 @@ function _SectionContainer({
     );
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     return {
       visibility,
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
       isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
-      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
-      hasMetadata: Boolean(pythonTarget?.generateMetadata),
     };
   }, _.isEqual);
 
   if (isGenPython && !hasPythonCodegen) {
-    return null;
-  }
-  if (isGenPythonMetadata && !hasMetadata) {
     return null;
   }
 

@@ -37,7 +37,6 @@ from setta.listeners.router_endpoint_local_updates import (
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
-from setta.project_state.project_code import build_python_code_generator
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -68,6 +67,7 @@ from setta.types.listener import (
 )
 from setta.types.project_config import (
     ProjectCodegenLanguage,
+    get_python_codegen_target_with_type_guard,
     project_config_has_codegen_language,
 )
 from setta.types.project_state import ProjectStateSingleConfig
@@ -1081,9 +1081,12 @@ class SettaListener:
         self, project_state: ProjectStateSingleConfig
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
-        code_generator = build_python_code_generator(
-            project_state,
+        project_config = project_state.projectConfig
+        python_target = get_python_codegen_target_with_type_guard(project_config)
+        code_generator = PythonCodeGenerator(
             dep_graph,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
             value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:

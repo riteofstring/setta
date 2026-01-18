@@ -122,6 +122,7 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
+                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -245,10 +246,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -508,20 +511,6 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
         Literal[SectionType.GenPythonCode]
         | Callable[
             [Literal[SectionType.GenPythonCode]], Literal[SectionType.GenPythonCode]
-        ]
-    ]
-
-
-class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
-    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
-
-
-class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.GenPythonMetadata]
-        | Callable[
-            [Literal[SectionType.GenPythonMetadata]],
-            Literal[SectionType.GenPythonMetadata],
         ]
     ]
 

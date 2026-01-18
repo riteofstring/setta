@@ -28,7 +28,6 @@ from setta.types.project_config import (
     ProjectCodegenLanguage,
     ProjectConfig,
     ViewModeConfig,
-    get_python_codegen_target,
     project_config_has_codegen_language,
 )
 from setta.types.section_impls import (
@@ -41,7 +40,6 @@ from setta.types.section_impls import (
     CodeLanguage,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
     SectionType,
     SectionWithParamsDisplayMode,
 )
@@ -51,25 +49,17 @@ from setta.types.shown_params import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import (
-    GEN_CODE_META_FILENAME,
     build_gen_code_path,
     build_project_sections_dir,
     normalize_path,
 )
 
-SINGLETON_SECTION_TYPES = set(
-    [
-        SectionType.GlobalVariables,
-        SectionType.GenPythonCode,
-        SectionType.GenPythonMetadata,
-    ]
-)
+SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 
 
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: ID | None = None
     GenPythonCode: ID | None = None
-    GenPythonMetadata: ID | None = None
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
@@ -266,14 +256,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             code_root, self.projectConfig.name
         )
         gen_code_path = build_gen_code_path(code_root, self.projectConfig.name)
-        gen_meta_path = gen_code_path.with_name(GEN_CODE_META_FILENAME)
         gen_code_binding: CodeFileBinding | None = None
-        python_target = get_python_codegen_target(self.projectConfig)
         python_codegen_enabled = project_config_has_codegen_language(
             self.projectConfig,
             ProjectCodegenLanguage.python,
         )
-        metadata_enabled = bool(python_target and python_target.generateMetadata)
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
             core = self.sections[section_id]
@@ -297,25 +284,12 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                             variant,
                             BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
                         )
-                elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
-                    if not (python_codegen_enabled and metadata_enabled):
-                        set_effective_impl_value(
-                            base_impl,
-                            core,
-                            variant,
-                            BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
-                        )
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 if not python_codegen_enabled:
                     continue
                 canonical_path = gen_code_path
-                access_mode = CodeFileAccessMode.write_only
-            elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
-                if not (python_codegen_enabled and metadata_enabled):
-                    continue
-                canonical_path = gen_meta_path
                 access_mode = CodeFileAccessMode.write_only
             else:
                 section_full_name = get_section_path_full_name(self, section_id)

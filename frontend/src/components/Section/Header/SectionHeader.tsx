@@ -158,8 +158,7 @@ function getTitleStyles({
 
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     return { fixed: notEditing };
   }
@@ -200,8 +199,7 @@ function getNotEditingStyle({
   // Handle text case for global variables
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     fontClass = "uppercase font-bold";
   }

@@ -45,7 +45,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgs,
     DrawSectionImplArgs,
     GenPythonCodeSectionImplArgs,
-    GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
@@ -199,7 +198,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | GlobalVariablesSectionImplArgs
         | CodeSectionImplArgs
         | GenPythonCodeSectionImplArgs
-        | GenPythonMetadataSectionImplArgs
         | TerminalSectionImplArgs
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
