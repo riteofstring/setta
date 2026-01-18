@@ -8,7 +8,9 @@ from typing import Any
 
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
+    build_chat_state_from_run,
     get_run_chat_id,
+    get_run_project_config_id,
     get_run_sort_key,
     is_external_agent_run,
 )
@@ -21,12 +23,14 @@ from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
+from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
     create_agent_run,
     list_agent_runs,
     load_agent_run,
     save_agent_run,
 )
+from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
@@ -39,7 +43,6 @@ from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.tool_metadata import FollowIdType
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import ToolCall, ToolCallFunction
 from setta.types.chat_stream_events import (
@@ -195,6 +198,7 @@ class ExternalAgentRunner:
             return_code = handle.return_code
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
+            self._set_run_outputs_from_events(run)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -239,6 +243,7 @@ class ExternalAgentRunner:
         section_id = self._resolve_id_input(inputs, "sectionId")
 
         payload_inputs = dict(inputs or {})
+        payload_inputs.setdefault("projectConfigId", str(project_config_id))
         payload_inputs.setdefault("externalAgentConfigId", str(config.id))
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
@@ -246,7 +251,9 @@ class ExternalAgentRunner:
 
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
-            self._apply_session_history(payload_inputs, config, chat_id)
+            self._apply_session_history(
+                payload_inputs, config, chat_id, project_config_id
+            )
 
         run = create_agent_run(
             profile_id=profile.id if profile is not None else None,
@@ -304,10 +311,11 @@ class ExternalAgentRunner:
         payload_inputs: dict[str, Any],
         config: ExternalAgentConfig,
         chat_id: ID,
+        project_config_id: ID,
     ) -> None:
         if "sessionId" in payload_inputs or "threadId" in payload_inputs:
             return
-        previous = self._find_latest_external_run(chat_id, config.id)
+        previous = self._find_latest_external_run(chat_id, config.id, project_config_id)
         if previous is None:
             return
         session_id = self._extract_output_string(previous.outputs, "sessionId")
@@ -319,12 +327,18 @@ class ExternalAgentRunner:
         if session_id:
             payload_inputs["sessionId"] = session_id
 
-    def _find_latest_external_run(self, chat_id: ID, config_id: ID) -> AgentRun | None:
+    def _find_latest_external_run(
+        self,
+        chat_id: ID,
+        config_id: ID,
+        project_config_id: ID,
+    ) -> AgentRun | None:
         runs = [
             run
             for run in list_agent_runs(self.dbe)
             if is_external_agent_run(run)
             and get_run_chat_id(run) == chat_id
+            and get_run_project_config_id(run) == project_config_id
             and self._get_run_external_config_id(run) == config_id
         ]
         if not runs:
@@ -352,39 +366,12 @@ class ExternalAgentRunner:
     def _build_system_prompt(
         self, profile: AgentProfile | None, project_config_id: ID
     ) -> str:
-        prompt = self._system_prompt
-        temporary_project_config_id = self._ensure_temporary_project_id(
-            project_config_id
+        return build_agent_system_prompt(
+            base_prompt=self._system_prompt,
+            profile=profile,
+            project_config_id=project_config_id,
+            dbe=self.dbe,
         )
-        prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
-        if profile is None:
-            return prompt
-        profile_lines: list[str] = []
-        if profile.name:
-            profile_lines.append(f"- name: {profile.name}")
-        if profile.description:
-            profile_lines.append(f"- description: {profile.description}")
-        if profile_lines or profile.systemPrompt:
-            prompt = f"{prompt}\n## Agent profile"
-            if profile_lines:
-                prompt = f"{prompt}\n" + "\n".join(profile_lines)
-            if profile.systemPrompt.strip():
-                prompt = f"{prompt}\n\n{profile.systemPrompt.strip()}"
-        return prompt
-
-    def _ensure_temporary_project_id(self, project_config_id: ID) -> ID:
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        map_size_before = len(canonical_to_temporary)
-        temporary_project_config_id = convert_canonical_ids_to_temporary(
-            project_config_id,
-            canonical_to_temporary,
-            temporary_to_canonical,
-        )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_project_config_id
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
@@ -441,6 +428,12 @@ class ExternalAgentRunner:
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 
+    def _set_run_outputs_from_events(self, run: AgentRun) -> None:
+        state = build_chat_state_from_run(run)
+        outputs = run.outputs or {}
+        outputs.update(build_run_outputs(state.messages))
+        run.outputs = outputs
+
     async def _handle_stream_chunk(
         self,
         project_config_id: ID,
@@ -466,6 +459,7 @@ class ExternalAgentRunner:
                 chat_id,
                 tool_calls,
             )
+            self._clear_tool_call_buffers(run_id)
             return
         if isinstance(chunk, ToolResultEvent):
             await self._broadcast_ai_follow_update(project_config_id, chat_id, {})
@@ -494,6 +488,10 @@ class ExternalAgentRunner:
                 )
             )
         return tool_calls
+
+    def _clear_tool_call_buffers(self, run_id: ID) -> None:
+        self._tool_call_buffers.pop(run_id, None)
+        self._tool_call_names.pop(run_id, None)
 
     async def _maybe_emit_follow_update(
         self,

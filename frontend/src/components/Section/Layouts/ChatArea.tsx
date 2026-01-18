@@ -1,5 +1,6 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
+import { getChatPlaceholderText } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
@@ -433,16 +434,12 @@ function ManagedChatArea({
     ? Boolean(externalAgentConfigId)
     : Boolean(llmConfigId || selectedProfile?.llmConfigId);
 
-  let placeholderText = "Type a message...";
-  if (!isExternalEngine) {
-    if (noConfigsAvailable) {
-      placeholderText = "Add API key!";
-    } else if (!hasConfig) {
-      placeholderText = "Select an LLM";
-    }
-  } else if (!hasConfig) {
-    placeholderText = "Select an external agent";
-  }
+  const placeholderText = getChatPlaceholderText({
+    isExternalEngine,
+    hasExternalConfig: Boolean(externalAgentConfigId),
+    hasLLMConfig: Boolean(llmConfigId || selectedProfile?.llmConfigId),
+    noLLMConfigsAvailable: noConfigsAvailable,
+  });
 
   useEffect(() => {
     if (typeof chatId !== "string") {

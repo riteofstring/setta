@@ -10,6 +10,12 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunHandle,
     ExternalAgentStreamEvent,
 )
+from setta.agentic.external_adapters.prompt_utils import build_prompt_from_inputs
+from setta.agentic.external_adapters.stream_utils import (
+    collect_stream_lines,
+    iter_stream_lines,
+    parse_json_line,
+)
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
 from setta.types.chat_stream_events import (
@@ -20,7 +26,6 @@ from setta.types.chat_stream_events import (
     MessageTextDelta,
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
-from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
@@ -68,12 +73,12 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             return
         stderr_task: asyncio.Task[list[str]] | None = None
         if process.stderr is not None:
-            stderr_task = asyncio.create_task(_collect_stream_lines(process.stderr))
+            stderr_task = asyncio.create_task(collect_stream_lines(process.stderr))
         parser = _OpenCodeSdkEventParser()
-        async for line in _iter_stream_lines(process.stdout):
+        async for line in iter_stream_lines(process.stdout):
             if not line:
                 continue
-            raw = _parse_json_line(line)
+            raw = parse_json_line(line)
             if raw is None:
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
@@ -103,27 +108,7 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
 
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
-        parts: list[str] = []
-        system_prompt = context.system_prompt.strip()
-        if system_prompt:
-            parts.append(f"System:\n{system_prompt}")
-        inputs = context.inputs or {}
-        raw_messages = inputs.get("messages")
-        if isinstance(raw_messages, list):
-            for raw in raw_messages:
-                try:
-                    message = BaseChatMessageTypeAdapter.validate_python(raw)
-                except Exception:
-                    continue
-                role = getattr(message, "role", "user")
-                role_label = role.value if hasattr(role, "value") else str(role)
-                text = _extract_message_text(message)
-                if text:
-                    parts.append(f"{role_label.capitalize()}:\n{text}")
-        prompt = inputs.get("prompt")
-        if isinstance(prompt, str) and prompt.strip():
-            parts.append(prompt.strip())
-        return "\n\n".join(parts).strip() + "\n"
+        return build_prompt_from_inputs(context.system_prompt, context.inputs)
 
 
 class _OpenCodeSdkEventParser:
@@ -185,45 +170,6 @@ class _OpenCodeSdkEventParser:
         self._messages[message.id] = message
         self._last_message_id = message.id
         return message, True
-
-
-async def _iter_stream_lines(reader: asyncio.StreamReader) -> AsyncIterator[str]:
-    while True:
-        line = await reader.readline()
-        if not line:
-            break
-        yield line.decode("utf-8", errors="ignore").strip()
-
-
-async def _collect_stream_lines(reader: asyncio.StreamReader) -> list[str]:
-    output: list[str] = []
-    async for line in _iter_stream_lines(reader):
-        output.append(line)
-    return output
-
-
-def _parse_json_line(line: str) -> dict[str, Any] | None:
-    if not line:
-        return None
-    try:
-        parsed = json.loads(line)
-    except json.JSONDecodeError:
-        return None
-    if isinstance(parsed, dict):
-        return parsed
-    return None
-
-
-def _extract_message_text(message: Any) -> str:
-    content = getattr(message, "content", None)
-    if not isinstance(content, list):
-        return ""
-    parts: list[str] = []
-    for entry in content:
-        if isinstance(entry, MessageTextContent):
-            if entry.text:
-                parts.append(entry.text)
-    return "\n".join(parts).strip()
 
 
 def _extract_message_id(payload: dict[str, Any]) -> str | None:

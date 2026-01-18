@@ -1,4 +1,8 @@
 import {
+  CHAT_ENGINE_SETTA_ID,
+  buildEngineGroups,
+} from "components/Chat/engineUtils";
+import {
   buildLLMConfigGroups,
   countLLMConfigs,
 } from "components/Chat/llmConfigUtils";
@@ -37,8 +41,6 @@ type ChatSectionSettingsPayload = {
   externalAgentConfigId: string | null;
   deepThink: boolean;
 };
-
-const CHAT_ENGINE_SETTA_ID = "setta-llm";
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
@@ -96,28 +98,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       },
     ];
   }, [agentProfiles]);
-  const engineGroups = useMemo(() => {
-    const externalItems = externalAgentConfigs.map((config) => {
-      const toolLabel = config.toolType.replaceAll("_", " ");
-      const baseLabel = config.name?.trim()
-        ? config.name
-        : `${toolLabel} (${config.runMode})`;
-      return {
-        id: config.id,
-        name: baseLabel,
-      };
-    });
-    return [
-      {
-        group: "Engine",
-        items: [{ id: CHAT_ENGINE_SETTA_ID, name: "Setta LLM" }],
-      },
-      {
-        group: "External Agents",
-        items: externalItems,
-      },
-    ];
-  }, [externalAgentConfigs]);
+  const engineGroups = useMemo(
+    () => buildEngineGroups(externalAgentConfigs),
+    [externalAgentConfigs],
+  );
   const selectedProfile = useMemo(() => {
     if (!agentProfileId) {
       return null;

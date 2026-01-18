@@ -10,7 +10,9 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 
+from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
+from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.chat_store import MemoryChatStore
@@ -58,7 +60,6 @@ from setta.mcp.namespacing import (
     split_namespaced_tool_name,
 )
 from setta.mcp.tool_metadata import FollowIdType
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -647,37 +648,12 @@ class AgentRunner:
         profile: AgentProfile,
         project_config_id: ID,
     ) -> str:
-        prompt = self.system_prompt
-        temporary_project_config_id = self._ensure_temporary_project_id(
-            project_config_id
+        return build_agent_system_prompt(
+            base_prompt=self.system_prompt,
+            profile=profile,
+            project_config_id=project_config_id,
+            dbe=self.dbe,
         )
-        prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
-        profile_lines: list[str] = []
-        if profile.name:
-            profile_lines.append(f"- name: {profile.name}")
-        if profile.description:
-            profile_lines.append(f"- description: {profile.description}")
-        if profile_lines or profile.systemPrompt:
-            prompt = f"{prompt}\n## Agent profile"
-            if profile_lines:
-                prompt = f"{prompt}\n" + "\n".join(profile_lines)
-            if profile.systemPrompt.strip():
-                prompt = f"{prompt}\n\n{profile.systemPrompt.strip()}"
-        return prompt
-
-    def _ensure_temporary_project_id(self, project_config_id: ID) -> ID:
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        map_size_before = len(canonical_to_temporary)
-        temporary_project_config_id = convert_canonical_ids_to_temporary(
-            project_config_id,
-            canonical_to_temporary,
-            temporary_to_canonical,
-        )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_project_config_id
 
     def _record_snapshot(self, run: AgentRun, project_config_id: ID) -> None:
         project_state = self.dbe.read_project_required()
@@ -1532,14 +1508,4 @@ class AgentRunner:
         save_agent_run(self.dbe, run)
 
     def _build_outputs(self, messages: list[BaseChatMessageUnion]) -> dict[str, Any]:
-        payload = [message.model_dump(mode="json") for message in messages]
-        final_text = ""
-        for message in reversed(messages):
-            if isinstance(message, AssistantChatMessage):
-                for content in message.content:
-                    if isinstance(content, MessageTextContent):
-                        final_text = content.text
-                        break
-            if final_text:
-                break
-        return {"messages": payload, "finalText": final_text}
+        return build_run_outputs(messages)

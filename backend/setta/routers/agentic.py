@@ -248,6 +248,13 @@ async def route_start_external_agent_run(
         config = require_external_agent_config(ctx.state.dbe, x.configId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    status = build_external_agent_preflight_status(ctx.state.dbe, config)
+    if not status.available:
+        issues = "; ".join(status.issues) if status.issues else "preflight failed"
+        raise HTTPException(
+            status_code=503,
+            detail=f"External agent config is not available: {issues}",
+        )
     profile = None
     if x.profileId is not None:
         try:

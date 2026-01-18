@@ -1,4 +1,9 @@
 import {
+  CHAT_ENGINE_SETTA_ID,
+  buildEngineGroups,
+  getChatPlaceholderText,
+} from "components/Chat/engineUtils";
+import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
@@ -16,8 +21,6 @@ import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
-
-const CHAT_ENGINE_SETTA_ID = "setta-llm";
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -68,44 +71,22 @@ export function ProjectChat() {
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [apiKeys, allLLMConfigs],
   );
-  const engineGroups = useMemo(() => {
-    const externalItems = externalAgentConfigs.map((config) => {
-      const toolLabel = config.toolType.replaceAll("_", " ");
-      const baseLabel = config.name?.trim()
-        ? config.name
-        : `${toolLabel} (${config.runMode})`;
-      return {
-        id: config.id,
-        name: baseLabel,
-      };
-    });
-    return [
-      {
-        group: "Engine",
-        items: [{ id: CHAT_ENGINE_SETTA_ID, name: "Setta LLM" }],
-      },
-      {
-        group: "External Agents",
-        items: externalItems,
-      },
-    ];
-  }, [externalAgentConfigs]);
+  const engineGroups = useMemo(
+    () => buildEngineGroups(externalAgentConfigs),
+    [externalAgentConfigs],
+  );
 
   const availableConfigCount = countLLMConfigs(availableConfigGroups);
   const noConfigsAvailable = availableConfigCount === 0;
   const externalAgentConfigId =
     selectedEngineId === CHAT_ENGINE_SETTA_ID ? null : selectedEngineId;
   const isExternalEngine = externalAgentConfigId !== null;
-  let placeholderText = "Type a message...";
-  if (!isExternalEngine) {
-    if (noConfigsAvailable) {
-      placeholderText = "Add API key!";
-    } else if (!selectedLLMConfigId) {
-      placeholderText = "Select an LLM";
-    }
-  } else if (!externalAgentConfigId) {
-    placeholderText = "Select an external agent";
-  }
+  const placeholderText = getChatPlaceholderText({
+    isExternalEngine,
+    hasExternalConfig: Boolean(externalAgentConfigId),
+    hasLLMConfig: Boolean(selectedLLMConfigId),
+    noLLMConfigsAvailable: noConfigsAvailable,
+  });
 
   const handleEngineChange = useCallback(
     (value: string | null) => {

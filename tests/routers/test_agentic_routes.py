@@ -2,6 +2,7 @@ import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
@@ -20,6 +21,7 @@ from setta.routers.agentic import (
     GetExternalAgentConfigRequest,
     GetPromptTemplateRequest,
     StartAgentRunRequest,
+    StartExternalAgentRunRequest,
     StopAgentRunRequest,
     UpdateAgentProfileRequest,
     UpdateExternalAgentConfigRequest,
@@ -39,6 +41,7 @@ from setta.routers.agentic import (
     route_get_prompt_template,
     route_get_prompt_templates,
     route_start_agent_run,
+    route_start_external_agent_run,
     route_stop_agent_run,
     route_update_agent_profile,
     route_update_external_agent_config,
@@ -47,6 +50,8 @@ from setta.routers.agentic import (
 from setta.types.agentic import AgentRunStatus
 from setta.types.external_agents import (
     ExternalAgentConfig,
+    ExternalAgentEnvVarStatus,
+    ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
@@ -67,6 +72,7 @@ class _AgenticTestState:
     wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
     agent_runner: AgentRunner | None = None
+    external_agent_runner: object | None = None
     prompt_template_watcher: object | None = None
 
 
@@ -280,3 +286,55 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         GetExternalAgentConfigRequest(configId=updated.id),
                         ctx,
                     )
+
+    async def test_external_agent_run_blocks_on_preflight(self) -> None:
+        class _Runner:
+            disabled = False
+
+            def start_run(self, *_args, **_kwargs):
+                raise AssertionError("start_run should not be called on preflight fail")
+
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                external_agent_runner=_Runner(),
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="Codex SDK",
+                        toolType=ExternalAgentToolType.codex,
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+                preflight = ExternalAgentPreflightStatus(
+                    configId=created.id,
+                    name=created.name,
+                    toolType=created.toolType,
+                    runMode=created.runMode,
+                    supported=True,
+                    available=False,
+                    issues=["Missing env vars: OPENAI_API_KEY"],
+                    envVars=ExternalAgentEnvVarStatus(),
+                )
+                with patch(
+                    "setta.routers.agentic.build_external_agent_preflight_status",
+                    return_value=preflight,
+                ):
+                    with self.assertRaises(HTTPException) as ctx_err:
+                        await route_start_external_agent_run(
+                            StartExternalAgentRunRequest(
+                                configId=created.id,
+                                inputs={"prompt": "hello"},
+                            ),
+                            ctx,
+                        )
+                    self.assertEqual(ctx_err.exception.status_code, 503)

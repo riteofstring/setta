@@ -7,7 +7,14 @@ from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
-from setta.types.agentic import AgentProfile
+from setta.types.agentic import AgentProfile, RunEvent
+from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
+from setta.types.chat_stream_events import (
+    MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
+    MessageTextDelta,
+)
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -77,7 +84,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
     def test_context_inherits_thread_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
+            project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 id="config-1",
@@ -89,6 +96,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 profile_id=None,
                 inputs={
                     "chatId": "chat-1",
+                    "projectConfigId": str(project_config.id),
                     "externalAgentConfigId": "config-1",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
@@ -107,7 +115,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
     def test_context_inherits_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
+            project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 id="config-2",
@@ -119,6 +127,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 profile_id=None,
                 inputs={
                     "chatId": "chat-2",
+                    "projectConfigId": str(project_config.id),
                     "externalAgentConfigId": "config-2",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
@@ -137,7 +146,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
     def test_context_respects_explicit_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
+            project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 id="config-3",
@@ -149,6 +158,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 profile_id=None,
                 inputs={
                     "chatId": "chat-3",
+                    "projectConfigId": str(project_config.id),
                     "externalAgentConfigId": "config-3",
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
@@ -160,6 +170,60 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 config,
                 profile=None,
                 inputs={"chatId": "chat-3", "sessionId": "session-new"},
+            )
+
+            self.assertEqual(context.inputs.get("sessionId"), "session-new")
+
+    def test_context_inherits_session_id_per_project_config(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config_a = ProjectConfig()
+            project_config_b = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={
+                    project_config_a.id: project_config_a,
+                    project_config_b.id: project_config_b,
+                },
+                defaultProjectConfigId=project_config_a.id,
+            )
+            dbe.write_project(project_state)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                id="config-4",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            run_a = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_a.id),
+                    "externalAgentConfigId": "config-4",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            run_a.outputs = {"sessionId": "session-old"}
+            save_agent_run(dbe, run_a)
+            run_b = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_b.id),
+                    "externalAgentConfigId": "config-4",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            run_b.outputs = {"sessionId": "session-new"}
+            save_agent_run(dbe, run_b)
+
+            context = runner._build_context(
+                config,
+                profile=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_b.id),
+                },
             )
 
             self.assertEqual(context.inputs.get("sessionId"), "session-new")
@@ -183,6 +247,49 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertIsNotNone(loaded)
             self.assertEqual(loaded.outputs.get("sessionId"), "session-999")
             self.assertEqual(loaded.outputs.get("threadId"), "thread-999")
+
+    def test_run_outputs_built_from_stream_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-5",
+                    "projectConfigId": "config-5",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+
+            message = AssistantChatMessage(
+                id="m1",
+                content=[MessageTextContent(text="Hello")],
+            )
+            stream_chunks = [
+                MessageStartEvent(
+                    message=AssistantChatMessage(id="m1", content=[])
+                ),
+                MessageDeltaEvent(
+                    message_id="m1",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+                MessageFinalizedEvent(message=message),
+            ]
+            for chunk in stream_chunks:
+                run.events.append(
+                    RunEvent(
+                        type="stream_chunk",
+                        payload={"chunk": chunk.model_dump(mode="json")},
+                    )
+                )
+
+            runner._set_run_outputs_from_events(run)
+
+            self.assertIsNotNone(run.outputs)
+            messages = run.outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            self.assertEqual(run.outputs.get("finalText"), "Hello")
 
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
