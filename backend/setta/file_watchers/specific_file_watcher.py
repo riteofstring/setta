@@ -217,6 +217,11 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                 "Specific file watcher missing event loop; skipping directory event."
             )
             return
+        if loop.is_closed():
+            logger.debug(
+                "Specific file watcher event loop closed; skipping directory event."
+            )
+            return
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
         loop.call_soon_threadsafe(lambda: self._dir_created_callback(abs_path))
 
@@ -228,6 +233,9 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         loop = self._loop_getter()
         if loop is None:
             logger.debug("Specific file watcher missing event loop; skipping event.")
+            return
+        if loop.is_closed():
+            logger.debug("Specific file watcher event loop closed; skipping event.")
             return
         if event.is_directory:
             return
