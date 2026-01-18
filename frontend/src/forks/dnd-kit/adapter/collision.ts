@@ -20,6 +20,7 @@ let prevPointerDirectionX: number | null = null;
 let prevPointerDirectionY: number | null = null;
 
 type DndEntityData = {
+  isParamDnd?: boolean;
   isTopLevel?: boolean;
   hasNested?: boolean;
   onlyChildId?: string | null;
@@ -160,11 +161,22 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     getSectionIsHorizontalOrientation(activeContainerId),
   );
 
-  const distance = getEdgeDistance({
-    activeRect,
-    droppableRect,
-    containerIsHorizontal,
-  });
+  const isParamDnd = Boolean(activeData?.isParamDnd || droppableData?.isParamDnd);
+  const distance = isParamDnd
+    ? getAxisDistance({
+        referenceAxisValue: getReferenceAxisValue({
+          activeRect,
+          containerIsHorizontal,
+          pointerCoordinates,
+        }),
+        droppableRect,
+        containerIsHorizontal,
+      })
+    : getEdgeDistance({
+        activeRect,
+        droppableRect,
+        containerIsHorizontal,
+      });
 
   if (!Number.isFinite(distance)) {
     return null;
@@ -354,6 +366,42 @@ function getPastHalfway({
     prevCollisionId && prevCollisionId === currentId && prevCollisionRect
       ? prevCollisionRect
       : droppableRect;
+  const referenceAxisValue = getReferenceAxisValue({
+    activeRect,
+    containerIsHorizontal,
+    pointerCoordinates,
+  });
+
+  if (prevCollisionId && prevCollisionId === currentId) {
+    if (prevPastHalfway === true) {
+      buffer = 10;
+    } else if (prevPastHalfway === false) {
+      buffer = -10;
+    }
+  }
+
+  if (!containerIsHorizontal) {
+    return (
+      referenceAxisValue + buffer >
+      (effectiveDroppableRect.top + effectiveDroppableRect.bottom) / 2
+    );
+  }
+
+  return (
+    referenceAxisValue + buffer >
+    (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
+  );
+}
+
+function getReferenceAxisValue({
+  activeRect,
+  containerIsHorizontal,
+  pointerCoordinates,
+}: {
+  activeRect: ClientRect;
+  containerIsHorizontal: boolean;
+  pointerCoordinates: Coordinates | null;
+}): number {
   let referenceAxisValue = getFallbackReferenceAxisValue({
     activeRect,
     containerIsHorizontal,
@@ -376,25 +424,7 @@ function getPastHalfway({
     }
   }
 
-  if (prevCollisionId && prevCollisionId === currentId) {
-    if (prevPastHalfway === true) {
-      buffer = 10;
-    } else if (prevPastHalfway === false) {
-      buffer = -10;
-    }
-  }
-
-  if (!containerIsHorizontal) {
-    return (
-      referenceAxisValue + buffer >
-      (effectiveDroppableRect.top + effectiveDroppableRect.bottom) / 2
-    );
-  }
-
-  return (
-    referenceAxisValue + buffer >
-    (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
-  );
+  return referenceAxisValue;
 }
 
 function updatePointerDirections(pointerCoordinates: Coordinates | null): void {
@@ -445,6 +475,29 @@ function getFallbackReferenceAxisValue({
   }
 
   return (activeRect.top + activeRect.bottom) / 2;
+}
+
+function getAxisDistance({
+  referenceAxisValue,
+  droppableRect,
+  containerIsHorizontal,
+}: {
+  referenceAxisValue: number;
+  droppableRect: ClientRect;
+  containerIsHorizontal: boolean;
+}): number {
+  const start = containerIsHorizontal ? droppableRect.left : droppableRect.top;
+  const end = containerIsHorizontal ? droppableRect.right : droppableRect.bottom;
+
+  if (referenceAxisValue < start) {
+    return start - referenceAxisValue;
+  }
+
+  if (referenceAxisValue > end) {
+    return referenceAxisValue - end;
+  }
+
+  return 0;
 }
 
 function getEdgeDistance({

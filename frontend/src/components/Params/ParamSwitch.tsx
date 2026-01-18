@@ -80,6 +80,7 @@ function _ParamSwitch(props) {
     isDragging,
   } = useSortable({
     id: paramInfoId,
+    data: { isParamDnd: true },
     disabled: !dndEnabled,
   });
   const { role: _role, ...restAttributes } = attributes;
