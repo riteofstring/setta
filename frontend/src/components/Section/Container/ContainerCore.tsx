@@ -8,6 +8,7 @@ import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { LockPositionButton } from "../Header/LockPositionButton";
@@ -54,7 +55,10 @@ function _Container({
       className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}
-      tabIndex={-1} // keeps section focusable for programmatic focus
+      onKeyDown={(e) =>
+        sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
+      }
+      tabIndex={-1} // needed so that onKeyDown works
     >
       {children}
     </div>
@@ -134,7 +138,10 @@ function ContainerGroup({
       } ${className}`}
       {...commonProps}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
-      tabIndex={-1} // keeps section focusable for programmatic focus
+      onKeyDown={(e) =>
+        sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
+      }
+      tabIndex={-1} // needed so that onKeyDown works
       style={groupStyle}
     >
       <div

@@ -27,6 +27,7 @@ from setta.project_state.session_project_manager import (
     SessionProjectManager,
 )
 from setta.project_state.share_runtime_state import ShareRuntimeState
+from setta.run_manager import DetachedRunManager
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
@@ -170,8 +171,12 @@ class SettaFastAPIState:
         *,
         share_mode: bool = False,
         share_deployment_root: Path | None = None,
+        enable_mcp_connections: bool = True,
+        enable_language_server: bool = True,
     ):
         self.share_mode = share_mode
+        self._enable_mcp_connections = enable_mcp_connections
+        self._enable_language_server = enable_language_server
         self.share_deployment_root = self._resolve_share_deployment_root(
             share_mode, share_deployment_root
         )
@@ -194,6 +199,7 @@ class SettaFastAPIState:
             self.websocket_manager,
             share_mode=self.share_mode,
         )
+        self.detached_run_manager = DetachedRunManager(self.dbe)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
@@ -208,9 +214,9 @@ class SettaFastAPIState:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
 
-        self.lsps: LSPServers = self._defer_attr("lsps")
-        self.lsp_writers: LSPWriters = self._defer_attr("lsp_writers")
-        self.lsp_readers: LSPReaders = self._defer_attr("lsp_readers")
+        self.lsps: LSPServers | None = self._defer_attr("lsps")
+        self.lsp_writers: LSPWriters | None = self._defer_attr("lsp_writers")
+        self.lsp_readers: LSPReaders | None = self._defer_attr("lsp_readers")
         self.specific_file_watcher: SpecificFileWatcher = self._defer_attr(
             "specific_file_watcher"
         )
@@ -285,7 +291,10 @@ class SettaFastAPIState:
             await self._maybe_delay()
             self.specific_file_watcher = SpecificFileWatcher()
             self.artifacts = Artifacts(
-                self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
+                self.wmh_frontend_sender,
+                self.specific_file_watcher,
+                self.dbe,
+                realtime_event_hub=self.realtime_event_hub,
             )
             self.code_files = CodeFiles(
                 self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
@@ -302,8 +311,14 @@ class SettaFastAPIState:
 
             self.init_status.record("Loading project state")
             await self._maybe_delay()
-            self.lsps = LSPServers(self.settings_file.settings.languageServer)
-            self.lsp_writers = LSPWriters(self.lsps)
+            lsp_writers = None
+            if self._enable_language_server:
+                self.lsps = LSPServers(self.settings_file.settings.languageServer)
+                self.lsp_writers = LSPWriters(self.lsps)
+                lsp_writers = self.lsp_writers
+            else:
+                self.lsps = None
+                self.lsp_writers = None
             project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_main,
                 frontend_sender=self.wmh_frontend_sender,
@@ -314,7 +329,7 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.code_files,
-                lsp_writers=self.lsp_writers,
+                lsp_writers=lsp_writers,
             )
             settings_project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
@@ -326,7 +341,7 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.settings_code_files,
-                lsp_writers=self.lsp_writers,
+                lsp_writers=lsp_writers,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
                 main_manager=project_manager,
@@ -348,7 +363,10 @@ class SettaFastAPIState:
                 self.project_manager_switcher,
                 self.dbe,
             )
-            self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
+            if self._enable_language_server and self.lsps is not None:
+                self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
+            else:
+                self.lsp_readers = None
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()
@@ -389,7 +407,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
-            if not self.mcp_client.disabled:
+            if self._enable_mcp_connections and not self.mcp_client.disabled:
                 spawn_background_task(
                     self.mcp_client.connect_to_servers(),
                     label="mcp-client-connect",
@@ -435,6 +453,7 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
+            realtime_event_hub=self.realtime_event_hub,
         )
         self.settings_file = SettingsFile(
             self.dbe,
