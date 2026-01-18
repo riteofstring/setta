@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from setta.agentic.external_agent_runner import ExternalAgentRunner
+from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile
 from setta.types.external_agents import (
@@ -55,6 +56,21 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             self.assertEqual(context.chat_id, context.run.id)
             self.assertEqual(context.inputs["chatId"], str(context.run.id))
+
+    def test_context_sets_run_type(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex CLI",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.cli,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
 
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:

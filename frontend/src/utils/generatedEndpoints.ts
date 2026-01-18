@@ -295,6 +295,12 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
+export async function route_get_external_agent_chat(
+  x: gt.GetExternalAgentChatRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetExternalAgentChatResponse>> {
+  return await post("/getExternalAgentChat", x);
+}
+
 export async function route_get_ai_follow_snapshot(
   x: gt.GetAIFollowSnapshotRequestInput,
 ): Promise<
@@ -345,13 +351,13 @@ async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
-async function route_start_external_agent_run(
+export async function route_start_external_agent_run(
   x: gt.StartExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post("/startExternalAgentRun", x);
 }
 
-async function route_stop_external_agent_run(
+export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post("/stopExternalAgentRun", x);

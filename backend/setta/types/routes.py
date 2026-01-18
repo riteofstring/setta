@@ -58,6 +58,7 @@ class Route(str, Enum):
     DELETE_LLM_CHAT = "/deleteLLMChat"
     STOP_LLM_CHAT = "/stopLLMChat"
     GET_LLM_CHAT = "/getLLMChat"
+    GET_EXTERNAL_AGENT_CHAT = "/getExternalAgentChat"
     GET_AI_FOLLOW_SNAPSHOT = "/getAIFollowSnapshot"
     GET_AGENT_PROFILES = "/getAgentProfiles"
     GET_AGENT_PROFILE = "/getAgentProfile"

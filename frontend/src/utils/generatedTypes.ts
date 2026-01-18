@@ -354,6 +354,7 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
+  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
   GET_AGENT_PROFILES: "/getAgentProfiles",
   GET_AGENT_PROFILE: "/getAgentProfile",
@@ -1252,6 +1253,7 @@ const SharedModifierSchema = z.object({
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   eraserBrushSize: z.int().optional(),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   folder: z.string().optional(),
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
@@ -1375,6 +1377,7 @@ const CoreSchema = z.object({
         "edgeInputParams",
         "edgeOutputPorts",
         "eraserBrushSize",
+        "externalAgentConfigId",
         "folder",
         "format",
         "headingAsSectionName",
@@ -1858,6 +1861,7 @@ const ChatSectionImplSchema = z.object({
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -2999,6 +3003,7 @@ const ChatSectionImplArgsSchema = z.object({
   managed: z.boolean().optional(),
   llmConfigId: z.union([z.string(), z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
   messages: z
@@ -3902,6 +3907,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -5683,6 +5689,32 @@ export type GetAIFollowSnapshotRequestInput = z.input<
   typeof GetAIFollowSnapshotRequestSchema
 >;
 
+const GetExternalAgentChatRequestSchema = z.object({
+  chatId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]),
+});
+
+export type GetExternalAgentChatRequestInput = z.input<
+  typeof GetExternalAgentChatRequestSchema
+>;
+
+const GetExternalAgentChatResponseSchema = z.object({
+  messages: z.array(
+    z.discriminatedUnion("role", [
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
+  waitingForResponse: z.boolean(),
+  toolCallArguments: z.record(z.string(), z.string()).default({}),
+});
+
+export type GetExternalAgentChatResponse = z.infer<
+  typeof GetExternalAgentChatResponseSchema
+>;
+
 const GetLLMChatRequestSchema = z.object({
   chatId: IDSchema,
   projectConfigId: z.union([IDSchema, z.null()]),
@@ -6362,6 +6394,7 @@ const SetChatSectionSettingsRequestSchema = z.object({
   managed: z.boolean(),
   llmConfigId: z.union([z.string(), z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean(),
 });
 

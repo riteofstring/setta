@@ -20,6 +20,7 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 LLM_CHAT_RUN_TYPE = "llm_chat"
 SCRIPTABLE_CHAT_RUN_TYPE = "scriptable_chat"
+EXTERNAL_AGENT_RUN_TYPE = "external_agent"
 
 _STREAM_CHUNK_ADAPTER = TypeAdapter(LLMStreamingResponseChunk)
 
@@ -47,11 +48,22 @@ def is_scriptable_chat_run(run: AgentRun) -> bool:
     return run_type == SCRIPTABLE_CHAT_RUN_TYPE
 
 
+def is_external_agent_run(run: AgentRun) -> bool:
+    run_type = get_run_type(run)
+    if not run_type:
+        return False
+    return run_type == EXTERNAL_AGENT_RUN_TYPE
+
+
 def is_chat_run(run: AgentRun) -> bool:
     run_type = get_run_type(run)
     if not run_type:
         return False
-    return run_type in {LLM_CHAT_RUN_TYPE, SCRIPTABLE_CHAT_RUN_TYPE}
+    return run_type in {
+        LLM_CHAT_RUN_TYPE,
+        SCRIPTABLE_CHAT_RUN_TYPE,
+        EXTERNAL_AGENT_RUN_TYPE,
+    }
 
 
 def get_run_chat_id(run: AgentRun) -> ID | None:

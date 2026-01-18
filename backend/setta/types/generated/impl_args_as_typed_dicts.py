@@ -89,6 +89,7 @@ class CoreArgs(TypedDict):
                 "edgeInputParams",
                 "edgeOutputPorts",
                 "eraserBrushSize",
+                "externalAgentConfigId",
                 "folder",
                 "format",
                 "headingAsSectionName",
@@ -572,6 +573,7 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     managed: NotRequired[bool]
     llmConfigId: NotRequired[str | None]
     agentProfileId: NotRequired[ID | None]
+    externalAgentConfigId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
     messages: NotRequired[
@@ -592,6 +594,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     managed: NotRequired[bool | Callable[[bool], bool]]
     llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    externalAgentConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[

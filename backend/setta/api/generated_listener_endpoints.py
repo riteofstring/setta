@@ -483,6 +483,7 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     managed: bool
     llmConfigId: str | None
     agentProfileId: ID | None
+    externalAgentConfigId: NotRequired[ID | None]
     deepThink: bool
 
 

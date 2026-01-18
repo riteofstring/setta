@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -195,7 +196,7 @@ class ExternalAgentRunner:
         payload_inputs.setdefault("externalAgentConfigId", str(config.id))
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
-        payload_inputs.setdefault("runType", "external_agent")
+        payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
 
         run = create_agent_run(
             profile_id=profile.id if profile is not None else None,

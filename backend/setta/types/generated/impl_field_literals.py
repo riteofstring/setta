@@ -35,6 +35,7 @@ AllImplFields = Literal[
     "edgeInputParams",
     "edgeOutputPorts",
     "eraserBrushSize",
+    "externalAgentConfigId",
     "folder",
     "format",
     "headingAsSectionName",

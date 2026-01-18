@@ -1,12 +1,24 @@
 import unittest
+from pathlib import Path
 
-from setta.agentic.external_adapters.codex_cli import _CodexCliEventParser
+from setta.agentic.external_adapters.base import ExternalAgentRunContext
+from setta.agentic.external_adapters.codex_cli import (
+    CodexCliAdapter,
+    _CodexCliEventParser,
+)
+from setta.types.agentic import AgentRun
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
 )
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+)
+from setta.types.id import ID
 
 
 class CodexCliAdapterParserTests(unittest.TestCase):
@@ -45,3 +57,33 @@ class CodexCliAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertIsInstance(events[0].stream_chunk, MessageStopEvent)
         self.assertIsInstance(events[1].stream_chunk, MessageFinalizedEvent)
+
+    def test_build_command_includes_policy_flags(self) -> None:
+        adapter = CodexCliAdapter()
+        config = ExternalAgentConfig(
+            name="Codex CLI",
+            toolType=ExternalAgentToolType.codex,
+            runMode=ExternalAgentRunMode.cli,
+            commandPath="codex",
+            sandboxPolicy="workspace",
+            approvalPolicy="never",
+        )
+        context = ExternalAgentRunContext(
+            run=AgentRun(),
+            config=config,
+            profile=None,
+            project_config_id=ID("project-1"),
+            chat_id=ID("chat-1"),
+            section_id=None,
+            inputs=None,
+            system_prompt="",
+            working_dir=Path("."),
+            env={},
+        )
+
+        command = adapter._build_command(context)
+
+        self.assertIn("--sandbox", command)
+        self.assertIn("workspace", command)
+        self.assertIn("--ask-for-approval", command)
+        self.assertIn("never", command)

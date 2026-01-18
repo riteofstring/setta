@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
@@ -10,6 +10,7 @@ from setta.agentic.chat_view import (
     get_run_llm_config_id,
     get_run_project_config_id,
     get_run_sort_key,
+    is_external_agent_run,
     is_llm_chat_run,
 )
 from setta.agentic.store import list_agent_runs, require_agent_profile
@@ -38,6 +39,22 @@ def _get_llm_chat_runs(
     project_config_id: ID | None = None,
 ) -> list[AgentRun]:
     runs = [run for run in list_agent_runs(dbe) if is_llm_chat_run(run)]
+    if chat_id is not None:
+        runs = [run for run in runs if get_run_chat_id(run) == chat_id]
+    if project_config_id is not None:
+        runs = [
+            run for run in runs if get_run_project_config_id(run) == project_config_id
+        ]
+    return runs
+
+
+def _get_external_agent_chat_runs(
+    *,
+    dbe,
+    chat_id: ID | None = None,
+    project_config_id: ID | None = None,
+) -> list[AgentRun]:
+    runs = [run for run in list_agent_runs(dbe) if is_external_agent_run(run)]
     if chat_id is not None:
         runs = [run for run in runs if get_run_chat_id(run) == chat_id]
     if project_config_id is not None:
@@ -86,6 +103,17 @@ class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     llmConfig: LLMConfig
+
+
+class GetExternalAgentChatRequest(BaseModel):
+    chatId: ID
+    projectConfigId: ID | None
+
+
+class GetExternalAgentChatResponse(BaseModel):
+    messages: list[BaseChatMessageUnionWithDiscriminator]
+    waitingForResponse: bool
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
 
 
 class StopLLMChatRequest(BaseModel):
@@ -234,6 +262,28 @@ async def route_get_llm_chat(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
         llmConfig=llm_config,
+    )
+
+
+@router.post(Route.GET_EXTERNAL_AGENT_CHAT)
+async def route_get_external_agent_chat(
+    x: GetExternalAgentChatRequest,
+    ctx: RuntimeContextFromRequest,
+) -> GetExternalAgentChatResponse:
+    await ctx.enforce_llm_allowed()
+    runs = _get_external_agent_chat_runs(
+        dbe=ctx.state.dbe,
+        chat_id=x.chatId,
+        project_config_id=x.projectConfigId,
+    )
+    latest_run = _select_latest_run(runs)
+    if latest_run is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    state = build_chat_state_from_run(latest_run)
+    return GetExternalAgentChatResponse(
+        messages=state.messages,
+        waitingForResponse=state.waitingForResponse,
+        toolCallArguments=state.toolCallArguments,
     )
 
 

@@ -79,6 +79,7 @@ class SharedModifier(TypedDict):
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
     eraserBrushSize: NotRequired[int]
+    externalAgentConfigId: NotRequired[ID | None]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
     headingAsSectionName: NotRequired[bool]

@@ -693,6 +693,7 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     llmConfigId: str | None
     agentProfileId: ID | None
+    externalAgentConfigId: ID | None = None
     deepThink: bool
 
 

@@ -304,6 +304,7 @@ class ChatSectionImpl(BaseSectionImpl):
     managed: bool = False
     llmConfigId: str | None = None
     agentProfileId: ID | None = None
+    externalAgentConfigId: ID | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)

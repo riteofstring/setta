@@ -150,6 +150,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
             Position(),
         )
         agent_profile_id = ID("agent-1")
+        external_agent_config_id = ID("external-1")
 
         set_chat_section_settings(
             self.project_state,
@@ -157,6 +158,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
             managed=True,
             llmConfigId="primary",
             agentProfileId=agent_profile_id,
+            externalAgentConfigId=external_agent_config_id,
             deepThink=True,
         )
 
@@ -168,6 +170,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
         self.assertTrue(section_impl.managed)
         self.assertEqual(section_impl.llmConfigId, "primary")
         self.assertEqual(section_impl.agentProfileId, agent_profile_id)
+        self.assertEqual(section_impl.externalAgentConfigId, external_agent_config_id)
         self.assertTrue(section_impl.deepThink)
 
 

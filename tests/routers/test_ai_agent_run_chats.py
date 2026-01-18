@@ -6,16 +6,18 @@ from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
 
-from setta.agentic.chat_view import LLM_CHAT_RUN_TYPE
+from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.store import load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
     DeleteLLMChatRequest,
+    GetExternalAgentChatRequest,
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
+    route_get_external_agent_chat,
     route_delete_llm_chat,
     route_get_all_llm_chat_metadata,
     route_get_llm_chat,
@@ -28,6 +30,12 @@ from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
     UserChatMessage,
+)
+from setta.types.chat_stream_events import (
+    MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
+    MessageTextDelta,
 )
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
@@ -157,6 +165,41 @@ def _build_run(
     )
 
 
+def _build_external_run(
+    *,
+    chat_id: ID,
+    project_config_id: ID,
+    started_at: datetime,
+    status: AgentRunStatus,
+    input_messages: list[UserChatMessage | AssistantChatMessage],
+    output_messages: list[UserChatMessage | AssistantChatMessage] | None = None,
+    stream_events: list[RunEvent] | None = None,
+) -> AgentRun:
+    inputs = {
+        "runType": EXTERNAL_AGENT_RUN_TYPE,
+        "chatId": str(chat_id),
+        "projectConfigId": str(project_config_id),
+        "messages": [message.model_dump(mode="json") for message in input_messages],
+    }
+    outputs = None
+    if output_messages is not None:
+        outputs = {
+            "messages": [
+                message.model_dump(mode="json") for message in output_messages
+            ]
+        }
+    return AgentRun(
+        status=status,
+        startedAt=started_at,
+        finishedAt=started_at + timedelta(seconds=5)
+        if status != AgentRunStatus.running
+        else None,
+        inputs=inputs,
+        outputs=outputs,
+        events=stream_events or [],
+    )
+
+
 @dataclass(slots=True)
 class TestState:
     dbe: DBE
@@ -245,6 +288,98 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(response.messages), 2)
             self.assertFalse(response.waitingForResponse)
             self.assertEqual(response.llmConfig.id, "primary")
+
+    async def test_get_external_agent_chat_from_stream_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            chat_id = ID("external-chat-1")
+            project_config_id = ID("project-ext-1")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external")],
+            )
+            assistant_message = AssistantChatMessage(
+                id="assistant-1",
+                content=[],
+            )
+            start_event = MessageStartEvent(message=assistant_message)
+            delta_event = MessageDeltaEvent(
+                message_id=assistant_message.id,
+                content=[MessageTextDelta(index=0, text="Hi")],
+            )
+            final_message = AssistantChatMessage(
+                id=assistant_message.id,
+                content=[MessageTextContent(text="Hi")],
+            )
+            final_event = MessageFinalizedEvent(message=final_message)
+            stream_events = [
+                RunEvent(
+                    type="stream_chunk",
+                    payload={"chunk": start_event.model_dump(mode="json")},
+                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                ),
+                RunEvent(
+                    type="stream_chunk",
+                    payload={"chunk": delta_event.model_dump(mode="json")},
+                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                ),
+                RunEvent(
+                    type="stream_chunk",
+                    payload={"chunk": final_event.model_dump(mode="json")},
+                    timestamp=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                ),
+            ]
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                status=AgentRunStatus.running,
+                input_messages=[user_message],
+                output_messages=None,
+                stream_events=stream_events,
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                response = await route_get_external_agent_chat(
+                    GetExternalAgentChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
+
+            self.assertEqual(len(response.messages), 2)
+            self.assertFalse(response.waitingForResponse)
+            self.assertEqual(response.toolCallArguments, {})
+
+    async def test_get_external_agent_chat_missing_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with self.assertRaises(HTTPException) as exc:
+                    await route_get_external_agent_chat(
+                        GetExternalAgentChatRequest(
+                            chatId=ID("missing-external"),
+                            projectConfigId=ID("project-ext-missing"),
+                        ),
+                        ctx,
+                    )
+
+            self.assertEqual(exc.exception.status_code, 404)
+            self.assertEqual(exc.exception.detail, "Chat not found")
 
     async def test_get_all_llm_chat_metadata_uses_latest_run(self) -> None:
         with TemporaryDirectory() as tmpdir:

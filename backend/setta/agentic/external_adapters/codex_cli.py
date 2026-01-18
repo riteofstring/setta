@@ -49,7 +49,7 @@ class CodexCliAdapter(ExternalAgentAdapter):
         return ExternalAgentRunHandle(run_id=context.run.id, process=process)
 
     async def stream_events(
-        self, handle: ExternalAgentRunHandle, context: ExternalAgentRunContext
+        self, handle: ExternalAgentRunHandle, _context: ExternalAgentRunContext
     ) -> AsyncIterator[ExternalAgentStreamEvent]:
         process = handle.process
         if process is None or process.stdout is None:
@@ -90,6 +90,12 @@ class CodexCliAdapter(ExternalAgentAdapter):
         model = context.config.defaultModel
         if model:
             command.extend(["--model", model])
+        sandbox_policy = context.config.sandboxPolicy
+        if sandbox_policy:
+            command.extend(["--sandbox", sandbox_policy])
+        approval_policy = context.config.approvalPolicy
+        if approval_policy:
+            command.extend(["--ask-for-approval", approval_policy])
         return command
 
     @staticmethod

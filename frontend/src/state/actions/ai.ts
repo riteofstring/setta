@@ -16,15 +16,18 @@ import {
   route_delete_llm_chat,
   route_get_agent_profiles,
   route_get_all_llm_chat_metadata,
+  route_get_external_agent_chat,
   route_get_external_agent_configs,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
+  route_start_external_agent_run,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
+  AgentRun,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
@@ -198,6 +201,38 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
+export async function getExternalAgentChat(
+  chatId: string,
+  projectConfigId: string | null,
+) {
+  const res = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
+  if (res200(res)) {
+    const { messages, waitingForResponse, toolCallArguments } = res.data;
+    useAIStore.setState((state) => {
+      const existingDetails = state.chatDetails[chatId];
+      const nextWaitingForResponse = waitingForResponse
+        ? existingDetails?.waitingForResponse ?? true
+        : false;
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(existingDetails ?? {}),
+            messages,
+            waitingForResponse: nextWaitingForResponse,
+            toolCallArguments,
+            llmConfig: null,
+          },
+        },
+      };
+    });
+  }
+}
+
 export async function getAllLLMChatMetadata() {
   const res = await route_get_all_llm_chat_metadata();
   if (res200(res)) {
@@ -248,6 +283,60 @@ export async function submitMessage(
         await getLLMChat(returnedChatId);
       }
       return returnedChatId;
+    }
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    return null;
+  } catch (err) {
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    throw err;
+  }
+}
+
+type ExternalAgentSubmitOptions = {
+  agentProfileId: string | null;
+  deepThink: boolean;
+  priorMessages: Array<BaseChatMessageUnion>;
+  messageId?: string;
+};
+
+export async function submitExternalAgentMessage(
+  chatId: string | null,
+  message: string,
+  externalAgentConfigId: string,
+  options: ExternalAgentSubmitOptions,
+): Promise<AgentRun | null> {
+  if (!message.trim()) {
+    return null;
+  }
+
+  const userMessage = {
+    id: options.messageId ?? createNewId(),
+    role: ChatRoleEnum.user,
+    content: [createMessageTextContent({ text: message })],
+  };
+  const userMessageId = userMessage.id;
+
+  applyOptimisticUserMessage(chatId, userMessage);
+
+  const combinedMessages = [...options.priorMessages, userMessage];
+  const projectConfigId = getCurrProjectConfigId();
+  const inputs: Record<string, unknown> = {
+    projectConfigId,
+    deepThink: options.deepThink,
+    messages: combinedMessages,
+  };
+  if (chatId) {
+    inputs.chatId = chatId;
+  }
+
+  try {
+    const res = await route_start_external_agent_run({
+      configId: externalAgentConfigId,
+      profileId: options.agentProfileId,
+      inputs,
+    });
+    if (res200(res)) {
+      return res.data;
     }
     rollbackOptimisticUserMessage(chatId, userMessageId);
     return null;
