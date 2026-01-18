@@ -11,7 +11,6 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
-  AgentProfile,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
@@ -27,7 +26,6 @@ import {
   ListenerCoverageSnapshot,
   LLMConfig,
   ProjectStateSingleConfig,
-  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaNotification,
@@ -480,12 +478,6 @@ type ZustandAIStore = {
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
-  agentProfiles: Array<AgentProfile>;
-  agentProfilesInitialLoadComplete: boolean;
-  agentProfilesLoadError: string | null;
-  promptTemplates: Array<PromptTemplate>;
-  promptTemplatesInitialLoadComplete: boolean;
-  promptTemplatesLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -505,12 +497,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
-        agentProfiles: [],
-        agentProfilesInitialLoadComplete: false,
-        agentProfilesLoadError: null,
-        promptTemplates: [],
-        promptTemplatesInitialLoadComplete: false,
-        promptTemplatesLoadError: null,
       }),
       {
         name: "setta_ai_data",

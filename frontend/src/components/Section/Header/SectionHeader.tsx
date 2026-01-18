@@ -5,6 +5,7 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -33,6 +34,9 @@ function _SectionHeader({
   isRoot,
 }: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -64,7 +68,8 @@ function _SectionHeader({
           </StandardPopover>
         )}
         {(sectionTypeName === SectionTypeEnum.Code ||
-          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
+          (pythonCodegenEnabled &&
+            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
           <>
             <RunButton sectionId={sectionId} />
             <ToggleEntryCodeBlockButton
@@ -153,7 +158,8 @@ function getTitleStyles({
 
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
   ) {
     return { fixed: notEditing };
   }
@@ -194,7 +200,8 @@ function getNotEditingStyle({
   // Handle text case for global variables
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
   ) {
     fontClass = "uppercase font-bold";
   }

@@ -2,7 +2,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
 } from "components/Chat/llmConfigUtils";
-import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
@@ -33,19 +32,17 @@ type ChatAreaSettingsProps = {
 type ChatSectionSettingsPayload = {
   managed: boolean;
   llmConfigId: string | null;
-  agentProfileId: string | null;
   deepThink: boolean;
 };
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
-  useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
 
-  const { managed, llmConfigId, agentProfileId, deepThink, isFrozen } =
-    useProjectState((state) => {
+  const { managed, llmConfigId, deepThink, isFrozen } = useProjectState(
+    (state) => {
       const impl = getCurrEffectiveSectionImplOfType(
         state,
         sectionId,
@@ -54,17 +51,17 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       return {
         managed: impl.managed,
         llmConfigId: impl.llmConfigId,
-        agentProfileId: impl.agentProfileId,
         deepThink: impl.deepThink,
         isFrozen: impl.isFrozen,
       };
-    }, _.isEqual);
+    },
+    _.isEqual,
+  );
 
-  const { apiKeys, allLLMConfigs, agentProfiles } = useAIStore(
+  const { apiKeys, allLLMConfigs } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
       allLLMConfigs: state.allLLMConfigs,
-      agentProfiles: state.agentProfiles,
     }),
     _.isEqual,
   );
@@ -73,29 +70,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
   );
-  const agentProfileGroups = useMemo(() => {
-    return [
-      {
-        group: "Agent Profiles",
-        items: agentProfiles.map((profile) => ({
-          id: profile.id,
-          name: profile.name || profile.id,
-        })),
-      },
-    ];
-  }, [agentProfiles]);
-  const selectedProfile = useMemo(() => {
-    if (!agentProfileId) {
-      return null;
-    }
-    return (
-      agentProfiles.find((profile) => profile.id === agentProfileId) ?? null
-    );
-  }, [agentProfileId, agentProfiles]);
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
   const canEditSettings = !isShareMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
-  const hasProfileConfig = Boolean(selectedProfile?.llmConfigId);
 
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
@@ -107,7 +84,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
             managed: nextSettings.managed,
             llmConfigId: nextSettings.llmConfigId,
-            agentProfileId: nextSettings.agentProfileId,
             deepThink: nextSettings.deepThink,
           });
         },
@@ -117,7 +93,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             sectionId,
             managed: nextSettings.managed,
             llmConfigId: nextSettings.llmConfigId,
-            agentProfileId: nextSettings.agentProfileId,
             deepThink: nextSettings.deepThink,
             frontendOpId,
           }),
@@ -128,50 +103,23 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
 
   const handleManagedChange = useCallback(
     (value: boolean) => {
-      updateSettings({
-        managed: value,
-        llmConfigId,
-        agentProfileId,
-        deepThink,
-      });
+      updateSettings({ managed: value, llmConfigId, deepThink });
     },
-    [agentProfileId, deepThink, llmConfigId, updateSettings],
+    [deepThink, llmConfigId, updateSettings],
   );
 
   const handleDeepThinkChange = useCallback(
     (value: boolean) => {
-      updateSettings({
-        managed,
-        llmConfigId,
-        agentProfileId,
-        deepThink: value,
-      });
+      updateSettings({ managed, llmConfigId, deepThink: value });
     },
-    [agentProfileId, llmConfigId, managed, updateSettings],
+    [llmConfigId, managed, updateSettings],
   );
 
   const handleLLMConfigChange = useCallback(
     (value: string | null) => {
-      updateSettings({
-        managed,
-        llmConfigId: value,
-        agentProfileId,
-        deepThink,
-      });
+      updateSettings({ managed, llmConfigId: value, deepThink });
     },
-    [agentProfileId, deepThink, managed, updateSettings],
-  );
-
-  const handleAgentProfileChange = useCallback(
-    (value: string | null) => {
-      updateSettings({
-        managed,
-        llmConfigId,
-        agentProfileId: value,
-        deepThink,
-      });
-    },
-    [deepThink, llmConfigId, managed, updateSettings],
+    [deepThink, managed, updateSettings],
   );
 
   const handleNewChat = useCallback(() => {
@@ -196,7 +144,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const configPlaceholder = noConfigsAvailable
     ? "Add an LLM config or API key"
     : "Select an LLM";
-  const highlightMissingConfig = !llmConfigId && !hasProfileConfig;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -214,26 +161,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
 
       {managed ? (
         <>
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Agent Profile
-            </p>
-            <IdNameCombobox
-              allItems={agentProfileGroups}
-              value={agentProfileId}
-              small={false}
-              onSelectedItemChange={handleAgentProfileChange}
-              placeholder="Select a profile (optional)"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-              selectedItemCanBeNull
-            />
-            {agentProfileId ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                LLM config overrides the profile when set.
-              </p>
-            ) : null}
-          </div>
           <div className="flex w-full items-center justify-between gap-4">
             <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
               Deep Think
@@ -255,11 +182,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
               small={false}
               onSelectedItemChange={handleLLMConfigChange}
               placeholder={configPlaceholder}
-              bg={
-                highlightMissingConfig
-                  ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500"
-                  : ""
-              }
+              bg={`${!llmConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
               outerDivClasses="justify-center"
               isDisabled={isDisabled}
             />

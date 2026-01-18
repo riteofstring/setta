@@ -14,16 +14,13 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
-  route_get_agent_profiles,
   route_get_all_llm_chat_metadata,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
-  route_get_prompt_templates,
 } from "utils/generatedEndpoints";
 import {
-  AgentProfile,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
@@ -39,7 +36,6 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
-  PromptTemplate,
   SectionTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
@@ -86,46 +82,6 @@ export function receiveLLMApiKeysUpdate(payload: APIKeys) {
     apiKeys: payload,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: null,
-  });
-}
-
-export async function loadAgentProfiles() {
-  const res = await route_get_agent_profiles();
-  if (res200(res)) {
-    receiveAgentProfilesUpdate(res.data);
-  } else {
-    useAIStore.setState({
-      agentProfilesInitialLoadComplete: true,
-      agentProfilesLoadError: "Failed to load agent profiles",
-    });
-  }
-}
-
-export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
-  useAIStore.setState({
-    agentProfiles: payload,
-    agentProfilesInitialLoadComplete: true,
-    agentProfilesLoadError: null,
-  });
-}
-
-export async function loadPromptTemplates() {
-  const res = await route_get_prompt_templates();
-  if (res200(res)) {
-    receivePromptTemplatesUpdate(res.data);
-  } else {
-    useAIStore.setState({
-      promptTemplatesInitialLoadComplete: true,
-      promptTemplatesLoadError: "Failed to load prompt templates",
-    });
-  }
-}
-
-export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
-  useAIStore.setState({
-    promptTemplates: payload,
-    promptTemplatesInitialLoadComplete: true,
-    promptTemplatesLoadError: null,
   });
 }
 
@@ -190,9 +146,8 @@ export async function submitMessage(
   chatId: string | null,
   message: string,
   deepThink: boolean,
-  llmConfigId: string | null,
+  llmConfigId: string,
   messageId?: string,
-  agentProfileId?: string | null,
 ): Promise<string | null> {
   if (!message.trim()) {
     return null;
@@ -215,7 +170,6 @@ export async function submitMessage(
       deepThink,
       chatId,
       llmConfigId,
-      agentProfileId: agentProfileId ?? null,
       projectConfigId,
     });
     if (res200(res)) {
