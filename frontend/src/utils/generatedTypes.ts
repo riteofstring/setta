@@ -221,19 +221,19 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
-const ExternalAgentRunModeEnum = {
+export const ExternalAgentRunModeEnum = {
   mcp: "mcp",
   server: "server",
   sdk: "sdk",
 } as const;
 
-const ExternalAgentToolTypeEnum = {
+export const ExternalAgentToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
   opencode: "opencode",
 } as const;
 
-const ExternalAgentWorkingDirStrategyEnum = {
+export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
   custom: "custom",

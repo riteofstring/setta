@@ -1,5 +1,12 @@
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import {
+  type ChangeEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
   createAgentProfile,
   createExternalAgentConfig,
   createPromptTemplate,
@@ -20,13 +27,6 @@ import {
   PromptFormatEnum,
   PromptTemplate,
 } from "utils/generatedTypes";
-import {
-  type ChangeEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
 import { shallow } from "zustand/shallow";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 
@@ -303,10 +303,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const handleFieldChange = (
-    key: keyof AgentProfileDraft,
-    value: string,
-  ) => {
+  const handleFieldChange = (key: keyof AgentProfileDraft, value: string) => {
     setDraft((prev) => {
       if (!prev) {
         return prev;
@@ -348,8 +345,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
               let itemClassName =
                 "rounded-md px-2 py-2 text-left text-xs transition-colors";
               if (isActive) {
-                itemClassName +=
-                  " bg-blue-600 text-white dark:bg-blue-700";
+                itemClassName += " bg-blue-600 text-white dark:bg-blue-700";
               } else {
                 itemClassName +=
                   " hover:bg-setta-50 dark:hover:bg-setta-800/60";
@@ -681,8 +677,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
               let itemClassName =
                 "rounded-md px-2 py-2 text-left text-xs transition-colors";
               if (isActive) {
-                itemClassName +=
-                  " bg-blue-600 text-white dark:bg-blue-700";
+                itemClassName += " bg-blue-600 text-white dark:bg-blue-700";
               } else {
                 itemClassName +=
                   " hover:bg-setta-50 dark:hover:bg-setta-800/60";
@@ -864,7 +859,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       }
       return;
     }
-    const exists = externalAgentConfigs.some((config) => config.id === activeId);
+    const exists = externalAgentConfigs.some(
+      (config) => config.id === activeId,
+    );
     if (!exists) {
       setActiveId(
         externalAgentConfigs.length > 0 ? externalAgentConfigs[0].id : null,
@@ -1032,8 +1029,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
               let itemClassName =
                 "rounded-md px-2 py-2 text-left text-xs transition-colors";
               if (isActive) {
-                itemClassName +=
-                  " bg-blue-600 text-white dark:bg-blue-700";
+                itemClassName += " bg-blue-600 text-white dark:bg-blue-700";
               } else {
                 itemClassName +=
                   " hover:bg-setta-50 dark:hover:bg-setta-800/60";
@@ -1185,17 +1181,11 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   />
                 </Field>
               </div>
-              <Field
-                label="Env Var Whitelist"
-                hint="Names only, one per line."
-              >
+              <Field label="Env Var Whitelist" hint="Names only, one per line.">
                 <textarea
                   value={draft.envVarWhitelistText}
                   onChange={(event) =>
-                    handleFieldChange(
-                      "envVarWhitelistText",
-                      event.target.value,
-                    )
+                    handleFieldChange("envVarWhitelistText", event.target.value)
                   }
                   className={TEXTAREA_CLASS_NAME}
                   disabled={!canEdit}
@@ -1208,7 +1198,8 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                     onChange={(event) =>
                       handleFieldChange(
                         "workingDirStrategy",
-                        event.target.value as ExternalAgentWorkingDirStrategyValue,
+                        event.target
+                          .value as ExternalAgentWorkingDirStrategyValue,
                       )
                     }
                     className={SELECT_CLASS_NAME}

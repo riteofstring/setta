@@ -153,7 +153,7 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 
-const MODEL_GROUPS = [
+export const MODEL_GROUPS = [
   {
     group: "Anthropic",
     items: [

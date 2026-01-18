@@ -43,10 +43,10 @@ import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ChatSectionState,
-  createMessageTextContent,
-  createMessageThinkingContent,
   CreateAgentProfileRequestInput,
   CreateExternalAgentConfigRequestInput,
+  createMessageTextContent,
+  createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
   DeleteAgentProfileRequestInput,
   DeleteExternalAgentConfigRequestInput,
@@ -371,7 +371,10 @@ export async function deleteExternalAgentConfig(
     return false;
   }
   useAIStore.setState((state) => ({
-    externalAgentConfigs: removeById(state.externalAgentConfigs, payload.configId),
+    externalAgentConfigs: removeById(
+      state.externalAgentConfigs,
+      payload.configId,
+    ),
     externalAgentConfigsInitialLoadComplete: true,
     externalAgentConfigsLoadError: null,
   }));

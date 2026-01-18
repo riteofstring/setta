@@ -259,7 +259,7 @@ export async function route_get_llm_api_keys(): Promise<
   return await get("/llm/apiKeys");
 }
 
-async function route_set_llm_api_keys(
+export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llm/apiKeys", payload);
@@ -309,19 +309,19 @@ async function route_get_agent_profile(
   return await post("/getAgentProfile", x);
 }
 
-async function route_create_agent_profile(
+export async function route_create_agent_profile(
   x: gt.CreateAgentProfileRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post("/createAgentProfile", x);
 }
 
-async function route_update_agent_profile(
+export async function route_update_agent_profile(
   x: gt.UpdateAgentProfileRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post("/updateAgentProfile", x);
 }
 
-async function route_delete_agent_profile(
+export async function route_delete_agent_profile(
   x: gt.DeleteAgentProfileRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteAgentProfile", x);
@@ -375,19 +375,19 @@ async function route_get_prompt_template(
   return await post("/getPromptTemplate", x);
 }
 
-async function route_create_prompt_template(
+export async function route_create_prompt_template(
   x: gt.CreatePromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post("/createPromptTemplate", x);
 }
 
-async function route_update_prompt_template(
+export async function route_update_prompt_template(
   x: gt.UpdatePromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post("/updatePromptTemplate", x);
 }
 
-async function route_delete_prompt_template(
+export async function route_delete_prompt_template(
   x: gt.DeletePromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deletePromptTemplate", x);
@@ -405,19 +405,19 @@ async function route_get_external_agent_config(
   return await post("/getExternalAgentConfig", x);
 }
 
-async function route_create_external_agent_config(
+export async function route_create_external_agent_config(
   x: gt.CreateExternalAgentConfigRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
   return await post("/createExternalAgentConfig", x);
 }
 
-async function route_update_external_agent_config(
+export async function route_update_external_agent_config(
   x: gt.UpdateExternalAgentConfigRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
   return await post("/updateExternalAgentConfig", x);
 }
 
-async function route_delete_external_agent_config(
+export async function route_delete_external_agent_config(
   x: gt.DeleteExternalAgentConfigRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteExternalAgentConfig", x);
