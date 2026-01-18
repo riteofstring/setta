@@ -12,6 +12,7 @@
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
 - `json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
+- `keyboard-shortcuts.md` – keyboard navigation, selection, and manipulation shortcuts in the UI.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
 - `file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
