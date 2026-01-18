@@ -104,10 +104,37 @@ let paramDragOverRaf: number | null = null;
 export function ParamDndMonitor() {
   const manager = useDragDropManager();
   const pendingReset = useParamDndState((state) => state.pendingReset);
+  const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const isIdle = useComputed(
     () => manager?.dragOperation.status.idle ?? true,
     [manager],
   ).value;
+  const isDragging = useComputed(
+    () => manager?.dragOperation.status.dragging ?? false,
+    [manager],
+  ).value;
+  const isInitializing = useComputed(
+    () => manager?.dragOperation.status.initializing ?? false,
+    [manager],
+  ).value;
+
+  useEffect(() => {
+    if (isSelectingParams || !manager) {
+      return;
+    }
+    if (!isDragging && !isInitializing) {
+      return;
+    }
+    const sourceData = manager.dragOperation.source?.data as
+      | { current?: { type?: string } }
+      | undefined;
+    if (sourceData?.current?.type !== "param") {
+      return;
+    }
+    debugParamDnd("cancel:param-select-released");
+    manager.actions.stop({ canceled: true });
+    deferParamDragReset("param-select-released");
+  }, [isDragging, isInitializing, isSelectingParams, manager]);
 
   useEffect(() => {
     if (!pendingReset || !isIdle) {
@@ -165,22 +192,16 @@ export function ParamDragOverlay() {
     return sourceData?.current?.type ?? null;
   }, [manager]).value;
   const isParamDragActive = activeDragType === "param";
-  const {
-    activeId,
-    placeholderWidth,
-    placeholderHeight,
-    dragOffset,
-    activeRect,
-  } = useParamDndState(
-    (state) => ({
-      activeId: state.activeId,
-      placeholderWidth: state.placeholderWidth,
-      placeholderHeight: state.placeholderHeight,
-      dragOffset: state.dragOffset,
-      activeRect: state.activeRect,
-    }),
-    _.isEqual,
-  );
+  const { activeId, placeholderWidth, placeholderHeight, activeRect } =
+    useParamDndState(
+      (state) => ({
+        activeId: state.activeId,
+        placeholderWidth: state.placeholderWidth,
+        placeholderHeight: state.placeholderHeight,
+        activeRect: state.activeRect,
+      }),
+      _.isEqual,
+    );
   const dragTransform = useComputed(() => {
     if (!manager) {
       return null;
@@ -195,11 +216,11 @@ export function ParamDragOverlay() {
     () => manager?.dragOperation.status.dropped ?? false,
     [manager],
   ).value;
-  const isDragging = useComputed(
+  const isDraggingStatus = useComputed(
     () => manager?.dragOperation.status.dragging ?? false,
     [manager],
   ).value;
-  const isInitializing = useComputed(
+  const isInitializingStatus = useComputed(
     () => manager?.dragOperation.status.initializing ?? false,
     [manager],
   ).value;
@@ -211,7 +232,6 @@ export function ParamDragOverlay() {
     ? {
         width: placeholderWidth ?? 220,
         height: placeholderHeight ?? 32,
-        dragOffset,
       }
     : null;
 
@@ -220,25 +240,23 @@ export function ParamDragOverlay() {
       activeId,
       isParamDragActive,
       shouldRenderOverlay,
-      isDragging,
-      isInitializing,
+      isDragging: isDraggingStatus,
+      isInitializing: isInitializingStatus,
       isDropped,
       suppressOverlay,
       placeholderWidth,
       placeholderHeight,
-      dragOffset,
     });
   }, [
     activeId,
     isParamDragActive,
     shouldRenderOverlay,
-    isDragging,
-    isInitializing,
+    isDraggingStatus,
+    isInitializingStatus,
     isDropped,
     suppressOverlay,
     placeholderWidth,
     placeholderHeight,
-    dragOffset,
   ]);
 
   if (!shouldRenderOverlay || !isParamDragActive || !overlayMetrics) {
@@ -249,7 +267,7 @@ export function ParamDragOverlay() {
     return null;
   }
 
-  if (!isDragging && !isInitializing) {
+  if (!isDraggingStatus && !isInitializingStatus) {
     return null;
   }
 
@@ -350,7 +368,6 @@ function handleParamDragStart(
     activeDndId,
     event.activeRect,
   );
-  const dragOffset = resolveParamDragOffset(activeRect);
 
   debugParamDnd("start", {
     activeId,
@@ -359,7 +376,6 @@ function handleParamDragStart(
     draggingIds,
     placeholderSize,
     activeRect,
-    dragOffset,
   });
 
   updateParamChildren(tree.visibleChildrenByParent);
@@ -374,7 +390,6 @@ function handleParamDragStart(
     parentById,
     visibleChildrenByParent: tree.visibleChildrenByParent,
     activeRect,
-    dragOffset,
     placeholderWidth: placeholderSize.width,
     placeholderHeight: placeholderSize.height,
   });
@@ -994,35 +1009,4 @@ function getDroppableRect(
     return null;
   }
   return rectFromBoundingRect(shape.boundingRectangle);
-}
-
-function resolveParamDragOffset(
-  activeRect: {
-    top: number;
-    left: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  } | null,
-) {
-  if (!activeRect) {
-    return null;
-  }
-  const lastPointer = useMisc.getState().lastMouseDownLocation;
-  if (!lastPointer) {
-    return null;
-  }
-  if (
-    lastPointer.x < activeRect.left ||
-    lastPointer.x > activeRect.right ||
-    lastPointer.y < activeRect.top ||
-    lastPointer.y > activeRect.bottom
-  ) {
-    return null;
-  }
-  return {
-    x: lastPointer.x - activeRect.left,
-    y: lastPointer.y - activeRect.top,
-  };
 }

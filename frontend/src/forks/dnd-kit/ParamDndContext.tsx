@@ -22,6 +22,10 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const paramDndEnabled = canEditStructure && isSelectingParams;
+  const paramDndActive = useParamDndState(
+    (state) => Boolean(state.activeId) || state.pendingReset,
+  );
+  const shouldRenderHelpers = paramDndEnabled || paramDndActive;
   const sensors = useParamDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(() => {
     const baseTracker = createCollisionTracker({
@@ -75,7 +79,7 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
       collisionTracker={collisionTracker}
       debugLabel="param"
     >
-      {paramDndEnabled && (
+      {shouldRenderHelpers && (
         <>
           <DragOperationShapeSync />
           <ParamDndMonitor />
