@@ -1,27 +1,42 @@
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
+  useProjectState,
   useToolArgumentPreview,
+  type ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_delete_llm_chat,
-  route_get_all_llm_chat_metadata,
+  route_get_agent_profiles,
+  route_get_agent_runs,
+  route_get_external_agent_chat,
+  route_get_external_agent_configs,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
+  route_get_prompt_templates,
+  route_start_external_agent_run,
 } from "utils/generatedEndpoints";
 import {
+  AgentProfile,
+  AgentRun,
+  AgentRunStatusEnum,
   AllLLMConfigs,
   APIKeys,
+  AssistantChatMessage,
   BaseChatMessageUnion,
   ChatRoleEnum,
+  ChatSectionState,
   createMessageTextContent,
   createMessageThinkingContent,
+  ExternalAgentConfig,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -29,6 +44,8 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  PromptTemplate,
+  SectionTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -77,6 +94,88 @@ export function receiveLLMApiKeysUpdate(payload: APIKeys) {
   });
 }
 
+export async function loadAgentProfiles() {
+  const res = await route_get_agent_profiles();
+  if (res200(res)) {
+    receiveAgentProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentProfilesInitialLoadComplete: true,
+      agentProfilesLoadError: "Failed to load agent profiles",
+    });
+  }
+}
+
+export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
+  useAIStore.setState({
+    agentProfiles: payload,
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  });
+}
+
+export async function loadAgentRuns() {
+  const res = await route_get_agent_runs();
+  if (res200(res)) {
+    receiveAgentRunsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentRunsInitialLoadComplete: true,
+      agentRunsLoadError: "Failed to load agent runs",
+    });
+  }
+}
+
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  useAIStore.setState({
+    agentRuns: payload,
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
+  });
+}
+
+export async function loadPromptTemplates() {
+  const res = await route_get_prompt_templates();
+  if (res200(res)) {
+    receivePromptTemplatesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      promptTemplatesInitialLoadComplete: true,
+      promptTemplatesLoadError: "Failed to load prompt templates",
+    });
+  }
+}
+
+export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+  useAIStore.setState({
+    promptTemplates: payload,
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  });
+}
+
+export async function loadExternalAgentConfigs() {
+  const res = await route_get_external_agent_configs();
+  if (res200(res)) {
+    receiveExternalAgentConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentConfigsInitialLoadComplete: true,
+      externalAgentConfigsLoadError: "Failed to load external agent configs",
+    });
+  }
+}
+
+export function receiveExternalAgentConfigsUpdate(
+  payload: Array<ExternalAgentConfig>,
+) {
+  useAIStore.setState({
+    externalAgentConfigs: payload,
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  });
+}
+
 export function getDefaultChatDetails(): ChatDetails {
   return {
     messages: [],
@@ -122,23 +221,45 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
-export async function getAllLLMChatMetadata() {
-  const res = await route_get_all_llm_chat_metadata();
+export async function getExternalAgentChat(
+  chatId: string,
+  projectConfigId: string | null,
+) {
+  const res = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
   if (res200(res)) {
-    useAIStore.setState({ allChatMetadata: res.data });
+    const { messages, waitingForResponse, toolCallArguments } = res.data;
+    useAIStore.setState((state) => {
+      const existingDetails = state.chatDetails[chatId];
+      const nextWaitingForResponse = waitingForResponse
+        ? existingDetails?.waitingForResponse ?? true
+        : false;
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(existingDetails ?? {}),
+            messages,
+            waitingForResponse: nextWaitingForResponse,
+            toolCallArguments,
+            llmConfig: null,
+          },
+        },
+      };
+    });
   }
-}
-
-export async function deleteLLMChat(chatId: string) {
-  await route_delete_llm_chat({ chatId });
-  await getAllLLMChatMetadata();
 }
 
 export async function submitMessage(
   chatId: string | null,
   message: string,
   deepThink: boolean,
-  llmConfigId: string,
+  llmConfigId: string | null,
+  messageId?: string,
+  agentProfileId?: string | null,
 ): Promise<string | null> {
   if (!message.trim()) {
     return null;
@@ -146,7 +267,7 @@ export async function submitMessage(
 
   // Add user message immediately for responsive UI
   const userMessage = {
-    id: createNewId(),
+    id: messageId ?? createNewId(),
     role: ChatRoleEnum.user,
     content: [createMessageTextContent({ text: message })],
   };
@@ -161,6 +282,7 @@ export async function submitMessage(
       deepThink,
       chatId,
       llmConfigId,
+      agentProfileId: agentProfileId ?? null,
       projectConfigId,
     });
     if (res200(res)) {
@@ -178,8 +300,89 @@ export async function submitMessage(
   }
 }
 
+type ExternalAgentSubmitOptions = {
+  agentProfileId: string | null;
+  deepThink: boolean;
+  priorMessages: Array<BaseChatMessageUnion>;
+  messageId?: string;
+};
+
+export async function submitExternalAgentMessage(
+  chatId: string | null,
+  message: string,
+  externalAgentConfigId: string,
+  options: ExternalAgentSubmitOptions,
+): Promise<AgentRun | null> {
+  if (!message.trim()) {
+    return null;
+  }
+
+  const userMessage = {
+    id: options.messageId ?? createNewId(),
+    role: ChatRoleEnum.user,
+    content: [createMessageTextContent({ text: message })],
+  };
+  const userMessageId = userMessage.id;
+
+  applyOptimisticUserMessage(chatId, userMessage);
+
+  const combinedMessages = [...options.priorMessages, userMessage];
+  const projectConfigId = getCurrProjectConfigId();
+  const inputs: Record<string, unknown> = {
+    projectConfigId,
+    deepThink: options.deepThink,
+    messages: combinedMessages,
+  };
+  if (chatId) {
+    inputs.chatId = chatId;
+  }
+
+  try {
+    const res = await route_start_external_agent_run({
+      configId: externalAgentConfigId,
+      profileId: options.agentProfileId,
+      inputs,
+    });
+    if (res200(res)) {
+      return res.data;
+    }
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    return null;
+  } catch (err) {
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    throw err;
+  }
+}
+
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
+  const sectionId = msg.sectionId;
+  if (sectionId) {
+    applyChatSectionStreamDelta(sectionId, chunk);
+    if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
+      applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+      clearToolArgumentPreviewByToolCallId(
+        getCurrProjectConfigId(),
+        chunk.result.tool_call_id,
+      );
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+      const toolCallIds =
+        chunk.message.role === ChatRoleEnum.assistant
+          ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
+          : [];
+      clearToolArgumentPreviewByToolCallIds(
+        getCurrProjectConfigId(),
+        toolCallIds,
+      );
+      return;
+    }
+    return;
+  }
   switch (chunk.type) {
     case StreamingEventTypeEnum.MESSAGE_START:
       handleMessageStart(chatId, chunk);
@@ -205,6 +408,94 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     default:
       return chunk satisfies never;
   }
+}
+
+type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+
+type RunPayload = Record<string, unknown>;
+
+export function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+  const outputMessages = extractRunMessages(run.outputs);
+  if (outputMessages) {
+    return buildChatSectionState(outputMessages, false);
+  }
+
+  const inputMessages = extractRunMessages(run.inputs) ?? [];
+  let state = buildChatSectionState(
+    inputMessages,
+    run.status === AgentRunStatusEnum.running,
+  );
+  for (const event of run.events ?? []) {
+    if (event.type !== "stream_chunk") {
+      continue;
+    }
+    const chunk = extractStreamChunk(event.payload);
+    if (!chunk) {
+      continue;
+    }
+    state = applyStreamDeltaToChatSectionState(state, chunk);
+  }
+  return state;
+}
+
+function buildChatSectionState(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+): ChatSectionState {
+  return {
+    messages: [...messages],
+    inputText: "",
+    waitingForResponse,
+    toolCallArguments: {},
+  };
+}
+
+function extractRunMessages(
+  payload: RunPayload | null,
+): Array<BaseChatMessageUnion> | null {
+  if (!payload) {
+    return null;
+  }
+  const raw = payload.messages;
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as Array<BaseChatMessageUnion>;
+}
+
+function extractStreamChunk(
+  payload: RunPayload,
+): ChatSectionStreamChunk | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const rawChunk = payload.chunk;
+  if (!rawChunk || typeof rawChunk !== "object") {
+    return null;
+  }
+  if (!("type" in rawChunk)) {
+    return null;
+  }
+  return rawChunk as ChatSectionStreamChunk;
+}
+
+function applyChatSectionStreamDelta(
+  sectionId: string,
+  chunk: ChatSectionStreamChunk,
+): void {
+  useProjectState.setState((state) => {
+    const currentState = getChatSectionStateFromStore(state, sectionId);
+    if (!currentState) {
+      return;
+    }
+    const nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
+    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+      messages: nextState.messages,
+      inputText: nextState.inputText,
+      waitingForResponse: nextState.waitingForResponse,
+      toolCallArguments: nextState.toolCallArguments,
+    });
+  });
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
@@ -320,6 +611,12 @@ function handleToolArgumentPreviewDelta(
   chunk: ToolArgumentPreviewDeltaEvent,
 ) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
+  applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+}
+
+function applyToolArgumentPreviewDeltaToPreviewStore(
+  chunk: ToolArgumentPreviewDeltaEvent,
+) {
   const projectConfigId = getCurrProjectConfigId();
   useToolArgumentPreview.setState((state) => {
     const previewState =
@@ -666,4 +963,283 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = message;
   return nextMessages;
+}
+
+function getChatSectionStateFromStore(
+  state: ZustandProjectState,
+  sectionId: string,
+): ChatSectionState | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  const effective = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  if (effective.type !== SectionTypeEnum.Chat) {
+    return null;
+  }
+  const chatImpl = effective as {
+    type: SectionTypeEnum.Chat;
+    messages: BaseChatMessageUnion[];
+    inputText: string;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  };
+  return {
+    messages: [...(chatImpl.messages ?? [])],
+    inputText: chatImpl.inputText ?? "",
+    waitingForResponse: Boolean(chatImpl.waitingForResponse),
+    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
+  };
+}
+
+function applyStreamDeltaToChatSectionState(
+  state: ChatSectionState,
+  chunk: ChatSectionStreamChunk,
+): ChatSectionState {
+  let messages = [...state.messages];
+  let toolCallArguments = { ...state.toolCallArguments };
+  let waitingForResponse = state.waitingForResponse;
+  const inputText = state.inputText;
+
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.MESSAGE_START: {
+      messages = upsertMessage(messages, chunk.message);
+      waitingForResponse = true;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.DELTA: {
+      messages = applyMessageDeltaToChatMessages(messages, chunk);
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_CALL_DELTA: {
+      const result = applyToolCallDeltaToChatMessages(
+        messages,
+        toolCallArguments,
+        chunk,
+      );
+      messages = result.messages;
+      toolCallArguments = result.toolCallArguments;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA: {
+      const result = applyToolCallDeltaToChatMessages(
+        messages,
+        toolCallArguments,
+        chunk,
+      );
+      messages = result.messages;
+      toolCallArguments = result.toolCallArguments;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.TOOL_RESULT: {
+      messages = upsertMessage(messages, chunk.result);
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.MESSAGE_STOP: {
+      waitingForResponse = false;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
+      messages = upsertMessage(messages, chunk.message);
+      waitingForResponse = false;
+      toolCallArguments = {};
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+    default: {
+      chunk satisfies never;
+      return {
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+      };
+    }
+  }
+}
+
+function applyMessageDeltaToChatMessages(
+  messages: Array<BaseChatMessageUnion>,
+  chunk: MessageDeltaEvent,
+): Array<BaseChatMessageUnion> {
+  if (!chunk.content || chunk.content.length === 0) {
+    return messages;
+  }
+  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
+    messages,
+    chunk.message_id,
+  );
+  let mutated = false;
+  const content = [...assistant.content];
+  for (const delta of chunk.content ?? []) {
+    if (delta.type === "text_delta") {
+      const index = normalizeChatContentIndex(delta.index, content.length);
+      const block = ensureTextContentBlock(content, index);
+      if (delta.text) {
+        block.text += delta.text;
+        mutated = true;
+      }
+      continue;
+    }
+    if (delta.type === "thinking_delta") {
+      const index = normalizeChatContentIndex(delta.index, content.length);
+      const block = ensureThinkingContentBlock(content, index);
+      const thinkingUpdate = delta.thinking ?? "";
+      const signatureUpdate = delta.signature;
+      let blockMutated = false;
+      if (thinkingUpdate) {
+        block.thinking += thinkingUpdate;
+        blockMutated = true;
+      }
+      if (signatureUpdate !== undefined) {
+        block.signature = signatureUpdate ?? "";
+        blockMutated = true;
+      }
+      if (blockMutated) {
+        mutated = true;
+      }
+      continue;
+    }
+    delta satisfies never;
+  }
+  if (!mutated) {
+    return updatedMessages;
+  }
+  assistant.content = content;
+  return updatedMessages;
+}
+
+function applyToolCallDeltaToChatMessages(
+  messages: Array<BaseChatMessageUnion>,
+  toolCallArguments: Record<string, string>,
+  chunk: ToolCallDeltaEvent | ToolArgumentPreviewDeltaEvent,
+): {
+  messages: Array<BaseChatMessageUnion>;
+  toolCallArguments: Record<string, string>;
+} {
+  const nextToolCallArguments = {
+    ...toolCallArguments,
+    [chunk.tool_call_id]:
+      (toolCallArguments[chunk.tool_call_id] ?? "") + chunk.arguments_delta,
+  };
+  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
+    messages,
+    chunk.message_id,
+  );
+  const toolCalls = [...(assistant.tool_calls ?? [])];
+  const existingIndex = toolCalls.findIndex(
+    (entry) => entry.id === chunk.tool_call_id,
+  );
+  if (existingIndex === -1) {
+    toolCalls.push(createToolCallPlaceholder(chunk));
+  } else if (chunk.tool_name) {
+    const existingCall = toolCalls[existingIndex];
+    if (existingCall.function.name !== chunk.tool_name) {
+      toolCalls[existingIndex] = {
+        ...existingCall,
+        function: {
+          ...existingCall.function,
+          name: chunk.tool_name,
+        },
+      };
+    }
+  }
+  assistant.tool_calls = toolCalls.length > 0 ? toolCalls : null;
+  return {
+    messages: updatedMessages,
+    toolCallArguments: nextToolCallArguments,
+  };
+}
+
+function ensureAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
+  messageId: string,
+): {
+  messages: Array<BaseChatMessageUnion>;
+  assistant: AssistantChatMessage;
+} {
+  const existingIndex = messages.findIndex((entry) => entry.id === messageId);
+  if (existingIndex !== -1) {
+    const existing = messages[existingIndex];
+    if (existing.role === ChatRoleEnum.assistant) {
+      const assistant: AssistantChatMessage = {
+        ...existing,
+        content: [...existing.content],
+        tool_calls: existing.tool_calls ? [...existing.tool_calls] : null,
+      };
+      const nextMessages = [...messages];
+      nextMessages[existingIndex] = assistant;
+      return { messages: nextMessages, assistant };
+    }
+  }
+  const assistant: AssistantChatMessage = {
+    id: messageId,
+    role: ChatRoleEnum.assistant,
+    content: [],
+    tool_calls: null,
+  };
+  return { messages: [...messages, assistant], assistant };
+}
+
+function normalizeChatContentIndex(
+  index: number | null | undefined,
+  currentLength: number,
+): number {
+  if (index === null || index === undefined) {
+    return Math.max(currentLength - 1, 0);
+  }
+  if (index < 0) {
+    return 0;
+  }
+  return index;
 }
