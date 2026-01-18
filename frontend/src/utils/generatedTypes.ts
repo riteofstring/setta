@@ -374,6 +374,8 @@ export const RouteEnum = {
   CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
   UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
   DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
+  START_EXTERNAL_AGENT_RUN: "/startExternalAgentRun",
+  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -5615,12 +5617,30 @@ export type StartAgentRunRequestInput = z.input<
   typeof StartAgentRunRequestSchema
 >;
 
+const StartExternalAgentRunRequestSchema = z.object({
+  configId: IDSchema,
+  profileId: z.union([IDSchema, z.null()]).default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartExternalAgentRunRequestInput = z.input<
+  typeof StartExternalAgentRunRequestSchema
+>;
+
 const StopAgentRunRequestSchema = z.object({
   runId: IDSchema,
 });
 
 export type StopAgentRunRequestInput = z.input<
   typeof StopAgentRunRequestSchema
+>;
+
+const StopExternalAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopExternalAgentRunRequestInput = z.input<
+  typeof StopExternalAgentRunRequestSchema
 >;
 
 const UpdateAgentProfileRequestSchema = z.object({

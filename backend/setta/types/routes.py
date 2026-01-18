@@ -78,6 +78,8 @@ class Route(str, Enum):
     CREATE_EXTERNAL_AGENT_CONFIG = "/createExternalAgentConfig"
     UPDATE_EXTERNAL_AGENT_CONFIG = "/updateExternalAgentConfig"
     DELETE_EXTERNAL_AGENT_CONFIG = "/deleteExternalAgentConfig"
+    START_EXTERNAL_AGENT_RUN = "/startExternalAgentRun"
+    STOP_EXTERNAL_AGENT_RUN = "/stopExternalAgentRun"
     CREATE_CHAT = "/createChat"
     GET_CHAT = "/getChat"
     APPEND_CHAT_MESSAGES = "/appendChatMessages"

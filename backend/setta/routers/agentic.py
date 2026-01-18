@@ -11,6 +11,8 @@ from setta.agentic.store import (
     load_agent_run,
     load_external_agent_configs,
     load_prompt_template,
+    require_agent_profile,
+    require_external_agent_config,
     save_agent_profiles,
     save_external_agent_configs,
     save_prompt_template,
@@ -62,6 +64,16 @@ class StopAgentRunRequest(BaseModel):
 
 
 class GetAgentRunRequest(BaseModel):
+    runId: ID
+
+
+class StartExternalAgentRunRequest(BaseModel):
+    configId: ID
+    profileId: ID | None = None
+    inputs: dict[str, Any] | None = None
+
+
+class StopExternalAgentRunRequest(BaseModel):
     runId: ID
 
 
@@ -213,6 +225,47 @@ async def route_stop_agent_run(
         raise HTTPException(status_code=503, detail="Agent runner is not available")
     try:
         return await ctx.state.agent_runner.stop_run(x.runId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(Route.START_EXTERNAL_AGENT_RUN)
+async def route_start_external_agent_run(
+    x: StartExternalAgentRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    runner = ctx.state.external_agent_runner
+    if runner.disabled:
+        raise HTTPException(
+            status_code=503, detail="External agent runner is not available"
+        )
+    try:
+        config = require_external_agent_config(ctx.state.dbe, x.configId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    profile = None
+    if x.profileId is not None:
+        try:
+            profile = require_agent_profile(ctx.state.dbe, x.profileId)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return runner.start_run(config, profile, x.inputs)
+
+
+@router.post(Route.STOP_EXTERNAL_AGENT_RUN)
+async def route_stop_external_agent_run(
+    x: StopExternalAgentRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    runner = ctx.state.external_agent_runner
+    if runner.disabled:
+        raise HTTPException(
+            status_code=503, detail="External agent runner is not available"
+        )
+    try:
+        return await runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
