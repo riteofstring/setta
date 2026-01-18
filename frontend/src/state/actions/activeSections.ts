@@ -33,7 +33,7 @@ export function setActiveSectionIds(ids: Array<string>) {
   });
 }
 
-export function addActiveSectionIds(ids: Array<string>) {
+function addActiveSectionIds(ids: Array<string>) {
   const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
   const nextActiveIds = [...new Set([...currentActiveIds, ...ids])];
   if (_.isEqual(currentActiveIds, nextActiveIds)) {
@@ -44,7 +44,7 @@ export function addActiveSectionIds(ids: Array<string>) {
   });
 }
 
-export function removeActiveSectionIds(ids: Array<string>) {
+function removeActiveSectionIds(ids: Array<string>) {
   const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
   const nextActiveIds = _.difference(currentActiveIds, ids);
   if (_.isEqual(currentActiveIds, nextActiveIds)) {

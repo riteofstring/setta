@@ -69,9 +69,7 @@ export function getParamIdFromDndItemId(dndId: string): string {
   return base.slice(0, separatorIndex);
 }
 
-export function getParamListKeyFromDndItemId(
-  dndId: string,
-): ParamListKey | null {
+function getParamListKeyFromDndItemId(dndId: string): ParamListKey | null {
   const base = stripTempSuffix(dndId);
   const separatorIndex = base.lastIndexOf(PARAM_DND_LIST_KEY_SEPARATOR);
   if (separatorIndex === -1) {

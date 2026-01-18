@@ -22,6 +22,7 @@ from setta.types.helpers_lvl2 import (
     indent_params,
     move_params_within_parent,
     set_chat_section_chat_id,
+    set_section_param_filter,
     unindent_params,
 )
 from setta.types.project_config import (
@@ -236,6 +237,22 @@ class ParamMoveTests(unittest.TestCase):
         )
 
     def test_move_params_within_parent_reorders(self) -> None:
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
+        )
+
+    def test_param_filter_whitespace_allows_reorder(self) -> None:
+        set_section_param_filter(self.project_state, self.section_id, "   ")
+
         move_params_within_parent(
             self.project_state,
             self.section_id,

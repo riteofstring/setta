@@ -44,7 +44,7 @@ type ParamToggleIntent = {
   hasSelectedParams: boolean;
 };
 
-export type ActiveSectionIntent =
+type ActiveSectionIntent =
   | SectionClickIntent
   | PaneClickIntent
   | SelectionRectIntent

@@ -45,7 +45,7 @@ export function addParamChild(
   });
 }
 
-export function removeParamChild(childId: string) {
+function removeParamChild(childId: string) {
   useParamDndChildren.setState((state) => {
     const oldParentId = state.y[childId];
     if (oldParentId) {

@@ -1,4 +1,4 @@
-export type ActiveSectionInteraction =
+type ActiveSectionInteraction =
   | "section-click"
   | "pane-click"
   | "selection-rect"

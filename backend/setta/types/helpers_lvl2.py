@@ -2549,7 +2549,7 @@ def _resolve_param_selection(
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, BaseSectionWithParamsImpl
     )
-    if section_impl.paramFilter:
+    if section_impl.paramFilter.strip():
         raise ValueError(
             f"Section {section_id} has an active param filter; reordering disabled."
         )

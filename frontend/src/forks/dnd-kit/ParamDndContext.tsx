@@ -51,6 +51,7 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
             listKey,
             collisions: collisions.map((collision) => String(collision.id)),
           });
+          baseTracker.update(null);
           return;
         }
         if (filtered.length !== collisions.length) {
