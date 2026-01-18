@@ -15,7 +15,6 @@ import {
   getCurrSectionVariantId,
   getCurrShownParamIds,
   getParamDisplayName,
-  getSectionCore,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
@@ -75,7 +74,13 @@ function shouldRollbackJsonSourceKeys(
   expectedKeys: string[],
 ): boolean {
   const state = useProjectState.getState();
-  const core = getSectionCore(state, sectionId);
+  const core = state.sections[sectionId];
+  if (!core || !state.sectionVariants[variantId]) {
+    return false;
+  }
+  if (!core.variants.includes(variantId)) {
+    return false;
+  }
   const { impl } = getVariantBaseAndEffectiveSectionImpl(
     state,
     core,

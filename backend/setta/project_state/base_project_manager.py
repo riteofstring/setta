@@ -1855,12 +1855,16 @@ class BaseProjectManager(ABC):
             )
         variant = project_state.sectionVariants[x.variantId]
         filename = normalize_path(variant.name)
-        processed = self.json_source.json_sources.get(filename)
-        if processed is None and filename.exists():
+        processed = None
+        if filename.exists():
             processed_updates = self.json_source.process_json_source_files([filename])
             processed = processed_updates.get(filename)
             if processed is not None:
                 self.json_source.json_sources[filename] = processed
+            else:
+                self.json_source.json_sources.pop(filename, None)
+        else:
+            self.json_source.json_sources.pop(filename, None)
         if processed is not None:
             key_path = tuple(x.jsonSourceKeys)
             if key_path not in processed.hierarchy.name_path_to_id:
