@@ -159,7 +159,6 @@ class Route(str, Enum):
     UNSELECT_ALL_PARAMS = "/unselectAllParams"
     PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"
     PASTE_SECTIONS = "/pasteSections"
-    GET_FILE_BROWSER_ROOT = "/getFileBrowserRoot"
     GET_FOLDER_CONTENTS = "/getFolderContents"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"

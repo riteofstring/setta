@@ -221,16 +221,7 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-export const CodeLanguageEnum = {
-  python: "python",
-  bash: "bash",
-  javascript: "javascript",
-  typescript: "typescript",
-  json: "json",
-  yaml: "yaml",
-  markdown: "markdown",
-  plaintext: "plaintext",
-} as const;
+export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
@@ -449,7 +440,6 @@ export const RouteEnum = {
   UNSELECT_ALL_PARAMS: "/unselectAllParams",
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
   PASTE_SECTIONS: "/pasteSections",
-  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
@@ -1263,6 +1253,7 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
+  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1368,6 +1359,7 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
+        "renderedImagePath",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -1571,6 +1563,7 @@ const DrawSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
+  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -2376,6 +2369,7 @@ const DrawSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
+  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
@@ -3272,10 +3266,12 @@ const SectionCodegenPolicySchema = z.object({
       Dict: createSectionTypeCodegenPolicy(),
       ListRoot: createSectionTypeCodegenPolicy(),
       Group: createSectionTypeCodegenPolicy(),
-      Image: createSectionTypeCodegenPolicy(),
+      Image: createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.file,
+      }),
       Chart: createSectionTypeCodegenPolicy(),
       Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.base64,
+        representation: SectionRepresentationModeEnum.file,
       }),
       TextBlock: createSectionTypeCodegenPolicy(),
       MetaControl: createSectionTypeCodegenPolicy(),
@@ -4034,6 +4030,7 @@ const UserDefaultDrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
+  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -5012,9 +5009,6 @@ type BaseSectionWithParamsImplArgs = z.infer<
 const FolderContentItemSchema = z.object({
   name: z.string(),
   type: z.string(),
-  fullPath: z.string(),
-  mtime: z.number().optional(),
-  size: z.int().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -5524,23 +5518,8 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
-const GetFileBrowserRootResponseSchema = z.object({
-  rootPath: z.string(),
-  pathSeparator: z.string(),
-  ignorePatterns: z.array(z.string()),
-});
-
-export type GetFileBrowserRootResponse = z.infer<
-  typeof GetFileBrowserRootResponseSchema
->;
-
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
-  includeMtime: z.boolean().default(false),
-  includeSize: z.boolean().default(false),
-  includeHidden: z.boolean().default(false),
-  ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
-  maxEntries: z.union([z.int(), z.null()]).default(null),
 });
 
 export type GetFolderContentsRequestInput = z.input<
@@ -6859,6 +6838,9 @@ const RunCodeRequestSchema = z.object({
   cliId: z.union([z.string(), z.null()]).default(null),
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
+  drawSnapshotsBySectionId: z
+    .union([z.record(IDSchema, z.string()), z.null()])
     .default(null),
 });
 

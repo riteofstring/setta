@@ -28,7 +28,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Python codegen target settings (`projectConfig.codegenTargets` entry for `python`) hold `genCodePrefix` and `genCodeSuffix`.
 - `genCodePrefix` -> imports and shared helpers used by generated expressions; update with `set_gen_code_prefix`.
 - `genCodeSuffix` -> minimal postamble (default: `state = SettaState()`); only change via `set_gen_code_suffix` if asked.
-- Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces and do not emit generated values.
+- Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces. Draw/Image can emit file-backed values when allowlisted; the rest generally do not emit generated values.
 
 ## Generated code pipeline
 - The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py` when Python codegen is enabled.
@@ -49,9 +49,9 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - ListRoot sections -> `state.<path> = [child_value0, child_value1, ...]` in order.
 - GlobalVariables section -> top-level params become `state.<param_name>`.
 - MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
-- TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
-- Sections outside the dependency graph (Code, GenPythonCode, GenPythonMetadata, Image, Chart, Browser,
-  Terminal, Chat, etc.) do not emit generated values.
+- TextBlock -> `state.<path> = "<text>"`; Draw -> file-backed payload or None.
+- Sections outside the dependency graph (Code, GenPythonCode, GenPythonMetadata, Chart, Browser,
+  Terminal, etc.) do not emit generated values.
 
 ## Meta control sections
 - MetaControl sections contain exactly one control code object (`metaControlParamId`); they are not param lists.

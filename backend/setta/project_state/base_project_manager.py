@@ -19,8 +19,6 @@ from typing import (
     overload,
 )
 
-from fastapi import HTTPException, status
-
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -51,6 +49,7 @@ from setta.project_state.code_files import (
     CodeFileReloadPlan,
     CodeFiles,
 )
+from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -65,7 +64,6 @@ from setta.project_state.listener_dependency_updates import (
 )
 from setta.project_state.project_code import (
     ProjectBashCode,
-    ProjectBasicCode,
     ProjectGenPythonCode,
     ProjectPythonCode,
     build_python_code_generator,
@@ -289,7 +287,6 @@ from setta.types.project_config import (
     project_config_has_codegen_language,
 )
 from setta.types.project_state import (
-    RUNNABLE_CODE_LANGUAGES,
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
@@ -343,9 +340,7 @@ class BaseProjectManager(ABC):
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
-        self.code_dict: dict[
-            str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
-        ] = {}
+        self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
         ] = asyncio.Queue()
@@ -579,7 +574,7 @@ class BaseProjectManager(ABC):
         self, projectConfigId: ID
     ) -> tuple[
         ProjectGenPythonCode | None,
-        dict[ID, ProjectPythonCode | ProjectBashCode | ProjectBasicCode],
+        dict[ID, ProjectPythonCode | ProjectBashCode],
     ]:
         gen_code = self.gen_code.get(projectConfigId)
         code_entries = self.code_dict.get(projectConfigId, {})
@@ -602,35 +597,43 @@ class BaseProjectManager(ABC):
         project_config_id = x.projectConfigId
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
-        async with self._project_state_lock.read_lock():
-            project_config = self.project_state_backend.projectConfigs[
-                project_config_id
-            ]
+        draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
+        lock = (
+            self._project_state_lock.write_lock()
+            if draw_snapshots_by_section_id
+            else self._project_state_lock.read_lock()
+        )
+        async with lock:
+            project_state = convert_backend_to_single_config(
+                self.project_state_backend, project_config_id
+            )
+            project_config = project_state.projectConfig
             python_codegen_enabled = project_config_has_codegen_language(
                 project_config,
                 ProjectCodegenLanguage.python,
             )
+            if draw_snapshots_by_section_id:
+                snapshots_updated = apply_draw_snapshot_updates(
+                    dbe=self.dbe,
+                    project_state=project_state,
+                    snapshots_by_section_id=draw_snapshots_by_section_id,
+                    artifact_root=C.ARTIFACTS_FOLDER,
+                )
+                if snapshots_updated:
+                    project_state.validate_for_update(validate_code_file_bindings=False)
+                    if python_codegen_enabled:
+                        await self._refresh_codegen_state(project_state)
+                    self._merge_project_state_backend(
+                        project_state, updateFileWatcher=False
+                    )
+                    if self.settings_file.settings.backend.autosave:
+                        self.autosave_debouncer.trigger()
             gen_code, code_entries = self._flush_code_files(project_config_id)
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
             )
             if not section_id:
                 section_id = project_config.entryCodeBlockId
-            if section_id:
-                project_state = convert_backend_to_single_config(
-                    self.project_state_backend, project_config_id
-                )
-                section_impl = get_curr_effective_section_impl(
-                    project_state, section_id
-                )
-                if (
-                    isinstance(section_impl, CodeSectionImpl)
-                    and section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES
-                ):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Run is only available for Python and Bash.",
-                    )
 
             if not python_codegen_enabled:
                 if not section_id:
@@ -1633,13 +1636,7 @@ class BaseProjectManager(ABC):
                 project_state,
                 sectionId,
             )
-        return ProjectBasicCode(
-            self.dbe,
-            self.code_files,
-            project_state,
-            sectionId,
-            codeLanguage,
-        )
+        return None
 
     def _apply_rename_result_auto_mode(
         self,
@@ -2170,6 +2167,7 @@ class BaseProjectManager(ABC):
                 artifacts=artifact_payloads,
                 updateType="update",
             )
+            await self.artifacts.emit_realtime_image_updates(artifact_payloads)
 
     @enqueue_method
     async def apply_listener_emit_updates(
