@@ -347,17 +347,19 @@ function updateParamDragOver({
     paramState.listKey,
   );
   if (!filteredCollisions || filteredCollisions.length === 0) {
-    if (
-      lastResolvedOverId === null &&
-      lastResolvedPastHalfway === null &&
-      lastResolvedTriggerDistCondition === null
-    ) {
-      return;
+    if (!collisions || collisions.length === 0) {
+      if (
+        lastResolvedOverId === null &&
+        lastResolvedPastHalfway === null &&
+        lastResolvedTriggerDistCondition === null
+      ) {
+        return;
+      }
+      lastResolvedOverId = null;
+      lastResolvedPastHalfway = null;
+      lastResolvedTriggerDistCondition = null;
+      removeParamChild(getParamDndId(paramState.activeId));
     }
-    lastResolvedOverId = null;
-    lastResolvedPastHalfway = null;
-    lastResolvedTriggerDistCondition = null;
-    removeParamChild(getParamDndId(paramState.activeId));
     return;
   }
   const resolvedOverId = resolveOverCollisionId(
