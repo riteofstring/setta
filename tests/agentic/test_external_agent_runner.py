@@ -1,4 +1,5 @@
 import json
+import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -255,6 +256,28 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             self.assertEqual(context.inputs.get("sessionId"), "session-new")
+
+    def test_opencode_config_writes_permission_key(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+            )
+
+            config_path = runner._write_opencode_config(
+                "http://localhost:8000/mcp",
+                config,
+            )
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertIn("permission", payload)
+            self.assertNotIn("permissions", payload)
+
+            shutil.rmtree(config_path.parent, ignore_errors=True)
 
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:

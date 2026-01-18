@@ -497,9 +497,9 @@ class ExternalAgentRunner:
                 }
             }
         }
-        permissions = self._parse_opencode_permissions(config.approvalPolicy)
-        if permissions is not None:
-            payload["permissions"] = permissions
+        permission = self._parse_opencode_permissions(config.approvalPolicy)
+        if permission is not None:
+            payload["permission"] = permission
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 

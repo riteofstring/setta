@@ -71,4 +71,5 @@ include = [
 [tool.hatch.build]
 artifacts = [
     "backend/setta/static/frontend/**",
+    "backend/setta/agentic/external_adapters/sidecars/**",
 ]
