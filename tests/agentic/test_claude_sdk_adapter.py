@@ -238,6 +238,70 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertEqual(result.tool_name, "Bash")
             self.assertEqual(result.content[0].text, "ok")
 
+    def test_tool_use_delta_overrides_empty_input(self) -> None:
+        parser = _ClaudeSdkEventParser()
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "message_start",
+                    "message": {"id": "msg-tool-delta", "content": []},
+                },
+            }
+        )
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": "toolu-3",
+                        "name": "Bash",
+                        "input": {},
+                    },
+                },
+            }
+        )
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": "{\"command\": \"ls\"}",
+                    },
+                },
+            }
+        )
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {"type": "content_block_stop", "index": 0},
+            }
+        )
+
+        events = parser.handle(
+            {"type": "stream_event", "event": {"type": "message_stop"}}
+        )
+        finalized = next(
+            (
+                event.stream_chunk
+                for event in events
+                if isinstance(event.stream_chunk, MessageFinalizedEvent)
+            ),
+            None,
+        )
+
+        self.assertIsInstance(finalized, MessageFinalizedEvent)
+        if isinstance(finalized, MessageFinalizedEvent):
+            tool_calls = finalized.message.tool_calls or []
+            self.assertEqual(len(tool_calls), 1)
+            self.assertEqual(tool_calls[0].function.arguments, {"command": "ls"})
+
     def test_stream_event_message_start_parses_event_key(self) -> None:
         parser = _ClaudeSdkEventParser()
         events = parser.handle(

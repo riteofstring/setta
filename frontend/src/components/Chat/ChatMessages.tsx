@@ -173,8 +173,10 @@ const ThinkingBox = memo(function ThinkingBox({
 
 function ToolCallAccordionStatus({
   success,
+  isStreaming,
 }: {
   success: boolean | undefined;
+  isStreaming: boolean;
 }) {
   if (success === true) {
     return (
@@ -186,8 +188,13 @@ function ToolCallAccordionStatus({
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
   }
+  if (isStreaming) {
+    return (
+      <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
+    );
+  }
   return (
-    <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
+    <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-300/70" />
   );
 }
 
@@ -198,6 +205,7 @@ const ToolCallItem = memo(function ToolCallItem({
   result,
   success,
   isApproval,
+  isStreaming,
 }: {
   toolCallId: string;
   name: string;
@@ -205,6 +213,7 @@ const ToolCallItem = memo(function ToolCallItem({
   result: ToolResultValue | undefined;
   success: boolean | undefined;
   isApproval: boolean;
+  isStreaming: boolean;
 }) {
   const [decisionPending, setDecisionPending] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -277,7 +286,10 @@ const ToolCallItem = memo(function ToolCallItem({
           <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
             {name}
           </div>
-          <ToolCallAccordionStatus success={success} />
+          <ToolCallAccordionStatus
+            success={success}
+            isStreaming={isStreaming}
+          />
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
@@ -453,6 +465,7 @@ const ChatMessage = memo(function ChatMessage({
               result={formatToolResult(toolResult)}
               success={toolResult ? !toolResult.is_error : undefined}
               isApproval={toolCall.function?.name === APPROVAL_TOOL_NAME}
+              isStreaming={isStreaming}
             />
           );
         })}

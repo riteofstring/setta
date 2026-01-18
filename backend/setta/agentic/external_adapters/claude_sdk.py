@@ -154,6 +154,8 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
 class _ToolCallBuffer:
     name: str | None = None
     arguments: str = ""
+    saw_delta: bool = False
+    seeded_from_input: bool = False
 
 
 @dataclass
@@ -324,8 +326,9 @@ class _ClaudeSdkEventParser:
                 input_payload = content_block.get("input")
                 if input_payload is not None:
                     serialized = _safe_json_dump(input_payload)
-                    if serialized:
-                        buffer.arguments += serialized
+                    if serialized and serialized != "{}":
+                        buffer.arguments = serialized
+                        buffer.seeded_from_input = True
                         events.append(
                             ExternalAgentStreamEvent(
                                 raw=raw_payload,
@@ -418,6 +421,11 @@ class _ClaudeSdkEventParser:
                 buffer = self._tool_call_buffers.setdefault(
                     tool_use_id, _ToolCallBuffer()
                 )
+                if not buffer.saw_delta:
+                    buffer.saw_delta = True
+                    if buffer.seeded_from_input:
+                        buffer.arguments = ""
+                        buffer.seeded_from_input = False
                 buffer.arguments += partial_json
                 events.append(
                     ExternalAgentStreamEvent(
