@@ -5,39 +5,17 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   route_kill_subprocesses,
   route_run_code,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
-import {
-  getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
-} from "./sectionInfos";
+import { getCurrProjectConfigId } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
-  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
-  if (!pythonCodegenEnabled) {
-    const gen_section_id = singletonSections.GenPythonCode;
-    if (sectionId !== null && sectionId === gen_section_id) {
-      addTemporaryNotification("Select a manual code section to run.");
-      return;
-    }
-    if (
-      sectionId === null &&
-      (!projectConfig.entryCodeBlockId ||
-        projectConfig.entryCodeBlockId === gen_section_id)
-    ) {
-      addTemporaryNotification("Select a manual entry code block to run.");
-      return;
-    }
-  }
-  if (pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode) {
+  if (sectionId === singletonSections.GenPythonCode) {
     sectionId = null;
   }
   const shareSession = useShareSession.getState();
@@ -52,13 +30,11 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
-  const drawSnapshotsBySectionId = collectDrawSnapshotsForRun();
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
     cliId: null,
     runSnapshotMode,
-    drawSnapshotsBySectionId,
   });
 }
 
@@ -97,18 +73,4 @@ export async function stopCode() {
   route_kill_subprocesses({
     projectConfigId: getCurrProjectConfigId(),
   });
-}
-
-function collectDrawSnapshotsForRun(): Record<string, string> | null {
-  const state = useProjectState.getState();
-  const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);
-  const drawSectionIds = sectionIds.filter(
-    (sectionId) =>
-      getCurrEffectiveSectionImpl(state, sectionId).type ===
-      SectionTypeEnum.Draw,
-  );
-  if (drawSectionIds.length === 0) {
-    return null;
-  }
-  return collectDrawSnapshotPayloads(drawSectionIds);
 }

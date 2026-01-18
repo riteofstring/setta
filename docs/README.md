@@ -1,8 +1,6 @@
 # Docs Overview
 
 - `code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
-- `codegen-targets.md` – describes `codegenTargets`, supported languages, and behavior when disabled.
-- `codegen-section-policy-and-metadata.md` – explains the section policy rules and the generated metadata output.
 - `ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
