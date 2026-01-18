@@ -101,6 +101,7 @@ class Route(str, Enum):
     DELETE_KWARG = "/deleteKwarg"
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
     TOGGLE_VARIANT_JSON_SOURCE = "/toggleVariantJsonSource"
+    SET_VARIANT_JSON_SOURCE_KEYS = "/setVariantJsonSourceKeys"
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
     SET_PROJECT_CONFIG_CODEGEN_TARGETS = "/setProjectConfigCodegenTargets"
     SET_GEN_CODE_PREFIX = "/setGenCodePrefix"

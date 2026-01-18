@@ -385,6 +385,12 @@ class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
+class SetVariantJsonSourceKeysRequest(ProjectManagerRequestWithSectionVariant):
+    jsonSourceKeys: list[str] = Field(
+        description="Key path within the JSON source to scope this section to.",
+    )
+
+
 class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSectionVariant):
     filepath: str
 

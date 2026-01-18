@@ -717,6 +717,14 @@ class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
     ignoreTypeErrors: bool
 
 
+class ListenerSetVariantJsonSourceKeysRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    variantId: ID
+    jsonSourceKeys: list[str]
+
+
 class ListenerSetViewModeNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1253,6 +1261,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTypeErrorIgnoreRequestPayload
     ) -> None:
         return await self._caller("route_set_type_error_ignore", payload)
+
+    async def set_variant_json_source_keys(
+        self, payload: ListenerSetVariantJsonSourceKeysRequestPayload
+    ) -> None:
+        return await self._caller("route_set_variant_json_source_keys", payload)
 
     async def set_view_mode_name(
         self, payload: ListenerSetViewModeNameRequestPayload
