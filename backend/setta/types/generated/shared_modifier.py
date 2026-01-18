@@ -32,6 +32,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -70,6 +71,7 @@ class SharedModifier(TypedDict):
     deepThink: NotRequired[bool]
     defaultVal: NotRequired[str]
     description: NotRequired[str]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
     drawThrottleDelay: NotRequired[int]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
@@ -112,7 +114,6 @@ class SharedModifier(TypedDict):
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
     pinnedParams: NotRequired[list[ID]]
     positionAndSizeLocked: NotRequired[bool]
-    renderedValue: NotRequired[str | None]
     requestBody: NotRequired[str]
     requestHeaderKey: NotRequired[str]
     requestHeaderValue: NotRequired[str]
