@@ -109,21 +109,11 @@ export function FileBrowserPane() {
         maxEntries: MAX_ENTRIES,
       });
       if (res200(res)) {
-        const sortedItems = [...res.data].sort((a, b) => {
-          const aIsFolder = a.type === "folder";
-          const bIsFolder = b.type === "folder";
-          if (aIsFolder && !bIsFolder) {
-            return -1;
-          }
-          if (!aIsFolder && bIsFolder) {
-            return 1;
-          }
-          return a.name.localeCompare(b.name);
-        });
-        const childPaths = sortedItems.map((item) => item.fullPath);
+        const items = res.data;
+        const childPaths = items.map((item) => item.fullPath);
         setNodesByPath((prev) => {
           const next = { ...prev };
-          for (const item of sortedItems) {
+          for (const item of items) {
             next[item.fullPath] = {
               name: item.name,
               fullPath: item.fullPath,

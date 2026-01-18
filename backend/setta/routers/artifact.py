@@ -2,10 +2,10 @@ import fnmatch
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypedDict, TypeVar
+from typing import NotRequired, TypedDict, TypeVar
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from setta.project_state.artifacts import (
     Artifacts,
@@ -57,15 +57,15 @@ class GetFolderContentsRequest(BaseModel):
     includeSize: bool = False
     includeHidden: bool = False
     ignorePatterns: list[str] | None = None
-    maxEntries: int | None = None
+    maxEntries: int | None = Field(default=None, gt=0)
 
 
-class FolderContentItem(TypedDict, total=False):
+class FolderContentItem(TypedDict):
     name: str
     type: str
     fullPath: str
-    mtime: float
-    size: int
+    mtime: NotRequired[float]
+    size: NotRequired[int]
 
 
 class LoadCachedPathsRequest(BaseModel):
@@ -226,8 +226,6 @@ def route_get_folder_contents(
     max_entries = (
         x.maxEntries if x.maxEntries is not None else DEFAULT_FILE_BROWSER_MAX_ENTRIES
     )
-    if max_entries <= 0:
-        raise ValueError("maxEntries must be positive")
 
     contents: list[FolderContentItem] = []
     include_hidden = x.includeHidden

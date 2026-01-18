@@ -5010,9 +5010,9 @@ type BaseSectionWithParamsImplArgs = z.infer<
 >;
 
 const FolderContentItemSchema = z.object({
-  name: z.string().optional(),
-  type: z.string().optional(),
-  fullPath: z.string().optional(),
+  name: z.string(),
+  type: z.string(),
+  fullPath: z.string(),
   mtime: z.number().optional(),
   size: z.int().optional(),
 });
