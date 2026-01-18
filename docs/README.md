@@ -12,6 +12,7 @@
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
+- `file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
 - `http-request-sections.md` – how HTTP request sections expose REST endpoints, resolve schemas, and send requests.
 - `mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
