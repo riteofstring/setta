@@ -1,17 +1,24 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
-import { useEffect, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   getCurrShownParamIds,
   getParamDisplayName,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { useProjectState } from "state/definitions";
+import { usePendingOperations, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
@@ -19,8 +26,12 @@ import {
   route_output_accessor_completion,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
+  route_set_variant_json_source_keys,
 } from "utils/generatedEndpoints";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  isBaseDictSectionImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
 type EdgePortsSettingsProps = {
@@ -32,39 +43,76 @@ type EdgeOutputPort = {
   accessor: string;
 };
 
-export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
-  const { canEditStructure } = useShareCapabilities();
-  const { edgeInputParams, edgeOutputPorts, paramLabels } = useProjectState(
-    (state) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        state,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const pinned = getCurrShownParamIds(state, sectionId, true, true);
-      const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-      const requiredParamIdsToPaths = {
-        ...pinned.requiredParamIdsToPaths,
-        ...unpinned.requiredParamIdsToPaths,
-      };
-      const paramLabels = Object.keys(requiredParamIdsToPaths).map(
-        (paramId) => {
-          const path = requiredParamIdsToPaths[paramId];
-          const label = path
-            ? paramNameFromPathArray(state, sectionId, path)
-            : getParamDisplayName(state, sectionId, paramId);
-          return { id: paramId, label };
-        },
-      );
-      return {
-        edgeInputParams: impl.edgeInputParams,
-        edgeOutputPorts: impl.edgeOutputPorts,
-        paramLabels,
-      };
-    },
-    _.isEqual,
-  );
+function formatJsonSourcePath(keys: string[]) {
+  return keys.join(".");
+}
 
+function parseJsonSourcePath(value: string) {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return [];
+  }
+  return trimmed
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+}
+
+function getErrorDetail(data: unknown): string | null {
+  if (typeof data !== "object" || data === null || !("detail" in data)) {
+    return null;
+  }
+  const detail = (data as { detail?: unknown }).detail;
+  return typeof detail === "string" ? detail : null;
+}
+
+export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
+  const { canEditStructure, canEditVariants } = useShareCapabilities();
+  const {
+    edgeInputParams,
+    edgeOutputPorts,
+    paramLabels,
+    jsonSourceKeys,
+    isJsonSource,
+    variantId,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const variantId = getCurrSectionVariantId(state, sectionId);
+    let jsonSourceKeys: string[] = [];
+    let isJsonSource = false;
+    if (isBaseDictSectionImpl(impl)) {
+      jsonSourceKeys = impl.jsonSourceKeys;
+      isJsonSource = impl.isJsonSource;
+    }
+    const pinned = getCurrShownParamIds(state, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+    const requiredParamIdsToPaths = {
+      ...pinned.requiredParamIdsToPaths,
+      ...unpinned.requiredParamIdsToPaths,
+    };
+    const paramLabels = Object.keys(requiredParamIdsToPaths).map((paramId) => {
+      const path = requiredParamIdsToPaths[paramId];
+      const label = path
+        ? paramNameFromPathArray(state, sectionId, path)
+        : getParamDisplayName(state, sectionId, paramId);
+      return { id: paramId, label };
+    });
+    return {
+      edgeInputParams: impl.edgeInputParams,
+      edgeOutputPorts: impl.edgeOutputPorts,
+      paramLabels,
+      jsonSourceKeys,
+      isJsonSource,
+      variantId,
+    };
+  }, _.isEqual);
+
+  const [jsonSourcePath, setJsonSourcePath] = useState("");
+  const [jsonSourceError, setJsonSourceError] = useState<string | null>(null);
   const [draftOutputPorts, setDraftOutputPorts] = useState<EdgeOutputPort[]>(
     [],
   );
@@ -72,6 +120,14 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   useEffect(() => {
     setDraftOutputPorts(toDraftOutputPorts(edgeOutputPorts));
   }, [edgeOutputPorts]);
+
+  useEffect(() => {
+    setJsonSourcePath(formatJsonSourcePath(jsonSourceKeys));
+  }, [jsonSourceKeys, variantId]);
+
+  useEffect(() => {
+    setJsonSourceError(null);
+  }, [variantId]);
 
   function onToggleInput(paramId: string) {
     if (!canEditStructure) {
@@ -154,6 +210,59 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setDraftOutputPorts(nextDraft);
   }
 
+  function onJsonSourcePathBlur() {
+    if (!canEditVariants) {
+      return;
+    }
+    const nextKeys = parseJsonSourcePath(jsonSourcePath);
+    if (_.isEqual(nextKeys, jsonSourceKeys)) {
+      return;
+    }
+    const previousKeys = [...jsonSourceKeys];
+    const previousPath = formatJsonSourcePath(previousKeys);
+    setJsonSourcePath(formatJsonSourcePath(nextKeys));
+    const opId = dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseDictSection">(state, sectionId, {
+          jsonSourceKeys: nextKeys,
+        });
+      },
+      send: async (frontendOpId) => {
+        const res = await route_set_variant_json_source_keys({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          variantId,
+          jsonSourceKeys: nextKeys,
+          frontendOpId,
+        });
+        if (!res200(res)) {
+          usePendingOperations.setState((state) => ({
+            pending: state.pending.filter((op) => op.opId !== frontendOpId),
+          }));
+          useProjectState.setState((state) => {
+            setCurrEffectiveSectionImplValue<"BaseDictSection">(state, sectionId, {
+              jsonSourceKeys: previousKeys,
+            });
+          });
+          setJsonSourcePath(previousPath);
+          if (!res.hasResponse) {
+            setJsonSourceError("Could not reach the backend.");
+          } else if (res.status === 400) {
+            setJsonSourceError(
+              getErrorDetail(res.data) ?? "Invalid JSON source path.",
+            );
+          } else {
+            setJsonSourceError("Failed to update JSON source path.");
+          }
+        } else {
+          setJsonSourceError(null);
+        }
+        return res;
+      },
+    });
+    return opId;
+  }
+
   const [draggedPortId, setDraggedPortId] = useState<string | null>(null);
 
   function onDragStart(event: DragEvent<HTMLSpanElement>, portId: string) {
@@ -210,6 +319,39 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
 
   return (
     <section className="flex flex-col gap-4">
+      {isJsonSource && (
+        <div className="rounded-md border border-orange-100 bg-orange-50/60 p-3 dark:border-setta-700/40 dark:bg-orange-950/30">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-orange-600/70 dark:text-orange-300/70">
+            JSON Source Path
+          </h4>
+          <p className="mt-1 text-[0.7rem] text-orange-700/70 dark:text-orange-200/70">
+            Dot-separated keys. Leave empty for the root.
+          </p>
+          <input
+            className="mt-2 w-full rounded-md border border-orange-200 bg-white/80 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-setta-700/60 dark:bg-setta-900/60 dark:text-slate-100 dark:focus:ring-orange-600"
+            value={jsonSourcePath}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              setJsonSourcePath(event.target.value);
+              if (jsonSourceError) {
+                setJsonSourceError(null);
+              }
+            }}
+            onBlur={onJsonSourcePathBlur}
+            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+            placeholder="e.g. settings.paths.app"
+            disabled={!canEditVariants}
+          />
+          {jsonSourceError && (
+            <p className="mt-2 text-[0.7rem] text-red-600 dark:text-red-300">
+              {jsonSourceError}
+            </p>
+          )}
+        </div>
+      )}
       <div className="rounded-md border border-blue-100 bg-blue-50/60 p-3 dark:border-setta-700/40 dark:bg-blue-950/30">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-600/70 dark:text-blue-300/60">
           Input Ports

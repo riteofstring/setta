@@ -81,8 +81,10 @@ async function onFreeMoveEnd({
   active,
   over,
   collisions,
-  delta,
-}: Pick<DragEndEvent, "active" | "over" | "collisions" | "delta">) {
+  dummyRef,
+}: Pick<DragEndEvent, "active" | "over" | "collisions"> & {
+  dummyRef: React.RefObject<HTMLDivElement>;
+}) {
   const dndChildrenState = useDndChildren.getState();
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
@@ -125,14 +127,12 @@ async function onFreeMoveEnd({
   }
   // dropping nested section onto pane
   else if (!overId) {
-    newIndex = 0;
-    const activeRect = useDndState.getState().activeRect;
-    if (!activeRect) {
+    if (!dummyRef.current) {
       manualDndChildrenReset();
       return;
     }
-    const x = activeRect.left + (delta?.x ?? 0);
-    const y = activeRect.top + (delta?.y ?? 0);
+    newIndex = 0;
+    const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
 
     if (!oldParentId) {
@@ -186,13 +186,7 @@ async function onFreeMoveEnd({
 export function useOnDragEnd() {
   const dummyRef = useRef<HTMLDivElement>(null);
 
-  function onDragEnd({
-    active,
-    over,
-    collisions,
-    canceled,
-    delta,
-  }: DragEndEvent) {
+  function onDragEnd({ active, over, collisions, canceled }: DragEndEvent) {
     if (canceled) {
       forceDeactivateDnd();
       return;
@@ -205,7 +199,7 @@ export function useOnDragEnd() {
         active,
         over,
         collisions,
-        delta,
+        dummyRef,
       });
     } else {
       manualDndChildrenReset();
