@@ -16,6 +16,7 @@ import {
   getCurrShownParamIds,
   getParamDisplayName,
   setCurrEffectiveSectionImplValue,
+  setSectionVariantImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { usePendingOperations, useProjectState } from "state/definitions";
@@ -220,18 +221,24 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     }
     const previousKeys = [...jsonSourceKeys];
     const previousPath = formatJsonSourcePath(previousKeys);
+    const targetVariantId = variantId;
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveSectionImplValue<"BaseDictSection">(state, sectionId, {
-          jsonSourceKeys: nextKeys,
-        });
+        setSectionVariantImplValue<"BaseDictSection">(
+          state,
+          sectionId,
+          targetVariantId,
+          {
+            jsonSourceKeys: nextKeys,
+          },
+        );
       },
       send: async (frontendOpId) => {
         const res = await route_set_variant_json_source_keys({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
-          variantId,
+          variantId: targetVariantId,
           jsonSourceKeys: nextKeys,
           frontendOpId,
         });
@@ -240,21 +247,35 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
             pending: state.pending.filter((op) => op.opId !== frontendOpId),
           }));
           useProjectState.setState((state) => {
-            setCurrEffectiveSectionImplValue<"BaseDictSection">(state, sectionId, {
-              jsonSourceKeys: previousKeys,
-            });
-          });
-          setJsonSourcePath(previousPath);
-          if (!res.hasResponse) {
-            setJsonSourceError("Could not reach the backend.");
-          } else if (res.status === 400) {
-            setJsonSourceError(
-              getErrorDetail(res.data) ?? "Invalid JSON source path.",
+            setSectionVariantImplValue<"BaseDictSection">(
+              state,
+              sectionId,
+              targetVariantId,
+              {
+                jsonSourceKeys: previousKeys,
+              },
             );
-          } else {
-            setJsonSourceError("Failed to update JSON source path.");
+          });
+          const activeVariantId = getCurrSectionVariantId(
+            useProjectState.getState(),
+            sectionId,
+          );
+          if (activeVariantId === targetVariantId) {
+            setJsonSourcePath(previousPath);
+            if (!res.hasResponse) {
+              setJsonSourceError("Could not reach the backend.");
+            } else if (res.status === 400) {
+              setJsonSourceError(
+                getErrorDetail(res.data) ?? "Invalid JSON source path.",
+              );
+            } else {
+              setJsonSourceError("Failed to update JSON source path.");
+            }
           }
-        } else {
+        } else if (
+          getCurrSectionVariantId(useProjectState.getState(), sectionId) ===
+          targetVariantId
+        ) {
           setJsonSourceError(null);
         }
         return res;

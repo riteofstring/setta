@@ -1,14 +1,14 @@
 {
   "settings": {
     "paths": {
-      "app": "/opt/app",
-      "data": "/var/lib/app/data"
+      "app": "",
+      "data": ""
     },
     "featureFlags": {
-      "beta": true,
+      "beta": "",
       "logging": {
-        "level": "info",
-        "rotate": true
+        "level": "",
+        "rotate": ""
       }
     }
   }
