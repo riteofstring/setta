@@ -16,6 +16,18 @@ Dependency name construction (from `DependencyGraph.create_full_path_name`):
 - Duplicate sanitized names get `_2`, `_3`, etc for uniqueness.
 - If you want rename-safe dependencies, use `dep_id(section_id, param_id)` instead of names.
 
+## Running listeners from the UI (IDE mode)
+You can run a listener directly from a Code section in the frontend. This starts a
+terminal process and streams stdout/stderr into the Terminal panel.
+
+1. Create a Code section (manual Python) and paste your listener script.
+2. Click the section Run button (or set it as the entry code block and click the main Run).
+3. Stop it with the Stop button when you are done.
+
+This is the same run pipeline as any other Code section, so it runs the section file
+in a managed terminal session. It is separate from share-mode listeners, which are
+started from a deployment entrypoint (`listener/app.py`).
+
 ## Basic dependency listener (sync)
 Strings: `Demo Project` is the project name; `hiding_river__x` is a param dependency (section `hiding_river` + param `x`, joined with `__`); `groups=%s` and `changed=%s` are log message templates.
 ```python

@@ -1,0 +1,217 @@
+.................................................................codegen.generate_code: 1.66 ms/iter (iters=5, params=500)
+codegen.change_value: 1.69 ms/iter (iters=50, params=500)
+codegen.process_gen_code_diagnostics: 0.25 ms/iter (iters=30, diagnostics=100)
+..........................E...........................................E..............................................................................................................................................E..................................................................E......................................./opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/pty.py:95: DeprecationWarning: This process (pid=20190) is multi-threaded, use of forkpty() may lead to deadlocks in the child.
+  pid, fd = os.forkpty()
+............................................................................................................................................
+======================================================================
+ERROR: test_create_top_level_section_triggers_follow_update (tests.llm.test_ai_follow_tool_result_updates.AIFollowToolResultUpdateTests.test_create_top_level_section_triggers_follow_update)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/tests/llm/test_ai_follow_tool_result_updates.py", line 193, in test_create_top_level_section_triggers_follow_update
+    response = await fixture.manager.create_top_level_section(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 491, in wrapper
+    return await self._enqueue(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 448, in _enqueue
+    result = await future
+             ^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 395, in _process_queue
+    result = await coroutine
+             ^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 1468, in create_top_level_section
+    await self.update_and_broadcast_project_state(project_state)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 2295, in update_and_broadcast_project_state
+    await self.update(project_state, updateFileWatcher=updateFileWatcher)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/session_project_manager.py", line 160, in update
+    await super().update(
+    ...<3 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 897, in update
+    await self._refresh_codegen_state(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 796, in _refresh_codegen_state
+    dep_graph = DependencyGraph(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 141, in __init__
+    self.construct_graph(p)
+    ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 153, in construct_graph
+    self.export_sections(p, ids, isTopLevel=True)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 165, in export_sections
+    dep_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 186, in export_section
+    codegen_policy = resolve_section_codegen_policy(
+        self.section_policy, id, sectionImpl.type
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/types/project_config.py", line 176, in resolve_section_codegen_policy
+    raise ValueError(
+        f"Unsupported representation {representation.value} for section type {section_type.value}"
+    )
+ValueError: Unsupported representation json for section type Image
+
+======================================================================
+ERROR: test_prompt_is_cached_per_chat (tests.llm.test_llm_chat_manager_tools.PromptCacheTests.test_prompt_is_cached_per_chat)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/tests/llm/test_llm_chat_manager_tools.py", line 642, in test_prompt_is_cached_per_chat
+    await fixture.manager.create_top_level_section(
+    ...<4 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 491, in wrapper
+    return await self._enqueue(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 448, in _enqueue
+    result = await future
+             ^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 395, in _process_queue
+    result = await coroutine
+             ^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 1468, in create_top_level_section
+    await self.update_and_broadcast_project_state(project_state)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 2295, in update_and_broadcast_project_state
+    await self.update(project_state, updateFileWatcher=updateFileWatcher)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/session_project_manager.py", line 160, in update
+    await super().update(
+    ...<3 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 897, in update
+    await self._refresh_codegen_state(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 796, in _refresh_codegen_state
+    dep_graph = DependencyGraph(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 141, in __init__
+    self.construct_graph(p)
+    ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 153, in construct_graph
+    self.export_sections(p, ids, isTopLevel=True)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 165, in export_sections
+    dep_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 186, in export_section
+    codegen_policy = resolve_section_codegen_policy(
+        self.section_policy, id, sectionImpl.type
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/types/project_config.py", line 176, in resolve_section_codegen_policy
+    raise ValueError(
+        f"Unsupported representation {representation.value} for section type {section_type.value}"
+    )
+ValueError: Unsupported representation json for section type Image
+
+======================================================================
+ERROR: test_set_section_edge_outputs_reapplies_edge_values (tests.project_state.test_edge_output_reapply.EdgeOutputReapplyTests.test_set_section_edge_outputs_reapplies_edge_values)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/tests/project_state/test_edge_output_reapply.py", line 58, in test_set_section_edge_outputs_reapplies_edge_values
+    await manager.update_and_broadcast_project_state(project_state)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 2295, in update_and_broadcast_project_state
+    await self.update(project_state, updateFileWatcher=updateFileWatcher)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/session_project_manager.py", line 160, in update
+    await super().update(
+    ...<3 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 897, in update
+    await self._refresh_codegen_state(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 796, in _refresh_codegen_state
+    dep_graph = DependencyGraph(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 141, in __init__
+    self.construct_graph(p)
+    ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 153, in construct_graph
+    self.export_sections(p, ids, isTopLevel=True)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 165, in export_sections
+    dep_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 186, in export_section
+    codegen_policy = resolve_section_codegen_policy(
+        self.section_policy, id, sectionImpl.type
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/types/project_config.py", line 176, in resolve_section_codegen_policy
+    raise ValueError(
+        f"Unsupported representation {representation.value} for section type {section_type.value}"
+    )
+ValueError: Unsupported representation json for section type Image
+
+======================================================================
+ERROR: test_publish_share_deployment_uses_latest_manager_state (tests.routers.test_share_deployments.ShareDeploymentPublishTests.test_publish_share_deployment_uses_latest_manager_state)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/tests/routers/test_share_deployments.py", line 173, in test_publish_share_deployment_uses_latest_manager_state
+    await project_fixture.manager.set_show_param_display_names(
+    ...<4 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 491, in wrapper
+    return await self._enqueue(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 448, in _enqueue
+    result = await future
+             ^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 395, in _process_queue
+    result = await coroutine
+             ^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 1084, in set_show_param_display_names
+    await self.update_and_broadcast_project_state(project_state)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 2295, in update_and_broadcast_project_state
+    await self.update(project_state, updateFileWatcher=updateFileWatcher)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/session_project_manager.py", line 160, in update
+    await super().update(
+    ...<3 lines>...
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 897, in update
+    await self._refresh_codegen_state(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/project_state/base_project_manager.py", line 796, in _refresh_codegen_state
+    dep_graph = DependencyGraph(projectState)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 141, in __init__
+    self.construct_graph(p)
+    ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 153, in construct_graph
+    self.export_sections(p, ids, isTopLevel=True)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 165, in export_sections
+    dep_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/code_gen/dependency_graph.py", line 186, in export_section
+    codegen_policy = resolve_section_codegen_policy(
+        self.section_policy, id, sectionImpl.type
+    )
+  File "/Users/kevin/Documents/AppDevelopment/setta-draw-snapshot-codegen-policy/backend/setta/types/project_config.py", line 176, in resolve_section_codegen_policy
+    raise ValueError(
+        f"Unsupported representation {representation.value} for section type {section_type.value}"
+    )
+ValueError: Unsupported representation json for section type Image
+
+----------------------------------------------------------------------
+Ran 525 tests in 229.784s
+
+FAILED (errors=4)

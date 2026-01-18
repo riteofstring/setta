@@ -3266,7 +3266,9 @@ const SectionCodegenPolicySchema = z.object({
       Dict: createSectionTypeCodegenPolicy(),
       ListRoot: createSectionTypeCodegenPolicy(),
       Group: createSectionTypeCodegenPolicy(),
-      Image: createSectionTypeCodegenPolicy(),
+      Image: createSectionTypeCodegenPolicy({
+        representation: SectionRepresentationModeEnum.file,
+      }),
       Chart: createSectionTypeCodegenPolicy(),
       Draw: createSectionTypeCodegenPolicy({
         representation: SectionRepresentationModeEnum.file,

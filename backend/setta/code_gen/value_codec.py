@@ -130,6 +130,12 @@ class PythonValueCodec:
                         return repr(node.value.payload)
                     return self.format_dependency_value(node.value)
                 return "None"
+            case SectionType.Image:
+                if node.value:
+                    if node.value.type is DependencyValueType.Literal:
+                        return repr(node.value.payload)
+                    return self.format_dependency_value(node.value)
+                return "None"
             case SectionType.Draw:
                 if node.value:
                     return self.format_dependency_value(node.value)

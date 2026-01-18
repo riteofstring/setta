@@ -169,6 +169,43 @@ class PythonValueCodecTest(TestCase):
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
 
+    def test_image_section_with_literal_path_is_quoted(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Image",
+            full_path_name="image",
+            type=SectionType.Image,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("artifacts/reversed_image.png"),
+        )
+        self.assertEqual(
+            codec.format_section(section_node),
+            "'artifacts/reversed_image.png'",
+        )
+
+    def test_image_section_uses_file_read_value_helpers(self) -> None:
+        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Image",
+            full_path_name="image",
+            type=SectionType.Image,
+            isTopLevel=True,
+            deps={},
+            value=FileReadDependencyValue("/tmp/image.png"),
+        )
+        rendered = codec.format_section(section_node)
+        self.assertEqual(
+            rendered,
+            "_helpers.read_file_value('/tmp/image.png')",
+        )
+        self.assertEqual(
+            codec.required_imports,
+            ("from setta.code_gen.python import value_helpers as _helpers",),
+        )
+
     def test_draw_section_without_value_has_placeholder_comment(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
