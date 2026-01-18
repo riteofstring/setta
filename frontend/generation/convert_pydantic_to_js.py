@@ -52,15 +52,6 @@ TYPE_ALIAS_EXCLUSIONS = [
 ]
 
 DATACLASS_EXCLUSIONS = ["SerializeAsAny"]
-DEFAULT_FACTORY_PASSTHROUGH = {
-    "create_new_id",
-    "generate_memorable_string",
-    "create_artifact_id",
-    "create_json_artifact_id",
-    "create_csv_artifact_id",
-    "create_png_artifact_id",
-    "get_now_timestamp",
-}
 
 
 def is_not_tagged_for_skipping(cls):
@@ -523,11 +514,7 @@ def python_value_to_ts(value):
     elif value is None:
         return "null"
     elif isinstance(value, dict):
-        items = []
-        for key, entry in value.items():
-            if isinstance(key, enum.Enum):
-                key = key.value
-            items.append(f'"{key}": {python_value_to_ts(entry)}')
+        items = [f'"{k}": {python_value_to_ts(v)}' for k, v in value.items()]
         return f"{{{', '.join(items)}}}"
     elif isinstance(value, (list, tuple)):
         items = [python_value_to_ts(item) for item in value]
@@ -597,13 +584,9 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
                     # If we can't execute the lambda, generate a generic function
                     zod_schema = f"{zod_schema}.default(() => ({{}}))"
             else:
-                factory_name = getattr(field_info.default_factory, "__name__", None)
-                if factory_name in DEFAULT_FACTORY_PASSTHROUGH:
-                    zod_schema = f"{zod_schema}.default({factory_name})"
-                else:
-                    result = field_info.default_factory()
-                    ts_value = python_value_to_ts(result)
-                    zod_schema = f"{zod_schema}.default(() => ({ts_value}))"
+                zod_schema = (
+                    f"{zod_schema}.default({field_info.default_factory.__name__})"
+                )
 
         fields.append(f"  {field_name}: {zod_schema}")
 

@@ -1,31 +1,17 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import {
-  addActiveSectionIds,
-  removeActiveSectionIds,
-  setActiveSectionIds,
-} from "state/actions/activeSections";
-import {
-  getCurrEffectiveSectionImpl,
-  getHighestAncestor,
-} from "state/actions/sectionInfos";
-import { setZIndices } from "state/actions/sections/sectionPositions";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { hasSectionIdInProject } from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import { useAIFollow, useMisc } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
-import {
-  isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName: SectionTypeEnum) {
   switch (sectionTypeName) {
     case SectionTypeEnum.Code:
     case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
       return "bg-white dark:bg-setta-900";
     case SectionTypeEnum.Terminal:
       return "bg-setta-950 overflow-clip";
@@ -66,7 +52,7 @@ export function getOutlineColor({
   return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
 }
 
-export function getOnSectionClick(sectionId, isActiveSection) {
+export function getOnSectionClick(sectionId: string) {
   return (e) => {
     if (
       e.target.closest(
@@ -84,31 +70,7 @@ export function getOnSectionClick(sectionId, isActiveSection) {
       useMisc.setState({ mouseDownDrawArea: false });
       return;
     }
-
-    if (useMisc.getState().isSelectingParams) {
-      // depends on bubbling behavior (child div onclicks get executed first)
-      const impl = getCurrEffectiveSectionImpl(
-        useProjectState.getState(),
-        sectionId,
-      );
-      const atLeastOneParamSelected =
-        isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
-      if (!isActiveSection && atLeastOneParamSelected) {
-        addActiveSectionIds([sectionId]);
-      } else if (isActiveSection && !atLeastOneParamSelected) {
-        removeActiveSectionIds([sectionId]);
-      }
-    } else if (useReactFlow.getState().multiSelectionActive) {
-      if (isActiveSection) {
-        removeActiveSectionIds([sectionId]);
-      } else {
-        addActiveSectionIds([sectionId]);
-      }
-    } else {
-      setActiveSectionIds([sectionId]);
-    }
-    const highestAncestor = getHighestAncestor(sectionId);
-    setZIndices([highestAncestor], false);
+    applyActiveSectionChange({ interaction: "section-click", sectionId });
   };
 }
 

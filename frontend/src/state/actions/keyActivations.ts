@@ -34,8 +34,16 @@ import {
   activateParamSelect,
   deactivateParamSelect,
 } from "state/actions/paramSelect";
-import { useSettings } from "state/definitions";
-import { tabFromDocumentBody } from "utils/tabbingLogic";
+import {
+  indentSelectedParams,
+  moveSelectedParamsDown,
+  moveSelectedParamsUp,
+  unindentSelectedParams,
+} from "state/actions/params/moveParams";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { useProjectState, useSettings } from "state/definitions";
+import { handleTabNavigation } from "utils/focusManager";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
   selectAll,
@@ -181,6 +189,20 @@ function parseShortcut(shortcutString) {
   };
 }
 
+function isTabLikeShortcut(shortcut) {
+  if (!shortcut) {
+    return false;
+  }
+  const parsed = parseShortcut(shortcut.toLowerCase());
+  return (
+    parsed.keys.size === 1 &&
+    parsed.keys.has("Tab") &&
+    !parsed.mod &&
+    !parsed.ctrl &&
+    !parsed.alt
+  );
+}
+
 function isShortcutPressed(e, parsedShortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, keys } = parsedShortcut;
   if (_isMacOs) {
@@ -284,11 +306,22 @@ function getIsInput(event) {
   );
 }
 
+function runParamShortcut(action, event) {
+  if (getIsInput(event)) {
+    return;
+  }
+  const didRun = action();
+  if (didRun) {
+    event.preventDefault();
+  }
+}
+
 function getMacosIgnoreWhenInInputField(parsedShortcut) {
   const { mod, shift, ctrl, alt } = parsedShortcut;
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
+    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModPlus(parsedShortcut, ["KeyC"]) || // Copy selected text.
     isModPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard.
@@ -336,6 +369,7 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
+    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModOrCtrlPlus(parsedShortcut, ["KeyA"]) || // Select all text
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
@@ -413,6 +447,10 @@ function addKeepKeyDownConditions(sInfo, _isMacOs) {
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
   const shortcutsNeededForExtraProcessing = {};
+  const indentShortcutIsTab = isTabLikeShortcut(shortcuts.paramIndentShortcut);
+  const unindentShortcutIsTab = isTabLikeShortcut(
+    shortcuts.paramUnindentShortcut,
+  );
 
   function addToShortcutsNeededForExtraProcessing(
     name,
@@ -432,8 +470,8 @@ export function attachKeyEventListeners() {
   }
 
   const conditionAndAction = [
-    ["tab", tabFromDocumentBody],
-    ["shift + tab", tabFromDocumentBody],
+    ["tab", handleTabKeyDown],
+    ["shift + tab", handleTabKeyDown],
     [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
@@ -491,6 +529,34 @@ export function attachKeyEventListeners() {
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
     // [shortcuts.formatCode, formatCode],
+    ...(indentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramIndentShortcut,
+            (e) => runParamShortcut(indentSelectedParams, e),
+          ],
+        ]),
+    ...(unindentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramUnindentShortcut,
+            (e) => runParamShortcut(unindentSelectedParams, e),
+          ],
+        ]),
+    [
+      shortcuts.paramMoveUpShortcut,
+      (e) => runParamShortcut(moveSelectedParamsUp, e),
+      null,
+      true,
+    ],
+    [
+      shortcuts.paramMoveDownShortcut,
+      (e) => runParamShortcut(moveSelectedParamsDown, e),
+      null,
+      true,
+    ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
@@ -664,6 +730,34 @@ function onEscapeKey() {
   //   clearActiveSectionIds();
   // }
   removeFrozenFloatingBox();
+}
+
+function handleTabKeyDown(event: KeyboardEvent) {
+  if (hasSelectedParams()) {
+    if (event.shiftKey) {
+      unindentSelectedParams();
+    } else {
+      indentSelectedParams();
+    }
+    event.preventDefault();
+    return;
+  }
+
+  const didHandle = handleTabNavigation(event);
+  if (didHandle) {
+    event.preventDefault();
+  }
+}
+
+function hasSelectedParams(): boolean {
+  const state = useProjectState.getState();
+  for (const sectionId of Object.keys(state.sections)) {
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function activateSelectionKeyPressed() {
