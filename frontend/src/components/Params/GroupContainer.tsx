@@ -854,24 +854,40 @@ function GetUnpinnedParams({
     const underlineBuffer = 2;
     const update = () => {
       const observedRow = updateObservedRow();
-      let rowHeight =
-        observedRow?.offsetHeight ?? getMinParamRowHeight(node, true);
-      if (observedRow) {
-        const nestedContainer = observedRow.querySelector<HTMLElement>(
+      const getHeaderHeight = (row: HTMLElement) => {
+        let height = row.offsetHeight;
+        const nestedContainer = row.querySelector<HTMLElement>(
           ":scope > div.section-args-nested.section-key-value",
         );
-        if (nestedContainer) {
-          const rowStyle = window.getComputedStyle(observedRow);
-          const rowGapValue = Number.parseFloat(rowStyle.rowGap);
-          const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
-          const nestedHeight = nestedContainer.offsetHeight;
-          const headerHeight = Math.ceil(
-            rowHeight - nestedHeight - rowGap,
-          );
-          if (headerHeight > 0) {
-            rowHeight = headerHeight;
+        if (!nestedContainer) {
+          return height;
+        }
+        const rowStyle = window.getComputedStyle(row);
+        const rowGapValue = Number.parseFloat(rowStyle.rowGap);
+        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
+        const nestedHeight = nestedContainer.offsetHeight;
+        const headerHeight = Math.ceil(height - nestedHeight - rowGap);
+        return headerHeight > 0 ? headerHeight : height;
+      };
+      const rows = Array.from(
+        node.querySelectorAll<HTMLElement>(
+          ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value",
+        ),
+      );
+      let rowHeight = 0;
+      if (rows.length > 0) {
+        let minHeight = Number.POSITIVE_INFINITY;
+        for (const row of rows) {
+          const height = getHeaderHeight(row);
+          if (height > 0 && height < minHeight) {
+            minHeight = height;
           }
         }
+        rowHeight = Number.isFinite(minHeight) ? minHeight : 0;
+      } else if (observedRow) {
+        rowHeight = getHeaderHeight(observedRow);
+      } else {
+        rowHeight = getMinParamRowHeight(node, true);
       }
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;

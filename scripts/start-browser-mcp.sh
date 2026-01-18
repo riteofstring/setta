@@ -5,6 +5,10 @@ DEBUG_PORT="${DEBUG_PORT:-9222}"
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
 MODE="playwriter"
+AGENT_BROWSER_AUTO_START="${AGENT_BROWSER_AUTO_START:-1}"
+AGENT_BROWSER_SESSION="${AGENT_BROWSER_SESSION:-setta}"
+AGENT_BROWSER_URL="${AGENT_BROWSER_URL:-http://${SETTA_HOST:-127.0.0.1}:${SETTA_DEV_FRONTEND_PORT:-3000}}"
+AGENT_BROWSER_BOOTSTRAP="${AGENT_BROWSER_BOOTSTRAP:-1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
@@ -34,6 +38,110 @@ write_pid() {
   printf "%s\n" "$2" > "$1"
 }
 
+agent_browser_daemon_path() {
+  local root=""
+
+  if command -v npm >/dev/null 2>&1; then
+    root="$(npm root -g 2>/dev/null || true)"
+    if [[ -n "$root" && -f "${root}/agent-browser/dist/daemon.js" ]]; then
+      echo "${root}/agent-browser/dist/daemon.js"
+      return 0
+    fi
+  fi
+
+  if command -v pnpm >/dev/null 2>&1; then
+    root="$(pnpm root -g 2>/dev/null || true)"
+    if [[ -n "$root" && -f "${root}/agent-browser/dist/daemon.js" ]]; then
+      echo "${root}/agent-browser/dist/daemon.js"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+start_agent_browser() {
+  if [[ "$AGENT_BROWSER_AUTO_START" != "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v agent-browser >/dev/null 2>&1; then
+    echo "agent-browser not found on PATH. Install with: pnpm add -g agent-browser && agent-browser install" >&2
+    return 0
+  fi
+
+  local pid_file="${MCP_RUN_DIR}/agent-browser.pid"
+  if [[ -f "$pid_file" ]]; then
+    local running_pid=""
+    running_pid="$(cat "$pid_file" 2>/dev/null || true)"
+    if [[ -z "$running_pid" ]] || ! kill -0 "$running_pid" 2>/dev/null; then
+      rm -f "$pid_file"
+    fi
+  fi
+
+  if [[ ! -f "$pid_file" ]]; then
+    local daemon_path=""
+    if daemon_path="$(agent_browser_daemon_path)"; then
+      if command -v node >/dev/null 2>&1; then
+        AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" node "$daemon_path" >/dev/null 2>&1 &
+        write_pid "$pid_file" "$!"
+        sleep 2
+      else
+        echo "node is required to start the agent-browser daemon." >&2
+      fi
+    else
+      echo "agent-browser daemon not found. Install with: pnpm add -g agent-browser" >&2
+    fi
+  fi
+
+  local bootstrap_url=""
+  if [[ "$AGENT_BROWSER_BOOTSTRAP" == "1" ]]; then
+    bootstrap_url="$(get_bootstrap_url || true)"
+  fi
+
+  if [[ -n "$bootstrap_url" ]]; then
+    AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" agent-browser open "$bootstrap_url" || true
+  fi
+
+  if ! AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" agent-browser open "$AGENT_BROWSER_URL"; then
+    echo "agent-browser open failed. You may need to run: agent-browser install" >&2
+  fi
+}
+
+get_bootstrap_url() {
+  if ! command -v setta >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
+    # Ensure the python env is active for the Setta CLI.
+    # shellcheck disable=SC1090
+    source "${ROOT_DIR}/activate.sh"
+  fi
+
+  local status_payload=""
+  status_payload="$(setta status --connect-info --latest --json 2>/dev/null || true)"
+  if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
+    return 1
+  fi
+
+  local b64_payload="${status_payload#__SETTA_JSON_B64__}"
+  SETTA_STATUS_B64="$b64_payload" python - <<'PY'
+import base64
+import json
+import os
+import sys
+
+payload = os.environ.get("SETTA_STATUS_B64", "")
+if not payload:
+    sys.exit(1)
+data = json.loads(base64.b64decode(payload).decode("utf-8"))
+url = data.get("bootstrapUrlFragment", "")
+if url:
+    print(url)
+PY
+}
+
 usage() {
   cat <<'EOF'
 Usage: start-browser-mcp.sh [--playwriter] [--devtools] [--foreground]
@@ -48,11 +156,16 @@ Environment variables:
   PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
   PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: /tmp/chrome-profile-playwriter-mcp-<repo>)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
+  AGENT_BROWSER_AUTO_START  Set to 0 to disable auto-starting agent-browser (default: 1)
+  AGENT_BROWSER_SESSION  Session name for agent-browser (default: setta)
+  AGENT_BROWSER_URL  URL to open in agent-browser (default: http://127.0.0.1:3000)
+  AGENT_BROWSER_BOOTSTRAP  Set to 0 to skip Setta bootstrap token fetch (default: 1)
 
 Flags:
   --playwriter     Open Chrome for Playwriter
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground     Keep the debug browser attached to this terminal (devtools only)
+  --no-agent-browser  Disable auto-starting agent-browser in playwriter mode
 EOF
 }
 
@@ -68,6 +181,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --foreground)
       FOREGROUND="1"
+      shift
+      ;;
+    --no-agent-browser)
+      AGENT_BROWSER_AUTO_START="0"
       shift
       ;;
     -h|--help)
@@ -113,6 +230,7 @@ if [[ "$MODE" == "playwriter" ]]; then
     --no-default-browser-check \
     about:blank >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/playwriter.pid" "$!"
+  start_agent_browser
   echo "Playwriter mode: install the extension in ${PLAYWRITER_PROFILE_DIR} and click it on a tab to connect."
   echo "Use --devtools when you want chrome-devtools-mcp instead."
   exit 0
