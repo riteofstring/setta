@@ -1,7 +1,6 @@
 import asyncio
 import os
 import shutil
-import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -26,14 +25,19 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         node_path = shutil.which("node")
         if node_path is None:
             self.skipTest("node is not installed")
-        module_check = subprocess.run(
-            [node_path, "-e", "require('@openai/codex-sdk')"],
-            capture_output=True,
-            check=False,
-            text=True,
+        sidecar_root = (
+            Path(__file__).resolve().parents[2]
+            / "backend"
+            / "setta"
+            / "agentic"
+            / "external_adapters"
+            / "sidecars"
         )
-        if module_check.returncode != 0:
-            self.skipTest("@openai/codex-sdk is not available to node")
+        package_json = (
+            sidecar_root / "node_modules" / "@openai" / "codex-sdk" / "package.json"
+        )
+        if not package_json.exists():
+            self.skipTest("@openai/codex-sdk is not installed for sidecars")
         if not os.environ.get("OPENAI_API_KEY"):
             self.skipTest("OPENAI_API_KEY not set")
 

@@ -35,7 +35,7 @@ Backward compatibility is not required, but user-visible features must be preser
 - A scriptable chat still works via listeners using the chat toolkit helpers.
 - Changing LLM config and deep-think settings still affects managed chat behavior.
 - Chat sections still support "new chat" and persisted chat history.
-- Final pass: share-mode LLM supports minimal read-only Q&A about the project.
+- Deferred: share-mode LLM supports minimal read-only Q&A about the project (post-refactor).
 
 ## Plan
 

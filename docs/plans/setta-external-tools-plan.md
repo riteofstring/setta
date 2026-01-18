@@ -189,6 +189,48 @@ Adapters:
 - External agent runs render in the same stream UI without breaking AIFollow.
 - Listener-based chat workflows still compile and run using the chat toolkit.
 
+## MVP blockers for “start external agent and chat” (do not skip)
+These are required so the frontend can select Codex/Claude Code/OpenCode and hold a real multi-turn conversation.
+
+1) **SDK resolution for sidecars**
+   - The Node sidecars import SDK packages that are not installed by default.
+   - Add a dedicated `package.json` + `node_modules` near the sidecars (or another backend-owned Node workspace),
+     and ensure the sidecar process can resolve those deps (install there or set `NODE_PATH`).
+   - Update preflight checks to verify the SDKs in the same location the sidecars resolve from.
+
+2) **Persist external session/thread IDs per chat**
+   - Claude/OpenCode/Codex adapters can return `sessionId`/`threadId`, but we do not store them.
+   - Without persistence, each user message starts a fresh external session and breaks “chat with the agent.”
+   - Store the returned session/thread id in run outputs (or chat metadata) and feed it into subsequent runs.
+
+3) **Preflight UX in the frontend**
+   - The backend already exposes `/getExternalAgentHealth`, but the UI doesn’t surface it.
+   - Show missing SDK/env var/node issues so users don’t discover failures only after submitting a message.
+
+## Packaging plan: full self-contained wheels (pip-only install)
+Goal: `pip install setta` includes everything needed to run Codex/Claude Code/OpenCode SDK sidecars.
+
+- **Bundle Node runtime per platform**
+  - Ship a vendored Node binary under `backend/setta/vendor/node/<platform>/`.
+  - Default `commandPath` to the bundled Node when unset.
+  - Build per-OS/arch wheels (macOS, Windows, Linux).
+
+- **Bundle SDK node_modules**
+  - Run `pnpm install` in `backend/setta/agentic/external_adapters/sidecars/` at build time.
+  - Include `node_modules` + `package.json` in the wheel.
+  - Preflight should verify SDKs from the bundled node_modules location (not global).
+
+- **Build pipeline changes**
+  - Add a build step (script or hatch hook) to:
+    1) Download/extract Node runtime for the target platform.
+    2) Install SDK deps in the sidecar workspace.
+    3) Copy artifacts into `backend/setta/` before wheel build.
+  - Ensure `build.sh`/`build_and_upload.sh` invoke the bundling step.
+
+- **Runtime behavior**
+  - Adapters use bundled Node by default; `ExternalAgentConfig.commandPath` overrides.
+  - Preflight surfaces bundled Node version + bundled SDK versions.
+
 ## Key risks and mitigations
 
 ### Streaming incompatibility

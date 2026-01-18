@@ -1,7 +1,9 @@
+import json
 import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 from setta.database.db_objs import DBE
 from setta.types.external_agents import (
@@ -15,6 +17,8 @@ from setta.types.external_agents import (
 from setta.utils.constants import CWD
 
 _NODE_VERSION_RE = re.compile(r"v?(\\d+)\\.(\\d+)\\.(\\d+)")
+_SIDECAR_ROOT = Path(__file__).resolve().parent / "external_adapters" / "sidecars"
+_SIDECAR_NODE_MODULES = _SIDECAR_ROOT / "node_modules"
 
 _SDK_PACKAGE_BY_TOOL = {
     ExternalAgentToolType.claude_code: "@anthropic-ai/claude-agent-sdk",
@@ -51,7 +55,7 @@ def build_external_agent_preflight_status(
         if node_version_issue:
             issues.append(node_version_issue)
 
-        sdk_version, sdk_issue = _check_sdk_version(config.toolType, node_path)
+        sdk_version, sdk_issue = _check_sdk_version(config.toolType)
         if sdk_issue:
             issues.append(sdk_issue)
 
@@ -151,31 +155,25 @@ def _check_node_version_requirement(
 
 
 def _check_sdk_version(
-    tool_type: ExternalAgentToolType, node_path: str | None
+    tool_type: ExternalAgentToolType,
 ) -> tuple[str | None, str | None]:
-    if node_path is None:
-        return None, None
     package_name = _SDK_PACKAGE_BY_TOOL.get(tool_type)
     if package_name is None:
         return None, None
-    script = (
-        "const pkg=require('%s/package.json'); console.log(pkg.version)" % package_name
-    )
-    result = subprocess.run(
-        [node_path, "-e", script],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
-    if result.returncode != 0:
-        message = result.stderr.strip() or result.stdout.strip()
-        if message:
-            return None, f"{package_name} unavailable: {message}"
-        return None, f"{package_name} is not installed"
-    version = result.stdout.strip().splitlines()
-    if not version:
-        return None, f"{package_name} did not report a version"
-    return version[-1].strip(), None
+    package_json = _SIDECAR_NODE_MODULES / package_name / "package.json"
+    if not package_json.exists():
+        return (
+            None,
+            f"{package_name} is not installed (run pnpm install in {_SIDECAR_ROOT})",
+        )
+    try:
+        payload = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"Failed to read {package_name} version: {exc}"
+    version = payload.get("version")
+    if isinstance(version, str) and version.strip():
+        return version.strip(), None
+    return None, f"{package_name} did not report a version"
 
 
 def _check_claude_cli() -> tuple[str | None, str | None]:
