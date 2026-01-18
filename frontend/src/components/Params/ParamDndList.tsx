@@ -10,7 +10,8 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
-import { ParamDndProvider } from "./ParamDndContext";
+import { ParamDndProvider, useParamDndChildrenForParent } from "./ParamDndContext";
+import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 
 type ParamDndListProps = {
   sectionId: string;
@@ -18,6 +19,7 @@ type ParamDndListProps = {
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
+  listKey: ParamListKey;
 };
 
 export function ParamDndList({
@@ -26,6 +28,7 @@ export function ParamDndList({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel,
+  listKey,
 }: ParamDndListProps) {
   const tree = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -94,14 +97,48 @@ export function ParamDndList({
   }
 
   return (
-    <ParamDndProvider sectionId={sectionId} tree={tree} enabled={enabled}>
-      <GetParamSwitch
+    <ParamDndProvider
+      sectionId={sectionId}
+      listKey={listKey}
+      tree={tree}
+      enabled={enabled}
+    >
+      <ParamDndListBody
         sectionId={sectionId}
+        rootId={tree.rootId}
         paramIds={paramIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         onResizeStart={onResizeStart}
         isTopLevel={isTopLevel}
       />
     </ParamDndProvider>
+  );
+}
+
+function ParamDndListBody({
+  sectionId,
+  rootId,
+  paramIds,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  isTopLevel,
+}: {
+  sectionId: string;
+  rootId: string;
+  paramIds: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  isTopLevel: boolean;
+}) {
+  const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
+
+  return (
+    <GetParamSwitch
+      sectionId={sectionId}
+      paramIds={renderParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+      isTopLevel={isTopLevel}
+    />
   );
 }

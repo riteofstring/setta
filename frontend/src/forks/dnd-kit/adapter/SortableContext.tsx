@@ -74,7 +74,14 @@ export function SortableContext({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const sortingEnabled = forceSorting || dndMode.isSorting;
+  const activeDragType = useComputed(() => {
+    const sourceData = manager?.dragOperation.source?.data as
+      | { current?: { type?: string } }
+      | undefined;
+    return sourceData?.current?.type ?? null;
+  }, [manager]).value;
+  const sortingEnabled =
+    activeDragType !== "param" && (forceSorting || dndMode.isSorting);
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;

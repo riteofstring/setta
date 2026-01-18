@@ -11,6 +11,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
+import { useParamDndChildrenForParent } from "./ParamDndContext";
 
 function _ParamContainer({
   sectionId,
@@ -70,6 +71,11 @@ function _ParamContainer({
       ]
     : [{ title: paramName, content: paramDescription }];
 
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+
   return !isNestedParam ? (
     <>
       <article
@@ -125,11 +131,11 @@ function _ParamContainer({
     >
       {dndIndicator}
       {children}
-      <div className="section-args-nested section-key-value relative grid gap-y-1">
-        <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+        <div className="section-args-nested section-key-value relative grid gap-y-1">
+          <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
-          paramIds={paramChildren}
+          paramIds={renderChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
         />

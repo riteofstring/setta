@@ -3,6 +3,7 @@ import {
   applyZoomToTransform,
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
+import { isTempParam, useParamDndState } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
@@ -23,11 +24,89 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { ParamContainer } from "./ParamContainer";
-import { useParamDndState } from "./ParamDndContext";
+import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
-function _ParamSwitch(props) {
+type ParamSwitchProps = {
+  sectionId: string;
+  paramInfoId: string;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  isTopLevelWithPad?: boolean;
+};
+
+function _ParamSwitch(props: ParamSwitchProps) {
+  if (isTempParam(props.paramInfoId)) {
+    return <TempParamSwitch {...props} />;
+  }
+  return <RealParamSwitch {...props} />;
+}
+
+function TempParamSwitch({
+  sectionId,
+  paramInfoId,
+}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId">) {
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const listKey = dndContext?.listKey ?? null;
+  const { placeholderWidth, placeholderHeight } = useParamDndState(
+    (state) => ({
+      placeholderWidth: state.placeholderWidth,
+      placeholderHeight: state.placeholderHeight,
+    }),
+    _.isEqual,
+  );
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: paramInfoId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
+      sectionId,
+      listKey,
+      isTopLevel: false,
+      hasNested: false,
+      onlyChildId: null,
+    },
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+    height: placeholderHeight ?? undefined,
+    width: placeholderWidth ?? undefined,
+  };
+  const columnWidth = "var(--param-column-width, 200px)";
+
+  return (
+    <article
+      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] bg-blue-200/50 dark:bg-blue-900/40"
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...(dndStyle ?? {}),
+      }}
+      ref={setNodeRef}
+      {...(restAttributes ?? {})}
+      {...(listeners ?? {})}
+    >
+      <div className="col-span-full flex h-full items-center">
+        <div className="h-2 w-full rounded bg-blue-400/60 dark:bg-blue-500/40" />
+      </div>
+    </article>
+  );
+}
+
+function RealParamSwitch(props: ParamSwitchProps) {
   const { sectionId, paramInfoId } = props;
 
   const errorMessages = useTypeErrors(
@@ -69,8 +148,9 @@ function _ParamSwitch(props) {
       };
     }, _.isEqual);
 
-  const dndState = useParamDndState();
-  const dndEnabled = Boolean(dndState?.enabled);
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const listKey = dndContext?.listKey ?? null;
   const {
     attributes,
     listeners,
@@ -81,6 +161,14 @@ function _ParamSwitch(props) {
   } = useSortable({
     id: paramInfoId,
     disabled: !dndEnabled,
+    data: {
+      type: "param",
+      sectionId,
+      listKey,
+      isTopLevel: false,
+      hasNested: false,
+      onlyChildId: null,
+    },
   });
   const { role: _role, ...restAttributes } = attributes;
   const scaledTransform = applyZoomToTransform(transform);
@@ -93,7 +181,7 @@ function _ParamSwitch(props) {
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const handleParamMouseDown = useCallback(
-    (e) => {
+    (e: React.MouseEvent) => {
       if (!isSelectingParams) {
         return;
       }
@@ -103,7 +191,7 @@ function _ParamSwitch(props) {
     [isSelectingParams],
   );
   const handleParamClick = useCallback(
-    (e) => {
+    (e: React.MouseEvent) => {
       if (!isSelectingParams) {
         return;
       }
@@ -113,7 +201,6 @@ function _ParamSwitch(props) {
     [isSelectingParams, sectionId, paramInfoId],
   );
 
-  // No need for additional useCallback since this is just a simple conditional
   const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
   const onMouseDownAlways = handleParamMouseDown;
 
@@ -121,7 +208,6 @@ function _ParamSwitch(props) {
     ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
     : "transition-colors rounded-sm";
 
-  // warnings should be AMBER
   let border = "";
   if (hasError) {
     border = "bg-red-200 dark:bg-red-800/30";
