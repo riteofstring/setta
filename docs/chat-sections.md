@@ -5,7 +5,7 @@ Chat sections render a chat UI inside the canvas. They can run in managed mode (
 ## Core state fields
 Chat sections store the following fields on the section impl:
 - `managed`: toggles managed vs scriptable mode.
-- `llmConfigId`: selected LLM config (managed mode only).
+- `engineConfigId`: selected engine config (managed mode only).
 - `chatId`: chat store id for managed mode (null means "new chat").
 - `deepThink`: toggles deep-think behavior for managed mode.
 - `messages`: list of chat messages (scriptable mode state; managed mode uses chat store).
@@ -15,8 +15,8 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 Managed mode uses the central LLM chat manager:
-- The UI blocks sends until `llmConfigId` is selected and at least one config is available.
-- `submitMessage` calls `route_get_llm_response` with `chatId`, `llmConfigId`, and `deepThink`.
+- The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
+- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, and `deepThink`.
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
@@ -26,7 +26,7 @@ Scriptable mode keeps chat state inside the section:
 - The UI updates `messages`, `inputText`, `waitingForResponse`, and `toolCallArguments` via `route_set_chat_section_state` (optimistic).
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
-- Listener chat history requires an LLM config id; use `scriptable` for scriptable-only chats.
+- Listener chat history accepts an `engineConfigId` for internal engines, or `None` for scriptable-only chats.
 
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
@@ -80,7 +80,7 @@ async def on_chat(state, ctx) -> None:
     session = await ChatSession.open_from_event(
         ctx=ctx,
         section_id=section_id,
-        llm_config_id="my-llm",
+        engine_config_id="engine-llm",
         event=event,
     )
 
