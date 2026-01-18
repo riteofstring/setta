@@ -4,11 +4,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.llm.agent_runner import AgentRunner
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
@@ -242,9 +244,13 @@ class SettaFastAPIState:
         self.chat_manager: LLMChatManager | ShareChatManager = self._defer_attr(
             "chat_manager"
         )
+        self.agent_runner: AgentRunner = self._defer_attr("agent_runner")
         self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
+        )
+        self.agent_profile_watcher: AgentProfileWatcher = self._defer_attr(
+            "agent_profile_watcher"
         )
 
         self.init_status = BackendInitializationStatus()
@@ -372,9 +378,17 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
             )
             self.chat_manager.update_config(llm_config)
+            self.agent_runner = AgentRunner(
+                self.dbe,
+                self.mcp_client,
+                self.wmh_frontend_sender,
+            )
+            self.agent_runner.update_config(llm_config)
+            self.agent_runner.update_api_keys(self.dbe.read_dot_env())
             self.dotenv_watcher = DotEnvWatcher(
                 self.specific_file_watcher,
                 self.chat_manager,
+                self.agent_runner,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
@@ -382,10 +396,17 @@ class SettaFastAPIState:
             self.llm_config_watcher = LLMConfigWatcher(
                 self.specific_file_watcher,
                 self.chat_manager,
+                self.agent_runner,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
             self.llm_config_watcher.start()
+            self.agent_profile_watcher = AgentProfileWatcher(
+                self.specific_file_watcher,
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            self.agent_profile_watcher.start()
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()

@@ -148,7 +148,7 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_section(section_node), "None")
 
-    def test_draw_section_uses_file_read_value_helpers(self) -> None:
+    def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -157,12 +157,12 @@ class PythonValueCodecTest(TestCase):
             type=SectionType.Draw,
             isTopLevel=True,
             deps={},
-            value=FileReadDependencyValue("/tmp/draw.png"),
+            value=Base64DependencyValue("c29tZQ=="),
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
             rendered,
-            "_helpers.read_file_value('/tmp/draw.png')",
+            "_helpers.decode_base64_value('c29tZQ==')",
         )
         self.assertEqual(
             codec.required_imports,

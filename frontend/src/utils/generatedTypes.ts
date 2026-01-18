@@ -77,6 +77,14 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
+const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -193,7 +201,6 @@ export const SectionTypeEnum = {
   GlobalVariables: "GlobalVariables",
   Code: "Code",
   GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
   Terminal: "Terminal",
   IFrame: "IFrame",
   Chat: "Chat",
@@ -259,20 +266,6 @@ export const SettaNotificationTypeEnum = {
 export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
-
-export const ProjectCodegenLanguageEnum = { python: "python" } as const;
-
-const SectionCodegenModeEnum = {
-  inherit: "inherit",
-  include: "include",
-  exclude: "exclude",
-} as const;
-
-const SectionRepresentationModeEnum = {
-  json: "json",
-  file: "file",
-  base64: "base64",
-} as const;
 
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
@@ -340,6 +333,15 @@ export const RouteEnum = {
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENT_PROFILES: "/getAgentProfiles",
+  GET_AGENT_PROFILE: "/getAgentProfile",
+  CREATE_AGENT_PROFILE: "/createAgentProfile",
+  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
+  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
+  START_AGENT_RUN: "/startAgentRun",
+  STOP_AGENT_RUN: "/stopAgentRun",
+  GET_AGENT_RUN: "/getAgentRun",
+  GET_AGENT_RUNS: "/getAgentRuns",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -383,7 +385,6 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
-  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -519,6 +520,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1253,7 +1255,7 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedImagePath: z.union([z.string(), z.null()]).optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1359,7 +1361,7 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
-        "renderedImagePath",
+        "renderedValue",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -1541,6 +1543,7 @@ const ChartSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -1562,8 +1565,8 @@ const DrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   layers: z.array(DrawAreaLayerSchema).default([]),
-  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -1722,29 +1725,6 @@ const GenPythonCodeSectionImplSchema = z.object({
 });
 
 type GenPythonCodeSectionImpl = z.infer<typeof GenPythonCodeSectionImplSchema>;
-
-const GenPythonMetadataSectionImplSchema = z.object({
-  type: z
-    .literal("GenPythonMetadata")
-    .default(SectionTypeEnum.GenPythonMetadata),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  code: z.string().default("" as const),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-});
-
-type GenPythonMetadataSectionImpl = z.infer<
-  typeof GenPythonMetadataSectionImplSchema
->;
 
 const TerminalSectionImplSchema = z.object({
   type: z.literal("Terminal").default(SectionTypeEnum.Terminal),
@@ -2113,7 +2093,6 @@ const ProjectStateCoreSchema = z.object({
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
-        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -2315,7 +2294,6 @@ const BaseSectionImplUnionSchema = z.union([
   GlobalVariablesSectionImplSchema,
   CodeSectionImplSchema,
   GenPythonCodeSectionImplSchema,
-  GenPythonMetadataSectionImplSchema,
   TerminalSectionImplSchema,
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
@@ -2347,6 +2325,7 @@ const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2368,8 +2347,8 @@ const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
-  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
@@ -2647,27 +2626,6 @@ const GenPythonCodeSectionImplArgsSchema = z.object({
 
 type GenPythonCodeSectionImplArgs = z.infer<
   typeof GenPythonCodeSectionImplArgsSchema
->;
-
-const GenPythonMetadataSectionImplArgsSchema = z.object({
-  type: z.literal("GenPythonMetadata").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  code: z.string().optional(),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
-});
-
-type GenPythonMetadataSectionImplArgs = z.infer<
-  typeof GenPythonMetadataSectionImplArgsSchema
 >;
 
 const DictSectionImplArgsSchema = z.object({
@@ -3223,99 +3181,6 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
-const SectionTypeCodegenPolicySchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
-
-function createSectionTypeCodegenPolicy(
-  options: Partial<SectionTypeCodegenPolicy> = {},
-): SectionTypeCodegenPolicy {
-  return SectionTypeCodegenPolicySchema.parse(options);
-}
-
-const SectionCodegenOverrideSchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-const SectionCodegenPolicySchema = z.object({
-  allowlist: z
-    .union([z.array(z.enum(SectionTypeEnum)), z.null()])
-    .default(() => [
-      SectionTypeEnum.Callable,
-      SectionTypeEnum.Dict,
-      SectionTypeEnum.ListRoot,
-      SectionTypeEnum.Group,
-      SectionTypeEnum.GlobalVariables,
-      SectionTypeEnum.TextBlock,
-      SectionTypeEnum.Draw,
-      SectionTypeEnum.MetaControl,
-    ]),
-  exclude: z.array(IDSchema).default([]),
-  typePolicies: z
-    .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
-    .default(() => ({
-      Callable: createSectionTypeCodegenPolicy(),
-      Dict: createSectionTypeCodegenPolicy(),
-      ListRoot: createSectionTypeCodegenPolicy(),
-      Group: createSectionTypeCodegenPolicy(),
-      Image: createSectionTypeCodegenPolicy(),
-      Chart: createSectionTypeCodegenPolicy(),
-      Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      TextBlock: createSectionTypeCodegenPolicy(),
-      MetaControl: createSectionTypeCodegenPolicy(),
-      Social: createSectionTypeCodegenPolicy(),
-      GlobalVariables: createSectionTypeCodegenPolicy(),
-      Code: createSectionTypeCodegenPolicy(),
-      GenPythonCode: createSectionTypeCodegenPolicy(),
-      GenPythonMetadata: createSectionTypeCodegenPolicy(),
-      Terminal: createSectionTypeCodegenPolicy(),
-      IFrame: createSectionTypeCodegenPolicy(),
-      Chat: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      Browser: createSectionTypeCodegenPolicy(),
-    })),
-  sectionOverrides: z
-    .record(IDSchema, SectionCodegenOverrideSchema)
-    .default({}),
-});
-
-type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
-
-export function createSectionCodegenPolicy(
-  options: Partial<SectionCodegenPolicy> = {},
-): SectionCodegenPolicy {
-  return SectionCodegenPolicySchema.parse(options);
-}
-
-const ProjectCodegenPythonTargetSchema = z.object({
-  language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
-  generateMetadata: z.boolean().default(false),
-  sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
-});
-
-export type ProjectCodegenPythonTarget = z.infer<
-  typeof ProjectCodegenPythonTargetSchema
->;
-
-export function createProjectCodegenPythonTarget(
-  options: Partial<ProjectCodegenPythonTarget> = {},
-): ProjectCodegenPythonTarget {
-  return ProjectCodegenPythonTargetSchema.parse(options);
-}
-
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3360,9 +3225,8 @@ const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  codegenTargets: z
-    .array(ProjectCodegenPythonTargetSchema)
-    .default(() => [createProjectCodegenPythonTarget()]),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("state = SettaState()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -3381,7 +3245,6 @@ export function createProjectConfig(
 const SingletonSectionsSchema = z.object({
   GlobalVariables: z.union([IDSchema, z.null()]).default(null),
   GenPythonCode: z.union([IDSchema, z.null()]).default(null),
-  GenPythonMetadata: z.union([IDSchema, z.null()]).default(null),
 });
 
 type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
@@ -3429,7 +3292,6 @@ const ProjectStateSingleConfigSchema = z.object({
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
-        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -3768,14 +3630,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  GenPythonMetadata: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 0.0,
-      maxHeight: 100000.0,
-      minWidth: 200.0,
-      maxWidth: 100000.0,
-    }),
-  ),
   Terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
@@ -4028,7 +3882,6 @@ const UserDefaultDrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
-  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -4070,26 +3923,6 @@ function createUserDefaultGenPythonCodeSectionImpl(
   options: Partial<UserDefaultGenPythonCodeSectionImpl> = {},
 ): UserDefaultGenPythonCodeSectionImpl {
   return UserDefaultGenPythonCodeSectionImplSchema.parse(options);
-}
-
-const UserDefaultGenPythonMetadataSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  code: z.string().default("" as const),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-});
-
-type UserDefaultGenPythonMetadataSectionImpl = z.infer<
-  typeof UserDefaultGenPythonMetadataSectionImplSchema
->;
-
-function createUserDefaultGenPythonMetadataSectionImpl(
-  options: Partial<UserDefaultGenPythonMetadataSectionImpl> = {},
-): UserDefaultGenPythonMetadataSectionImpl {
-  return UserDefaultGenPythonMetadataSectionImplSchema.parse(options);
 }
 
 const UserDefaultGlobalVariablesSectionImplSchema = z.object({
@@ -4548,10 +4381,6 @@ const SettingsStateSchema = z.object({
     UserDefaultGenPythonCodeSectionImplSchema.default(
       createUserDefaultGenPythonCodeSectionImpl,
     ),
-  genPythonMetadataSectionDefault:
-    UserDefaultGenPythonMetadataSectionImplSchema.default(
-      createUserDefaultGenPythonMetadataSectionImpl,
-    ),
   globalVariablesSectionDefault:
     UserDefaultGlobalVariablesSectionImplSchema.default(
       createUserDefaultGlobalVariablesSectionImpl,
@@ -4753,6 +4582,30 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
+const AgentProfileSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+
+const AgentProfileListSchema = z.object({
+  profiles: z.array(AgentProfileSchema),
+});
+
+const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AgentProfileListSchema,
+  messageType: z
+    .literal("AgentProfilesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4804,6 +4657,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
+  WebsocketMsgAgentProfilesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -4825,6 +4679,7 @@ const BaseCanvasSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
 });
 
 type BaseCanvasSectionImplArgs = z.infer<
@@ -5010,6 +4865,28 @@ const FolderContentItemSchema = z.object({
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
+
+const RunEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+  type: z.string(),
+  payload: z.record(z.string(), z.any()).default({}),
+});
+
+const AgentRunSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  profileId: z.union([IDSchema, z.null()]).default(null),
+  status: z.enum(AgentRunStatusEnum).default(AgentRunStatusEnum.queued),
+  startedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  finishedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  outputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  toolCalls: z.array(z.record(z.string(), z.any())).default([]),
+  cost: z.union([z.number(), z.null()]).default(null),
+  events: z.array(RunEventSchema).default([]),
+});
+
+export type AgentRun = z.infer<typeof AgentRunSchema>;
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -5203,6 +5080,7 @@ const BaseCanvasSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
 });
 
 type BaseCanvasSectionImpl = z.infer<typeof BaseCanvasSectionImplSchema>;
@@ -5434,6 +5312,66 @@ const WebsocketMsgSchema = z.object({
 });
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
+
+const CreateAgentProfileRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
+});
+
+export type CreateAgentProfileRequestInput = z.input<
+  typeof CreateAgentProfileRequestSchema
+>;
+
+const DeleteAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type DeleteAgentProfileRequestInput = z.input<
+  typeof DeleteAgentProfileRequestSchema
+>;
+
+const GetAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type GetAgentProfileRequestInput = z.input<
+  typeof GetAgentProfileRequestSchema
+>;
+
+const GetAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const StartAgentRunRequestSchema = z.object({
+  profileId: IDSchema,
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartAgentRunRequestInput = z.input<
+  typeof StartAgentRunRequestSchema
+>;
+
+const StopAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopAgentRunRequestInput = z.input<
+  typeof StopAgentRunRequestSchema
+>;
+
+const UpdateAgentProfileRequestSchema = z.object({
+  profile: AgentProfileSchema,
+});
+
+export type UpdateAgentProfileRequestInput = z.input<
+  typeof UpdateAgentProfileRequestSchema
+>;
 
 const DeleteLLMChatRequestSchema = z.object({
   chatId: IDSchema,
@@ -5737,7 +5675,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
         GlobalVariablesSectionImplArgsSchema,
         CodeSectionImplArgsSchema,
         GenPythonCodeSectionImplArgsSchema,
-        GenPythonMetadataSectionImplArgsSchema,
         TerminalSectionImplArgsSchema,
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
@@ -6275,16 +6212,6 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
->;
-
-const SetProjectConfigCodegenTargetsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
-});
-
-export type SetProjectConfigCodegenTargetsRequestInput = z.input<
-  typeof SetProjectConfigCodegenTargetsRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({
@@ -6837,9 +6764,6 @@ const RunCodeRequestSchema = z.object({
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
-  drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, z.union([z.string(), z.null()])), z.null()])
-    .default(null),
 });
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;
@@ -7017,14 +6941,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       GenPythonCodeSectionImplArgs,
       GenPythonCodeSectionImpl
-    >;
-  };
-
-  GenPythonMetadataSection: {
-    impl: GenPythonMetadataSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      GenPythonMetadataSectionImplArgs,
-      GenPythonMetadataSectionImpl
     >;
   };
 

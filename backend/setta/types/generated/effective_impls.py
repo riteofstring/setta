@@ -50,7 +50,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DropdownParamCodeObjImplArgsWithCallable,
     DropzoneParamCodeObjImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
-    GenPythonMetadataSectionImplArgsWithCallable,
     GlobalVariablesSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     IFrameSectionImplArgsWithCallable,
@@ -95,7 +94,6 @@ from setta.types.section_impls import (
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     IFrameSectionImpl,
@@ -211,13 +209,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: GenPythonCodeSectionImplArgsWithCallable,
 ) -> GenPythonCodeSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: GenPythonMetadataSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: GenPythonMetadataSectionImplArgsWithCallable,
-) -> GenPythonMetadataSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: TerminalSectionImpl,
@@ -353,6 +344,20 @@ def set_effective_impl_value(
 ) -> BaseCanvasSectionImpl: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseCodeSectionImplUnion,
+    core: Core,
+    variant: Variant,
+    args: BaseCodeSectionImplArgsWithCallable,
+) -> BaseCodeSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseCodeSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseCodeSectionImplArgsWithCallable,
+) -> BaseCodeSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseDictSectionImplUnion,
     core: Core,
     variant: Variant,
@@ -393,20 +398,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseParentCodeObjImplArgsWithCallable,
 ) -> BaseParentCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeSectionImplArgsWithCallable,
-) -> BaseCodeSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeSectionImplArgsWithCallable,
-) -> BaseCodeSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseSectionWithParamsImplUnion,
