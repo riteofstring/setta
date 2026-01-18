@@ -17,8 +17,6 @@ from setta.agentic.store import (
     load_external_agent_configs,
     load_prompt_template,
     require_agent_profile,
-    require_engine_config,
-    require_external_agent_config,
     save_agent_profiles,
     save_engine_configs,
     save_external_agent_configs,
@@ -80,12 +78,6 @@ class StopAgentRunRequest(BaseModel):
 
 class GetAgentRunRequest(BaseModel):
     runId: ID
-
-
-class StartExternalAgentRunRequest(BaseModel):
-    engineConfigId: ID
-    profileId: ID | None = None
-    inputs: dict[str, Any] | None = None
 
 
 class StopExternalAgentRunRequest(BaseModel):
@@ -309,58 +301,6 @@ async def route_stop_agent_run(
         return await ctx.state.agent_runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post(Route.START_EXTERNAL_AGENT_RUN)
-async def route_start_external_agent_run(
-    x: StartExternalAgentRunRequest,
-    ctx: RuntimeContextFromRequest,
-) -> AgentRun:
-    await ctx.enforce_llm_allowed()
-    runner = ctx.state.external_agent_runner
-    if runner.disabled:
-        raise HTTPException(
-            status_code=503, detail="External agent runner is not available"
-        )
-    try:
-        engine_config = require_engine_config(ctx.state.dbe, x.engineConfigId)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if engine_config.engineType != EngineType.external_agent:
-        raise HTTPException(status_code=400, detail="Engine config is not external")
-    external_config_id = engine_config.externalAgentConfigId
-    if external_config_id is None:
-        raise HTTPException(status_code=500, detail="External agent config not found")
-    try:
-        config = require_external_agent_config(ctx.state.dbe, external_config_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    status = build_external_agent_preflight_status(ctx.state.dbe, config)
-    if not status.available:
-        issues = "; ".join(status.issues) if status.issues else "preflight failed"
-        raise HTTPException(
-            status_code=503,
-            detail=f"External agent config is not available: {issues}",
-        )
-    profile = None
-    if x.profileId is not None:
-        try:
-            profile = require_agent_profile(ctx.state.dbe, x.profileId)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if (
-        profile is not None
-        and profile.toolAllowlist
-        and config.toolType != ExternalAgentToolType.claude_code
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Tool allowlists are only supported for Claude Code external runs. "
-                "Remove toolAllowlist or choose a Claude Code config."
-            ),
-        )
-    return runner.start_run(x.engineConfigId, config, profile, x.inputs)
 
 
 @router.post(Route.STOP_EXTERNAL_AGENT_RUN)

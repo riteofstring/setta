@@ -133,7 +133,7 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
 
 
 class ListenerCreateChatRequestPayload(TypedDict):
-    llmConfigId: str
+    engineConfigId: NotRequired[ID | None]
     firstMessage: (
         SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
     )

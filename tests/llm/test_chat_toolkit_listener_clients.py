@@ -20,6 +20,7 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
             dbe = DBE(Path(temp_dir))
             history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
+            engine_config_id = None
             section_id = ID("section-1")
             section_chat_ids: dict[ID, ID] = {}
 
@@ -63,14 +64,14 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
 
             chat_id, created = await client.ensure_section_chat_id(
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
             self.assertTrue(created)
 
             chat_id_repeat, created_repeat = await client.ensure_section_chat_id(
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
             self.assertEqual(chat_id_repeat, chat_id)

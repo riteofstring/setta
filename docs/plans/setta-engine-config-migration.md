@@ -63,6 +63,16 @@ migrated automatically.
 2) Remove legacy UI state + reducer branches tied to the old fields.
 3) Ensure generated types no longer expose old fields.
 
+## Recommendation: consolidate listener + external run APIs (optional clean break)
+If we want EngineConfig everywhere while preserving current functionality:
+- Scriptable listener chat toolkit should move from `llmConfigId` to `engineConfigId`,
+  and only accept `EngineType.setta_llm`. Resolve EngineConfig -> LLM config in the
+  listener router, and continue storing the resolved LLM config snapshot in the run
+  inputs so chat history/tooling remain unchanged.
+- Removing `/startExternalAgentRun` is only safe if we are OK with eliminating
+  profile-less external runs. Otherwise keep it or replace it by allowing the
+  existing agent run route to accept an `engineConfigId` without a profile.
+
 ## Acceptance checks
 - Managed chat still streams into Chat sections with tools + AIFollow.
 - Scriptable chat still works via listeners using chat toolkit helpers.

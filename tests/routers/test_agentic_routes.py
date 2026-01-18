@@ -21,7 +21,6 @@ from setta.routers.agentic import (
     GetExternalAgentConfigRequest,
     GetPromptTemplateRequest,
     StartAgentRunRequest,
-    StartExternalAgentRunRequest,
     StopAgentRunRequest,
     UpdateAgentProfileRequest,
     UpdateExternalAgentConfigRequest,
@@ -41,7 +40,6 @@ from setta.routers.agentic import (
     route_get_prompt_template,
     route_get_prompt_templates,
     route_start_agent_run,
-    route_start_external_agent_run,
     route_stop_agent_run,
     route_update_agent_profile,
     route_update_external_agent_config,
@@ -315,6 +313,10 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             def start_run(self, *_args, **_kwargs):
                 raise AssertionError("start_run should not be called on preflight fail")
 
+        class _AgentRunnerStub:
+            disabled = True
+            config = AllLLMConfigs(configs={}, mcpServers={})
+
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
             setta_root.mkdir(parents=True, exist_ok=True)
@@ -324,6 +326,7 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             state = _AgenticTestState(
                 dbe=dbe,
                 wmh_frontend_sender=frontend_sender,
+                agent_runner=_AgentRunnerStub(),
                 external_agent_runner=_Runner(),
             )
 
@@ -356,10 +359,17 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         externalAgentConfigId=created.id,
                     )
                     save_engine_configs(dbe, [engine_config])
+                    profile = await route_create_agent_profile(
+                        CreateAgentProfileRequest(
+                            name="External Runner",
+                            engineConfigId=engine_config.id,
+                        ),
+                        ctx,
+                    )
                     with self.assertRaises(HTTPException) as ctx_err:
-                        await route_start_external_agent_run(
-                            StartExternalAgentRunRequest(
-                                engineConfigId=engine_config.id,
+                        await route_start_agent_run(
+                            StartAgentRunRequest(
+                                profileId=profile.id,
                                 inputs={"prompt": "hello"},
                             ),
                             ctx,

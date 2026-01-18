@@ -385,7 +385,6 @@ export const RouteEnum = {
   CREATE_ENGINE_CONFIG: "/createEngineConfig",
   UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
   DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
-  START_EXTERNAL_AGENT_RUN: "/startExternalAgentRun",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
   CREATE_CHAT: "/createChat",
@@ -5181,7 +5180,7 @@ export type AppendChatMessagesRequestInput = z.input<
 >;
 
 const CreateChatRequestSchema = z.object({
-  llmConfigId: z.string(),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   firstMessage: z.union([
     SystemChatMessageSchema,
     AssistantChatMessageSchema,
@@ -5743,16 +5742,6 @@ const StartAgentRunRequestSchema = z.object({
 
 export type StartAgentRunRequestInput = z.input<
   typeof StartAgentRunRequestSchema
->;
-
-const StartExternalAgentRunRequestSchema = z.object({
-  engineConfigId: IDSchema,
-  profileId: z.union([IDSchema, z.null()]).default(null),
-  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-export type StartExternalAgentRunRequestInput = z.input<
-  typeof StartExternalAgentRunRequestSchema
 >;
 
 const StopAgentRunRequestSchema = z.object({

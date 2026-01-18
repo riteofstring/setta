@@ -239,6 +239,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             dbe = DBE(Path(temp_dir))
             history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
+            engine_config_id = None
             section_id = ID("section-1")
             captured_messages: list[object] = []
             section_chat_ids: dict[ID, ID] = {}
@@ -276,7 +277,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             await ChatSession.open_from_event(
                 ctx=ctx,
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 event=event,
             )
 
@@ -288,6 +289,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             dbe = DBE(Path(temp_dir))
             history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
+            engine_config_id = None
             section_id = ID("section-1")
             captured_messages: list[object] = []
             section_chat_ids: dict[ID, ID] = {}
@@ -325,7 +327,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             await ChatSession.open_from_event(
                 ctx=ctx,
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 event=event,
             )
 
@@ -335,6 +337,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_rejects_tool_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
+            engine_config_id = None
             section_id = ID("section-1")
 
             async def router_caller(endpoint_name: str, payload: object) -> object:
@@ -356,7 +359,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
                 await ChatSession.open_from_event(
                     ctx=ctx,
                     section_id=section_id,
-                    llm_config_id=llm_config.id,
+                    engine_config_id=engine_config_id,
                     event=event,
                 )
 
