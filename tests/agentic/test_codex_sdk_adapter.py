@@ -12,6 +12,8 @@ from setta.types.chat_stream_events import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -83,3 +85,40 @@ class CodexSdkAdapterParserTests(unittest.TestCase):
 
         self.assertEqual(command[0], "/usr/local/bin/node")
         self.assertTrue(command[1].endswith("codex_sdk_runner.mjs"))
+
+    def test_tool_call_event_emits_tool_call_delta(self) -> None:
+        parser = _CodexSdkEventParser()
+        parser.handle({"type": "item.started", "item": {"id": "msg-10"}})
+        events = parser.handle(
+            {
+                "type": "tool.call",
+                "tool_call": {
+                    "id": "call-1",
+                    "name": "setta__getProjectState",
+                    "arguments": {"foo": "bar"},
+                },
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        chunk = events[0].stream_chunk
+        self.assertIsInstance(chunk, ToolCallDeltaEvent)
+        if isinstance(chunk, ToolCallDeltaEvent):
+            self.assertEqual(chunk.tool_call_id, "call-1")
+            self.assertEqual(chunk.tool_name, "setta__getProjectState")
+
+    def test_tool_result_event_emits_tool_result(self) -> None:
+        parser = _CodexSdkEventParser()
+        parser.handle({"type": "item.started", "item": {"id": "msg-11"}})
+        events = parser.handle(
+            {
+                "type": "tool.result",
+                "tool_call_id": "call-2",
+                "name": "setta__getProjectState",
+                "result": {"ok": True},
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        chunk = events[0].stream_chunk
+        self.assertIsInstance(chunk, ToolResultEvent)

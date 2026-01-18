@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,6 +24,7 @@ from setta.types.external_agents import (
 )
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -365,3 +367,105 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             env = runner._build_env(config)
 
             self.assertEqual(env.get("OPENAI_API_KEY"), "secret")
+
+    def test_claude_mcp_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            profile = AgentProfile(
+                name="Claude",
+                toolAllowlist=["setta__getProjectState", "mcp__setta__runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=profile, inputs=None)
+
+            config_path = context.inputs.get("mcpConfig")
+            self.assertIsInstance(config_path, str)
+            path = Path(str(config_path))
+            self.assertTrue(path.exists())
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["mcpServers"]["setta"]["url"],
+                f"{C.BACKEND}/mcp",
+            )
+            allowed_tools = context.inputs.get("allowedTools")
+            self.assertIsInstance(allowed_tools, list)
+            self.assertIn("mcp__setta__getProjectState", allowed_tools)
+            self.assertIn("mcp__setta__runTool", allowed_tools)
+
+            runner._cleanup_context(context)
+            self.assertFalse(path.exists())
+
+    def test_opencode_mcp_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            path = Path(str(config_path))
+            self.assertTrue(path.exists())
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["mcp"]["setta"]["url"],
+                f"{C.BACKEND}/mcp",
+            )
+
+            runner._cleanup_context(context)
+            self.assertFalse(path.exists())
+
+    def test_codex_home_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            self.assertTrue(config_path.exists())
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn("[mcp_servers.setta]", content)
+            self.assertIn(f"url = \"{C.BACKEND}/mcp\"", content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
+    def test_temp_working_dir_is_cleaned(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="TempDir",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.temp_dir,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            self.assertTrue(context.working_dir.exists())
+            runner._cleanup_context(context)
+            self.assertFalse(context.working_dir.exists())

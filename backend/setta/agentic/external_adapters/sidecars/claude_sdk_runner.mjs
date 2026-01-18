@@ -41,6 +41,9 @@ const options = {};
 if (typeof input.systemPrompt === "string" && input.systemPrompt.trim()) {
   options.systemPrompt = input.systemPrompt;
 }
+if (typeof input.mcpConfig === "string" && input.mcpConfig.trim()) {
+  options.mcpConfig = input.mcpConfig;
+}
 if (Array.isArray(input.allowedTools) && input.allowedTools.length > 0) {
   options.allowedTools = input.allowedTools;
 }

@@ -94,14 +94,20 @@ if (resolvedThreadId) {
 }
 
 writeEvent({ type: "turn.started" });
-const result = await thread.run(prompt);
-const text = extractText(result);
-writeEvent({
-  type: "item.started",
-  item: { id: itemId, type: "agent_message" },
-});
-writeEvent({
-  type: "item.completed",
-  item: { id: itemId, type: "agent_message", text },
-});
+if (typeof thread.runStreamed === "function") {
+  for await (const event of thread.runStreamed(prompt)) {
+    writeEvent(event);
+  }
+} else {
+  const result = await thread.run(prompt);
+  const text = extractText(result);
+  writeEvent({
+    type: "item.started",
+    item: { id: itemId, type: "agent_message" },
+  });
+  writeEvent({
+    type: "item.completed",
+    item: { id: itemId, type: "agent_message", text },
+  });
+}
 writeEvent({ type: "turn.completed" });

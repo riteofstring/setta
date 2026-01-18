@@ -1,6 +1,8 @@
 import asyncio
+import json
 import logging
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +44,7 @@ from setta.llm.chat_toolkit.managed.ai_follow import (
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import ToolCall, ToolCallFunction
@@ -65,6 +68,10 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
 _BASE_ENV_KEYS = ("PATH", "HOME", "USER", "SHELL", "TMPDIR", "TMP", "TEMP")
+_MCP_SERVER_NAME = "setta"
+_CLAUDE_MCP_CONFIG_NAME = ".mcp.json"
+_OPENCODE_CONFIG_NAME = "opencode.json"
+_CODEX_CONFIG_NAME = "config.toml"
 
 
 @dataclass(frozen=True)
@@ -227,6 +234,8 @@ class ExternalAgentRunner:
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_failed", {"error": str(exc)})
+        finally:
+            self._cleanup_context(context)
 
     def _build_context(
         self,
@@ -265,6 +274,14 @@ class ExternalAgentRunner:
         system_prompt = self._build_system_prompt(profile, project_config_id)
         working_dir = self._resolve_working_dir(config)
         env = self._build_env(config)
+        cleanup_paths: list[Path] = []
+        self._configure_external_tools(
+            config=config,
+            profile=profile,
+            payload_inputs=payload_inputs,
+            env=env,
+            cleanup_paths=cleanup_paths,
+        )
         return ExternalAgentRunContext(
             run=run,
             config=config,
@@ -276,6 +293,7 @@ class ExternalAgentRunner:
             system_prompt=system_prompt,
             working_dir=working_dir,
             env=env,
+            cleanup_paths=tuple(cleanup_paths),
         )
 
     def _resolve_project_config_id(
@@ -373,6 +391,95 @@ class ExternalAgentRunner:
             dbe=self.dbe,
         )
 
+    def _configure_external_tools(
+        self,
+        *,
+        config: ExternalAgentConfig,
+        profile: AgentProfile | None,
+        payload_inputs: dict[str, Any],
+        env: dict[str, str],
+        cleanup_paths: list[Path],
+    ) -> None:
+        mcp_url = self._build_setta_mcp_url()
+        if config.toolType == ExternalAgentToolType.claude_code:
+            config_path = self._write_claude_mcp_config(mcp_url)
+            payload_inputs["mcpConfig"] = str(config_path)
+            allowed_tools = self._build_claude_allowed_tools(profile)
+            if allowed_tools:
+                payload_inputs["allowedTools"] = allowed_tools
+            cleanup_paths.append(config_path.parent)
+            return
+        if config.toolType == ExternalAgentToolType.opencode:
+            config_path = self._write_opencode_config(mcp_url)
+            env["OPENCODE_CONFIG"] = str(config_path)
+            cleanup_paths.append(config_path.parent)
+            return
+        if config.toolType == ExternalAgentToolType.codex:
+            codex_home = self._write_codex_config(mcp_url)
+            env["CODEX_HOME"] = str(codex_home)
+            cleanup_paths.append(codex_home)
+
+    @staticmethod
+    def _build_setta_mcp_url() -> str:
+        return f"{C.BACKEND}/mcp"
+
+    def _create_temp_dir(self, prefix: str) -> Path:
+        return Path(tempfile.mkdtemp(prefix=prefix))
+
+    def _write_claude_mcp_config(self, mcp_url: str) -> Path:
+        config_dir = self._create_temp_dir("setta-claude-mcp-")
+        path = config_dir / _CLAUDE_MCP_CONFIG_NAME
+        payload = {"mcpServers": {_MCP_SERVER_NAME: {"url": mcp_url}}}
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return path
+
+    def _write_opencode_config(self, mcp_url: str) -> Path:
+        config_dir = self._create_temp_dir("setta-opencode-mcp-")
+        path = config_dir / _OPENCODE_CONFIG_NAME
+        payload = {
+            "mcp": {
+                _MCP_SERVER_NAME: {
+                    "type": "remote",
+                    "url": mcp_url,
+                    "enabled": True,
+                }
+            }
+        }
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return path
+
+    def _write_codex_config(self, mcp_url: str) -> Path:
+        config_dir = self._create_temp_dir("setta-codex-mcp-")
+        path = config_dir / _CODEX_CONFIG_NAME
+        payload = [
+            f"[mcp_servers.{_MCP_SERVER_NAME}]",
+            f'url = "{mcp_url}"',
+        ]
+        path.write_text("\n".join(payload) + "\n", encoding="utf-8")
+        return config_dir
+
+    @staticmethod
+    def _build_claude_allowed_tools(
+        profile: AgentProfile | None,
+    ) -> list[str] | None:
+        if profile is None or not profile.toolAllowlist:
+            return None
+        tools: list[str] = []
+        for entry in profile.toolAllowlist:
+            normalized = entry.strip()
+            if not normalized:
+                continue
+            if normalized.startswith("mcp__"):
+                tools.append(normalized)
+                continue
+            if "__" in normalized:
+                server_id, tool_name = split_namespaced_tool_name(normalized)
+                if server_id and tool_name:
+                    tools.append(f"mcp__{server_id}__{tool_name}")
+                    continue
+            tools.append(normalized)
+        return tools or None
+
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
         if strategy == ExternalAgentWorkingDirStrategy.project_root:
@@ -405,6 +512,26 @@ class ExternalAgentRunner:
             if key in dot_env:
                 env[key] = dot_env[key]
         return env
+
+    def _cleanup_context(self, context: ExternalAgentRunContext) -> None:
+        if (
+            context.config.workingDirStrategy
+            == ExternalAgentWorkingDirStrategy.temp_dir
+        ):
+            self._remove_path(context.working_dir)
+        for path in context.cleanup_paths:
+            self._remove_path(path)
+
+    def _remove_path(self, path: Path) -> None:
+        if not path.exists():
+            return
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        except OSError as exc:
+            logger.warning("Failed to cleanup path %s", path, exc_info=exc)
 
     def _record_event(self, run: AgentRun, event_type: str, payload: dict[str, Any]):
         run.events.append(RunEvent(type=event_type, payload=payload))

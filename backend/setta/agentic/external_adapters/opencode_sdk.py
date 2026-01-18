@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Any, AsyncIterator
 
+from mcp.types import TextContent
+
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -17,15 +19,22 @@ from setta.agentic.external_adapters.stream_utils import (
     parse_json_line,
 )
 from setta.database.utils import create_new_id
-from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    ToolChatMessage,
+)
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
     MessageTextDelta,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
+from setta.utils.timestamps import get_now_timestamp
 
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
@@ -115,43 +124,81 @@ class _OpenCodeSdkEventParser:
     def __init__(self) -> None:
         self._messages: dict[str, AssistantChatMessage] = {}
         self._last_message_id: str | None = None
+        self._emitted_tool_calls: set[str] = set()
 
     def handle(self, payload: dict[str, Any]) -> list[ExternalAgentStreamEvent]:
-        text = _extract_text(payload)
-        if not text:
-            return [ExternalAgentStreamEvent(raw=payload)]
-
-        message, is_new = self._get_or_create_message(payload)
         events: list[ExternalAgentStreamEvent] = []
-        if is_new:
+        text = _extract_text(payload)
+        if text:
+            message, is_new = self._get_or_create_message(payload)
+            if is_new:
+                events.append(
+                    ExternalAgentStreamEvent(
+                        raw=payload,
+                        stream_chunk=MessageStartEvent(message=message),
+                    )
+                )
+            _append_message_text(message, text)
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
-                    stream_chunk=MessageStartEvent(message=message),
+                    stream_chunk=MessageDeltaEvent(
+                        message_id=message.id,
+                        content=[MessageTextDelta(index=0, text=text)],
+                    ),
                 )
             )
-        _append_message_text(message, text)
-        events.append(
-            ExternalAgentStreamEvent(
-                raw=payload,
-                stream_chunk=MessageDeltaEvent(
-                    message_id=message.id,
-                    content=[MessageTextDelta(index=0, text=text)],
-                ),
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageStopEvent(message_id=message.id),
+                )
             )
-        )
-        events.append(
-            ExternalAgentStreamEvent(
-                raw=payload,
-                stream_chunk=MessageStopEvent(message_id=message.id),
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageFinalizedEvent(message=message),
+                )
             )
-        )
-        events.append(
-            ExternalAgentStreamEvent(
-                raw=payload,
-                stream_chunk=MessageFinalizedEvent(message=message),
+
+        tool_events = self._handle_tool_events(payload)
+        if tool_events:
+            events.extend(tool_events)
+
+        if events:
+            return events
+        return [ExternalAgentStreamEvent(raw=payload)]
+
+    def _handle_tool_events(
+        self, payload: dict[str, Any]
+    ) -> list[ExternalAgentStreamEvent]:
+        message_id = _extract_message_id(payload) or self._last_message_id
+        if not message_id:
+            return []
+        events: list[ExternalAgentStreamEvent] = []
+        for tool_payload in _extract_tool_call_payloads(payload):
+            tool_event = _build_tool_call_delta(message_id, tool_payload)
+            if tool_event is None:
+                continue
+            if (
+                tool_event.tool_call_id in self._emitted_tool_calls
+                and not tool_event.arguments_delta
+            ):
+                continue
+            if tool_event.tool_call_id not in self._emitted_tool_calls:
+                self._emitted_tool_calls.add(tool_event.tool_call_id)
+            events.append(
+                ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
             )
-        )
+
+        tool_result = _build_tool_result(payload)
+        if tool_result is not None:
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=ToolResultEvent(result=tool_result),
+                )
+            )
         return events
 
     def _get_or_create_message(
@@ -257,3 +304,190 @@ def _maybe_set_session_id(
         if isinstance(candidate, str) and candidate:
             handle.session_id = candidate
             return
+
+
+def _extract_tool_call_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    _extend_payload_entries(candidates, payload, ("tool_calls", "toolCalls"))
+    _extend_payload_entries(candidates, payload, ("tool_call", "toolCall"))
+    _extend_nested_payload_entries(
+        candidates,
+        payload,
+        ("message", "item", "data", "response"),
+        ("tool_calls", "toolCalls", "tool_call", "toolCall"),
+    )
+    return candidates
+
+
+def _extend_payload_entries(
+    output: list[dict[str, Any]],
+    payload: dict[str, Any],
+    keys: tuple[str, ...],
+) -> None:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            output.append(value)
+        elif isinstance(value, list):
+            output.extend([entry for entry in value if isinstance(entry, dict)])
+
+
+def _extend_nested_payload_entries(
+    output: list[dict[str, Any]],
+    payload: dict[str, Any],
+    nested_keys: tuple[str, ...],
+    keys: tuple[str, ...],
+) -> None:
+    for nested_key in nested_keys:
+        nested = payload.get(nested_key)
+        if isinstance(nested, dict):
+            _extend_payload_entries(output, nested, keys)
+
+
+def _build_tool_call_delta(
+    message_id: str, payload: dict[str, Any]
+) -> ToolCallDeltaEvent | None:
+    tool_call_id = _extract_tool_call_id(payload)
+    if not tool_call_id:
+        return None
+    tool_name = _extract_tool_name(payload)
+    arguments = _extract_tool_arguments(payload)
+    if arguments is None:
+        return None
+    return ToolCallDeltaEvent(
+        message_id=message_id,
+        tool_call_id=tool_call_id,
+        arguments_delta=arguments,
+        tool_name=tool_name,
+    )
+
+
+def _build_tool_result(payload: dict[str, Any]) -> ToolChatMessage | None:
+    tool_call_id = _extract_tool_call_id(payload, allow_plain_id=False)
+    if not tool_call_id:
+        return None
+    raw_result = _extract_tool_result(payload)
+    if raw_result is None:
+        return None
+    tool_name = _extract_tool_name(payload)
+    arguments = _extract_tool_arguments_dict(payload)
+    content_text = _stringify_tool_result(raw_result)
+    content = [TextContent(text=content_text)] if content_text else []
+    return ToolChatMessage(
+        tool_call_id=tool_call_id,
+        tool_name=tool_name,
+        arguments=arguments,
+        result=raw_result,
+        content=content,
+        is_error=_extract_tool_error(payload),
+        completed_at=get_now_timestamp(),
+    )
+
+
+def _extract_tool_call_id(
+    payload: dict[str, Any], *, allow_plain_id: bool = True
+) -> str | None:
+    for key in (
+        "tool_call_id",
+        "toolCallId",
+        "call_id",
+        "tool_use_id",
+        "toolUseId",
+    ):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    if allow_plain_id:
+        raw = payload.get("id")
+        if isinstance(raw, str) and raw:
+            return raw
+    function = payload.get("function")
+    if isinstance(function, dict):
+        raw = function.get("call_id") or function.get("id")
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
+def _extract_tool_name(payload: dict[str, Any]) -> str | None:
+    for key in ("tool_name", "toolName", "name"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    function = payload.get("function")
+    if isinstance(function, dict):
+        raw = function.get("name")
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
+def _extract_tool_arguments(payload: dict[str, Any]) -> str | None:
+    args = _extract_tool_arguments_value(payload)
+    if args is None:
+        return None
+    if isinstance(args, str):
+        return args
+    try:
+        return json.dumps(args)
+    except TypeError:
+        return None
+
+
+def _extract_tool_arguments_value(payload: dict[str, Any]) -> Any | None:
+    for key in (
+        "arguments",
+        "args",
+        "input",
+        "arguments_delta",
+        "partial_json",
+        "delta",
+    ):
+        raw = payload.get(key)
+        if raw is not None:
+            return raw
+    function = payload.get("function")
+    if isinstance(function, dict):
+        raw = function.get("arguments")
+        if raw is not None:
+            return raw
+    return None
+
+
+def _extract_tool_arguments_dict(payload: dict[str, Any]) -> dict[str, Any]:
+    raw = _extract_tool_arguments_value(payload)
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+def _extract_tool_result(payload: dict[str, Any]) -> Any | None:
+    for key in ("result", "output", "tool_result", "toolResult", "content"):
+        raw = payload.get(key)
+        if raw is not None:
+            return raw
+    return None
+
+
+def _extract_tool_error(payload: dict[str, Any]) -> bool:
+    for key in ("is_error", "isError", "error"):
+        raw = payload.get(key)
+        if isinstance(raw, bool):
+            return raw
+    return False
+
+
+def _stringify_tool_result(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value)
+    except TypeError:
+        return str(value)

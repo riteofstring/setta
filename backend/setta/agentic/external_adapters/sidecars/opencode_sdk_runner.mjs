@@ -90,18 +90,30 @@ if (!sessionId) {
   process.exit(1);
 }
 
-const response = await client.session.prompt({
-  path: { id: sessionId },
-  body: {
-    parts: [{ type: "text", text: prompt }],
-    model,
-  },
-});
-writeEvent({
-  type: "assistant_message",
-  sessionId,
-  message: response,
-});
+if (typeof client.session.promptStream === "function") {
+  for await (const event of client.session.promptStream({
+    path: { id: sessionId },
+    body: {
+      parts: [{ type: "text", text: prompt }],
+      model,
+    },
+  })) {
+    writeEvent(event);
+  }
+} else {
+  const response = await client.session.prompt({
+    path: { id: sessionId },
+    body: {
+      parts: [{ type: "text", text: prompt }],
+      model,
+    },
+  });
+  writeEvent({
+    type: "assistant_message",
+    sessionId,
+    message: response,
+  });
+}
 
 if (serverHandle && typeof serverHandle.stop === "function") {
   await serverHandle.stop();

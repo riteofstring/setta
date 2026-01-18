@@ -24,6 +24,7 @@ class ExternalAgentRunContext:
     system_prompt: str
     working_dir: Path
     env: dict[str, str]
+    cleanup_paths: tuple[Path, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
