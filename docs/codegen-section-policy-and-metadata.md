@@ -1,0 +1,96 @@
+# Codegen Section Policy and Generated Metadata
+
+This document explains how code generation decides which sections to emit and how the optional metadata output is produced and wired into generated Python.
+
+## Section policy model
+
+Section policy lives on the Python codegen target as `ProjectCodegenPythonTarget.sectionPolicy` (`backend/setta/types/project_config.py`). When no Python target is present, `get_section_codegen_policy` falls back to the default policy.
+
+The policy has four levers:
+- `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, and MetaControl.
+- `exclude`: section ids that are always excluded.
+- `typePolicies`: per-section-type defaults (mode + representation).
+- `sectionOverrides`: per-section-id overrides (mode + representation).
+
+## Policy resolution order
+
+`resolve_section_codegen_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedSectionCodegenPolicy` in this order:
+- Start with `allowlist`: include if `allowlist is None` or the section type is listed.
+- Apply the `typePolicies[section_type].mode` using `include`, `exclude`, or `inherit`.
+- Apply `exclude`: if the section id is listed, force exclusion.
+- Apply `sectionOverrides[section_id]`: the override mode can flip inclusion, and the override representation wins.
+- Validate representation support for the section type; unsupported combinations raise a `ValueError`.
+
+The result is `include_in_codegen` plus the chosen `representation`.
+
+## How policy affects codegen
+
+The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
+- Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
+- The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
+- Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, MetaControl, Chat).
+
+Representation determines how section payloads are encoded:
+- `json` is the only supported representation for non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
+- Chat sections support `json` or `file`. When `file` is selected and `chatId` is present, the graph stores a `FileReadDependencyValue` pointing at `setta_files/chats/<chatId>.json` and the packaged runtime reads it (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
+- Draw sections only support `base64`. Any other representation raises a `ValueError`. When a `Base64DependencyValue` is used, the value codec decodes it in packaged runtime (`backend/setta/code_gen/value_codec.py`).
+
+## Generated Python output
+
+When the Python target is enabled, the backend writes `setta_gen.py` to
+`setta_files/code/sections/<project_slug>/setta_gen.py`. The generator builds
+this file as:
+
+```
+<genCodePrefix>
+
+<generated body>
+
+<genCodeSuffix>
+```
+
+Two blank lines separate each block (`GEN_CODE_SEPARATOR_NEWLINES = 2`).
+
+The generated body is a `SettaState` wrapper class with assignments in
+`__init__`:
+- Each included section/param becomes `state.<path> = <value>`.
+- Names are sanitized and combined using `__` between parent and child nodes.
+- If no nodes are emitted, the class body is a single `pass`.
+- Helper imports (for example, `value_helpers` or metadata imports) are prepended
+  to the generated body when needed.
+
+The `GenPythonCode` singleton section mirrors only the generated body (not the
+prefix/suffix). The UI reconstructs the full file by stitching
+`genCodePrefix + body + genCodeSuffix`, while keeping the body read-only
+(`backend/setta/types/helpers_lvl2.py`, `backend/setta/project_state/project_code.py`).
+
+## Generated metadata
+
+Python metadata output is controlled by `ProjectCodegenPythonTarget.generateMetadata` (`backend/setta/types/project_config.py`).
+
+When enabled:
+- `build_python_meta_code` renders `setta_gen_meta.py` using the project state and the dependency graph (`backend/setta/code_gen/python/meta_generator.py`).
+- The file is written next to `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen_meta.py` (`backend/setta/project_state/project_code.py`, `backend/setta/utils/utils.py`).
+- The metadata is also written into snapshot run folders (`backend/setta/project_state/code.py`).
+
+The generated module defines:
+- `ProjectMetadata`: id, name, activeViewModeId, entryCodeBlockId, activeIds, showParamDisplayNames, previewImgColor.
+- `SectionMetadata`: id, name, type, fullPathName, isTopLevel, parentSectionId, variantId, variantName.
+- `SettaGenMetadata`: `project`, `sections` (by full path), and `sections_by_id`.
+
+Metadata entries are derived from dependency graph section nodes, so they cover the section types the graph exports even if `include_in_codegen` is false.
+
+## GenPythonMetadata section
+
+When metadata is enabled, a singleton `GenPythonMetadata` section is created and kept in sync:
+- It is created or deleted alongside the Python codegen target in `set_project_config_codegen_targets` (`backend/setta/project_state/base_project_manager.py`).
+- Its `codeFileBinding` is `write_only` and points to `setta_gen_meta.py` (`backend/setta/types/project_state.py`).
+- `maybe_update_gen_python_metadata_section` mirrors the latest metadata code into the section (`backend/setta/types/helpers_lvl2.py`).
+
+## Metadata injection into generated code
+
+When `setta_gen_meta.py` exists, the Python generator appends a metadata assignment block (`backend/setta/code_gen/python/code_generator.py`):
+- In packaged runtime, it adds `from . import setta_gen_meta` and sets `state.__state__ = setta_gen_meta.meta`.
+- In other modes it `exec`s the metadata code into a namespace and assigns `state.__state__` from the resulting `meta` object.
+
+This makes metadata available at runtime via `from .setta_gen import state` and `state.__state__`.
