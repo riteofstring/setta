@@ -87,11 +87,11 @@ class AgenticStoreTests(unittest.TestCase):
 
             configs = [
                 ExternalAgentConfig(
-                    name="Codex CLI",
-                    description="Local Codex CLI config",
+                    name="Codex SDK",
+                    description="Local Codex SDK config",
                     toolType=ExternalAgentToolType.codex,
-                    runMode=ExternalAgentRunMode.cli,
-                    commandPath="/usr/local/bin/codex",
+                    runMode=ExternalAgentRunMode.sdk,
+                    commandPath="/usr/local/bin/node",
                     defaultModel="o1",
                     sandboxPolicy="read-only",
                     approvalPolicy="on-failure",

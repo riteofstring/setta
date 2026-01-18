@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from setta.agentic.external_adapters.base import (
@@ -22,18 +23,20 @@ from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolT
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 logger = logging.getLogger(__name__)
+_SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "codex_sdk_runner.mjs"
+_MESSAGE_ITEM_TYPES = {"agent_message", "assistant_message", "message"}
 
 
-class CodexCliAdapter(ExternalAgentAdapter):
+class CodexSdkAdapter(ExternalAgentAdapter):
     tool_type = ExternalAgentToolType.codex
-    supported_run_modes = {ExternalAgentRunMode.cli}
+    supported_run_modes = {ExternalAgentRunMode.sdk}
 
     async def start_run(
         self, context: ExternalAgentRunContext
     ) -> ExternalAgentRunHandle:
         prompt = self._build_prompt(context)
         command = self._build_command(context)
-        logger.info("Starting Codex CLI run: %s", " ".join(command))
+        logger.info("Starting Codex SDK run: %s", " ".join(command))
         process = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE,
@@ -43,7 +46,14 @@ class CodexCliAdapter(ExternalAgentAdapter):
             env=context.env,
         )
         if process.stdin is not None:
-            process.stdin.write(prompt.encode("utf-8"))
+            payload = {
+                "prompt": prompt,
+                "itemId": str(context.run.id),
+            }
+            thread_id = _extract_thread_id(context.inputs)
+            if thread_id is not None:
+                payload["threadId"] = thread_id
+            process.stdin.write(json.dumps(payload).encode("utf-8"))
             await process.stdin.drain()
             process.stdin.close()
         return ExternalAgentRunHandle(run_id=context.run.id, process=process)
@@ -57,7 +67,7 @@ class CodexCliAdapter(ExternalAgentAdapter):
         stderr_task: asyncio.Task[list[str]] | None = None
         if process.stderr is not None:
             stderr_task = asyncio.create_task(_collect_stream_lines(process.stderr))
-        parser = _CodexCliEventParser()
+        parser = _CodexSdkEventParser()
         async for line in _iter_stream_lines(process.stdout):
             if not line:
                 continue
@@ -85,18 +95,8 @@ class CodexCliAdapter(ExternalAgentAdapter):
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
-        command_path = context.config.commandPath or "codex"
-        command: list[str] = [command_path, "exec", "--json", "-"]
-        model = context.config.defaultModel
-        if model:
-            command.extend(["--model", model])
-        sandbox_policy = context.config.sandboxPolicy
-        if sandbox_policy:
-            command.extend(["--sandbox", sandbox_policy])
-        approval_policy = context.config.approvalPolicy
-        if approval_policy:
-            command.extend(["--ask-for-approval", approval_policy])
-        return command
+        node_path = context.config.commandPath or "node"
+        return [node_path, str(_SIDECAR_PATH)]
 
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
@@ -123,7 +123,7 @@ class CodexCliAdapter(ExternalAgentAdapter):
         return "\n\n".join(parts).strip() + "\n"
 
 
-class _CodexCliEventParser:
+class _CodexSdkEventParser:
     def __init__(self) -> None:
         self._messages: dict[str, AssistantChatMessage] = {}
         self._last_message_id: str | None = None
@@ -133,17 +133,19 @@ class _CodexCliEventParser:
         if not isinstance(event_type, str):
             return [ExternalAgentStreamEvent(raw=payload)]
 
-        if event_type == "item.start":
+        if event_type in {"item.started", "item.start"}:
             return self._handle_item_start(payload)
-        if event_type == "item.delta":
+        if event_type in {"item.delta", "item.update"}:
             return self._handle_item_delta(payload)
-        if event_type == "item.complete":
+        if event_type in {"item.completed", "item.complete"}:
             return self._handle_item_complete(payload)
         return [ExternalAgentStreamEvent(raw=payload)]
 
     def _handle_item_start(
         self, payload: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        if not _is_message_item(payload):
+            return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
         if not is_new:
             return [ExternalAgentStreamEvent(raw=payload)]
@@ -157,6 +159,8 @@ class _CodexCliEventParser:
     def _handle_item_delta(
         self, payload: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        if not _is_message_item(payload):
+            return [ExternalAgentStreamEvent(raw=payload)]
         delta_text = _extract_delta_text(payload)
         if not delta_text:
             return [ExternalAgentStreamEvent(raw=payload)]
@@ -184,6 +188,8 @@ class _CodexCliEventParser:
     def _handle_item_complete(
         self, payload: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        if not _is_message_item(payload):
+            return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
@@ -191,6 +197,18 @@ class _CodexCliEventParser:
                 ExternalAgentStreamEvent(
                     raw=payload,
                     stream_chunk=MessageStartEvent(message=message),
+                )
+            )
+        delta_text = _extract_delta_text(payload)
+        if delta_text:
+            _append_message_text(message, delta_text)
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageDeltaEvent(
+                        message_id=message.id,
+                        content=[MessageTextDelta(index=0, text=delta_text)],
+                    ),
                 )
             )
         events.append(
@@ -308,3 +326,21 @@ def _append_message_text(message: AssistantChatMessage, delta: str) -> None:
         message.content[0].text += delta
         return
     message.content.insert(0, MessageTextContent(text=delta))
+
+
+def _extract_thread_id(inputs: dict[str, Any] | None) -> str | None:
+    if not inputs:
+        return None
+    raw = inputs.get("threadId")
+    if isinstance(raw, str) and raw:
+        return raw
+    return None
+
+
+def _is_message_item(payload: dict[str, Any]) -> bool:
+    item = payload.get("item")
+    if isinstance(item, dict):
+        raw_type = item.get("type")
+        if isinstance(raw_type, str) and raw_type:
+            return raw_type in _MESSAGE_ITEM_TYPES
+    return True

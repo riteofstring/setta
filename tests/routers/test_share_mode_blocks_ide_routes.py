@@ -201,9 +201,9 @@ class ShareModeIdeRouteTests(unittest.IsolatedAsyncioTestCase):
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_create_external_agent_config(
                         CreateExternalAgentConfigRequest(
-                            name="Codex CLI",
+                            name="Codex SDK",
                             toolType=ExternalAgentToolType.codex,
-                            runMode=ExternalAgentRunMode.cli,
+                            runMode=ExternalAgentRunMode.sdk,
                         ),
                         runtime_ctx,
                     )
@@ -214,9 +214,9 @@ class ShareModeIdeRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
             )
             with self.assertRaises(HTTPException) as ctx:

@@ -1,11 +1,12 @@
 import asyncio
 import os
 import shutil
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.agentic.external_adapters.codex_cli import CodexCliAdapter
+from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
@@ -20,10 +21,19 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class CodexCliAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
-    async def test_codex_cli_streams_message(self) -> None:
-        if shutil.which("codex") is None:
-            self.skipTest("codex CLI not installed")
+class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_codex_sdk_streams_message(self) -> None:
+        node_path = shutil.which("node")
+        if node_path is None:
+            self.skipTest("node is not installed")
+        module_check = subprocess.run(
+            [node_path, "-e", "require('@openai/codex-sdk')"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        if module_check.returncode != 0:
+            self.skipTest("@openai/codex-sdk is not available to node")
         if not os.environ.get("OPENAI_API_KEY"):
             self.skipTest("OPENAI_API_KEY not set")
 
@@ -38,7 +48,7 @@ class CodexCliAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registry = ExternalAgentAdapterRegistry(adapters=[CodexCliAdapter()])
+            registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
             runner = ExternalAgentRunner(
                 dbe,
                 frontend_sender,
@@ -46,9 +56,10 @@ class CodexCliAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
 
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath=node_path,
             )
 
             run = runner.start_run(config, None, {"prompt": "Say hello."})

@@ -2,9 +2,9 @@ import unittest
 from pathlib import Path
 
 from setta.agentic.external_adapters.base import ExternalAgentRunContext
-from setta.agentic.external_adapters.codex_cli import (
-    CodexCliAdapter,
-    _CodexCliEventParser,
+from setta.agentic.external_adapters.codex_sdk import (
+    CodexSdkAdapter,
+    _CodexSdkEventParser,
 )
 from setta.types.agentic import AgentRun
 from setta.types.chat_stream_events import (
@@ -21,10 +21,10 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 
 
-class CodexCliAdapterParserTests(unittest.TestCase):
+class CodexSdkAdapterParserTests(unittest.TestCase):
     def test_item_start_emits_message_start(self) -> None:
-        parser = _CodexCliEventParser()
-        events = parser.handle({"type": "item.start", "item": {"id": "msg-1"}})
+        parser = _CodexSdkEventParser()
+        events = parser.handle({"type": "item.started", "item": {"id": "msg-1"}})
 
         self.assertEqual(len(events), 1)
         chunk = events[0].stream_chunk
@@ -33,8 +33,8 @@ class CodexCliAdapterParserTests(unittest.TestCase):
             self.assertEqual(chunk.message.id, "msg-1")
 
     def test_item_delta_emits_message_delta(self) -> None:
-        parser = _CodexCliEventParser()
-        parser.handle({"type": "item.start", "item": {"id": "msg-2"}})
+        parser = _CodexSdkEventParser()
+        parser.handle({"type": "item.started", "item": {"id": "msg-2"}})
         events = parser.handle(
             {"type": "item.delta", "item": {"id": "msg-2"}, "delta": "Hello"}
         )
@@ -47,26 +47,24 @@ class CodexCliAdapterParserTests(unittest.TestCase):
             self.assertEqual(chunk.content[0].text, "Hello")
 
     def test_item_complete_emits_stop_and_finalize(self) -> None:
-        parser = _CodexCliEventParser()
-        parser.handle({"type": "item.start", "item": {"id": "msg-3"}})
+        parser = _CodexSdkEventParser()
+        parser.handle({"type": "item.started", "item": {"id": "msg-3"}})
         parser.handle(
             {"type": "item.delta", "item": {"id": "msg-3"}, "delta": "Hi"}
         )
-        events = parser.handle({"type": "item.complete", "item": {"id": "msg-3"}})
+        events = parser.handle({"type": "item.completed", "item": {"id": "msg-3"}})
 
         self.assertEqual(len(events), 2)
         self.assertIsInstance(events[0].stream_chunk, MessageStopEvent)
         self.assertIsInstance(events[1].stream_chunk, MessageFinalizedEvent)
 
-    def test_build_command_includes_policy_flags(self) -> None:
-        adapter = CodexCliAdapter()
+    def test_build_command_uses_node_path(self) -> None:
+        adapter = CodexSdkAdapter()
         config = ExternalAgentConfig(
-            name="Codex CLI",
+            name="Codex SDK",
             toolType=ExternalAgentToolType.codex,
-            runMode=ExternalAgentRunMode.cli,
-            commandPath="codex",
-            sandboxPolicy="workspace",
-            approvalPolicy="never",
+            runMode=ExternalAgentRunMode.sdk,
+            commandPath="/usr/local/bin/node",
         )
         context = ExternalAgentRunContext(
             run=AgentRun(),
@@ -83,7 +81,5 @@ class CodexCliAdapterParserTests(unittest.TestCase):
 
         command = adapter._build_command(context)
 
-        self.assertIn("--sandbox", command)
-        self.assertIn("workspace", command)
-        self.assertIn("--ask-for-approval", command)
-        self.assertIn("never", command)
+        self.assertEqual(command[0], "/usr/local/bin/node")
+        self.assertTrue(command[1].endswith("codex_sdk_runner.mjs"))

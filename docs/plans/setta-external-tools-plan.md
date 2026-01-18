@@ -67,6 +67,19 @@ Backward compatibility is not required, but user-visible features must be preser
 - `/session/:id/init` can analyze a repo and create `AGENTS.md`.
 - SDK provides `createOpencode` (start server + client) and `createOpencodeClient` (connect to existing server).
 
+### Doc findings (Jan 2026, official)
+- Claude Agent SDK TypeScript docs enumerate the `query()` streaming API, `Options` fields for
+  `allowedTools` / `disallowedTools`, `agents` (sub-agents), `settingSources`, and `systemPrompt`.
+- Claude streaming docs describe SSE events (`message_start`, `content_block_delta`, `message_delta`,
+  `message_stop`) required for mapping Claude SDK streams into Setta `LLMStreamingResponse`.
+- Codex SDK TypeScript README clarifies the SDK wraps the Codex CLI and exposes streamed JSONL events;
+  this means SDK event normalization can reuse the non-interactive JSONL schema.
+- Codex non-interactive docs enumerate the canonical JSONL event types (`thread.*`, `turn.*`, `item.*`,
+  `error`) and item payload families (agent messages, command execution, file edits, MCP tool calls),
+  which are sufficient to normalize SDK + CLI streams into RunEvents.
+- OpenCode server docs confirm the OpenAPI 3.1 `/doc` endpoint and SSE `/global/event` stream; SDK types
+  are generated from that spec, so adapters can rely on the OpenAPI payloads as source-of-truth.
+
 ## Architecture
 
 ### Unifying abstraction

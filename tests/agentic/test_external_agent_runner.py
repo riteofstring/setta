@@ -47,9 +47,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
             )
 
             context = runner._build_context(config, profile=None, inputs=None)
@@ -63,9 +63,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
             )
 
             context = runner._build_context(config, profile=None, inputs=None)
@@ -78,9 +78,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
             )
             profile = AgentProfile(name="Agent")
 
@@ -99,9 +99,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
             )
 
             with self.assertRaises(TypeError):
@@ -120,7 +120,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             config = ExternalAgentConfig(
                 name="Custom",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
                 workingDir=str(working_dir),
             )
@@ -137,9 +137,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex CLI",
+                name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.cli,
+                runMode=ExternalAgentRunMode.sdk,
                 envVarWhitelist=["OPENAI_API_KEY"],
             )
 
