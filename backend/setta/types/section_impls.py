@@ -36,7 +36,6 @@ class SectionType(str, Enum):
     GlobalVariables = "GlobalVariables"
     Code = "Code"
     GenPythonCode = "GenPythonCode"
-    GenPythonMetadata = "GenPythonMetadata"
     Terminal = "Terminal"
     IFrame = "IFrame"
     Chat = "Chat"
@@ -68,11 +67,6 @@ class CodeLanguage(str, Enum):
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
-
-
-class SectionWithParamsDisplayMode(str, Enum):
-    Gui = "Gui"
-    Yaml = "Yaml"
 
 
 class TypeErrorIgnoreState(BaseModel, extra="forbid"):
@@ -136,13 +130,12 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
-    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    pass
+    renderedValue: str | None = None
 
 
 class CodeFileAccessMode(str, Enum):
@@ -262,10 +255,6 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-
-
-class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
-    type: Literal[SectionType.GenPythonMetadata] = SectionType.GenPythonMetadata
 
 
 class TerminalSectionImpl(BaseSectionImpl):

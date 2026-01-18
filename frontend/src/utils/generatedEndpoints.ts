@@ -509,12 +509,6 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
-export async function route_set_project_config_codegen_targets(
-  x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setProjectConfigCodegenTargets", x);
-}
-
 export async function route_set_gen_code_prefix(
   x: gt.SetGenCodePrefixRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -725,12 +719,6 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
-export async function route_set_section_with_params_display_mode(
-  x: gt.SetSectionWithParamsDisplayModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionWithParamsDisplayMode", x);
-}
-
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -807,6 +795,30 @@ export async function route_move_section(
   x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/moveSection", x);
+}
+
+export async function route_move_params(
+  x: gt.MoveParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParams", x);
+}
+
+export async function route_move_param_groups(
+  x: gt.MoveParamGroupsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveParamGroups", x);
+}
+
+export async function route_indent_params(
+  x: gt.IndentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/indentParams", x);
+}
+
+export async function route_unindent_params(
+  x: gt.UnindentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/unindentParams", x);
 }
 
 export async function route_group_sections(

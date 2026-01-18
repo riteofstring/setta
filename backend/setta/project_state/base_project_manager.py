@@ -42,7 +42,6 @@ from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.chats.load import load_chat
 from setta.project_state.code import (
-    create_snapshot_run_command_from_code_sections_only,
     create_snapshot_run_command_from_sections,
 )
 from setta.project_state.code_files import (
@@ -97,6 +96,9 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
+    IndentParamsRequest,
+    MoveParamGroupsRequest,
+    MoveParamsRequest,
     MoveSectionRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
@@ -133,7 +135,6 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
-    SetProjectConfigCodegenTargetsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -143,7 +144,6 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
-    SetSectionWithParamsDisplayModeRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -167,6 +167,7 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
@@ -208,8 +209,9 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_section_callable_code_obj,
     group_sections,
+    indent_params,
     maybe_update_gen_python_code_section,
-    maybe_update_gen_python_metadata_section,
+    move_params_to_parent,
     move_section_to_pane,
     move_section_to_parent_section,
     reconnect_edge,
@@ -242,7 +244,6 @@ from setta.types.helpers_lvl2 import (
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
-    set_section_with_params_display_mode,
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
@@ -257,6 +258,7 @@ from setta.types.helpers_lvl2 import (
     toggle_variant_frozen,
     toggle_variant_json_source,
     ungroup_groups,
+    unindent_params,
     unselect_all_params,
     update_edge,
     update_param_impl_config,
@@ -276,15 +278,7 @@ from setta.types.notifications import (
     SettaNotification,
     SettaNotificationType,
 )
-from setta.types.project_config import (
-    Position,
-    ProjectCodegenLanguage,
-    ProjectConfig,
-    ViewModeConfig,
-    get_python_codegen_target,
-    get_python_codegen_target_with_type_guard,
-    project_config_has_codegen_language,
-)
+from setta.types.project_config import Position, ProjectConfig, ViewModeConfig
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -576,10 +570,10 @@ class BaseProjectManager(ABC):
         dict[ID, ProjectPythonCode | ProjectBashCode],
     ]:
         gen_code = self.gen_code.get(projectConfigId)
+        if gen_code is None:
+            return None, {}
+        gen_code.write_to_disk(gen_code.code)
         code_entries = self.code_dict.get(projectConfigId, {})
-        if gen_code is not None:
-            gen_code.write_to_disk(gen_code.code)
-            gen_code.write_meta_to_disk()
         for code_entry in code_entries.values():
             code_entry.write_to_disk(code_entry.code)
         return gen_code, code_entries
@@ -597,51 +591,18 @@ class BaseProjectManager(ABC):
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         async with self._project_state_lock.read_lock():
-            project_config = self.project_state_backend.projectConfigs[
-                project_config_id
-            ]
-            python_codegen_enabled = project_config_has_codegen_language(
-                project_config,
-                ProjectCodegenLanguage.python,
-            )
             gen_code, code_entries = self._flush_code_files(project_config_id)
-            resolved_run_snapshot_mode = (
-                run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
-            )
-            if not section_id:
-                section_id = project_config.entryCodeBlockId
-
-            if not python_codegen_enabled:
-                if not section_id:
-                    raise KeyError(
-                        "Python codegen is disabled; select a code section to run."
-                    )
-                if section_id not in code_entries:
-                    raise KeyError(f"Missing code section for run: {section_id}")
-                if resolved_run_snapshot_mode == RunSnapshotMode.never:
-                    return code_entries[section_id].get_run_command(
-                        code_entries[section_id].binding.canonical_path
-                    )
-                snapshot_section_inputs = {
-                    sid: (
-                        code_entry.code,
-                        code_entry.binding,
-                        code_entry.get_run_command,
-                    )
-                    for sid, code_entry in code_entries.items()
-                }
-                return create_snapshot_run_command_from_code_sections_only(
-                    dbe=self.dbe,
-                    snapshot_root=self._resolve_run_snapshot_root(
-                        resolved_run_snapshot_mode
-                    ),
-                    entry_section_id=section_id,
-                    section_inputs=snapshot_section_inputs,
-                )
             if gen_code is None:
                 raise KeyError(
                     f"Missing generated code for project config {project_config_id}"
                 )
+            resolved_run_snapshot_mode = (
+                run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
+            )
+            if not section_id:
+                section_id = self.project_state_backend.projectConfigs[
+                    project_config_id
+                ].entryCodeBlockId
             if resolved_run_snapshot_mode == RunSnapshotMode.never:
                 gen_code_path = gen_code.get_gen_python_code_path()
                 code_paths = {
@@ -670,7 +631,6 @@ class BaseProjectManager(ABC):
                 ),
                 entry_section_id=section_id,
                 gen_code=gen_code.code,
-                gen_meta_code=gen_code.meta_code,
                 gen_binding=gen_code.binding,
                 section_inputs=snapshot_section_inputs,
                 gen_command_builder=gen_code.get_run_command,
@@ -682,21 +642,6 @@ class BaseProjectManager(ABC):
         if run_snapshot_mode == RunSnapshotMode.always:
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
-
-    def _require_python_codegen(self, project_config_id: ID) -> ProjectGenPythonCode:
-        project_config = self.project_state_backend.projectConfigs[project_config_id]
-        if not project_config_has_codegen_language(
-            project_config,
-            ProjectCodegenLanguage.python,
-        ):
-            raise KeyError(
-                f"Python codegen disabled for project config {project_config_id}."
-            )
-        if project_config_id not in self.gen_code:
-            raise KeyError(
-                f"Missing generated code for project config {project_config_id}."
-            )
-        return self.gen_code[project_config_id]
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
@@ -770,58 +715,41 @@ class BaseProjectManager(ABC):
         self,
         projectState: ProjectStateSingleConfig,
     ) -> None:
+        dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
-        python_codegen_enabled = project_config_has_codegen_language(
-            projectConfig,
-            ProjectCodegenLanguage.python,
+        if self.gen_code.get(projectConfigId):
+            await self.maybe_do_rename_refactor(
+                projectState, projectConfigId, dep_graph
+            )
+            self.gen_code[projectConfigId].callback_cleanup()
+
+        code_generator = build_python_code_generator(projectState, dep_graph)
+        code_generator.generate_code()
+        ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
+            projectState
         )
 
-        if python_codegen_enabled:
-            dep_graph = DependencyGraph(projectState)
-            if projectConfigId in self.gen_code:
-                await self.maybe_do_rename_refactor(
-                    projectState, projectConfigId, dep_graph
-                )
-                self.gen_code[projectConfigId].callback_cleanup()
-
-            code_generator = build_python_code_generator(projectState, dep_graph)
-            code_generator.generate_code()
-            ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
-                projectState
-            )
-
-            gen_code_binding = projectState.genCodeBinding
-            if gen_code_binding is None:
-                raise ValueError("Project state missing generated code binding")
-            new_gen_code = ProjectGenPythonCode(
-                self.dbe,
-                self.code_files,
-                gen_code_binding,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                projectConfigId,
-                dep_graph,
-                code_generator,
-                ignore_type_errors_by_section,
-            )
-            if not new_gen_code.binding.canonical_path.exists():
-                new_gen_code.write_to_disk(new_gen_code.code)
-            if new_gen_code.meta_code is not None:
-                new_gen_code.write_meta_to_disk()
-            if self.lsp_writers.full is not None:
-                await new_gen_code.sync_lsp(new_gen_code.code)
-            maybe_update_gen_python_code_section(
-                projectState, new_gen_code.generated_code
-            )
-            maybe_update_gen_python_metadata_section(
-                projectState, new_gen_code.meta_code
-            )
-            self.gen_code[projectConfigId] = new_gen_code
-        else:
-            if projectConfigId in self.gen_code:
-                self.gen_code[projectConfigId].callback_cleanup()
-                self.gen_code.pop(projectConfigId, None)
+        gen_code_binding = projectState.genCodeBinding
+        if gen_code_binding is None:
+            raise ValueError("Project state missing generated code binding")
+        new_gen_code = ProjectGenPythonCode(
+            self.dbe,
+            self.code_files,
+            gen_code_binding,
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            projectConfigId,
+            dep_graph,
+            code_generator,
+            ignore_type_errors_by_section,
+        )
+        if not new_gen_code.binding.canonical_path.exists():
+            new_gen_code.write_to_disk(new_gen_code.code)
+        if self.lsp_writers.full is not None:
+            await new_gen_code.sync_lsp(new_gen_code.code)
+        maybe_update_gen_python_code_section(projectState, new_gen_code.generated_code)
+        self.gen_code[projectConfigId] = new_gen_code
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
@@ -888,13 +816,12 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(projectConfigId)
-        await gen_code.type_check()
+            await self.gen_code[projectConfigId].type_check()
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
+            gen_code = self.gen_code[x.projectConfigId]
         return await gen_code.text_field_completion(
             x.sectionId, x.paramInfoId, x.fullText, x.position
         )
@@ -902,7 +829,7 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def output_accessor_completion(self, x: OutputAccessorCompletionRequest):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
+            gen_code = self.gen_code[x.projectConfigId]
         return await gen_code.output_accessor_completion(
             x.sectionId, x.fullText, x.position
         )
@@ -910,7 +837,7 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
+            gen_code = self.gen_code[x.projectConfigId]
         await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
@@ -928,8 +855,8 @@ class BaseProjectManager(ABC):
         """Update a section's callable binding and refresh the surrounding project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        gen_code = self._require_python_codegen(x.projectConfigId)
-        result = await gen_code.set_callable(
+
+        result = await self.gen_code[x.projectConfigId].set_callable(
             self.settings_file.settings,
             project_state,
             x.sectionId,
@@ -950,13 +877,13 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
+            gen_code = self.gen_code[x.projectConfigId]
         return await gen_code.gen_code_prefix_completion(x.fullText, x.position)
 
     @enqueue_method(require_serialization=False)
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
+            gen_code = self.gen_code[x.projectConfigId]
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
@@ -965,10 +892,7 @@ class BaseProjectManager(ABC):
         """Persist the prefix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
-        python_target.genCodePrefix = x.genCodePrefix
+        project_state.projectConfig.genCodePrefix = x.genCodePrefix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -977,87 +901,7 @@ class BaseProjectManager(ABC):
         """Persist the suffix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
-        python_target.genCodeSuffix = x.genCodeSuffix
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool()
-    async def set_project_config_codegen_targets(
-        self, x: SetProjectConfigCodegenTargetsRequest
-    ):
-        """Update the codegen targets for a project configuration."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        seen_languages: set[ProjectCodegenLanguage] = set()
-        for target in x.codegenTargets:
-            if target.language in seen_languages:
-                raise ValueError(
-                    f"Duplicate codegen target language: {target.language}"
-                )
-            seen_languages.add(target.language)
-        prev_python_target = get_python_codegen_target(project_state.projectConfig)
-        prev_python_enabled = project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        )
-        prev_metadata_enabled = bool(
-            prev_python_target and prev_python_target.generateMetadata
-        )
-        project_state.projectConfig.codegenTargets = x.codegenTargets
-        next_python_target = get_python_codegen_target(project_state.projectConfig)
-        next_python_enabled = project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        )
-        next_metadata_enabled = bool(
-            next_python_target and next_python_target.generateMetadata
-        )
-        if prev_python_enabled and not next_python_enabled:
-            project_state.genCodeBinding = None
-            gen_section_id = project_state.singletonSections.GenPythonCode
-            meta_section_id = project_state.singletonSections.GenPythonMetadata
-            sections_to_delete: list[ID] = []
-            if (
-                gen_section_id is not None
-                and project_state.projectConfig.entryCodeBlockId == gen_section_id
-            ):
-                project_state.projectConfig.entryCodeBlockId = None
-            if gen_section_id is not None:
-                sections_to_delete.append(gen_section_id)
-            if meta_section_id is not None:
-                sections_to_delete.append(meta_section_id)
-            if sections_to_delete:
-                project_state.validate_parent_section_map()
-                delete_sections(project_state, sections_to_delete)
-        if (
-            next_python_enabled
-            and project_state.singletonSections.GenPythonCode is None
-        ):
-            create_top_level_section(
-                self.settings_file.settings,
-                project_state,
-                SectionType.GenPythonCode,
-                Position(),
-            )
-        if next_python_enabled:
-            if prev_metadata_enabled and not next_metadata_enabled:
-                meta_section_id = project_state.singletonSections.GenPythonMetadata
-                if meta_section_id is not None:
-                    project_state.validate_parent_section_map()
-                    delete_sections(project_state, [meta_section_id])
-            if (
-                next_metadata_enabled
-                and project_state.singletonSections.GenPythonMetadata is None
-            ):
-                create_top_level_section(
-                    self.settings_file.settings,
-                    project_state,
-                    SectionType.GenPythonMetadata,
-                    Position(),
-                )
+        project_state.projectConfig.genCodeSuffix = x.genCodeSuffix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1293,7 +1137,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
-        gen_code = self._require_python_codegen(project_state.projectConfig.id)
+        gen_code = self.gen_code.get(project_state.projectConfig.id)
+        if gen_code is None:
+            raise KeyError(
+                f"Generated code missing for project config {project_state.projectConfig.id}."
+            )
         edge_value = gen_code.build_edge_expression(project_state, edge)
         set_param_entered_value(
             project_state,
@@ -1728,24 +1576,12 @@ class BaseProjectManager(ABC):
             previewImgColor=previewImgColor, viewport=None
         )
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
-        if project_config_has_codegen_language(
-            new_project_config,
-            ProjectCodegenLanguage.python,
-        ):
-            create_top_level_section(
-                self.settings_file.settings,
-                project_state,
-                SectionType.GenPythonCode,
-                Position(),
-            )
-            python_target = get_python_codegen_target(new_project_config)
-            if python_target and python_target.generateMetadata:
-                create_top_level_section(
-                    self.settings_file.settings,
-                    project_state,
-                    SectionType.GenPythonMetadata,
-                    Position(),
-                )
+        create_top_level_section(
+            self.settings_file.settings,
+            project_state,
+            SectionType.GenPythonCode,
+            Position(),
+        )
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
@@ -2002,13 +1838,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_section_with_params_display_mode(
-        self, x: SetSectionWithParamsDisplayModeRequest
-    ):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_with_params_display_mode(project_state, x.sectionId, x.displayMode)
-        await self.update_and_broadcast_project_state(project_state)
-
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -2205,6 +2034,49 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def move_params(self, x: MoveParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        move_params_to_parent(
+            self.settings_file.settings,
+            project_state,
+            x.sectionId,
+            x.paramIds,
+            x.newParentId,
+            x.newIndex,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def move_param_groups(self, x: MoveParamGroupsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        for move in x.moves:
+            move_params_to_parent(
+                self.settings_file.settings,
+                project_state,
+                x.sectionId,
+                move.paramIds,
+                move.newParentId,
+                move.newIndex,
+            )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def indent_params(self, x: IndentParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        indent_params(
+            self.settings_file.settings, project_state, x.sectionId, x.paramIds
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def unindent_params(self, x: UnindentParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        unindent_params(
+            self.settings_file.settings, project_state, x.sectionId, x.paramIds
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def group_sections(self, x: GroupSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = group_sections(
@@ -2365,8 +2237,11 @@ class BaseProjectManager(ABC):
     ) -> SettaProjectConfigDiagnostics:
         """Return the latest parsed LSP diagnostics for generated code."""
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
-        return gen_code.latest_diagnostics
+            if x.projectConfigId not in self.gen_code:
+                raise KeyError(
+                    f"Missing generated code for project config {x.projectConfigId}"
+                )
+            return self.gen_code[x.projectConfigId].latest_diagnostics
 
     @enqueue_method
     async def autosave(self):
