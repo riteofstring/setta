@@ -38,6 +38,11 @@ Backward compatibility is not required, but user-visible features must be preser
 - Chat sections still support "new chat" and persisted chat history.
 - Deferred: share-mode LLM supports minimal read-only Q&A about the project (post-refactor).
 
+## Completion definition (what counts as "done")
+This plan is complete when Phases 1-4 are implemented and the Acceptance checks above pass.
+Everything explicitly marked "Deferred" or listed under "Future work" is out of scope for
+completion and is not required to mark the plan as finished.
+
 ## Plan
 
 ### Phase 1: Agent primitives (implemented)
@@ -91,6 +96,9 @@ Backward compatibility is not required, but user-visible features must be preser
   highlighting, and run-chain authoring/trace.
 
 ## Future work (out of scope)
+All items below are explicitly out of scope for plan completion and are not required to
+consider this plan finished.
+
 ### Context and memory controls
 - Add per-agent context sources:
   - Project summary (current default).

@@ -217,6 +217,13 @@ Example structure for `setta_files/engine_configs.json`:
 - External agent runs render in the same stream UI without breaking AIFollow.
 - Listener-based chat workflows still compile and run using the chat toolkit.
 
+## Completion definition (what counts as "done")
+This plan is complete when the Acceptance checks above pass and the MVP blockers
+listed as "resolved" remain resolved.
+
+Items labeled "partial" in the phased implementation and everything under "Future work"
+are explicitly out of scope for completion unless they are required by the Acceptance checks.
+
 ## MVP blockers for “start external agent and chat” (resolved)
 These were required so the frontend could select Codex/Claude Code/OpenCode and hold a real multi-turn conversation.
 
@@ -370,6 +377,8 @@ Storage:
   authoring will be delivered via the agentic graph UI (no separate run-chain UI).
 
 ## Future work
+All items below are explicitly out of scope for plan completion and are not required to
+consider this plan finished.
 
 ### SKILL.md integration (external skills only)
 - Goal: surface external SKILL.md assets without introducing a new Setta skill schema.
