@@ -51,6 +51,9 @@ if TYPE_CHECKING:
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
+RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
+
+
 class ShareRuntimeState:
     def __init__(
         self,
@@ -234,7 +237,9 @@ class ShareRuntimeState:
             ) -> str:
                 if language == CodeLanguage.python:
                     return build_python_snapshot_module_run_command(snapshot_root, path)
-                return build_bash_run_command(path, use_absolute=True, quote=True)
+                if language == CodeLanguage.bash:
+                    return build_bash_run_command(path, use_absolute=True, quote=True)
+                raise ValueError(f"Unsupported code language for run: {language}")
 
             snapshot_section_inputs[sid] = (code, binding, run_command_builder)
 
@@ -500,6 +505,8 @@ class ShareRuntimeState:
                 continue
             if section_impl.codeFileBinding is None:
                 raise KeyError(f"Missing code binding for section {section_id}")
+            if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
+                continue
             output[section_id] = (
                 section_impl.code,
                 section_impl.codeFileBinding,
