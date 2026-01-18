@@ -149,21 +149,8 @@ def apply_json_source_updates(
                     )
             current = current[path_part]
         leaf_key = key_path[-1]
-        existing_value = current.get(leaf_key)
-        if isinstance(existing_value, dict) and isinstance(subtree, dict):
-            current[leaf_key] = _deep_merge_dicts(existing_value, subtree)
-        else:
-            current[leaf_key] = subtree
+        current[leaf_key] = subtree
     return output
-
-
-def _deep_merge_dicts(base: dict, update: dict) -> dict:
-    for key, value in update.items():
-        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-            base[key] = _deep_merge_dicts(base[key], value)
-        else:
-            base[key] = value
-    return base
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

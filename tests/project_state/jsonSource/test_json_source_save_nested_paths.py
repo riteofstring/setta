@@ -205,4 +205,18 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
             (["app"], {"debug": False}),
         ]
         updated = apply_json_source_updates(existing, updates)
-        self.assertEqual(updated, {"app": {"name": "Setta", "debug": False}})
+        self.assertEqual(updated, {"app": {"debug": False}})
+
+    def test_apply_updates_nested_replaces_subtree(self) -> None:
+        existing = {
+            "features": {
+                "flags": {"newUI": True, "betaMode": False},
+                "rollouts": {"search": {"percentage": 25}},
+            }
+        }
+        updates = [
+            (["features", "flags"], {"newUI": True}),
+        ]
+        updated = apply_json_source_updates(existing, updates)
+        self.assertEqual(updated["features"]["flags"], {"newUI": True})
+        self.assertIn("rollouts", updated["features"])
