@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import FastAPI, HTTPException
+
 from setta.agentic.chat_view import LLM_CHAT_RUN_TYPE
 from setta.agentic.store import load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -11,13 +13,16 @@ from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
     DeleteLLMChatRequest,
+    GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
     route_delete_llm_chat,
     route_get_all_llm_chat_metadata,
     route_get_llm_chat,
+    route_get_llm_response,
     route_stop_llm_chat,
 )
+from setta.server_state import SettaFastAPIState
 from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -26,6 +31,9 @@ from setta.types.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.runtime_context import runtime_context
@@ -56,6 +64,51 @@ def _build_runner(dbe: DBE) -> AgentRunner:
         )
     )
     return runner
+
+
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ID:
+    dbe = DBE(root)
+    project_config = ProjectConfig(name=project_config_name)
+    project_state = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    dbe.write_project(project_state)
+    deployment_name = root.parent.name
+    manifest = ShareDeploymentManifest(
+        version=1,
+        deploymentName=deployment_name,
+        defaultProjectConfigId=project_config.id,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return project_config.id
+
+
+def _write_share_policy(root: Path, *, allow_llm: bool) -> None:
+    dbe = DBE(root)
+    policy = SharePolicy(allowLLM=allow_llm)
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 def _build_run(
@@ -115,6 +168,43 @@ class TestState:
 
 
 class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
+    async def test_share_mode_requires_llm_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-llm-config-guard"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, allow_llm=True)
+            state = SettaFastAPIState(
+                FastAPI(),
+                share_mode=True,
+                share_deployment_root=root,
+            )
+            await state.wait_until_ready()
+            session = state.share_session_store.create_session()
+
+            with self.assertRaises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Hello")],
+                            ),
+                            llmConfigId=None,
+                            agentProfileId=None,
+                            deepThink=False,
+                            projectConfigId=project_config_id,
+                        ),
+                        runtime_ctx,
+                    )
+
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertEqual(ctx.exception.detail, "LLM config is required")
+
     async def test_get_llm_chat_from_agent_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

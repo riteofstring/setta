@@ -303,7 +303,7 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
-async function route_get_agent_profiles(): Promise<
+export async function route_get_agent_profiles(): Promise<
   ResponseDataAndStatus<Array<gt.AgentProfile>>
 > {
   return await get("/getAgentProfiles");
@@ -357,7 +357,7 @@ async function route_get_agent_runs(): Promise<
   return await get("/getAgentRuns");
 }
 
-async function route_get_prompt_templates(): Promise<
+export async function route_get_prompt_templates(): Promise<
   ResponseDataAndStatus<Array<gt.PromptTemplate>>
 > {
   return await get("/getPromptTemplates");
@@ -593,19 +593,19 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
-async function route_set_prompt_template(
+export async function route_set_prompt_template(
   x: gt.SetPromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setPromptTemplate", x);
 }
 
-async function route_set_prompt_inputs(
+export async function route_set_prompt_inputs(
   x: gt.SetPromptInputsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setPromptInputs", x);
 }
 
-async function route_set_prompt_format(
+export async function route_set_prompt_format(
   x: gt.SetPromptFormatRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setPromptFormat", x);

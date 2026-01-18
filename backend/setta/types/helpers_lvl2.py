@@ -2184,6 +2184,7 @@ def set_chat_section_settings(
     sectionId: ID,
     managed: bool,
     llmConfigId: str | None,
+    agentProfileId: ID | None,
     deepThink: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
@@ -2193,6 +2194,7 @@ def set_chat_section_settings(
         ChatSectionImplArgsWithCallable(
             managed=managed,
             llmConfigId=llmConfigId,
+            agentProfileId=agentProfileId,
             deepThink=deepThink,
         ),
     )

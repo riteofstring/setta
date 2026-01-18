@@ -482,6 +482,7 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     sectionId: ID
     managed: bool
     llmConfigId: str | None
+    agentProfileId: ID | None
     deepThink: bool
 
 

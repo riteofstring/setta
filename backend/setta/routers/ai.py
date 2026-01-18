@@ -12,7 +12,7 @@ from setta.agentic.chat_view import (
     get_run_sort_key,
     is_llm_chat_run,
 )
-from setta.agentic.store import list_agent_runs
+from setta.agentic.store import list_agent_runs, require_agent_profile
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -73,7 +73,8 @@ def _build_inputs_messages(
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
-    llmConfigId: str
+    llmConfigId: str | None
+    agentProfileId: ID | None = None
     deepThink: bool
     projectConfigId: ID
 
@@ -109,6 +110,8 @@ async def route_get_llm_response(
 ) -> str | None:
     await ctx.enforce_llm_allowed()
     if ctx.share_mode:
+        if x.llmConfigId is None:
+            raise HTTPException(status_code=400, detail="LLM config is required")
         chat_manager_kwargs = _chat_manager_kwargs(ctx)
         try:
             chat = ctx.state.chat_manager.get_or_create_chat(
@@ -150,6 +153,21 @@ async def route_get_llm_response(
         prior_messages=prior_messages,
         message=x.message,
     )
+    if x.agentProfileId is not None:
+        try:
+            profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if x.llmConfigId is not None:
+            profile = profile.model_copy(update={"llmConfigId": x.llmConfigId})
+    else:
+        profile = AgentProfile(
+            name="Managed chat",
+            description="",
+            systemPrompt="",
+            llmConfigId=x.llmConfigId,
+        )
+
     inputs = {
         "chatId": str(chat_id),
         "projectConfigId": str(x.projectConfigId),
@@ -158,12 +176,6 @@ async def route_get_llm_response(
         "runType": LLM_CHAT_RUN_TYPE,
         "messages": [message.model_dump(mode="json") for message in combined_messages],
     }
-    profile = AgentProfile(
-        name="Managed chat",
-        description="",
-        systemPrompt="",
-        llmConfigId=x.llmConfigId,
-    )
     ctx.state.agent_runner.start_run(profile, inputs)
     return chat_id
 

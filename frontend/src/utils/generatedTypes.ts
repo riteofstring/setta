@@ -233,7 +233,7 @@ export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
-const PromptFormatEnum = { Jinja: "Jinja" } as const;
+export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
@@ -1191,6 +1191,7 @@ export function createSectionSize(
 const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -1315,6 +1316,7 @@ const CoreSchema = z.object({
       z.literal([
         "actionMode",
         "activeLayerIdx",
+        "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -1828,6 +1830,7 @@ const ChatSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -2968,6 +2971,7 @@ const ChatSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
   llmConfigId: z.union([z.string(), z.null()]).optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
   messages: z
@@ -3870,6 +3874,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -5587,7 +5592,8 @@ const GetLLMResponseRequestSchema = z.object({
     UserChatMessageSchema,
     ToolChatMessageSchema,
   ]),
-  llmConfigId: z.string(),
+  llmConfigId: z.union([z.string(), z.null()]),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean(),
   projectConfigId: IDSchema,
 });
@@ -6232,6 +6238,7 @@ const SetChatSectionSettingsRequestSchema = z.object({
   sectionId: IDSchema,
   managed: z.boolean(),
   llmConfigId: z.union([z.string(), z.null()]),
+  agentProfileId: z.union([IDSchema, z.null()]),
   deepThink: z.boolean(),
 });
 

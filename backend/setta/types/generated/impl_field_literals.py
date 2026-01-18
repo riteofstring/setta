@@ -3,6 +3,7 @@ from typing import Literal
 AllImplFields = Literal[
     "actionMode",
     "activeLayerIdx",
+    "agentProfileId",
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",

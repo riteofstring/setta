@@ -5,6 +5,7 @@ from setta.agentic.chat_view import (
     build_chat_state_from_run,
     derive_chat_name,
     get_run_chat_id,
+    get_run_llm_config_id,
     get_run_project_config_id,
     get_run_type,
     is_llm_chat_run,
@@ -93,6 +94,23 @@ class ChatViewTests(unittest.TestCase):
             if isinstance(message, AssistantChatMessage)
         )
         self.assertEqual(assistant_message.content[0].text, "Hi")
+
+    def test_get_llm_config_id_from_run_started_event(self) -> None:
+        run = AgentRun(
+            inputs={
+                "runType": LLM_CHAT_RUN_TYPE,
+                "chatId": "chat-1",
+                "projectConfigId": "project-1",
+            },
+            events=[
+                RunEvent(
+                    type="run_started",
+                    payload={"llmConfigId": "primary"},
+                )
+            ],
+        )
+
+        self.assertEqual(get_run_llm_config_id(run), "primary")
 
     def test_outputs_override_stream(self) -> None:
         output_message = AssistantChatMessage(
