@@ -69,8 +69,7 @@ Backward compatibility is not required, but user-visible features must be preser
 - Extend `LLMChatManager` with a `run_sub_agent` method used by `run_agent_profile`.
 - Persist run logs to `setta_files/agent_runs` with the project snapshot and temporary ID map for replay.
 
-### Phase 3: Prompt assets and eval harness (prompt assets implemented; eval deferred)
-- Eval harness is still deferred; prompt assets + prompt section are implemented.
+### Phase 3: Prompt assets (implemented)
 - Introduce prompt templates as workspace assets:
   - Store templates in `setta_files/prompts/*.json` with explicit input schema and metadata.
   - Bind them to UI via an agent panel.
@@ -79,11 +78,6 @@ Backward compatibility is not required, but user-visible features must be preser
   - Treat it like TextBlock in the dependency graph (literal output) to minimize codegen churn.
   - Add variable extraction + validation UI (missing vars, defaults).
   - Render on update (store `renderedText`, `missingVariables`, `renderError`) instead of at runtime.
-- Add an eval runner:
-  - Accepts JSONL datasets with input and expected output.
-  - Runs an agent profile against each row.
-  - Writes results to an artifact (JSONL + summary metrics).
-- Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
 
 ### Phase 4: UI for agents and runs (partially implemented)
 - Add a new Overview tab or sidebar panel for agent profiles and runs.
@@ -98,6 +92,14 @@ Backward compatibility is not required, but user-visible features must be preser
   - Selected sections or file snippets.
   - Memory cards with explicit pin/forget controls.
 - Add a context budget preview in the chat UI (tokens per source).
+
+## Future work (out of scope)
+### Eval harness
+- Add an eval runner:
+  - Accepts JSONL datasets with input and expected output.
+  - Runs an agent profile against each row.
+  - Writes results to an artifact (JSONL + summary metrics).
+- Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
 
 ## Detailed implementation map
 
