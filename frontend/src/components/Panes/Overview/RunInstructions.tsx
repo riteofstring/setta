@@ -67,7 +67,6 @@ const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.GlobalVariables,
   SectionTypeEnum.TextBlock,
   SectionTypeEnum.Draw,
-  SectionTypeEnum.Image,
   SectionTypeEnum.MetaControl,
   SectionTypeEnum.Chat,
 ];
@@ -901,10 +900,7 @@ function getRepresentationOptions(
     return ["json", "file"];
   }
   if (sectionType === SectionTypeEnum.Draw) {
-    return ["file"];
-  }
-  if (sectionType === SectionTypeEnum.Image) {
-    return ["file"];
+    return ["base64"];
   }
   return ["json"];
 }

@@ -54,6 +54,8 @@ export function getExtensions({
 
   if (language === "python") {
     extensions.push(python());
+  } else if (language === "typescript") {
+    extensions.push(javascript({ typescript: true }));
   } else if (language === "javascript") {
     extensions.push(javascript());
   } else if (language === "yaml") {

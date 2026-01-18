@@ -12,7 +12,6 @@ from setta.project_state.code import (
     create_snapshot_run_command_from_code_sections_only,
     create_snapshot_run_command_from_sections,
 )
-from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
@@ -50,7 +49,9 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-    from setta.websockets.realtime_event_hub import RealtimeEventHub
+
+
+RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 
 
 class ShareRuntimeState:
@@ -60,12 +61,10 @@ class ShareRuntimeState:
         deployment_root: Path,
         frontend_sender: "WMHFrontendSender",
         specific_file_watcher: SpecificFileWatcher | None = None,
-        realtime_event_hub: "RealtimeEventHub | None" = None,
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
         self.frontend_sender = frontend_sender
-        self.realtime_event_hub = realtime_event_hub
         self._validate_deployment_root()
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
@@ -201,8 +200,6 @@ class ShareRuntimeState:
             self.dbe,
             artifact_id_resolver=self._format_share_artifact_id,
             path_resolver=self._resolve_share_artifact_path,
-            realtime_event_hub=self.realtime_event_hub,
-            share_session_id=session_id,
         )
         self._session_artifacts[session_id] = artifacts
         return artifacts
@@ -221,17 +218,6 @@ class ShareRuntimeState:
             share_session_id,
             project_config_id,
         )
-        snapshots_updated = apply_draw_snapshot_updates(
-            dbe=self.dbe,
-            project_state=project_state,
-            snapshots_by_section_id=x.drawSnapshotsBySectionId,
-            artifact_root=self._resolve_deployment_path_to_absolute("artifacts"),
-        )
-        if snapshots_updated:
-            project_state.validate_for_update(validate_code_file_bindings=False)
-            self.update_session_state(
-                resolved_session_id, project_config_id, project_state
-            )
         snapshot_root = self.share_runs_root / resolved_session_id
         python_codegen_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -251,7 +237,9 @@ class ShareRuntimeState:
             ) -> str:
                 if language == CodeLanguage.python:
                     return build_python_snapshot_module_run_command(snapshot_root, path)
-                return build_bash_run_command(path, use_absolute=True, quote=True)
+                if language == CodeLanguage.bash:
+                    return build_bash_run_command(path, use_absolute=True, quote=True)
+                raise ValueError(f"Unsupported code language for run: {language}")
 
             snapshot_section_inputs[sid] = (code, binding, run_command_builder)
 
@@ -517,6 +505,8 @@ class ShareRuntimeState:
                 continue
             if section_impl.codeFileBinding is None:
                 raise KeyError(f"Missing code binding for section {section_id}")
+            if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
+                continue
             output[section_id] = (
                 section_impl.code,
                 section_impl.codeFileBinding,

@@ -63,6 +63,12 @@ class SectionSize(BaseModel, extra="forbid"):
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
+    javascript = "javascript"
+    typescript = "typescript"
+    json = "json"
+    yaml = "yaml"
+    markdown = "markdown"
+    plaintext = "plaintext"
 
 
 class ConfigLanguage(str, Enum):
@@ -216,7 +222,6 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
     layers: list[DrawAreaLayer] = Field(default_factory=list)
-    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
