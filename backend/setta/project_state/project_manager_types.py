@@ -104,6 +104,10 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional run snapshot mode override for this run.",
     )
+    drawSnapshotsBySectionId: dict[ID, str | None] | None = Field(
+        default=None,
+        description="Optional base64 PNG payloads for draw sections keyed by section id.",
+    )
 
 
 class ClearTextFieldCompletionRequest(ProjectManagerRequestWithSection):

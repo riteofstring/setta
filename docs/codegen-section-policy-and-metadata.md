@@ -33,7 +33,7 @@ The dependency graph uses the resolved policy when exporting nodes (`backend/set
 Representation determines how section payloads are encoded:
 - `json` is the only supported representation for non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
 - Chat sections support `json` or `file`. When `file` is selected and `chatId` is present, the graph stores a `FileReadDependencyValue` pointing at `setta_files/chats/<chatId>.json` and the packaged runtime reads it (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
-- Draw sections only support `base64`. Any other representation raises a `ValueError`. When a `Base64DependencyValue` is used, the value codec decodes it in packaged runtime (`backend/setta/code_gen/value_codec.py`).
+- Draw sections only support `file`. Any other representation raises a `ValueError`. When `renderedImagePath` is set, the graph stores a `FileReadDependencyValue` and the packaged runtime reads it from disk; if no snapshot exists, codegen emits `None`.
 
 ## Generated Python output
 

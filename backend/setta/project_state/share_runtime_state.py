@@ -12,6 +12,7 @@ from setta.project_state.code import (
     create_snapshot_run_command_from_code_sections_only,
     create_snapshot_run_command_from_sections,
 )
+from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
@@ -215,6 +216,17 @@ class ShareRuntimeState:
             share_session_id,
             project_config_id,
         )
+        snapshots_updated = apply_draw_snapshot_updates(
+            dbe=self.dbe,
+            project_state=project_state,
+            snapshots_by_section_id=x.drawSnapshotsBySectionId,
+            artifact_root=self._resolve_deployment_path_to_absolute("artifacts"),
+        )
+        if snapshots_updated:
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            self.update_session_state(
+                resolved_session_id, project_config_id, project_state
+            )
         snapshot_root = self.share_runs_root / resolved_session_id
         python_codegen_enabled = project_config_has_codegen_language(
             project_state.projectConfig,

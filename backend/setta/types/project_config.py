@@ -101,7 +101,7 @@ def default_section_representation(
     if section_type is SectionType.Chat:
         return SectionRepresentationMode.file
     if section_type is SectionType.Draw:
-        return SectionRepresentationMode.base64
+        return SectionRepresentationMode.file
     return SectionRepresentationMode.json
 
 
@@ -148,7 +148,7 @@ def _is_representation_supported(
             SectionRepresentationMode.file,
         )
     if section_type is SectionType.Draw:
-        return representation is SectionRepresentationMode.base64
+        return representation is SectionRepresentationMode.file
     return representation is SectionRepresentationMode.json
 
 

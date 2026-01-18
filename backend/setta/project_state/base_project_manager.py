@@ -49,6 +49,7 @@ from setta.project_state.code_files import (
     CodeFileReloadPlan,
     CodeFiles,
 )
+from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -596,14 +597,28 @@ class BaseProjectManager(ABC):
         project_config_id = x.projectConfigId
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
-        async with self._project_state_lock.read_lock():
-            project_config = self.project_state_backend.projectConfigs[
-                project_config_id
-            ]
+        draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
+        async with self._project_state_lock.write_lock():
+            project_state = convert_backend_to_single_config(
+                self.project_state_backend, project_config_id
+            )
+            project_config = project_state.projectConfig
             python_codegen_enabled = project_config_has_codegen_language(
                 project_config,
                 ProjectCodegenLanguage.python,
             )
+            snapshots_updated = apply_draw_snapshot_updates(
+                dbe=self.dbe,
+                project_state=project_state,
+                snapshots_by_section_id=draw_snapshots_by_section_id,
+            )
+            if snapshots_updated:
+                project_state.validate_for_update()
+                if python_codegen_enabled:
+                    await self._refresh_codegen_state(project_state)
+                self._merge_project_state_backend(
+                    project_state, updateFileWatcher=False
+                )
             gen_code, code_entries = self._flush_code_files(project_config_id)
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode

@@ -1253,6 +1253,7 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
+  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1358,6 +1359,7 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
+        "renderedImagePath",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -1561,6 +1563,7 @@ const DrawSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
+  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -2366,6 +2369,7 @@ const DrawSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
+  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
@@ -3265,7 +3269,7 @@ const SectionCodegenPolicySchema = z.object({
       Image: createSectionTypeCodegenPolicy(),
       Chart: createSectionTypeCodegenPolicy(),
       Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.base64,
+        representation: SectionRepresentationModeEnum.file,
       }),
       TextBlock: createSectionTypeCodegenPolicy(),
       MetaControl: createSectionTypeCodegenPolicy(),
@@ -4024,6 +4028,7 @@ const UserDefaultDrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
+  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -6831,6 +6836,9 @@ const RunCodeRequestSchema = z.object({
   cliId: z.union([z.string(), z.null()]).default(null),
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
+  drawSnapshotsBySectionId: z
+    .union([z.record(IDSchema, z.union([z.string(), z.null()])), z.null()])
     .default(null),
 });
 
