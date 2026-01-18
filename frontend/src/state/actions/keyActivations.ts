@@ -194,13 +194,7 @@ function getTabShortcutInfo(shortcut) {
     return null;
   }
   const parsed = parseShortcut(shortcut.toLowerCase());
-  const isTabOnly =
-    parsed.keys.size === 1 &&
-    parsed.keys.has("Tab") &&
-    !parsed.mod &&
-    !parsed.ctrl &&
-    !parsed.alt;
-  if (!isTabOnly) {
+  if (!isParsedTabShortcut(parsed)) {
     return null;
   }
   return { shift: parsed.shift };
@@ -208,6 +202,16 @@ function getTabShortcutInfo(shortcut) {
 
 function isTabLikeShortcut(shortcut) {
   return getTabShortcutInfo(shortcut) !== null;
+}
+
+function isParsedTabShortcut(parsedShortcut) {
+  return (
+    parsedShortcut.keys.size === 1 &&
+    parsedShortcut.keys.has("Tab") &&
+    !parsedShortcut.mod &&
+    !parsedShortcut.ctrl &&
+    !parsedShortcut.alt
+  );
 }
 
 function isShortcutPressed(e, parsedShortcut, _isMacOs) {
@@ -287,6 +291,10 @@ function getShouldPreventDefault(parsedShortcut) {
     return false;
   }
 
+  if (isParsedTabShortcut(parsedShortcut)) {
+    return false;
+  }
+
   // case for "mod", "ctrl", "alt", "shift"
   if (keys.size === 0) {
     return false;
@@ -295,8 +303,7 @@ function getShouldPreventDefault(parsedShortcut) {
   // special shortcuts
   if (
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) ||
-    isModOrCtrlPlus(parsedShortcut, "KeyV") ||
-    isShiftPlus(parsedShortcut, ["Tab"])
+    isModOrCtrlPlus(parsedShortcut, "KeyV")
   ) {
     return false;
   }
@@ -328,7 +335,6 @@ function getMacosIgnoreWhenInInputField(parsedShortcut) {
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
-    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModPlus(parsedShortcut, ["KeyC"]) || // Copy selected text.
     isModPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard.
@@ -376,7 +382,6 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
-    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModOrCtrlPlus(parsedShortcut, ["KeyA"]) || // Select all text
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
@@ -416,6 +421,9 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
 }
 
 function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
+  if (isParsedTabShortcut(parsedShortcut)) {
+    return false;
+  }
   return _isMacOs
     ? getMacosIgnoreWhenInInputField(parsedShortcut)
     : getWindowsIgnoreWhenInInputField(parsedShortcut);
@@ -740,7 +748,11 @@ function onEscapeKey() {
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {
-  if (hasSelectedParams()) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (target?.closest("[data-tab-native]")) {
+    return;
+  }
+  if (activeSectionHasSelectedParams()) {
     const action = resolveTabParamAction(event);
     if (action === "indent") {
       indentSelectedParams();
@@ -782,15 +794,14 @@ function resolveTabParamAction(event: KeyboardEvent) {
   return null;
 }
 
-function hasSelectedParams(): boolean {
+function activeSectionHasSelectedParams(): boolean {
   const state = useProjectState.getState();
-  for (const sectionId of Object.keys(state.sections)) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
-    if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
-      return true;
-    }
+  const activeId = state.projectConfig.activeIds[0];
+  if (!activeId) {
+    return false;
   }
-  return false;
+  const impl = getCurrEffectiveSectionImpl(state, activeId);
+  return isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
 }
 
 function activateSelectionKeyPressed() {
