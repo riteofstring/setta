@@ -3366,6 +3366,7 @@ const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   showParamDisplayNames: z.boolean().default(false),
+  allowJsonSourceKeyEdits: z.boolean().default(true),
   previewImgColor: z
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),

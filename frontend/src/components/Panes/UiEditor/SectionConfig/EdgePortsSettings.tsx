@@ -76,6 +76,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     jsonSourceKeys,
     isJsonSource,
     variantId,
+    allowJsonSourceKeyEdits,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -109,9 +110,11 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       jsonSourceKeys,
       isJsonSource,
       variantId,
+      allowJsonSourceKeyEdits: state.projectConfig.allowJsonSourceKeyEdits,
     };
   }, _.isEqual);
 
+  const canEditJsonSourceKeys = canEditVariants && allowJsonSourceKeyEdits;
   const [jsonSourcePath, setJsonSourcePath] = useState("");
   const [jsonSourceError, setJsonSourceError] = useState<string | null>(null);
   const [draftOutputPorts, setDraftOutputPorts] = useState<EdgeOutputPort[]>(
@@ -212,7 +215,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   }
 
   function onJsonSourcePathBlur() {
-    if (!canEditVariants) {
+    if (!canEditJsonSourceKeys) {
       return;
     }
     const nextKeys = parseJsonSourcePath(jsonSourcePath);
@@ -267,6 +270,10 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
             } else if (res.status === 400) {
               setJsonSourceError(
                 getErrorDetail(res.data) ?? "Invalid JSON source path.",
+              );
+            } else if (res.status === 403) {
+              setJsonSourceError(
+                getErrorDetail(res.data) ?? "JSON source keys are read-only.",
               );
             } else {
               setJsonSourceError("Failed to update JSON source path.");
@@ -364,7 +371,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
               }
             }}
             placeholder="e.g. settings.paths.app"
-            disabled={!canEditVariants}
+            disabled={!canEditJsonSourceKeys}
           />
           {jsonSourceError && (
             <p className="mt-2 text-[0.7rem] text-red-600 dark:text-red-300">

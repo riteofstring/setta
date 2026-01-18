@@ -1847,6 +1847,11 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        if not project_state.projectConfig.allowJsonSourceKeyEdits:
+            raise HTTPException(
+                status_code=403,
+                detail="JSON source key edits are disabled for this project.",
+            )
         variant = project_state.sectionVariants[x.variantId]
         filename = normalize_path(variant.name)
         processed = self.json_source.json_sources.get(filename)
