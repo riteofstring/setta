@@ -23,8 +23,10 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -44,6 +46,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
@@ -123,6 +126,18 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     text: str = ""
 
 
+class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
+
+
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     showSectionTitle: bool = False
 
@@ -162,7 +177,8 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
         default_factory=lambda: SectionSize(width=405, height=405)
     )
     managed: bool = False
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
+    agentProfileId: ID | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
