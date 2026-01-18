@@ -222,7 +222,6 @@ export const DependencyValueTypeEnum = {
 } as const;
 
 const ExternalAgentRunModeEnum = {
-  cli: "cli",
   mcp: "mcp",
   server: "server",
   sdk: "sdk",

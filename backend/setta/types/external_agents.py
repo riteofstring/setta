@@ -13,7 +13,6 @@ class ExternalAgentToolType(str, Enum):
 
 
 class ExternalAgentRunMode(str, Enum):
-    cli = "cli"
     mcp = "mcp"
     server = "server"
     sdk = "sdk"

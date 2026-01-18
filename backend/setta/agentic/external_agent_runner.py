@@ -12,7 +12,9 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
     ExternalAgentRunHandle,
 )
+from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
+from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -54,7 +56,7 @@ class ExternalAgentRunner:
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
         self._adapter_registry = adapter_registry or ExternalAgentAdapterRegistry(
-            adapters=[CodexSdkAdapter()]
+            adapters=[ClaudeSdkAdapter(), CodexSdkAdapter(), OpenCodeSdkAdapter()]
         )
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}

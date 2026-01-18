@@ -15,13 +15,10 @@ data model that external adapters depend on.
 ## External agent docs (reference links)
 ### Claude Code
 - https://code.claude.com/docs/en/overview
-- https://code.claude.com/docs/en/cli-reference
 - https://platform.claude.com/docs/en/agent-sdk/overview
 - https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk
 
 ### Codex
-- https://developers.openai.com/codex/cli/reference/
-- https://developers.openai.com/codex/noninteractive/
 - https://developers.openai.com/codex/sdk/
 - https://developers.openai.com/codex/guides/agents-sdk/
 - https://developers.openai.com/codex/mcp/
@@ -48,37 +45,34 @@ Backward compatibility is not required, but user-visible features must be preser
 ## External tool control surfaces (doc-backed summary)
 
 ### Claude Code
-- CLI supports a non-interactive print mode and multiple output formats for automation.
-- CLI exposes flags for tool allowlists/denylists, permissions, system prompt overrides, and custom subagents.
 - Claude Agent SDK (Python/TypeScript) exposes the same agent loop and built-in tools as Claude Code.
+- TypeScript SDK uses `query()` async iteration and supports options like `systemPrompt`, `allowedTools`,
+  and session resume/continuation.
+- TypeScript SDK package: `@anthropic-ai/claude-agent-sdk`.
 - Agent SDK can load Claude Code filesystem config (skills, commands, memory) when enabled via settings.
 - Auth via ANTHROPIC_API_KEY; optional provider environment variables for Bedrock/Vertex/Foundry.
 
 ### Codex
-- CLI non-interactive mode (`codex exec`) streams events, can emit JSONL, and supports sandbox/approval controls.
-- CLI can emit structured output from a JSON Schema and write final messages to a file.
 - Codex can run as an MCP server with `codex` and `codex-reply` tools.
 - MCP tool parameters include approval policy, sandbox mode, model overrides, config overrides, and cwd.
-- Codex SDK (TypeScript) provides threaded runs via `startThread`, `run`, and `resumeThread`.
+- Codex SDK (TypeScript, Node 18+) provides threaded runs via `startThread`, `run`, and `resumeThread`.
+- Codex SDK package: `@openai/codex-sdk`.
 
 ### OpenCode
 - `opencode serve` runs a headless HTTP server exposing an OpenAPI 3.1 spec and SSE events.
 - Server exposes session, message, command, shell, and permissions endpoints for control.
 - `/session/:id/init` can analyze a repo and create `AGENTS.md`.
 - SDK provides `createOpencode` (start server + client) and `createOpencodeClient` (connect to existing server).
+- OpenCode SDK package: `@opencode-ai/sdk`.
 
 ### Doc findings (Jan 2026, official)
-- Claude Agent SDK TypeScript docs enumerate the `query()` streaming API, `Options` fields for
-  `allowedTools` / `disallowedTools`, `agents` (sub-agents), `settingSources`, and `systemPrompt`.
-- Claude streaming docs describe SSE events (`message_start`, `content_block_delta`, `message_delta`,
-  `message_stop`) required for mapping Claude SDK streams into Setta `LLMStreamingResponse`.
-- Codex SDK TypeScript README clarifies the SDK wraps the Codex CLI and exposes streamed JSONL events;
-  this means SDK event normalization can reuse the non-interactive JSONL schema.
-- Codex non-interactive docs enumerate the canonical JSONL event types (`thread.*`, `turn.*`, `item.*`,
-  `error`) and item payload families (agent messages, command execution, file edits, MCP tool calls),
-  which are sufficient to normalize SDK + CLI streams into RunEvents.
-- OpenCode server docs confirm the OpenAPI 3.1 `/doc` endpoint and SSE `/global/event` stream; SDK types
-  are generated from that spec, so adapters can rely on the OpenAPI payloads as source-of-truth.
+- SDKs are available for all three tools (Claude Code, Codex, OpenCode), so SDK-only execution is viable.
+- Claude Code SDK streams via `query()` and supports session resume/continuation plus tool allowlists.
+- Codex SDK requires Node 18+ and exposes threaded runs (start/run/resume).
+- OpenCode SDK provides `createOpencode` (server + client) and `createOpencodeClient` (client-only).
+
+### Decision: SDK-only
+- External agent adapters are SDK-only. No CLI fallback will be implemented or supported.
 
 ## Architecture
 
@@ -91,15 +85,15 @@ Add an ExternalAgentAdapter interface that normalizes:
 - get_capabilities() -> features, supported options, tool limits
 
 Adapters:
-- ClaudeCodeAdapter (SDK-first, CLI fallback)
-- CodexAdapter (SDK-first, MCP secondary, CLI fallback)
-- OpenCodeAdapter (SDK-first, server fallback)
+- ClaudeCodeAdapter (SDK-only)
+- CodexAdapter (SDK primary, MCP secondary)
+- OpenCodeAdapter (SDK primary, server secondary)
 
 ### Execution modes
 - SDK mode (primary): use Python/TS SDKs to get structured events and better session control.
 - Server mode: connect to OpenCode's HTTP API and SSE stream.
 - MCP mode: register external MCP servers inside Setta's MultiMCPClient and treat them as tools.
-- CLI mode (fallback only): spawn subprocesses, parse stdout/stderr, and map events to RunEvent.
+- No CLI fallback (SDK-only policy).
 
 ### Control plane
 - Setta owns runs, metadata, and approvals.
@@ -160,7 +154,7 @@ Adapters:
   missing env vars.
 
 ### Local testing harness
-- Provide a minimal CLI harness to run an adapter against a prompt and emit
+- Provide a minimal SDK harness to run an adapter against a prompt and emit
   normalized stream events (no UI required) for fast iteration.
 - Route adapter errors through the standard backend log event pipeline.
 
@@ -218,7 +212,7 @@ Adapters:
 ## Data model additions
 - ExternalAgentConfig (per-tool):
   - tool_id, tool_type (claude_code | codex | opencode)
-  - run_mode (cli | mcp | server | sdk)
+  - run_mode (mcp | server | sdk)
   - command_path / base_url
   - default_model
   - sandbox_policy / approval_policy
@@ -241,8 +235,8 @@ Storage:
   chat-shaped responses for run ids (or add run-specific chat endpoints that
   return chat-shaped payloads).
 - This avoids duplicated persistence while preserving existing chat UX.
- - Decision: persist external session/thread ids so runs can be resumed across
-   Setta restarts (match CLI "resume" behavior where supported).
+- Decision: persist external session/thread ids so runs can be resumed across
+  Setta restarts where supported.
 
 ## Tool-specific integration details
 
@@ -253,13 +247,6 @@ Storage:
   - Map AgentProfile -> ClaudeAgentOptions (allowed_tools, model, permissions, etc).
   - Ensure Claude Code SKILL.md files are discovered and honored (project `.claude/skills`
     and any user-configured skill paths).
-- CLI adapter (fallback only):
-  - Use print mode for non-interactive execution.
-  - Parse JSON or stream-json output into RunEvents.
-  - Use `--tools` or `--allowedTools` based on agent allowlists.
-  - Use `--permission-prompt-tool` to route permissions to a Setta MCP tool.
-  - Use `--agents` to inject subagent definitions from Setta AgentProfiles.
-  - Allow system prompt overlays via `--append-system-prompt` or files.
 
 ### Codex
 - SDK adapter (primary):
@@ -269,10 +256,6 @@ Storage:
   - Run `codex mcp-server` as a subprocess registered with MultiMCPClient.
   - Use `codex` tool for new sessions and `codex-reply` for continuation.
   - Store threadId returned in structuredContent for resuming.
-- CLI adapter (fallback only):
-  - Use `codex exec` with `--json` to capture event stream and map `item.*` to RunEvents.
-  - Set `--sandbox` and `--ask-for-approval` from Setta policy.
-  - Track progress from stderr; use `-o` for final message capture when needed.
 
 ### OpenCode
 - SDK adapter (primary):
@@ -294,7 +277,7 @@ Storage:
 ## UI and UX
 - Add an External Agents panel with:
   - Tool selection (Claude Code, Codex, OpenCode)
-  - Run mode selection (SDK default; CLI/MCP/Server behind advanced settings)
+  - Run mode selection (SDK default; MCP/Server behind advanced settings)
   - Model, sandbox, and approval settings
   - Environment variable status (present/missing)
 - Add run detail view:
@@ -348,17 +331,13 @@ Storage:
 - Add tool allowlists and sandbox policies to SDK calls.
 - Implement MCP adapter for Codex as a secondary execution path.
 
-### Phase 3: Fallback adapters (only if needed)
-- Implement CLI adapters for Claude Code and Codex if SDK coverage is insufficient.
-- Implement OpenCode server adapter (HTTP + SSE) when SDK is not viable.
-
-### Phase 4: Unified orchestration
+### Phase 3: Unified orchestration
 - Add ExternalAgentRun to AgentRunner to support cross-tool composition.
 - Allow multi-step workflows that chain Setta agent runs and external tool runs.
 - Add cross-tool trace viewer and run replay.
 
 ## Testing and validation
-- Add integration tests gated by tool availability (skip if CLI not installed).
+- Add integration tests gated by tool availability (skip if SDK/server not installed).
 - Manual QA checklist:
   - Run each tool in read-only mode and verify event stream mapping.
   - Run each tool with approval prompts and verify UI roundtrip.
