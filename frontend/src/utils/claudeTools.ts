@@ -183,8 +183,9 @@ export function parseAnswers(value: unknown): Record<string, string> | null {
   if (!isRecord(value)) {
     return null;
   }
+  const nestedAnswers = isRecord(value.answers) ? value.answers : value;
   const output: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(value)) {
+  for (const [key, entry] of Object.entries(nestedAnswers)) {
     if (typeof entry === "string") {
       output[key] = entry;
     }
