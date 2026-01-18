@@ -14,6 +14,7 @@ import {
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   getCurrSectionVariant,
   getSectionChildren,
@@ -21,7 +22,7 @@ import {
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useSectionRefs } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -73,11 +74,39 @@ export function onDragStart({ active }: DragStartEvent) {
     return;
   }
   const { width, height } = getSectionRectWithNested(active.id);
+  const sectionRef = useSectionRefs.getState().withNested[active.id];
+  const rect = sectionRef?.getBoundingClientRect() ?? null;
+  const activeRect = rect
+    ? {
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      }
+    : null;
+  const zoom = useReactFlow.getState().transform[2];
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const normalizedWidth = width / safeZoom;
+  const normalizedHeight = height / safeZoom;
   const dndState = useDndState.getState();
-  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
+  setActiveDnd(
+    active.id,
+    active.data.current.isTopLevel,
+    normalizedWidth,
+    normalizedHeight,
+    activeRect,
+  );
   if (dndState.isMovingFree) {
     manualDndChildrenReset();
-    replaceDndSectionWithTemp(active.id);
+    requestAnimationFrame(() => {
+      const latestState = useDndState.getState();
+      if (!latestState.isMovingFree || latestState.activeId !== active.id) {
+        return;
+      }
+      replaceDndSectionWithTemp(active.id);
+    });
   }
 }
 

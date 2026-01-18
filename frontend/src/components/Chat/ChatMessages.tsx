@@ -1,14 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import {
-  ReactNode,
-  Ref,
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, Ref, memo, useEffect, useMemo, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -17,7 +9,6 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { respondExternalAgentApproval } from "state/actions/ai";
 import { C } from "utils/c";
 import {
   BaseChatMessageUnion,
@@ -37,8 +28,6 @@ type AssistantChatMessage = Extract<
 type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
-
-const APPROVAL_TOOL_NAME = "setta.approval";
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -192,52 +181,16 @@ function ToolCallAccordionStatus({
 }
 
 const ToolCallItem = memo(function ToolCallItem({
-  toolCallId,
   name,
   args,
   result,
   success,
-  isApproval,
 }: {
-  toolCallId: string;
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
   success: boolean | undefined;
-  isApproval: boolean;
 }) {
-  const [decisionPending, setDecisionPending] = useState(false);
-  const [decisionError, setDecisionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (success !== undefined) {
-      setDecisionPending(false);
-      setDecisionError(null);
-    }
-  }, [success]);
-
-  const handleApproval = async (approved: boolean) => {
-    if (decisionPending || success !== undefined) {
-      return;
-    }
-    setDecisionPending(true);
-    setDecisionError(null);
-    try {
-      const ok = await respondExternalAgentApproval(toolCallId, approved);
-      if (!ok) {
-        setDecisionPending(false);
-        setDecisionError("Failed to send approval response.");
-      }
-    } catch (err) {
-      setDecisionPending(false);
-      setDecisionError(
-        err instanceof Error
-          ? err.message
-          : "Failed to send approval response.",
-      );
-    }
-  };
-
   const resultDisplay = (() => {
     if (typeof result === "string") {
       if (result.trim().length > 0) {
@@ -261,7 +214,6 @@ const ToolCallItem = memo(function ToolCallItem({
     }
     return null;
   })();
-  const showApprovalActions = isApproval && success === undefined;
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -299,29 +251,6 @@ const ToolCallItem = memo(function ToolCallItem({
               <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
                 {resultDisplay}
               </pre>
-            </div>
-          )}
-          {showApprovalActions && (
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-setta-200 px-3 pb-3 pt-2 dark:bg-setta-900">
-              {decisionError && (
-                <span className="mr-auto text-xs text-red-500">
-                  {decisionError}
-                </span>
-              )}
-              <button
-                className="rounded-md bg-setta-700 px-3 py-1 text-xs font-semibold text-white transition hover:bg-setta-800 disabled:opacity-60"
-                onClick={() => handleApproval(false)}
-                disabled={decisionPending}
-              >
-                Deny
-              </button>
-              <button
-                className="rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:opacity-60"
-                onClick={() => handleApproval(true)}
-                disabled={decisionPending}
-              >
-                Approve
-              </button>
             </div>
           )}
         </Accordion.Content>
@@ -436,23 +365,17 @@ const ChatMessage = memo(function ChatMessage({
           ) {
             argsToDisplay = argsFromAssistant;
           }
-          const rawToolName =
-            toolResult?.tool_name ||
-            toolCall.function?.name ||
-            `Tool call ${toolCall.id}`;
-          const displayName =
-            rawToolName === APPROVAL_TOOL_NAME
-              ? "Approval request"
-              : rawToolName;
           return (
             <ToolCallItem
               key={toolCall.id}
-              toolCallId={toolCall.id}
-              name={displayName}
+              name={
+                toolResult?.tool_name ||
+                toolCall.function?.name ||
+                `Tool call ${toolCall.id}`
+              }
               args={argsToDisplay}
               result={formatToolResult(toolResult)}
               success={toolResult ? !toolResult.is_error : undefined}
-              isApproval={toolCall.function?.name === APPROVAL_TOOL_NAME}
             />
           );
         })}
