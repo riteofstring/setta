@@ -1,3 +1,4 @@
+import yaml
 from pydantic import (
     BaseModel,
     Field,
@@ -19,11 +20,20 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     BaseCodeSectionImplArgsWithCallable,
     get_section_path_full_name,
+    get_top_level_param_ids,
 )
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, ViewModeConfig
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    ProjectConfig,
+    ViewModeConfig,
+    get_python_codegen_target,
+    project_config_has_codegen_language,
+)
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CodeFileAccessMode,
@@ -31,7 +41,9 @@ from setta.types.section_impls import (
     CodeLanguage,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
+    GenPythonMetadataSectionImpl,
     SectionType,
+    SectionWithParamsDisplayMode,
 )
 from setta.types.shown_params import (
     ShownParamIds,
@@ -39,17 +51,38 @@ from setta.types.shown_params import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import (
+    GEN_CODE_META_FILENAME,
     build_gen_code_path,
     build_project_sections_dir,
     normalize_path,
 )
 
-SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
+SINGLETON_SECTION_TYPES = set(
+    [
+        SectionType.GlobalVariables,
+        SectionType.GenPythonCode,
+        SectionType.GenPythonMetadata,
+    ]
+)
+
+CODE_LANGUAGE_EXTENSIONS = {
+    CodeLanguage.python: "py",
+    CodeLanguage.bash: "sh",
+    CodeLanguage.javascript: "js",
+    CodeLanguage.typescript: "ts",
+    CodeLanguage.json: "json",
+    CodeLanguage.yaml: "yml",
+    CodeLanguage.markdown: "md",
+    CodeLanguage.plaintext: "txt",
+}
+
+RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 
 
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: ID | None = None
     GenPythonCode: ID | None = None
+    GenPythonMetadata: ID | None = None
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
@@ -94,6 +127,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
     parentSectionMap: dict[ID, ID | None] = Field(default_factory=dict)
+    yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
@@ -109,6 +143,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_parent_section_map(self):
         return self.validate_parent_section_map()
+
+    @model_validator(mode="after")
+    def _validate_yaml_values(self):
+        return self.validate_yaml_values()
 
     @model_validator(mode="after")
     def _validate_shown_param_ids(self):
@@ -135,6 +173,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.validate_parent_section_map()
         self.validate_view_modes()
         self.validate_shown_param_ids()
+        self.validate_yaml_values()
         self.validate_required_decoded_images()
         if validate_code_file_bindings:
             self.validate_code_file_bindings()
@@ -177,6 +216,38 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     self.parentSectionMap[c] = sectionId
         return self
 
+    def validate_yaml_values(self):
+        output: dict[str, str] = {}
+        for s in self.sections.values():
+            for v in s.variants:
+                _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                if (
+                    not isinstance(impl, BaseSectionWithParamsImpl)
+                    or impl.displayMode != SectionWithParamsDisplayMode.Yaml
+                ):
+                    continue
+                top_level_ids = get_top_level_param_ids(self, impl)
+                name_path_prefix = (
+                    tuple(impl.jsonSourceKeys)
+                    if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
+                    else ()
+                )
+                hierarchy = traverse_hierarchy(
+                    self.codeObjs,
+                    self.codeObjImpls,
+                    self.codeObjVariants,
+                    impl.codeObjVariantMap,
+                    top_level_ids,
+                    options=TraversalOptions(
+                        build_id_to_name_path=True,
+                        build_nested_dict=True,
+                        name_path_prefix=name_path_prefix,
+                    ),
+                )
+                output[v] = yaml.dump(hierarchy.nested_dict)
+        self.yamlValues = output
+        return self
+
     def validate_shown_param_ids(self):
         output: dict[ID, ShownParamIds] = {}
         for s in self.sections.values():
@@ -208,7 +279,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             code_root, self.projectConfig.name
         )
         gen_code_path = build_gen_code_path(code_root, self.projectConfig.name)
+        gen_meta_path = gen_code_path.with_name(GEN_CODE_META_FILENAME)
         gen_code_binding: CodeFileBinding | None = None
+        python_target = get_python_codegen_target(self.projectConfig)
+        python_codegen_enabled = project_config_has_codegen_language(
+            self.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
+        metadata_enabled = bool(python_target and python_target.generateMetadata)
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
             core = self.sections[section_id]
@@ -223,17 +301,40 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 continue
             if effective_impl.codeFileBinding is not None:
                 if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                    gen_code_binding = effective_impl.codeFileBinding
+                    if python_codegen_enabled:
+                        gen_code_binding = effective_impl.codeFileBinding
+                    else:
+                        set_effective_impl_value(
+                            base_impl,
+                            core,
+                            variant,
+                            BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
+                        )
+                elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
+                    if not (python_codegen_enabled and metadata_enabled):
+                        set_effective_impl_value(
+                            base_impl,
+                            core,
+                            variant,
+                            BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
+                        )
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                if not python_codegen_enabled:
+                    continue
                 canonical_path = gen_code_path
+                access_mode = CodeFileAccessMode.write_only
+            elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
+                if not (python_codegen_enabled and metadata_enabled):
+                    continue
+                canonical_path = gen_meta_path
                 access_mode = CodeFileAccessMode.write_only
             else:
                 section_full_name = get_section_path_full_name(self, section_id)
                 section_slug = sanitize_name(section_full_name)
                 language = effective_impl.codeLanguage
-                extension = "py" if language == CodeLanguage.python else "sh"
+                extension = CODE_LANGUAGE_EXTENSIONS[language]
                 canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"
                 access_mode = CodeFileAccessMode.read_write
 
@@ -249,7 +350,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             )
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 gen_code_binding = binding
-        if gen_code_binding is None:
+        if gen_code_binding is None and python_codegen_enabled:
             gen_code_binding = CodeFileBinding(
                 canonical_path=normalize_path(gen_code_path),
                 access_mode=CodeFileAccessMode.write_only,

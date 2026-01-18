@@ -15,7 +15,7 @@ from setta.project_state.utils import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex, normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -40,9 +40,15 @@ def build_python_module_run_command(path: Path) -> str:
     return f"python -m {module_path}"
 
 
-def build_python_file_run_command(path: Path) -> str:
-    resolved = shlex.quote(str(path.resolve()))
-    return f"python {resolved}"
+def build_python_snapshot_module_run_command(snapshot_root: Path, path: Path) -> str:
+    resolved_root = snapshot_root.resolve()
+    resolved_path = path.resolve()
+    if not resolved_path.is_relative_to(resolved_root):
+        raise ValueError(f"Snapshot path {resolved_path} is not under {resolved_root}")
+    relative = resolved_path.relative_to(resolved_root)
+    module_path = convert_path_to_module_path(relative)
+    quoted_root = shlex.quote(str(resolved_root))
+    return f"PYTHONPATH={quoted_root} python -m {module_path}"
 
 
 def build_bash_run_command(
@@ -76,12 +82,16 @@ def create_snapshot_run_command(
     snapshot_root: Path,
     entry_section_id: ID | None,
     gen_code: str,
+    gen_meta_code: str | None,
     gen_binding: CodeFileBinding,
     code_sections: dict[ID, SnapshotCodeSection],
     gen_command_builder: RunCommandBuilder,
 ) -> str:
     target_folder = create_timestamped_folder(snapshot_root)
     gen_code_path = write_snapshot_file(dbe, target_folder, gen_binding, gen_code)
+    if gen_meta_code is not None:
+        meta_path = target_folder / GEN_CODE_META_FILENAME
+        dbe.write(meta_path, gen_meta_code)
     code_paths: dict[ID, Path] = {}
     for section_id, section in code_sections.items():
         code_paths[section_id] = write_snapshot_file(
@@ -98,12 +108,45 @@ def create_snapshot_run_command(
     return gen_command_builder(gen_code_path)
 
 
+def create_snapshot_run_command_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    gen_code: str,
+    gen_meta_code: str | None,
+    gen_binding: CodeFileBinding,
+    code_sections: dict[ID, SnapshotCodeSection],
+    gen_command_builder: RunCommandBuilder,
+) -> tuple[str, Path]:
+    target_folder = create_timestamped_folder(snapshot_root)
+    gen_code_path = write_snapshot_file(dbe, target_folder, gen_binding, gen_code)
+    if gen_meta_code is not None:
+        meta_path = target_folder / GEN_CODE_META_FILENAME
+        dbe.write(meta_path, gen_meta_code)
+    code_paths: dict[ID, Path] = {}
+    for section_id, section in code_sections.items():
+        code_paths[section_id] = write_snapshot_file(
+            dbe,
+            target_folder,
+            section.binding,
+            section.code,
+        )
+    if entry_section_id:
+        if entry_section_id not in code_paths:
+            raise KeyError(f"Missing code section for run: {entry_section_id}")
+        section = code_sections[entry_section_id]
+        return section.run_command_builder(code_paths[entry_section_id]), target_folder
+    return gen_command_builder(gen_code_path), target_folder
+
+
 def create_snapshot_run_command_from_sections(
     *,
     dbe: DBE,
     snapshot_root: Path,
     entry_section_id: ID | None,
     gen_code: str,
+    gen_meta_code: str | None,
     gen_binding: CodeFileBinding,
     section_inputs: dict[ID, SnapshotSectionInput],
     gen_command_builder: RunCommandBuilder,
@@ -120,10 +163,103 @@ def create_snapshot_run_command_from_sections(
         snapshot_root=snapshot_root,
         entry_section_id=entry_section_id,
         gen_code=gen_code,
+        gen_meta_code=gen_meta_code,
         gen_binding=gen_binding,
         code_sections=snapshot_sections,
         gen_command_builder=gen_command_builder,
     )
+
+
+def create_snapshot_run_command_from_sections_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    gen_code: str,
+    gen_meta_code: str | None,
+    gen_binding: CodeFileBinding,
+    section_inputs: dict[ID, SnapshotSectionInput],
+    gen_command_builder: RunCommandBuilder,
+) -> tuple[str, Path]:
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    return create_snapshot_run_command_with_path(
+        dbe=dbe,
+        snapshot_root=snapshot_root,
+        entry_section_id=entry_section_id,
+        gen_code=gen_code,
+        gen_meta_code=gen_meta_code,
+        gen_binding=gen_binding,
+        code_sections=snapshot_sections,
+        gen_command_builder=gen_command_builder,
+    )
+
+
+def create_snapshot_run_command_from_code_sections_only(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    section_inputs: dict[ID, SnapshotSectionInput],
+) -> str:
+    if entry_section_id is None:
+        raise KeyError("Missing entry code section for run.")
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    target_folder = create_timestamped_folder(snapshot_root)
+    code_paths: dict[ID, Path] = {}
+    for section_id, section in snapshot_sections.items():
+        code_paths[section_id] = write_snapshot_file(
+            dbe,
+            target_folder,
+            section.binding,
+            section.code,
+        )
+    if entry_section_id not in code_paths:
+        raise KeyError(f"Missing code section for run: {entry_section_id}")
+    section = snapshot_sections[entry_section_id]
+    return section.run_command_builder(code_paths[entry_section_id])
+
+
+def create_snapshot_run_command_from_code_sections_only_with_path(
+    *,
+    dbe: DBE,
+    snapshot_root: Path,
+    entry_section_id: ID | None,
+    section_inputs: dict[ID, SnapshotSectionInput],
+) -> tuple[str, Path]:
+    if entry_section_id is None:
+        raise KeyError("Missing entry code section for run.")
+    snapshot_sections: dict[ID, SnapshotCodeSection] = {}
+    for section_id, (code, binding, run_command_builder) in section_inputs.items():
+        snapshot_sections[section_id] = SnapshotCodeSection(
+            code=code,
+            binding=binding,
+            run_command_builder=run_command_builder,
+        )
+    target_folder = create_timestamped_folder(snapshot_root)
+    code_paths: dict[ID, Path] = {}
+    for section_id, section in snapshot_sections.items():
+        code_paths[section_id] = write_snapshot_file(
+            dbe,
+            target_folder,
+            section.binding,
+            section.code,
+        )
+    if entry_section_id not in code_paths:
+        raise KeyError(f"Missing code section for run: {entry_section_id}")
+    section = snapshot_sections[entry_section_id]
+    return section.run_command_builder(code_paths[entry_section_id]), target_folder
 
 
 class Code(ABC):

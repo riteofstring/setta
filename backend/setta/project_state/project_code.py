@@ -5,11 +5,12 @@ from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
+from setta.code_gen.python.meta_generator import build_python_meta_code
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.utils import create_new_id
-from setta.project_state.code import BashCode, PythonCode
+from setta.project_state.code import BashCode, Code, PythonCode
 from setta.project_state.code_files import (
     GEN_CODE_SECTION_ID,
     GEN_CODE_VARIANT_ID,
@@ -58,28 +59,36 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
-from setta.types.project_state import (
-    ProjectStateSingleConfig,
-)
+from setta.types.project_config import get_python_codegen_target_with_type_guard
+from setta.types.project_state import CODE_LANGUAGE_EXTENSIONS, ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
+    CodeLanguage,
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
 from setta.utils.constants import C
+from setta.utils.utils import GEN_CODE_META_FILENAME
 
 
 def build_python_code_generator(
     project_state: ProjectStateSingleConfig,
     dep_graph: DependencyGraph,
+    *,
+    value_mode: PythonValueMode = PythonValueMode.PACKAGED_RUNTIME,
 ) -> PythonCodeGenerator:
     project_config = project_state.projectConfig
+    python_target = get_python_codegen_target_with_type_guard(project_config)
+    meta_code = None
+    if python_target.generateMetadata:
+        meta_code = build_python_meta_code(project_state, dep_graph)
     return PythonCodeGenerator(
         dep_graph,
-        project_config.genCodePrefix,
-        project_config.genCodeSuffix,
-        value_mode=PythonValueMode.PACKAGED_RUNTIME,
+        python_target.genCodePrefix,
+        python_target.genCodeSuffix,
+        value_mode=value_mode,
+        meta_code=meta_code,
     )
 
 
@@ -123,6 +132,7 @@ class ProjectGenPythonCode(PythonCode):
             self.code_generator.gen_code_prefix,
             self.code_generator.gen_code_suffix,
             value_mode=self.code_generator.value_mode,
+            meta_code=self.code_generator.meta_code,
         )
         generator_copy.generate_code()
         return generator_copy
@@ -438,6 +448,9 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code_path(self):
         return self.binding.canonical_path
 
+    def get_gen_python_meta_path(self):
+        return self.binding.canonical_path.with_name(GEN_CODE_META_FILENAME)
+
     @property
     def code(self):
         return self.code_generator.code
@@ -446,8 +459,24 @@ class ProjectGenPythonCode(PythonCode):
     def generated_code(self) -> str:
         return self.code_generator.generated_code
 
+    @property
+    def meta_code(self) -> str | None:
+        return self.code_generator.meta_code
+
+    def write_meta_to_disk(self) -> bool:
+        if self.meta_code is None:
+            return False
+        meta_path = self.get_gen_python_meta_path()
+        meta_path.parent.mkdir(parents=True, exist_ok=True)
+        self.dbe.write(meta_path, self.meta_code)
+        return True
+
     def write_to_folder(self, folder: Path):
-        return super().write_to_folder(self.code, folder)
+        path = super().write_to_folder(self.code, folder)
+        if self.meta_code is not None:
+            meta_path = folder / GEN_CODE_META_FILENAME
+            self.dbe.write(meta_path, self.meta_code)
+        return path
 
 
 class ProjectPythonCode(PythonCode):
@@ -547,6 +576,51 @@ class ProjectBashCode(BashCode):
                 access_mode=binding.access_mode,
             ),
         )
+
+    def write_to_folder(self, folder):
+        return super().write_to_folder(self.code, folder)
+
+
+class ProjectBasicCode(Code):
+    def __init__(
+        self,
+        dbe,
+        code_files,
+        project_state: ProjectStateSingleConfig,
+        sectionId,
+        code_language: CodeLanguage,
+    ):
+        section_impl = get_curr_effective_section_impl(project_state, sectionId)
+        if not isinstance(section_impl, CodeSectionImpl):
+            raise TypeError
+        binding = section_impl.codeFileBinding
+        if binding is None:
+            raise ValueError("Code section missing codeFileBinding")
+        super().__init__(dbe, code_files, binding)
+        self.sectionId = sectionId
+        self.code = section_impl.code
+        self.code_language = code_language
+        project_config = project_state.projectConfig
+        variant_id = project_config.sectionVariantMap.get(sectionId)
+        if variant_id is None:
+            raise ValueError(
+                f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
+            )
+        code_files.register_binding(
+            binding.canonical_path,
+            RegisteredCodeFileBinding(
+                section_id=sectionId,
+                variant_id=variant_id,
+                project_config_id=project_config.id,
+                access_mode=binding.access_mode,
+            ),
+        )
+
+    def get_extension(self):
+        return CODE_LANGUAGE_EXTENSIONS[self.code_language]
+
+    def get_run_command(self, path: Path):
+        raise ValueError(f"Run is not supported for language {self.code_language}")
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)
