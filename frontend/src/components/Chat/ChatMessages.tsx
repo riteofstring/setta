@@ -327,7 +327,7 @@ function StreamItem({
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink flex-col gap-2 cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
         {children}
       </div>
     </div>
@@ -374,16 +374,17 @@ const ChatMessage = memo(function ChatMessage({
 }) {
   if (message.role === ChatRoleEnum.assistant) {
     const toolCalls = message.tool_calls ?? [];
-    const showAssistantSpinner =
-      isStreaming && message.content.length === 0 && toolCalls.length === 0;
+    const showAssistantSpinner = isStreaming && toolCalls.length === 0;
     return (
       <LLMChatBubble>
-        {showAssistantSpinner && (
-          <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
-        )}
         {message.content.map((item, idx) => (
           <StreamItem key={idx} item={item} isStreaming={isStreaming} />
         ))}
+        {showAssistantSpinner && (
+          <div className="flex items-center">
+            <i className="gg-spinner !scale-75 text-blue-500/70" />
+          </div>
+        )}
         {toolCalls.map((toolCall: ToolCall) => {
           const toolResult = toolResultsById[toolCall.id];
           const questionPayload =
