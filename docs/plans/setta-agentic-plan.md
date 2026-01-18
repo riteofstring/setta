@@ -1,13 +1,8 @@
 # Setta agentic plan
 
-Related: `docs/plans/setta-external-tools-plan.md` covers external orchestration
-for Claude Code, Codex, and OpenCode (including SKILL.md support). This plan
-focuses on internal agent primitives that external adapters build on.
-
 ## Deep dive summary (current system)
 - The backend exposes an MCP server (`backend/setta/mcp/server.py`) that registers init and discoverable tools, injects docstrings into schemas, and handles ID translation between canonical and temporary IDs.
 - The LLM stack (`backend/setta/llm/llm_chat_manager.py`) injects the system prompt, streams tool calls/results, and supports tool search with deferred loading for Anthropic.
-- Chat sections already support managed vs scriptable flows, store `chatId` on the section impl, and the chat toolkit (`docs/chat-sections.md`, `docs/chat-toolkit.md`) provides listener-friendly streaming/tool helpers.
 - Tool discovery uses a BM25 search index with tags and categories, and MCP tool calls stream through `MultiMCPClient` to any configured server.
 - AIFollow highlights sections touched by tool calls and keeps the viewport in sync (`docs/ai-follow.md`).
 - Project state is the canonical source of truth (sections, params, variants, artifacts), with codegen + LSP sync (`backend/setta/project_state/base_project_manager.py`).
@@ -15,126 +10,71 @@ focuses on internal agent primitives that external adapters build on.
 
 ## Re-assessed gaps for a prompter's paradise
 - No first-class agent profiles or sub-agent orchestration; the chat is single-agent per conversation.
+- No skill registry or reusable prompt/tool packages that can be invoked as a unit.
 - No prompt template assets or versioning; prompts live as chat history only.
 - No eval harness for running prompts over datasets or scoring outputs.
 - No run/replay artifact that captures inputs, tool calls, and results in one place.
-- No per-agent tool allowlists or sandbox profiles beyond the per-LLM-config MCP server filters.
+- No per-agent tool allowlists or sandbox profiles beyond the MCP server list.
 - No explicit context budget controls or memory lenses for prompt construction.
-
-## Feature preservation contract (non-negotiable)
-Backward compatibility is not required, but user-visible features must be preserved. Agentic features are additive and must not delete or bypass existing chat behavior.
-
-- Preserve managed and scriptable Chat section modes (behavior, not specific fields).
-- Preserve the ability to chat with Setta's internal LLM stack (litellm) without relying on external agents.
-- Keep the chat toolkit surface usable for listeners (`ChatSession`, `ChatSectionSyncClient`, `on_chat_send_event`, and streaming helpers).
-- Specific routes and storage fields do not need to be preserved; the API surface can change as long as the UI/toolkit behavior is preserved.
-- Maintain the `LLMStreamingResponse` contract, `sectionId`-based updates, and AIFollow behavior.
-- If a replacement is necessary, provide a migration path and explicitly list feature parity before removal.
-
-## Acceptance checks (minimum)
-- A managed chat still streams LLM responses into the Chat section UI with tools and AIFollow.
-- A scriptable chat still works via listeners using the chat toolkit helpers.
-- Selecting an internal engine config and reasoning options still affects managed chat behavior.
-- Chat sections still support "new chat" and persisted chat history.
-- Deferred: share-mode LLM supports minimal read-only Q&A about the project (post-refactor).
-
-## Completion definition (what counts as "done")
-This plan is complete when ALL of the following are true:
-- The Acceptance checks above pass.
-- Phases 1-4 are implemented, except any items explicitly marked "Deferred" or listed
-  under "Future work" (those are OUT OF SCOPE and do NOT block completion).
-
-Important: Future work and Deferred items are not prerequisites. They are explicitly
-non-blocking and should never be used to mark this plan as incomplete.
-
-## Completion rules (read this first)
-Use this section as the source of truth when deciding if the plan is done.
-
-Blocking requirements (must be true):
-- Acceptance checks pass.
-- Phase 1-4 deliverables implemented, excluding anything marked "Deferred" or listed
-  under "Future work".
-
-Non-blocking items (do NOT prevent completion):
-- Anything under "Future work".
-- Anything explicitly marked "Deferred".
-- Any additional polish or enhancements not required by the Acceptance checks.
 
 ## Plan
 
-### Phase 1: Agent primitives (implemented)
+### Phase 1: Agent and skill primitives
 - Add data models in `backend/setta/types/agentic.py`:
-  - `EngineConfig` (name, engineType, settaLlmConfigId, externalAgentConfigId, defaults: { deepThink })
-  - `AgentProfile` (name, description, systemPrompt, engineConfigId, toolAllowlist, memoryScope)
+  - `AgentProfile` (name, description, system_prompt, llm_config_id, tool_allowlist, memory_scope)
+  - `SkillSpec` (name, description, input_schema, output_schema, agent_profile_id, prompt, tool_allowlist)
   - `AgentRun` and `RunEvent` (inputs, outputs, tool calls, timestamps, status, costs)
 - Extend `backend/setta/database/db_objs.py` with paths and helpers for:
-  - `setta_files/engine_configs.json`
   - `setta_files/agent_profiles.json`
+  - `setta_files/skills/*.json`
   - `setta_files/agent_runs/*.json`
-- Add prompt asset paths:
+- Add prompt asset paths alongside skills:
   - `setta_files/prompts/*.json`
   - Optional `setta_files/prompts.example.json` fixture
-- Add watchers similar to `LLMConfigWatcher` to broadcast engine config + agent updates.
+- Add a watcher similar to `LLMConfigWatcher` to broadcast agent/skill updates.
 - Add REST routes in `backend/setta/routers/agentic.py`:
-  - CRUD for engine configs.
-  - CRUD for agent profiles.
+  - CRUD for agent profiles and skills.
   - Start/stop agent runs and fetch run history.
 - Add MCP tools in `backend/setta/mcp/tools/agentic_tools.py`:
-  - `list_agent_profiles`, `get_agent_profile`, `run_agent_profile`.
+  - `list_agent_profiles`, `get_agent_profile`, `list_skills`, `get_skill`, `run_skill`.
 
-### Phase 2: Agent runner and sub-agents (implemented)
+### Phase 2: Agent runner and sub-agents
 - Implement `AgentRunner` in `backend/setta/llm/agent_runner.py`:
-  - Accepts `AgentProfile` + `EngineConfig` + input payload and streams `RunEvent`s.
+  - Accepts `AgentProfile` + input payload and streams `RunEvent`s.
   - Supports sub-agent calls by spawning child runs with isolated tool state.
-  - Reuse `setta.llm.chat_toolkit.managed` (stream assembler + action executor) so tool execution, previews, and AIFollow stay consistent.
-  - Enforce tool allowlists by filtering tool definitions before LLM requests and passing `allowed_server_ids` into managed tool execution.
-- Extend `LLMChatManager` with a `run_sub_agent` method used by `run_agent_profile`.
+  - Enforces tool allowlists by filtering tool definitions before LLM requests.
+- Extend `LLMChatManager` with a `run_sub_agent` method used by `run_skill`.
 - Persist run logs to `setta_files/agent_runs` with the project snapshot and temporary ID map for replay.
 
-### Phase 3: Prompt assets (implemented)
+### Phase 3: Prompt assets and eval harness
 - Introduce prompt templates as workspace assets:
   - Store templates in `setta_files/prompts/*.json` with explicit input schema and metadata.
-  - Bind them to UI via an agent panel.
+  - Bind them to UI via an agent/skill panel.
 - Add a dedicated prompt section:
   - Create `SectionType.Prompt` + `PromptSectionImpl` with fields for `template`, `format` (Jinja), `inputs`, and `renderedText`.
   - Treat it like TextBlock in the dependency graph (literal output) to minimize codegen churn.
   - Add variable extraction + validation UI (missing vars, defaults).
   - Render on update (store `renderedText`, `missingVariables`, `renderError`) instead of at runtime.
+- Add an eval runner:
+  - Accepts JSONL datasets with input and expected output.
+  - Runs a skill or agent profile against each row.
+  - Writes results to an artifact (JSONL + summary metrics).
+- Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
 
-### Phase 4: UI for agents and runs (partially implemented)
-- Add a new Overview tab or sidebar panel for agent profiles and runs.
+### Phase 4: UI for agents, skills, and runs
+- Add a new Overview tab or sidebar panel for agent profiles and skills.
+- Add a skill builder UI (prompt editor, input schema editor, tool allowlist).
 - Add a run history viewer and a trace view that shows tool calls and results.
-- Run-chain authoring + step-level trace are handled in the agentic graph UI
-  (no standalone run-chain UI).
 - Surface per-run metadata (model, tokens, cost, duration, status).
 - Integrate runs into Chat sections as the default entry point (agentic sessions per chat section).
 - Keep ProjectLevelAI for project-level setup/automation workflows.
-- Deferred: canvas-based agentic graph UI (sections + edges), active path
-  highlighting, and run-chain authoring/trace.
 
-## Future work (out of scope)
-All items below are explicitly out of scope for plan completion and are not required to
-consider this plan finished.
-
-### Context and memory controls
+### Phase 5: Context and memory controls
 - Add per-agent context sources:
   - Project summary (current default).
   - Selected sections or file snippets.
   - Memory cards with explicit pin/forget controls.
 - Add a context budget preview in the chat UI (tokens per source).
-
-### Eval harness
-- Add an eval runner:
-  - Accepts JSONL datasets with input and expected output.
-  - Runs an agent profile against each row.
-  - Writes results to an artifact (JSONL + summary metrics).
-- Add MCP tools to start/inspect eval runs (`run_eval`, `get_eval_results`).
-
-### Agentic graph UI (sections + edges)
-- Add a dedicated agentic edge type for context/flow, separate from codegen deps.
-- Visualize active context paths during runs (AIFollow-driven highlights).
-- Own run-chain authoring + trace UI (see `docs/plans/agentic-graph-ui-plan.md`).
-- See `docs/plans/agentic-graph-ui-plan.md`.
 
 ## Detailed implementation map
 
@@ -153,15 +93,15 @@ consider this plan finished.
 - Keep prompt rendering out of generated code so LSP and codegen remain unchanged.
 
 ### Asset storage
-- Add prompt JSON helpers to `backend/setta/database/db_objs.py`.
-- Add a watcher similar to `LLMConfigWatcher` for prompts and agent profiles.
+- Add prompt and skill JSON helpers to `backend/setta/database/db_objs.py`.
+- Add a watcher similar to `LLMConfigWatcher` for prompts and skills.
 - Add REST routes for prompt CRUD in `backend/setta/routers/agentic.py`.
 
 ### Chat section integration
-- Keep a stable chat identity per section (chatId or run id), but do not require specific field names.
-- Add linkage fields on `ChatSectionImpl` as needed (for example `engineConfigId`, `agentProfileId`, `agentRunId`) and update project manager requests if we need to persist them.
-- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to branch between internal engine runs and external engine runs based on engine selection.
-- Chat section settings expose managed/engine config/reasoning controls; add the agent profile picker and define how it interacts with engine config selection.
+- Add a map from chat section id to chat id in `setta_files/chat_sections.json`.
+- Add routes to create/attach chat sessions for Chat sections.
+- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to call the agentic chat routes.
+- Add agent profile and LLM config pickers in the Chat section config pane.
 
 ### Frontend updates
 - Add `PromptArea` layout in `frontend/src/components/Section/Layouts/PromptArea.tsx`.
@@ -172,7 +112,7 @@ consider this plan finished.
 - Add prompt section handling to `frontend/src/components/Section/Header/SectionHeader.tsx`.
 
 ### Tests
-- Add backend tests under `tests/llm` for prompt rendering and agent runs.
+- Add backend tests under `tests/llm` for prompt rendering and skill runs.
 - Add router tests under `tests` for agentic CRUD and Chat section routes.
 - Add frontend smoke checks for Prompt section creation and Chat section runs.
 
@@ -184,41 +124,15 @@ consider this plan finished.
 - Integration tests:
   - End-to-end run from Chat section -> backend -> run log -> UI refresh.
 - Manual QA:
-  - Create a Prompt section, render it, run an agent profile, verify AIFollow, and replay from run history.
+  - Create a Prompt section, render it, run a skill, verify AIFollow, and replay from run history.
 
 ## Decisions
-- Agent profiles and prompt assets are workspace-scoped (not per project config).
-- Engine configs are workspace-scoped and unify internal Setta LLM and external agents.
+- Skills and prompt assets are workspace-scoped (not per project config).
 - Prompt templates start as `setta_files/prompts/*.json`.
 - Use Jinja-style templates (`{{ var }}`) as the default.
 - Chat sections are the default entry point for agentic projects.
 - Skip tags in the MVP; add optional tagging later only if filtering becomes a need.
 - Use a dedicated `SectionType.Prompt` for first-class prompt nodes on the canvas.
 
-## Engine config example
-Example structure for `setta_files/engine_configs.json`:
-```json
-[
-  {
-    "id": "engine-setta-default",
-    "name": "Setta LLM",
-    "engineType": "setta_llm",
-    "settaLlmConfigId": "primary",
-    "defaults": {
-      "deepThink": true
-    }
-  },
-  {
-    "id": "engine-codex-sdk",
-    "name": "Codex SDK",
-    "engineType": "external_agent",
-    "externalAgentConfigId": "external-codex-1"
-  }
-]
-```
-
-## Migration notes (llmConfigId -> engineConfigId)
-- Replace any per-section `llmConfigId` selection with `engineConfigId`.
-- Internal engine configs should reference existing `llm_config.json` entries via `settaLlmConfigId`.
-- Agent profiles should move from `llmConfigId` to `engineConfigId`.
-- External engine configs reference existing `external_agents.json` entries.
+## Open questions
+- Should Prompt sections be callable by default in skills, or opt-in via tool selection?

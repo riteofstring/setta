@@ -9,11 +9,9 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.agentic import AgentProfileList, EngineConfigList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
-from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.listener import (
@@ -37,7 +35,6 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
-from setta.types.prompt import PromptTemplateList
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -57,10 +54,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
-    AgentProfilesUpdated = "AgentProfilesUpdated"
-    PromptTemplatesUpdated = "PromptTemplatesUpdated"
-    ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
-    EngineConfigsUpdated = "EngineConfigsUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -221,34 +214,6 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     content: APIKeys
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
-    )
-
-
-class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
-    content: AgentProfileList
-    messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
-        WebsocketMsgTypeForFrontend.AgentProfilesUpdated
-    )
-
-
-class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
-    content: PromptTemplateList
-    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
-        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
-    )
-
-
-class WebsocketMsgExternalAgentConfigsUpdated(FrontendWebsocketMsg):
-    content: ExternalAgentConfigList
-    messageType: Literal[WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated] = (
-        WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated
-    )
-
-
-class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
-    content: EngineConfigList
-    messageType: Literal[WebsocketMsgTypeForFrontend.EngineConfigsUpdated] = (
-        WebsocketMsgTypeForFrontend.EngineConfigsUpdated
     )
 
 

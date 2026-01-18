@@ -1,11 +1,13 @@
 import type { CollisionDetector } from "@dnd-kit/abstract";
-import { useDndState } from "../dndState";
-import {
-  customCollisionDetection,
-  customCollisionDetectionSorting,
-} from "./collision";
+import { useContext } from "react";
+import { useDndProviderContext } from "./DndProviderContext";
+import { Context as SortableContext } from "./SortableContext";
 
 export function useCollisionDetector(): CollisionDetector {
-  const isSorting = useDndState((x) => x.isSorting);
-  return isSorting ? customCollisionDetectionSorting : customCollisionDetection;
+  const { isSorting, collisionDetector, sortingCollisionDetector } =
+    useDndProviderContext();
+  const { sortingEnabled } = useContext(SortableContext);
+  return isSorting || sortingEnabled
+    ? sortingCollisionDetector
+    : collisionDetector;
 }
