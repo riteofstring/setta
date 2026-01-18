@@ -275,7 +275,6 @@ def build_project_state_summary(
         singletonSections=project_state.singletonSections,
         parentSectionMap=parent_section_map,
         shownParamVariantIds=list(project_state.shownParamIds.keys()),
-        variantIdsWithYamlValues=list(project_state.yamlValues.keys()),
         requiredDecodedImages=list(project_state.requiredDecodedImages),
         genCodeBinding=project_state.genCodeBinding,
     )
