@@ -129,21 +129,21 @@ export function resolveActiveSectionChange(
         };
       }
       return {
-        nextActiveIds: addActiveId(context.activeIds, context.sectionId),
+        nextActiveIds: [context.sectionId],
         updateZIndex: false,
         reason:
           context.interaction === "param-select"
-            ? "param-select:activate-section"
-            : "param-unselect:keep-active",
+            ? "param-select:set-active"
+            : "param-unselect:set-active",
       };
     }
     case "section-click": {
       if (context.isSelectingParams) {
         if (context.hasSelectedParams) {
           return {
-            nextActiveIds: addActiveId(context.activeIds, context.sectionId),
+            nextActiveIds: [context.sectionId],
             updateZIndex: true,
-            reason: "section-click:param-select-add",
+            reason: "section-click:param-select-set",
           };
         }
         return {
