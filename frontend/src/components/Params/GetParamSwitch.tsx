@@ -1,3 +1,4 @@
+import { isTempParam } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import {
@@ -7,7 +8,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
-import { isTempParam } from "forks/dnd-kit/paramDndState";
 
 export function GetParamSwitch({
   sectionId,
@@ -55,9 +55,7 @@ export function GetParamSwitch({
       }
     }
 
-    return paramIds.filter(
-      (p) => filteredRequired.has(p) || isTempParam(p),
-    );
+    return paramIds.filter((p) => filteredRequired.has(p) || isTempParam(p));
   }, _.isEqual);
 
   return filteredIds.map((paramId, idx) => (

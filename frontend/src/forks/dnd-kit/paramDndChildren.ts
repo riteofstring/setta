@@ -1,7 +1,7 @@
-import { immer } from "zustand/middleware/immer";
-import { createWithEqualityFn } from "zustand/traditional";
 import { withProjectState, withResetFn } from "state/utils";
 import { insertIntoArray } from "utils/utils";
+import { immer } from "zustand/middleware/immer";
+import { createWithEqualityFn } from "zustand/traditional";
 import { getParamDndId, isTempParam } from "./paramDndState";
 
 type ParamDndChildrenState = {

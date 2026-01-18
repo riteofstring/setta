@@ -87,7 +87,8 @@ export function useSortable({
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
-  const customType = (customData as { type?: string } | undefined)?.type ?? null;
+  const customType =
+    (customData as { type?: string } | undefined)?.type ?? null;
   if (dndMode.isSorting && customType !== "param") {
     const containerIsHorizontal =
       getSectionIsHorizontalOrientation(containerId);

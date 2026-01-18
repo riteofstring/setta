@@ -1,6 +1,6 @@
+import { withProjectState, withResetFn } from "state/utils";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import { withProjectState, withResetFn } from "state/utils";
 
 export type ParamListKey = "pinned" | "unpinned";
 

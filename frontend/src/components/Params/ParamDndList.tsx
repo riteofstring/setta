@@ -1,7 +1,8 @@
+import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React, { useEffect } from "react";
-import { buildParamTreeView } from "state/actions/params/paramTree";
 import { logParamReorder } from "state/actions/params/paramReorderDebug";
+import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -10,8 +11,10 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
-import { ParamDndProvider, useParamDndChildrenForParent } from "./ParamDndContext";
-import type { ParamListKey } from "forks/dnd-kit/paramDndState";
+import {
+  ParamDndProvider,
+  useParamDndChildrenForParent,
+} from "./ParamDndContext";
 
 type ParamDndListProps = {
   sectionId: string;

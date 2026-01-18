@@ -23,9 +23,7 @@ export function DragOperationShapeSync({
     return sourceData?.current?.type ?? null;
   }, [manager]).value;
   const shouldSync =
-    enabled === undefined
-      ? isSorting || activeDragType === "param"
-      : enabled;
+    enabled === undefined ? isSorting || activeDragType === "param" : enabled;
   const baseRectRef = useRef<BoundingRectangle | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
 

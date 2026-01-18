@@ -1,7 +1,7 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
-import { promoteBestCollision } from "./collisionCompare";
 import { useParamDndChildren } from "../paramDndChildren";
+import { promoteBestCollision } from "./collisionCompare";
 import type {
   DragEndEvent,
   DragMoveEvent,

@@ -1,5 +1,10 @@
 import { DragOverlay, useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
+import type {
+  DragMoveEvent,
+  DragOverEvent,
+  DragStartEvent,
+} from "forks/dnd-kit/adapter";
 import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
@@ -19,9 +24,15 @@ import {
   type ParamListKey,
 } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import { createPortal } from "react-dom";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  moveParamsWithBackend,
+  orderParamIdsByParent,
+  selectOnlyParam,
+} from "state/actions/params/moveParams";
+import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   buildParamParentMap,
   buildParamTreeView,
@@ -31,12 +42,6 @@ import {
   isDescendantOfSelection,
   resolveFullIndexForVisibleInsertion,
 } from "state/actions/params/paramTree";
-import { logParamReorder } from "state/actions/params/paramReorderDebug";
-import {
-  moveParamsWithBackend,
-  orderParamIdsByParent,
-  selectOnlyParam,
-} from "state/actions/params/moveParams";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -52,11 +57,6 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import type {
-  DragMoveEvent,
-  DragOverEvent,
-  DragStartEvent,
-} from "forks/dnd-kit/adapter";
 
 type ParamDragData = {
   type?: string;
@@ -326,8 +326,7 @@ function handleParamDragEnd() {
   const fullChildren = isBaseParentCodeObjImpl(newParentImpl)
     ? newParentImpl.children
     : [];
-  const visibleSiblings =
-    paramState.visibleChildrenByParent[newParentId] ?? [];
+  const visibleSiblings = paramState.visibleChildrenByParent[newParentId] ?? [];
   const newIndex = resolveFullIndexForVisibleInsertion({
     targetVisibleIndex: tempIndex,
     movingIds: new Set(orderedDraggingIds),
@@ -466,9 +465,7 @@ function resolveParamDragParent({
   if (!Object.prototype.hasOwnProperty.call(parentById, overId)) {
     return null;
   }
-  if (
-    isDescendantOfSelection(parentById, overId, new Set(draggingIds))
-  ) {
+  if (isDescendantOfSelection(parentById, overId, new Set(draggingIds))) {
     return null;
   }
   if (triggerDistCondition) {
@@ -605,14 +602,23 @@ function resolveParamListView(
 ): ParamListView | null {
   if (listKey) {
     const view = getParamListView(state, sectionId, listKey);
-    if (view && Object.prototype.hasOwnProperty.call(view.requiredParamIdsToPaths, activeId)) {
+    if (
+      view &&
+      Object.prototype.hasOwnProperty.call(
+        view.requiredParamIdsToPaths,
+        activeId,
+      )
+    ) {
       return view;
     }
   }
   const pinned = getParamListView(state, sectionId, "pinned");
   if (
     pinned &&
-    Object.prototype.hasOwnProperty.call(pinned.requiredParamIdsToPaths, activeId)
+    Object.prototype.hasOwnProperty.call(
+      pinned.requiredParamIdsToPaths,
+      activeId,
+    )
   ) {
     return pinned;
   }
@@ -760,7 +766,9 @@ function measureParamDragSize(sectionId: string, paramIds: string[]) {
 }
 
 function measureParamActiveRect(sectionId: string, paramId: string) {
-  const elem = document.getElementById(`ParamContainer-${sectionId}-${paramId}`);
+  const elem = document.getElementById(
+    `ParamContainer-${sectionId}-${paramId}`,
+  );
   if (!elem) {
     return null;
   }

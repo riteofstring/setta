@@ -1,4 +1,5 @@
 import { addTemporaryNotification } from "state/actions/notifications";
+import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   buildParamParentMap,
   buildParamTreeView,
@@ -7,7 +8,6 @@ import {
   getSharedParentId,
   resolveFullIndexForVisibleInsertion,
 } from "state/actions/params/paramTree";
-import { logParamReorder } from "state/actions/params/paramReorderDebug";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,

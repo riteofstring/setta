@@ -90,7 +90,7 @@ function TempParamSwitch({
 
   return (
     <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] bg-blue-200/50 dark:bg-blue-900/40"
+      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-200/50 px-[2px] dark:bg-blue-900/40"
       style={{
         gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),

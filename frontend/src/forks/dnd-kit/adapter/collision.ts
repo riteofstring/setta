@@ -47,7 +47,10 @@ export const customCollisionDetection: CollisionDetector = ({
   const activeData = getEntityData(active);
   const isParamDrag = activeData?.type === "param";
 
-  if (isTempSection(String(droppable.id)) || isTempParam(String(droppable.id))) {
+  if (
+    isTempSection(String(droppable.id)) ||
+    isTempParam(String(droppable.id))
+  ) {
     return null;
   }
 
@@ -136,7 +139,10 @@ export const customCollisionDetectionSorting: CollisionDetector = ({
     return null;
   }
 
-  if (isTempSection(String(droppable.id)) || isTempParam(String(droppable.id))) {
+  if (
+    isTempSection(String(droppable.id)) ||
+    isTempParam(String(droppable.id))
+  ) {
     return null;
   }
 
