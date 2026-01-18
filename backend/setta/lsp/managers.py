@@ -1,5 +1,3 @@
-import asyncio
-
 from setta.logging.tasks import spawn_background_task
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.utils.constants import CWD
@@ -9,8 +7,6 @@ from ..file_watchers.lsp import LSPFileWatcher
 from .reader import LanguageServerReader
 from .server import LanguageServer
 from .writer import LanguageServerWriter
-
-LSP_SHUTDOWN_TIMEOUT_SECONDS = 3
 
 
 class LSPServers:
@@ -90,23 +86,8 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
 
 
 async def stop_lsps(lsps: LSPServers, lsp_readers: LSPReaders):
-    process = getattr(lsps.full, "server", None)
     await lsp_readers.stop()
     lsps.stop()
-    if process is None:
-        return
-    writer = getattr(process, "stdin", None)
-    if writer is not None:
-        writer.close()
-        await writer.wait_closed()
-    try:
-        await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
-        process.kill()
-        await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
-    for reader in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
-        if reader is not None:
-            await reader.read()
 
 
 def stop_file_watcher(lsp_writers):
