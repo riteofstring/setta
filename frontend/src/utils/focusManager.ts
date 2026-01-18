@@ -363,12 +363,22 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
   const elements: HTMLElement[] = [];
+  const seen = new Set<HTMLElement>();
+
+  function addElement(element: HTMLElement) {
+    if (seen.has(element)) {
+      return;
+    }
+    seen.add(element);
+    elements.push(element);
+  }
+
   const normalizedRoot = normalizeFocusableElement(root);
   if (
     normalizedRoot.matches(FOCUSABLE_SELECTOR) &&
     isFocusableElement(normalizedRoot)
   ) {
-    elements.push(normalizedRoot);
+    addElement(normalizedRoot);
   }
   const candidates = Array.from(
     root.querySelectorAll(FOCUSABLE_SELECTOR),
@@ -385,7 +395,7 @@ function getFocusableElements(root: HTMLElement): HTMLElement[] {
       continue;
     }
     if (isFocusableElement(candidate)) {
-      elements.push(normalizedCandidate);
+      addElement(normalizedCandidate);
     }
   }
   return elements;

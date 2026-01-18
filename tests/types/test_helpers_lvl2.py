@@ -20,6 +20,7 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_top_level_param_ids,
     indent_params,
+    move_params_to_parent,
     move_params_within_parent,
     set_chat_section_chat_id,
     set_section_param_filter,
@@ -378,6 +379,34 @@ class ParamMoveTests(unittest.TestCase):
             CodeParamCodeObjImpl,
         )
         self.assertEqual(second_parent_impl.value, "{}")
+
+    def test_move_params_to_parent_reparents(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        move_params_to_parent(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[2]],
+            self.param_ids[0],
+            new_index=1,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [self.param_ids[0]])
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.children, [self.param_ids[1], self.param_ids[2]])
 
 
 class SmartLayoutTests(unittest.TestCase):

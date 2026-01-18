@@ -2049,16 +2049,17 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        next_state = copy.deepcopy(project_state)
         for move in x.moves:
             move_params_to_parent(
                 self.settings_file.settings,
-                project_state,
+                next_state,
                 x.sectionId,
                 move.paramIds,
                 move.newParentId,
                 move.newIndex,
             )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(next_state)
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
