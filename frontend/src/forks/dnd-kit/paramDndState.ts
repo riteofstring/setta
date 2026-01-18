@@ -20,6 +20,7 @@ type ParamDndState = {
     width: number;
     height: number;
   } | null;
+  dragOffset: { x: number; y: number } | null;
   placeholderWidth: number | null;
   placeholderHeight: number | null;
 };
@@ -36,6 +37,7 @@ export const useParamDndState = withProjectState(
         parentById: {},
         visibleChildrenByParent: {},
         activeRect: null,
+        dragOffset: null,
         placeholderWidth: null,
         placeholderHeight: null,
       })),

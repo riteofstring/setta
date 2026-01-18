@@ -93,14 +93,16 @@ export function ParamDndMonitor() {
 
 export function ParamDragOverlay() {
   const manager = useDragDropManager();
-  const { activeId, placeholderWidth, placeholderHeight } = useParamDndState(
-    (state) => ({
-      activeId: state.activeId,
-      placeholderWidth: state.placeholderWidth,
-      placeholderHeight: state.placeholderHeight,
-    }),
-    _.isEqual,
-  );
+  const { activeId, placeholderWidth, placeholderHeight, dragOffset } =
+    useParamDndState(
+      (state) => ({
+        activeId: state.activeId,
+        placeholderWidth: state.placeholderWidth,
+        placeholderHeight: state.placeholderHeight,
+        dragOffset: state.dragOffset,
+      }),
+      _.isEqual,
+    );
   const isDropped = useComputed(
     () => manager?.dragOperation.status.dropped ?? false,
     [manager],
@@ -115,6 +117,12 @@ export function ParamDragOverlay() {
     return null;
   }
 
+  const offsetStyle = dragOffset
+    ? {
+        transform: `translate(${-dragOffset.x}px, ${-dragOffset.y}px)`,
+      }
+    : undefined;
+
   return createPortal(
     <DragOverlay style={overlayStyle}>
       <div
@@ -122,6 +130,7 @@ export function ParamDragOverlay() {
         style={{
           width: placeholderWidth ?? 220,
           height: placeholderHeight ?? 32,
+          ...(offsetStyle ?? {}),
         }}
       />
     </DragOverlay>,
@@ -186,6 +195,7 @@ function handleParamDragStart(event: DragStartEvent) {
   );
   const placeholderSize = measureParamDragSize(sectionId, draggingIds);
   const activeRect = measureParamActiveRect(sectionId, activeId);
+  const dragOffset = resolveParamDragOffset(activeRect);
   updateParamChildren(tree.visibleChildrenByParent);
   replaceParamsWithTemp(activeId, draggingIds);
 
@@ -205,6 +215,7 @@ function handleParamDragStart(event: DragStartEvent) {
     parentById,
     visibleChildrenByParent: tree.visibleChildrenByParent,
     activeRect,
+    dragOffset,
     placeholderWidth: placeholderSize.width,
     placeholderHeight: placeholderSize.height,
   });
@@ -723,5 +734,36 @@ function measureParamActiveRect(sectionId: string, paramId: string) {
     bottom: rect.bottom,
     width: rect.width,
     height: rect.height,
+  };
+}
+
+function resolveParamDragOffset(
+  activeRect: {
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } | null,
+) {
+  if (!activeRect) {
+    return null;
+  }
+  const lastPointer = useMisc.getState().lastMouseDownLocation;
+  if (!lastPointer) {
+    return null;
+  }
+  if (
+    lastPointer.x < activeRect.left ||
+    lastPointer.x > activeRect.right ||
+    lastPointer.y < activeRect.top ||
+    lastPointer.y > activeRect.bottom
+  ) {
+    return null;
+  }
+  return {
+    x: lastPointer.x - activeRect.left,
+    y: lastPointer.y - activeRect.top,
   };
 }
