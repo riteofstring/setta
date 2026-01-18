@@ -258,6 +258,9 @@ class MultiMCPClient:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         self._connection_tasks.clear()
+        server_ids = list(self._exit_stacks.keys())
+        for server_id in server_ids:
+            await self._cleanup_server(server_id)
         self._exit_stacks.clear()
         self._sessions.clear()
         self._server_tool_cache.clear()

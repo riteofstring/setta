@@ -4,7 +4,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
 } from "components/Chat/llmConfigUtils";
-import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -126,7 +125,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
     llmConfigId,
-    agentProfileId,
     deepThink,
     messages,
     inputText,
@@ -142,7 +140,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return {
       managed: impl.managed,
       llmConfigId: impl.llmConfigId,
-      agentProfileId: impl.agentProfileId,
       deepThink: impl.deepThink,
       messages: impl.messages,
       inputText: impl.inputText,
@@ -157,7 +154,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       <ManagedChatArea
         sectionId={sectionId}
         llmConfigId={llmConfigId}
-        agentProfileId={agentProfileId}
         deepThink={deepThink}
       />
     );
@@ -359,18 +355,15 @@ function ScriptableChatArea({
 type ManagedChatAreaProps = {
   sectionId: string;
   llmConfigId: string | null;
-  agentProfileId: string | null;
   deepThink: boolean;
 };
 
 function ManagedChatArea({
   sectionId,
   llmConfigId,
-  agentProfileId,
   deepThink,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
-  useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const chatId = useProjectState((state) => {
@@ -395,11 +388,10 @@ function ManagedChatArea({
     shallow,
   );
 
-  const { apiKeys, allLLMConfigs, agentProfiles } = useAIStore(
+  const { apiKeys, allLLMConfigs } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
       allLLMConfigs: state.allLLMConfigs,
-      agentProfiles: state.agentProfiles,
     }),
     _.isEqual,
   );
@@ -409,20 +401,11 @@ function ManagedChatArea({
     [allLLMConfigs, apiKeys],
   );
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
-  const selectedProfile = useMemo(() => {
-    if (!agentProfileId) {
-      return null;
-    }
-    return (
-      agentProfiles.find((profile) => profile.id === agentProfileId) ?? null
-    );
-  }, [agentProfileId, agentProfiles]);
-  const hasConfig = Boolean(llmConfigId || selectedProfile?.llmConfigId);
 
   let placeholderText = "Type a message...";
   if (noConfigsAvailable) {
     placeholderText = "Add API key!";
-  } else if (!hasConfig) {
+  } else if (!llmConfigId) {
     placeholderText = "Select an LLM";
   }
 
@@ -488,7 +471,7 @@ function ManagedChatArea({
       if (!message.trim()) {
         return;
       }
-      if (!hasConfig) {
+      if (!llmConfigId) {
         return;
       }
       const messageId = createNewId();
@@ -515,7 +498,6 @@ function ManagedChatArea({
           deepThink,
           llmConfigId,
           messageId,
-          agentProfileId,
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
@@ -531,8 +513,6 @@ function ManagedChatArea({
       deepThink,
       handleNewChatSettled,
       handleNewChatStart,
-      hasConfig,
-      agentProfileId,
       llmConfigId,
       sectionId,
     ],
@@ -551,7 +531,7 @@ function ManagedChatArea({
   }, [chatId, sectionId]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
-  const isDisabled = !hasConfig || noConfigsAvailable;
+  const isDisabled = !llmConfigId || noConfigsAvailable;
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
