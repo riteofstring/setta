@@ -23,6 +23,7 @@ from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    ChatRole,
     MessageTextContent,
     MessageThinkingContent,
     ToolCall,
@@ -40,6 +41,7 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
+from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "claude_sdk_runner.mjs"
@@ -68,7 +70,7 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
             payload = {
                 "prompt": prompt,
                 "runId": str(context.run.id),
-                "systemPrompt": context.system_prompt,
+                "systemPrompt": _build_system_prompt_payload(context.system_prompt),
             }
             allowed_tools = _extract_allowed_tools(context)
             if allowed_tools:
@@ -108,6 +110,9 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
             if raw is None:
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
+            session_id = _extract_session_id_from_event(raw)
+            if session_id:
+                handle.session_id = session_id
             for event in parser.handle(raw):
                 yield event
         if stderr_task is not None:
@@ -147,7 +152,10 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
 
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
-        return build_prompt_from_inputs(context.system_prompt, context.inputs)
+        prompt = _extract_latest_user_prompt(context.inputs)
+        if prompt:
+            return f"{prompt}\n"
+        return build_prompt_from_inputs("", context.inputs)
 
 
 @dataclass
@@ -759,6 +767,22 @@ def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:
     return None
 
 
+def _build_system_prompt_payload(system_prompt: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {"type": "preset", "preset": "claude_code"}
+    normalized = system_prompt.strip()
+    if normalized:
+        payload["append"] = normalized
+    return payload
+
+
+def _extract_session_id_from_event(payload: dict[str, Any]) -> str | None:
+    for key in ("session_id", "sessionId"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
 def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None:
     inputs = context.inputs or {}
     raw = inputs.get("allowedTools")
@@ -778,6 +802,44 @@ def _extract_mcp_config(inputs: dict[str, Any] | None) -> str | None:
     if isinstance(raw, str) and raw:
         return raw
     return None
+
+
+def _extract_latest_user_prompt(inputs: dict[str, Any] | None) -> str:
+    if not inputs:
+        return ""
+    raw_messages = inputs.get("messages")
+    latest = ""
+    if isinstance(raw_messages, list):
+        for raw in reversed(raw_messages):
+            try:
+                message = BaseChatMessageTypeAdapter.validate_python(raw)
+            except Exception:
+                continue
+            role = getattr(message, "role", None)
+            role_value = role.value if hasattr(role, "value") else role
+            if role_value != ChatRole.user.value:
+                continue
+            text = _extract_message_text(message)
+            if text:
+                latest = text
+                break
+    if latest:
+        return latest
+    raw_prompt = inputs.get("prompt")
+    if isinstance(raw_prompt, str) and raw_prompt.strip():
+        return raw_prompt.strip()
+    return ""
+
+
+def _extract_message_text(message: Any) -> str:
+    content = getattr(message, "content", None)
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for entry in content:
+        if isinstance(entry, MessageTextContent) and entry.text:
+            parts.append(entry.text)
+    return "\n".join(parts).strip()
 
 
 def _build_assistant_message(payload: dict[str, Any]) -> AssistantChatMessage:

@@ -5,8 +5,15 @@ from setta.agentic.external_adapters.base import ExternalAgentRunContext
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
+    _build_system_prompt_payload,
 )
 from setta.types.agentic import AgentRun
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    SystemChatMessage,
+    UserChatMessage,
+)
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -390,3 +397,41 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
 
         self.assertEqual(command[0], "/usr/local/bin/node")
         self.assertTrue(command[1].endswith("claude_sdk_runner.mjs"))
+
+    def test_build_prompt_uses_latest_user_message(self) -> None:
+        adapter = ClaudeSdkAdapter()
+        config = ExternalAgentConfig(
+            name="Claude SDK",
+            toolType=ExternalAgentToolType.claude_code,
+            runMode=ExternalAgentRunMode.sdk,
+        )
+        messages = [
+            SystemChatMessage(content=[MessageTextContent(text="System prompt")]),
+            AssistantChatMessage(content=[MessageTextContent(text="Earlier reply")]),
+            UserChatMessage(content=[MessageTextContent(text="Latest request")]),
+        ]
+        inputs = {"messages": [message.model_dump(mode="json") for message in messages]}
+        context = ExternalAgentRunContext(
+            run=AgentRun(),
+            config=config,
+            profile=None,
+            project_config_id=ID("project-1"),
+            chat_id=ID("chat-1"),
+            section_id=None,
+            inputs=inputs,
+            system_prompt="System prompt",
+            working_dir=Path("."),
+            env={},
+        )
+
+        prompt = adapter._build_prompt(context)
+
+        self.assertEqual(prompt.strip(), "Latest request")
+        self.assertNotIn("System:", prompt)
+        self.assertNotIn("User:", prompt)
+
+    def test_system_prompt_payload_uses_preset_and_append(self) -> None:
+        payload = _build_system_prompt_payload("Use Setta conventions.")
+
+        self.assertEqual(payload.get("preset"), "claude_code")
+        self.assertEqual(payload.get("append"), "Use Setta conventions.")

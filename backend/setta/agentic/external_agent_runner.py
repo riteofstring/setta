@@ -405,6 +405,12 @@ class ExternalAgentRunner:
         if previous is None:
             return
         session_id = self._extract_output_string(previous.outputs, "sessionId")
+        if session_id is None:
+            run_state = self._run_state.get(previous.id)
+            if run_state and run_state.handle.session_id:
+                session_id = run_state.handle.session_id
+        if session_id is None:
+            session_id = self._extract_session_id_from_events(previous)
         thread_id = self._extract_output_string(previous.outputs, "threadId")
         if config.toolType == ExternalAgentToolType.codex:
             if thread_id:
@@ -456,6 +462,20 @@ class ExternalAgentRunner:
         raw = inputs.get(key)
         if isinstance(raw, str) and raw:
             return raw
+        return None
+
+    @staticmethod
+    def _extract_session_id_from_events(run: AgentRun) -> str | None:
+        for event in reversed(run.events):
+            if event.type != "external_event":
+                continue
+            payload = event.payload
+            if not isinstance(payload, dict):
+                continue
+            for key in ("session_id", "sessionId"):
+                raw = payload.get(key)
+                if isinstance(raw, str) and raw:
+                    return raw
         return None
 
     def _build_system_prompt(

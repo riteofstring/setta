@@ -168,6 +168,47 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             self.assertEqual(context.inputs.get("sessionId"), "session-456")
 
+    def test_context_inherits_session_id_from_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2b")
+            config = ExternalAgentConfig(
+                id="config-2b",
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-2b",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            previous.events.append(
+                RunEvent(
+                    type="external_event",
+                    payload={"type": "system", "session_id": "session-from-event"},
+                )
+            )
+            save_agent_run(dbe, previous)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-2b"},
+            )
+
+            self.assertEqual(
+                context.inputs.get("sessionId"),
+                "session-from-event",
+            )
+
     def test_context_respects_explicit_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

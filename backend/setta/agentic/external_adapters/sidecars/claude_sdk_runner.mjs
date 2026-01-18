@@ -183,8 +183,15 @@ if (!input) {
 
 const prompt = typeof input.prompt === "string" ? input.prompt : "";
 const options = {};
-const systemPrompt =
-  typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
+let systemPrompt = null;
+if (typeof input.systemPrompt === "string") {
+  const trimmed = input.systemPrompt.trim();
+  if (trimmed) {
+    systemPrompt = trimmed;
+  }
+} else if (input.systemPrompt && typeof input.systemPrompt === "object") {
+  systemPrompt = input.systemPrompt;
+}
 if (systemPrompt) {
   options.systemPrompt = systemPrompt;
 }
@@ -197,6 +204,14 @@ if (Array.isArray(input.allowedTools) && input.allowedTools.length > 0) {
 const model = normalizePolicy(input.defaultModel) ?? normalizePolicy(input.model);
 if (model) {
   options.model = model;
+}
+
+const resume =
+  normalizePolicy(input.resume) ??
+  normalizePolicy(input.sessionId) ??
+  normalizePolicy(input.session_id);
+if (resume) {
+  options.resume = resume;
 }
 
 const approvalPolicy = normalizePolicy(input.approvalPolicy);
