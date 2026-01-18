@@ -11,6 +11,7 @@ import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import { rectFromBoundingRect } from "forks/dnd-kit/adapter/rect";
 import {
   addParamChild,
+  getParamDndParentByChild,
   getParamDndParentId,
   replaceParamsWithTemp,
   resetParamDndChildren,
@@ -18,7 +19,9 @@ import {
   useParamDndChildren,
 } from "forks/dnd-kit/paramDndChildren";
 import {
-  getParamDndId,
+  getParamDndItemId,
+  getParamIdFromDndItemId,
+  getTempParamDndId,
   resetParamDndState,
   setParamDndState,
   useParamDndState,
@@ -64,6 +67,7 @@ type ParamDragData = {
   type?: string;
   sectionId?: string;
   listKey?: ParamListKey | null;
+  paramId?: string | null;
 };
 
 type ParamListView = {
@@ -296,7 +300,8 @@ function handleParamDragStart(
     sectionId,
     isBaseSectionWithParamsImpl,
   );
-  const activeId = String(event.active.id);
+  const activeId =
+    dragData.paramId ?? getParamIdFromDndItemId(String(event.active.id));
   const rootId = getParamRootId(state, sectionId);
   const parentById = buildParamParentMap(state, sectionId, rootId);
   if (!Object.prototype.hasOwnProperty.call(parentById, activeId)) {
@@ -335,10 +340,14 @@ function handleParamDragStart(
     view.topLevelParamIds,
     view.requiredParamIdsToPaths,
   );
-  const placeholderSize = measureParamDragSize(manager, draggingIds);
+  const activeDndId = getParamDndItemId(activeId, view.listKey);
+  const draggingDndIds = draggingIds.map((paramId) =>
+    getParamDndItemId(paramId, view.listKey),
+  );
+  const placeholderSize = measureParamDragSize(manager, draggingDndIds);
   const activeRect = measureParamActiveRect(
     manager,
-    activeId,
+    activeDndId,
     event.activeRect,
   );
   const dragOffset = resolveParamDragOffset(activeRect);
@@ -354,7 +363,7 @@ function handleParamDragStart(
   });
 
   updateParamChildren(tree.visibleChildrenByParent);
-  replaceParamsWithTemp(activeId, draggingIds);
+  replaceParamsWithTemp(activeId, view.listKey, draggingIds);
 
   setParamDndState({
     activeId,
@@ -382,13 +391,15 @@ function handleParamDragOver(event: DragOverEvent) {
 
 function handleParamDragEnd() {
   const paramState = useParamDndState.getState();
-  if (!paramState.activeId || !paramState.sectionId) {
+  if (!paramState.activeId || !paramState.sectionId || !paramState.listKey) {
     debugParamDnd("end:missing-state");
     deferParamDragReset("missing-state");
     return;
   }
 
-  const tempId = getParamDndId(paramState.activeId);
+  const tempId = getTempParamDndId(
+    getParamDndItemId(paramState.activeId, paramState.listKey),
+  );
   const dndChildrenState = useParamDndChildren.getState();
   const newParentId = dndChildrenState.y[tempId] ?? null;
   if (!newParentId) {
@@ -527,7 +538,7 @@ function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
   const resolvedOverId = resolveOverCollisionId(
     filteredCollisions,
     getOverIdForListKey(over, paramState.listKey),
-    useParamDndChildren.getState().y,
+    getParamDndParentByChild(paramState.listKey),
   );
   const overId = resolvedOverId ? String(resolvedOverId) : null;
   if (!overId) {
@@ -544,33 +555,42 @@ function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
     overId === paramState.sectionId && paramState.rootId
       ? paramState.rootId
       : overId;
+  if (!normalizedOverId) {
+    return;
+  }
+  const overParamId = getParamIdFromDndItemId(normalizedOverId);
 
   if (
-    normalizedOverId === lastResolvedOverId &&
+    overParamId === lastResolvedOverId &&
     pastHalfway === lastResolvedPastHalfway &&
     triggerDistCondition === lastResolvedTriggerDistCondition
   ) {
     return;
   }
 
-  lastResolvedOverId = normalizedOverId;
+  lastResolvedOverId = overParamId;
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
 
   debugParamDnd("over:resolved", {
     activeId: paramState.activeId,
-    overId: normalizedOverId,
+    overId: overParamId,
     pastHalfway,
     triggerDistCondition,
     listKey: paramState.listKey,
     collisions: filteredCollisions.map((collision) => String(collision.id)),
   });
 
-  const oldParentId =
-    getParamDndParentId(getParamDndId(paramState.activeId)) ?? null;
+  if (!paramState.listKey) {
+    return;
+  }
+  const tempId = getTempParamDndId(
+    getParamDndItemId(paramState.activeId, paramState.listKey),
+  );
+  const oldParentId = getParamDndParentId(tempId) ?? null;
 
   const newParentId = resolveParamDragParent({
-    overId: normalizedOverId,
+    overId: overParamId,
     parentById: paramState.parentById,
     draggingIds: paramState.draggingIds,
     triggerDistCondition,
@@ -579,8 +599,8 @@ function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
     return;
   }
   maybeMovePlaceholder({
-    tempId: getParamDndId(paramState.activeId),
-    overId: normalizedOverId,
+    tempId,
+    overId: overParamId,
     oldParentId,
     newParentId,
     pastHalfway: pastHalfway ?? false,
@@ -680,6 +700,7 @@ function maybeMovePlaceholder({
 function getParamDragData(event: DragStartEvent): {
   sectionId: string;
   listKey: ParamListKey | null;
+  paramId: string | null;
 } | null {
   const data = event.active.data?.current as ParamDragData | undefined;
   if (!data || data.type !== "param" || !data.sectionId) {
@@ -688,6 +709,7 @@ function getParamDragData(event: DragStartEvent): {
   return {
     sectionId: data.sectionId,
     listKey: data.listKey ?? null,
+    paramId: data.paramId ?? null,
   };
 }
 
@@ -934,12 +956,12 @@ function getPastHalfwayFromCollisions(
 
 function measureParamDragSize(
   manager: DragDropManager | null,
-  paramIds: string[],
+  dndIds: string[],
 ) {
   let width = 0;
   let height = 0;
-  for (const paramId of paramIds) {
-    const rect = getDroppableRect(manager, paramId);
+  for (const dndId of dndIds) {
+    const rect = getDroppableRect(manager, dndId);
     if (!rect) {
       continue;
     }
@@ -957,10 +979,10 @@ function measureParamDragSize(
 
 function measureParamActiveRect(
   manager: DragDropManager | null,
-  paramId: string,
+  dndId: string,
   fallbackRect: DragStartEvent["activeRect"] | null,
 ) {
-  return getDroppableRect(manager, paramId) ?? fallbackRect ?? null;
+  return getDroppableRect(manager, dndId) ?? fallbackRect ?? null;
 }
 
 function getDroppableRect(

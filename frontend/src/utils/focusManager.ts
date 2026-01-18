@@ -80,7 +80,11 @@ function performTabNavigation({
 
   const currentScope = getScopeForElement(normalizedTarget);
   const isInputTarget = isNativeInput(normalizedTarget);
-  if (!allowInputTarget && isInputTarget && currentScope?.behavior !== "canvas") {
+  if (
+    !allowInputTarget &&
+    isInputTarget &&
+    currentScope?.behavior !== "canvas"
+  ) {
     return false;
   }
 
@@ -128,7 +132,9 @@ export function moveFocus({
 }): boolean {
   const target =
     from ??
-    (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    (document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null);
   if (!target) {
     return false;
   }

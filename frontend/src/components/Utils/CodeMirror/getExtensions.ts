@@ -13,8 +13,8 @@ import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
-import { shortcutCodemirrorFormat } from "utils/utils";
 import { moveFocus } from "utils/focusManager";
+import { shortcutCodemirrorFormat } from "utils/utils";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": {

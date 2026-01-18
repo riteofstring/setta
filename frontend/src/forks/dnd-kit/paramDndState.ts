@@ -55,12 +55,48 @@ export function resetParamDndState() {
   useParamDndState.getState().reset();
 }
 
-const PARAM_DND_ID_SUFFIX = "-TempParamDND";
+const PARAM_DND_LIST_KEY_SEPARATOR = "::settaParamList::";
+const PARAM_DND_TEMP_SUFFIX = "::TempParamDND";
 
-export function getParamDndId(paramId: string) {
-  return `${paramId}${PARAM_DND_ID_SUFFIX}`;
+export function getParamDndItemId(paramId: string, listKey: ParamListKey) {
+  return `${paramId}${PARAM_DND_LIST_KEY_SEPARATOR}${listKey}`;
+}
+
+export function getParamIdFromDndItemId(dndId: string): string {
+  const base = stripTempSuffix(dndId);
+  const separatorIndex = base.lastIndexOf(PARAM_DND_LIST_KEY_SEPARATOR);
+  if (separatorIndex === -1) {
+    return base;
+  }
+  return base.slice(0, separatorIndex);
+}
+
+export function getParamListKeyFromDndItemId(
+  dndId: string,
+): ParamListKey | null {
+  const base = stripTempSuffix(dndId);
+  const separatorIndex = base.lastIndexOf(PARAM_DND_LIST_KEY_SEPARATOR);
+  if (separatorIndex === -1) {
+    return null;
+  }
+  const key = base.slice(separatorIndex + PARAM_DND_LIST_KEY_SEPARATOR.length);
+  if (key === "pinned" || key === "unpinned") {
+    return key;
+  }
+  return null;
+}
+
+export function getTempParamDndId(dndId: string) {
+  return `${dndId}${PARAM_DND_TEMP_SUFFIX}`;
 }
 
 export function isTempParam(paramId: string) {
-  return paramId.endsWith(PARAM_DND_ID_SUFFIX);
+  return paramId.endsWith(PARAM_DND_TEMP_SUFFIX);
+}
+
+function stripTempSuffix(paramId: string) {
+  if (!isTempParam(paramId)) {
+    return paramId;
+  }
+  return paramId.slice(0, -PARAM_DND_TEMP_SUFFIX.length);
 }

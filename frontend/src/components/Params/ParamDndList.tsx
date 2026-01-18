@@ -82,6 +82,7 @@ export function ParamDndList({
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         onResizeStart={onResizeStart}
         isTopLevel={isTopLevel}
+        listKey={listKey}
       />
     );
   }
@@ -100,6 +101,7 @@ export function ParamDndList({
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         onResizeStart={onResizeStart}
         isTopLevel={isTopLevel}
+        listKey={listKey}
       />
     </ParamDndProvider>
   );
@@ -112,6 +114,7 @@ function ParamDndListBody({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel,
+  listKey,
 }: {
   sectionId: string;
   rootId: string;
@@ -119,6 +122,7 @@ function ParamDndListBody({
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
+  listKey: ParamListKey;
 }) {
   const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
 
@@ -129,6 +133,7 @@ function ParamDndListBody({
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevel={isTopLevel}
+      listKey={listKey}
     />
   );
 }

@@ -1,6 +1,7 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
-import { useParamDndChildren } from "../paramDndChildren";
+import { getParamDndParentByChild } from "../paramDndChildren";
+import { useParamDndState } from "../paramDndState";
 import { promoteBestCollision } from "./collisionCompare";
 import { coerceClientRect, rectFromBoundingRect } from "./rect";
 import type {
@@ -69,10 +70,17 @@ function getCollisions(
     return [];
   }
 
-  const activeData = active.data as { current?: { type?: string } } | undefined;
+  const activeData = active.data as
+    | { current?: { type?: string; listKey?: string | null } }
+    | undefined;
   const isParamDrag = activeData?.current?.type === "param";
+  const listKey = isParamDrag
+    ? (activeData?.current?.listKey as
+        | ReturnType<typeof useParamDndState.getState>["listKey"]
+        | null) ?? useParamDndState.getState().listKey
+    : null;
   const parentByChild = isParamDrag
-    ? useParamDndChildren.getState().y
+    ? getParamDndParentByChild(listKey ?? null)
     : undefined;
   return promoteBestCollision(collisions as SettaCollision[], parentByChild);
 }

@@ -34,6 +34,7 @@ function _ParamContainer({
   dndRef,
   dndStyle,
   dndClassName,
+  listKey,
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
@@ -122,6 +123,7 @@ function _ParamContainer({
               paramIds={renderChildren}
               requiredParamIdsToPaths={requiredParamIdsToPaths}
               onResizeStart={onResizeStart}
+              listKey={listKey}
             />
           </div>
         )}
@@ -152,6 +154,7 @@ function _ParamContainer({
           paramIds={renderChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
+          listKey={listKey}
         />
       </div>
     </article>

@@ -95,7 +95,10 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     const { x, y } = getEventPosition(event, containerBounds.current);
 
-    applyActiveSectionChange({ interaction: "selection-rect", selectedIds: [] });
+    applyActiveSectionChange({
+      interaction: "selection-rect",
+      selectedIds: [],
+    });
 
     useReactFlow.setState({
       userSelectionRect: {

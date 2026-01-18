@@ -3,7 +3,12 @@ import {
   applyZoomToTransform,
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
-import { isTempParam, useParamDndState } from "forks/dnd-kit/paramDndState";
+import {
+  getParamDndItemId,
+  isTempParam,
+  useParamDndState,
+  type ParamListKey,
+} from "forks/dnd-kit/paramDndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
@@ -35,6 +40,7 @@ type ParamSwitchProps = {
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
+  listKey: ParamListKey;
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
@@ -47,10 +53,11 @@ function _ParamSwitch(props: ParamSwitchProps) {
 function TempParamSwitch({
   sectionId,
   paramInfoId,
-}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId">) {
+  listKey,
+}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
-  const listKey = dndContext?.listKey ?? null;
+  const activeListKey = listKey ?? dndContext?.listKey ?? null;
   const { placeholderWidth, placeholderHeight } = useParamDndState(
     (state) => ({
       placeholderWidth: state.placeholderWidth,
@@ -65,6 +72,12 @@ function TempParamSwitch({
   const normalizedHeight =
     placeholderHeight !== null ? placeholderHeight / safeZoom : null;
 
+  if (!activeListKey) {
+    return null;
+  }
+  const dndId = isTempParam(paramInfoId)
+    ? paramInfoId
+    : getParamDndItemId(paramInfoId, activeListKey);
   const {
     attributes,
     listeners,
@@ -73,12 +86,13 @@ function TempParamSwitch({
     transition,
     isDragging,
   } = useSortable({
-    id: paramInfoId,
+    id: dndId,
     disabled: !dndEnabled,
     data: {
       type: "param",
+      paramId: null,
       sectionId,
-      listKey,
+      listKey: activeListKey,
       isTopLevel: false,
       hasNested: false,
       onlyChildId: null,
@@ -153,7 +167,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
 
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
-  const listKey = dndContext?.listKey ?? null;
+  const listKey = props.listKey;
+  const dndId = getParamDndItemId(paramInfoId, listKey);
   const {
     attributes,
     listeners,
@@ -162,10 +177,11 @@ function RealParamSwitch(props: ParamSwitchProps) {
     transition,
     isDragging,
   } = useSortable({
-    id: paramInfoId,
+    id: dndId,
     disabled: !dndEnabled,
     data: {
       type: "param",
+      paramId: paramInfoId,
       sectionId,
       listKey,
       isTopLevel: false,

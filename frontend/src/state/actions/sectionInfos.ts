@@ -8,7 +8,6 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { applyActiveSectionChange } from "./activeSectionController";
 import {
   PendingOperation,
   useAllProjectMetadata,
@@ -50,6 +49,7 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { applyActiveSectionChange } from "./activeSectionController";
 
 function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);

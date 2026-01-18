@@ -2,7 +2,12 @@ import { withProjectState, withResetFn } from "state/utils";
 import { insertIntoArray } from "utils/utils";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import { getParamDndId, isTempParam } from "./paramDndState";
+import {
+  getParamDndItemId,
+  getTempParamDndId,
+  isTempParam,
+  type ParamListKey,
+} from "./paramDndState";
 
 type ParamDndChildrenState = {
   x: Record<string, Array<string>>;
@@ -52,8 +57,15 @@ export function removeParamChild(childId: string) {
   });
 }
 
-export function replaceParamsWithTemp(activeId: string, paramIds: string[]) {
+export function replaceParamsWithTemp(
+  activeId: string,
+  listKey: ParamListKey | null,
+  paramIds: string[],
+) {
   useParamDndChildren.setState((state) => {
+    if (!listKey) {
+      return;
+    }
     if (paramIds.length === 0) {
       return;
     }
@@ -61,7 +73,7 @@ export function replaceParamsWithTemp(activeId: string, paramIds: string[]) {
     if (!parentId) {
       return;
     }
-    const tempId = getParamDndId(activeId);
+    const tempId = getTempParamDndId(getParamDndItemId(activeId, listKey));
 
     for (const [key, children] of Object.entries(state.x)) {
       const nextChildren = children.filter((childId) => !isTempParam(childId));
@@ -112,4 +124,26 @@ export function resetParamDndChildren() {
 
 export function getParamDndParentId(paramId: string) {
   return useParamDndChildren.getState().y[paramId];
+}
+
+export function getParamDndParentByChild(
+  listKey: ParamListKey | null,
+): Record<string, string | null> {
+  const base = useParamDndChildren.getState().y;
+  if (!listKey) {
+    return base;
+  }
+  const output: Record<string, string | null> = {};
+  for (const [childId, parentId] of Object.entries(base)) {
+    const childDndId = isTempParam(childId)
+      ? childId
+      : getParamDndItemId(childId, listKey);
+    const parentDndId = parentId
+      ? isTempParam(parentId)
+        ? parentId
+        : getParamDndItemId(parentId, listKey)
+      : null;
+    output[childDndId] = parentDndId;
+  }
+  return output;
 }

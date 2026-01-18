@@ -1,14 +1,17 @@
-import _ from "lodash";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { setActiveSectionIds } from "./activeSections";
 import {
   ActiveSectionPolicyContext,
   ActiveSectionPolicyResult,
   resolveActiveSectionChange,
 } from "./activeSectionPolicy";
-import { getCurrEffectiveSectionImpl, getHighestAncestor } from "./sectionInfos";
+import { setActiveSectionIds } from "./activeSections";
+import {
+  getCurrEffectiveSectionImpl,
+  getHighestAncestor,
+} from "./sectionInfos";
 import { setZIndices } from "./sections/sectionPositions";
 
 type SectionClickIntent = {

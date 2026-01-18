@@ -4,6 +4,8 @@ import {
 } from "forks/dnd-kit/adapter";
 import { useParamDndChildren } from "forks/dnd-kit/paramDndChildren";
 import {
+  getParamDndItemId,
+  isTempParam,
   useParamDndState,
   type ParamListKey,
 } from "forks/dnd-kit/paramDndState";
@@ -88,11 +90,13 @@ export function ParamDndProvider({
   );
 
   const items = useMemo(() => {
+    const toDndId = (id: string) =>
+      isTempParam(id) ? id : getParamDndItemId(id, listKey);
     if (isActiveList && tempChildren) {
-      return flattenParamChildren(tree.rootId, tempChildren);
+      return flattenParamChildren(tree.rootId, tempChildren).map(toDndId);
     }
-    return tree.flat.map((item) => item.id);
-  }, [isActiveList, tempChildren, tree.flat, tree.rootId]);
+    return tree.flat.map((item) => toDndId(item.id));
+  }, [isActiveList, listKey, tempChildren, tree.flat, tree.rootId]);
 
   return (
     <ParamDndContext.Provider value={contextValue}>
