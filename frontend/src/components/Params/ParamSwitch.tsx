@@ -131,18 +131,6 @@ function _ParamSwitch(props) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
-  const shouldShowDropIndicator =
-    dndState?.activeId &&
-    dndState?.overId === paramInfoId &&
-    dndState?.projection;
-  const dropIndicator = shouldShowDropIndicator ? (
-    <ParamDropIndicator
-      depth={dndState.projection.depth}
-      indentWidth={dndState.indentWidth}
-      isInvalid={!dndState.isDropValid}
-    />
-  ) : null;
-
   return (
     <ParamContainer
       {...props}
@@ -159,7 +147,6 @@ function _ParamSwitch(props) {
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
-      dndIndicator={dropIndicator}
     >
       {isKwarg ? (
         <ParamNameInput
@@ -183,31 +170,3 @@ function _ParamSwitch(props) {
 }
 
 export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
-function ParamDropIndicator({
-  depth,
-  indentWidth,
-  isInvalid,
-}: {
-  depth: number;
-  indentWidth: number;
-  isInvalid: boolean;
-}) {
-  const offset = depth * indentWidth;
-  const lineClass = isInvalid
-    ? "bg-red-500/80"
-    : "bg-blue-500/80 dark:bg-cyan-400/80";
-
-  return (
-    <>
-      <div
-        className={`pointer-events-none absolute top-0 h-[2px] ${lineClass}`}
-        style={{ left: offset, right: "0.25rem" }}
-      />
-      <div
-        className={`pointer-events-none absolute bottom-0 top-0 w-[2px] ${lineClass}`}
-        style={{ left: offset }}
-      />
-    </>
-  );
-}

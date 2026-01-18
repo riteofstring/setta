@@ -7,10 +7,12 @@ import type {
   DragStartEvent,
 } from "forks/dnd-kit/adapter";
 import {
+  computeNewIndex,
   DragDropProvider,
   SortableContext,
   verticalListSortingStrategy,
 } from "forks/dnd-kit/adapter";
+import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import React, {
   createContext,
@@ -55,6 +57,7 @@ type ParamDndProjection = {
 type ParamDndState = {
   activeId: string | null;
   overId: string | null;
+  overPastHalfway: boolean | null;
   projection: ParamDndProjection | null;
   draggingIds: string[];
   isDropValid: boolean;
@@ -81,6 +84,7 @@ export function ParamDndProvider({
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [overPastHalfway, setOverPastHalfway] = useState<boolean | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [draggingIds, setDraggingIds] = useState<string[]>([]);
 
@@ -109,6 +113,7 @@ export function ParamDndProvider({
       flatItems: tree.flat,
       activeId,
       overId,
+      overPastHalfway,
       offsetX: dragOffset,
       indentWidth: INDENT_WIDTH,
       rootId: tree.rootId,
@@ -120,6 +125,7 @@ export function ParamDndProvider({
       flatItems: tree.flat,
       activeId,
       overId,
+      overPastHalfway,
       parentId: projected.parentId,
       depth: projected.depth,
       draggingSet,
@@ -132,7 +138,15 @@ export function ParamDndProvider({
       depth: projected.depth,
       targetVisibleIndex,
     };
-  }, [activeId, dragOffset, overId, tree.flat, tree.rootId, draggingSet]);
+  }, [
+    activeId,
+    dragOffset,
+    overId,
+    overPastHalfway,
+    tree.flat,
+    tree.rootId,
+    draggingSet,
+  ]);
 
   const isDropValid = useMemo(() => {
     if (!projection) {
@@ -158,6 +172,7 @@ export function ParamDndProvider({
       const nextActiveId = String(event.active.id);
       setActiveId(nextActiveId);
       setOverId(nextActiveId);
+      setOverPastHalfway(null);
       setDragOffset(0);
 
       const state = useProjectState.getState();
@@ -203,8 +218,19 @@ export function ParamDndProvider({
       if (!enabled) {
         return;
       }
-      const nextOverId = event.over ? String(event.over.id) : null;
-      setOverId(nextOverId);
+      const resolvedOverId = resolveOverCollisionId(
+        event.collisions ?? null,
+        event.over ? event.over.id : null,
+      );
+      const nextOverId = resolvedOverId ? String(resolvedOverId) : null;
+      setOverId((prev) => (prev === nextOverId ? prev : nextOverId));
+      const nextPastHalfway = getPastHalfwayFromCollisions(
+        event.collisions ?? null,
+        resolvedOverId,
+      );
+      setOverPastHalfway((prev) =>
+        prev === nextPastHalfway ? prev : nextPastHalfway,
+      );
     },
     [enabled],
   );
@@ -215,6 +241,19 @@ export function ParamDndProvider({
         return;
       }
       setDragOffset(event.delta.x);
+      const resolvedOverId = resolveOverCollisionId(
+        event.collisions ?? null,
+        event.over ? event.over.id : null,
+      );
+      const nextOverId = resolvedOverId ? String(resolvedOverId) : null;
+      setOverId((prev) => (prev === nextOverId ? prev : nextOverId));
+      const nextPastHalfway = getPastHalfwayFromCollisions(
+        event.collisions ?? null,
+        resolvedOverId,
+      );
+      setOverPastHalfway((prev) =>
+        prev === nextPastHalfway ? prev : nextPastHalfway,
+      );
     },
     [enabled],
   );
@@ -222,6 +261,7 @@ export function ParamDndProvider({
   const resetDragState = useCallback(() => {
     setActiveId(null);
     setOverId(null);
+    setOverPastHalfway(null);
     setDragOffset(0);
     setDraggingIds([]);
   }, []);
@@ -317,13 +357,22 @@ export function ParamDndProvider({
     () => ({
       activeId,
       overId,
+      overPastHalfway,
       projection,
       draggingIds,
       isDropValid,
       enabled,
       indentWidth: INDENT_WIDTH,
     }),
-    [activeId, overId, projection, draggingIds, isDropValid, enabled],
+    [
+      activeId,
+      overId,
+      overPastHalfway,
+      projection,
+      draggingIds,
+      isDropValid,
+      enabled,
+    ],
   );
 
   const items = useMemo(() => tree.flat.map((item) => item.id), [tree.flat]);
@@ -356,6 +405,7 @@ function getProjection({
   flatItems,
   activeId,
   overId,
+  overPastHalfway,
   offsetX,
   indentWidth,
   rootId,
@@ -363,6 +413,7 @@ function getProjection({
   flatItems: ParamTreeView["flat"];
   activeId: string;
   overId: string;
+  overPastHalfway: boolean | null;
   offsetX: number;
   indentWidth: number;
   rootId: string;
@@ -373,9 +424,15 @@ function getProjection({
     return null;
   }
   const activeItem = flatItems[activeIndex];
-  const newItems = arrayMove(flatItems, activeIndex, overIndex);
-  const previousItem = newItems[overIndex - 1] ?? null;
-  const nextItem = newItems[overIndex + 1] ?? null;
+  const effectiveOverIndex = resolveEffectiveOverIndex({
+    activeIndex,
+    overIndex,
+    pastHalfway: overPastHalfway,
+    itemsLength: flatItems.length,
+  });
+  const newItems = arrayMove(flatItems, activeIndex, effectiveOverIndex);
+  const previousItem = newItems[effectiveOverIndex - 1] ?? null;
+  const nextItem = newItems[effectiveOverIndex + 1] ?? null;
   const depthDelta = Math.round(offsetX / indentWidth);
   const projectedDepth = activeItem.depth + depthDelta;
   const maxDepth = previousItem ? previousItem.depth + 1 : 0;
@@ -400,6 +457,7 @@ function getTargetVisibleIndex({
   flatItems,
   activeId,
   overId,
+  overPastHalfway,
   parentId,
   depth,
   draggingSet,
@@ -407,6 +465,7 @@ function getTargetVisibleIndex({
   flatItems: ParamTreeView["flat"];
   activeId: string;
   overId: string;
+  overPastHalfway: boolean | null;
   parentId: string;
   depth: number;
   draggingSet: Set<string>;
@@ -416,8 +475,14 @@ function getTargetVisibleIndex({
   if (activeIndex < 0 || overIndex < 0) {
     return null;
   }
-  const projected = arrayMove(flatItems, activeIndex, overIndex).map((item) =>
-    item.id === activeId ? { ...item, parentId, depth } : item,
+  const effectiveOverIndex = resolveEffectiveOverIndex({
+    activeIndex,
+    overIndex,
+    pastHalfway: overPastHalfway,
+    itemsLength: flatItems.length,
+  });
+  const projected = arrayMove(flatItems, activeIndex, effectiveOverIndex).map(
+    (item) => (item.id === activeId ? { ...item, parentId, depth } : item),
   );
   const projectedIndex = projected.findIndex((item) => item.id === activeId);
   if (projectedIndex < 0) {
@@ -437,4 +502,40 @@ function clamp(value: number, min: number, max: number) {
     return max;
   }
   return value;
+}
+
+function getPastHalfwayFromCollisions(
+  collisions: DragMoveEvent["collisions"] | null,
+  overId: string | number | null,
+): boolean | null {
+  if (!collisions || collisions.length === 0 || !overId) {
+    return null;
+  }
+
+  const match = collisions.find(
+    (collision) => String(collision.id) === String(overId),
+  );
+  if (!match || match.pastHalfway === undefined) {
+    return null;
+  }
+
+  return Boolean(match.pastHalfway);
+}
+
+function resolveEffectiveOverIndex({
+  activeIndex,
+  overIndex,
+  pastHalfway,
+  itemsLength,
+}: {
+  activeIndex: number;
+  overIndex: number;
+  pastHalfway: boolean | null;
+  itemsLength: number;
+}): number {
+  if (pastHalfway === null) {
+    return overIndex;
+  }
+
+  return computeNewIndex(activeIndex, overIndex, pastHalfway, itemsLength);
 }
