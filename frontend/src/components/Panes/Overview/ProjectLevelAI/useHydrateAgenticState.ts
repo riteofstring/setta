@@ -13,6 +13,7 @@ export function useHydrateAgenticState() {
     agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete,
     externalAgentConfigsInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete,
     engineConfigsInitialLoadComplete,
   } = useAIStore((x) => ({
     agentProfilesInitialLoadComplete: x.agentProfilesInitialLoadComplete,
