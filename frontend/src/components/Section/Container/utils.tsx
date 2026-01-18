@@ -1,11 +1,24 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import {
+  addActiveSectionIds,
+  removeActiveSectionIds,
+  setActiveSectionIds,
+} from "state/actions/activeSections";
+import {
+  getCurrEffectiveSectionImpl,
+  getHighestAncestor,
+} from "state/actions/sectionInfos";
+import { setZIndices } from "state/actions/sections/sectionPositions";
 import { hasSectionIdInProject } from "state/aiFollowUtils";
-import { useAIFollow, useMisc } from "state/definitions";
+import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName: SectionTypeEnum) {
@@ -52,7 +65,7 @@ export function getOutlineColor({
   return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
 }
 
-export function getOnSectionClick(sectionId: string) {
+export function getOnSectionClick(sectionId, isActiveSection) {
   return (e) => {
     if (
       e.target.closest(
@@ -70,7 +83,31 @@ export function getOnSectionClick(sectionId: string) {
       useMisc.setState({ mouseDownDrawArea: false });
       return;
     }
-    applyActiveSectionChange({ interaction: "section-click", sectionId });
+
+    if (useMisc.getState().isSelectingParams) {
+      // depends on bubbling behavior (child div onclicks get executed first)
+      const impl = getCurrEffectiveSectionImpl(
+        useProjectState.getState(),
+        sectionId,
+      );
+      const atLeastOneParamSelected =
+        isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
+      if (!isActiveSection && atLeastOneParamSelected) {
+        addActiveSectionIds([sectionId]);
+      } else if (isActiveSection && !atLeastOneParamSelected) {
+        removeActiveSectionIds([sectionId]);
+      }
+    } else if (useReactFlow.getState().multiSelectionActive) {
+      if (isActiveSection) {
+        removeActiveSectionIds([sectionId]);
+      } else {
+        addActiveSectionIds([sectionId]);
+      }
+    } else {
+      setActiveSectionIds([sectionId]);
+    }
+    const highestAncestor = getHighestAncestor(sectionId);
+    setZIndices([highestAncestor], false);
   };
 }
 

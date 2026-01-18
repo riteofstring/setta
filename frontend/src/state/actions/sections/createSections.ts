@@ -8,7 +8,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { focusOnSectionSearch } from "utils/focusManager";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   CreateTopLevelSectionRequestInput,
@@ -18,7 +17,8 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { applyActiveSectionChange } from "../activeSectionController";
+import { focusOnSectionSearch } from "utils/tabbingLogic";
+import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import {
   createTopLevelSectionLayoutDict,
   getCurrProjectConfigId,
@@ -84,14 +84,14 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
-    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
+    setActiveSectionIdAndUpdateZIndex(newId);
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
-    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
+    setActiveSectionIdAndUpdateZIndex(newId);
   });
 }
 

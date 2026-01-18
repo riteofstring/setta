@@ -1,7 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
@@ -22,7 +21,7 @@ import {
   OverviewTabNamePrettified,
   PaneNameEnum,
 } from "utils/constants";
-import { useTabScope } from "utils/focusManager";
+import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
@@ -31,18 +30,13 @@ import {
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
+import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 export function Overview() {
-  const overviewRef = useRef<HTMLDivElement>(null);
-  useTabScope({
-    scopeId: "overview",
-    order: 10,
-    rootRef: overviewRef,
-  });
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -74,12 +68,12 @@ export function Overview() {
     requiredTabs: null,
   };
 
+  // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
     <div
       id="OverviewPane"
       className="contents"
-      ref={overviewRef}
-      data-tab-scope="overview"
+      onKeyDown={overviewPaneOnKeyDown}
     >
       <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<OverviewTabName>
@@ -200,8 +194,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    // case OverviewTabNameEnum.ProjectAISettings:
-    // return <ProjectLLMSettings />;
+    case OverviewTabNameEnum.ProjectAISettings:
+      return <ProjectAISettings />;
     default:
       return selectedTabName satisfies never;
   }
