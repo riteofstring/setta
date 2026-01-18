@@ -46,7 +46,6 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     ChatSectionState,
     DrawSectionImpl,
-    PromptSectionImpl,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -122,7 +121,6 @@ class DependencyGraph:
             SectionType.Group: self._export_parent_section,
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
-            SectionType.Prompt: self._export_prompt_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
@@ -258,21 +256,6 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(section_impl.text),
-            deps={},
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_prompt_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, PromptSectionImpl):
-            return
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(section_impl.renderedText),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)
