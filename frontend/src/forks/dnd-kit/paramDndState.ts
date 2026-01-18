@@ -69,19 +69,6 @@ export function getParamIdFromDndItemId(dndId: string): string {
   return base.slice(0, separatorIndex);
 }
 
-function getParamListKeyFromDndItemId(dndId: string): ParamListKey | null {
-  const base = stripTempSuffix(dndId);
-  const separatorIndex = base.lastIndexOf(PARAM_DND_LIST_KEY_SEPARATOR);
-  if (separatorIndex === -1) {
-    return null;
-  }
-  const key = base.slice(separatorIndex + PARAM_DND_LIST_KEY_SEPARATOR.length);
-  if (key === "pinned" || key === "unpinned") {
-    return key;
-  }
-  return null;
-}
-
 export function getTempParamDndId(dndId: string) {
   return `${dndId}${PARAM_DND_TEMP_SUFFIX}`;
 }

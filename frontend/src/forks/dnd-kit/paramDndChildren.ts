@@ -45,18 +45,6 @@ export function addParamChild(
   });
 }
 
-function removeParamChild(childId: string) {
-  useParamDndChildren.setState((state) => {
-    const oldParentId = state.y[childId];
-    if (oldParentId) {
-      state.x[oldParentId] = (state.x[oldParentId] ?? []).filter(
-        (x) => x !== childId,
-      );
-      delete state.y[childId];
-    }
-  });
-}
-
 export function replaceParamsWithTemp(
   activeId: string,
   listKey: ParamListKey | null,

@@ -101,7 +101,7 @@ export function ParamDndProvider({
   return (
     <ParamDndContext.Provider value={contextValue}>
       <SortableContext
-        id={sectionId}
+        id={`${sectionId}:${listKey}`}
         items={items}
         strategy={verticalListSortingStrategy}
       >

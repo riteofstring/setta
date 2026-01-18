@@ -2035,6 +2035,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         move_params_to_parent(
             self.settings_file.settings,
@@ -2048,6 +2049,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         next_state = copy.deepcopy(project_state)
         for move in x.moves:
@@ -2063,6 +2065,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         indent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
@@ -2071,6 +2074,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def unindent_params(self, x: UnindentParamsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         unindent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
