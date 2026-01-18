@@ -31,6 +31,7 @@ import {
 import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  CodeObjTypeEnum,
 } from "utils/generatedTypes";
 
 type ParamSelectionBase = {
@@ -99,10 +100,18 @@ function applyParamMove(
     sectionId,
     move.newParentId,
   );
-  if (!isBaseParentCodeObjImpl(newParentImpl)) {
+  const resolvedNewParentImpl = ensureParentParamImpl(
+    state,
+    sectionId,
+    move.newParentId,
+    newParentImpl,
+  );
+  if (!resolvedNewParentImpl) {
     return;
   }
-  const newRemaining = newParentImpl.children.filter((id) => !paramSet.has(id));
+  const newRemaining = resolvedNewParentImpl.children.filter(
+    (id) => !paramSet.has(id),
+  );
   if (move.newIndex < 0 || move.newIndex > newRemaining.length) {
     return;
   }
@@ -118,6 +127,26 @@ function applyParamMove(
     children: nextNewChildren,
   });
   syncShownParamTopLevelOrder(state, sectionId);
+}
+
+function ensureParentParamImpl(
+  state: ZustandProjectState,
+  sectionId: string,
+  paramId: string,
+  currentImpl: ReturnType<typeof getCurrEffectiveCodeObjImpl>,
+) {
+  if (isBaseParentCodeObjImpl(currentImpl)) {
+    return currentImpl;
+  }
+  setCurrEffectiveCodeObjImplValue(state, sectionId, paramId, {
+    type: CodeObjTypeEnum.NestedParam,
+    children: [],
+  });
+  const nextImpl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
+  if (!isBaseParentCodeObjImpl(nextImpl)) {
+    return null;
+  }
+  return nextImpl;
 }
 
 export function selectOnlyParam(sectionId: string, paramId: string) {
