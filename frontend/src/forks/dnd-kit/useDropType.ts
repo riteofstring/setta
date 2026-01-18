@@ -13,7 +13,7 @@ import {
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   getCurrSectionVariant,
   getSectionChildren,
@@ -65,19 +65,36 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
-export function onDragStart({ active }: DragStartEvent) {
+export function onDragStart({ active, activeRect }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
   }
-  const { width, height } = getSectionRectWithNested(active.id);
+  const rawWidth = activeRect?.width ?? 0;
+  const rawHeight = activeRect?.height ?? 0;
+  const zoom = useReactFlow.getState().transform[2];
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const normalizedWidth = rawWidth / safeZoom;
+  const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
-  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
+  setActiveDnd(
+    active.id,
+    active.data.current.isTopLevel,
+    normalizedWidth,
+    normalizedHeight,
+    activeRect,
+  );
   if (dndState.isMovingFree) {
     manualDndChildrenReset();
-    replaceDndSectionWithTemp(active.id);
+    requestAnimationFrame(() => {
+      const latestState = useDndState.getState();
+      if (!latestState.isMovingFree || latestState.activeId !== active.id) {
+        return;
+      }
+      replaceDndSectionWithTemp(active.id);
+    });
   }
 }
 
