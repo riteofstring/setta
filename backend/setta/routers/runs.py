@@ -29,11 +29,18 @@ async def route_run_detached(
             detail="Detached runs are not supported in share mode.",
         )
     manager = ctx.get_project_manager(x.projectConfigId)
-    (
-        command,
-        snapshot_path,
-        entry_section_id,
-    ) = await manager.create_run_command_with_overrides(x)
+    try:
+        (
+            command,
+            snapshot_path,
+            entry_section_id,
+        ) = await manager.create_run_command_with_overrides(x)
+    except (KeyError, ValueError) as exc:
+        detail = exc.args[0] if exc.args else str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(detail),
+        ) from exc
     run = ctx.state.detached_run_manager.start_run(
         DetachedRunSpec(
             command=command,

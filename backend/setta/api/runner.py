@@ -196,6 +196,8 @@ class RunPlan:
         count: int,
         seed: int | None = None,
     ) -> "RunPlan":
+        if not param_grid:
+            return RunPlan([override.copy() for override in self._overrides])
         rng = random.Random(seed)
         keys = [_normalize_param_key(key) for key in param_grid.keys()]
         value_lists = list(param_grid.values())
@@ -372,24 +374,22 @@ class SettaRunner:
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
         project_name = ref or self._project_name
-        if project_name is None and self._project_config_id is not None:
-            return self._project_config_id
-        configs = self._load_project_metadata()
         if project_name is None:
+            if self._project_config_id is not None:
+                return self._project_config_id
+            configs = self._load_project_metadata()
             if self._default_project_config_id is None:
                 raise KeyError("No default project config available")
             return self._default_project_config_id
+        configs = self._load_project_metadata()
         for config in configs:
-            if config.name == project_name:
+            if config.name == project_name or config.id == project_name:
                 return config.id
-        return ID(project_name)
+        raise KeyError(f"Unknown project config: {project_name}")
 
     def _resolve_section_id(self, section_ref: str | ID) -> ID:
         summary = self.summary()
-        try:
-            return summary.section(str(section_ref)).id
-        except KeyError:
-            return ID(str(section_ref))
+        return summary.section(str(section_ref)).id
 
     def _encode_param_overrides(
         self,
