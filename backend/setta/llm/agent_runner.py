@@ -10,6 +10,7 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 
+from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.agentic.system_prompt import build_agent_system_prompt
@@ -60,7 +61,13 @@ from setta.mcp.namespacing import (
     split_namespaced_tool_name,
 )
 from setta.mcp.tool_metadata import FollowIdType
-from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    AgentRunStatus,
+    EngineType,
+    RunEvent,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -106,6 +113,7 @@ class AgentRunContext:
     run: AgentRun
     profile: AgentProfile
     llm_config: LLMConfig
+    engine_config_id: ID
     project_config_id: ID
     chat_id: ID
     section_id: ID | None
@@ -204,7 +212,7 @@ class AgentRunner:
             "run_started",
             {
                 "profileId": str(profile.id),
-                "llmConfigId": context.llm_config.id,
+                "engineConfigId": str(context.engine_config_id),
                 "projectConfigId": str(context.project_config_id),
                 "chatId": str(context.chat_id),
                 "sectionId": str(context.section_id) if context.section_id else None,
@@ -244,7 +252,7 @@ class AgentRunner:
             "run_started",
             {
                 "profileId": str(profile.id),
-                "llmConfigId": context.llm_config.id,
+                "engineConfigId": str(context.engine_config_id),
                 "projectConfigId": str(context.project_config_id),
                 "chatId": str(context.chat_id),
                 "sectionId": str(context.section_id) if context.section_id else None,
@@ -586,14 +594,17 @@ class AgentRunner:
             if not isinstance(raw_deep_think, bool):
                 raise TypeError("deepThink must be a boolean")
             deep_think = raw_deep_think
-        run = create_agent_run(profile_id=profile.id, inputs=inputs)
-        llm_config = self._resolve_llm_config(profile)
+        payload_inputs = dict(inputs or {})
+        engine_config_id, llm_config = self._resolve_engine_llm_config(profile)
+        payload_inputs.setdefault("engineConfigId", str(engine_config_id))
+        run = create_agent_run(profile_id=profile.id, inputs=payload_inputs)
         system_prompt = self._build_system_prompt(profile, project_config_id)
         allowlist = self._normalize_tool_allowlist(profile)
         return AgentRunContext(
             run=run,
             profile=profile,
             llm_config=llm_config,
+            engine_config_id=engine_config_id,
             project_config_id=project_config_id,
             chat_id=chat_id or run.id,
             section_id=section_id,
@@ -632,16 +643,16 @@ class AgentRunner:
             server_ids=server_ids,
         )
 
-    def _resolve_llm_config(self, profile: AgentProfile) -> LLMConfig:
-        llm_config_id = profile.llmConfigId
-        if not llm_config_id:
-            if self.config.default_config_id:
-                llm_config_id = self.config.default_config_id
-            elif self.config.configs:
-                llm_config_id = next(iter(self.config.configs.keys()))
-            else:
-                raise ValueError("No LLM config available for agent run")
-        return self.config.resolve_config(llm_config_id)
+    def _resolve_engine_llm_config(self, profile: AgentProfile) -> tuple[ID, LLMConfig]:
+        engine_config_id = profile.engineConfigId
+        if engine_config_id is None:
+            raise KeyError("Agent profile missing engine config id")
+        resolved = resolve_engine_config(self.dbe, self.config, engine_config_id)
+        if resolved.engine_config.engineType != EngineType.setta_llm:
+            raise ValueError("Agent runner requires a Setta LLM engine config")
+        if resolved.llm_config is None:
+            raise ValueError("Engine config did not resolve an LLM config")
+        return engine_config_id, resolved.llm_config
 
     def _build_system_prompt(
         self,

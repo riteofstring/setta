@@ -219,7 +219,7 @@ function buildRunDetails(
     { label: "Status", value: run.status },
   ];
   if (run.inputs) {
-    const engine = run.inputs.externalAgentConfigId ?? run.inputs.llmConfigId;
+    const engine = run.inputs.engineConfigId;
     if (typeof engine === "string" && engine.trim()) {
       items.push({ label: "Engine", value: engine });
     }

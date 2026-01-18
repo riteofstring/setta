@@ -45,7 +45,7 @@ class AgenticStoreTests(unittest.TestCase):
                     name="Alpha",
                     description="Primary profile",
                     systemPrompt="You are alpha.",
-                    llmConfigId="alpha-llm",
+                    engineConfigId=ID("engine-alpha"),
                     toolAllowlist=["tool.a", "tool.b"],
                     memoryScope="project",
                 ),

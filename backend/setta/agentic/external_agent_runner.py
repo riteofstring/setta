@@ -154,11 +154,12 @@ class ExternalAgentRunner:
 
     def start_run(
         self,
+        engine_config_id: ID,
         config: ExternalAgentConfig,
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
     ) -> AgentRun:
-        context = self._build_context(config, profile, inputs)
+        context = self._build_context(engine_config_id, config, profile, inputs)
         run = context.run
         self._runs[run.id] = run
         save_agent_run(self.dbe, run)
@@ -166,7 +167,7 @@ class ExternalAgentRunner:
             run,
             "run_started",
             {
-                "externalAgentConfigId": str(config.id),
+                "engineConfigId": str(engine_config_id),
                 "projectConfigId": str(context.project_config_id),
                 "chatId": str(context.chat_id),
                 "sectionId": str(context.section_id) if context.section_id else None,
@@ -286,6 +287,7 @@ class ExternalAgentRunner:
 
     def _build_context(
         self,
+        engine_config_id: ID,
         config: ExternalAgentConfig,
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
@@ -300,7 +302,7 @@ class ExternalAgentRunner:
 
         payload_inputs = dict(inputs or {})
         payload_inputs.setdefault("projectConfigId", str(project_config_id))
-        payload_inputs.setdefault("externalAgentConfigId", str(config.id))
+        payload_inputs.setdefault("engineConfigId", str(engine_config_id))
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
@@ -308,7 +310,7 @@ class ExternalAgentRunner:
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
             self._apply_session_history(
-                payload_inputs, config, chat_id, project_config_id
+                payload_inputs, config, engine_config_id, chat_id, project_config_id
             )
 
         run = create_agent_run(
@@ -375,12 +377,15 @@ class ExternalAgentRunner:
         self,
         payload_inputs: dict[str, Any],
         config: ExternalAgentConfig,
+        engine_config_id: ID,
         chat_id: ID,
         project_config_id: ID,
     ) -> None:
         if "sessionId" in payload_inputs or "threadId" in payload_inputs:
             return
-        previous = self._find_latest_external_run(chat_id, config.id, project_config_id)
+        previous = self._find_latest_external_run(
+            chat_id, engine_config_id, project_config_id
+        )
         if previous is None:
             return
         session_id = self._extract_output_string(previous.outputs, "sessionId")
@@ -395,7 +400,7 @@ class ExternalAgentRunner:
     def _find_latest_external_run(
         self,
         chat_id: ID,
-        config_id: ID,
+        engine_config_id: ID,
         project_config_id: ID,
     ) -> AgentRun | None:
         runs = [
@@ -404,17 +409,17 @@ class ExternalAgentRunner:
             if is_external_agent_run(run)
             and get_run_chat_id(run) == chat_id
             and get_run_project_config_id(run) == project_config_id
-            and self._get_run_external_config_id(run) == config_id
+            and self._get_run_engine_config_id(run) == engine_config_id
         ]
         if not runs:
             return None
         return max(runs, key=get_run_sort_key)
 
     @staticmethod
-    def _get_run_external_config_id(run: AgentRun) -> ID | None:
+    def _get_run_engine_config_id(run: AgentRun) -> ID | None:
         if not run.inputs:
             return None
-        raw = run.inputs.get("externalAgentConfigId")
+        raw = run.inputs.get("engineConfigId")
         if isinstance(raw, str) and raw:
             return ID(raw)
         return None

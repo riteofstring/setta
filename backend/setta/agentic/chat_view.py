@@ -92,17 +92,16 @@ def get_run_project_config_id(run: AgentRun) -> ID | None:
     return None
 
 
-def get_run_llm_config_id(run: AgentRun) -> str | None:
-    if run.inputs:
-        raw_llm_config_id = run.inputs.get("llmConfigId")
-        if isinstance(raw_llm_config_id, str) and raw_llm_config_id:
-            return raw_llm_config_id
+def get_run_engine_config_id(run: AgentRun) -> ID | None:
+    engine_config_id = _get_input_id(run, "engineConfigId")
+    if engine_config_id is not None:
+        return engine_config_id
     for event in run.events:
         if event.type != "run_started":
             continue
-        raw_llm_config_id = event.payload.get("llmConfigId")
-        if isinstance(raw_llm_config_id, str) and raw_llm_config_id:
-            return raw_llm_config_id
+        raw_engine_id = event.payload.get("engineConfigId")
+        if isinstance(raw_engine_id, str) and raw_engine_id:
+            return ID(raw_engine_id)
     return None
 
 

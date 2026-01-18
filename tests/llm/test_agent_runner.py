@@ -2,11 +2,17 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.agentic.store import load_agent_run, save_agent_run
+from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
-from setta.types.agentic import AgentProfile, AgentRunStatus
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRunStatus,
+    EngineConfig,
+    EngineType,
+    SettaLlmEngineConfig,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -50,6 +56,16 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     return default_id
 
 
+def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> None:
+    engine_config = EngineConfig(
+        id=engine_config_id,
+        name="Default Engine",
+        engineType=EngineType.setta_llm,
+        settaLlmConfig=SettaLlmEngineConfig(llmConfigId=llm_config_id),
+    )
+    save_engine_configs(dbe, [engine_config])
+
+
 class _StubAgentRunner(AgentRunner):
     async def _run_agent(self, context) -> None:
         if context.emit_stream or context.emit_ai_follow:
@@ -88,9 +104,11 @@ class AgentRunnerTests(unittest.TestCase):
                 },
             )
             runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(
                 name="Alpha",
-                llmConfigId="primary",
+                engineConfigId=engine_config_id,
                 toolAllowlist=["server-a__tool.alpha", "server-b", "tool.beta"],
             )
 
@@ -125,9 +143,11 @@ class AgentRunnerTests(unittest.TestCase):
                 },
             )
             runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(
                 name="Alpha",
-                llmConfigId="primary",
+                engineConfigId=engine_config_id,
                 toolAllowlist=["unknown__tool.alpha"],
             )
 
@@ -153,7 +173,9 @@ class AgentRunnerTests(unittest.TestCase):
                 mcpServers={},
             )
             runner = _build_runner(dbe, config)
-            profile = AgentProfile(name="Alpha", llmConfigId="primary")
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             default_context = runner._build_context(profile, inputs=None)
             self.assertEqual(default_context.project_config_id, default_id)
@@ -192,7 +214,9 @@ class AgentRunnerTests(unittest.TestCase):
                 mcpServers={},
             )
             runner = _build_runner(dbe, config)
-            profile = AgentProfile(name="Alpha", llmConfigId="primary")
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             with self.assertRaises(TypeError):
                 runner._build_context(profile, inputs={"projectConfigId": 123})
@@ -221,11 +245,13 @@ class AgentRunnerTests(unittest.TestCase):
                 mcpServers={},
             )
             runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(
                 name="Alpha",
                 description="Primary profile",
                 systemPrompt="You are alpha.",
-                llmConfigId="primary",
+                engineConfigId=engine_config_id,
             )
 
             prompt = runner._build_system_prompt(profile, project_config.id)
@@ -296,7 +322,9 @@ class AgentRunnerTests(unittest.TestCase):
                 mcpServers={},
             )
             runner = _build_runner(dbe, config)
-            profile = AgentProfile(name="Alpha", llmConfigId="primary")
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             context = runner._build_context(profile, inputs={"prompt": "hello"})
             run = context.run
@@ -343,7 +371,9 @@ class AgentRunnerSubAgentTests(unittest.IsolatedAsyncioTestCase):
             runner = _StubAgentRunner(dbe, mcp_client, frontend_sender)
             runner.update_config(config)
             runner.update_api_keys(dbe.read_dot_env())
-            profile = AgentProfile(name="Alpha", llmConfigId="primary")
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             run = await runner.run_sub_agent(profile, inputs={"prompt": "hello"})
 

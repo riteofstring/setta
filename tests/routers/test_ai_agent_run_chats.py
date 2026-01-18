@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
-from setta.agentic.store import load_agent_run, save_agent_run
+from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -22,7 +22,14 @@ from setta.routers.ai import (
     route_stop_llm_chat,
 )
 from setta.server_state import SettaFastAPIState
-from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
+from setta.types.agentic import (
+    AgentRun,
+    AgentRunStatus,
+    EngineConfig,
+    EngineType,
+    RunEvent,
+    SettaLlmEngineConfig,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -69,6 +76,16 @@ def _build_runner(dbe: DBE) -> AgentRunner:
         )
     )
     return runner
+
+
+def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> None:
+    engine_config = EngineConfig(
+        id=engine_config_id,
+        name="Default Engine",
+        engineType=EngineType.setta_llm,
+        settaLlmConfig=SettaLlmEngineConfig(llmConfigId=llm_config_id),
+    )
+    save_engine_configs(dbe, [engine_config])
 
 
 def _build_share_deployment_root(
@@ -120,7 +137,7 @@ def _build_run(
     *,
     chat_id: ID,
     project_config_id: ID,
-    llm_config_id: str,
+    engine_config_id: ID,
     started_at: datetime,
     status: AgentRunStatus,
     input_messages: list[UserChatMessage | AssistantChatMessage],
@@ -130,7 +147,7 @@ def _build_run(
         "runType": LLM_CHAT_RUN_TYPE,
         "chatId": str(chat_id),
         "projectConfigId": str(project_config_id),
-        "llmConfigId": llm_config_id,
+        "engineConfigId": str(engine_config_id),
         "messages": [message.model_dump(mode="json") for message in input_messages],
     }
     outputs = None
@@ -154,7 +171,7 @@ def _build_run(
                 payload={
                     "chatId": str(chat_id),
                     "projectConfigId": str(project_config_id),
-                    "llmConfigId": llm_config_id,
+                    "engineConfigId": str(engine_config_id),
                 },
                 timestamp=started_at,
             )
@@ -234,7 +251,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                             message=UserChatMessage(
                                 content=[MessageTextContent(text="Hello")],
                             ),
-                            llmConfigId=None,
+                            engineConfigId=ID("engine-1"),
                             agentProfileId=None,
                             deepThink=False,
                             projectConfigId=project_config_id,
@@ -254,6 +271,8 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             chat_id = ID("chat-1")
             project_config_id = ID("project-1")
             user_message = UserChatMessage(
@@ -265,7 +284,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             run = _build_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
-                llm_config_id="primary",
+                engine_config_id=engine_config_id,
                 started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
                 status=AgentRunStatus.completed,
                 input_messages=[user_message],
@@ -295,6 +314,8 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             chat_id = ID("chat-2")
             project_config_id = ID("project-2")
             first_message = UserChatMessage(
@@ -306,7 +327,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             first_run = _build_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
-                llm_config_id="primary",
+                engine_config_id=engine_config_id,
                 started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
                 status=AgentRunStatus.completed,
                 input_messages=[first_message],
@@ -315,7 +336,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             second_run = _build_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
-                llm_config_id="primary",
+                engine_config_id=engine_config_id,
                 started_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
                 status=AgentRunStatus.completed,
                 input_messages=[second_message],
@@ -440,12 +461,14 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             project_config_id = ID("project-3")
             running_chat_id = ID("chat-3")
             running_run = _build_run(
                 chat_id=running_chat_id,
                 project_config_id=project_config_id,
-                llm_config_id="primary",
+                engine_config_id=engine_config_id,
                 started_at=datetime(2024, 1, 3, tzinfo=timezone.utc),
                 status=AgentRunStatus.running,
                 input_messages=[],

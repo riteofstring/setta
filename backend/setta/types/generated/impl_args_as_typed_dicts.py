@@ -88,8 +88,8 @@ class CoreArgs(TypedDict):
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
+                "engineConfigId",
                 "eraserBrushSize",
-                "externalAgentConfigId",
                 "folder",
                 "format",
                 "headingAsSectionName",
@@ -111,7 +111,6 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
-                "llmConfigId",
                 "managed",
                 "max",
                 "messages",
@@ -571,9 +570,8 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
-    llmConfigId: NotRequired[str | None]
+    engineConfigId: NotRequired[ID | None]
     agentProfileId: NotRequired[ID | None]
-    externalAgentConfigId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
     messages: NotRequired[
@@ -592,9 +590,8 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
-    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    externalAgentConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[

@@ -63,13 +63,19 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs=None,
+            )
 
             self.assertEqual(context.chat_id, context.run.id)
             self.assertEqual(context.inputs["chatId"], str(context.run.id))
@@ -79,13 +85,19 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
             )
 
-            context = runner._build_context(config, profile=None, inputs=None)
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs=None,
+            )
 
             self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
 
@@ -94,6 +106,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
                 id="config-1",
                 name="Codex SDK",
@@ -105,7 +118,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-1",
                     "projectConfigId": str(project_config.id),
-                    "externalAgentConfigId": "config-1",
+                    "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
@@ -113,6 +126,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             save_agent_run(dbe, previous)
 
             context = runner._build_context(
+                engine_config_id,
                 config,
                 profile=None,
                 inputs={"chatId": "chat-1"},
@@ -125,6 +139,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2")
             config = ExternalAgentConfig(
                 id="config-2",
                 name="OpenCode SDK",
@@ -136,7 +151,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-2",
                     "projectConfigId": str(project_config.id),
-                    "externalAgentConfigId": "config-2",
+                    "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
@@ -144,6 +159,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             save_agent_run(dbe, previous)
 
             context = runner._build_context(
+                engine_config_id,
                 config,
                 profile=None,
                 inputs={"chatId": "chat-2"},
@@ -156,6 +172,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-3")
             config = ExternalAgentConfig(
                 id="config-3",
                 name="Claude SDK",
@@ -167,7 +184,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-3",
                     "projectConfigId": str(project_config.id),
-                    "externalAgentConfigId": "config-3",
+                    "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
@@ -175,6 +192,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             save_agent_run(dbe, previous)
 
             context = runner._build_context(
+                engine_config_id,
                 config,
                 profile=None,
                 inputs={"chatId": "chat-3", "sessionId": "session-new"},
@@ -196,6 +214,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
             dbe.write_project(project_state)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-4")
             config = ExternalAgentConfig(
                 id="config-4",
                 name="OpenCode SDK",
@@ -207,7 +226,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-4",
                     "projectConfigId": str(project_config_a.id),
-                    "externalAgentConfigId": "config-4",
+                    "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
@@ -218,7 +237,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={
                     "chatId": "chat-4",
                     "projectConfigId": str(project_config_b.id),
-                    "externalAgentConfigId": "config-4",
+                    "engineConfigId": str(engine_config_id),
                     "runType": EXTERNAL_AGENT_RUN_TYPE,
                 },
             )
@@ -226,6 +245,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             save_agent_run(dbe, run_b)
 
             context = runner._build_context(
+                engine_config_id,
                 config,
                 profile=None,
                 inputs={

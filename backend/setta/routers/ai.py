@@ -5,18 +5,28 @@ from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_chat_id,
-    get_run_llm_config_id,
+    get_run_engine_config_id,
     get_run_project_config_id,
     get_run_sort_key,
     is_external_agent_run,
     is_llm_chat_run,
+)
+from setta.agentic.engine_resolver import resolve_engine_config
+from setta.agentic.external_agent_preflight import (
+    build_external_agent_preflight_status,
 )
 from setta.agentic.store import list_agent_runs, require_agent_profile
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    AgentRunStatus,
+    EngineType,
+)
+from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
@@ -81,7 +91,7 @@ def _build_inputs_messages(
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
-    llmConfigId: str | None
+    engineConfigId: ID
     agentProfileId: ID | None = None
     deepThink: bool
     projectConfigId: ID
@@ -124,9 +134,6 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
-    if ctx.state.agent_runner.disabled:
-        raise HTTPException(status_code=503, detail="Agent runner is not available")
-
     chat_id = x.chatId or create_new_id()
     prior_messages: list[BaseChatMessageUnion] = []
     if x.chatId is not None:
@@ -142,30 +149,80 @@ async def route_get_llm_response(
         prior_messages=prior_messages,
         message=x.message,
     )
+    profile: AgentProfile | None = None
     if x.agentProfileId is not None:
         try:
             profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if x.llmConfigId is not None:
-            profile = profile.model_copy(update={"llmConfigId": x.llmConfigId})
-    else:
-        profile = AgentProfile(
-            name="Managed chat",
-            description="",
-            systemPrompt="",
-            llmConfigId=x.llmConfigId,
-        )
-
-    inputs = {
-        "chatId": str(chat_id),
-        "projectConfigId": str(x.projectConfigId),
-        "deepThink": x.deepThink,
-        "llmConfigId": x.llmConfigId,
-        "runType": LLM_CHAT_RUN_TYPE,
-        "messages": [message.model_dump(mode="json") for message in combined_messages],
-    }
-    ctx.state.agent_runner.start_run(profile, inputs)
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
+    )
+    if resolved.engine_config.engineType == EngineType.setta_llm:
+        if ctx.state.agent_runner.disabled:
+            raise HTTPException(status_code=503, detail="Agent runner is not available")
+        if profile is None:
+            profile = AgentProfile(
+                name="Managed chat",
+                description="",
+                systemPrompt="",
+                engineConfigId=x.engineConfigId,
+            )
+        profile = profile.model_copy(update={"engineConfigId": x.engineConfigId})
+        inputs = {
+            "chatId": str(chat_id),
+            "projectConfigId": str(x.projectConfigId),
+            "deepThink": x.deepThink,
+            "engineConfigId": str(x.engineConfigId),
+            "runType": LLM_CHAT_RUN_TYPE,
+            "messages": [
+                message.model_dump(mode="json") for message in combined_messages
+            ],
+        }
+        ctx.state.agent_runner.start_run(profile, inputs)
+        return chat_id
+    if resolved.engine_config.engineType == EngineType.external_agent:
+        runner = ctx.state.external_agent_runner
+        if runner.disabled:
+            raise HTTPException(
+                status_code=503, detail="External agent runner is not available"
+            )
+        external_config = resolved.external_agent_config
+        if external_config is None:
+            raise HTTPException(
+                status_code=500, detail="External agent config not found"
+            )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
+        if not status.available:
+            issues = "; ".join(status.issues) if status.issues else "preflight failed"
+            raise HTTPException(
+                status_code=503,
+                detail=f"External agent config is not available: {issues}",
+            )
+        if (
+            profile is not None
+            and profile.toolAllowlist
+            and external_config.toolType != ExternalAgentToolType.claude_code
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tool allowlists are only supported for Claude Code external runs. "
+                    "Remove toolAllowlist or choose a Claude Code config."
+                ),
+            )
+        inputs = {
+            "chatId": str(chat_id),
+            "projectConfigId": str(x.projectConfigId),
+            "deepThink": x.deepThink,
+            "engineConfigId": str(x.engineConfigId),
+            "messages": [
+                message.model_dump(mode="json") for message in combined_messages
+            ],
+        }
+        runner.start_run(x.engineConfigId, external_config, profile, inputs)
+        return chat_id
+    raise HTTPException(status_code=400, detail="Unsupported engine config")
     return chat_id
 
 
@@ -199,14 +256,20 @@ async def route_get_llm_chat(
     if latest_run is None:
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
-    llm_config_id = get_run_llm_config_id(latest_run)
-    if not llm_config_id:
+    engine_config_id = get_run_engine_config_id(latest_run)
+    if not engine_config_id:
+        raise HTTPException(status_code=500, detail="Chat engine config not found")
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, engine_config_id
+    )
+    if resolved.engine_config.engineType != EngineType.setta_llm:
+        raise HTTPException(status_code=500, detail="Chat engine is not internal")
+    if resolved.llm_config is None:
         raise HTTPException(status_code=500, detail="Chat LLM config not found")
-    llm_config = ctx.state.agent_runner.config.resolve_config(llm_config_id)
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
-        llmConfig=llm_config,
+        llmConfig=resolved.llm_config,
     )
 
 

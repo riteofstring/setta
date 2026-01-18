@@ -1923,9 +1923,8 @@ class BaseProjectManager(ABC):
             project_state,
             x.sectionId,
             x.managed,
-            x.llmConfigId,
+            x.engineConfigId,
             x.agentProfileId,
-            x.externalAgentConfigId,
             x.deepThink,
         )
         await self.update_and_broadcast_project_state(project_state)

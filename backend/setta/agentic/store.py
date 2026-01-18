@@ -1,7 +1,12 @@
 from typing import Any
 
 from setta.database.db_objs import DBE
-from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    AgentRunStatus,
+    EngineConfig,
+)
 from setta.types.external_agents import ExternalAgentConfig
 from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
@@ -28,6 +33,16 @@ def save_external_agent_configs(dbe: DBE, configs: list[ExternalAgentConfig]) ->
     dbe.write_external_agents(payload)
 
 
+def load_engine_configs(dbe: DBE) -> list[EngineConfig]:
+    payload = dbe.read_engine_configs()
+    return [EngineConfig.model_validate(entry) for entry in payload]
+
+
+def save_engine_configs(dbe: DBE, configs: list[EngineConfig]) -> None:
+    payload = [config.model_dump(mode="json") for config in configs]
+    dbe.write_engine_configs(payload)
+
+
 def get_external_agent_config_index(
     configs: list[ExternalAgentConfig],
     config_id: ID,
@@ -41,6 +56,19 @@ def get_external_agent_config_index(
 def require_external_agent_config(dbe: DBE, config_id: ID) -> ExternalAgentConfig:
     configs = load_external_agent_configs(dbe)
     config_idx = get_external_agent_config_index(configs, config_id)
+    return configs[config_idx]
+
+
+def get_engine_config_index(configs: list[EngineConfig], config_id: ID) -> int:
+    for idx, config in enumerate(configs):
+        if config.id == config_id:
+            return idx
+    raise KeyError(f"Engine config {config_id} not found")
+
+
+def require_engine_config(dbe: DBE, config_id: ID) -> EngineConfig:
+    configs = load_engine_configs(dbe)
+    config_idx = get_engine_config_index(configs, config_id)
     return configs[config_idx]
 
 

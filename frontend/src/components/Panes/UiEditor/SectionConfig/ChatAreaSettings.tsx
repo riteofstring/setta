@@ -1,10 +1,11 @@
 import {
-  CHAT_ENGINE_SETTA_ID,
   buildEngineGroups,
+  getExternalEngineStatus,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
+  pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
@@ -12,6 +13,7 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useCallback, useMemo } from "react";
+import { updateEngineConfig } from "state/actions/ai";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -28,7 +30,7 @@ import {
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { EngineTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type ChatAreaSettingsProps = {
   sectionId: string;
@@ -36,9 +38,8 @@ type ChatAreaSettingsProps = {
 
 type ChatSectionSettingsPayload = {
   managed: boolean;
-  llmConfigId: string | null;
+  engineConfigId: string | null;
   agentProfileId: string | null;
-  externalAgentConfigId: string | null;
   deepThink: boolean;
 };
 
@@ -49,39 +50,41 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const { canEditParams } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
 
-  const {
-    managed,
-    llmConfigId,
-    agentProfileId,
-    externalAgentConfigId,
-    deepThink,
-    isFrozen,
-  } = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    return {
-      managed: impl.managed,
-      llmConfigId: impl.llmConfigId,
-      agentProfileId: impl.agentProfileId,
-      externalAgentConfigId: impl.externalAgentConfigId,
-      deepThink: impl.deepThink,
-      isFrozen: impl.isFrozen,
-    };
-  }, _.isEqual);
+  const { managed, engineConfigId, agentProfileId, deepThink, isFrozen } =
+    useProjectState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      return {
+        managed: impl.managed,
+        engineConfigId: impl.engineConfigId,
+        agentProfileId: impl.agentProfileId,
+        deepThink: impl.deepThink,
+        isFrozen: impl.isFrozen,
+      };
+    }, _.isEqual);
 
-  const { apiKeys, allLLMConfigs, agentProfiles, externalAgentConfigs } =
-    useAIStore(
-      (state) => ({
-        apiKeys: state.apiKeys,
-        allLLMConfigs: state.allLLMConfigs,
-        agentProfiles: state.agentProfiles,
-        externalAgentConfigs: state.externalAgentConfigs,
-      }),
-      _.isEqual,
-    );
+  const {
+    apiKeys,
+    allLLMConfigs,
+    agentProfiles,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  } = useAIStore(
+    (state) => ({
+      apiKeys: state.apiKeys,
+      allLLMConfigs: state.allLLMConfigs,
+      agentProfiles: state.agentProfiles,
+      engineConfigs: state.engineConfigs,
+      externalAgentHealth: state.externalAgentHealth,
+      externalAgentHealthInitialLoadComplete:
+        state.externalAgentHealthInitialLoadComplete,
+    }),
+    _.isEqual,
+  );
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -99,8 +102,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ];
   }, [agentProfiles]);
   const engineGroups = useMemo(
-    () => buildEngineGroups(externalAgentConfigs),
-    [externalAgentConfigs],
+    () => buildEngineGroups(engineConfigs),
+    [engineConfigs],
   );
   const selectedProfile = useMemo(() => {
     if (!agentProfileId) {
@@ -113,9 +116,73 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
   const canEditSettings = !isShareMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
-  const hasProfileConfig = Boolean(selectedProfile?.llmConfigId);
-  const selectedEngineId = externalAgentConfigId ?? CHAT_ENGINE_SETTA_ID;
-  const isExternalEngine = externalAgentConfigId !== null;
+  const effectiveEngineConfigId =
+    engineConfigId ?? selectedProfile?.engineConfigId ?? null;
+  const selectedEngineConfig = useMemo(() => {
+    if (!effectiveEngineConfigId) {
+      return null;
+    }
+    return (
+      engineConfigs.find((config) => config.id === effectiveEngineConfigId) ??
+      null
+    );
+  }, [effectiveEngineConfigId, engineConfigs]);
+  const selectedEngineId = selectedEngineConfig?.id ?? null;
+  const engineType = selectedEngineConfig?.engineType ?? null;
+  const externalEngineStatus = useMemo(
+    () =>
+      getExternalEngineStatus(
+        selectedEngineConfig,
+        externalAgentHealth,
+        externalAgentHealthInitialLoadComplete,
+      ),
+    [
+      selectedEngineConfig,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+    ],
+  );
+  const externalStatusMessage = useMemo(() => {
+    if (!externalEngineStatus) {
+      return null;
+    }
+    if (externalEngineStatus.status === "loading") {
+      return "Checking external engine status...";
+    }
+    if (externalEngineStatus.status === "available") {
+      return "External engine available";
+    }
+    if (externalEngineStatus.issues.length > 0) {
+      return `External engine unavailable: ${externalEngineStatus.issues.join(
+        "; ",
+      )}`;
+    }
+    return "External engine unavailable";
+  }, [externalEngineStatus]);
+  const externalStatusClassName = useMemo(() => {
+    if (!externalEngineStatus) {
+      return "";
+    }
+    if (externalEngineStatus.status === "available") {
+      return "text-emerald-600 dark:text-emerald-400";
+    }
+    if (externalEngineStatus.status === "loading") {
+      return "text-setta-500 dark:text-setta-400";
+    }
+    return "text-red-600 dark:text-red-400";
+  }, [externalEngineStatus]);
+  const selectedLLMConfigId = useMemo(() => {
+    if (!selectedEngineConfig) {
+      return null;
+    }
+    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+      return null;
+    }
+    return (
+      selectedEngineConfig.settaLlmConfig?.llmConfigId ??
+      pickDefaultConfigId(allLLMConfigs)
+    );
+  }, [allLLMConfigs, selectedEngineConfig]);
 
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
@@ -126,9 +193,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
             managed: nextSettings.managed,
-            llmConfigId: nextSettings.llmConfigId,
+            engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
-            externalAgentConfigId: nextSettings.externalAgentConfigId,
             deepThink: nextSettings.deepThink,
           });
         },
@@ -137,9 +203,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             projectConfigId,
             sectionId,
             managed: nextSettings.managed,
-            llmConfigId: nextSettings.llmConfigId,
+            engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
-            externalAgentConfigId: nextSettings.externalAgentConfigId,
             deepThink: nextSettings.deepThink,
             frontendOpId,
           }),
@@ -152,64 +217,59 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     (value: boolean) => {
       updateSettings({
         managed: value,
-        llmConfigId,
+        engineConfigId,
         agentProfileId,
-        externalAgentConfigId,
         deepThink,
       });
     },
-    [
-      agentProfileId,
-      deepThink,
-      externalAgentConfigId,
-      llmConfigId,
-      updateSettings,
-    ],
+    [agentProfileId, deepThink, engineConfigId, updateSettings],
   );
 
   const handleDeepThinkChange = useCallback(
     (value: boolean) => {
       updateSettings({
         managed,
-        llmConfigId,
+        engineConfigId,
         agentProfileId,
-        externalAgentConfigId,
         deepThink: value,
       });
     },
-    [
-      agentProfileId,
-      externalAgentConfigId,
-      llmConfigId,
-      managed,
-      updateSettings,
-    ],
+    [agentProfileId, engineConfigId, managed, updateSettings],
   );
 
   const handleLLMConfigChange = useCallback(
     (value: string | null) => {
-      updateSettings({
-        managed,
-        llmConfigId: value,
-        agentProfileId,
-        externalAgentConfigId,
-        deepThink,
-      });
+      if (isDisabled) {
+        return;
+      }
+      if (!selectedEngineConfig) {
+        return;
+      }
+      if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+        return;
+      }
+      const nextConfig = {
+        ...selectedEngineConfig,
+        settaLlmConfig: {
+          ...(selectedEngineConfig.settaLlmConfig ?? {}),
+          llmConfigId: value,
+        },
+      };
+      void updateEngineConfig({ config: nextConfig });
     },
-    [agentProfileId, deepThink, externalAgentConfigId, managed, updateSettings],
+    [isDisabled, selectedEngineConfig],
   );
 
   const handleAgentProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
         managed,
-        llmConfigId,
+        engineConfigId,
         agentProfileId: value,
-        externalAgentConfigId,
         deepThink,
       });
     },
-    [deepThink, externalAgentConfigId, llmConfigId, managed, updateSettings],
+    [deepThink, engineConfigId, managed, updateSettings],
   );
 
   const handleNewChat = useCallback(() => {
@@ -233,16 +293,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
 
   const handleEngineChange = useCallback(
     (value: string | null) => {
-      const nextExternalId =
-        value && value !== CHAT_ENGINE_SETTA_ID ? value : null;
+      const nextEngineId = value ?? null;
       updateSettings({
         managed,
-        llmConfigId,
+        engineConfigId: nextEngineId,
         agentProfileId,
-        externalAgentConfigId: nextExternalId,
         deepThink,
       });
-      if (value !== selectedEngineId) {
+      if (nextEngineId !== selectedEngineId) {
         handleNewChat();
       }
     },
@@ -250,7 +308,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       agentProfileId,
       deepThink,
       handleNewChat,
-      llmConfigId,
       managed,
       selectedEngineId,
       updateSettings,
@@ -261,7 +318,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ? "Add an LLM config or API key"
     : "Select an LLM";
   const highlightMissingConfig =
-    !llmConfigId && !hasProfileConfig && !isExternalEngine;
+    engineType === EngineTypeEnum.setta_llm &&
+    !selectedLLMConfigId &&
+    !noConfigsAvailable;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -292,6 +351,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
               outerDivClasses="justify-center"
               isDisabled={isDisabled}
             />
+            {externalStatusMessage ? (
+              <p className={`text-[11px] ${externalStatusClassName}`}>
+                {externalStatusMessage}
+              </p>
+            ) : null}
           </div>
           <div className="flex w-full flex-col gap-2">
             <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
@@ -309,11 +373,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             />
             {agentProfileId ? (
               <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                LLM config overrides the profile when set.
+                Engine config overrides the profile when set.
               </p>
             ) : null}
           </div>
-          {!isExternalEngine ? (
+          {engineType === EngineTypeEnum.setta_llm ? (
             <>
               <div className="flex w-full items-center justify-between gap-4">
                 <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
@@ -332,7 +396,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 </p>
                 <IdNameCombobox
                   allItems={availableConfigGroups}
-                  value={llmConfigId}
+                  value={selectedLLMConfigId}
                   small={false}
                   onSelectedItemChange={handleLLMConfigChange}
                   placeholder={configPlaceholder}

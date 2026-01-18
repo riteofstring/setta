@@ -40,6 +40,7 @@ import {
 } from "utils/generatedTypes";
 import {
   receiveAgentProfilesUpdate,
+  receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
@@ -343,6 +344,8 @@ function receiveMessage(message: string) {
       return receivePromptTemplatesUpdate(m.content.templates);
     case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
       return receiveExternalAgentConfigsUpdate(m.content.configs);
+    case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
+      return receiveEngineConfigsUpdate(m.content.configs);
     default:
       return m satisfies never;
   }

@@ -47,7 +47,7 @@ type AgentProfileDraft = {
   name: string;
   description: string;
   systemPrompt: string;
-  llmConfigId: string;
+  engineConfigId: string;
   toolAllowlistText: string;
   memoryScope: string;
 };
@@ -217,7 +217,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         systemPrompt: "",
-        llmConfigId: "",
+        engineConfigId: "",
         toolAllowlistText: "",
         memoryScope: "",
       });
@@ -254,7 +254,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: draft.name.trim(),
         description: draft.description.trim(),
         systemPrompt: draft.systemPrompt,
-        llmConfigId: normalizeOptionalText(draft.llmConfigId),
+        engineConfigId: normalizeOptionalText(draft.engineConfigId),
         toolAllowlist,
         memoryScope: normalizeOptionalText(draft.memoryScope),
       });
@@ -273,7 +273,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: draft.name.trim(),
         description: draft.description.trim(),
         systemPrompt: draft.systemPrompt,
-        llmConfigId: normalizeOptionalText(draft.llmConfigId),
+        engineConfigId: normalizeOptionalText(draft.engineConfigId),
         toolAllowlist,
         memoryScope: normalizeOptionalText(draft.memoryScope),
       },
@@ -414,13 +414,13 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
                 />
               </Field>
               <Field
-                label="LLM Config ID"
-                hint="Leave empty to use the default LLM config."
+                label="Engine Config ID"
+                hint="Leave empty to use the engine assigned elsewhere."
               >
                 <input
-                  value={draft.llmConfigId}
+                  value={draft.engineConfigId}
                   onChange={(event) =>
-                    handleFieldChange("llmConfigId", event.target.value)
+                    handleFieldChange("engineConfigId", event.target.value)
                   }
                   className={INPUT_CLASS_NAME}
                   disabled={!canEdit}
@@ -1263,7 +1263,7 @@ function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
     name: profile.name ?? "",
     description: profile.description ?? "",
     systemPrompt: profile.systemPrompt ?? "",
-    llmConfigId: profile.llmConfigId ?? "",
+    engineConfigId: profile.engineConfigId ?? "",
     toolAllowlistText: (profile.toolAllowlist ?? []).join("\n"),
     memoryScope: profile.memoryScope ?? "",
   };

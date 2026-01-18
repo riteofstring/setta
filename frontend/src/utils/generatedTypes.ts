@@ -85,6 +85,11 @@ export const AgentRunStatusEnum = {
   cancelled: "cancelled",
 } as const;
 
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -375,6 +380,11 @@ export const RouteEnum = {
   CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
   UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
   DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
+  GET_ENGINE_CONFIGS: "/getEngineConfigs",
+  GET_ENGINE_CONFIG: "/getEngineConfig",
+  CREATE_ENGINE_CONFIG: "/createEngineConfig",
+  UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
+  DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
   START_EXTERNAL_AGENT_RUN: "/startExternalAgentRun",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
@@ -562,6 +572,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AgentProfilesUpdated: "AgentProfilesUpdated",
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1253,8 +1264,8 @@ const SharedModifierSchema = z.object({
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
+  engineConfigId: z.union([IDSchema, z.null()]).optional(),
   eraserBrushSize: z.int().optional(),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   folder: z.string().optional(),
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
@@ -1278,7 +1289,6 @@ const SharedModifierSchema = z.object({
   jsonSourceMissing: z.boolean().optional(),
   label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
-  llmConfigId: z.union([z.string(), z.null()]).optional(),
   managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
   messages: z
@@ -1377,8 +1387,8 @@ const CoreSchema = z.object({
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
+        "engineConfigId",
         "eraserBrushSize",
-        "externalAgentConfigId",
         "folder",
         "format",
         "headingAsSectionName",
@@ -1400,7 +1410,6 @@ const CoreSchema = z.object({
         "jsonSourceMissing",
         "label",
         "layers",
-        "llmConfigId",
         "managed",
         "max",
         "messages",
@@ -1860,9 +1869,8 @@ const ChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -3002,9 +3010,8 @@ const ChatSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
-  llmConfigId: z.union([z.string(), z.null()]).optional(),
+  engineConfigId: z.union([IDSchema, z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
   messages: z
@@ -3906,9 +3913,8 @@ const UserDefaultChatSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -4730,7 +4736,7 @@ const AgentProfileSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
 });
@@ -4805,6 +4811,45 @@ const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated),
 });
 
+const SettaLlmEngineConfigSchema = z.object({
+  llmConfigId: z.union([z.string(), z.null()]).default(null),
+});
+
+const EngineConfigDefaultsSchema = z.object({
+  deepThink: z.union([z.boolean(), z.null()]).default(null),
+});
+
+type EngineConfigDefaults = z.infer<typeof EngineConfigDefaultsSchema>;
+
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return EngineConfigDefaultsSchema.parse(options);
+}
+
+const EngineConfigSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  engineType: z.enum(EngineTypeEnum),
+  settaLlmConfig: z.union([SettaLlmEngineConfigSchema, z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
+  defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
+});
+
+export type EngineConfig = z.infer<typeof EngineConfigSchema>;
+
+const EngineConfigListSchema = z.object({
+  configs: z.array(EngineConfigSchema),
+});
+
+const WebsocketMsgEngineConfigsUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: EngineConfigListSchema,
+  messageType: z
+    .literal("EngineConfigsUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4859,6 +4904,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAgentProfilesUpdatedSchema,
   WebsocketMsgPromptTemplatesUpdatedSchema,
   WebsocketMsgExternalAgentConfigsUpdatedSchema,
+  WebsocketMsgEngineConfigsUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -5556,13 +5602,25 @@ const CreateAgentProfileRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
 });
 
 export type CreateAgentProfileRequestInput = z.input<
   typeof CreateAgentProfileRequestSchema
+>;
+
+const CreateEngineConfigRequestSchema = z.object({
+  name: z.string(),
+  engineType: z.enum(EngineTypeEnum),
+  settaLlmConfig: z.union([SettaLlmEngineConfigSchema, z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
+  defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
+});
+
+export type CreateEngineConfigRequestInput = z.input<
+  typeof CreateEngineConfigRequestSchema
 >;
 
 const CreateExternalAgentConfigRequestSchema = z.object({
@@ -5607,6 +5665,14 @@ export type DeleteAgentProfileRequestInput = z.input<
   typeof DeleteAgentProfileRequestSchema
 >;
 
+const DeleteEngineConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type DeleteEngineConfigRequestInput = z.input<
+  typeof DeleteEngineConfigRequestSchema
+>;
+
 const DeleteExternalAgentConfigRequestSchema = z.object({
   configId: IDSchema,
 });
@@ -5636,6 +5702,14 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetEngineConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type GetEngineConfigRequestInput = z.input<
+  typeof GetEngineConfigRequestSchema
+>;
 
 const GetExternalAgentConfigRequestSchema = z.object({
   configId: IDSchema,
@@ -5672,7 +5746,7 @@ export type StartAgentRunRequestInput = z.input<
 >;
 
 const StartExternalAgentRunRequestSchema = z.object({
-  configId: IDSchema,
+  engineConfigId: IDSchema,
   profileId: z.union([IDSchema, z.null()]).default(null),
   inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
@@ -5703,6 +5777,14 @@ const UpdateAgentProfileRequestSchema = z.object({
 
 export type UpdateAgentProfileRequestInput = z.input<
   typeof UpdateAgentProfileRequestSchema
+>;
+
+const UpdateEngineConfigRequestSchema = z.object({
+  config: EngineConfigSchema,
+});
+
+export type UpdateEngineConfigRequestInput = z.input<
+  typeof UpdateEngineConfigRequestSchema
 >;
 
 const UpdateExternalAgentConfigRequestSchema = z.object({
@@ -5787,7 +5869,7 @@ const GetLLMResponseRequestSchema = z.object({
     UserChatMessageSchema,
     ToolChatMessageSchema,
   ]),
-  llmConfigId: z.union([z.string(), z.null()]),
+  engineConfigId: IDSchema,
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean(),
   projectConfigId: IDSchema,
@@ -6432,9 +6514,8 @@ const SetChatSectionSettingsRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   managed: z.boolean(),
-  llmConfigId: z.union([z.string(), z.null()]),
+  engineConfigId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean(),
 });
 

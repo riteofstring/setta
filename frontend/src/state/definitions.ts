@@ -23,7 +23,9 @@ import {
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
+  EngineConfig,
   ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
@@ -492,6 +494,12 @@ type ZustandAIStore = {
   externalAgentConfigs: Array<ExternalAgentConfig>;
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
+  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealthInitialLoadComplete: boolean;
+  externalAgentHealthLoadError: string | null;
+  engineConfigs: Array<EngineConfig>;
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigsLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -522,6 +530,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         externalAgentConfigs: [],
         externalAgentConfigsInitialLoadComplete: false,
         externalAgentConfigsLoadError: null,
+        externalAgentHealth: [],
+        externalAgentHealthInitialLoadComplete: false,
+        externalAgentHealthLoadError: null,
+        engineConfigs: [],
+        engineConfigsInitialLoadComplete: false,
+        engineConfigsLoadError: null,
       }),
       {
         name: "setta_ai_data",

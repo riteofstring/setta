@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import {
   loadAgentProfiles,
+  loadEngineConfigs,
   loadExternalAgentConfigs,
+  loadExternalAgentHealth,
   loadPromptTemplates,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
@@ -11,11 +13,15 @@ export function useHydrateAgenticState() {
     agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete,
     externalAgentConfigsInitialLoadComplete,
+    engineConfigsInitialLoadComplete,
   } = useAIStore((x) => ({
     agentProfilesInitialLoadComplete: x.agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete: x.promptTemplatesInitialLoadComplete,
     externalAgentConfigsInitialLoadComplete:
       x.externalAgentConfigsInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete:
+      x.externalAgentHealthInitialLoadComplete,
+    engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
   }));
 
   useEffect(() => {
@@ -28,9 +34,17 @@ export function useHydrateAgenticState() {
     if (!externalAgentConfigsInitialLoadComplete) {
       void loadExternalAgentConfigs();
     }
+    if (!externalAgentHealthInitialLoadComplete) {
+      void loadExternalAgentHealth();
+    }
+    if (!engineConfigsInitialLoadComplete) {
+      void loadEngineConfigs();
+    }
   }, [
     agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete,
     externalAgentConfigsInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete,
+    engineConfigsInitialLoadComplete,
   ]);
 }

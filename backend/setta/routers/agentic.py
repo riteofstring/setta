@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
+from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
@@ -12,17 +13,27 @@ from setta.agentic.store import (
     list_prompt_templates,
     load_agent_profiles,
     load_agent_run,
+    load_engine_configs,
     load_external_agent_configs,
     load_prompt_template,
     require_agent_profile,
+    require_engine_config,
     require_external_agent_config,
     save_agent_profiles,
+    save_engine_configs,
     save_external_agent_configs,
     save_prompt_template,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.agentic import AgentProfile, AgentRun
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    EngineConfig,
+    EngineConfigDefaults,
+    EngineType,
+    SettaLlmEngineConfig,
+)
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentPreflightStatus,
@@ -41,7 +52,7 @@ class CreateAgentProfileRequest(BaseModel):
     name: str
     description: str = ""
     systemPrompt: str = ""
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
     toolAllowlist: list[str] = Field(default_factory=list)
     memoryScope: str | None = None
 
@@ -72,7 +83,7 @@ class GetAgentRunRequest(BaseModel):
 
 
 class StartExternalAgentRunRequest(BaseModel):
-    configId: ID
+    engineConfigId: ID
     profileId: ID | None = None
     inputs: dict[str, Any] | None = None
 
@@ -136,6 +147,26 @@ class DeleteExternalAgentConfigRequest(BaseModel):
     configId: ID
 
 
+class CreateEngineConfigRequest(BaseModel):
+    name: str
+    engineType: EngineType
+    settaLlmConfig: SettaLlmEngineConfig | None = None
+    externalAgentConfigId: ID | None = None
+    defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
+
+
+class UpdateEngineConfigRequest(BaseModel):
+    config: EngineConfig
+
+
+class GetEngineConfigRequest(BaseModel):
+    configId: ID
+
+
+class DeleteEngineConfigRequest(BaseModel):
+    configId: ID
+
+
 @router.get(Route.GET_AGENT_PROFILES)
 async def route_get_agent_profiles(
     ctx: RuntimeContextFromRequest,
@@ -168,7 +199,7 @@ async def route_create_agent_profile(
         name=x.name,
         description=x.description,
         systemPrompt=x.systemPrompt,
-        llmConfigId=x.llmConfigId,
+        engineConfigId=x.engineConfigId,
         toolAllowlist=x.toolAllowlist,
         memoryScope=x.memoryScope,
     )
@@ -215,13 +246,55 @@ async def route_start_agent_run(
     ctx: RuntimeContextFromRequest,
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
-    if ctx.state.agent_runner.disabled:
-        raise HTTPException(status_code=503, detail="Agent runner is not available")
-    profiles = load_agent_profiles(ctx.state.dbe)
-    for profile in profiles:
-        if profile.id == x.profileId:
-            return ctx.state.agent_runner.start_run(profile, x.inputs)
-    raise HTTPException(status_code=404, detail="Agent profile not found")
+    try:
+        profile = require_agent_profile(ctx.state.dbe, x.profileId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if profile.engineConfigId is None:
+        raise HTTPException(status_code=400, detail="Agent profile missing engine")
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, profile.engineConfigId
+    )
+    if resolved.engine_config.engineType == EngineType.setta_llm:
+        if ctx.state.agent_runner.disabled:
+            raise HTTPException(status_code=503, detail="Agent runner is not available")
+        return ctx.state.agent_runner.start_run(profile, x.inputs)
+    if resolved.engine_config.engineType == EngineType.external_agent:
+        runner = ctx.state.external_agent_runner
+        if runner.disabled:
+            raise HTTPException(
+                status_code=503, detail="External agent runner is not available"
+            )
+        external_config = resolved.external_agent_config
+        if external_config is None:
+            raise HTTPException(
+                status_code=500, detail="External agent config not found"
+            )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
+        if not status.available:
+            issues = "; ".join(status.issues) if status.issues else "preflight failed"
+            raise HTTPException(
+                status_code=503,
+                detail=f"External agent config is not available: {issues}",
+            )
+        if (
+            profile.toolAllowlist
+            and external_config.toolType != ExternalAgentToolType.claude_code
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tool allowlists are only supported for Claude Code external runs. "
+                    "Remove toolAllowlist or choose a Claude Code config."
+                ),
+            )
+        return runner.start_run(
+            resolved.engine_config.id,
+            external_config,
+            profile,
+            x.inputs,
+        )
+    raise HTTPException(status_code=400, detail="Unsupported engine config")
 
 
 @router.post(Route.STOP_AGENT_RUN)
@@ -250,7 +323,16 @@ async def route_start_external_agent_run(
             status_code=503, detail="External agent runner is not available"
         )
     try:
-        config = require_external_agent_config(ctx.state.dbe, x.configId)
+        engine_config = require_engine_config(ctx.state.dbe, x.engineConfigId)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if engine_config.engineType != EngineType.external_agent:
+        raise HTTPException(status_code=400, detail="Engine config is not external")
+    external_config_id = engine_config.externalAgentConfigId
+    if external_config_id is None:
+        raise HTTPException(status_code=500, detail="External agent config not found")
+    try:
+        config = require_external_agent_config(ctx.state.dbe, external_config_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     status = build_external_agent_preflight_status(ctx.state.dbe, config)
@@ -278,7 +360,7 @@ async def route_start_external_agent_run(
                 "Remove toolAllowlist or choose a Claude Code config."
             ),
         )
-    return runner.start_run(config, profile, x.inputs)
+    return runner.start_run(x.engineConfigId, config, profile, x.inputs)
 
 
 @router.post(Route.STOP_EXTERNAL_AGENT_RUN)
@@ -513,3 +595,78 @@ async def route_delete_external_agent_config(
             )
             return None
     raise HTTPException(status_code=404, detail="External agent config not found")
+
+
+@router.get(Route.GET_ENGINE_CONFIGS)
+async def route_get_engine_configs(
+    ctx: RuntimeContextFromRequest,
+) -> list[EngineConfig]:
+    await ctx.enforce_llm_allowed()
+    return load_engine_configs(ctx.state.dbe)
+
+
+@router.post(Route.GET_ENGINE_CONFIG)
+async def route_get_engine_config(
+    x: GetEngineConfigRequest, ctx: RuntimeContextFromRequest
+) -> EngineConfig:
+    await ctx.enforce_llm_allowed()
+    configs = load_engine_configs(ctx.state.dbe)
+    for config in configs:
+        if config.id == x.configId:
+            return config
+    raise HTTPException(status_code=404, detail="Engine config not found")
+
+
+@router.post(Route.CREATE_ENGINE_CONFIG)
+async def route_create_engine_config(
+    x: CreateEngineConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> EngineConfig:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow creating engine configs.")
+    configs = load_engine_configs(ctx.state.dbe)
+    config = EngineConfig(
+        name=x.name,
+        engineType=x.engineType,
+        settaLlmConfig=x.settaLlmConfig,
+        externalAgentConfigId=x.externalAgentConfigId,
+        defaults=x.defaults,
+    )
+    configs.append(config)
+    save_engine_configs(ctx.state.dbe, configs)
+    await ctx.state.wmh_frontend_sender.broadcast_engine_configs_update(configs)
+    return config
+
+
+@router.post(Route.UPDATE_ENGINE_CONFIG)
+async def route_update_engine_config(
+    x: UpdateEngineConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> EngineConfig:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating engine configs.")
+    configs = load_engine_configs(ctx.state.dbe)
+    for idx, config in enumerate(configs):
+        if config.id == x.config.id:
+            configs[idx] = x.config
+            save_engine_configs(ctx.state.dbe, configs)
+            await ctx.state.wmh_frontend_sender.broadcast_engine_configs_update(configs)
+            return x.config
+    raise HTTPException(status_code=404, detail="Engine config not found")
+
+
+@router.post(Route.DELETE_ENGINE_CONFIG)
+async def route_delete_engine_config(
+    x: DeleteEngineConfigRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow deleting engine configs.")
+    configs = load_engine_configs(ctx.state.dbe)
+    for idx, config in enumerate(configs):
+        if config.id == x.configId:
+            configs.pop(idx)
+            save_engine_configs(ctx.state.dbe, configs)
+            await ctx.state.wmh_frontend_sender.broadcast_engine_configs_update(configs)
+            return None
+    raise HTTPException(status_code=404, detail="Engine config not found")

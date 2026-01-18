@@ -78,8 +78,8 @@ class SharedModifier(TypedDict):
     drawThrottleDelay: NotRequired[int]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
+    engineConfigId: NotRequired[ID | None]
     eraserBrushSize: NotRequired[int]
-    externalAgentConfigId: NotRequired[ID | None]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
@@ -101,7 +101,6 @@ class SharedModifier(TypedDict):
     jsonSourceMissing: NotRequired[bool]
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
-    llmConfigId: NotRequired[str | None]
     managed: NotRequired[bool]
     max: NotRequired[float | int]
     messages: NotRequired[

@@ -2183,9 +2183,8 @@ def set_chat_section_settings(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
     managed: bool,
-    llmConfigId: str | None,
+    engineConfigId: ID | None,
     agentProfileId: ID | None,
-    externalAgentConfigId: ID | None,
     deepThink: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
@@ -2194,9 +2193,8 @@ def set_chat_section_settings(
         sectionId,
         ChatSectionImplArgsWithCallable(
             managed=managed,
-            llmConfigId=llmConfigId,
+            engineConfigId=engineConfigId,
             agentProfileId=agentProfileId,
-            externalAgentConfigId=externalAgentConfigId,
             deepThink=deepThink,
         ),
     )

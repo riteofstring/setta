@@ -302,9 +302,8 @@ class ChatSectionImpl(BaseSectionImpl):
         default_factory=lambda: SectionSize(width=405, height=405)
     )
     managed: bool = False
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
     agentProfileId: ID | None = None
-    externalAgentConfigId: ID | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)

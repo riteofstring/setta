@@ -14,23 +14,27 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
+  route_create_engine_config,
   route_create_external_agent_config,
   route_create_prompt_template,
   route_delete_agent_profile,
+  route_delete_engine_config,
   route_delete_external_agent_config,
   route_delete_prompt_template,
   route_get_agent_profiles,
   route_get_agent_runs,
+  route_get_engine_configs,
   route_get_external_agent_chat,
   route_get_external_agent_configs,
+  route_get_external_agent_health,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
   route_respond_external_agent_approval,
-  route_start_external_agent_run,
   route_update_agent_profile,
+  route_update_engine_config,
   route_update_external_agent_config,
   route_update_prompt_template,
 } from "utils/generatedEndpoints";
@@ -45,14 +49,18 @@ import {
   ChatRoleEnum,
   ChatSectionState,
   CreateAgentProfileRequestInput,
+  CreateEngineConfigRequestInput,
   CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
   createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
   DeleteAgentProfileRequestInput,
+  DeleteEngineConfigRequestInput,
   DeleteExternalAgentConfigRequestInput,
   DeletePromptTemplateRequestInput,
+  EngineConfig,
   ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -68,6 +76,7 @@ import {
   ToolCallDeltaEvent,
   ToolResultEvent,
   UpdateAgentProfileRequestInput,
+  UpdateEngineConfigRequestInput,
   UpdateExternalAgentConfigRequestInput,
   UpdatePromptTemplateRequestInput,
 } from "utils/generatedTypes";
@@ -185,6 +194,18 @@ export async function loadExternalAgentConfigs() {
   }
 }
 
+export async function loadExternalAgentHealth() {
+  const res = await route_get_external_agent_health();
+  if (res200(res)) {
+    receiveExternalAgentHealthUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentHealthInitialLoadComplete: true,
+      externalAgentHealthLoadError: "Failed to load external agent health",
+    });
+  }
+}
+
 export function receiveExternalAgentConfigsUpdate(
   payload: Array<ExternalAgentConfig>,
 ) {
@@ -192,6 +213,37 @@ export function receiveExternalAgentConfigsUpdate(
     externalAgentConfigs: payload,
     externalAgentConfigsInitialLoadComplete: true,
     externalAgentConfigsLoadError: null,
+  });
+  void loadExternalAgentHealth();
+}
+
+function receiveExternalAgentHealthUpdate(
+  payload: Array<ExternalAgentPreflightStatus>,
+) {
+  useAIStore.setState({
+    externalAgentHealth: payload,
+    externalAgentHealthInitialLoadComplete: true,
+    externalAgentHealthLoadError: null,
+  });
+}
+
+export async function loadEngineConfigs() {
+  const res = await route_get_engine_configs();
+  if (res200(res)) {
+    receiveEngineConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigsLoadError: "Failed to load engine configs",
+    });
+  }
+}
+
+export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
+  useAIStore.setState({
+    engineConfigs: payload,
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
   });
 }
 
@@ -263,6 +315,62 @@ export async function deleteAgentProfile(
     agentProfiles: removeById(state.agentProfiles, payload.profileId),
     agentProfilesInitialLoadComplete: true,
     agentProfilesLoadError: null,
+  }));
+  return true;
+}
+
+async function createEngineConfig(
+  payload: CreateEngineConfigRequestInput,
+): Promise<EngineConfig | null> {
+  const res = await route_create_engine_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      engineConfigsLoadError: "Failed to create engine config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    engineConfigs: upsertById(state.engineConfigs, config),
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function updateEngineConfig(
+  payload: UpdateEngineConfigRequestInput,
+): Promise<EngineConfig | null> {
+  const res = await route_update_engine_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      engineConfigsLoadError: "Failed to update engine config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    engineConfigs: upsertById(state.engineConfigs, config),
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+  }));
+  return config;
+}
+
+async function deleteEngineConfig(
+  payload: DeleteEngineConfigRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_engine_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      engineConfigsLoadError: "Failed to delete engine config",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    engineConfigs: removeById(state.engineConfigs, payload.configId),
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
   }));
   return true;
 }
@@ -463,11 +571,11 @@ export async function submitMessage(
   chatId: string | null,
   message: string,
   deepThink: boolean,
-  llmConfigId: string | null,
+  engineConfigId: string,
   messageId?: string,
   agentProfileId?: string | null,
 ): Promise<string | null> {
-  if (!message.trim()) {
+  if (!message.trim() || !engineConfigId) {
     return null;
   }
 
@@ -487,7 +595,7 @@ export async function submitMessage(
       message: userMessage,
       deepThink,
       chatId,
-      llmConfigId,
+      engineConfigId,
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
     });
@@ -497,60 +605,6 @@ export async function submitMessage(
         await getLLMChat(returnedChatId);
       }
       return returnedChatId;
-    }
-    rollbackOptimisticUserMessage(chatId, userMessageId);
-    return null;
-  } catch (err) {
-    rollbackOptimisticUserMessage(chatId, userMessageId);
-    throw err;
-  }
-}
-
-type ExternalAgentSubmitOptions = {
-  agentProfileId: string | null;
-  deepThink: boolean;
-  priorMessages: Array<BaseChatMessageUnion>;
-  messageId?: string;
-};
-
-export async function submitExternalAgentMessage(
-  chatId: string | null,
-  message: string,
-  externalAgentConfigId: string,
-  options: ExternalAgentSubmitOptions,
-): Promise<AgentRun | null> {
-  if (!message.trim()) {
-    return null;
-  }
-
-  const userMessage = {
-    id: options.messageId ?? createNewId(),
-    role: ChatRoleEnum.user,
-    content: [createMessageTextContent({ text: message })],
-  };
-  const userMessageId = userMessage.id;
-
-  applyOptimisticUserMessage(chatId, userMessage);
-
-  const combinedMessages = [...options.priorMessages, userMessage];
-  const projectConfigId = getCurrProjectConfigId();
-  const inputs: Record<string, unknown> = {
-    projectConfigId,
-    deepThink: options.deepThink,
-    messages: combinedMessages,
-  };
-  if (chatId) {
-    inputs.chatId = chatId;
-  }
-
-  try {
-    const res = await route_start_external_agent_run({
-      configId: externalAgentConfigId,
-      profileId: options.agentProfileId,
-      inputs,
-    });
-    if (res200(res)) {
-      return res.data;
     }
     rollbackOptimisticUserMessage(chatId, userMessageId);
     return null;

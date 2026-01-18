@@ -339,7 +339,7 @@ async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
-export async function route_start_external_agent_run(
+async function route_start_external_agent_run(
   x: gt.StartExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post("/startExternalAgentRun", x);
@@ -411,7 +411,7 @@ async function route_get_external_agent_config(
   return await post("/getExternalAgentConfig", x);
 }
 
-async function route_get_external_agent_health(): Promise<
+export async function route_get_external_agent_health(): Promise<
   ResponseDataAndStatus<Array<gt.ExternalAgentPreflightStatus>>
 > {
   return await get("/getExternalAgentHealth");
@@ -433,6 +433,36 @@ export async function route_delete_external_agent_config(
   x: gt.DeleteExternalAgentConfigRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteExternalAgentConfig", x);
+}
+
+export async function route_get_engine_configs(): Promise<
+  ResponseDataAndStatus<Array<gt.EngineConfig>>
+> {
+  return await get("/getEngineConfigs");
+}
+
+async function route_get_engine_config(
+  x: gt.GetEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/getEngineConfig", x);
+}
+
+export async function route_create_engine_config(
+  x: gt.CreateEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/createEngineConfig", x);
+}
+
+export async function route_update_engine_config(
+  x: gt.UpdateEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/updateEngineConfig", x);
+}
+
+export async function route_delete_engine_config(
+  x: gt.DeleteEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteEngineConfig", x);
 }
 
 export async function route_clear_text_field_completion(

@@ -9,12 +9,38 @@ from setta.types.id import ID
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
+class EngineType(str, Enum):
+    setta_llm = "setta_llm"
+    external_agent = "external_agent"
+
+
+class SettaLlmEngineConfig(BaseModel, extra="forbid"):
+    llmConfigId: str | None = None
+
+
+class EngineConfigDefaults(BaseModel, extra="forbid"):
+    deepThink: bool | None = None
+
+
+class EngineConfig(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    engineType: EngineType
+    settaLlmConfig: SettaLlmEngineConfig | None = None
+    externalAgentConfigId: ID | None = None
+    defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
+
+
+class EngineConfigList(BaseModel, extra="forbid"):
+    configs: list[EngineConfig]
+
+
 class AgentProfile(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str
     description: str = ""
     systemPrompt: str = ""
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
     toolAllowlist: list[str] = Field(default_factory=list)
     memoryScope: str | None = None
 

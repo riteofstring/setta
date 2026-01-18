@@ -1,46 +1,103 @@
-import { ExternalAgentConfig } from "utils/generatedTypes";
-
-export const CHAT_ENGINE_SETTA_ID = "setta-llm";
+import {
+  EngineConfig,
+  EngineTypeEnum,
+  ExternalAgentPreflightStatus,
+} from "utils/generatedTypes";
 
 type IdNameItem = { id: string; name: string };
 
 type IdNameGroup = { group: string; items: Array<IdNameItem> };
 
+type ExternalEngineStatus = {
+  status: "loading" | "missing" | "available" | "unavailable";
+  issues: Array<string>;
+  name: string | null;
+};
+
 type ChatPlaceholderOptions = {
-  isExternalEngine: boolean;
-  hasExternalConfig: boolean;
+  engineType: EngineTypeEnum | null;
+  hasEngineConfig: boolean;
   hasLLMConfig: boolean;
   noLLMConfigsAvailable: boolean;
 };
 
 export function buildEngineGroups(
-  externalAgentConfigs: Array<ExternalAgentConfig>,
+  engineConfigs: Array<EngineConfig>,
 ): Array<IdNameGroup> {
-  const externalItems = externalAgentConfigs.map((config) => {
-    return {
+  const settaItems = engineConfigs
+    .filter((config) => config.engineType === EngineTypeEnum.setta_llm)
+    .map((config) => ({
       id: config.id,
-      name: buildExternalAgentConfigLabel(config),
+      name: config.name?.trim() || "Setta LLM",
+    }));
+  const externalItems = engineConfigs
+    .filter((config) => config.engineType === EngineTypeEnum.external_agent)
+    .map((config) => ({
+      id: config.id,
+      name: config.name?.trim() || "External Agent",
+    }));
+  const groups: Array<IdNameGroup> = [];
+  if (settaItems.length > 0) {
+    groups.push({ group: "Setta Engines", items: settaItems });
+  }
+  if (externalItems.length > 0) {
+    groups.push({ group: "External Agents", items: externalItems });
+  }
+  return groups;
+}
+
+export function getExternalEngineStatus(
+  engineConfig: EngineConfig | null,
+  health: Array<ExternalAgentPreflightStatus>,
+  healthLoaded: boolean,
+): ExternalEngineStatus | null {
+  if (
+    !engineConfig ||
+    engineConfig.engineType !== EngineTypeEnum.external_agent
+  ) {
+    return null;
+  }
+  if (!healthLoaded) {
+    return { status: "loading", issues: [], name: null };
+  }
+  const externalConfigId = engineConfig.externalAgentConfigId;
+  if (!externalConfigId) {
+    return {
+      status: "missing",
+      issues: ["Missing external agent config id"],
+      name: null,
     };
-  });
-  return [
-    {
-      group: "Engine",
-      items: [{ id: CHAT_ENGINE_SETTA_ID, name: "Setta LLM" }],
-    },
-    {
-      group: "External Agents",
-      items: externalItems,
-    },
-  ];
+  }
+  const status =
+    health.find((entry) => entry.configId === externalConfigId) ?? null;
+  if (!status) {
+    return {
+      status: "missing",
+      issues: ["External agent config not found"],
+      name: null,
+    };
+  }
+  const issues = [...status.issues];
+  if (!status.supported) {
+    issues.unshift("External agent is not supported");
+  }
+  if (!status.available || !status.supported) {
+    return {
+      status: "unavailable",
+      issues,
+      name: status.name ?? null,
+    };
+  }
+  return { status: "available", issues, name: status.name ?? null };
 }
 
 export function getChatPlaceholderText(
   options: ChatPlaceholderOptions,
 ): string {
-  if (options.isExternalEngine) {
-    if (!options.hasExternalConfig) {
-      return "Select an external agent";
-    }
+  if (!options.hasEngineConfig) {
+    return "Select an engine";
+  }
+  if (options.engineType === EngineTypeEnum.external_agent) {
     return "Type a message...";
   }
   if (options.noLLMConfigsAvailable) {
@@ -50,12 +107,4 @@ export function getChatPlaceholderText(
     return "Select an LLM";
   }
   return "Type a message...";
-}
-
-function buildExternalAgentConfigLabel(config: ExternalAgentConfig): string {
-  const toolLabel = config.toolType.replaceAll("_", " ");
-  if (config.name?.trim()) {
-    return config.name;
-  }
-  return `${toolLabel} (${config.runMode})`;
 }

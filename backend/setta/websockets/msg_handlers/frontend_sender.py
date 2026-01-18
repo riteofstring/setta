@@ -11,7 +11,12 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.agentic import AgentProfile, AgentProfileList
+from setta.types.agentic import (
+    AgentProfile,
+    AgentProfileList,
+    EngineConfig,
+    EngineConfigList,
+)
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
@@ -47,6 +52,7 @@ from setta.types.websocket import (
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
+    WebsocketMsgEngineConfigsUpdated,
     WebsocketMsgExternalAgentConfigsUpdated,
     WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMApiKeysUpdated,
@@ -406,6 +412,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgExternalAgentConfigsUpdated(
                 content=ExternalAgentConfigList(configs=configs)
             ),
+            share_session_id,
+        )
+
+    async def broadcast_engine_configs_update(
+        self,
+        configs: list[EngineConfig],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgEngineConfigsUpdated(content=EngineConfigList(configs=configs)),
             share_session_id,
         )
 

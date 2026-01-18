@@ -47,7 +47,13 @@ from setta.routers.agentic import (
     route_update_external_agent_config,
     route_update_prompt_template,
 )
-from setta.types.agentic import AgentRunStatus
+from setta.agentic.store import save_engine_configs
+from setta.types.agentic import (
+    AgentRunStatus,
+    EngineConfig,
+    EngineType,
+    SettaLlmEngineConfig,
+)
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentEnvVarStatus,
@@ -57,6 +63,7 @@ from setta.types.external_agents import (
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -95,16 +102,30 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             agent_runner.update_config(
                 AllLLMConfigs(
                     configs={
-                    "planner-llm": LLMConfig(
-                        id="planner-llm",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
+                        "planner-llm": LLMConfig(
+                            id="planner-llm",
+                            model="gpt-4o-mini",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        )
                 },
                     mcpServers={},
                 )
+            )
+            engine_config_id = ID("engine-planner")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=engine_config_id,
+                        name="Planner Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfig=SettaLlmEngineConfig(
+                            llmConfigId="planner-llm"
+                        ),
+                    )
+                ],
             )
             state = _AgenticTestState(
                 dbe=dbe,
@@ -118,7 +139,7 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         name="Planner",
                         description="Planner profile",
                         systemPrompt="Plan tasks",
-                        llmConfigId="planner-llm",
+                        engineConfigId=engine_config_id,
                         toolAllowlist=["tool.a"],
                         memoryScope="workspace",
                     ),
@@ -329,10 +350,16 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     "setta.routers.agentic.build_external_agent_preflight_status",
                     return_value=preflight,
                 ):
+                    engine_config = EngineConfig(
+                        name="Codex Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=created.id,
+                    )
+                    save_engine_configs(dbe, [engine_config])
                     with self.assertRaises(HTTPException) as ctx_err:
                         await route_start_external_agent_run(
                             StartExternalAgentRunRequest(
-                                configId=created.id,
+                                engineConfigId=engine_config.id,
                                 inputs={"prompt": "hello"},
                             ),
                             ctx,
