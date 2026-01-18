@@ -965,6 +965,13 @@ class ExternalAgentRunner:
         tool_name = self._extract_tool_name(payload)
         is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
+            if context.config.toolType == ExternalAgentToolType.claude_code:
+                self._record_event(
+                    run,
+                    "approval_request",
+                    {"approvalId": approval_id, "payload": payload},
+                )
+                return
             self._pending_questions[approval_id] = ExternalAgentQuestionState(
                 tool_call_id=approval_id,
                 run_id=run.id,
