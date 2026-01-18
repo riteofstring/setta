@@ -77,14 +77,6 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
-const AgentRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -196,7 +188,6 @@ export const SectionTypeEnum = {
   Chart: "Chart",
   Draw: "Draw",
   TextBlock: "TextBlock",
-  Prompt: "Prompt",
   MetaControl: "MetaControl",
   Social: "Social",
   GlobalVariables: "GlobalVariables",
@@ -221,25 +212,6 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
-const ExternalAgentRunModeEnum = {
-  cli: "cli",
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-} as const;
-
-const ExternalAgentToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-  opencode: "opencode",
-} as const;
-
-const ExternalAgentWorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -252,14 +224,7 @@ export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
-export const PromptFormatEnum = { Jinja: "Jinja" } as const;
-
 const SectionSizeModeEnum = { auto: "auto" } as const;
-
-export const SectionWithParamsDisplayModeEnum = {
-  Gui: "Gui",
-  Yaml: "Yaml",
-} as const;
 
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
@@ -332,7 +297,6 @@ export const RouteEnum = {
   READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
-  SECTION_TO_YAML: "/sectionToYaml",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
   NEW_JSON_VERSION_NAME: "/newJsonVersionName",
   SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
@@ -354,29 +318,7 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
-  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
-  GET_AGENT_PROFILES: "/getAgentProfiles",
-  GET_AGENT_PROFILE: "/getAgentProfile",
-  CREATE_AGENT_PROFILE: "/createAgentProfile",
-  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
-  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
-  START_AGENT_RUN: "/startAgentRun",
-  STOP_AGENT_RUN: "/stopAgentRun",
-  GET_AGENT_RUN: "/getAgentRun",
-  GET_AGENT_RUNS: "/getAgentRuns",
-  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
-  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
-  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
-  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
-  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
-  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
-  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
-  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
-  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
-  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
-  START_EXTERNAL_AGENT_RUN: "/startExternalAgentRun",
-  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -420,9 +362,6 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
-  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
-  SET_PROMPT_INPUTS: "/setPromptInputs",
-  SET_PROMPT_FORMAT: "/setPromptFormat",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -456,7 +395,6 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
-  SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
@@ -473,6 +411,10 @@ export const RouteEnum = {
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   MOVE_SECTION: "/moveSection",
+  MOVE_PARAMS: "/moveParams",
+  MOVE_PARAM_GROUPS: "/moveParamGroups",
+  INDENT_PARAMS: "/indentParams",
+  UNINDENT_PARAMS: "/unindentParams",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -558,9 +500,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  AgentProfilesUpdated: "AgentProfilesUpdated",
-  PromptTemplatesUpdated: "PromptTemplatesUpdated",
-  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1219,7 +1158,6 @@ export function createSectionSize(
 const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
-  agentProfileId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -1248,16 +1186,12 @@ const SharedModifierSchema = z.object({
   deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   eraserBrushSize: z.int().optional(),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   folder: z.string().optional(),
-  format: z
-    .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
-    .optional(),
+  format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1266,7 +1200,6 @@ const SharedModifierSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   imagePath: z.string().optional(),
   inputText: z.string().optional(),
-  inputs: z.record(z.string(), z.string()).optional(),
   isFrozen: z.boolean().optional(),
   isHorizontalOrientation: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
@@ -1293,7 +1226,6 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
-  missingVariables: z.array(z.string()).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1301,8 +1233,6 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderError: z.union([z.string(), z.null()]).optional(),
-  renderedText: z.string().optional(),
   renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
@@ -1313,7 +1243,6 @@ const SharedModifierSchema = z.object({
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
-  template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
@@ -1345,7 +1274,6 @@ const CoreSchema = z.object({
       z.literal([
         "actionMode",
         "activeLayerIdx",
-        "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -1372,12 +1300,10 @@ const CoreSchema = z.object({
         "deepThink",
         "defaultVal",
         "description",
-        "displayMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
         "eraserBrushSize",
-        "externalAgentConfigId",
         "folder",
         "format",
         "headingAsSectionName",
@@ -1388,7 +1314,6 @@ const CoreSchema = z.object({
         "ignoreTypeErrors",
         "imagePath",
         "inputText",
-        "inputs",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",
@@ -1406,7 +1331,6 @@ const CoreSchema = z.object({
         "metaControlParamId",
         "metaControlStyle",
         "min",
-        "missingVariables",
         "name",
         "overflowMode",
         "paramFilter",
@@ -1414,8 +1338,6 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
-        "renderError",
-        "renderedText",
         "renderedValue",
         "requestBody",
         "requestHeaderKey",
@@ -1426,7 +1348,6 @@ const CoreSchema = z.object({
         "showSectionTitle",
         "size",
         "step",
-        "template",
         "text",
         "textDisplayMode",
         "toolCallArguments",
@@ -1478,9 +1399,6 @@ const CallableSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
@@ -1515,9 +1433,6 @@ const DictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1664,31 +1579,6 @@ const TextBlockSectionImplSchema = z.object({
 
 type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
 
-const PromptSectionImplSchema = z.object({
-  type: z.literal("Prompt").default(SectionTypeEnum.Prompt),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  template: z.string().default("" as const),
-  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
-  inputs: z.record(z.string(), z.string()).default({}),
-  renderedText: z.string().default("" as const),
-  missingVariables: z.array(z.string()).default([]),
-  renderError: z.union([z.string(), z.null()]).default(null),
-});
-
-type PromptSectionImpl = z.infer<typeof PromptSectionImplSchema>;
-
 const MetaControlSectionImplSchema = z.object({
   type: z.literal("MetaControl").default(SectionTypeEnum.MetaControl),
   id: IDSchema.default(create_new_id),
@@ -1753,9 +1643,6 @@ const GlobalVariablesSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1860,8 +1747,6 @@ const ChatSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
-  agentProfileId: z.union([IDSchema, z.null()]).default(null),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -2171,7 +2056,6 @@ const ProjectStateCoreSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
-        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
@@ -2373,7 +2257,6 @@ const BaseSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
   TextBlockSectionImplSchema,
-  PromptSectionImplSchema,
   MetaControlSectionImplSchema,
   SocialSectionImplSchema,
   GlobalVariablesSectionImplSchema,
@@ -2735,7 +2618,6 @@ const DictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2768,7 +2650,6 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2841,7 +2722,6 @@ const CallableSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
@@ -2889,29 +2769,6 @@ const TextBlockSectionImplArgsSchema = z.object({
 });
 
 type TextBlockSectionImplArgs = z.infer<typeof TextBlockSectionImplArgsSchema>;
-
-const PromptSectionImplArgsSchema = z.object({
-  type: z.literal("Prompt").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  template: z.string().optional(),
-  format: z.enum(PromptFormatEnum).optional(),
-  inputs: z.record(z.string(), z.string()).optional(),
-  renderedText: z.string().optional(),
-  missingVariables: z.array(z.string()).optional(),
-  renderError: z.union([z.string(), z.null()]).optional(),
-});
-
-type PromptSectionImplArgs = z.infer<typeof PromptSectionImplArgsSchema>;
 
 const MetaControlSectionImplArgsSchema = z.object({
   type: z.literal("MetaControl").optional(),
@@ -3002,8 +2859,6 @@ const ChatSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
   llmConfigId: z.union([z.string(), z.null()]).optional(),
-  agentProfileId: z.union([IDSchema, z.null()]).optional(),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   deepThink: z.boolean().optional(),
   messages: z
@@ -3397,7 +3252,6 @@ const ProjectStateSingleConfigSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
-        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
@@ -3438,7 +3292,6 @@ const ProjectStateSingleConfigSchema = z.object({
   parentSectionMap: z
     .record(IDSchema, z.union([IDSchema, z.null()]))
     .default({}),
-  yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
   requiredDecodedImages: z.array(z.string()).default([]),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
@@ -3521,6 +3374,10 @@ const SettingsShortcutsSchema = z.object({
   runCodeShortcut: z.string().default("Mod + Enter" as const),
   runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
   paramSelect: z.string().default("Mod + Shift" as const),
+  paramIndentShortcut: z.string().default("Tab" as const),
+  paramUnindentShortcut: z.string().default("Shift + Tab" as const),
+  paramMoveUpShortcut: z.string().default("Alt + ArrowUp" as const),
+  paramMoveDownShortcut: z.string().default("Alt + ArrowDown" as const),
   formatCode: z.string().default("Shift + Alt + F" as const),
   selectionKeyCode: z.string().default("Shift" as const),
   multiSelectionKeyCode: z.string().default("Mod" as const),
@@ -3857,9 +3714,6 @@ const UserDefaultCallableSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
@@ -3906,8 +3760,6 @@ const UserDefaultChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
   llmConfigId: z.union([z.string(), z.null()]).default(null),
-  agentProfileId: z.union([IDSchema, z.null()]).default(null),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean().default(false),
   messages: z
@@ -3969,9 +3821,6 @@ const UserDefaultDictSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4051,9 +3900,6 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4162,32 +4008,6 @@ function createUserDefaultMetaControlSectionImpl(
   options: Partial<UserDefaultMetaControlSectionImpl> = {},
 ): UserDefaultMetaControlSectionImpl {
   return UserDefaultMetaControlSectionImplSchema.parse(options);
-}
-
-const UserDefaultPromptSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  template: z.string().default("" as const),
-  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
-  inputs: z.record(z.string(), z.string()).default({}),
-  renderedText: z.string().default("" as const),
-  missingVariables: z.array(z.string()).default([]),
-  renderError: z.union([z.string(), z.null()]).default(null),
-});
-
-type UserDefaultPromptSectionImpl = z.infer<
-  typeof UserDefaultPromptSectionImplSchema
->;
-
-function createUserDefaultPromptSectionImpl(
-  options: Partial<UserDefaultPromptSectionImpl> = {},
-): UserDefaultPromptSectionImpl {
-  return UserDefaultPromptSectionImplSchema.parse(options);
 }
 
 const UserDefaultSocialSectionImplSchema = z.object({
@@ -4539,9 +4359,6 @@ const SettingsStateSchema = z.object({
   metaControlSectionDefault: UserDefaultMetaControlSectionImplSchema.default(
     createUserDefaultMetaControlSectionImpl,
   ),
-  promptSectionDefault: UserDefaultPromptSectionImplSchema.default(
-    createUserDefaultPromptSectionImpl,
-  ),
   socialSectionDefault: UserDefaultSocialSectionImplSchema.default(
     createUserDefaultSocialSectionImpl,
   ),
@@ -4724,86 +4541,6 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
-const AgentProfileSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string(),
-  description: z.string().default("" as const),
-  systemPrompt: z.string().default("" as const),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
-  toolAllowlist: z.array(z.string()).default([]),
-  memoryScope: z.union([z.string(), z.null()]).default(null),
-});
-
-export type AgentProfile = z.infer<typeof AgentProfileSchema>;
-
-const AgentProfileListSchema = z.object({
-  profiles: z.array(AgentProfileSchema),
-});
-
-const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: AgentProfileListSchema,
-  messageType: z
-    .literal("AgentProfilesUpdated")
-    .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
-});
-
-const PromptTemplateSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string(),
-  description: z.string().default("" as const),
-  template: z.string(),
-  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
-  inputSchema: z.record(z.string(), z.any()).default({}),
-  metadata: z.record(z.string(), z.any()).default({}),
-});
-
-export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
-
-const PromptTemplateListSchema = z.object({
-  templates: z.array(PromptTemplateSchema),
-});
-
-const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: PromptTemplateListSchema,
-  messageType: z
-    .literal("PromptTemplatesUpdated")
-    .default(WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated),
-});
-
-const ExternalAgentConfigSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string(),
-  description: z.string().default("" as const),
-  toolType: z.enum(ExternalAgentToolTypeEnum),
-  runMode: z.enum(ExternalAgentRunModeEnum),
-  commandPath: z.union([z.string(), z.null()]).default(null),
-  baseUrl: z.union([z.string(), z.null()]).default(null),
-  defaultModel: z.union([z.string(), z.null()]).default(null),
-  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
-  approvalPolicy: z.union([z.string(), z.null()]).default(null),
-  envVarWhitelist: z.array(z.string()).default([]),
-  workingDirStrategy: z
-    .enum(ExternalAgentWorkingDirStrategyEnum)
-    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
-  workingDir: z.union([z.string(), z.null()]).default(null),
-});
-
-export type ExternalAgentConfig = z.infer<typeof ExternalAgentConfigSchema>;
-
-const ExternalAgentConfigListSchema = z.object({
-  configs: z.array(ExternalAgentConfigSchema),
-});
-
-const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ExternalAgentConfigListSchema,
-  messageType: z
-    .literal("ExternalAgentConfigsUpdated")
-    .default(WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated),
-});
-
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4855,9 +4592,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
-  WebsocketMsgAgentProfilesUpdatedSchema,
-  WebsocketMsgPromptTemplatesUpdatedSchema,
-  WebsocketMsgExternalAgentConfigsUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -4954,7 +4688,6 @@ const BaseDictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -5050,7 +4783,6 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
 });
@@ -5065,28 +4797,6 @@ const FolderContentItemSchema = z.object({
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
-
-const RunEventSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  timestamp: z.iso.datetime().default(get_now_timestamp),
-  type: z.string(),
-  payload: z.record(z.string(), z.any()).default({}),
-});
-
-const AgentRunSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  profileId: z.union([IDSchema, z.null()]).default(null),
-  status: z.enum(AgentRunStatusEnum).default(AgentRunStatusEnum.queued),
-  startedAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  finishedAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  outputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  toolCalls: z.array(z.record(z.string(), z.any())).default([]),
-  cost: z.union([z.number(), z.null()]).default(null),
-  events: z.array(RunEventSchema).default([]),
-});
-
-export type AgentRun = z.infer<typeof AgentRunSchema>;
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -5330,9 +5040,6 @@ const BaseDictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -5387,14 +5094,11 @@ const BaseSectionWithParamsImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  displayMode: z
-    .enum(SectionWithParamsDisplayModeEnum)
-    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
-type BaseSectionWithParamsImpl = z.infer<
+export type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
@@ -5513,166 +5217,6 @@ const WebsocketMsgSchema = z.object({
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
 
-const CreateAgentProfileRequestSchema = z.object({
-  name: z.string(),
-  description: z.string().default("" as const),
-  systemPrompt: z.string().default("" as const),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
-  toolAllowlist: z.array(z.string()).default([]),
-  memoryScope: z.union([z.string(), z.null()]).default(null),
-});
-
-export type CreateAgentProfileRequestInput = z.input<
-  typeof CreateAgentProfileRequestSchema
->;
-
-const CreateExternalAgentConfigRequestSchema = z.object({
-  name: z.string(),
-  description: z.string().default("" as const),
-  toolType: z.enum(ExternalAgentToolTypeEnum),
-  runMode: z.enum(ExternalAgentRunModeEnum),
-  commandPath: z.union([z.string(), z.null()]).default(null),
-  baseUrl: z.union([z.string(), z.null()]).default(null),
-  defaultModel: z.union([z.string(), z.null()]).default(null),
-  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
-  approvalPolicy: z.union([z.string(), z.null()]).default(null),
-  envVarWhitelist: z.array(z.string()).default([]),
-  workingDirStrategy: z
-    .enum(ExternalAgentWorkingDirStrategyEnum)
-    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
-  workingDir: z.union([z.string(), z.null()]).default(null),
-});
-
-export type CreateExternalAgentConfigRequestInput = z.input<
-  typeof CreateExternalAgentConfigRequestSchema
->;
-
-const CreatePromptTemplateRequestSchema = z.object({
-  name: z.string(),
-  description: z.string().default("" as const),
-  template: z.string(),
-  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
-  inputSchema: z.record(z.string(), z.any()).default({}),
-  metadata: z.record(z.string(), z.any()).default({}),
-});
-
-export type CreatePromptTemplateRequestInput = z.input<
-  typeof CreatePromptTemplateRequestSchema
->;
-
-const DeleteAgentProfileRequestSchema = z.object({
-  profileId: IDSchema,
-});
-
-export type DeleteAgentProfileRequestInput = z.input<
-  typeof DeleteAgentProfileRequestSchema
->;
-
-const DeleteExternalAgentConfigRequestSchema = z.object({
-  configId: IDSchema,
-});
-
-export type DeleteExternalAgentConfigRequestInput = z.input<
-  typeof DeleteExternalAgentConfigRequestSchema
->;
-
-const DeletePromptTemplateRequestSchema = z.object({
-  templateId: IDSchema,
-});
-
-export type DeletePromptTemplateRequestInput = z.input<
-  typeof DeletePromptTemplateRequestSchema
->;
-
-const GetAgentProfileRequestSchema = z.object({
-  profileId: IDSchema,
-});
-
-export type GetAgentProfileRequestInput = z.input<
-  typeof GetAgentProfileRequestSchema
->;
-
-const GetAgentRunRequestSchema = z.object({
-  runId: IDSchema,
-});
-
-export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
-
-const GetExternalAgentConfigRequestSchema = z.object({
-  configId: IDSchema,
-});
-
-export type GetExternalAgentConfigRequestInput = z.input<
-  typeof GetExternalAgentConfigRequestSchema
->;
-
-const GetPromptTemplateRequestSchema = z.object({
-  templateId: IDSchema,
-});
-
-export type GetPromptTemplateRequestInput = z.input<
-  typeof GetPromptTemplateRequestSchema
->;
-
-const StartAgentRunRequestSchema = z.object({
-  profileId: IDSchema,
-  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-export type StartAgentRunRequestInput = z.input<
-  typeof StartAgentRunRequestSchema
->;
-
-const StartExternalAgentRunRequestSchema = z.object({
-  configId: IDSchema,
-  profileId: z.union([IDSchema, z.null()]).default(null),
-  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-});
-
-export type StartExternalAgentRunRequestInput = z.input<
-  typeof StartExternalAgentRunRequestSchema
->;
-
-const StopAgentRunRequestSchema = z.object({
-  runId: IDSchema,
-});
-
-export type StopAgentRunRequestInput = z.input<
-  typeof StopAgentRunRequestSchema
->;
-
-const StopExternalAgentRunRequestSchema = z.object({
-  runId: IDSchema,
-});
-
-export type StopExternalAgentRunRequestInput = z.input<
-  typeof StopExternalAgentRunRequestSchema
->;
-
-const UpdateAgentProfileRequestSchema = z.object({
-  profile: AgentProfileSchema,
-});
-
-export type UpdateAgentProfileRequestInput = z.input<
-  typeof UpdateAgentProfileRequestSchema
->;
-
-const UpdateExternalAgentConfigRequestSchema = z.object({
-  config: ExternalAgentConfigSchema,
-});
-
-export type UpdateExternalAgentConfigRequestInput = z.input<
-  typeof UpdateExternalAgentConfigRequestSchema
->;
-
-const UpdatePromptTemplateRequestSchema = z.object({
-  template: PromptTemplateSchema,
-});
-
-export type UpdatePromptTemplateRequestInput = z.input<
-  typeof UpdatePromptTemplateRequestSchema
->;
-
 const DeleteLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
@@ -5687,32 +5231,6 @@ const GetAIFollowSnapshotRequestSchema = z.object({
 
 export type GetAIFollowSnapshotRequestInput = z.input<
   typeof GetAIFollowSnapshotRequestSchema
->;
-
-const GetExternalAgentChatRequestSchema = z.object({
-  chatId: IDSchema,
-  projectConfigId: z.union([IDSchema, z.null()]),
-});
-
-export type GetExternalAgentChatRequestInput = z.input<
-  typeof GetExternalAgentChatRequestSchema
->;
-
-const GetExternalAgentChatResponseSchema = z.object({
-  messages: z.array(
-    z.discriminatedUnion("role", [
-      SystemChatMessageSchema,
-      AssistantChatMessageSchema,
-      UserChatMessageSchema,
-      ToolChatMessageSchema,
-    ]),
-  ),
-  waitingForResponse: z.boolean(),
-  toolCallArguments: z.record(z.string(), z.string()).default({}),
-});
-
-export type GetExternalAgentChatResponse = z.infer<
-  typeof GetExternalAgentChatResponseSchema
 >;
 
 const GetLLMChatRequestSchema = z.object({
@@ -5747,8 +5265,7 @@ const GetLLMResponseRequestSchema = z.object({
     UserChatMessageSchema,
     ToolChatMessageSchema,
   ]),
-  llmConfigId: z.union([z.string(), z.null()]),
-  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  llmConfigId: z.string(),
   deepThink: z.boolean(),
   projectConfigId: IDSchema,
 });
@@ -5997,7 +5514,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
         ChartSectionImplArgsSchema,
         DrawSectionImplArgsSchema,
         TextBlockSectionImplArgsSchema,
-        PromptSectionImplArgsSchema,
         MetaControlSectionImplArgsSchema,
         SocialSectionImplArgsSchema,
         GlobalVariablesSectionImplArgsSchema,
@@ -6178,6 +5694,45 @@ const GroupSectionsRequestSchema = z.object({
 export type GroupSectionsRequestInput = z.input<
   typeof GroupSectionsRequestSchema
 >;
+
+const IndentParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+});
+
+export type IndentParamsRequestInput = z.input<
+  typeof IndentParamsRequestSchema
+>;
+
+const MoveParamGroupSchema = z.object({
+  paramIds: z.array(IDSchema),
+  newParentId: IDSchema,
+  newIndex: z.int(),
+});
+
+const MoveParamGroupsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  moves: z.array(MoveParamGroupSchema),
+});
+
+export type MoveParamGroupsRequestInput = z.input<
+  typeof MoveParamGroupsRequestSchema
+>;
+
+const MoveParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+  newParentId: IDSchema,
+  newIndex: z.int(),
+});
+
+export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
 
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -6393,8 +5948,6 @@ const SetChatSectionSettingsRequestSchema = z.object({
   sectionId: IDSchema,
   managed: z.boolean(),
   llmConfigId: z.union([z.string(), z.null()]),
-  agentProfileId: z.union([IDSchema, z.null()]),
-  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
   deepThink: z.boolean(),
 });
 
@@ -6544,39 +6097,6 @@ export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
 >;
 
-const SetPromptFormatRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  format: z.enum(PromptFormatEnum),
-});
-
-export type SetPromptFormatRequestInput = z.input<
-  typeof SetPromptFormatRequestSchema
->;
-
-const SetPromptInputsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  inputs: z.record(z.string(), z.string()),
-});
-
-export type SetPromptInputsRequestInput = z.input<
-  typeof SetPromptInputsRequestSchema
->;
-
-const SetPromptTemplateRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  template: z.string(),
-});
-
-export type SetPromptTemplateRequestInput = z.input<
-  typeof SetPromptTemplateRequestSchema
->;
-
 const SetSectionColumnWidthRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6673,17 +6193,6 @@ const SetSectionVariantRequestSchema = z.object({
 
 export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
->;
-
-const SetSectionWithParamsDisplayModeRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
-});
-
-export type SetSectionWithParamsDisplayModeRequestInput = z.input<
-  typeof SetSectionWithParamsDisplayModeRequestSchema
 >;
 
 const SetShowParamDisplayNamesRequestSchema = z.object({
@@ -6923,6 +6432,17 @@ const UngroupGroupsRequestSchema = z.object({
 
 export type UngroupGroupsRequestInput = z.input<
   typeof UngroupGroupsRequestSchema
+>;
+
+const UnindentParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramIds: z.array(IDSchema),
+});
+
+export type UnindentParamsRequestInput = z.input<
+  typeof UnindentParamsRequestSchema
 >;
 
 const UnselectAllParamsRequestSchema = z.object({
@@ -7271,11 +6791,6 @@ export type ImplArgsBundleMap = {
       TextBlockSectionImplArgs,
       TextBlockSectionImpl
     >;
-  };
-
-  PromptSection: {
-    impl: PromptSectionImpl;
-    args: ImplArgsBundleWithUpdaters<PromptSectionImplArgs, PromptSectionImpl>;
   };
 
   MetaControlSection: {

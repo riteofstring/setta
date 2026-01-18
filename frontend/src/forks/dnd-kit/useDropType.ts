@@ -72,6 +72,9 @@ export function onDragStart({ active }: DragStartEvent) {
   if (!active.data || !active.data.current) {
     return;
   }
+  if (active.data.current.type === "param") {
+    return;
+  }
   const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
   setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
@@ -90,6 +93,9 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, collisions, over }: DragMoveEvent) {
+  if (active.data?.current?.type === "param") {
+    return;
+  }
   const dndState = useDndState.getState();
   const overCandidate = collisions?.[0] ?? over;
   const overCandidateId = overCandidate ? String(overCandidate.id) : null;
@@ -156,6 +162,9 @@ function onDragOver({
   collisions,
   calledFromOnDragMove,
 }: DragOverEvent & { calledFromOnDragMove?: boolean }) {
+  if (active.data?.current?.type === "param") {
+    return;
+  }
   if (!collisions) {
     return;
   }
