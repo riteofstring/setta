@@ -88,20 +88,6 @@ class DrawSnapshotTests(unittest.TestCase):
             )
             self.assertEqual(expected_path.as_posix(), impl_after_skip.renderedImagePath)
 
-            did_clear = apply_draw_snapshot_updates(
-                dbe=dbe,
-                project_state=project_state,
-                snapshots_by_section_id={section_id: None},
-                artifact_root=artifacts_root,
-            )
-            self.assertTrue(did_clear)
-            impl_after = get_curr_effective_section_impl_with_type_guard(
-                project_state,
-                section_id,
-                DrawSectionImpl,
-            )
-            self.assertIsNone(impl_after.renderedImagePath)
-
     def test_apply_draw_snapshot_updates_noop_when_missing(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

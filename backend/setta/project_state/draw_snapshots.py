@@ -35,7 +35,7 @@ def apply_draw_snapshot_updates(
     *,
     dbe: "DBE",
     project_state: "ProjectStateSingleConfig",
-    snapshots_by_section_id: dict["ID", str | None] | None,
+    snapshots_by_section_id: dict["ID", str] | None,
     artifact_root: Path = C.ARTIFACTS_FOLDER,
 ) -> bool:
     if snapshots_by_section_id is None:
@@ -47,18 +47,6 @@ def apply_draw_snapshot_updates(
         impl = get_curr_effective_section_impl_with_type_guard(
             project_state, section_id, DrawSectionImpl
         )
-        if payload is None:
-            if impl.renderedImagePath is not None:
-                set_curr_effective_section_impl_value(
-                    project_state,
-                    section_id,
-                    DrawSectionImplArgsWithCallable(
-                        renderedImagePath=None,
-                    ),
-                )
-                did_update = True
-            continue
-
         target_path = (
             Path(impl.renderedImagePath)
             if impl.renderedImagePath

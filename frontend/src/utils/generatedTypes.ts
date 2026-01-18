@@ -6840,7 +6840,7 @@ const RunCodeRequestSchema = z.object({
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
   drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, z.union([z.string(), z.null()])), z.null()])
+    .union([z.record(IDSchema, z.string()), z.null()])
     .default(null),
 });
 

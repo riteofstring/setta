@@ -99,7 +99,7 @@ export async function stopCode() {
   });
 }
 
-function collectDrawSnapshotsForRun(): Record<string, string | null> | null {
+function collectDrawSnapshotsForRun(): Record<string, string> | null {
   const state = useProjectState.getState();
   const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);
   const drawSectionIds = sectionIds.filter(

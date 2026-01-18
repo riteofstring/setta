@@ -598,7 +598,12 @@ class BaseProjectManager(ABC):
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
-        async with self._project_state_lock.write_lock():
+        lock = (
+            self._project_state_lock.write_lock()
+            if draw_snapshots_by_section_id
+            else self._project_state_lock.read_lock()
+        )
+        async with lock:
             project_state = convert_backend_to_single_config(
                 self.project_state_backend, project_config_id
             )
@@ -607,18 +612,22 @@ class BaseProjectManager(ABC):
                 project_config,
                 ProjectCodegenLanguage.python,
             )
-            snapshots_updated = apply_draw_snapshot_updates(
-                dbe=self.dbe,
-                project_state=project_state,
-                snapshots_by_section_id=draw_snapshots_by_section_id,
-            )
-            if snapshots_updated:
-                project_state.validate_for_update(validate_code_file_bindings=False)
-                if python_codegen_enabled:
-                    await self._refresh_codegen_state(project_state)
-                self._merge_project_state_backend(
-                    project_state, updateFileWatcher=False
+            if draw_snapshots_by_section_id:
+                snapshots_updated = apply_draw_snapshot_updates(
+                    dbe=self.dbe,
+                    project_state=project_state,
+                    snapshots_by_section_id=draw_snapshots_by_section_id,
+                    artifact_root=C.ARTIFACTS_FOLDER,
                 )
+                if snapshots_updated:
+                    project_state.validate_for_update(validate_code_file_bindings=False)
+                    if python_codegen_enabled:
+                        await self._refresh_codegen_state(project_state)
+                    self._merge_project_state_backend(
+                        project_state, updateFileWatcher=False
+                    )
+                    if self.settings_file.settings.backend.autosave:
+                        self.autosave_debouncer.trigger()
             gen_code, code_entries = self._flush_code_files(project_config_id)
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
