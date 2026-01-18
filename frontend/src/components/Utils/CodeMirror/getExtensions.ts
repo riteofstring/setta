@@ -14,6 +14,7 @@ import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
+import type { CodeLanguage } from "utils/codeLanguage";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -28,18 +29,20 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   },
 });
 
-type ExtensionsOptions = {
-  parentDivId?: string | null;
-  language?: string;
+type GetExtensionsOptions = {
+  parentDivId?: string;
+  language?: CodeLanguage | null;
   completionsFn?: CompletionSource;
   singleLine?: boolean;
-  wrapLines?: boolean;
   tabToAutocomplete?: boolean;
   indentWithTab?: boolean;
-  onTab?: (text: string, completionResult: boolean) => void;
-  onEscape?: (status: ReturnType<typeof completionStatus>) => void;
-  keyComboActions?: Record<string, (text: string) => boolean | void>;
+  onTab?: (docText: string, completionResult: boolean) => void;
+  onEscape?: (
+    expectingCompletions: ReturnType<typeof completionStatus>,
+  ) => void;
+  keyComboActions?: Record<string, (docText: string) => void>;
   isDisabled?: boolean;
+  useJsx?: boolean;
 };
 
 export function getExtensions({
@@ -47,19 +50,16 @@ export function getExtensions({
   language,
   completionsFn,
   singleLine,
-  wrapLines,
   tabToAutocomplete,
   indentWithTab,
   onTab,
   onEscape,
   keyComboActions,
   isDisabled,
-}: ExtensionsOptions) {
-  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
-  const shouldWrap = wrapLines ?? !singleLine;
-  if (shouldWrap) {
-    extensions.push(EditorView.lineWrapping);
-  }
+  useJsx,
+}: GetExtensionsOptions) {
+  const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const enableJsx = useJsx === true;
 
   if (parentDivId) {
     extensions.push(
@@ -71,8 +71,10 @@ export function getExtensions({
 
   if (language === "python") {
     extensions.push(python());
+  } else if (language === "typescript") {
+    extensions.push(javascript({ typescript: true, jsx: enableJsx }));
   } else if (language === "javascript") {
-    extensions.push(javascript());
+    extensions.push(javascript({ jsx: enableJsx }));
   } else if (language === "yaml") {
     extensions.push(yaml());
   } else if (language === "json") {

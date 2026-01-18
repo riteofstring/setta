@@ -51,11 +51,13 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
+    ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
+    GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
@@ -101,6 +103,8 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSectionImpl,
     CallableSectionImpl,
+    ChatSectionImpl,
+    ChatSectionState,
     CodeFileBinding,
     ConfigLanguage,
     DrawSectionImpl,
@@ -1522,6 +1526,19 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
     )
 
 
+def maybe_update_gen_python_metadata_section(
+    p: "ProjectStateSingleConfig", code: str | None
+):
+    sectionId = p.singletonSections.GenPythonMetadata
+    if not sectionId:
+        return
+    if code is None:
+        code = ""
+    set_curr_effective_section_impl_value(
+        p, sectionId, GenPythonMetadataSectionImplArgsWithCallable(code=code)
+    )
+
+
 def delete_section_variant_or_ask(
     p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
 ):
@@ -2047,16 +2064,6 @@ def set_section_hide_unpinned_params(
     )
 
 
-def set_section_pinned_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, pinnedParams: list[ID]
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
-    )
-
-
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):
@@ -2112,6 +2119,58 @@ def set_text_block_format(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
+    )
+
+
+def set_chat_section_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    managed: bool,
+    llmConfigId: str | None,
+    deepThink: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            managed=managed,
+            llmConfigId=llmConfigId,
+            deepThink=deepThink,
+        ),
+    )
+
+
+def set_chat_section_chat_id(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    chatId: ID | None,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            chatId=chatId,
+        ),
+    )
+
+
+def set_chat_section_state(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    state: ChatSectionState,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            messages=state.messages,
+            inputText=state.inputText,
+            waitingForResponse=state.waitingForResponse,
+            toolCallArguments=state.toolCallArguments,
+        ),
     )
 
 

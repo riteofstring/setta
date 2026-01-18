@@ -1,4 +1,4 @@
-import { useDndMonitor } from "forks/dnd-kit/CustomCore";
+import { useDndMonitor } from "forks/dnd-kit/adapter";
 import {
   setDndDisabled,
   useDndMode,
@@ -74,7 +74,7 @@ export function useDisableSortable(sectionId: string) {
     // Sorting a child of this section
     else if (
       isSorting &&
-      active.data.current.sortable?.containerId === sectionId
+      active.data?.current?.sortable?.containerId === sectionId
     ) {
       setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
@@ -96,8 +96,7 @@ export function useDisableSortable(sectionId: string) {
 export function useDndProps({ sectionId, isTopLevel }) {
   // We only want to set disabled if positionAndSizeLocked is true.
   // If positionAndSizeLocked is false, we don't want to set disabled to false,
-  // so we set it to null instead so that the disabled
-  // status defers to dnd-kit's "global" disabled status.
+  // so we leave it undefined to avoid forcing a value.
   // "onlyChildId" is the id of the child if the parent has just 1 child.
   // It is needed to correctly trigger the leftDistCondition in collisionDetection.
   const { hasNested, disabled, onlyChildId } = useProjectState((x) => {
@@ -108,7 +107,7 @@ export function useDndProps({ sectionId, isTopLevel }) {
       onlyChildId: children.length === 1 ? children[0] : null,
       disabled: x.sections[sectionId]?.positionAndSizeLocked
         ? x.sections[sectionId]?.positionAndSizeLocked
-        : null,
+        : undefined,
     };
   }, _.isEqual);
 

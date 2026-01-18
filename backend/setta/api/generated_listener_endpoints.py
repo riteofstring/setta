@@ -13,6 +13,23 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.chat import Chat, ChatMetadata
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    SystemChatMessage,
+    ToolCall,
+    ToolChatMessage,
+    UserChatMessage,
+)
+from setta.types.chat_stream_events import (
+    MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
+    MessageStopEvent,
+    ToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
+)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -28,6 +45,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgs,
     DrawSectionImplArgs,
     GenPythonCodeSectionImplArgs,
+    GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
@@ -42,12 +60,14 @@ from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.project_config import (
     Position,
+    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    ChatSectionState,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -66,6 +86,13 @@ class ListenerAddKwargRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
+
+
+class ListenerAppendChatMessagesRequestPayload(TypedDict):
+    chatId: ID
+    messages: list[
+        SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+    ]
 
 
 class ListenerAppendDrawAreaLayerItemRequestPayload(TypedDict):
@@ -103,6 +130,13 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
     sectionId: ID
     fullText: str
     position: int
+
+
+class ListenerCreateChatRequestPayload(TypedDict):
+    llmConfigId: str
+    firstMessage: (
+        SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+    )
 
 
 class ListenerCreateChildSectionsRequestPayload(TypedDict):
@@ -165,6 +199,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | GlobalVariablesSectionImplArgs
         | CodeSectionImplArgs
         | GenPythonCodeSectionImplArgs
+        | GenPythonMetadataSectionImplArgs
         | TerminalSectionImplArgs
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
@@ -184,6 +219,10 @@ class ListenerCreateViewModeRequestPayload(TypedDict):
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+
+
+class ListenerDeleteChatRequestPayload(TypedDict):
+    chatId: ID
 
 
 class ListenerDeleteChildSectionsViaDecrementerRequestPayload(TypedDict):
@@ -232,6 +271,20 @@ class ListenerDeleteViewModeRequestPayload(TypedDict):
     viewModeId: ID
 
 
+class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
+    sectionId: ID
+    chatId: ID
+    chunk: (
+        MessageStartEvent
+        | MessageDeltaEvent
+        | ToolCallDeltaEvent
+        | ToolResultEvent
+        | ToolArgumentPreviewDeltaEvent
+        | MessageStopEvent
+        | MessageFinalizedEvent
+    )
+
+
 class ListenerForceRefreshProjectRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -249,6 +302,20 @@ class ListenerGenCodeSuffixCompletionRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     fullText: str
     position: int
+
+
+class ListenerGetAllChatMetadataRequestPayload(TypedDict):
+    pass
+
+
+class ListenerGetChatRequestPayload(TypedDict):
+    chatId: ID
+
+
+class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
 
 
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
@@ -326,6 +393,11 @@ class ListenerRunCodeRequestPayload(TypedDict):
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
 
 
+class ListenerRunMcpToolsRequestPayload(TypedDict):
+    chatId: ID
+    toolCalls: list[ToolCall]
+
+
 class ListenerSetActiveIdsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -395,6 +467,34 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chartType: ChartType
+
+
+class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    chatId: ID | None
+
+
+class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    managed: bool
+    llmConfigId: str | None
+    deepThink: bool
+
+
+class ListenerSetChatSectionStateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    state: ChatSectionState
+
+
+class ListenerSetChatSystemPromptRequestPayload(TypedDict):
+    chatId: ID
+    systemPrompt: str
 
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
@@ -479,6 +579,12 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
+class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    codegenTargets: list[ProjectCodegenPythonTarget]
+
+
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -519,13 +625,6 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     value: str
-
-
-class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    pinnedParams: list[ID]
 
 
 class ListenerSetSectionSizesRequestPayload(TypedDict):
@@ -741,6 +840,11 @@ class RouterEndpointAPI:
     async def add_kwarg(self, payload: ListenerAddKwargRequestPayload) -> None:
         return await self._caller("route_add_kwarg", payload)
 
+    async def append_chat_messages(
+        self, payload: ListenerAppendChatMessagesRequestPayload
+    ) -> Chat:
+        return await self._caller("route_append_chat_messages", payload)
+
     async def append_draw_area_layer_item(
         self, payload: ListenerAppendDrawAreaLayerItemRequestPayload
     ) -> None:
@@ -765,6 +869,9 @@ class RouterEndpointAPI:
         self, payload: ListenerCodeAreaCompletionRequestPayload
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_code_area_completion", payload)
+
+    async def create_chat(self, payload: ListenerCreateChatRequestPayload) -> Chat:
+        return await self._caller("route_create_chat", payload)
 
     async def create_child_sections(
         self, payload: ListenerCreateChildSectionsRequestPayload
@@ -801,6 +908,9 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_decline_rename_refactor", payload)
 
+    async def delete_chat(self, payload: ListenerDeleteChatRequestPayload) -> None:
+        return await self._caller("route_delete_chat", payload)
+
     async def delete_child_sections_via_decrementer(
         self, payload: ListenerDeleteChildSectionsViaDecrementerRequestPayload
     ) -> None:
@@ -834,6 +944,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_delete_view_mode", payload)
 
+    async def emit_chat_stream_delta(
+        self, payload: ListenerEmitChatStreamDeltaRequestPayload
+    ) -> None:
+        return await self._caller("route_emit_chat_stream_delta", payload)
+
     async def force_refresh_listener(
         self, payload: ListenerForceRefreshProjectRequestPayload
     ) -> None:
@@ -848,6 +963,19 @@ class RouterEndpointAPI:
         self, payload: ListenerGenCodeSuffixCompletionRequestPayload
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_gen_code_suffix_completion", payload)
+
+    async def get_all_chat_metadata(
+        self, payload: ListenerGetAllChatMetadataRequestPayload
+    ) -> list[ChatMetadata]:
+        return await self._caller("route_get_all_chat_metadata", payload)
+
+    async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
+        return await self._caller("route_get_chat", payload)
+
+    async def get_chat_section_chat_id(
+        self, payload: ListenerGetChatSectionChatIdRequestPayload
+    ) -> str | None:
+        return await self._caller("route_get_chat_section_chat_id", payload)
 
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload
@@ -898,6 +1026,11 @@ class RouterEndpointAPI:
     async def run_code(self, payload: ListenerRunCodeRequestPayload) -> None:
         return await self._caller("route_run_code", payload)
 
+    async def run_mcp_tools(
+        self, payload: ListenerRunMcpToolsRequestPayload
+    ) -> list[ToolChatMessage]:
+        return await self._caller("route_run_mcp_tools", payload)
+
     async def set_active_ids(self, payload: ListenerSetActiveIdsRequestPayload) -> None:
         return await self._caller("route_set_active_ids", payload)
 
@@ -943,6 +1076,26 @@ class RouterEndpointAPI:
 
     async def set_chart_type(self, payload: ListenerSetChartTypeRequestPayload) -> None:
         return await self._caller("route_set_chart_type", payload)
+
+    async def set_chat_section_chat_id(
+        self, payload: ListenerSetChatSectionChatIdRequestPayload
+    ) -> None:
+        return await self._caller("route_set_chat_section_chat_id", payload)
+
+    async def set_chat_section_settings(
+        self, payload: ListenerSetChatSectionSettingsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_chat_section_settings", payload)
+
+    async def set_chat_section_state(
+        self, payload: ListenerSetChatSectionStateRequestPayload
+    ) -> None:
+        return await self._caller("route_set_chat_section_state", payload)
+
+    async def set_chat_system_prompt(
+        self, payload: ListenerSetChatSystemPromptRequestPayload
+    ) -> Chat:
+        return await self._caller("route_set_chat_system_prompt", payload)
 
     async def set_code(self, payload: ListenerSetCodeRequestPayload) -> None:
         return await self._caller("route_set_code", payload)
@@ -1000,6 +1153,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
 
+    async def set_project_config_codegen_targets(
+        self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_project_config_codegen_targets", payload)
+
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
     ) -> None:
@@ -1029,11 +1187,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionParamFilterRequestPayload
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
-
-    async def set_section_pinned_params(
-        self, payload: ListenerSetSectionPinnedParamsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_pinned_params", payload)
 
     async def set_section_sizes(
         self, payload: ListenerSetSectionSizesRequestPayload
