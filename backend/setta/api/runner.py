@@ -250,6 +250,10 @@ class SettaRunner:
         entry_section: str | ID | None = None,
     ) -> RunDetachedResponse:
         active_override = override.copy() if override is not None else RunOverride()
+        if active_override.run_snapshot_mode == RunSnapshotMode.never:
+            raise ValueError(
+                "Detached runs always snapshot; runSnapshotMode=never is not supported."
+            )
         project_config_id = self._resolve_project_config_id(
             active_override.project_config_ref
         )

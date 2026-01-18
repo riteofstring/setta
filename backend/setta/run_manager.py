@@ -44,6 +44,27 @@ class DetachedRunManager:
         self._canceled: set[str] = set()
         self._lock = threading.Lock()
 
+    @staticmethod
+    def _wait_for_exit(proc: subprocess.Popen, timeout: float) -> int | None:
+        try:
+            return proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return None
+
+    @staticmethod
+    def _terminate_process(proc: subprocess.Popen) -> None:
+        if os.name == "nt":
+            proc.terminate()
+            return
+        os.killpg(proc.pid, signal.SIGTERM)
+
+    @staticmethod
+    def _kill_process(proc: subprocess.Popen) -> None:
+        if os.name == "nt":
+            proc.kill()
+            return
+        os.killpg(proc.pid, signal.SIGKILL)
+
     def start_run(self, spec: DetachedRunSpec) -> RunStatusResponse:
         run_id = str(create_new_id())
         run_dir = self._runs_root / run_id
@@ -149,9 +170,10 @@ class DetachedRunManager:
         if meta.status in (
             RunStatus.exited,
             RunStatus.failed,
-            RunStatus.canceled,
             RunStatus.lost,
         ):
+            return meta
+        if meta.status == RunStatus.canceled and meta.exitCode is not None:
             return meta
         if meta.pid is None:
             raise KeyError(f"Run {run_id} has no pid")
@@ -167,41 +189,34 @@ class DetachedRunManager:
             with self._lock:
                 self._canceled.discard(run_id)
             return self._finalize_run(meta, exit_code)
-        if os.name == "nt":
-            try:
-                proc.terminate()
-            except ProcessLookupError:
-                with self._lock:
-                    self._canceled.discard(run_id)
-                exit_code = proc.poll()
-                if exit_code is not None:
-                    return self._finalize_run(meta, exit_code)
-                return self.get_status(run_id)
-        else:
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                with self._lock:
-                    self._canceled.discard(run_id)
-                exit_code = proc.poll()
-                if exit_code is not None:
-                    return self._finalize_run(meta, exit_code)
-                return self.get_status(run_id)
-        meta = meta.model_copy(
-            update={
-                "status": RunStatus.canceled,
-                "exitedAtMs": _now_ms(),
-            }
-        )
-        self._write_meta(meta)
         try:
-            exit_code = proc.wait(timeout=1)
-        except subprocess.TimeoutExpired:
+            self._terminate_process(proc)
+        except ProcessLookupError:
+            with self._lock:
+                self._canceled.discard(run_id)
+            exit_code = proc.poll()
+            if exit_code is not None:
+                return self._finalize_run(meta, exit_code)
+            return self.get_status(run_id)
+        exit_code = self._wait_for_exit(proc, timeout=1)
+        if exit_code is None:
+            try:
+                self._kill_process(proc)
+            except ProcessLookupError:
+                with self._lock:
+                    self._canceled.discard(run_id)
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    return self._finalize_run(meta, exit_code)
+                return self.get_status(run_id)
+            exit_code = self._wait_for_exit(proc, timeout=1)
+        if exit_code is None:
             return meta
         meta = meta.model_copy(
             update={
                 "exitCode": exit_code,
                 "exitedAtMs": _now_ms(),
+                "status": RunStatus.canceled,
             }
         )
         self._write_meta(meta)

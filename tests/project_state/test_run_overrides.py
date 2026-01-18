@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import HTTPException
+
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -256,7 +258,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
                         entrySectionId=code_section.id,
-                        runSnapshotMode=RunSnapshotMode.never,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
                         sectionVariantOverrides={code_section.id: bash_variant.id},
                         paramOverrides={f"{dict_section.id}:{param_core.id}": "2"},
                     )
@@ -298,7 +300,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
                         entrySectionId=code_section.id,
-                        runSnapshotMode=RunSnapshotMode.never,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
                         paramOverrides={"bad": "2"},
                     )
                 )
@@ -315,7 +317,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
                         entrySectionId=code_section.id,
-                        runSnapshotMode=RunSnapshotMode.never,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
                         sectionVariantOverrides={
                             ID("missing-section"): ID("missing-variant")
                         },
@@ -343,7 +345,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
                         entrySectionId=code_section.id,
-                        runSnapshotMode=RunSnapshotMode.never,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
                         sectionVariantOverrides={
                             code_section.id: dict_variant_id,
                         },
@@ -352,7 +354,24 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
         finally:
             manager.shutdown()
 
-    async def test_create_run_command_with_overrides_snapshots_file_on_never(self) -> None:
+    async def test_create_run_command_with_overrides_rejects_never(self) -> None:
+        manager, project_config, code_section, _, _, _, _ = (
+            self._build_manager_and_state()
+        )
+        try:
+            with self.assertRaises(HTTPException) as ctx:
+                await manager.create_run_command_with_overrides(
+                    RunDetachedRequest(
+                        projectConfigId=project_config.id,
+                        entrySectionId=code_section.id,
+                        runSnapshotMode=RunSnapshotMode.never,
+                    )
+                )
+            self.assertEqual(ctx.exception.status_code, 400)
+        finally:
+            manager.shutdown()
+
+    async def test_create_run_command_with_overrides_snapshots_file_on_ephemeral(self) -> None:
         (
             manager,
             project_config,
@@ -368,7 +387,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
                         entrySectionId=code_section.id,
-                        runSnapshotMode=RunSnapshotMode.never,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
                         sectionVariantOverrides={code_section.id: bash_variant.id},
                     )
                 )

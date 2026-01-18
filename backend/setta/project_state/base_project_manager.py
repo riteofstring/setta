@@ -808,6 +808,11 @@ class BaseProjectManager(ABC):
         project_config_id = x.projectConfigId
         entry_section_id = x.entrySectionId
         run_snapshot_mode = x.runSnapshotMode
+        if run_snapshot_mode == RunSnapshotMode.never:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Detached runs always snapshot; runSnapshotMode=never is not supported.",
+            )
         async with self._project_state_lock.read_lock():
             base_state = convert_backend_to_single_config(
                 self.project_state_backend, project_config_id
@@ -818,11 +823,10 @@ class BaseProjectManager(ABC):
             section_variant_overrides=x.sectionVariantOverrides,
             param_overrides=x.paramOverrides,
         )
-        has_overrides = bool(x.sectionVariantOverrides) or bool(x.paramOverrides)
         resolved_run_snapshot_mode = (
             run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
         )
-        if has_overrides and resolved_run_snapshot_mode == RunSnapshotMode.never:
+        if resolved_run_snapshot_mode == RunSnapshotMode.never:
             resolved_run_snapshot_mode = RunSnapshotMode.ephemeral
         if not entry_section_id:
             entry_section_id = project_state.projectConfig.entryCodeBlockId
@@ -852,13 +856,6 @@ class BaseProjectManager(ABC):
                 )
             if entry_section_id not in section_inputs:
                 raise KeyError(f"Missing code section for run: {entry_section_id}")
-            if resolved_run_snapshot_mode == RunSnapshotMode.never:
-                _, binding, run_command_builder = section_inputs[entry_section_id]
-                return (
-                    run_command_builder(binding.canonical_path),
-                    binding.canonical_path,
-                    entry_section_id,
-                )
             command, snapshot_path = (
                 create_snapshot_run_command_from_code_sections_only_with_path(
                     dbe=self.dbe,
@@ -877,23 +874,6 @@ class BaseProjectManager(ABC):
         gen_binding = project_state.genCodeBinding
         if gen_binding is None:
             raise ValueError("Project state missing generated code binding")
-        if resolved_run_snapshot_mode == RunSnapshotMode.never:
-            gen_code_path = gen_binding.canonical_path
-            if entry_section_id:
-                if entry_section_id not in section_inputs:
-                    raise KeyError(f"Missing code section for run: {entry_section_id}")
-                _, binding, run_command_builder = section_inputs[entry_section_id]
-                return (
-                    run_command_builder(binding.canonical_path),
-                    binding.canonical_path,
-                    entry_section_id,
-                )
-            return (
-                build_python_module_run_command(gen_code_path),
-                gen_code_path,
-                None,
-            )
-
         command, snapshot_path = create_snapshot_run_command_from_sections_with_path(
             dbe=self.dbe,
             snapshot_root=self._resolve_run_snapshot_root(resolved_run_snapshot_mode),

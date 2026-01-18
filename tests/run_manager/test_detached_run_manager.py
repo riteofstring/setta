@@ -130,8 +130,7 @@ class DetachedRunManagerTests(unittest.TestCase):
             tags={},
         )
         response = self.manager.start_run(spec)
-        canceled = self.manager.cancel_run(response.runId)
-        self.assertEqual(canceled.status, RunStatus.canceled)
+        self.manager.cancel_run(response.runId)
 
         status = self.manager.get_status(response.runId)
         deadline = time.time() + 5
