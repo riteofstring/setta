@@ -1,6 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
+import { useRef } from "react";
 import { BsCardChecklist } from "react-icons/bs";
 import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
@@ -14,7 +15,7 @@ import {
   UIEditorTabNameEnum,
   UIEditorTabNamePrettified,
 } from "utils/constants";
-import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
+import { useTabScope } from "utils/focusManager";
 import { shallow } from "zustand/shallow";
 import {
   getOnUIEditorTabClick,
@@ -28,6 +29,12 @@ import { VariantList } from "./SectionVariants/VariantList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
+  const uiEditorRef = useRef<HTMLDivElement>(null);
+  useTabScope({
+    scopeId: "ui-editor",
+    order: 30,
+    rootRef: uiEditorRef,
+  });
   const sectionIds = useProjectState(
     (x) => x.projectConfig.activeIds,
     _.isEqual,
@@ -58,7 +65,8 @@ export function UiEditor() {
     <div
       id="UiEditorPane"
       className="contents"
-      onKeyDown={uiEditorPaneOnKeyDown}
+      ref={uiEditorRef}
+      data-tab-scope="ui-editor"
     >
       <div className="absolute right-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<UIEditorTabName>

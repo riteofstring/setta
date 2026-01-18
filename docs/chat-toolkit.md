@@ -57,8 +57,8 @@ Stop:
 
 Use the `managed` flag if you need to branch between managed and scriptable behavior.
 
-## Engine config ids (or none)
-Listener chat history accepts an `engineConfigId` for internal (Setta LLM) engines. If you omit it (`None`/`null`), the chat runs in scriptable-only mode with a built-in "scriptable" LLM config (no provider, no MCP tools). External engines are not supported for listener chat history.
+## LLM config ids
+Listener chat history always requires an LLM config id. Use a real configured id for managed/LLM-backed flows (and MCP tools), or use the reserved id `scriptable` for scriptable-only chats. `scriptable` does not need to exist in `llm_config.json` and disables MCP tool access for that chat.
 
 ## Choosing a response pattern
 Pick one of these patterns and stick to its API surface:
@@ -77,7 +77,7 @@ if not event:
 session = await ChatSession.open_from_event(
     ctx=ctx,
     section_id=section_id,
-    engine_config_id="engine-llm",
+    llm_config_id="my-llm",
     event=event,
 )
 
@@ -129,7 +129,7 @@ first_message = UserChatMessage(
 )
 chat_id, created = await history.ensure_section_chat_id(
     section_id=section_id,
-    engine_config_id="engine-llm",
+    llm_config_id="my-llm",
     first_message=first_message,
 )
 if not created:
@@ -199,7 +199,7 @@ first_message = UserChatMessage(
 )
 chat_id, created = await history.ensure_section_chat_id(
     section_id=section_id,
-    engine_config_id=None,
+    llm_config_id="scriptable",
     first_message=first_message,
 )
 if not created:

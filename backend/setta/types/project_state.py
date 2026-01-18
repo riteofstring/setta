@@ -1,4 +1,3 @@
-import yaml
 from pydantic import (
     BaseModel,
     Field,
@@ -20,14 +19,11 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     BaseCodeSectionImplArgsWithCallable,
     get_section_path_full_name,
-    get_top_level_param_ids,
 )
-from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, ViewModeConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CodeFileAccessMode,
@@ -36,7 +32,6 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
     SectionType,
-    SectionWithParamsDisplayMode,
 )
 from setta.types.shown_params import (
     ShownParamIds,
@@ -99,7 +94,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
     parentSectionMap: dict[ID, ID | None] = Field(default_factory=dict)
-    yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
@@ -115,10 +109,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_parent_section_map(self):
         return self.validate_parent_section_map()
-
-    @model_validator(mode="after")
-    def _validate_yaml_values(self):
-        return self.validate_yaml_values()
 
     @model_validator(mode="after")
     def _validate_shown_param_ids(self):
@@ -145,7 +135,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.validate_parent_section_map()
         self.validate_view_modes()
         self.validate_shown_param_ids()
-        self.validate_yaml_values()
         self.validate_required_decoded_images()
         if validate_code_file_bindings:
             self.validate_code_file_bindings()
@@ -186,38 +175,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId
-        return self
-
-    def validate_yaml_values(self):
-        output: dict[str, str] = {}
-        for s in self.sections.values():
-            for v in s.variants:
-                _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
-                if (
-                    not isinstance(impl, BaseSectionWithParamsImpl)
-                    or impl.displayMode != SectionWithParamsDisplayMode.Yaml
-                ):
-                    continue
-                top_level_ids = get_top_level_param_ids(self, impl)
-                name_path_prefix = (
-                    tuple(impl.jsonSourceKeys)
-                    if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
-                    else ()
-                )
-                hierarchy = traverse_hierarchy(
-                    self.codeObjs,
-                    self.codeObjImpls,
-                    self.codeObjVariants,
-                    impl.codeObjVariantMap,
-                    top_level_ids,
-                    options=TraversalOptions(
-                        build_id_to_name_path=True,
-                        build_nested_dict=True,
-                        name_path_prefix=name_path_prefix,
-                    ),
-                )
-                output[v] = yaml.dump(hierarchy.nested_dict)
-        self.yamlValues = output
         return self
 
     def validate_shown_param_ids(self):

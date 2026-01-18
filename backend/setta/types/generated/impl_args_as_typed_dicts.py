@@ -34,11 +34,9 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -57,7 +55,6 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
-                "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -84,11 +81,9 @@ class CoreArgs(TypedDict):
                 "deepThink",
                 "defaultVal",
                 "description",
-                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
-                "engineConfigId",
                 "eraserBrushSize",
                 "folder",
                 "format",
@@ -100,7 +95,6 @@ class CoreArgs(TypedDict):
                 "ignoreTypeErrors",
                 "imagePath",
                 "inputText",
-                "inputs",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -111,13 +105,13 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
+                "llmConfigId",
                 "managed",
                 "max",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
-                "missingVariables",
                 "name",
                 "overflowMode",
                 "paramFilter",
@@ -125,8 +119,6 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderError",
-                "renderedText",
                 "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
@@ -137,7 +129,6 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
-                "template",
                 "text",
                 "textDisplayMode",
                 "toolCallArguments",
@@ -212,7 +203,6 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
-    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -240,10 +230,6 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
-    ]
-    displayMode: NotRequired[
-        SectionWithParamsDisplayMode
-        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
     ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[
@@ -451,29 +437,6 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     text: NotRequired[str | Callable[[str], str]]
 
 
-class PromptSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Prompt]]
-    template: NotRequired[str]
-    format: NotRequired[PromptFormat]
-    inputs: NotRequired[dict[str, str]]
-    renderedText: NotRequired[str]
-    missingVariables: NotRequired[list[str]]
-    renderError: NotRequired[str | None]
-
-
-class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Prompt]
-        | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
-    ]
-    template: NotRequired[str | Callable[[str], str]]
-    format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
-    inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]
-    renderedText: NotRequired[str | Callable[[str], str]]
-    missingVariables: NotRequired[list[str] | Callable[[list[str]], list[str]]]
-    renderError: NotRequired[str | None | Callable[[str | None], str | None]]
-
-
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
     metaControlParamId: NotRequired[ID | None]
@@ -570,8 +533,7 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
-    engineConfigId: NotRequired[ID | None]
-    agentProfileId: NotRequired[ID | None]
+    llmConfigId: NotRequired[str | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
     messages: NotRequired[
@@ -590,8 +552,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
-    engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[

@@ -39,7 +39,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
-    "PromptSectionImpl": DEFAULT_EXCLUSIONS,
     "MetaControlSectionImpl": DEFAULT_EXCLUSIONS.union(
         {"metaControlParamId", "codeObjVariantMap"}
     ),
@@ -203,8 +202,6 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
-    PromptFormat,
-    SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
     CodeFileBinding
