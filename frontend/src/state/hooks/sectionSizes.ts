@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
+  getCurrShownParamIds,
   getSectionType,
 } from "state/actions/sectionInfos";
 import {
@@ -14,14 +15,22 @@ import {
 import {
   useProjectState,
   useSettings,
+  useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  getEdgesStripHeightKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
+} from "utils/constants";
 import {
   CodeObjTypeEnum,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
   SectionTypeEnum,
+  SectionWithParamsDisplayModeEnum,
+  isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
@@ -193,6 +202,18 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
 
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
@@ -232,6 +253,57 @@ export function useSectionMinMaxDims(sectionId: string) {
     ) {
       minHeight *= 0.5;
       minWidth *= 0.5;
+    }
+
+    if (
+      !isMinimized &&
+      isBaseSectionWithParamsImpl(impl) &&
+      impl.displayMode === SectionWithParamsDisplayModeEnum.Gui &&
+      !hideParams
+    ) {
+      let baseMinHeight = minHeight;
+      if (sectionType === SectionTypeEnum.Callable) {
+        baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;
+      }
+      const pinned = getCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+      const edgeInputSet = new Set(impl.edgeInputParams);
+      const hasPinnedParams = pinned.topLevelParamIds.some(
+        (paramId) => !edgeInputSet.has(paramId),
+      );
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMinHeight > 0
+          ? pinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMinHeight > 0
+          ? unpinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      let requiredParamsHeight = 0;
+      if (hasPinnedParams) {
+        if (typeof impl.pinnedAreaHeight === "number") {
+          requiredParamsHeight += Math.max(
+            impl.pinnedAreaHeight,
+            resolvedPinnedMinHeight,
+          );
+        } else {
+          requiredParamsHeight += resolvedPinnedMinHeight;
+        }
+      }
+      if (hasUnpinnedParams) {
+        requiredParamsHeight += resolvedUnpinnedMinHeight;
+      }
+      if (hasEdges) {
+        requiredParamsHeight += edgesStripHeight;
+      }
+      if (requiredParamsHeight > 0) {
+        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
+      }
     }
 
     let metaControlSizeMode: SizeMode | null = null;

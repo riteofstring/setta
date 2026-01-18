@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import { C } from "./src/utils/c.js";
@@ -42,5 +42,9 @@ export default defineConfig({
   preview: {
     host: devFrontendHost,
     port: devFrontendPort,
+  },
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.tsx"],
   },
 });
