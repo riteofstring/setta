@@ -65,18 +65,30 @@ class DetachedRunManager:
         )
         self._write_meta(meta)
         stdout_handle = open(stdout_path, "ab")
-        popen_kwargs: dict[str, object] = {
-            "stdout": stdout_handle,
-            "stderr": stdout_handle,
-            "stdin": subprocess.DEVNULL,
-            "shell": True,
-        }
-        if os.name == "nt":
-            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            popen_kwargs["start_new_session"] = True
-        proc = subprocess.Popen(spec.command, **popen_kwargs)
-        stdout_handle.close()
+        try:
+            popen_kwargs: dict[str, object] = {
+                "stdout": stdout_handle,
+                "stderr": stdout_handle,
+                "stdin": subprocess.DEVNULL,
+                "shell": True,
+            }
+            if os.name == "nt":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["start_new_session"] = True
+            proc = subprocess.Popen(spec.command, **popen_kwargs)
+        except Exception:
+            meta = meta.model_copy(
+                update={
+                    "status": RunStatus.failed,
+                    "exitedAtMs": _now_ms(),
+                    "exitCode": -1,
+                }
+            )
+            self._write_meta(meta)
+            raise
+        finally:
+            stdout_handle.close()
         meta = meta.model_copy(
             update={
                 "status": RunStatus.running,
@@ -150,13 +162,45 @@ class DetachedRunManager:
             with self._lock:
                 self._canceled.discard(run_id)
             return self.get_status(run_id)
+        exit_code = proc.poll()
+        if exit_code is not None:
+            with self._lock:
+                self._canceled.discard(run_id)
+            return self._finalize_run(meta, exit_code)
         if os.name == "nt":
-            proc.terminate()
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                with self._lock:
+                    self._canceled.discard(run_id)
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    return self._finalize_run(meta, exit_code)
+                return self.get_status(run_id)
         else:
-            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                with self._lock:
+                    self._canceled.discard(run_id)
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    return self._finalize_run(meta, exit_code)
+                return self.get_status(run_id)
         meta = meta.model_copy(
             update={
                 "status": RunStatus.canceled,
+                "exitedAtMs": _now_ms(),
+            }
+        )
+        self._write_meta(meta)
+        try:
+            exit_code = proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            return meta
+        meta = meta.model_copy(
+            update={
+                "exitCode": exit_code,
                 "exitedAtMs": _now_ms(),
             }
         )
@@ -166,11 +210,15 @@ class DetachedRunManager:
     def _watch_process(self, run_id: str, proc: subprocess.Popen) -> None:
         exit_code = proc.wait()
         with self._lock:
-            self._processes.pop(run_id, None)
             canceled = run_id in self._canceled
             if canceled:
                 self._canceled.remove(run_id)
-        meta = self._load_meta(run_id)
+        try:
+            meta = self._load_meta(run_id)
+        except FileNotFoundError:
+            with self._lock:
+                self._processes.pop(run_id, None)
+            return
         if canceled or meta.status == RunStatus.canceled:
             meta = meta.model_copy(
                 update={
@@ -180,8 +228,10 @@ class DetachedRunManager:
                 }
             )
             self._write_meta(meta)
-            return
-        self._finalize_run(meta, exit_code)
+        else:
+            self._finalize_run(meta, exit_code)
+        with self._lock:
+            self._processes.pop(run_id, None)
 
     def _finalize_run(
         self,

@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from setta.database.db_objs import DBE
 from setta.run_manager import DetachedRunManager, DetachedRunSpec
 from setta.types.id import ID
-from setta.project_state.project_manager_types import RunStatus
+from setta.project_state.project_manager_types import RunStatus, RunStatusResponse
 
 
 class DetachedRunManagerTests(unittest.TestCase):
@@ -48,6 +48,31 @@ class DetachedRunManagerTests(unittest.TestCase):
         run_dir = self.root / "runs" / response.runId
         self.assertTrue((run_dir / "meta.json").exists())
         self.assertTrue((run_dir / "stdout.log").exists())
+
+    def test_start_run_invalid_command_marks_failed(self) -> None:
+        runs_root = self.root / "runs"
+        before = {path.name for path in runs_root.iterdir()}
+        snapshot_path = self.root / "snapshots" / "run"
+        spec = DetachedRunSpec(
+            command="bad\0cmd",
+            snapshot_path=snapshot_path,
+            project_config_id=ID("config"),
+            entry_section_id=ID("section"),
+            tags={},
+        )
+        with self.assertRaises(ValueError):
+            self.manager.start_run(spec)
+        after = {path.name for path in runs_root.iterdir()}
+        new_dirs = list(after - before)
+        self.assertEqual(len(new_dirs), 1)
+        meta_path = runs_root / new_dirs[0] / "meta.json"
+        data = self.dbe.read_json(meta_path)
+        meta = RunStatusResponse(**data)
+        self.assertEqual(meta.status, RunStatus.failed)
+        self.assertEqual(meta.exitCode, -1)
+        self.assertIsNone(meta.pid)
+        self.assertIsNone(meta.startedAtMs)
+        self.assertIsNotNone(meta.exitedAtMs)
 
     def test_snapshot_path_points_to_file(self) -> None:
         snapshot_path = self.root / "snapshots" / "run.py"
@@ -114,6 +139,26 @@ class DetachedRunManagerTests(unittest.TestCase):
             time.sleep(0.05)
             status = self.manager.get_status(response.runId)
         self.assertEqual(status.status, RunStatus.canceled)
+
+    def test_cancel_after_exit_keeps_exited_status(self) -> None:
+        command = f'"{sys.executable}" -c "import time; time.sleep(0.05)"'
+        snapshot_path = self.root / "snapshots" / "run"
+        spec = DetachedRunSpec(
+            command=command,
+            snapshot_path=snapshot_path,
+            project_config_id=ID("config"),
+            entry_section_id=ID("section"),
+            tags={},
+        )
+        response = self.manager.start_run(spec)
+        with self.manager._lock:
+            proc = self.manager._processes.get(response.runId)
+            if proc is None:
+                self.fail("Expected running process to be tracked")
+            exit_code = proc.wait(timeout=5)
+        status = self.manager.cancel_run(response.runId)
+        self.assertEqual(status.status, RunStatus.exited)
+        self.assertEqual(status.exitCode, exit_code)
 
     def test_canceled_run_records_exit_code(self) -> None:
         command = f'"{sys.executable}" -c "import time; time.sleep(5)"'
