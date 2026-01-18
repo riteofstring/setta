@@ -14,7 +14,10 @@ import { useAIStore } from "state/definitions";
 import { useLocalValue } from "state/hooks/utils";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
+import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+
+const CHAT_ENGINE_SETTA_ID = "setta-llm";
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -30,6 +33,7 @@ export function ProjectChat() {
   );
   const [deepThink, setDeepThink] = useState(false);
   useHydrateLLMState();
+  useHydrateAgenticState();
 
   const {
     apiKeys,
@@ -38,6 +42,7 @@ export function ProjectChat() {
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     llmConfigId,
+    externalAgentConfigs,
   } = useAIStore((x) => {
     const llmConfig =
       typeof chatId === "string" ? x.chatDetails[chatId]?.llmConfig : null;
@@ -50,25 +55,70 @@ export function ProjectChat() {
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       llmConfigId,
+      externalAgentConfigs: x.externalAgentConfigs,
     };
   }, _.isEqual);
 
   const [selectedLLMConfigId, setSelectedLLMConfigId] =
     useLocalValue(llmConfigId);
+  const [selectedEngineId, setSelectedEngineId] =
+    useState<string>(CHAT_ENGINE_SETTA_ID);
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [apiKeys, allLLMConfigs],
   );
+  const engineGroups = useMemo(() => {
+    const externalItems = externalAgentConfigs.map((config) => {
+      const toolLabel = config.toolType.replaceAll("_", " ");
+      const baseLabel = config.name?.trim()
+        ? config.name
+        : `${toolLabel} (${config.runMode})`;
+      return {
+        id: config.id,
+        name: baseLabel,
+      };
+    });
+    return [
+      {
+        group: "Engine",
+        items: [{ id: CHAT_ENGINE_SETTA_ID, name: "Setta LLM" }],
+      },
+      {
+        group: "External Agents",
+        items: externalItems,
+      },
+    ];
+  }, [externalAgentConfigs]);
 
   const availableConfigCount = countLLMConfigs(availableConfigGroups);
   const noConfigsAvailable = availableConfigCount === 0;
+  const externalAgentConfigId =
+    selectedEngineId === CHAT_ENGINE_SETTA_ID ? null : selectedEngineId;
+  const isExternalEngine = externalAgentConfigId !== null;
   let placeholderText = "Type a message...";
-  if (noConfigsAvailable) {
-    placeholderText = "Add API key!";
-  } else if (!selectedLLMConfigId) {
-    placeholderText = "Select an LLM";
+  if (!isExternalEngine) {
+    if (noConfigsAvailable) {
+      placeholderText = "Add API key!";
+    } else if (!selectedLLMConfigId) {
+      placeholderText = "Select an LLM";
+    }
+  } else if (!externalAgentConfigId) {
+    placeholderText = "Select an external agent";
   }
+
+  const handleEngineChange = useCallback(
+    (value: string | null) => {
+      const nextEngineId = value ?? CHAT_ENGINE_SETTA_ID;
+      if (nextEngineId === selectedEngineId) {
+        return;
+      }
+      setSelectedEngineId(nextEngineId);
+      setChatId(undefined);
+      useAIStore.setState({ viewHistory: false });
+    },
+    [selectedEngineId, setChatId],
+  );
 
   return (
     apiKeysInitialLoadComplete &&
@@ -91,8 +141,14 @@ export function ProjectChat() {
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => useAIStore.setState({ viewHistory: !viewHistory })}
+              onClick={() => {
+                if (isExternalEngine) {
+                  return;
+                }
+                useAIStore.setState({ viewHistory: !viewHistory });
+              }}
               aria-label="View History"
+              disabled={isExternalEngine}
             >
               {viewHistory ? (
                 <>
@@ -109,32 +165,47 @@ export function ProjectChat() {
           </div>
 
           {viewHistory ? null : (
-            <div className="ml-auto flex  w-full items-center justify-end gap-2">
-              <button
-                className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors  focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent  active:dark:text-setta-300`}
-                aria-label="Extended Thinking"
-                onClick={() => {
-                  setDeepThink(!deepThink);
-                }}
-              >
-                <BiSolidBrain size={15} />
-                <span className="hidden @[33.5rem]:block">Deep Thinking</span>
-              </button>
-
+            <div className="ml-auto flex w-full items-center justify-end gap-2">
               <IdNameCombobox
-                allItems={availableConfigGroups}
-                value={selectedLLMConfigId}
+                allItems={engineGroups}
+                value={selectedEngineId}
                 small={false}
-                onSelectedItemChange={setSelectedLLMConfigId}
-                placeholder={
-                  noConfigsAvailable
-                    ? "Add an LLM config or API key"
-                    : "Select an LLM"
-                }
-                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                onSelectedItemChange={handleEngineChange}
+                placeholder="Select an engine"
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
+
+              {!isExternalEngine ? (
+                <>
+                  <button
+                    className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
+                    aria-label="Extended Thinking"
+                    onClick={() => {
+                      setDeepThink(!deepThink);
+                    }}
+                  >
+                    <BiSolidBrain size={15} />
+                    <span className="hidden @[33.5rem]:block">
+                      Deep Thinking
+                    </span>
+                  </button>
+
+                  <IdNameCombobox
+                    allItems={availableConfigGroups}
+                    value={selectedLLMConfigId}
+                    small={false}
+                    onSelectedItemChange={setSelectedLLMConfigId}
+                    placeholder={
+                      noConfigsAvailable
+                        ? "Add an LLM config or API key"
+                        : "Select an LLM"
+                    }
+                    // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                    bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                    outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+                  />
+                </>
+              ) : null}
             </div>
           )}
         </nav>
@@ -147,6 +218,7 @@ export function ProjectChat() {
             placeholderText={placeholderText}
             deepThink={deepThink}
             llmConfigId={selectedLLMConfigId}
+            externalAgentConfigId={externalAgentConfigId}
             setChatId={setChatId}
           />
         )}
