@@ -10,7 +10,7 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
         invocations: list[dict[str, int]] = []
         event = asyncio.Event()
 
-        async def executor(payload: dict[str, int], events: list[object]):
+        async def executor(payload: dict[str, int], actions: list[object]):
             invocations.append(dict(payload))
             event.set()
 
@@ -42,7 +42,7 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
 
         loop = asyncio.get_running_loop()
 
-        async def executor(payload: dict[str, int], events: list[object]):
+        async def executor(payload: dict[str, int], actions: list[object]):
             call_times.append(loop.time())
             payloads.append(dict(payload))
             if len(call_times) == 1:
