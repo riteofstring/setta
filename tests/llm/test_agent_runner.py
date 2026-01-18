@@ -304,6 +304,42 @@ class AgentRunnerTests(unittest.TestCase):
             self.assertEqual(len(outputs["messages"]), len(messages))
             self.assertEqual(outputs["messages"][-1]["role"], "assistant")
 
+    def test_build_outputs_includes_metadata_usage_and_cost(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            messages = [
+                UserChatMessage(
+                    content=[MessageTextContent(text="hello")],
+                )
+            ]
+            metadata = {"model": "gpt-4o-mini", "engineConfigId": "engine-123"}
+            usage = {"promptTokens": 2, "completionTokens": 3, "totalTokens": 5}
+
+            outputs = runner._build_outputs(
+                messages,
+                metadata=metadata,
+                usage=usage,
+                cost=0.0123,
+            )
+
+            self.assertEqual(outputs.get("metadata"), metadata)
+            self.assertEqual(outputs.get("usage"), usage)
+            self.assertEqual(outputs.get("cost"), 0.0123)
+
     def test_run_event_persistence_records_start_and_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

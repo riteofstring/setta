@@ -279,6 +279,8 @@ class AgentRunner:
     async def _run_agent(self, context: AgentRunContext) -> None:
         run = context.run
         messages = self._build_initial_messages(context.run.inputs)
+        usage_summary: dict[str, int] | None = None
+        cost_value: float | None = None
         try:
             while True:
                 payload = self._build_llm_request_payload(
@@ -316,6 +318,12 @@ class AgentRunner:
                         )
 
                     async for chunk in self._iterate_stream(stream_result):
+                        usage_summary = self._merge_usage_summary(
+                            usage_summary, self._extract_usage_from_chunk(chunk)
+                        )
+                        cost_value = self._coalesce_cost(
+                            cost_value, self._extract_cost_from_chunk(chunk)
+                        )
                         await self._handle_stream_chunk(
                             context,
                             assistant_message,
@@ -475,7 +483,15 @@ class AgentRunner:
 
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
-            run.outputs = self._build_outputs(messages)
+            metadata = self._build_run_metadata(context)
+            run.outputs = self._build_outputs(
+                messages,
+                metadata=metadata,
+                usage=usage_summary,
+                cost=cost_value,
+            )
+            if cost_value is not None:
+                run.cost = cost_value
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
         finally:
@@ -1518,5 +1534,154 @@ class AgentRunner:
         run.events.append(RunEvent(type=event_type, payload=payload))
         save_agent_run(self.dbe, run)
 
-    def _build_outputs(self, messages: list[BaseChatMessageUnion]) -> dict[str, Any]:
-        return build_run_outputs(messages)
+    def _build_outputs(
+        self,
+        messages: list[BaseChatMessageUnion],
+        *,
+        metadata: dict[str, Any] | None = None,
+        usage: dict[str, int] | None = None,
+        cost: float | None = None,
+    ) -> dict[str, Any]:
+        outputs = build_run_outputs(messages)
+        if metadata:
+            outputs["metadata"] = metadata
+        if usage:
+            outputs["usage"] = usage
+        if cost is not None:
+            outputs["cost"] = cost
+        return outputs
+
+    @staticmethod
+    def _build_run_metadata(context: AgentRunContext) -> dict[str, Any]:
+        metadata: dict[str, Any] = {
+            "engineConfigId": str(context.engine_config_id),
+            "llmConfigId": str(context.llm_config.id),
+            "model": context.llm_config.model,
+            "deepThink": context.deep_think,
+            "chatId": str(context.chat_id),
+            "projectConfigId": str(context.project_config_id),
+        }
+        if context.llm_config.provider:
+            metadata["provider"] = context.llm_config.provider
+        if context.profile.id:
+            metadata["profileId"] = str(context.profile.id)
+        if context.section_id:
+            metadata["sectionId"] = str(context.section_id)
+        return metadata
+
+    @staticmethod
+    def _normalize_usage_payload(payload: Any) -> dict[str, int] | None:
+        if payload is None:
+            return None
+        data: dict[str, int] = {}
+        if isinstance(payload, dict):
+            raw_map = payload
+        else:
+            raw_map = {
+                key: getattr(payload, key, None)
+                for key in (
+                    "prompt_tokens",
+                    "completion_tokens",
+                    "total_tokens",
+                    "input_tokens",
+                    "output_tokens",
+                )
+            }
+
+        def _extract_int(value: Any) -> int | None:
+            if isinstance(value, bool):
+                return None
+            if isinstance(value, int):
+                return value
+            if isinstance(value, float):
+                return int(value)
+            if isinstance(value, str):
+                try:
+                    return int(value)
+                except ValueError:
+                    return None
+            return None
+
+        mapping = {
+            "prompt_tokens": "promptTokens",
+            "completion_tokens": "completionTokens",
+            "total_tokens": "totalTokens",
+            "input_tokens": "inputTokens",
+            "output_tokens": "outputTokens",
+        }
+        for key, output_key in mapping.items():
+            if key not in raw_map:
+                continue
+            value = _extract_int(raw_map.get(key))
+            if value is not None:
+                data[output_key] = value
+
+        if "promptTokens" not in data and "inputTokens" in data:
+            data["promptTokens"] = data["inputTokens"]
+        if "completionTokens" not in data and "outputTokens" in data:
+            data["completionTokens"] = data["outputTokens"]
+        if "totalTokens" not in data:
+            prompt = data.get("promptTokens")
+            completion = data.get("completionTokens")
+            if prompt is not None and completion is not None:
+                data["totalTokens"] = prompt + completion
+
+        return data or None
+
+    def _extract_usage_from_chunk(
+        self, chunk: ModelResponseStream
+    ) -> dict[str, int] | None:
+        usage = getattr(chunk, "usage", None)
+        return self._normalize_usage_payload(usage)
+
+    @staticmethod
+    def _merge_usage_summary(
+        current: dict[str, int] | None,
+        incoming: dict[str, int] | None,
+    ) -> dict[str, int] | None:
+        if incoming is None:
+            return current
+        if current is None:
+            return dict(incoming)
+        merged = dict(current)
+        for key, value in incoming.items():
+            if key not in merged or value >= merged[key]:
+                merged[key] = value
+        if "totalTokens" not in merged:
+            prompt = merged.get("promptTokens")
+            completion = merged.get("completionTokens")
+            if prompt is not None and completion is not None:
+                merged["totalTokens"] = prompt + completion
+        return merged
+
+    @staticmethod
+    def _extract_cost_from_chunk(chunk: ModelResponseStream) -> float | None:
+        for attr in ("response_cost", "cost", "total_cost", "totalCost"):
+            raw = getattr(chunk, attr, None)
+            if raw is None:
+                continue
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                continue
+        usage = getattr(chunk, "usage", None)
+        if isinstance(usage, dict):
+            for key in ("cost", "total_cost", "totalCost"):
+                raw = usage.get(key)
+                if raw is None:
+                    continue
+                try:
+                    return float(raw)
+                except (TypeError, ValueError):
+                    continue
+        return None
+
+    @staticmethod
+    def _coalesce_cost(existing: float | None, incoming: float | None) -> float | None:
+        if incoming is None:
+            return existing
+        if existing is None:
+            return incoming
+        if incoming == existing:
+            return existing
+        return max(existing, incoming)

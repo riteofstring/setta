@@ -5119,6 +5119,8 @@ const RunEventSchema = z.object({
   payload: z.record(z.string(), z.any()).default({}),
 });
 
+export type RunEvent = z.infer<typeof RunEventSchema>;
+
 const AgentRunSchema = z.object({
   id: IDSchema.default(create_new_id),
   profileId: z.union([IDSchema, z.null()]).default(null),

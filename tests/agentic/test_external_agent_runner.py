@@ -343,6 +343,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
             run = create_agent_run(
                 profile_id=None,
                 inputs={
@@ -371,21 +376,96 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     RunEvent(
                         type="stream_chunk",
                         payload={"chunk": chunk.model_dump(mode="json")},
-                    )
                 )
+            )
 
-            runner._set_run_outputs_from_events(run)
+            runner._set_run_outputs_from_events(run, config)
 
             self.assertIsNotNone(run.outputs)
             messages = run.outputs.get("messages")
             self.assertIsInstance(messages, list)
             self.assertEqual(run.outputs.get("finalText"), "Hello")
 
+    def test_run_outputs_include_external_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-123")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                defaultModel="gpt-4o-mini",
+                approvalPolicy="never",
+                sandboxPolicy="restricted",
+            )
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-7",
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            message = AssistantChatMessage(
+                id="m7",
+                content=[MessageTextContent(text="Hello")],
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageStartEvent(
+                            message=AssistantChatMessage(id="m7", content=[])
+                        ).model_dump(mode="json")
+                    },
+                )
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageDeltaEvent(
+                            message_id="m7",
+                            content=[MessageTextDelta(index=0, text="Hello")],
+                        ).model_dump(mode="json")
+                    },
+                )
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageFinalizedEvent(message=message).model_dump(
+                            mode="json"
+                        )
+                    },
+                )
+            )
+
+            runner._set_run_outputs_from_events(run, config)
+
+            self.assertIsNotNone(run.outputs)
+            metadata = run.outputs.get("metadata")
+            self.assertIsInstance(metadata, dict)
+            self.assertEqual(metadata.get("engineConfigId"), str(engine_config_id))
+            self.assertEqual(metadata.get("chatId"), "chat-7")
+            self.assertEqual(metadata.get("projectConfigId"), "config-7")
+            self.assertEqual(metadata.get("externalAgentConfigId"), str(config.id))
+            self.assertEqual(metadata.get("toolType"), config.toolType.value)
+            self.assertEqual(metadata.get("runMode"), config.runMode.value)
+            self.assertEqual(metadata.get("model"), "gpt-4o-mini")
+            self.assertEqual(metadata.get("approvalPolicy"), "never")
+            self.assertEqual(metadata.get("sandboxPolicy"), "restricted")
+
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
@@ -394,6 +474,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             profile = AgentProfile(name="Agent")
 
             context = runner._build_context(
+                engine_config_id,
                 config,
                 profile=profile,
                 inputs={"chatId": "chat-1", "sectionId": "section-1"},
@@ -407,6 +488,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2")
             config = ExternalAgentConfig(
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
@@ -415,6 +497,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             with self.assertRaises(TypeError):
                 runner._build_context(
+                    engine_config_id,
                     config,
                     profile=None,
                     inputs={"projectConfigId": 123},

@@ -253,7 +253,7 @@ class ExternalAgentRunner:
             return_code = handle.return_code
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
-            self._set_run_outputs_from_events(run)
+            self._set_run_outputs_from_events(run, context.config)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -429,6 +429,15 @@ class ExternalAgentRunner:
         if not outputs:
             return None
         raw = outputs.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+        return None
+
+    @staticmethod
+    def _extract_input_string(inputs: dict[str, Any] | None, key: str) -> str | None:
+        if not inputs:
+            return None
+        raw = inputs.get(key)
         if isinstance(raw, str) and raw:
             return raw
         return None
@@ -615,10 +624,37 @@ class ExternalAgentRunner:
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 
-    def _set_run_outputs_from_events(self, run: AgentRun) -> None:
+    def _set_run_outputs_from_events(
+        self, run: AgentRun, config: ExternalAgentConfig | None = None
+    ) -> None:
         state = build_chat_state_from_run(run)
         outputs = run.outputs or {}
         outputs.update(build_run_outputs(state.messages))
+        metadata = {}
+        existing_metadata = outputs.get("metadata")
+        if isinstance(existing_metadata, dict):
+            metadata.update(existing_metadata)
+        engine_config_id = self._extract_input_string(run.inputs, "engineConfigId")
+        if engine_config_id:
+            metadata.setdefault("engineConfigId", engine_config_id)
+        chat_id = self._extract_input_string(run.inputs, "chatId")
+        if chat_id:
+            metadata.setdefault("chatId", chat_id)
+        project_config_id = self._extract_input_string(run.inputs, "projectConfigId")
+        if project_config_id:
+            metadata.setdefault("projectConfigId", project_config_id)
+        if config is not None:
+            metadata.setdefault("externalAgentConfigId", str(config.id))
+            metadata.setdefault("toolType", config.toolType.value)
+            metadata.setdefault("runMode", config.runMode.value)
+            if config.defaultModel:
+                metadata.setdefault("model", config.defaultModel)
+            if config.approvalPolicy:
+                metadata.setdefault("approvalPolicy", config.approvalPolicy)
+            if config.sandboxPolicy:
+                metadata.setdefault("sandboxPolicy", config.sandboxPolicy)
+        if metadata:
+            outputs["metadata"] = metadata
         run.outputs = outputs
 
     async def _handle_stream_chunk(
