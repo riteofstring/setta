@@ -6,7 +6,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DrawSectionImplArgsWithCallable,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
     set_curr_effective_section_impl_value,
 )
 from setta.types.section_impls import DrawSectionImpl
@@ -38,42 +38,44 @@ def apply_draw_snapshot_updates(
     snapshots_by_section_id: dict["ID", str | None] | None,
     artifact_root: Path = C.ARTIFACTS_FOLDER,
 ) -> bool:
-    snapshots = snapshots_by_section_id or {}
+    if snapshots_by_section_id is None:
+        return False
     did_update = False
-    section_ids = project_state.projectConfig.sectionVariantMap.keys()
-    for section_id in section_ids:
-        impl = get_curr_effective_section_impl(project_state, section_id)
-        if not isinstance(impl, DrawSectionImpl):
-            continue
-        payload = snapshots.get(section_id)
-        if payload:
-            target_path = (
-                Path(impl.renderedImagePath)
-                if impl.renderedImagePath
-                else build_draw_snapshot_path(section_id, artifact_root)
-            )
-            dbe.write(
-                target_path,
-                _decode_base64_payload(payload),
-                mode="wb",
-            )
-            new_path = target_path.as_posix()
-            if impl.renderedImagePath != new_path:
+    for section_id, payload in snapshots_by_section_id.items():
+        if section_id not in project_state.projectConfig.sectionVariantMap:
+            raise KeyError(f"Unknown section id {section_id}")
+        impl = get_curr_effective_section_impl_with_type_guard(
+            project_state, section_id, DrawSectionImpl
+        )
+        if payload is None:
+            if impl.renderedImagePath is not None:
                 set_curr_effective_section_impl_value(
                     project_state,
                     section_id,
                     DrawSectionImplArgsWithCallable(
-                        renderedImagePath=new_path,
+                        renderedImagePath=None,
                     ),
                 )
                 did_update = True
             continue
-        if impl.renderedImagePath is not None:
+
+        target_path = (
+            Path(impl.renderedImagePath)
+            if impl.renderedImagePath
+            else build_draw_snapshot_path(section_id, artifact_root)
+        )
+        dbe.write(
+            target_path,
+            _decode_base64_payload(payload),
+            mode="wb",
+        )
+        new_path = target_path.as_posix()
+        if impl.renderedImagePath != new_path:
             set_curr_effective_section_impl_value(
                 project_state,
                 section_id,
                 DrawSectionImplArgsWithCallable(
-                    renderedImagePath=None,
+                    renderedImagePath=new_path,
                 ),
             )
             did_update = True

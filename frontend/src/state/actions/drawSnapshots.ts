@@ -15,16 +15,18 @@ export function unregisterDrawSnapshotProvider(sectionId: string): void {
 
 export function collectDrawSnapshotPayloads(
   sectionIds: string[],
-): Record<string, string | null> {
+): Record<string, string | null> | null {
   const payloads: Record<string, string | null> = {};
   for (const sectionId of sectionIds) {
     const provider = drawSnapshotProviders.get(sectionId);
     if (!provider) {
-      payloads[sectionId] = null;
       continue;
     }
     const payload = provider();
-    payloads[sectionId] = payload ?? null;
+    if (payload === null) {
+      continue;
+    }
+    payloads[sectionId] = payload;
   }
-  return payloads;
+  return Object.keys(payloads).length > 0 ? payloads : null;
 }

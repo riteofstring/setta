@@ -74,6 +74,20 @@ class DrawSnapshotTests(unittest.TestCase):
             written = dbe.read(expected_path, mode="rb")
             self.assertEqual(expected_bytes, written)
 
+            did_skip = apply_draw_snapshot_updates(
+                dbe=dbe,
+                project_state=project_state,
+                snapshots_by_section_id={},
+                artifact_root=artifacts_root,
+            )
+            self.assertFalse(did_skip)
+            impl_after_skip = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                section_id,
+                DrawSectionImpl,
+            )
+            self.assertEqual(expected_path.as_posix(), impl_after_skip.renderedImagePath)
+
             did_clear = apply_draw_snapshot_updates(
                 dbe=dbe,
                 project_state=project_state,
@@ -97,7 +111,7 @@ class DrawSnapshotTests(unittest.TestCase):
             did_update = apply_draw_snapshot_updates(
                 dbe=dbe,
                 project_state=project_state,
-                snapshots_by_section_id={},
+                snapshots_by_section_id=None,
                 artifact_root=artifacts_root,
             )
             self.assertFalse(did_update)
