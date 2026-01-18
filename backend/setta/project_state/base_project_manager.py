@@ -19,6 +19,8 @@ from typing import (
     overload,
 )
 
+from setta.agentic.chat_view import get_run_chat_id, is_chat_run
+from setta.agentic.store import list_agent_runs
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -40,7 +42,6 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.chats.load import load_chat
 from setta.project_state.code import (
     create_snapshot_run_command_from_sections,
 )
@@ -96,9 +97,6 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
-    IndentParamsRequest,
-    MoveParamGroupsRequest,
-    MoveParamsRequest,
     MoveSectionRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
@@ -135,6 +133,9 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
+    SetPromptFormatRequest,
+    SetPromptInputsRequest,
+    SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -144,6 +145,7 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionWithParamsDisplayModeRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -167,7 +169,6 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
-    UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
@@ -209,9 +210,7 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_section_callable_code_obj,
     group_sections,
-    indent_params,
     maybe_update_gen_python_code_section,
-    move_params_to_parent,
     move_section_to_pane,
     move_section_to_parent_section,
     reconnect_edge,
@@ -235,6 +234,9 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
+    set_prompt_section_format,
+    set_prompt_section_inputs,
+    set_prompt_section_template,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -244,6 +246,7 @@ from setta.types.helpers_lvl2 import (
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
+    set_section_with_params_display_mode,
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
@@ -258,7 +261,6 @@ from setta.types.helpers_lvl2 import (
     toggle_variant_frozen,
     toggle_variant_json_source,
     ungroup_groups,
-    unindent_params,
     unselect_all_params,
     update_edge,
     update_param_impl_config,
@@ -1669,6 +1671,24 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_prompt_template(self, x: SetPromptTemplateRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_template(project_state, x.sectionId, x.template)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_inputs(self, x: SetPromptInputsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_format(self, x: SetPromptFormatRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_format(project_state, x.sectionId, x.format)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
@@ -1838,6 +1858,13 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_section_with_params_display_mode(
+        self, x: SetSectionWithParamsDisplayModeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_with_params_display_mode(project_state, x.sectionId, x.displayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -1896,7 +1923,8 @@ class BaseProjectManager(ABC):
             project_state,
             x.sectionId,
             x.managed,
-            x.llmConfigId,
+            x.engineConfigId,
+            x.agentProfileId,
             x.deepThink,
         )
         await self.update_and_broadcast_project_state(project_state)
@@ -1932,8 +1960,12 @@ class BaseProjectManager(ABC):
         chat_id = section_impl.chatId
         if chat_id is None:
             return None
-        if load_chat(self.dbe, chat_id) is not None:
-            return chat_id
+        runs = list_agent_runs(self.dbe)
+        for run in runs:
+            if not is_chat_run(run):
+                continue
+            if get_run_chat_id(run) == chat_id:
+                return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
         await self.update_and_broadcast_project_state(project_state)
         return None
@@ -2031,49 +2063,6 @@ class BaseProjectManager(ABC):
             move_section_to_parent_section(
                 project_state, x.newParentId, x.sectionId, x.newIndex
             )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def move_params(self, x: MoveParamsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        move_params_to_parent(
-            self.settings_file.settings,
-            project_state,
-            x.sectionId,
-            x.paramIds,
-            x.newParentId,
-            x.newIndex,
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def move_param_groups(self, x: MoveParamGroupsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        for move in x.moves:
-            move_params_to_parent(
-                self.settings_file.settings,
-                project_state,
-                x.sectionId,
-                move.paramIds,
-                move.newParentId,
-                move.newIndex,
-            )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def indent_params(self, x: IndentParamsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        indent_params(
-            self.settings_file.settings, project_state, x.sectionId, x.paramIds
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def unindent_params(self, x: UnindentParamsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        unindent_params(
-            self.settings_file.settings, project_state, x.sectionId, x.paramIds
-        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
