@@ -113,24 +113,6 @@ export async function route_run_code(
   return await post("/runCode", x);
 }
 
-async function route_run_detached(
-  x: gt.RunDetachedRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
-  return await post("/runDetached", x);
-}
-
-async function route_get_run_status(
-  x: gt.GetRunStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/getRunStatus", x);
-}
-
-async function route_cancel_run(
-  x: gt.CancelRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/cancelRun", x);
-}
-
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequestInput,
 ): Promise<ResponseDataAndStatus<string>> {
@@ -153,12 +135,6 @@ export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequestsInput,
 ): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/checkIfFileExists", x);
-}
-
-export async function route_get_file_browser_root(): Promise<
-  ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
-> {
-  return await post("/getFileBrowserRoot", null);
 }
 
 export async function route_get_folder_contents(
@@ -283,7 +259,7 @@ export async function route_get_llm_api_keys(): Promise<
   return await get("/llm/apiKeys");
 }
 
-async function route_set_llm_api_keys(
+export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llm/apiKeys", payload);
@@ -293,18 +269,6 @@ export async function route_get_llm_response(
   x: gt.GetLLMResponseRequestInput,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getLLMResponse", x);
-}
-
-export async function route_get_all_llm_chat_metadata(): Promise<
-  ResponseDataAndStatus<Array<gt.ChatMetadata>>
-> {
-  return await post("/getAllLLMChatMetadata", null);
-}
-
-export async function route_delete_llm_chat(
-  x: gt.DeleteLLMChatRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteLLMChat", x);
 }
 
 export async function route_stop_llm_chat(
@@ -319,12 +283,198 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
+export async function route_get_external_agent_chat(
+  x: gt.GetExternalAgentChatRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetExternalAgentChatResponse>> {
+  return await post("/getExternalAgentChat", x);
+}
+
 export async function route_get_ai_follow_snapshot(
   x: gt.GetAIFollowSnapshotRequestInput,
 ): Promise<
   ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
 > {
   return await post("/getAIFollowSnapshot", x);
+}
+
+export async function route_get_agent_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentProfile>>
+> {
+  return await get("/getAgentProfiles");
+}
+
+async function route_get_agent_profile(
+  x: gt.GetAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/getAgentProfile", x);
+}
+
+export async function route_create_agent_profile(
+  x: gt.CreateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/createAgentProfile", x);
+}
+
+export async function route_update_agent_profile(
+  x: gt.UpdateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
+  return await post("/updateAgentProfile", x);
+}
+
+export async function route_delete_agent_profile(
+  x: gt.DeleteAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteAgentProfile", x);
+}
+
+async function route_start_agent_run(
+  x: gt.StartAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startAgentRun", x);
+}
+
+async function route_stop_agent_run(
+  x: gt.StopAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopAgentRun", x);
+}
+
+async function route_start_run_chain(
+  x: gt.StartRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startRunChain", x);
+}
+
+async function route_stop_run_chain(
+  x: gt.StopRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopRunChain", x);
+}
+
+export async function route_stop_external_agent_run(
+  x: gt.StopExternalAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopExternalAgentRun", x);
+}
+
+export async function route_respond_external_agent_approval(
+  x: gt.RespondExternalAgentApprovalRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/respondExternalAgentApproval", x);
+}
+
+export async function route_respond_external_agent_question(
+  x: gt.RespondExternalAgentQuestionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/respondExternalAgentQuestion", x);
+}
+
+async function route_get_agent_run(
+  x: gt.GetAgentRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/getAgentRun", x);
+}
+
+export async function route_get_agent_runs(): Promise<
+  ResponseDataAndStatus<Array<gt.AgentRun>>
+> {
+  return await get("/getAgentRuns");
+}
+
+export async function route_get_prompt_templates(): Promise<
+  ResponseDataAndStatus<Array<gt.PromptTemplate>>
+> {
+  return await get("/getPromptTemplates");
+}
+
+async function route_get_prompt_template(
+  x: gt.GetPromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/getPromptTemplate", x);
+}
+
+export async function route_create_prompt_template(
+  x: gt.CreatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/createPromptTemplate", x);
+}
+
+export async function route_update_prompt_template(
+  x: gt.UpdatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post("/updatePromptTemplate", x);
+}
+
+export async function route_delete_prompt_template(
+  x: gt.DeletePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deletePromptTemplate", x);
+}
+
+export async function route_get_external_agent_configs(): Promise<
+  ResponseDataAndStatus<Array<gt.ExternalAgentConfig>>
+> {
+  return await get("/getExternalAgentConfigs");
+}
+
+async function route_get_external_agent_config(
+  x: gt.GetExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/getExternalAgentConfig", x);
+}
+
+export async function route_get_external_agent_health(): Promise<
+  ResponseDataAndStatus<Array<gt.ExternalAgentPreflightStatus>>
+> {
+  return await get("/getExternalAgentHealth");
+}
+
+export async function route_create_external_agent_config(
+  x: gt.CreateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/createExternalAgentConfig", x);
+}
+
+export async function route_update_external_agent_config(
+  x: gt.UpdateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post("/updateExternalAgentConfig", x);
+}
+
+export async function route_delete_external_agent_config(
+  x: gt.DeleteExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteExternalAgentConfig", x);
+}
+
+export async function route_get_engine_configs(): Promise<
+  ResponseDataAndStatus<Array<gt.EngineConfig>>
+> {
+  return await get("/getEngineConfigs");
+}
+
+async function route_get_engine_config(
+  x: gt.GetEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/getEngineConfig", x);
+}
+
+export async function route_create_engine_config(
+  x: gt.CreateEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/createEngineConfig", x);
+}
+
+export async function route_update_engine_config(
+  x: gt.UpdateEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
+  return await post("/updateEngineConfig", x);
+}
+
+export async function route_delete_engine_config(
+  x: gt.DeleteEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteEngineConfig", x);
 }
 
 export async function route_clear_text_field_completion(
@@ -521,12 +671,6 @@ export async function route_toggle_variant_json_source(
   return await post("/toggleVariantJsonSource", x);
 }
 
-export async function route_set_variant_json_source_keys(
-  x: gt.SetVariantJsonSourceKeysRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setVariantJsonSourceKeys", x);
-}
-
 export async function route_delete_json_source_file_and_variant(
   x: gt.DeleteJSONSourceFileAndVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -539,10 +683,22 @@ export async function route_set_text_block_text(
   return await post("/setTextBlockText", x);
 }
 
-export async function route_set_project_config_codegen_targets(
-  x: gt.SetProjectConfigCodegenTargetsRequestInput,
+export async function route_set_prompt_template(
+  x: gt.SetPromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setProjectConfigCodegenTargets", x);
+  return await post("/setPromptTemplate", x);
+}
+
+export async function route_set_prompt_inputs(
+  x: gt.SetPromptInputsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptInputs", x);
+}
+
+export async function route_set_prompt_format(
+  x: gt.SetPromptFormatRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptFormat", x);
 }
 
 export async function route_set_gen_code_prefix(

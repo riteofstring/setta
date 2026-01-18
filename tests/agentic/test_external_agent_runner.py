@@ -1,0 +1,1092 @@
+import asyncio
+import json
+import shutil
+import sys
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from setta.agentic.external_adapters.base import ExternalAgentRunHandle
+from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
+from setta.agentic.external_agent_runner import (
+    ExternalAgentApprovalState,
+    ExternalAgentRunState,
+    ExternalAgentRunner,
+)
+from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
+from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
+from setta.database.db_objs import DBE
+from setta.types.agentic import AgentProfile, RunEvent
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
+)
+from setta.types.chat_stream_events import (
+    MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
+    MessageTextDelta,
+    ToolCallDeltaEvent,
+)
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
+)
+from setta.types.id import ID
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
+from setta.utils.constants import C
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.websocket_manager import WebsocketManager
+
+
+def _build_dbe(tmpdir: str) -> DBE:
+    root = Path(tmpdir) / "setta_files"
+    root.mkdir(parents=True, exist_ok=True)
+    return DBE(root)
+
+
+def _write_project_state(dbe: DBE) -> ProjectConfig:
+    project_config = ProjectConfig()
+    project_state = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    dbe.write_project(project_state)
+    return project_config
+
+
+def _build_runner(dbe: DBE) -> ExternalAgentRunner:
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    return ExternalAgentRunner(dbe, frontend_sender)
+
+
+class ExternalAgentRunnerTests(unittest.TestCase):
+    def test_context_defaults_chat_id_to_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs=None,
+            )
+
+            self.assertEqual(context.chat_id, context.run.id)
+            self.assertEqual(context.inputs["chatId"], str(context.run.id))
+
+    def test_context_sets_run_type(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs=None,
+            )
+
+            self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
+
+    def test_context_inherits_thread_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            config = ExternalAgentConfig(
+                id="config-1",
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            previous.outputs = {"threadId": "thread-123"}
+            save_agent_run(dbe, previous)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-1"},
+            )
+
+            self.assertEqual(context.inputs.get("threadId"), "thread-123")
+
+    def test_context_inherits_session_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2")
+            config = ExternalAgentConfig(
+                id="config-2",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-2",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            previous.outputs = {"sessionId": "session-456"}
+            save_agent_run(dbe, previous)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-2"},
+            )
+
+            self.assertEqual(context.inputs.get("sessionId"), "session-456")
+
+    def test_context_inherits_session_id_from_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2b")
+            config = ExternalAgentConfig(
+                id="config-2b",
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-2b",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            previous.events.append(
+                RunEvent(
+                    type="external_event",
+                    payload={"type": "system", "session_id": "session-from-event"},
+                )
+            )
+            save_agent_run(dbe, previous)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-2b"},
+            )
+
+            self.assertEqual(
+                context.inputs.get("sessionId"),
+                "session-from-event",
+            )
+
+    def test_context_respects_explicit_session_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-3")
+            config = ExternalAgentConfig(
+                id="config-3",
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-3",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            previous.outputs = {"sessionId": "session-old"}
+            save_agent_run(dbe, previous)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={"chatId": "chat-3", "sessionId": "session-new"},
+            )
+
+            self.assertEqual(context.inputs.get("sessionId"), "session-new")
+
+    def test_context_inherits_session_id_per_project_config(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config_a = ProjectConfig()
+            project_config_b = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={
+                    project_config_a.id: project_config_a,
+                    project_config_b.id: project_config_b,
+                },
+                defaultProjectConfigId=project_config_a.id,
+            )
+            dbe.write_project(project_state)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-4")
+            config = ExternalAgentConfig(
+                id="config-4",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            run_a = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_a.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            run_a.outputs = {"sessionId": "session-old"}
+            save_agent_run(dbe, run_a)
+            run_b = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_b.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            run_b.outputs = {"sessionId": "session-new"}
+            save_agent_run(dbe, run_b)
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=None,
+                inputs={
+                    "chatId": "chat-4",
+                    "projectConfigId": str(project_config_b.id),
+                },
+            )
+
+            self.assertEqual(context.inputs.get("sessionId"), "session-new")
+
+    def test_opencode_config_writes_permission_key(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+            )
+
+            config_path = runner._write_opencode_config(
+                "http://localhost:8000/mcp",
+                config,
+                allowlist=None,
+            )
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertIn("permission", payload)
+            self.assertNotIn("permissions", payload)
+
+            shutil.rmtree(config_path.parent, ignore_errors=True)
+
+    def test_ai_follow_snapshot_normalizes(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            project_config_id = ID("project-1")
+            chat_id = ID("chat-1")
+
+            runner._ai_follow_state[(project_config_id, chat_id)] = {
+                "section": [ID("section-1"), ID("section-1"), ID("section-2")]
+            }
+
+            snapshot = runner.get_ai_follow_snapshot(project_config_id)
+            self.assertEqual(len(snapshot), 1)
+            entry = snapshot[0]
+            self.assertEqual(entry.chatId, chat_id)
+            self.assertEqual(
+                entry.idsByType["section"],
+                [ID("section-1"), ID("section-2")],
+            )
+
+    def test_normalize_tool_calls_strips_mcp_prefix(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            tool_calls = [
+                ToolCall(
+                    id="call-1",
+                    function=ToolCallFunction(
+                        name="mcp__setta__create_section", arguments={}
+                    ),
+                )
+            ]
+
+            normalized = runner._normalize_tool_calls(tool_calls)
+
+            self.assertEqual(normalized[0].function.name, "setta__create_section")
+
+    def test_persist_external_session_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(profile_id=None, inputs={"chatId": "chat-4"})
+            save_agent_run(dbe, run)
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                session_id="session-999",
+                thread_id="thread-999",
+            )
+
+            runner._persist_external_session_metadata(run, handle)
+
+            loaded = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(loaded)
+            self.assertEqual(loaded.outputs.get("sessionId"), "session-999")
+            self.assertEqual(loaded.outputs.get("threadId"), "thread-999")
+
+    def test_run_outputs_built_from_stream_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-5",
+                    "projectConfigId": "config-5",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+
+            message = AssistantChatMessage(
+                id="m1",
+                content=[MessageTextContent(text="Hello")],
+            )
+            stream_chunks = [
+                MessageStartEvent(
+                    message=AssistantChatMessage(id="m1", content=[])
+                ),
+                MessageDeltaEvent(
+                    message_id="m1",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+                MessageFinalizedEvent(message=message),
+            ]
+            for chunk in stream_chunks:
+                run.events.append(
+                    RunEvent(
+                        type="stream_chunk",
+                        payload={"chunk": chunk.model_dump(mode="json")},
+                )
+            )
+
+            runner._set_run_outputs_from_events(run, config)
+
+            self.assertIsNotNone(run.outputs)
+            messages = run.outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            self.assertEqual(run.outputs.get("finalText"), "Hello")
+
+    def test_run_outputs_include_external_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-123")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                defaultModel="gpt-4o-mini",
+                approvalPolicy="never",
+                sandboxPolicy="restricted",
+            )
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-7",
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            message = AssistantChatMessage(
+                id="m7",
+                content=[MessageTextContent(text="Hello")],
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageStartEvent(
+                            message=AssistantChatMessage(id="m7", content=[])
+                        ).model_dump(mode="json")
+                    },
+                )
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageDeltaEvent(
+                            message_id="m7",
+                            content=[MessageTextDelta(index=0, text="Hello")],
+                        ).model_dump(mode="json")
+                    },
+                )
+            )
+            run.events.append(
+                RunEvent(
+                    type="stream_chunk",
+                    payload={
+                        "chunk": MessageFinalizedEvent(message=message).model_dump(
+                            mode="json"
+                        )
+                    },
+                )
+            )
+
+            runner._set_run_outputs_from_events(run, config)
+
+            self.assertIsNotNone(run.outputs)
+            metadata = run.outputs.get("metadata")
+            self.assertIsInstance(metadata, dict)
+            self.assertEqual(metadata.get("engineConfigId"), str(engine_config_id))
+            self.assertEqual(metadata.get("chatId"), "chat-7")
+            self.assertEqual(metadata.get("projectConfigId"), "config-7")
+            self.assertEqual(metadata.get("externalAgentConfigId"), str(config.id))
+            self.assertEqual(metadata.get("toolType"), config.toolType.value)
+            self.assertEqual(metadata.get("runMode"), config.runMode.value)
+            self.assertEqual(metadata.get("model"), "gpt-4o-mini")
+            self.assertEqual(metadata.get("approvalPolicy"), "never")
+            self.assertEqual(metadata.get("sandboxPolicy"), "restricted")
+
+    def test_context_accepts_explicit_ids(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            profile = AgentProfile(name="Agent")
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=profile,
+                inputs={"chatId": "chat-1", "sectionId": "section-1"},
+            )
+
+            self.assertEqual(str(context.chat_id), "chat-1")
+            self.assertEqual(str(context.section_id), "section-1")
+
+    def test_context_validates_project_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-2")
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            with self.assertRaises(TypeError):
+                runner._build_context(
+                    engine_config_id,
+                    config,
+                    profile=None,
+                    inputs={"projectConfigId": 123},
+                )
+
+    def test_working_dir_custom_is_created(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            working_dir = Path(tmpdir) / "custom-working-dir"
+            config = ExternalAgentConfig(
+                name="Custom",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
+                workingDir=str(working_dir),
+            )
+
+            resolved = runner._resolve_working_dir(config)
+
+            self.assertTrue(resolved.exists())
+            self.assertEqual(resolved, working_dir)
+
+    def test_env_whitelist_reads_dotenv(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                envVarWhitelist=["OPENAI_API_KEY"],
+            )
+
+            env = runner._build_env(config)
+
+            self.assertEqual(env.get("OPENAI_API_KEY"), "secret")
+
+    def test_claude_mcp_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            profile = AgentProfile(
+                name="Claude",
+                toolAllowlist=["setta__getProjectState", "mcp__setta__runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=profile, inputs=None)
+
+            config_path = context.inputs.get("mcpConfig")
+            self.assertIsInstance(config_path, str)
+            path = Path(str(config_path))
+            self.assertTrue(path.exists())
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["mcpServers"]["setta"]["url"],
+                f"{C.BACKEND}/mcp",
+            )
+            allowed_tools = context.inputs.get("allowedTools")
+            self.assertIsInstance(allowed_tools, list)
+            self.assertIn("mcp__setta__getProjectState", allowed_tools)
+            self.assertIn("mcp__setta__runTool", allowed_tools)
+
+            runner._cleanup_context(context)
+            self.assertFalse(path.exists())
+
+    def test_opencode_mcp_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            path = Path(str(config_path))
+            self.assertTrue(path.exists())
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["mcp"]["setta"]["url"],
+                f"{C.BACKEND}/mcp",
+            )
+
+            runner._cleanup_context(context)
+            self.assertFalse(path.exists())
+
+    def test_codex_home_config_is_written(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            self.assertTrue(config_path.exists())
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn("[mcp_servers.setta]", content)
+            self.assertIn(f"url = \"{C.BACKEND}/mcp\"", content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
+    def test_codex_config_writes_policy_fields(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                defaultModel="gpt-5-codex",
+                sandboxPolicy="workspace-write",
+                approvalPolicy="on-failure",
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('model = "gpt-5-codex"', content)
+            self.assertIn('sandbox_mode = "workspace-write"', content)
+            self.assertIn('approval_policy = "on-failure"', content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
+    def test_codex_config_writes_tool_allowlist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="Codex",
+                toolAllowlist=["setta__getProjectState", "runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=profile,
+                inputs=None,
+            )
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('enabled_tools = ["getProjectState", "runTool"]', content)
+
+            runner._cleanup_context(context)
+            self.assertFalse(config_path.exists())
+
+    def test_opencode_config_writes_permissions(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            self.assertEqual(payload.get("permission"), "ask")
+
+            runner._cleanup_context(context)
+
+    def test_opencode_config_merges_tool_allowlist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="OpenCode",
+                toolAllowlist=["setta__getProjectState"],
+            )
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = runner._build_context(
+                engine_config_id,
+                config,
+                profile=profile,
+                inputs=None,
+            )
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            permissions = payload.get("permission")
+            self.assertIsInstance(permissions, dict)
+            self.assertEqual(permissions.get("setta_*"), "deny")
+            self.assertEqual(permissions.get("setta_getProjectState"), "allow")
+
+            runner._cleanup_context(context)
+
+    def test_opencode_config_accepts_json_permissions(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy='{"run": "ask"}',
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            permissions = payload.get("permission")
+            self.assertIsInstance(permissions, dict)
+            self.assertEqual(permissions.get("run"), "ask")
+
+            runner._cleanup_context(context)
+
+    def test_temp_working_dir_is_cleaned(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="TempDir",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.temp_dir,
+            )
+
+            context = runner._build_context(config, profile=None, inputs=None)
+
+            self.assertTrue(context.working_dir.exists())
+            runner._cleanup_context(context)
+            self.assertFalse(context.working_dir.exists())
+
+
+class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
+    async def test_approval_request_emits_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = runner._build_context(config, profile=None, inputs=None)
+            run = context.run
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "approval-1",
+                    "tool": {"name": "shell"},
+                    "input": {"command": "ls"},
+                },
+            )
+
+            self.assertIn("approval-1", runner._pending_approvals)
+            stream_events = [
+                event for event in run.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            chunk = stream_events[-1].payload.get("chunk")
+            self.assertIsInstance(chunk, dict)
+            self.assertEqual(chunk.get("type"), "message_start")
+            message = chunk.get("message")
+            self.assertIsInstance(message, dict)
+            tool_calls = message.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(tool_calls[0]["function"]["name"], "setta.approval")
+            self.assertEqual(
+                tool_calls[0]["function"]["arguments"].get("approvalId"),
+                "approval-1",
+            )
+
+    async def test_respond_to_approval_emits_tool_result(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "import sys; sys.stdin.read()",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+            runner._pending_approvals["approval-1"] = ExternalAgentApprovalState(
+                approval_id="approval-1",
+                run_id=run.id,
+                project_config_id=project_config.id,
+                chat_id=ID("chat-1"),
+                section_id=ID("section-1"),
+            )
+
+            try:
+                await runner.respond_to_approval("approval-1", True)
+            finally:
+                process.terminate()
+                await process.wait()
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            stream_events = [
+                event for event in updated.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            tool_chunk = None
+            for event in stream_events:
+                chunk = event.payload.get("chunk")
+                if isinstance(chunk, dict) and chunk.get("type") == "tool_result":
+                    tool_chunk = chunk
+                    break
+            self.assertIsNotNone(tool_chunk)
+            tool_message = tool_chunk.get("result")
+            self.assertIsInstance(tool_message, dict)
+            content = tool_message.get("content")
+            self.assertIsInstance(content, list)
+            self.assertTrue(content)
+            first_content = content[0]
+            self.assertIsInstance(first_content, dict)
+            self.assertEqual(first_content.get("type"), "text")
+            self.assertNotIn("approval-1", runner._pending_approvals)
+
+
+class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_question_request_emits_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = runner._build_context(config, profile=None, inputs=None)
+            run = context.run
+            question_payload = {
+                "questions": [
+                    {
+                        "header": "Language",
+                        "question": "Choose a language",
+                        "multiSelect": False,
+                        "options": [{"label": "Python"}],
+                    }
+                ]
+            }
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "question-1",
+                    "tool": "AskUserQuestion",
+                    "input": question_payload,
+                },
+            )
+
+            self.assertIn("question-1", runner._pending_questions)
+            self.assertNotIn("question-1", runner._pending_approvals)
+            stream_events = [
+                event for event in run.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            chunk = stream_events[-1].payload.get("chunk")
+            self.assertIsInstance(chunk, dict)
+            message = chunk.get("message")
+            self.assertIsInstance(message, dict)
+            tool_calls = message.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(tool_calls[0]["function"]["name"], "AskUserQuestion")
+            self.assertEqual(tool_calls[0]["function"]["arguments"], question_payload)
+
+    async def test_stream_chunk_registers_question_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            await runner._handle_stream_chunk(
+                project_config.id,
+                ID("chat-1"),
+                run.id,
+                ToolCallDeltaEvent(
+                    message_id="message-1",
+                    tool_call_id="tool-1",
+                    arguments_delta="{",
+                    tool_name="AskUserQuestion",
+                ),
+            )
+
+            self.assertIn("tool-1", runner._pending_questions)
+            state = runner._pending_questions["tool-1"]
+            self.assertEqual(state.run_id, run.id)
+            self.assertEqual(state.chat_id, ID("chat-1"))
+            self.assertEqual(state.section_id, ID("section-1"))
+
+    async def test_respond_to_question_emits_flat_result(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "import sys; sys.stdin.read()",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+            runner._register_question_call(
+                run.id,
+                project_config.id,
+                ID("chat-1"),
+                "question-1",
+            )
+            answers = {"Language": "Python"}
+
+            try:
+                await runner.respond_to_question("question-1", answers)
+            finally:
+                process.terminate()
+                await process.wait()
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            stream_events = [
+                event for event in updated.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            tool_chunk = None
+            for event in stream_events:
+                chunk = event.payload.get("chunk")
+                if isinstance(chunk, dict) and chunk.get("type") == "tool_result":
+                    tool_chunk = chunk
+                    break
+            self.assertIsNotNone(tool_chunk)
+            tool_message = tool_chunk.get("result")
+            self.assertIsInstance(tool_message, dict)
+            self.assertEqual(tool_message.get("result"), {"answers": answers})
+            self.assertNotIn("question-1", runner._pending_questions)

@@ -25,7 +25,6 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -35,6 +34,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -57,6 +57,7 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
+                "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -87,6 +88,7 @@ class CoreArgs(TypedDict):
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
+                "engineConfigId",
                 "eraserBrushSize",
                 "folder",
                 "format",
@@ -98,6 +100,7 @@ class CoreArgs(TypedDict):
                 "ignoreTypeErrors",
                 "imagePath",
                 "inputText",
+                "inputs",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -108,13 +111,13 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
-                "llmConfigId",
                 "managed",
                 "max",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
+                "missingVariables",
                 "name",
                 "overflowMode",
                 "paramFilter",
@@ -122,7 +125,9 @@ class CoreArgs(TypedDict):
                 "pinnedAreaHeight",
                 "pinnedParams",
                 "positionAndSizeLocked",
-                "renderedImagePath",
+                "renderError",
+                "renderedText",
+                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -132,6 +137,7 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
+                "template",
                 "text",
                 "textDisplayMode",
                 "toolCallArguments",
@@ -151,13 +157,13 @@ class ProjectConfigArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
     showParamDisplayNames: NotRequired[bool]
-    allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -247,10 +253,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -385,7 +393,6 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[DrawAreaLayer]]
-    renderedImagePath: NotRequired[str | None]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -405,7 +412,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     layers: NotRequired[
         list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
-    renderedImagePath: NotRequired[str | None | Callable[[str | None], str | None]]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
@@ -443,6 +449,29 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
+
+
+class PromptSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Prompt]]
+    template: NotRequired[str]
+    format: NotRequired[PromptFormat]
+    inputs: NotRequired[dict[str, str]]
+    renderedText: NotRequired[str]
+    missingVariables: NotRequired[list[str]]
+    renderError: NotRequired[str | None]
+
+
+class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Prompt]
+        | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
+    ]
+    template: NotRequired[str | Callable[[str], str]]
+    format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
+    inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]
+    renderedText: NotRequired[str | Callable[[str], str]]
+    missingVariables: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    renderError: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
@@ -516,20 +545,6 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
     ]
 
 
-class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
-    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
-
-
-class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.GenPythonMetadata]
-        | Callable[
-            [Literal[SectionType.GenPythonMetadata]],
-            Literal[SectionType.GenPythonMetadata],
-        ]
-    ]
-
-
 class TerminalSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Terminal]]
 
@@ -555,7 +570,8 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
-    llmConfigId: NotRequired[str | None]
+    engineConfigId: NotRequired[ID | None]
+    agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     deepThink: NotRequired[bool]
     messages: NotRequired[
@@ -574,7 +590,8 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
-    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     deepThink: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
