@@ -64,6 +64,16 @@ function resolveDecisionPolicy(rawPolicy) {
   return "ask";
 }
 
+function extractToolName(tool) {
+  if (typeof tool === "string") {
+    return tool;
+  }
+  if (tool && typeof tool === "object" && typeof tool.name === "string") {
+    return tool.name;
+  }
+  return null;
+}
+
 function buildSandboxOptions(rawPolicy) {
   const policy = normalizePolicy(rawPolicy);
   if (!policy) {
@@ -259,20 +269,21 @@ options.canUseTool = async (tool, toolInput) => {
     };
   }
   const approvalId = randomUUID();
+  const toolName = extractToolName(tool);
   writeEvent({
     type: "approval_request",
     approvalId,
     runId: input.runId,
     tool,
     input: toolInput,
-    toolName: tool?.name,
+    toolName,
     toolType: tool?.type,
   });
   const response = await new Promise((resolve) => {
     pendingApprovals.set(approvalId, {
       resolve,
       toolInput,
-      toolName: typeof tool?.name === "string" ? tool.name : null,
+      toolName,
     });
   });
   const approved = Boolean(response?.approved);

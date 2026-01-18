@@ -985,6 +985,8 @@ class ExternalAgentRunner:
             if isinstance(raw, str) and raw:
                 return raw
         tool = payload.get("tool")
+        if isinstance(tool, str) and tool:
+            return tool
         if isinstance(tool, dict):
             raw = tool.get("name")
             if isinstance(raw, str) and raw:
@@ -1004,11 +1006,14 @@ class ExternalAgentRunner:
     ) -> dict[str, Any]:
         tool = payload.get("tool")
         input_payload = payload.get("input")
+        tool_name = payload.get("toolName") or payload.get("tool_name")
+        if not tool_name and isinstance(tool, str) and tool:
+            tool_name = tool
         return {
             "approvalId": approval_id,
             "tool": tool,
             "input": input_payload,
-            "toolName": payload.get("toolName") or payload.get("tool_name"),
+            "toolName": tool_name,
             "toolType": payload.get("toolType") or payload.get("tool_type"),
         }
 
@@ -1033,7 +1038,7 @@ class ExternalAgentRunner:
             tool_name=_APPROVAL_TOOL_NAME,
             arguments={},
             result=result_payload,
-            content=[TextContent(text=content_text)],
+            content=[TextContent(type="text", text=content_text)],
             is_error=not approved,
             completed_at=get_now_timestamp(),
         )
@@ -1084,7 +1089,7 @@ class ExternalAgentRunner:
             tool_name=_ASK_USER_QUESTION_TOOL_NAME,
             arguments={},
             result={"answers": answers},
-            content=[TextContent(text=content)] if content else [],
+            content=[TextContent(type="text", text=content)] if content else [],
             completed_at=get_now_timestamp(),
         )
         chunk = ToolResultEvent(result=tool_message)

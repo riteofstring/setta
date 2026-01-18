@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from setta.agentic.external_adapters.base import ExternalAgentRunHandle
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_agent_runner import (
+    ExternalAgentApprovalState,
     ExternalAgentRunState,
     ExternalAgentRunner,
 )
@@ -873,6 +874,74 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 "approval-1",
             )
 
+    async def test_respond_to_approval_emits_tool_result(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "import sys; sys.stdin.read()",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+            runner._pending_approvals["approval-1"] = ExternalAgentApprovalState(
+                approval_id="approval-1",
+                run_id=run.id,
+                project_config_id=project_config.id,
+                chat_id=ID("chat-1"),
+                section_id=ID("section-1"),
+            )
+
+            try:
+                await runner.respond_to_approval("approval-1", True)
+            finally:
+                process.terminate()
+                await process.wait()
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            stream_events = [
+                event for event in updated.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            tool_chunk = None
+            for event in stream_events:
+                chunk = event.payload.get("chunk")
+                if isinstance(chunk, dict) and chunk.get("type") == "tool_result":
+                    tool_chunk = chunk
+                    break
+            self.assertIsNotNone(tool_chunk)
+            tool_message = tool_chunk.get("result")
+            self.assertIsInstance(tool_message, dict)
+            content = tool_message.get("content")
+            self.assertIsInstance(content, list)
+            self.assertTrue(content)
+            first_content = content[0]
+            self.assertIsInstance(first_content, dict)
+            self.assertEqual(first_content.get("type"), "text")
+            self.assertNotIn("approval-1", runner._pending_approvals)
+
 
 class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
     async def test_question_request_emits_tool_call(self) -> None:
@@ -904,7 +973,7 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "type": "approval_request",
                     "approvalId": "question-1",
-                    "tool": {"name": "AskUserQuestion"},
+                    "tool": "AskUserQuestion",
                     "input": question_payload,
                 },
             )

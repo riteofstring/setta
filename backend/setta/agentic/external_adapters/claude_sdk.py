@@ -694,7 +694,9 @@ class _ClaudeSdkEventParser:
         return ToolChatMessage(
             tool_call_id=tool_use_id,
             tool_name=tool_name,
-            content=[TextContent(text=buffer.text)] if buffer.text else [],
+            content=[TextContent(type="text", text=buffer.text)]
+            if buffer.text
+            else [],
             result=buffer.text if buffer.text else None,
             is_error=buffer.is_error,
         )
