@@ -56,6 +56,10 @@ export function HeaderIcon({
       return (
         <SettaSLogo className="h-[16px] w-[16px] text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] [&>g>path]:fill-current [&>g>rect]:fill-current" />
       );
+    case SectionTypeEnum.GenPythonMetadata:
+      return (
+        <SettaSLogo className="h-[16px] w-[16px] text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] [&>g>path]:fill-current [&>g>rect]:fill-current" />
+      );
     case SectionTypeEnum.Terminal:
       return <TerminalIcon sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:

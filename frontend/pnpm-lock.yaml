@@ -26,6 +26,9 @@ importers:
       '@codemirror/lang-python':
         specifier: 6.1.3
         version: 6.1.3
+      '@codemirror/lang-yaml':
+        specifier: 6.1.1
+        version: 6.1.1
       '@codemirror/state':
         specifier: 6.4.1
         version: 6.4.1
@@ -426,6 +429,9 @@ packages:
 
   '@codemirror/lang-python@6.1.3':
     resolution: {integrity: sha512-S9w2Jl74hFlD5nqtUMIaXAq9t5WlM0acCkyuQWUUSvZclk1sV+UfnpFiZzuZSG+hfEaOmxKR5UxY/Uxswn7EhQ==}
+
+  '@codemirror/lang-yaml@6.1.1':
+    resolution: {integrity: sha512-HV2NzbK9bbVnjWxwObuZh5FuPCowx51mEfoFT9y3y+M37fA3+pbxx4I7uePuygFzDsAmCTwQSc/kXh/flab4uw==}
 
   '@codemirror/language@6.12.1':
     resolution: {integrity: sha512-Fa6xkSiuGKc8XC8Cn96T+TQHYj4ZZ7RdFmXA3i9xe/3hLHfwPZdM+dqfX0Cp0zQklBKhVD8Yzc8LS45rkqcwpQ==}
@@ -934,6 +940,9 @@ packages:
 
   '@lezer/python@1.1.18':
     resolution: {integrity: sha512-31FiUrU7z9+d/ElGQLJFXl+dKOdx0jALlP3KEOsGTex8mvj+SoE1FgItcHWK/axkxCHGUSpqIHt6JAWfWu9Rhg==}
+
+  '@lezer/yaml@1.0.3':
+    resolution: {integrity: sha512-GuBLekbw9jDBDhGur82nuwkxKQ+a3W5H0GfaAthDXcAu+XdpS43VlnxA9E9hllkpSP5ellRDKjLLj7Lu9Wr6xA==}
 
   '@marijn/find-cluster-break@1.0.2':
     resolution: {integrity: sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g==}
@@ -4545,6 +4554,15 @@ snapshots:
       '@codemirror/language': 6.12.1
       '@lezer/python': 1.1.18
 
+  '@codemirror/lang-yaml@6.1.1':
+    dependencies:
+      '@codemirror/autocomplete': 6.18.6
+      '@codemirror/language': 6.12.1
+      '@codemirror/state': 6.4.1
+      '@lezer/common': 1.5.0
+      '@lezer/highlight': 1.2.0
+      '@lezer/yaml': 1.0.3
+
   '@codemirror/language@6.12.1':
     dependencies:
       '@codemirror/state': 6.4.1
@@ -4966,6 +4984,12 @@ snapshots:
       '@lezer/highlight': 1.2.0
 
   '@lezer/python@1.1.18':
+    dependencies:
+      '@lezer/common': 1.5.0
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.5
+
+  '@lezer/yaml@1.0.3':
     dependencies:
       '@lezer/common': 1.5.0
       '@lezer/highlight': 1.2.0

@@ -1,7 +1,3 @@
-import {
-  ParamDndMonitor,
-  ParamDragOverlay,
-} from "components/Params/ParamDndMonitor";
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
@@ -21,8 +17,6 @@ export function UIPage() {
 
   return (
     <GlobalDndContext>
-      <ParamDndMonitor />
-      <ParamDragOverlay />
       <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
