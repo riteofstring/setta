@@ -363,6 +363,12 @@ export async function route_respond_external_agent_approval(
   return await post("/respondExternalAgentApproval", x);
 }
 
+export async function route_respond_external_agent_question(
+  x: gt.RespondExternalAgentQuestionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/respondExternalAgentQuestion", x);
+}
+
 async function route_get_agent_run(
   x: gt.GetAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {

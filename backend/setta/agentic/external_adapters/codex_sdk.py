@@ -122,6 +122,15 @@ class CodexSdkAdapter(ExternalAgentAdapter):
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
 
+    async def send_tool_response(
+        self, handle: ExternalAgentRunHandle, tool_call_id: str, payload: dict[str, Any]
+    ) -> None:
+        payload_keys = ", ".join(payload.keys()) if payload else "none"
+        raise RuntimeError(
+            "Codex SDK tool responses are not supported "
+            f"(run_id={handle.run_id}, tool_call_id={tool_call_id}, payload_keys={payload_keys})"
+        )
+
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
         node_path = resolve_node_command(context.config.commandPath)

@@ -100,6 +100,11 @@ class RespondExternalAgentApprovalRequest(BaseModel):
     approved: bool
 
 
+class RespondExternalAgentQuestionRequest(BaseModel):
+    toolCallId: str
+    answers: dict[str, str]
+
+
 class CreatePromptTemplateRequest(BaseModel):
     name: str
     description: str = ""
@@ -367,6 +372,24 @@ async def route_respond_external_agent_approval(
         )
     try:
         await runner.respond_to_approval(x.approvalId, x.approved)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return None
+
+
+@router.post(Route.RESPOND_EXTERNAL_AGENT_QUESTION)
+async def route_respond_external_agent_question(
+    x: RespondExternalAgentQuestionRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    runner = ctx.state.external_agent_runner
+    if runner.disabled:
+        raise HTTPException(
+            status_code=503, detail="External agent runner is not available"
+        )
+    try:
+        await runner.respond_to_question(x.toolCallId, x.answers)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return None

@@ -89,6 +89,7 @@ class Route(str, Enum):
     DELETE_ENGINE_CONFIG = "/deleteEngineConfig"
     STOP_EXTERNAL_AGENT_RUN = "/stopExternalAgentRun"
     RESPOND_EXTERNAL_AGENT_APPROVAL = "/respondExternalAgentApproval"
+    RESPOND_EXTERNAL_AGENT_QUESTION = "/respondExternalAgentQuestion"
     CREATE_CHAT = "/createChat"
     GET_CHAT = "/getChat"
     APPEND_CHAT_MESSAGES = "/appendChatMessages"

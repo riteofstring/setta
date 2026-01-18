@@ -389,6 +389,7 @@ export const RouteEnum = {
   DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
+  RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -5753,6 +5754,15 @@ const RespondExternalAgentApprovalRequestSchema = z.object({
 
 export type RespondExternalAgentApprovalRequestInput = z.input<
   typeof RespondExternalAgentApprovalRequestSchema
+>;
+
+const RespondExternalAgentQuestionRequestSchema = z.object({
+  toolCallId: z.string(),
+  answers: z.record(z.string(), z.string()),
+});
+
+export type RespondExternalAgentQuestionRequestInput = z.input<
+  typeof RespondExternalAgentQuestionRequestSchema
 >;
 
 const StartAgentRunRequestSchema = z.object({

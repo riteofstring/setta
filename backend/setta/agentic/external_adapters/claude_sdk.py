@@ -145,6 +145,20 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
 
+    async def send_tool_response(
+        self, handle: ExternalAgentRunHandle, tool_call_id: str, payload: dict[str, Any]
+    ) -> None:
+        process = handle.process
+        if process is None or process.stdin is None:
+            raise RuntimeError("Claude SDK process stdin not available")
+        message = {
+            "type": "tool_response",
+            "toolCallId": tool_call_id,
+            "payload": payload,
+        }
+        process.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
+        await process.stdin.drain()
+
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
         node_path = resolve_node_command(context.config.commandPath)

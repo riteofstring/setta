@@ -1,5 +1,6 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
+import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   getChatPlaceholderText,
   getExternalEngineStatus,
@@ -410,6 +411,7 @@ function ManagedChatArea({
     engineConfigs,
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
+    externalAgentConfigs,
   } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
@@ -419,6 +421,7 @@ function ManagedChatArea({
       externalAgentHealth: state.externalAgentHealth,
       externalAgentHealthInitialLoadComplete:
         state.externalAgentHealthInitialLoadComplete,
+      externalAgentConfigs: state.externalAgentConfigs,
     }),
     _.isEqual,
   );
@@ -479,6 +482,20 @@ function ManagedChatArea({
   const externalEngineAvailable = externalEngineStatus
     ? externalEngineStatus.status === "available"
     : true;
+  const externalAgentConfig = useMemo(() => {
+    if (!selectedEngineConfig?.externalAgentConfigId) {
+      return null;
+    }
+    return (
+      externalAgentConfigs.find(
+        (config) => config.id === selectedEngineConfig.externalAgentConfigId,
+      ) ?? null
+    );
+  }, [externalAgentConfigs, selectedEngineConfig]);
+  const showPlanModeBadge =
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentConfig?.toolType === "claude_code" &&
+    externalAgentConfig.approvalPolicy === "plan";
 
   const placeholderText = getChatPlaceholderText({
     engineType,
@@ -679,11 +696,16 @@ function ManagedChatArea({
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
-      {externalStatusMessage ? (
-        <div className="px-4 pt-2">
-          <p className={`text-xs ${externalStatusClassName}`}>
-            {externalStatusMessage}
-          </p>
+      {externalStatusMessage || showPlanModeBadge ? (
+        <div className="flex items-center justify-between gap-2 px-4 pt-2">
+          {externalStatusMessage ? (
+            <p className={`text-xs ${externalStatusClassName}`}>
+              {externalStatusMessage}
+            </p>
+          ) : (
+            <span />
+          )}
+          {showPlanModeBadge ? <PlanModeBadge /> : null}
         </div>
       ) : null}
       <ChatMessageList

@@ -8,6 +8,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
@@ -53,6 +54,7 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete,
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
+    externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
   } = useAIStore(
@@ -65,6 +67,7 @@ export function ProjectChat() {
       externalAgentHealth: x.externalAgentHealth,
       externalAgentHealthInitialLoadComplete:
         x.externalAgentHealthInitialLoadComplete,
+      externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
     }),
@@ -122,6 +125,20 @@ export function ProjectChat() {
   const externalEngineAvailable = externalEngineStatus
     ? externalEngineStatus.status === "available"
     : true;
+  const externalAgentConfig = useMemo(() => {
+    if (!selectedEngineConfig?.externalAgentConfigId) {
+      return null;
+    }
+    return (
+      externalAgentConfigs.find(
+        (config) => config.id === selectedEngineConfig.externalAgentConfigId,
+      ) ?? null
+    );
+  }, [externalAgentConfigs, selectedEngineConfig]);
+  const showPlanModeBadge =
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentConfig?.toolType === "claude_code" &&
+    externalAgentConfig.approvalPolicy === "plan";
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(selectedEngineConfig),
@@ -261,6 +278,7 @@ export function ProjectChat() {
                 placeholder="Select an engine"
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
+              {showPlanModeBadge ? <PlanModeBadge /> : null}
 
               {engineType === EngineTypeEnum.setta_llm ? (
                 <>

@@ -274,6 +274,12 @@ function buildRunDetails(
   if (metadata.model) {
     items.push({ label: "Model", value: metadata.model });
   }
+  if (
+    metadata.toolType === "claude_code" &&
+    metadata.approvalPolicy === "plan"
+  ) {
+    items.push({ label: "Mode", value: "Plan" });
+  }
   const usageText = formatUsageSummary(extractRunUsage(run));
   if (usageText) {
     items.push({ label: "Tokens", value: usageText });
@@ -309,6 +315,7 @@ type RunMetadata = {
   runMode: string | null;
   externalAgentConfigId: string | null;
   llmConfigId: string | null;
+  approvalPolicy: string | null;
 };
 
 type RunUsage = {
@@ -343,6 +350,8 @@ function extractRunMetadata(run: AgentRun): RunMetadata {
     getString(outputs?.externalAgentConfigId);
   const llmConfigId =
     getString(metadata?.llmConfigId) ?? getString(outputs?.llmConfigId);
+  const approvalPolicy =
+    getString(metadata?.approvalPolicy) ?? getString(outputs?.approvalPolicy);
   return {
     engineConfigId,
     model,
@@ -351,6 +360,7 @@ function extractRunMetadata(run: AgentRun): RunMetadata {
     runMode,
     externalAgentConfigId,
     llmConfigId,
+    approvalPolicy,
   };
 }
 

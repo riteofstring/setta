@@ -33,6 +33,7 @@ import {
   route_get_llm_response,
   route_get_prompt_templates,
   route_respond_external_agent_approval,
+  route_respond_external_agent_question,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
@@ -621,6 +622,17 @@ export async function respondExternalAgentApproval(
   const res = await route_respond_external_agent_approval({
     approvalId,
     approved,
+  });
+  return res200(res);
+}
+
+export async function respondExternalAgentQuestion(
+  toolCallId: string,
+  answers: Record<string, string>,
+): Promise<boolean> {
+  const res = await route_respond_external_agent_question({
+    toolCallId,
+    answers,
   });
   return res200(res);
 }

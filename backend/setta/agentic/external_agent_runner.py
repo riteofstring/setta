@@ -87,6 +87,7 @@ _OPENCODE_CONFIG_NAME = "opencode.json"
 _CODEX_CONFIG_NAME = "config.toml"
 _APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
 _APPROVAL_TOOL_NAME = "setta.approval"
+_ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,15 @@ class ExternalAgentRunState:
 @dataclass(frozen=True)
 class ExternalAgentApprovalState:
     approval_id: str
+    run_id: ID
+    project_config_id: ID
+    chat_id: ID
+    section_id: ID | None
+
+
+@dataclass(frozen=True)
+class ExternalAgentQuestionState:
+    tool_call_id: str
     run_id: ID
     project_config_id: ID
     chat_id: ID
@@ -128,6 +138,7 @@ class ExternalAgentRunner:
         self._tool_call_names: dict[ID, dict[str, str]] = {}
         self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
         self._pending_approvals: dict[str, ExternalAgentApprovalState] = {}
+        self._pending_questions: dict[str, ExternalAgentQuestionState] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     @property
@@ -191,6 +202,7 @@ class ExternalAgentRunner:
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
             self._clear_pending_approvals(run_id)
+            self._clear_pending_questions(run_id)
 
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
@@ -767,6 +779,13 @@ class ExternalAgentRunner:
     ) -> None:
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run_id, chunk)
+            self._maybe_register_question_call(
+                run_id,
+                project_config_id,
+                chat_id,
+                chunk.tool_call_id,
+                chunk.tool_name,
+            )
             await self._maybe_emit_streaming_follow_update(
                 project_config_id,
                 chat_id,
@@ -780,6 +799,15 @@ class ExternalAgentRunner:
                 tool_calls = self._build_tool_calls_from_buffers(run_id)
             else:
                 tool_calls = self._normalize_tool_calls(tool_calls)
+            for tool_call in tool_calls:
+                normalized = self._normalize_tool_name(tool_call.function.name)
+                if normalized == _ASK_USER_QUESTION_TOOL_NAME:
+                    self._register_question_call(
+                        run_id,
+                        project_config_id,
+                        chat_id,
+                        tool_call.id,
+                    )
             await self._maybe_emit_follow_update(
                 project_config_id,
                 chat_id,
@@ -826,6 +854,48 @@ class ExternalAgentRunner:
             if state.run_id == run_id:
                 self._pending_approvals.pop(approval_id, None)
 
+    def _clear_pending_questions(self, run_id: ID) -> None:
+        for tool_call_id, state in list(self._pending_questions.items()):
+            if state.run_id == run_id:
+                self._pending_questions.pop(tool_call_id, None)
+
+    def _maybe_register_question_call(
+        self,
+        run_id: ID,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_call_id: str,
+        tool_name: str | None,
+    ) -> None:
+        normalized = self._normalize_tool_name(tool_name)
+        if normalized != _ASK_USER_QUESTION_TOOL_NAME:
+            return
+        self._register_question_call(run_id, project_config_id, chat_id, tool_call_id)
+
+    def _register_question_call(
+        self,
+        run_id: ID,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_call_id: str,
+    ) -> None:
+        if tool_call_id in self._pending_questions:
+            return
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            return
+        section_id = None
+        section_raw = self._extract_input_string(run.inputs, "sectionId")
+        if section_raw:
+            section_id = ID(section_raw)
+        self._pending_questions[tool_call_id] = ExternalAgentQuestionState(
+            tool_call_id=tool_call_id,
+            run_id=run_id,
+            project_config_id=project_config_id,
+            chat_id=chat_id,
+            section_id=section_id,
+        )
+
     @staticmethod
     def _is_approval_request(payload: dict[str, Any]) -> bool:
         return payload.get("type") == _APPROVAL_REQUEST_EVENT_TYPE
@@ -840,20 +910,39 @@ class ExternalAgentRunner:
         if approval_id is None:
             logger.warning("Approval request missing approvalId: %s", payload)
             return
-        self._pending_approvals[approval_id] = ExternalAgentApprovalState(
-            approval_id=approval_id,
-            run_id=run.id,
-            project_config_id=context.project_config_id,
-            chat_id=context.chat_id,
-            section_id=context.section_id,
-        )
-        tool_call = ToolCall(
-            id=approval_id,
-            function=ToolCallFunction(
-                name=_APPROVAL_TOOL_NAME,
-                arguments=self._build_approval_arguments(payload, approval_id),
-            ),
-        )
+        tool_name = self._extract_tool_name(payload)
+        is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
+        if is_question:
+            self._pending_questions[approval_id] = ExternalAgentQuestionState(
+                tool_call_id=approval_id,
+                run_id=run.id,
+                project_config_id=context.project_config_id,
+                chat_id=context.chat_id,
+                section_id=context.section_id,
+            )
+            tool_arguments = self._extract_tool_input(payload) or {}
+            tool_call = ToolCall(
+                id=approval_id,
+                function=ToolCallFunction(
+                    name=_ASK_USER_QUESTION_TOOL_NAME,
+                    arguments=tool_arguments,
+                ),
+            )
+        else:
+            self._pending_approvals[approval_id] = ExternalAgentApprovalState(
+                approval_id=approval_id,
+                run_id=run.id,
+                project_config_id=context.project_config_id,
+                chat_id=context.chat_id,
+                section_id=context.section_id,
+            )
+            tool_call = ToolCall(
+                id=approval_id,
+                function=ToolCallFunction(
+                    name=_APPROVAL_TOOL_NAME,
+                    arguments=self._build_approval_arguments(payload, approval_id),
+                ),
+            )
         message = AssistantChatMessage(
             id=approval_id,
             content=[],
@@ -887,6 +976,26 @@ class ExternalAgentRunner:
             raw = payload.get(key)
             if isinstance(raw, str) and raw:
                 return raw
+        return None
+
+    @staticmethod
+    def _extract_tool_name(payload: dict[str, Any]) -> str | None:
+        for key in ("toolName", "tool_name"):
+            raw = payload.get(key)
+            if isinstance(raw, str) and raw:
+                return raw
+        tool = payload.get("tool")
+        if isinstance(tool, dict):
+            raw = tool.get("name")
+            if isinstance(raw, str) and raw:
+                return raw
+        return None
+
+    @staticmethod
+    def _extract_tool_input(payload: dict[str, Any]) -> dict[str, Any] | None:
+        raw = payload.get("input")
+        if isinstance(raw, dict):
+            return raw
         return None
 
     @staticmethod
@@ -950,6 +1059,56 @@ class ExternalAgentRunner:
             {"approvalId": approval_id, "approved": approved},
         )
         self._pending_approvals.pop(approval_id, None)
+
+    async def respond_to_question(
+        self, tool_call_id: str, answers: dict[str, str]
+    ) -> None:
+        state = self._pending_questions.get(tool_call_id)
+        if state is None:
+            raise KeyError(f"Question {tool_call_id} not found")
+        run_id = state.run_id
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            raise KeyError(f"Question run {run_id} not found")
+        run_state = self._run_state.get(run_id)
+        if run_state is None:
+            raise KeyError(f"Run {run_id} is not active")
+        await run_state.adapter.send_tool_response(
+            run_state.handle,
+            tool_call_id,
+            {"answers": answers},
+        )
+        content = _format_question_answers(answers)
+        tool_message = ToolChatMessage(
+            tool_call_id=tool_call_id,
+            tool_name=_ASK_USER_QUESTION_TOOL_NAME,
+            arguments={},
+            result={"answers": answers},
+            content=[TextContent(text=content)] if content else [],
+            completed_at=get_now_timestamp(),
+        )
+        chunk = ToolResultEvent(result=tool_message)
+        await self.websocket_msg_handler.send_streaming_response(
+            state.chat_id,
+            chunk,
+            section_id=state.section_id,
+            share_session_id=self.share_session_id,
+        )
+        self._record_event(
+            run,
+            "stream_chunk",
+            {
+                "chatId": str(state.chat_id),
+                "sectionId": str(state.section_id) if state.section_id else None,
+                "chunk": chunk.model_dump(mode="json"),
+            },
+        )
+        self._record_event(
+            run,
+            "question_response",
+            {"toolCallId": tool_call_id, "answers": answers},
+        )
+        self._pending_questions.pop(tool_call_id, None)
 
     @staticmethod
     def _parse_opencode_permissions(value: str | None) -> Any | None:
@@ -1076,3 +1235,9 @@ class ExternalAgentRunner:
             else:
                 normalized_calls.append(call)
         return normalized_calls
+
+
+def _format_question_answers(answers: dict[str, str]) -> str:
+    if not answers:
+        return ""
+    return "\n".join(f"{key}: {value}" for key, value in answers.items())

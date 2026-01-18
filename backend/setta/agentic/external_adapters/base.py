@@ -64,3 +64,8 @@ class ExternalAgentAdapter(Protocol):
         self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool
     ) -> None:
         raise NotImplementedError
+
+    async def send_tool_response(
+        self, handle: ExternalAgentRunHandle, tool_call_id: str, payload: dict[str, Any]
+    ) -> None:
+        raise NotImplementedError

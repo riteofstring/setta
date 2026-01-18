@@ -21,6 +21,7 @@ from setta.types.chat_stream_events import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageTextDelta,
+    ToolCallDeltaEvent,
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -865,3 +866,89 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 tool_calls[0]["function"]["arguments"].get("approvalId"),
                 "approval-1",
             )
+
+
+class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_question_request_emits_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = runner._build_context(config, profile=None, inputs=None)
+            run = context.run
+            question_payload = {
+                "questions": [
+                    {
+                        "header": "Language",
+                        "question": "Choose a language",
+                        "multiSelect": False,
+                        "options": [{"label": "Python"}],
+                    }
+                ]
+            }
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "question-1",
+                    "tool": {"name": "AskUserQuestion"},
+                    "input": question_payload,
+                },
+            )
+
+            self.assertIn("question-1", runner._pending_questions)
+            self.assertNotIn("question-1", runner._pending_approvals)
+            stream_events = [
+                event for event in run.events if event.type == "stream_chunk"
+            ]
+            self.assertTrue(stream_events)
+            chunk = stream_events[-1].payload.get("chunk")
+            self.assertIsInstance(chunk, dict)
+            message = chunk.get("message")
+            self.assertIsInstance(message, dict)
+            tool_calls = message.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(tool_calls[0]["function"]["name"], "AskUserQuestion")
+            self.assertEqual(tool_calls[0]["function"]["arguments"], question_payload)
+
+    async def test_stream_chunk_registers_question_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            await runner._handle_stream_chunk(
+                project_config.id,
+                ID("chat-1"),
+                run.id,
+                ToolCallDeltaEvent(
+                    message_id="message-1",
+                    tool_call_id="tool-1",
+                    arguments_delta="{",
+                    tool_name="AskUserQuestion",
+                ),
+            )
+
+            self.assertIn("tool-1", runner._pending_questions)
+            state = runner._pending_questions["tool-1"]
+            self.assertEqual(state.run_id, run.id)
+            self.assertEqual(state.chat_id, ID("chat-1"))
+            self.assertEqual(state.section_id, ID("section-1"))

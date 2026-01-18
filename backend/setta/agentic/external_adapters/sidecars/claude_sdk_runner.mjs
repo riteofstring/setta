@@ -122,7 +122,11 @@ function resolveApproval(payload) {
       ? payload.approvalId
       : typeof payload.approval_id === "string"
         ? payload.approval_id
-        : null;
+        : typeof payload.toolCallId === "string"
+          ? payload.toolCallId
+          : typeof payload.tool_call_id === "string"
+            ? payload.tool_call_id
+            : null;
   if (!approvalId) {
     return;
   }
@@ -140,14 +144,34 @@ function resolveApproval(payload) {
       approved = false;
     }
   }
+  const pending = pendingApprovals.get(approvalId);
+  if (!pending) {
+    return;
+  }
+  let updatedInput = null;
+  if (payload && typeof payload.updatedInput === "object") {
+    updatedInput = payload.updatedInput;
+  }
+  const payloadWrapper =
+    payload && typeof payload.payload === "object" ? payload.payload : null;
+  const answers =
+    payloadWrapper && typeof payloadWrapper.answers === "object"
+      ? payloadWrapper.answers
+      : payload && typeof payload.answers === "object"
+        ? payload.answers
+        : null;
+  if (!updatedInput && answers && pending.toolName === "AskUserQuestion") {
+    const baseInput =
+      pending.toolInput && typeof pending.toolInput === "object"
+        ? pending.toolInput
+        : {};
+    updatedInput = { ...baseInput, answers };
+  }
   if (approved === null) {
-    approved = false;
+    approved = Boolean(updatedInput);
   }
-  const resolver = pendingApprovals.get(approvalId);
-  if (resolver) {
-    resolver(Boolean(approved));
-    pendingApprovals.delete(approvalId);
-  }
+  pending.resolve({ approved: Boolean(approved), updatedInput });
+  pendingApprovals.delete(approvalId);
 }
 
 rl.on("line", (line) => {
@@ -159,7 +183,7 @@ rl.on("line", (line) => {
   if (!payload || typeof payload !== "object") {
     return;
   }
-  if (payload.type === "approval_response") {
+  if (payload.type === "approval_response" || payload.type === "tool_response") {
     resolveApproval(payload);
     return;
   }
@@ -244,11 +268,19 @@ options.canUseTool = async (tool, toolInput) => {
     toolName: tool?.name,
     toolType: tool?.type,
   });
-  const approved = await new Promise((resolve) => {
-    pendingApprovals.set(approvalId, resolve);
+  const response = await new Promise((resolve) => {
+    pendingApprovals.set(approvalId, {
+      resolve,
+      toolInput,
+      toolName: typeof tool?.name === "string" ? tool.name : null,
+    });
   });
+  const approved = Boolean(response?.approved);
   if (approved) {
-    return { behavior: "allow", updatedInput: toolInput };
+    return {
+      behavior: "allow",
+      updatedInput: response?.updatedInput ?? toolInput,
+    };
   }
   return {
     behavior: "deny",

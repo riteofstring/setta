@@ -1,14 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import {
-  ReactNode,
-  Ref,
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, Ref, memo, useEffect, useMemo, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -17,19 +9,32 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { respondExternalAgentApproval } from "state/actions/ai";
 import { C } from "utils/c";
+import {
+  APPROVAL_TOOL_NAME,
+  type ApprovalPayload,
+  type AskUserQuestionPayload,
+  QUESTION_TOOL_NAME,
+  TODO_TOOL_NAME,
+  type TodoListPayload,
+  normalizeToolName,
+  parseAnswers,
+  parseApprovalPayload,
+  parseAskUserQuestionPayload,
+  parseTodoPayload,
+  resolveToolCallArguments,
+} from "utils/claudeTools";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
+  ToolChatMessage,
 } from "utils/generatedTypes";
+import { ApprovalCard } from "./ApprovalCard";
+import { QuestionCard } from "./QuestionCard";
+import { TodoListCard } from "./TodoListCard";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
-type ToolChatMessage = Extract<
-  BaseChatMessageUnion,
-  { role: ChatRoleEnum.tool }
->;
 type AssistantChatMessage = Extract<
   BaseChatMessageUnion,
   { role: ChatRoleEnum.assistant }
@@ -38,7 +43,12 @@ type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
 
-const APPROVAL_TOOL_NAME = "setta.approval";
+type ToolCallContext = {
+  todoPayloadById: Record<string, TodoListPayload>;
+  questionPayloadById: Record<string, AskUserQuestionPayload>;
+  approvalPayloadById: Record<string, ApprovalPayload>;
+  latestTodoCallId: string | null;
+};
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -199,54 +209,18 @@ function ToolCallAccordionStatus({
 }
 
 const ToolCallItem = memo(function ToolCallItem({
-  toolCallId,
   name,
   args,
   result,
   success,
-  isApproval,
   isStreaming,
 }: {
-  toolCallId: string;
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
   success: boolean | undefined;
-  isApproval: boolean;
   isStreaming: boolean;
 }) {
-  const [decisionPending, setDecisionPending] = useState(false);
-  const [decisionError, setDecisionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (success !== undefined) {
-      setDecisionPending(false);
-      setDecisionError(null);
-    }
-  }, [success]);
-
-  const handleApproval = async (approved: boolean) => {
-    if (decisionPending || success !== undefined) {
-      return;
-    }
-    setDecisionPending(true);
-    setDecisionError(null);
-    try {
-      const ok = await respondExternalAgentApproval(toolCallId, approved);
-      if (!ok) {
-        setDecisionPending(false);
-        setDecisionError("Failed to send approval response.");
-      }
-    } catch (err) {
-      setDecisionPending(false);
-      setDecisionError(
-        err instanceof Error
-          ? err.message
-          : "Failed to send approval response.",
-      );
-    }
-  };
-
   const resultDisplay = (() => {
     if (typeof result === "string") {
       if (result.trim().length > 0) {
@@ -270,7 +244,6 @@ const ToolCallItem = memo(function ToolCallItem({
     }
     return null;
   })();
-  const showApprovalActions = isApproval && success === undefined;
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -311,29 +284,6 @@ const ToolCallItem = memo(function ToolCallItem({
               <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
                 {resultDisplay}
               </pre>
-            </div>
-          )}
-          {showApprovalActions && (
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-setta-200 px-3 pb-3 pt-2 dark:bg-setta-900">
-              {decisionError && (
-                <span className="mr-auto text-xs text-red-500">
-                  {decisionError}
-                </span>
-              )}
-              <button
-                className="rounded-md bg-setta-700 px-3 py-1 text-xs font-semibold text-white transition hover:bg-setta-800 disabled:opacity-60"
-                onClick={() => handleApproval(false)}
-                disabled={decisionPending}
-              >
-                Deny
-              </button>
-              <button
-                className="rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:opacity-60"
-                onClick={() => handleApproval(true)}
-                disabled={decisionPending}
-              >
-                Approve
-              </button>
             </div>
           )}
         </Accordion.Content>
@@ -414,11 +364,13 @@ const ChatMessage = memo(function ChatMessage({
   toolResultsById,
   toolCallArguments,
   isStreaming,
+  toolCallContext,
 }: {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
   isStreaming: boolean;
+  toolCallContext: ToolCallContext;
 }) {
   if (message.role === ChatRoleEnum.assistant) {
     const toolCalls = message.tool_calls ?? [];
@@ -434,6 +386,49 @@ const ChatMessage = memo(function ChatMessage({
         ))}
         {toolCalls.map((toolCall: ToolCall) => {
           const toolResult = toolResultsById[toolCall.id];
+          const questionPayload =
+            toolCallContext.questionPayloadById[toolCall.id];
+          if (questionPayload) {
+            const resolvedAnswers = resolveQuestionAnswers(
+              questionPayload,
+              toolResult,
+            );
+            return (
+              <QuestionCard
+                key={toolCall.id}
+                toolCallId={toolCall.id}
+                payload={questionPayload}
+                resolvedAnswers={resolvedAnswers}
+              />
+            );
+          }
+          const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
+          if (todoPayload) {
+            const summaryOnly =
+              toolCallContext.latestTodoCallId !== toolCall.id;
+            return (
+              <TodoListCard
+                key={toolCall.id}
+                todos={todoPayload.todos}
+                summaryOnly={summaryOnly}
+              />
+            );
+          }
+          const approvalPayload =
+            toolCallContext.approvalPayloadById[toolCall.id];
+          if (approvalPayload) {
+            return (
+              <ApprovalCard
+                key={toolCall.id}
+                toolCallId={toolCall.id}
+                toolName={approvalPayload.toolName ?? null}
+                toolType={approvalPayload.toolType ?? null}
+                input={approvalPayload.input}
+                toolResult={toolResult}
+                isStreaming={isStreaming}
+              />
+            );
+          }
           const argsFromAssistant = toolCall.function?.arguments;
           const pendingArgs = toolCallArguments?.[toolCall.id];
           let argsToDisplay = pendingArgs;
@@ -452,19 +447,13 @@ const ChatMessage = memo(function ChatMessage({
             toolResult?.tool_name ||
             toolCall.function?.name ||
             `Tool call ${toolCall.id}`;
-          const displayName =
-            rawToolName === APPROVAL_TOOL_NAME
-              ? "Approval request"
-              : rawToolName;
           return (
             <ToolCallItem
               key={toolCall.id}
-              toolCallId={toolCall.id}
-              name={displayName}
+              name={rawToolName}
               args={argsToDisplay}
               result={formatToolResult(toolResult)}
               success={toolResult ? !toolResult.is_error : undefined}
-              isApproval={toolCall.function?.name === APPROVAL_TOOL_NAME}
               isStreaming={isStreaming}
             />
           );
@@ -525,6 +514,22 @@ const ChatMessage = memo(function ChatMessage({
   );
 });
 
+function resolveQuestionAnswers(
+  payload: AskUserQuestionPayload,
+  toolResult: ToolChatMessage | undefined,
+): Record<string, string> | null {
+  if (toolResult) {
+    const parsed = parseAnswers(toolResult.result);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  if (payload.answers) {
+    return payload.answers;
+  }
+  return null;
+}
+
 function ChatMessages({
   messages,
   waitingForResponse,
@@ -540,6 +545,10 @@ function ChatMessages({
     () => buildToolResultMap(allMessages),
     [allMessages],
   );
+  const toolCallContext = useMemo(
+    () => buildToolCallContext(allMessages, toolCallArguments),
+    [allMessages, toolCallArguments],
+  );
   const output: ReactNode[] = [];
   for (const message of messages) {
     output.push(
@@ -551,6 +560,7 @@ function ChatMessages({
         isStreaming={
           waitingForResponse && message.role === ChatRoleEnum.assistant
         }
+        toolCallContext={toolCallContext}
       />,
     );
   }
@@ -607,6 +617,75 @@ export const ChatMessageList = memo(function ChatMessageList({
     </div>
   );
 });
+
+function buildToolCallContext(
+  messages: Array<BaseChatMessageUnion>,
+  toolCallArguments: Record<string, string>,
+): ToolCallContext {
+  const todoPayloadById: Record<string, TodoListPayload> = {};
+  const questionPayloadById: Record<string, AskUserQuestionPayload> = {};
+  const approvalPayloadById: Record<string, ApprovalPayload> = {};
+  const todoOrder: string[] = [];
+
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    const toolCalls = message.tool_calls ?? [];
+    for (const toolCall of toolCalls) {
+      const normalizedName = normalizeToolName(toolCall.function?.name);
+      const resolvedArgs = resolveToolCallArguments(
+        toolCall,
+        toolCallArguments,
+      );
+      if (!normalizedName) {
+        continue;
+      }
+      if (normalizedName === APPROVAL_TOOL_NAME) {
+        const approvalPayload = parseApprovalPayload(resolvedArgs);
+        if (!approvalPayload) {
+          continue;
+        }
+        const approvalToolName = normalizeToolName(approvalPayload.toolName);
+        if (approvalToolName === QUESTION_TOOL_NAME) {
+          const questionPayload = parseAskUserQuestionPayload(
+            approvalPayload.input,
+          );
+          if (questionPayload) {
+            questionPayloadById[toolCall.id] = questionPayload;
+          }
+        } else {
+          approvalPayloadById[toolCall.id] = approvalPayload;
+        }
+        continue;
+      }
+      if (normalizedName === TODO_TOOL_NAME) {
+        const todoPayload = parseTodoPayload(resolvedArgs);
+        if (todoPayload) {
+          todoPayloadById[toolCall.id] = todoPayload;
+          todoOrder.push(toolCall.id);
+        }
+        continue;
+      }
+      if (normalizedName === QUESTION_TOOL_NAME) {
+        const questionPayload = parseAskUserQuestionPayload(resolvedArgs);
+        if (questionPayload) {
+          questionPayloadById[toolCall.id] = questionPayload;
+        }
+      }
+    }
+  }
+
+  const latestTodoCallId = todoOrder.length
+    ? todoOrder[todoOrder.length - 1]
+    : null;
+  return {
+    todoPayloadById,
+    questionPayloadById,
+    approvalPayloadById,
+    latestTodoCallId,
+  };
+}
 
 function buildToolResultMap(
   messages: Array<BaseChatMessageUnion>,
