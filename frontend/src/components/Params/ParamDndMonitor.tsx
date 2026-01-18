@@ -7,12 +7,11 @@ import type {
   DragStartEvent,
 } from "forks/dnd-kit/adapter";
 import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
-import { rectFromBoundingRect } from "forks/dnd-kit/adapter/rect";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
+import { rectFromBoundingRect } from "forks/dnd-kit/adapter/rect";
 import {
   addParamChild,
   getParamDndParentId,
-  removeParamChild,
   replaceParamsWithTemp,
   resetParamDndChildren,
   updateParamChildren,
@@ -59,10 +58,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-function debugParamDnd(
-  _message: string,
-  _details?: Record<string, unknown>,
-) {}
+function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 
 type ParamDragData = {
   type?: string;
@@ -171,17 +167,16 @@ export function ParamDragOverlay() {
     placeholderHeight,
     dragOffset,
     activeRect,
-  } =
-    useParamDndState(
-      (state) => ({
-        activeId: state.activeId,
-        placeholderWidth: state.placeholderWidth,
-        placeholderHeight: state.placeholderHeight,
-        dragOffset: state.dragOffset,
-        activeRect: state.activeRect,
-      }),
-      _.isEqual,
-    );
+  } = useParamDndState(
+    (state) => ({
+      activeId: state.activeId,
+      placeholderWidth: state.placeholderWidth,
+      placeholderHeight: state.placeholderHeight,
+      dragOffset: state.dragOffset,
+      activeRect: state.activeRect,
+    }),
+    _.isEqual,
+  );
   const dragTransform = useComputed(() => {
     if (!manager) {
       return null;
@@ -356,7 +351,11 @@ function handleParamDragStart(
     view.requiredParamIdsToPaths,
   );
   const placeholderSize = measureParamDragSize(manager, draggingIds);
-  const activeRect = measureParamActiveRect(manager, activeId, event.activeRect);
+  const activeRect = measureParamActiveRect(
+    manager,
+    activeId,
+    event.activeRect,
+  );
   const dragOffset = resolveParamDragOffset(activeRect);
 
   debugParamDnd("start", {
@@ -507,11 +506,7 @@ function handleParamDragCancel() {
   deferParamDragReset("cancel");
 }
 
-function updateParamDragOver({
-  active,
-  collisions,
-  over,
-}: ParamDragOverInput) {
+function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
   if (!isParamDrag(active)) {
     return;
   }

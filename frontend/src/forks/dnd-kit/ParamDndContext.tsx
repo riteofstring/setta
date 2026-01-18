@@ -14,10 +14,7 @@ import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";
 import { useParamDndSensors } from "./useDNDSensors";
 
-function debugParamDnd(
-  _message: string,
-  _details?: Record<string, unknown>,
-) {}
+function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 
 export function ParamDndContext({ children }: { children: ReactNode }) {
   const sensors = useParamDndSensors();

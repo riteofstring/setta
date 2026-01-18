@@ -81,7 +81,8 @@ function resolveActiveRect(
   active: Draggable,
   manager?: DragDropManager,
 ): DragStartEvent["activeRect"] {
-  const operationRect = manager?.dragOperation.shape?.current?.boundingRectangle;
+  const operationRect =
+    manager?.dragOperation.shape?.current?.boundingRectangle;
   if (operationRect) {
     return rectFromBoundingRect(operationRect);
   }

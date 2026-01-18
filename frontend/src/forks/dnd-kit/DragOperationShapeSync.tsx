@@ -77,13 +77,7 @@ export function DragOperationShapeSync({
         transform?.y ?? 0,
       );
     });
-  }, [
-    manager,
-    shouldSync,
-    activeDragType,
-    paramActiveRect,
-    sectionActiveRect,
-  ]);
+  }, [manager, shouldSync, activeDragType, paramActiveRect, sectionActiveRect]);
 
   return null;
 }
