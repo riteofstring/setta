@@ -14,6 +14,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   getCurrShownParamIds,
   setCurrEffectiveCodeObjImplValue,
   toggleParamSelected,
@@ -89,6 +90,7 @@ function applyParamMove(
     setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
       children: nextChildren,
     });
+    syncShownParamTopLevelOrder(state, sectionId);
     return;
   }
 
@@ -115,6 +117,7 @@ function applyParamMove(
   setCurrEffectiveCodeObjImplValue(state, sectionId, move.newParentId, {
     children: nextNewChildren,
   });
+  syncShownParamTopLevelOrder(state, sectionId);
 }
 
 export function selectOnlyParam(sectionId: string, paramId: string) {
@@ -143,6 +146,42 @@ export function orderParamIdsByParent(
   }
   const paramSet = new Set(paramIds);
   return parentImpl.children.filter((id) => paramSet.has(id));
+}
+
+function syncShownParamTopLevelOrder(
+  state: ZustandProjectState,
+  sectionId: string,
+) {
+  const variantId = getCurrSectionVariantId(state, sectionId);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return;
+  }
+  const rootId = getParamRootId(state, sectionId);
+  const rootImpl = getCurrEffectiveCodeObjImpl(state, sectionId, rootId);
+  if (!isBaseParentCodeObjImpl(rootImpl)) {
+    return;
+  }
+  const rootChildren = rootImpl.children;
+  shown.pinned.topLevelParamIds = filterTopLevelIds(
+    rootChildren,
+    shown.pinned.requiredParamIdsToPaths,
+  );
+  shown.unpinned.topLevelParamIds = filterTopLevelIds(
+    rootChildren,
+    shown.unpinned.requiredParamIdsToPaths,
+  );
+}
+
+function filterTopLevelIds(
+  rootChildren: string[],
+  requiredParamIdsToPaths: Record<string, string[]>,
+): string[] {
+  if (rootChildren.length === 0) {
+    return [];
+  }
+  const included = new Set(Object.keys(requiredParamIdsToPaths));
+  return rootChildren.filter((id) => included.has(id));
 }
 
 export function moveParamsWithBackend({
