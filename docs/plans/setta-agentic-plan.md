@@ -24,16 +24,17 @@ focuses on internal agent primitives that external adapters build on.
 ## Feature preservation contract (non-negotiable)
 Backward compatibility is not required, but user-visible features must be preserved. Agentic features are additive and must not delete or bypass existing chat behavior.
 
-- Preserve managed and scriptable Chat section modes, including `llmConfigId`, `deepThink`, `chatId`, and `ChatSectionState`-style message rendering.
+- Preserve managed and scriptable Chat section modes (behavior, not specific fields).
+- Preserve the ability to chat with Setta's internal LLM stack (litellm) without relying on external agents.
 - Keep the chat toolkit surface usable for listeners (`ChatSession`, `ChatSectionSyncClient`, `on_chat_send_event`, and streaming helpers).
-- Specific routes do not need to be preserved; the API surface can change as long as the UI/toolkit behavior is preserved.
+- Specific routes and storage fields do not need to be preserved; the API surface can change as long as the UI/toolkit behavior is preserved.
 - Maintain the `LLMStreamingResponse` contract, `sectionId`-based updates, and AIFollow behavior.
 - If a replacement is necessary, provide a migration path and explicitly list feature parity before removal.
 
 ## Acceptance checks (minimum)
 - A managed chat still streams LLM responses into the Chat section UI with tools and AIFollow.
 - A scriptable chat still works via listeners using the chat toolkit helpers.
-- Changing LLM config and deep-think settings still affects managed chat behavior.
+- Selecting an internal engine config and reasoning options still affects managed chat behavior.
 - Chat sections still support "new chat" and persisted chat history.
 - Deferred: share-mode LLM supports minimal read-only Q&A about the project (post-refactor).
 
@@ -41,24 +42,28 @@ Backward compatibility is not required, but user-visible features must be preser
 
 ### Phase 1: Agent primitives
 - Add data models in `backend/setta/types/agentic.py`:
-  - `AgentProfile` (name, description, system_prompt, llm_config_id, tool_allowlist, memory_scope)
+  - `EngineConfig` (name, engineType, settaLlmConfig, externalAgentConfigId, defaults)
+  - `AgentProfile` (name, description, systemPrompt, engineConfigId, toolAllowlist, memoryScope)
   - `AgentRun` and `RunEvent` (inputs, outputs, tool calls, timestamps, status, costs)
 - Extend `backend/setta/database/db_objs.py` with paths and helpers for:
+  - `setta_files/engine_configs.json`
   - `setta_files/agent_profiles.json`
   - `setta_files/agent_runs/*.json`
 - Add prompt asset paths:
   - `setta_files/prompts/*.json`
   - Optional `setta_files/prompts.example.json` fixture
-- Add a watcher similar to `LLMConfigWatcher` to broadcast agent updates.
+- Add watchers similar to `LLMConfigWatcher` to broadcast engine config + agent updates.
 - Add REST routes in `backend/setta/routers/agentic.py`:
+  - CRUD for engine configs.
   - CRUD for agent profiles.
   - Start/stop agent runs and fetch run history.
 - Add MCP tools in `backend/setta/mcp/tools/agentic_tools.py`:
   - `list_agent_profiles`, `get_agent_profile`, `run_agent_profile`.
+  - (Optional) `list_engine_configs`, `get_engine_config`.
 
 ### Phase 2: Agent runner and sub-agents
 - Implement `AgentRunner` in `backend/setta/llm/agent_runner.py`:
-  - Accepts `AgentProfile` + input payload and streams `RunEvent`s.
+  - Accepts `AgentProfile` + `EngineConfig` + input payload and streams `RunEvent`s.
   - Supports sub-agent calls by spawning child runs with isolated tool state.
   - Reuse `setta.llm.chat_toolkit.managed` (stream assembler + action executor) so tool execution, previews, and AIFollow stay consistent.
   - Enforce tool allowlists by filtering tool definitions before LLM requests and passing `allowed_server_ids` into managed tool execution.
@@ -117,10 +122,10 @@ Backward compatibility is not required, but user-visible features must be preser
 - Add REST routes for prompt CRUD in `backend/setta/routers/agentic.py`.
 
 ### Chat section integration
-- Reuse `ChatSectionImpl.chatId` plus the existing `get_chat_section_chat_id`/`set_chat_section_chat_id` routes (no separate `chat_sections.json`).
-- Add agent linkage fields on `ChatSectionImpl` as needed (for example `agentProfileId`, `agentRunId`) and update project manager requests if we need to persist them.
-- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to branch between the current managed LLM flow and agentic run routes based on agent selection.
-- Chat section settings already expose managed/LLM config/deep think; add the agent profile picker and define how it interacts with LLM config selection.
+- Keep a stable chat identity per section (chatId or run id), but do not require specific field names.
+- Add linkage fields on `ChatSectionImpl` as needed (for example `engineConfigId`, `agentProfileId`, `agentRunId`) and update project manager requests if we need to persist them.
+- Update `frontend/src/components/Section/Layouts/ChatArea.tsx` to branch between internal engine runs and external engine runs based on engine selection.
+- Chat section settings expose managed/engine config/reasoning controls; add the agent profile picker and define how it interacts with engine config selection.
 
 ### Frontend updates
 - Add `PromptArea` layout in `frontend/src/components/Section/Layouts/PromptArea.tsx`.
@@ -147,8 +152,42 @@ Backward compatibility is not required, but user-visible features must be preser
 
 ## Decisions
 - Agent profiles and prompt assets are workspace-scoped (not per project config).
+- Engine configs are workspace-scoped and unify internal Setta LLM and external agents.
 - Prompt templates start as `setta_files/prompts/*.json`.
 - Use Jinja-style templates (`{{ var }}`) as the default.
 - Chat sections are the default entry point for agentic projects.
 - Skip tags in the MVP; add optional tagging later only if filtering becomes a need.
 - Use a dedicated `SectionType.Prompt` for first-class prompt nodes on the canvas.
+
+## Engine config example
+Example structure for `setta_files/engine_configs.json`:
+```json
+[
+  {
+    "id": "engine-setta-default",
+    "name": "Setta LLM",
+    "engineType": "setta_llm",
+    "settaLlmConfig": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "mcpServerIds": ["setta"]
+    },
+    "defaults": {
+      "reasoningEffort": "high"
+    }
+  },
+  {
+    "id": "engine-codex-sdk",
+    "name": "Codex SDK",
+    "engineType": "external_agent",
+    "externalAgentConfigId": "external-codex-1"
+  }
+]
+```
+
+## Migration notes (llmConfigId -> engineConfigId)
+- Replace any per-section `llmConfigId` selection with `engineConfigId`.
+- Internal engine configs should embed the previous `llm_config.json` selection details.
+- Agent profiles should move from `llmConfigId` to `engineConfigId`.
+- External engine configs reference existing `external_agents.json` entries.

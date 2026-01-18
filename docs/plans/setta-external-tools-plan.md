@@ -32,10 +32,10 @@ data model that external adapters depend on.
 ## Feature preservation contract (non-negotiable)
 Backward compatibility is not required, but user-visible features must be preserved. External agents are additive and must not replace existing chat behavior.
 
-- Preserve managed and scriptable Chat section modes and their UI controls (LLM config selection, deep-think, new chat).
+- Preserve managed and scriptable Chat section modes and their UI controls (engine selection, new chat, reasoning controls for internal engines).
 - Keep chat toolkit helpers usable for listeners and Chat section state sync; routes can change.
 - Maintain `LLMStreamingResponse` semantics and AIFollow updates; external events must map into existing stream types.
-- Do not remove Chat section state fields unless an explicit migration preserves behavior.
+- Storage fields may change, but behavior must remain intact with an explicit migration path.
 
 ## Non-goals (for this plan)
 - Replacing Setta's native agent runner.
@@ -146,12 +146,42 @@ Adapters:
 ## Developer experience goals
 
 ### Config and setup
-- Mirror `llm_config.json` with `setta_files/external_agents.json` and a watcher
-  so changes hot-reload without a server restart.
+- Introduce `setta_files/engine_configs.json` alongside `setta_files/external_agents.json`
+  and watchers so changes hot-reload without a server restart.
+- Engine configs unify internal Setta LLM and external agents (internal engines embed
+  litellm config; external engines reference an external agent config).
 - Store only env var names in config (values sourced from `.env`), matching the
   existing LLM config pattern.
 - Add a health-check endpoint per tool to report availability, version, and
   missing env vars.
+
+### Engine config example
+Example structure for `setta_files/engine_configs.json`:
+```json
+[
+  {
+    "id": "engine-setta-default",
+    "name": "Setta LLM",
+    "engineType": "setta_llm",
+    "settaLlmConfig": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "mcpServerIds": ["setta"]
+    }
+  },
+  {
+    "id": "engine-claude-sdk",
+    "name": "Claude Code",
+    "engineType": "external_agent",
+    "externalAgentConfigId": "external-claude-1"
+  }
+]
+```
+
+### Migration notes (llmConfigId -> engineConfigId)
+- UI selection should switch from LLM configs to engine configs.
+- External engine configs reference existing `external_agents.json` entries.
 
 ### Local testing harness
 - Provide a minimal SDK harness to run an adapter against a prompt and emit
@@ -165,8 +195,8 @@ Adapters:
 ## User experience goals
 
 ### Unified entry points
-- In Project Chat and Chat sections, add an "Engine" selector (Setta LLM,
-  Claude Code, Codex, OpenCode) so users do not learn separate UX paths.
+- In Project Chat and Chat sections, add an "Engine" selector based on engine configs
+  (Setta LLM, Claude Code, Codex, OpenCode) so users do not learn separate UX paths.
 - MVP decision: ship the selector in both Project Chat and Chat sections from
   day one (no staged rollout).
 - Preserve existing managed vs scriptable modes; external agents are an option
@@ -185,7 +215,7 @@ Adapters:
 - Goal: AIFollow should work with external events, not just native MCP tool calls.
 
 ## Acceptance checks (minimum)
-- Existing managed and scriptable chats still work unchanged when no external engine is selected.
+- Existing managed and scriptable chats still work unchanged when an internal engine is selected.
 - External agent runs render in the same stream UI without breaking AIFollow.
 - Listener-based chat workflows still compile and run using the chat toolkit.
 
