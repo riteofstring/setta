@@ -613,7 +613,9 @@ class BaseProjectManager(ABC):
                 snapshots_by_section_id=draw_snapshots_by_section_id,
             )
             if snapshots_updated:
-                project_state.validate_for_update()
+                project_state.validate_for_update(
+                    validate_code_file_bindings=False
+                )
                 if python_codegen_enabled:
                     await self._refresh_codegen_state(project_state)
                 self._merge_project_state_backend(
