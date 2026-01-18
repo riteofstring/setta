@@ -110,6 +110,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     TextBlockDisplayMode,
     TextBlockFormat,
+    PromptFormat,
     SectionType,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -133,7 +134,7 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.project_config import ProjectCodegenPythonTarget, ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
 from setta.types.generated.shared_modifier import SharedModifier
 
 """
