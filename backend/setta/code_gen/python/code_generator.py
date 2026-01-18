@@ -9,7 +9,6 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.utils import (
     CLASS_DEF,
-    GEN_CODE_INSTANCE_NAME,
     SELF_IDENTIFIER,
 )
 from setta.code_gen.value_codec import PythonValueCodec
@@ -49,15 +48,11 @@ class PythonCodeGenerator:
         gen_code_suffix: str,
         *,
         value_mode: PythonValueMode = PythonValueMode.PACKAGED_RUNTIME,
-        meta_code: str | None = None,
     ):
         self.dep_graph = dep_graph
         self.gen_code_prefix = gen_code_prefix
         self.gen_code_suffix = gen_code_suffix
         self.value_mode = value_mode
-        self.meta_code = meta_code
-        self.meta_module_name = "setta_gen_meta"
-        self.meta_variable_name = "meta"
         self.value_codec = PythonValueCodec(
             self.dep_graph,
             self._lookup_var_name,
@@ -88,8 +83,6 @@ class PythonCodeGenerator:
         for key, node in self.dep_graph.graph.items():
             if not node.isTopLevel or not node.has_name_and_value:
                 continue
-            if not self._node_in_codegen(node):
-                continue
 
             cycles_detected.extend(
                 self._process_node_and_deps(key, node, processed_nodes)
@@ -107,9 +100,6 @@ class PythonCodeGenerator:
         self.generated_code = self.generate_wrapper_class(prefix_offset)
         # Persist blank separator lines between prefix/body/suffix.
         self.code = f"{self.gen_code_prefix}{GEN_CODE_SEPARATOR}{self.generated_code}{GEN_CODE_SEPARATOR}{self.gen_code_suffix}"
-        meta_block = self._metadata_assignment_block()
-        if meta_block:
-            self.code = f"{self.code}{GEN_CODE_SEPARATOR}{meta_block}"
         # Position offset accounts for prefix + separator newlines.
         return prefix_offset + len(self.generated_code) + len(GEN_CODE_SEPARATOR)
 
@@ -117,8 +107,6 @@ class PythonCodeGenerator:
         """Process a node and its dependencies, recording any cycles found."""
         if dep_key in processed_nodes:
             return []  # Already processed, no cycle
-        if not self._node_in_codegen(node):
-            return []
 
         # Initialize the path if this is the top-level call
         if path is None:
@@ -141,8 +129,6 @@ class PythonCodeGenerator:
                 continue
             if child_dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[child_dep_key]
-                if not self._node_in_codegen(dep_node):
-                    continue
                 cycles.extend(
                     self._process_node_and_deps(
                         child_dep_key, dep_node, processed_nodes, path
@@ -185,24 +171,12 @@ class PythonCodeGenerator:
         return code
 
     def _helper_import_block(self) -> str | None:
-        helper_imports = list(self.value_codec.required_imports)
-        meta_import = self._meta_import_line()
-        if meta_import:
-            helper_imports.append(meta_import)
+        helper_imports = self.value_codec.required_imports
         if not helper_imports:
             return None
         return "\n".join(helper_imports)
 
-    def _meta_import_line(self) -> str | None:
-        if self.meta_code is None:
-            return None
-        if self.value_mode is not PythonValueMode.PACKAGED_RUNTIME:
-            return None
-        return f"from . import {self.meta_module_name}"
-
     def create_line(self, dep_key, node: Node):
-        if not self._node_in_codegen(node):
-            return
         value = self.get_value(node)
         if not value:
             return
@@ -228,28 +202,6 @@ class PythonCodeGenerator:
             f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}{line}" for line in lines
         ]
         return "(\n" + "\n".join(indented_lines) + f"\n{GEN_CODE_BODY_INDENT})"
-
-    def _node_in_codegen(self, node: Node) -> bool:
-        return getattr(node, "include_in_codegen", True)
-
-    def _metadata_assignment_block(self) -> str | None:
-        if self.meta_code is None:
-            return None
-        if self.value_mode is PythonValueMode.PACKAGED_RUNTIME:
-            return (
-                f"{GEN_CODE_INSTANCE_NAME}.__state__ = "
-                f"{self.meta_module_name}.{self.meta_variable_name}"
-            )
-        meta_namespace = "_setta_gen_meta_ns"
-        meta_source = repr(self.meta_code)
-        return "\n".join(
-            [
-                f"{meta_namespace}: dict[str, object] = {{}}",
-                f"exec({meta_source}, {meta_namespace})",
-                f"{GEN_CODE_INSTANCE_NAME}.__state__ = "
-                f"{meta_namespace}[{repr(self.meta_variable_name)}]",
-            ]
-        )
 
     def create_var_name(self, dep_key, node: Node):
         var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"

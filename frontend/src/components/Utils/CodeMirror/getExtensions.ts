@@ -14,7 +14,6 @@ import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
-import type { CodeLanguage } from "utils/codeLanguage";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -29,22 +28,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   },
 });
 
-type GetExtensionsOptions = {
-  parentDivId?: string;
-  language?: CodeLanguage | null;
-  completionsFn?: CompletionSource;
-  singleLine?: boolean;
-  tabToAutocomplete?: boolean;
-  indentWithTab?: boolean;
-  onTab?: (docText: string, completionResult: boolean) => void;
-  onEscape?: (
-    expectingCompletions: ReturnType<typeof completionStatus>,
-  ) => void;
-  keyComboActions?: Record<string, (docText: string) => void>;
-  isDisabled?: boolean;
-  useJsx?: boolean;
-};
-
 export function getExtensions({
   parentDivId,
   language,
@@ -56,10 +39,10 @@ export function getExtensions({
   onEscape,
   keyComboActions,
   isDisabled,
-  useJsx,
-}: GetExtensionsOptions) {
+}: {
+  completionsFn?: CompletionSource;
+}) {
   const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
-  const enableJsx = useJsx === true;
 
   if (parentDivId) {
     extensions.push(
@@ -71,10 +54,8 @@ export function getExtensions({
 
   if (language === "python") {
     extensions.push(python());
-  } else if (language === "typescript") {
-    extensions.push(javascript({ typescript: true, jsx: enableJsx }));
   } else if (language === "javascript") {
-    extensions.push(javascript({ jsx: enableJsx }));
+    extensions.push(javascript());
   } else if (language === "yaml") {
     extensions.push(yaml());
   } else if (language === "json") {
