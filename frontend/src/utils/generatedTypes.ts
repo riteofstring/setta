@@ -367,6 +367,8 @@ export const RouteEnum = {
   DELETE_AGENT_PROFILE: "/deleteAgentProfile",
   START_AGENT_RUN: "/startAgentRun",
   STOP_AGENT_RUN: "/stopAgentRun",
+  START_RUN_CHAIN: "/startRunChain",
+  STOP_RUN_CHAIN: "/stopRunChain",
   GET_AGENT_RUN: "/getAgentRun",
   GET_AGENT_RUNS: "/getAgentRuns",
   GET_PROMPT_TEMPLATES: "/getPromptTemplates",
@@ -5136,6 +5138,26 @@ const AgentRunSchema = z.object({
 
 export type AgentRun = z.infer<typeof AgentRunSchema>;
 
+const RunChainStepSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string().default("" as const),
+  engineConfigId: IDSchema,
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  prompt: z.union([z.string(), z.null()]).default(null),
+  messages: z
+    .union([z.array(z.record(z.string(), z.any())), z.null()])
+    .default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  includePreviousOutputs: z.boolean().default(true),
+});
+
+const RunChainSpecSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string().default("" as const),
+  steps: z.array(RunChainStepSchema),
+  stopOnFailure: z.boolean().default(true),
+});
+
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -5746,6 +5768,15 @@ export type StartAgentRunRequestInput = z.input<
   typeof StartAgentRunRequestSchema
 >;
 
+const StartRunChainRequestSchema = z.object({
+  spec: RunChainSpecSchema,
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartRunChainRequestInput = z.input<
+  typeof StartRunChainRequestSchema
+>;
+
 const StopAgentRunRequestSchema = z.object({
   runId: IDSchema,
 });
@@ -5760,6 +5791,14 @@ const StopExternalAgentRunRequestSchema = z.object({
 
 export type StopExternalAgentRunRequestInput = z.input<
   typeof StopExternalAgentRunRequestSchema
+>;
+
+const StopRunChainRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopRunChainRequestInput = z.input<
+  typeof StopRunChainRequestSchema
 >;
 
 const UpdateAgentProfileRequestSchema = z.object({

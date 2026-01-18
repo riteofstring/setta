@@ -340,28 +340,6 @@ Storage:
   - Approval prompts inline
 - Allow running an AgentProfile in an external tool (one-click run in selected tool).
 
-### SKILL.md integration (external skills only)
-- Goal: surface external SKILL.md assets without introducing a new Setta skill schema.
-- Add a Skills panel (per engine) that indexes SKILL.md from each tool's discovery
-  paths and shows name, description, scope/location, and enabled/disabled status.
-- Skill detail view:
-  - Render frontmatter + instructions.
-  - List supporting files (scripts/references/assets) when present.
-  - Provide "Open in editor" and "Reveal in file tree."
-  - Show validation warnings based on each engine's rules.
-- Invocation UX:
-  - Claude Code: model-invoked; provide a "Suggest skill" helper that inserts
-    a short prompt hint (no explicit call required).
-  - Codex: allow explicit invocation (slash or $ mention) and show implicit use.
-  - OpenCode: provide a "Load skill" action that calls the skill tool.
-- Permissions visibility:
-  - Show skill-level tool/permission constraints alongside AgentProfile allowlist.
-  - Surface engine-specific flags (for example allowed-tools, user-invocable, or
-    permission patterns) directly in the skill UI.
-- Run trace:
-  - Emit a stream event when a skill is loaded or used.
-  - Persist the list of skills used in the run metadata.
-
 ## Observability and artifacts
 - Persist raw external event stream (JSONL/SSE) alongside normalized RunEvents.
 - Store per-run metadata: duration, tokens (if provided), errors, tool calls.
@@ -385,10 +363,34 @@ Storage:
 - Add tool allowlists and sandbox policies to SDK calls (Claude implemented; others pending).
 - Deferred: MCP adapter for Codex (SDK-only policy).
 
-### Phase 3: Unified orchestration (deferred)
-- Extend orchestration to support cross-tool composition across Setta + external runs.
-- Allow multi-step workflows that chain Setta agent runs and external tool runs.
-- Add cross-tool trace viewer and run replay.
+### Phase 3: Unified orchestration (partial)
+- Add a backend run-chain orchestrator that executes multi-step workflows across Setta + external runs.
+- Persist chain metadata + child run linkage in AgentRun outputs/events.
+- Pending: UI for cross-tool trace viewer, step-level replay, and chain authoring.
+
+## Future work
+
+### SKILL.md integration (external skills only)
+- Goal: surface external SKILL.md assets without introducing a new Setta skill schema.
+- Add a Skills panel (per engine) that indexes SKILL.md from each tool's discovery
+  paths and shows name, description, scope/location, and enabled/disabled status.
+- Skill detail view:
+  - Render frontmatter + instructions.
+  - List supporting files (scripts/references/assets) when present.
+  - Provide "Open in editor" and "Reveal in file tree."
+  - Show validation warnings based on each engine's rules.
+- Invocation UX:
+  - Claude Code: model-invoked; provide a "Suggest skill" helper that inserts
+    a short prompt hint (no explicit call required).
+  - Codex: allow explicit invocation (slash or $ mention) and show implicit use.
+  - OpenCode: provide a "Load skill" action that calls the skill tool.
+- Permissions visibility:
+  - Show skill-level tool/permission constraints alongside AgentProfile allowlist.
+  - Surface engine-specific flags (for example allowed-tools, user-invocable, or
+    permission patterns) directly in the skill UI.
+- Run trace:
+  - Emit a stream event when a skill is loaded or used.
+  - Persist the list of skills used in the run metadata.
 
 ## Testing and validation
 - Add integration tests gated by tool availability (skip if SDK/server not installed).

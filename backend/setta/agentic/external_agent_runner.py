@@ -212,6 +212,18 @@ class ExternalAgentRunner:
         self._record_event(run, "run_cancelled", {})
         return run
 
+    async def wait_for_run(self, run_id: ID, timeout: float | None = None) -> AgentRun:
+        task = self._tasks.get(run_id)
+        if task is not None:
+            if timeout is None:
+                await task
+            else:
+                await asyncio.wait_for(task, timeout=timeout)
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            raise KeyError(f"External agent run {run_id} not found")
+        return run
+
     async def _run_external_agent(self, context: ExternalAgentRunContext) -> None:
         run = context.run
         handle: ExternalAgentRunHandle | None = None

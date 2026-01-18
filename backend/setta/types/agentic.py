@@ -95,3 +95,21 @@ class AgentProfileList(BaseModel, extra="forbid"):
 
 class AgentRunList(BaseModel, extra="forbid"):
     runs: list[AgentRun]
+
+
+class RunChainStep(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str = ""
+    engineConfigId: ID
+    agentProfileId: ID | None = None
+    prompt: str | None = None
+    messages: list[dict[str, Any]] | None = None
+    inputs: dict[str, Any] | None = None
+    includePreviousOutputs: bool = True
+
+
+class RunChainSpec(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str = ""
+    steps: list[RunChainStep]
+    stopOnFailure: bool = True

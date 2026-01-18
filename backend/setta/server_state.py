@@ -9,6 +9,7 @@ from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.agentic.prompt_watcher import PromptTemplateWatcher
+from setta.agentic.run_chain import RunChainRunner
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -258,6 +259,7 @@ class SettaFastAPIState:
         self.external_agent_runner: ExternalAgentRunner = self._defer_attr(
             "external_agent_runner"
         )
+        self.run_chain_runner: RunChainRunner = self._defer_attr("run_chain_runner")
 
         self.init_status = BackendInitializationStatus()
         mode_label = "share" if self.share_mode else "backend"
@@ -427,6 +429,12 @@ class SettaFastAPIState:
                 self.dbe,
                 self.wmh_frontend_sender,
                 mcp_client=self.mcp_client,
+            )
+            self.run_chain_runner = RunChainRunner(
+                self.dbe,
+                self.agent_runner,
+                self.external_agent_runner,
+                self.wmh_frontend_sender,
             )
 
             self.init_status.record("Starting background services")

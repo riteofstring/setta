@@ -339,6 +339,18 @@ async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
+async function route_start_run_chain(
+  x: gt.StartRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startRunChain", x);
+}
+
+async function route_stop_run_chain(
+  x: gt.StopRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopRunChain", x);
+}
+
 export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {

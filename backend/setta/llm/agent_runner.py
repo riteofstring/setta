@@ -202,8 +202,16 @@ class AgentRunner:
         self,
         profile: AgentProfile,
         inputs: dict[str, Any] | None,
+        *,
+        emit_stream: bool = True,
+        emit_ai_follow: bool = True,
     ) -> AgentRun:
-        context = self._build_context(profile, inputs)
+        context = self._build_context(
+            profile,
+            inputs,
+            emit_stream=emit_stream,
+            emit_ai_follow=emit_ai_follow,
+        )
         run = context.run
         self._runs[run.id] = run
         save_agent_run(self.dbe, run)
@@ -232,6 +240,18 @@ class AgentRunner:
 
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
+        return run
+
+    async def wait_for_run(self, run_id: ID, timeout: float | None = None) -> AgentRun:
+        task = self._tasks.get(run_id)
+        if task is not None:
+            if timeout is None:
+                await task
+            else:
+                await asyncio.wait_for(task, timeout=timeout)
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            raise KeyError(f"Agent run {run_id} not found")
         return run
 
     async def run_sub_agent(
