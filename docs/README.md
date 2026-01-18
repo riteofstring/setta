@@ -8,6 +8,7 @@
 - `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
+- `keyboard-shortcuts.md` – keyboard navigation, selection, and manipulation shortcuts in the UI.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `meta-controls.md` – how MetaControl sections store values, emit action events, and map into generated code.
 - `http-request-sections.md` – how HTTP request sections expose REST endpoints, resolve schemas, and send requests.
