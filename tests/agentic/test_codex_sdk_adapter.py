@@ -1,7 +1,11 @@
+import asyncio
+import json
+import sys
 import unittest
 from pathlib import Path
 
 from setta.agentic.external_adapters.base import ExternalAgentRunContext
+from setta.agentic.external_adapters.base import ExternalAgentRunHandle
 from setta.agentic.external_adapters.codex_sdk import (
     CodexSdkAdapter,
     _CodexSdkEventParser,
@@ -122,3 +126,30 @@ class CodexSdkAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         chunk = events[0].stream_chunk
         self.assertIsInstance(chunk, ToolResultEvent)
+
+
+class CodexSdkAdapterApprovalTests(unittest.IsolatedAsyncioTestCase):
+    async def test_send_approval_response_writes_json_line(self) -> None:
+        adapter = CodexSdkAdapter()
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "import sys; line=sys.stdin.readline(); sys.stdout.write(line); sys.stdout.flush()",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        handle = ExternalAgentRunHandle(run_id=AgentRun().id, process=process)
+
+        await adapter.send_approval_response(handle, "approval-1", True)
+
+        self.assertIsNotNone(process.stdout)
+        line = await asyncio.wait_for(process.stdout.readline(), timeout=2)
+        payload = json.loads(line.decode("utf-8"))
+        self.assertEqual(payload.get("type"), "approval_response")
+        self.assertEqual(payload.get("approvalId"), "approval-1")
+        self.assertEqual(payload.get("approved"), True)
+
+        if process.stdin is not None:
+            process.stdin.close()
+        await asyncio.wait_for(process.wait(), timeout=2)

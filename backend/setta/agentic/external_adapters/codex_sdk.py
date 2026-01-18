@@ -67,9 +67,8 @@ class CodexSdkAdapter(ExternalAgentAdapter):
             thread_id = _extract_thread_id(context.inputs)
             if thread_id is not None:
                 payload["threadId"] = thread_id
-            process.stdin.write(json.dumps(payload).encode("utf-8"))
+            process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
             await process.stdin.drain()
-            process.stdin.close()
         return ExternalAgentRunHandle(run_id=context.run.id, process=process)
 
     async def stream_events(
@@ -109,9 +108,18 @@ class CodexSdkAdapter(ExternalAgentAdapter):
             process.kill()
 
     async def send_approval_response(
-        self, _handle: ExternalAgentRunHandle, _approval_id: str, _approved: bool
+        self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool
     ) -> None:
-        raise RuntimeError("Codex SDK approvals are not supported in Setta")
+        process = handle.process
+        if process is None or process.stdin is None:
+            raise RuntimeError("Codex SDK process stdin not available")
+        payload = {
+            "type": "approval_response",
+            "approvalId": approval_id,
+            "approved": approved,
+        }
+        process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
+        await process.stdin.drain()
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:

@@ -70,10 +70,6 @@ def build_external_agent_preflight_status(
     if base_url_issue:
         issues.append(base_url_issue)
 
-    approval_issue = _check_approval_policy_support(config)
-    if approval_issue:
-        issues.append(approval_issue)
-
     if not supported:
         issues.append(
             f"Run mode {config.runMode.value} not supported for {config.toolType.value}"
@@ -215,17 +211,3 @@ def _check_base_url(config: ExternalAgentConfig) -> str | None:
     if not config.baseUrl:
         return "baseUrl is required for server run mode"
     return None
-
-
-def _check_approval_policy_support(config: ExternalAgentConfig) -> str | None:
-    if config.toolType != ExternalAgentToolType.codex:
-        return None
-    if not config.approvalPolicy:
-        return None
-    normalized = config.approvalPolicy.strip().lower()
-    if not normalized or normalized in {"never", "none", "off", "false", "0"}:
-        return None
-    return (
-        "Codex SDK approvals are not supported in Setta. "
-        "Set approvalPolicy to 'never' for Codex."
-    )

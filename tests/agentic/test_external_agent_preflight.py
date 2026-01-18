@@ -127,7 +127,7 @@ class ExternalAgentPreflightTests(unittest.TestCase):
         else:
             self.assertIsNone(status.sdkVersion)
 
-    def test_codex_approval_policy_reports_issue(self) -> None:
+    def test_codex_approval_policy_no_longer_reports_issue(self) -> None:
         tmp = self._temp_cwd()
         dbe = DBE(tmp / "setta_files")
         config = ExternalAgentConfig(
@@ -139,7 +139,7 @@ class ExternalAgentPreflightTests(unittest.TestCase):
 
         status = build_external_agent_preflight_status(dbe, config)
 
-        self.assertTrue(
+        self.assertFalse(
             any(
                 "Codex SDK approvals are not supported" in issue
                 for issue in status.issues
