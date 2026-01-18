@@ -76,7 +76,10 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
 
     if request_param_name is None or request_model is None:
         return None
-    if "projectConfigId" not in request_model.model_fields:
+    if (
+        "projectConfigId" not in request_model.model_fields
+        and not endpoint.__module__.startswith("setta.routers.listener")
+    ):
         return None
 
     return ListenerRouterEndpointSpec(
