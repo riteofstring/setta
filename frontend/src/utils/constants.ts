@@ -152,9 +152,20 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 export const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
+export const PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX = "pinned-params-min-height";
+export const UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX =
+  "unpinned-params-min-height";
 
 export function getEdgesStripHeightKey(sectionId: string) {
   return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getPinnedParamsMinHeightKey(sectionId: string) {
+  return `${PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getUnpinnedParamsMinHeightKey(sectionId: string) {
+  return `${UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
 const MODEL_GROUPS = [

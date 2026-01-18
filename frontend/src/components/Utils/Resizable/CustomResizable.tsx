@@ -107,6 +107,13 @@ function CustomResizableCore({
   }
 
   function onResizeStop(...props) {
+    const [event, , , delta] = props;
+    const isZeroDelta = delta.width === 0 && delta.height === 0;
+    const isDoubleClick =
+      typeof event.detail === "number" && event.detail === 2;
+    if (isZeroDelta && !isDoubleClick) {
+      return;
+    }
     const changedSize = getChangedSize({
       props,
       sizeMode,

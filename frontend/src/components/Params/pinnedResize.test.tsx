@@ -26,11 +26,11 @@ describe("getPinnedResizeHeight", () => {
     expect(nextHeight).toBeNull();
   });
 
-  it("uses a valid style height when available", () => {
+  it("uses a valid style height when start height is missing", () => {
     const nextHeight = getPinnedResizeHeight({
       didResize: true,
       delta: { height: 20, width: 0 },
-      startHeight: 120,
+      startHeight: null,
       styleHeight: 160,
       minHeight: 80,
     });
@@ -38,7 +38,7 @@ describe("getPinnedResizeHeight", () => {
     expect(nextHeight).toBe(160);
   });
 
-  it("falls back to start height plus delta", () => {
+  it("uses start height plus delta when available", () => {
     const nextHeight = getPinnedResizeHeight({
       didResize: true,
       delta: { height: 20, width: 0 },
@@ -60,5 +60,18 @@ describe("getPinnedResizeHeight", () => {
     });
 
     expect(nextHeight).toBe(60);
+  });
+
+  it("clamps to max height when provided", () => {
+    const nextHeight = getPinnedResizeHeight({
+      didResize: true,
+      delta: { height: 50, width: 0 },
+      startHeight: 100,
+      styleHeight: null,
+      minHeight: 60,
+      maxHeight: 120,
+    });
+
+    expect(nextHeight).toBe(120);
   });
 });

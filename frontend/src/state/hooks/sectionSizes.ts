@@ -18,7 +18,11 @@ import {
   useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
-import { getEdgesStripHeightKey } from "utils/constants";
+import {
+  getEdgesStripHeightKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
+} from "utils/constants";
 import {
   CodeObjTypeEnum,
   SectionSize,
@@ -202,6 +206,14 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getEdgesStripHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
+  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
 
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
@@ -264,20 +276,27 @@ export function useSectionMinMaxDims(sectionId: string) {
         unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
       const hasEdges =
         impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMinHeight > 0
+          ? pinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMinHeight > 0
+          ? unpinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
         if (typeof impl.pinnedAreaHeight === "number") {
           requiredParamsHeight += Math.max(
             impl.pinnedAreaHeight,
-            sizingPolicy.globals.pinnedParamsAreaMinHeight,
+            resolvedPinnedMinHeight,
           );
         } else {
-          requiredParamsHeight +=
-            sizingPolicy.globals.pinnedParamsAreaMinHeight;
+          requiredParamsHeight += resolvedPinnedMinHeight;
         }
       }
       if (hasUnpinnedParams) {
-        requiredParamsHeight += sizingPolicy.globals.pinnedParamsAreaMinHeight;
+        requiredParamsHeight += resolvedUnpinnedMinHeight;
       }
       if (hasEdges) {
         requiredParamsHeight += edgesStripHeight;

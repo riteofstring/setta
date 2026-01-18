@@ -3,7 +3,7 @@ import { Handle } from "forks/xyflow/core/components/Handle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createEdgeFromConnection } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -24,6 +24,8 @@ import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -58,6 +60,9 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
     pinned: 1,
     unpinned: 1,
   });
+  const [unpinnedMinHeight, setUnpinnedMinHeight] = useState<number | null>(
+    null,
+  );
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -82,11 +87,14 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
             outerRef={outerRef}
             handleColumnResizeStart={handleColumnResizeStart}
             setMaxNestedDepth={setMaxNestedDepth}
+            unpinnedMinHeight={unpinnedMinHeight}
           />
           <GetUnpinnedParams
             sectionId={sectionId}
             handleColumnResizeStart={handleColumnResizeStart}
             setMaxNestedDepth={setMaxNestedDepth}
+            setUnpinnedMinHeight={setUnpinnedMinHeight}
+            unpinnedMinHeight={unpinnedMinHeight}
           />
         </>
       )}
@@ -291,6 +299,7 @@ type GetPinnedParamsProps = {
   outerRef: React.RefObject<HTMLDivElement | null>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
+  unpinnedMinHeight: number | null;
 };
 
 type ResizablePinnedAreaProps = {
@@ -301,6 +310,15 @@ type ResizablePinnedAreaProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
+  unpinnedMinHeight: number | null;
+};
+
+type GetUnpinnedParamsProps = {
+  sectionId: string;
+  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
+  setUnpinnedMinHeight: React.Dispatch<React.SetStateAction<number | null>>;
+  unpinnedMinHeight: number | null;
 };
 
 function GetPinnedParams({
@@ -308,6 +326,7 @@ function GetPinnedParams({
   outerRef,
   handleColumnResizeStart,
   setMaxNestedDepth,
+  unpinnedMinHeight,
 }: GetPinnedParamsProps) {
   const {
     requiredParamIdsToPaths,
@@ -359,6 +378,7 @@ function GetPinnedParams({
         handleColumnResizeStart={handleColumnResizeStart}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
+        unpinnedMinHeight={unpinnedMinHeight}
       />
     )
   );
@@ -372,16 +392,25 @@ function ResizablePinnedArea({
   handleColumnResizeStart,
   shouldRoundBottom,
   positionAndSizeLocked,
+  unpinnedMinHeight,
 }: ResizablePinnedAreaProps) {
-  const { sectionHeight, height } = useProjectState((x) => {
+  const { height, hasUnpinnedParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
     return {
-      sectionHeight: impl.size.height,
       height: impl.pinnedAreaHeight,
+      hasUnpinnedParams:
+        !impl.hideUnpinnedParams &&
+        filteredUnpinned.topLevelParamIds.length > 0,
     };
   }, _.isEqual);
   const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
@@ -393,9 +422,29 @@ function ResizablePinnedArea({
     _.isEqual,
   );
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
+  const [measuredContainerHeight, setMeasuredContainerHeight] = useState<
+    number | null
+  >(null);
   const isPinnedManual = typeof height === "number";
   const resizeStartHeightRef = useRef<number | null>(null);
   const didResizeRef = useRef(false);
+  const lastMaxHeightRef = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const [minContentHeight, setMinContentHeight] = useState<number | null>(null);
+  const edgesStripHeight = useTemporaryMiscState(
+    (x) => x[getEdgesStripHeightKey(sectionId)] ?? 0,
+  );
+  const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
+
+  const resolvedUnpinnedMinHeight =
+    unpinnedMinHeight === null
+      ? pinnedParamsAreaMinHeight
+      : Math.max(pinnedParamsAreaMinHeight, unpinnedMinHeight);
+  const reservedUnpinnedHeight = hasUnpinnedParams
+    ? resolvedUnpinnedMinHeight
+    : 0;
 
   function onResizeStart(...props: ResizeStartArgs) {
     const [, , ref] = props;
@@ -420,20 +469,34 @@ function ResizablePinnedArea({
     didResizeRef.current = false;
     const startHeight = resizeStartHeightRef.current;
     resizeStartHeightRef.current = null;
-    if (!didResize || (delta.height === 0 && delta.width === 0)) {
+    if (!didResize) {
       return;
     }
     const parsedHeight = Number.parseFloat(ref.style.height);
+    const measuredHeight = Number.isFinite(parsedHeight)
+      ? parsedHeight
+      : ref.offsetHeight;
+    const hasStartHeight =
+      typeof startHeight === "number" && Number.isFinite(startHeight);
+    const effectiveDeltaHeight =
+      delta.height !== 0 || !hasStartHeight
+        ? delta.height
+        : measuredHeight - startHeight;
     const nextHeight = getPinnedResizeHeight({
       didResize,
-      delta,
+      delta: { height: effectiveDeltaHeight, width: delta.width },
       startHeight,
-      styleHeight: Number.isFinite(parsedHeight) ? parsedHeight : null,
-      minHeight: pinnedParamsAreaMinHeight,
+      styleHeight: hasStartHeight ? null : measuredHeight,
+      minHeight: resolvedMinHeight,
+      maxHeight,
     });
     if (nextHeight === null) {
       return;
     }
+    lastMaxHeightRef.current =
+      typeof maxHeight === "number" && Number.isFinite(maxHeight)
+        ? maxHeight
+        : null;
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
         state,
@@ -449,12 +512,122 @@ function ResizablePinnedArea({
     setInitialMaxHeight(outerRef.current.clientHeight);
   }, []);
 
-  const maxHeight =
-    sectionHeight === "auto"
-      ? infiniteMaxHeight
-      : outerRef.current?.clientHeight ?? initialMaxHeight;
+  useLayoutEffect(() => {
+    const node = outerRef.current;
+    if (!node) {
+      setMeasuredContainerHeight(null);
+      return;
+    }
+    const update = () => {
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const rectHeight = node.getBoundingClientRect().height;
+      const nextHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
+      setMeasuredContainerHeight(nextHeight > 0 ? nextHeight : null);
+    };
+    update();
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [outerRef]);
 
-  const { ref, isScrollable } = useIsScrollable();
+  const { ref: listRef, isScrollable } = useIsScrollable();
+
+  useLayoutEffect(() => {
+    const wrapper = contentRef.current;
+    const list = listRef.current;
+    if (!wrapper || !list) {
+      setContentHeight(null);
+      setMinContentHeight(null);
+      useTemporaryMiscState.setState({ [pinnedMinHeightKey]: 0 });
+      return;
+    }
+    const update = () => {
+      const style = window.getComputedStyle(wrapper);
+      const padding =
+        Number.parseFloat(style.paddingTop) +
+        Number.parseFloat(style.paddingBottom);
+      const headerHeight = headerRef.current?.offsetHeight ?? 0;
+      const listHeight = list.scrollHeight;
+      const nextHeight = Math.ceil(listHeight + headerHeight + padding);
+      setContentHeight(nextHeight > 0 ? nextHeight : null);
+      const row = list.querySelector(
+        "article.section-args-nested-key-value, article.section-lg-value",
+      );
+      const rowHeight = row ? row.offsetHeight : 0;
+      const nextMinHeight = Math.ceil(rowHeight + headerHeight + padding);
+      const resolvedMinHeight = nextMinHeight > 0 ? nextMinHeight : 0;
+      setMinContentHeight(resolvedMinHeight > 0 ? resolvedMinHeight : null);
+      useTemporaryMiscState.setState({
+        [pinnedMinHeightKey]: resolvedMinHeight,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    observer.observe(list);
+    if (headerRef.current) {
+      observer.observe(headerRef.current);
+    }
+    return () => observer.disconnect();
+  }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
+
+  const containerHeight =
+    measuredContainerHeight ??
+    outerRef.current?.clientHeight ??
+    initialMaxHeight ??
+    infiniteMaxHeight;
+  const availableHeight = Math.max(
+    containerHeight - edgesStripHeight - reservedUnpinnedHeight,
+    0,
+  );
+  const maxHeight =
+    typeof contentHeight === "number"
+      ? Math.min(availableHeight, contentHeight)
+      : availableHeight;
+  const pinnedMinHeight =
+    typeof minContentHeight === "number"
+      ? Math.max(minContentHeight, pinnedParamsAreaMinHeight)
+      : pinnedParamsAreaMinHeight;
+  const minHeight = maxHeight > 0 ? Math.min(pinnedMinHeight, maxHeight) : 0;
+  const resolvedMinHeight = minHeight;
+  const resolvedHeight =
+    typeof height === "number" && Number.isFinite(maxHeight)
+      ? Math.min(height, maxHeight)
+      : height;
+
+  useLayoutEffect(() => {
+    if (typeof height !== "number") {
+      lastMaxHeightRef.current = null;
+      return;
+    }
+    if (typeof maxHeight !== "number" || !Number.isFinite(maxHeight)) {
+      return;
+    }
+    const lastMax = lastMaxHeightRef.current;
+    if (typeof lastMax !== "number" || !Number.isFinite(lastMax)) {
+      return;
+    }
+    if (Math.abs(height - lastMax) > 2) {
+      return;
+    }
+    if (Math.abs(maxHeight - lastMax) <= 2) {
+      return;
+    }
+    lastMaxHeightRef.current = maxHeight;
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          pinnedAreaHeight: maxHeight,
+        },
+      );
+    });
+  }, [height, maxHeight, sectionId]);
+
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
@@ -465,13 +638,13 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className={`relative flex min-h-0 max-h-[50%] w-full flex-col items-start border-b border-white bg-blue-200/50 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${isPinnedManual ? "flex-none" : "flex-initial"} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full flex-col items-start overflow-hidden border-b border-white bg-blue-200/50 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${isPinnedManual ? "flex-none" : "flex-initial"} ${roundedBottomClassName}`}
       as="section"
-      size={{ height }}
+      size={{ height: resolvedHeight }}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
-      minHeight={pinnedParamsAreaMinHeight}
+      minHeight={resolvedMinHeight}
       maxHeight={maxHeight}
       enable={{
         top: false,
@@ -485,27 +658,41 @@ function ResizablePinnedArea({
       }}
       handleClasses={{
         // used in ZoomPane to allow resizing of sections that are inside a position-locked section
-        bottom: `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`,
+        bottom: `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} pinned-resize-handle cursor-row-resize`,
+      }}
+      handleStyles={{
+        bottom: {
+          bottom: "0px",
+          height: "14px",
+          left: 0,
+          right: 0,
+          width: "100%",
+        },
       }}
     >
-      <header className="flex w-full gap-1 px-2">
-        <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
-        <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
-          Pinned Params
-        </p>
-      </header>
-
       <div
-        className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll pr-1.5`}
-        ref={ref}
+        className="flex w-full flex-1 min-h-0 flex-col pb-3 pt-4"
+        ref={contentRef}
       >
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={topLevelParamIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={handleColumnResizeStart}
-          isTopLevel={true}
-        />
+        <header className="flex w-full gap-1 px-2" ref={headerRef}>
+          <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
+          <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
+            Pinned Params
+          </p>
+        </header>
+
+        <div
+          className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full flex-1 min-h-0 grid-cols-subgrid content-start gap-y-1 overflow-y-auto pr-1.5`}
+          ref={listRef}
+        >
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={handleColumnResizeStart}
+            isTopLevel={true}
+          />
+        </div>
       </div>
     </ResizableWithScale>
   );
@@ -515,7 +702,9 @@ function GetUnpinnedParams({
   sectionId,
   handleColumnResizeStart,
   setMaxNestedDepth,
-}) {
+  setUnpinnedMinHeight,
+  unpinnedMinHeight,
+}: GetUnpinnedParamsProps) {
   const { ref, isScrollable } = useIsScrollable();
   const { hideUnpinnedParams, hasUnpinnedParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -540,16 +729,62 @@ function GetUnpinnedParams({
     pinnedParamsAreaMinHeight:
       x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
   }));
+  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || !hasUnpinnedParams) {
+      setUnpinnedMinHeight(null);
+      useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+      return;
+    }
+    const update = () => {
+      const row = node.querySelector(
+        "article.section-args-nested-key-value, article.section-lg-value",
+      );
+      if (!row) {
+        setUnpinnedMinHeight(null);
+        useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+        return;
+      }
+      const style = window.getComputedStyle(node);
+      const padding =
+        Number.parseFloat(style.paddingTop) +
+        Number.parseFloat(style.paddingBottom);
+      const nextHeight = Math.ceil(row.offsetHeight + padding);
+      const resolvedMinHeight = nextHeight > 0 ? nextHeight : null;
+      setUnpinnedMinHeight(resolvedMinHeight);
+      useTemporaryMiscState.setState({
+        [unpinnedMinHeightKey]: resolvedMinHeight ?? 0,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [
+    hasUnpinnedParams,
+    ref,
+    setUnpinnedMinHeight,
+    unpinnedMinHeightKey,
+  ]);
+
+  const resolvedUnpinnedMinHeight =
+    unpinnedMinHeight === null
+      ? pinnedParamsAreaMinHeight
+      : Math.max(pinnedParamsAreaMinHeight, unpinnedMinHeight);
 
   return (
     <div
-      className={`section-args-nested grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+      className={`section-args-nested grid auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
         isScrollable ? "nowheel" : ""
       } min-h-0 min-w-0 !max-w-full ${hasUnpinnedParams ? "flex-auto" : ""}`}
       ref={ref}
       style={
         hasUnpinnedParams
-          ? { minHeight: pinnedParamsAreaMinHeight }
+          ? { minHeight: resolvedUnpinnedMinHeight }
           : undefined
       }
     >

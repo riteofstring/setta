@@ -6,6 +6,7 @@ type PinnedResizeInput = {
   startHeight: number | null;
   styleHeight: number | null;
   minHeight: number;
+  maxHeight?: number | null;
 };
 
 export function getPinnedResizeHeight({
@@ -14,6 +15,7 @@ export function getPinnedResizeHeight({
   startHeight,
   styleHeight,
   minHeight,
+  maxHeight,
 }: PinnedResizeInput): number | null {
   if (!didResize) {
     return null;
@@ -21,20 +23,32 @@ export function getPinnedResizeHeight({
   if (delta.height === 0 && delta.width === 0) {
     return null;
   }
-  const hasStyleHeight =
-    typeof styleHeight === "number" && Number.isFinite(styleHeight);
   let nextHeight: number | null = null;
-  if (hasStyleHeight) {
-    nextHeight = styleHeight;
-  } else if (typeof startHeight === "number") {
+  if (typeof startHeight === "number" && Number.isFinite(startHeight)) {
     nextHeight = startHeight + delta.height;
+  } else if (
+    typeof styleHeight === "number" &&
+    Number.isFinite(styleHeight)
+  ) {
+    nextHeight = styleHeight;
   }
 
   if (nextHeight === null || !Number.isFinite(nextHeight)) {
     return null;
   }
-  if (nextHeight < minHeight) {
-    return minHeight;
+  const resolvedMaxHeight =
+    typeof maxHeight === "number" && Number.isFinite(maxHeight)
+      ? maxHeight
+      : null;
+  const resolvedMinHeight =
+    resolvedMaxHeight !== null && resolvedMaxHeight < minHeight
+      ? resolvedMaxHeight
+      : minHeight;
+  if (resolvedMaxHeight !== null && nextHeight > resolvedMaxHeight) {
+    return resolvedMaxHeight;
+  }
+  if (nextHeight < resolvedMinHeight) {
+    return resolvedMinHeight;
   }
   return nextHeight;
 }

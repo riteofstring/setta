@@ -1,8 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
-const COMMAND_PALETTE_SHORTCUT =
-  MOD_KEY === "Meta" ? "Meta+Shift+P" : "Control+Shift+P";
 const SELECT_ALL_SHORTCUT = MOD_KEY === "Meta" ? "Meta+A" : "Control+A";
 const JUMP_TO_START_SHORTCUT =
   MOD_KEY === "Meta" ? "Meta+ArrowUp" : "Control+Home";
@@ -21,43 +19,37 @@ test("pinned params resize behavior", async ({ page }) => {
   const sections = page.locator('section[class*="card-section"]');
   await ensureProjectConfig(page, sections);
 
-  const codeSection = await ensureSection(
+  const callableSection = await findCallableSection(
     page,
     sections,
-    "Python Code",
-    "__pw_code__",
   );
-  await ensureImportMath(page, codeSection);
-
-  const callableSection = await ensureSection(
-    page,
-    sections,
-    "Callable",
-    "__pw_callable__",
-  );
+  const callableName = await getSectionTitle(callableSection);
   await replaceEditable(
     page,
     callableSection.locator("search.section-search").first(),
     "math.sqrt",
     true,
   );
+  await ensureImportMath(page);
 
-  const argRowIds = await ensureArgKeys(page, callableSection, [
-    "a",
-    "b",
-    "c",
-    "d",
-    "e",
-    "f",
-    "g",
-    "h",
-  ]);
-
+  await focusSectionFromOverview(page, callableName);
   const paramGroup = callableSection.locator("div.section-row-pin-main").first();
   const unpinnedArea = paramGroup
     .locator(":scope > div.section-args-nested")
     .first();
-  await selectArgRowsById(page, argRowIds, ["a", "b"]);
+  const editableRows = await ensureEditableArgRows(
+    callableSection,
+    unpinnedArea,
+    6,
+  );
+  let unpinnedRows = unpinnedArea.locator(
+    "article.section-args-nested-key-value",
+  );
+  const edgeRowIds = [
+    await setRowNameByIndex(page, editableRows, 0, "a"),
+    await setRowNameByIndex(page, editableRows, 1, "b"),
+  ];
+  await selectArgRowsById(page, edgeRowIds);
   await callableSection
     .getByRole("button", { name: "Convert to edge connectors" })
     .click();
@@ -66,10 +58,24 @@ test("pinned params resize behavior", async ({ page }) => {
     .locator(":scope > section.section-row-pin-main")
     .first();
   await expect(edgesStrip).toBeVisible();
-  await expect(edgesStrip).toContainText("a");
-  await expect(edgesStrip).toContainText("b");
+  const edgesInputRows = edgesStrip
+    .locator("div.grid > div")
+    .first()
+    .locator("div.flex.flex-col.gap-1 > div");
+  await expect.poll(async () => edgesInputRows.count()).toBeGreaterThan(0);
 
-  await selectArgRowsById(page, argRowIds, ["c", "d", "e"]);
+  unpinnedRows = unpinnedArea.locator("article.section-args-nested-key-value");
+  let unpinnedRowCount = await unpinnedRows.count();
+  if (unpinnedRowCount < 2) {
+    await ensureEditableArgRows(callableSection, unpinnedArea, 2);
+    unpinnedRowCount = await unpinnedRows.count();
+  }
+  if (unpinnedRowCount < 2) {
+    throw new Error("Need at least two unpinned rows to pin.");
+  }
+  const pinCount = Math.min(3, Math.max(1, unpinnedRowCount - 1));
+  const pinIndices = Array.from({ length: pinCount }, (_, index) => index);
+  await selectArgRowsByIndex(page, unpinnedRows, pinIndices);
   await callableSection
     .getByRole("button", { name: "Pin selected args" })
     .click();
@@ -77,45 +83,138 @@ test("pinned params resize behavior", async ({ page }) => {
   const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
   await expect(pinnedArea).toBeVisible();
 
-  await expect(getRowById(pinnedArea, argRowIds.c)).toBeVisible();
-  await expect(getRowById(pinnedArea, argRowIds.d)).toBeVisible();
-  await expect(getRowById(pinnedArea, argRowIds.e)).toBeVisible();
-
-  const unpinnedRows = unpinnedArea.locator(
+  const pinnedRows = pinnedArea.locator(
     "article.section-args-nested-key-value",
   );
-  await expect(getRowById(unpinnedArea, argRowIds.f)).toBeVisible();
-  await expect(getRowById(unpinnedArea, argRowIds.g)).toBeVisible();
-  await expect(getRowById(unpinnedArea, argRowIds.h)).toBeVisible();
+  unpinnedRows = unpinnedArea.locator(
+    "article.section-args-nested-key-value",
+  );
+  await expect
+    .poll(async () => pinnedRows.count())
+    .toBeGreaterThanOrEqual(pinCount);
+  await expect
+    .poll(async () => unpinnedRows.count())
+    .toBeGreaterThanOrEqual(1);
 
   const edgesHeight = await getHeight(edgesStrip);
-
-  const pinnedHeightBefore = await getHeight(pinnedArea);
-  await clickResizeHandle(page, pinnedArea, "bottom", 0);
-  const pinnedHeightAfter = await getHeight(pinnedArea);
-  expect(Math.abs(pinnedHeightAfter - pinnedHeightBefore)).toBeLessThanOrEqual(2);
-
-  await dragResize(page, pinnedArea, {
-    handle: "bottom",
-    dx: 0,
-    dy: 200,
-    outside: 0,
-  });
+  const pinnedRowHeight = await getOffsetHeight(pinnedRows.first());
+  const unpinnedRowHeight = await getOffsetHeight(unpinnedRows.first());
   const pinnedList = pinnedArea.locator("div.section-args-nested");
-  const pinnedMetrics = await getScrollMetrics(pinnedList);
-  expect(pinnedMetrics.clientHeight - pinnedMetrics.scrollHeight).toBeLessThanOrEqual(
-    2,
-  );
 
   await dragResize(page, callableSection, {
     handle: "bottom",
     dx: 0,
-    dy: -200,
+    dy: 500,
     outside: 6,
   });
-  const unpinnedRowHeight = await getHeight(unpinnedRows.first());
-  const unpinnedHeight = await getHeight(unpinnedArea);
-  expect(unpinnedHeight).toBeGreaterThanOrEqual(unpinnedRowHeight - 2);
+  await dragPinnedResize(page, pinnedArea, 500);
+  const layoutMetrics = await waitForPinnedMax(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  const pinnedMetricsAtMax = await getScrollMetrics(pinnedList);
+  const availableHeight = Math.max(
+    layoutMetrics.paramGroupHeight -
+      layoutMetrics.edgesHeight -
+      (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
+    0,
+  );
+  const shouldScrollAtMax =
+    layoutMetrics.pinnedContentHeight > availableHeight + 1;
+  if (shouldScrollAtMax) {
+    expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
+      pinnedMetricsAtMax.clientHeight,
+    );
+  } else {
+    expect(pinnedMetricsAtMax.scrollHeight).toBeLessThanOrEqual(
+      pinnedMetricsAtMax.clientHeight + 2,
+    );
+  }
+
+  const pinnedHeightBefore = await getHeight(pinnedArea);
+  await clickPinnedResizeHandle(page, pinnedArea);
+  const pinnedHeightAfter = await getHeight(pinnedArea);
+  expect(Math.abs(pinnedHeightAfter - pinnedHeightBefore)).toBeLessThanOrEqual(2);
+
+  await dragPinnedResize(page, pinnedArea, -300);
+  const pinnedMetrics = await getScrollMetrics(pinnedList);
+  expect(pinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
+    pinnedRowHeight - 2,
+  );
+  expect(pinnedMetrics.scrollHeight).toBeGreaterThan(
+    pinnedMetrics.clientHeight,
+  );
+  let pinnedHeightManual = await getHeight(pinnedArea);
+
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: 200,
+    outside: 6,
+  });
+  const pinnedHeightAfterSectionResize = await getHeight(pinnedArea);
+  expect(
+    Math.abs(pinnedHeightAfterSectionResize - pinnedHeightManual),
+  ).toBeLessThanOrEqual(2);
+  const pinnedMetricsAfterSectionResize = await getScrollMetrics(pinnedList);
+  expect(pinnedMetricsAfterSectionResize.scrollHeight).toBeGreaterThan(
+    pinnedMetricsAfterSectionResize.clientHeight,
+  );
+
+  await dragPinnedResize(page, pinnedArea, 80);
+  const pinnedHeightAfterManualResize = await getHeight(pinnedArea);
+  if (pinnedHeightAfterManualResize <= pinnedHeightManual + 4) {
+    const layoutMetricsAfterManual = await getPinnedLayoutMetrics(
+      page,
+      paramGroup,
+      pinnedArea,
+      unpinnedArea,
+      edgesStrip,
+    );
+    const availableHeightAfterManual = Math.max(
+      layoutMetricsAfterManual.paramGroupHeight -
+        layoutMetricsAfterManual.edgesHeight -
+        (layoutMetricsAfterManual.unpinnedRowHeight +
+          layoutMetricsAfterManual.unpinnedPadding),
+      0,
+    );
+    const expectedPinnedMaxAfterManual = Math.min(
+      availableHeightAfterManual,
+      layoutMetricsAfterManual.pinnedContentHeight,
+    );
+    expect(
+      Math.abs(pinnedHeightAfterManualResize - expectedPinnedMaxAfterManual),
+    ).toBeLessThanOrEqual(2);
+  } else {
+    expect(pinnedHeightAfterManualResize).toBeGreaterThan(
+      pinnedHeightManual + 4,
+    );
+  }
+  pinnedHeightManual = pinnedHeightAfterManualResize;
+
+  await clickResizeHandle(page, callableSection, "bottom", 6);
+  const pinnedHeightAfterSectionClick = await getHeight(pinnedArea);
+  expect(
+    Math.abs(pinnedHeightAfterSectionClick - pinnedHeightManual),
+  ).toBeLessThanOrEqual(2);
+
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: -400,
+    outside: 6,
+  });
+  const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
+  expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
+    unpinnedRowHeight - 2,
+  );
+  const pinnedMetricsAfterShrink = await getScrollMetrics(pinnedList);
+  expect(pinnedMetricsAfterShrink.clientHeight).toBeGreaterThanOrEqual(
+    pinnedRowHeight - 2,
+  );
 
   await dragResize(page, callableSection, {
     handle: "bottomRight",
@@ -145,8 +244,11 @@ async function ensureProjectConfig(
   if ((await sections.count()) > 0) {
     return;
   }
+  const currentUrl = page.url();
   await page.getByRole("menuitem", { name: "File" }).click();
   await page.getByRole("menuitem", { name: "New Config" }).click();
+  await expect.poll(() => page.url()).not.toBe(currentUrl);
+  await page.waitForSelector(".react-flow__pane");
   await expect.poll(async () => sections.count()).toBeGreaterThan(0);
 }
 
@@ -173,44 +275,6 @@ async function isAppReady(page: Page): Promise<boolean> {
   }
 }
 
-async function createSection(
-  page: Page,
-  sections: Locator,
-  name: string,
-  customName: string,
-): Promise<Locator> {
-  const titlesBefore = await sections
-    .locator("header.section-title p")
-    .allInnerTexts();
-  const count = await sections.count();
-  const searchInput = await openCommandPalette(page);
-  await searchInput.fill(name);
-  await page.keyboard.press("Enter");
-  await expect(sections).toHaveCount(count + 1);
-  await fitView(page);
-  const titlesAfter = await sections
-    .locator("header.section-title p")
-    .allInnerTexts();
-  const nextTitle =
-    titlesAfter.find((title) => !titlesBefore.includes(title)) ??
-    titlesAfter[titlesAfter.length - 1];
-  const newSection = findSectionByName(page, nextTitle);
-  await newSection.scrollIntoViewIfNeeded();
-  await renameSection(page, newSection, customName);
-  const renamedSection = findSectionByName(page, customName);
-  await expect(renamedSection).toBeVisible();
-  return renamedSection;
-}
-
-async function openCommandPalette(page: Page): Promise<Locator> {
-  await page.keyboard.press(COMMAND_PALETTE_SHORTCUT);
-  const searchInput = page.locator("#ProjectPageSearchBar");
-  await searchInput.waitFor();
-  await searchInput.focus();
-  await searchInput.fill("");
-  return searchInput;
-}
-
 async function replaceEditable(
   page: Page,
   editable: Locator,
@@ -235,15 +299,27 @@ async function replaceEditable(
 
 async function ensureImportMath(
   page: Page,
-  codeSection: Locator,
 ): Promise<void> {
+  const generatedSection = findSectionCandidates(
+    page,
+    "Generated Python Code",
+  ).first();
+  if ((await generatedSection.count()) > 0) {
+    const generatedText = await getSectionText(generatedSection);
+    if (/\bimport math\b/.test(generatedText)) {
+      return;
+    }
+  }
+
+  const codeSection = findSectionCandidates(page, "__pw_code__").first();
+  if ((await codeSection.count()) === 0) {
+    return;
+  }
   const codeArea = codeSection.locator("article.section-full-no-title").first();
-  await codeArea.scrollIntoViewIfNeeded();
+  await expect(codeArea).toBeVisible();
   await codeArea.click();
 
-  const content = codeSection.locator(".cm-content").first();
-  await content.waitFor();
-  const text = await content.innerText();
+  const text = await getSectionText(codeSection);
   if (/\bimport math\b/.test(text)) {
     return;
   }
@@ -252,158 +328,131 @@ async function ensureImportMath(
   await page.keyboard.type("import math\n");
 }
 
-async function renameSection(
-  page: Page,
-  section: Locator,
-  name: string,
-): Promise<void> {
-  const title = section.locator("header.section-title p").first();
-  await title.click({ clickCount: 2 });
-  const input = page.locator("header.section-title input").first();
-  await input.waitFor();
-  await input.fill(name);
-  await input.press("Enter");
-}
-
-async function fitView(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "fit view" }).click();
-}
-
-async function ensureSection(
-  page: Page,
-  sections: Locator,
-  name: string,
-  customName: string,
-): Promise<Locator> {
-  const existing = findSectionCandidates(page, customName);
-  if ((await existing.count()) > 0) {
-    const first = existing.first();
-    await first.scrollIntoViewIfNeeded();
-    return first;
-  }
-  return createSection(page, sections, name, customName);
-}
-
-function findSectionByName(page: Page, name: string): Locator {
-  return findSectionCandidates(page, name).first();
-}
-
 function findSectionCandidates(page: Page, name: string): Locator {
   return page
     .locator('section[class*="card-section"]')
     .filter({ has: page.locator("header.section-title p", { hasText: name }) });
 }
 
-function getEmptyArgRows(section: Locator): Locator {
-  return section.locator(
-    'article.section-args-nested-key-value:has-text("Please Enter Key")',
+async function findCallableSection(
+  page: Page,
+  sections: Locator,
+): Promise<Locator> {
+  const preferred = findSectionCandidates(page, "__pw_callable__");
+  if ((await preferred.count()) > 0) {
+    const first = preferred.first();
+    await expect(first).toBeVisible();
+    return first;
+  }
+
+  const callableCandidates = sections.filter({
+    has: page.getByRole("button", { name: "Add arg" }),
+  });
+  if ((await callableCandidates.count()) > 0) {
+    const first = callableCandidates.first();
+    await expect(first).toBeVisible();
+    return first;
+  }
+
+  throw new Error(
+    "No callable section found. Create one or rename a callable to __pw_callable__.",
   );
 }
 
-async function ensureArgKeys(
-  page: Page,
-  section: Locator,
-  keys: string[],
-): Promise<Record<string, string>> {
-  let rowIds = await getRowIdsByKeys(section, keys);
-  const missingKeys = keys.filter((key) => !rowIds[key]);
-  if (missingKeys.length === 0) {
-    return rowIds;
-  }
+async function getSectionTitle(section: Locator): Promise<string> {
+  const title = section.locator("header.section-title p").first();
+  return title.innerText();
+}
 
-  const emptyRows = getEmptyArgRows(section);
+async function getSectionText(section: Locator): Promise<string> {
+  const content = section.locator(".cm-content").first();
+  if ((await content.count()) > 0) {
+    return content.innerText();
+  }
+  return section.innerText();
+}
+
+async function focusSectionFromOverview(
+  page: Page,
+  name: string,
+): Promise<void> {
+  const overviewItem = page.getByRole("listitem", { name }).first();
+  if ((await overviewItem.count()) > 0) {
+    await overviewItem.click();
+  }
+}
+
+function getEditableArgRows(container: Locator): Locator {
+  return container.locator(
+    'article.section-args-nested-key-value:has([class*="peer/nameinput"])',
+  );
+}
+
+async function ensureEditableArgRows(
+  section: Locator,
+  container: Locator,
+  count: number,
+): Promise<Locator> {
+  const rows = getEditableArgRows(container);
   const addButton = section.getByRole("button", { name: "Add arg" });
   let guard = 0;
-  while (
-    (await emptyRows.count()) < missingKeys.length &&
-    guard < missingKeys.length + 3
-  ) {
+  while ((await rows.count()) < count && guard < count + 4) {
     await addButton.click();
     guard += 1;
   }
-  await expect.poll(async () => emptyRows.count()).toBeGreaterThanOrEqual(
-    missingKeys.length,
-  );
-  const usedRowIds = new Set<string>();
-  for (const key of missingKeys) {
-    const emptyCount = await emptyRows.count();
-    let rowId = "";
-    let row: Locator | null = null;
-    for (let i = 0; i < emptyCount; i += 1) {
-      const candidate = emptyRows.nth(i);
-      const candidateId = await candidate.getAttribute("id");
-      if (candidateId && !usedRowIds.has(candidateId)) {
-        row = candidate;
-        rowId = candidateId;
-        usedRowIds.add(candidateId);
-        break;
-      }
-    }
-    if (!row || !rowId) {
-      throw new Error(`Unable to find empty row for key ${key}`);
-    }
-    const nameInput = row.locator('[class*="peer/nameinput"]').first();
-    await nameInput.scrollIntoViewIfNeeded();
-    await nameInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(key);
-    await page.keyboard.press("Enter");
-    const updatedRow = section.locator(`#${rowId}`);
-    await expect(updatedRow).toContainText(key);
-    await expect.poll(async () => {
-      const latest = await getRowIdsByKeys(section, [key]);
-      return Boolean(latest[key]);
-    }).toBe(true);
-    rowIds[key] = rowId;
+  await expect.poll(async () => rows.count()).toBeGreaterThanOrEqual(count);
+  return rows;
+}
+
+async function selectArgRowsByIndex(
+  page: Page,
+  rows: Locator,
+  indices: number[],
+): Promise<void> {
+  await page.keyboard.down(MOD_KEY);
+  for (const idx of indices) {
+    const row = rows.nth(idx);
+    await row.scrollIntoViewIfNeeded();
+    await row.click({ force: true });
   }
-  rowIds = await getRowIdsByKeys(section, keys);
-  return rowIds;
-}
-
-function getRowById(section: Locator, id: string): Locator {
-  return section.locator(`#${id}`);
-}
-
-async function getRowIdsByKeys(
-  section: Locator,
-  keys: string[],
-): Promise<Record<string, string>> {
-  return section.evaluate((el, wantedKeys) => {
-    const wanted = new Set(wantedKeys);
-    const rows = Array.from(
-      el.querySelectorAll("article.section-args-nested-key-value"),
-    );
-    const result: Record<string, string> = {};
-    for (const row of rows) {
-      const keyEl = row.querySelector('[class*="peer/nameinput"]');
-      const rawText = keyEl?.textContent ?? "";
-      const keyText = rawText.replace(/\s+/g, " ").trim();
-      if (!wanted.has(keyText)) {
-        continue;
-      }
-      const id = row.getAttribute("id");
-      if (id) {
-        result[keyText] = id;
-      }
-    }
-    return result;
-  }, keys);
+  await page.keyboard.up(MOD_KEY);
 }
 
 async function selectArgRowsById(
   page: Page,
-  rowIds: Record<string, string>,
-  keys: string[],
+  rowIds: string[],
 ): Promise<void> {
   await page.keyboard.down(MOD_KEY);
-  await page.keyboard.down("Shift");
-  for (const key of keys) {
-    const row = page.locator(`#${rowIds[key]}`);
+  for (const rowId of rowIds) {
+    const row = page.locator(`#${rowId}`);
     await row.scrollIntoViewIfNeeded();
-    await row.click();
+    await row.click({ force: true });
   }
-  await page.keyboard.up("Shift");
   await page.keyboard.up(MOD_KEY);
+}
+
+async function setRowNameByIndex(
+  page: Page,
+  rows: Locator,
+  index: number,
+  name: string,
+): Promise<string> {
+  const row = rows.nth(index);
+  const rowId = await row.getAttribute("id");
+  if (!rowId) {
+    throw new Error(`Missing row id for ${name}`);
+  }
+  const nameInput = row.locator('[class*="peer/nameinput"]').first();
+  await nameInput.scrollIntoViewIfNeeded();
+  await nameInput.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type(name);
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => {
+    const text = await row.textContent();
+    return text?.includes(name) ?? false;
+  }).toBe(true);
+  return rowId;
 }
 
 async function dragResize(
@@ -472,9 +521,150 @@ async function getHeight(target: Locator): Promise<number> {
   return box.height;
 }
 
+async function getOffsetHeight(target: Locator): Promise<number> {
+  return target.evaluate((el) => el.offsetHeight);
+}
+
 async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
   return target.evaluate((el) => ({
     clientHeight: el.clientHeight,
     scrollHeight: el.scrollHeight,
   }));
+}
+
+async function dragPinnedResize(
+  page: Page,
+  pinnedArea: Locator,
+  dy: number,
+): Promise<void> {
+  const handle = pinnedArea.locator(".pinned-resize-handle").first();
+  const box = await handle.boundingBox();
+  if (!box) {
+    throw new Error("Pinned resize handle not visible.");
+  }
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + dy);
+  await page.mouse.up();
+}
+
+async function clickPinnedResizeHandle(
+  page: Page,
+  pinnedArea: Locator,
+): Promise<void> {
+  const handle = pinnedArea.locator(".pinned-resize-handle").first();
+  await handle.click({ force: true });
+}
+
+async function getPinnedLayoutMetrics(
+  page: Page,
+  paramGroup: Locator,
+  pinnedArea: Locator,
+  unpinnedArea: Locator,
+  edgesStrip: Locator,
+): Promise<Record<string, number>> {
+  return page.evaluate(
+    ({ paramGroup, pinnedArea, unpinnedArea, edgesStrip }) => {
+      const paramGroupHeight = paramGroup.clientHeight;
+      const edgesHeight = edgesStrip.clientHeight;
+      const pinnedHeight = pinnedArea.clientHeight;
+      const unpinnedHeight = unpinnedArea.clientHeight;
+      const pinnedList = pinnedArea.querySelector(
+        "div.section-args-nested",
+      ) as HTMLDivElement | null;
+      const unpinnedRow = unpinnedArea.querySelector(
+        "article.section-args-nested-key-value, article.section-lg-value",
+      ) as HTMLElement | null;
+      const unpinnedStyle = unpinnedArea
+        ? window.getComputedStyle(unpinnedArea)
+        : null;
+      const unpinnedPadding = unpinnedStyle
+        ? Number.parseFloat(unpinnedStyle.paddingTop) +
+          Number.parseFloat(unpinnedStyle.paddingBottom)
+        : 0;
+      const unpinnedRowHeight = unpinnedRow?.offsetHeight ?? 0;
+      const pinnedHeader = pinnedArea.querySelector("header") as HTMLElement | null;
+      const pinnedWrapper = pinnedArea.querySelector(
+        "div.flex.flex-1",
+      ) as HTMLElement | null;
+      const pinnedWrapperStyle = pinnedWrapper
+        ? window.getComputedStyle(pinnedWrapper)
+        : null;
+      const pinnedPadding = pinnedWrapperStyle
+        ? Number.parseFloat(pinnedWrapperStyle.paddingTop) +
+          Number.parseFloat(pinnedWrapperStyle.paddingBottom)
+        : 0;
+      const pinnedHeaderHeight = pinnedHeader?.offsetHeight ?? 0;
+      const pinnedListScrollHeight = pinnedList?.scrollHeight ?? 0;
+      const pinnedListClientHeight = pinnedList?.clientHeight ?? 0;
+      const pinnedContentHeight =
+        pinnedListScrollHeight + pinnedHeaderHeight + pinnedPadding;
+      const edgesInputCount = edgesStrip.querySelectorAll(
+        "div.grid > div:first-child div.flex.flex-col.gap-1 > div",
+      ).length;
+      const edgesOutputCount = edgesStrip.querySelectorAll(
+        "div.grid > div:last-child div.flex.flex-col.gap-1 > div",
+      ).length;
+      return {
+        paramGroupHeight,
+        edgesHeight,
+        pinnedHeight,
+        unpinnedHeight,
+        unpinnedRowHeight,
+        unpinnedPadding,
+        pinnedHeaderHeight,
+        pinnedPadding,
+        pinnedListScrollHeight,
+        pinnedListClientHeight,
+        pinnedContentHeight,
+        edgesInputCount,
+        edgesOutputCount,
+      };
+    },
+    {
+      paramGroup: await paramGroup.elementHandle(),
+      pinnedArea: await pinnedArea.elementHandle(),
+      unpinnedArea: await unpinnedArea.elementHandle(),
+      edgesStrip: await edgesStrip.elementHandle(),
+    },
+  );
+}
+
+async function waitForPinnedMax(
+  page: Page,
+  paramGroup: Locator,
+  pinnedArea: Locator,
+  unpinnedArea: Locator,
+  edgesStrip: Locator,
+): Promise<Record<string, number>> {
+  let lastMetrics: Record<string, number> | null = null;
+  await expect
+    .poll(async () => {
+      const metrics = await getPinnedLayoutMetrics(
+        page,
+        paramGroup,
+        pinnedArea,
+        unpinnedArea,
+        edgesStrip,
+      );
+      lastMetrics = metrics;
+      const availableHeight = Math.max(
+        metrics.paramGroupHeight -
+          metrics.edgesHeight -
+          (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
+        0,
+      );
+      const expectedPinnedMax = Math.min(
+        availableHeight,
+        metrics.pinnedContentHeight,
+      );
+      return Math.abs(metrics.pinnedHeight - expectedPinnedMax);
+    })
+    .toBeLessThanOrEqual(2);
+  if (!lastMetrics) {
+    throw new Error("Pinned metrics unavailable.");
+  }
+  return lastMetrics;
 }
