@@ -178,19 +178,27 @@ class _ClaudeSdkEventParser:
 
     def handle(self, payload: dict[str, Any]) -> list[ExternalAgentStreamEvent]:
         event_type = payload.get("type")
+        if event_type == "stream_event":
+            self._saw_partial_assistant = True
+            stream_event = payload.get("event") or payload.get("stream_event")
+            return self._handle_stream_event(stream_event, payload)
         if event_type == "partial_assistant":
             self._saw_partial_assistant = True
-            stream_event = payload.get("stream_event")
+            stream_event = payload.get("stream_event") or payload.get("event")
             return self._handle_stream_event(stream_event, payload)
         if event_type == "raw_message_stream_event":
             if self._saw_partial_assistant:
                 return [ExternalAgentStreamEvent(raw=payload)]
-            stream_event = payload.get("stream_event")
+            stream_event = payload.get("stream_event") or payload.get("event")
             return self._handle_stream_event(stream_event, payload)
         if event_type == "assistant":
+            if self._saw_partial_assistant:
+                return [ExternalAgentStreamEvent(raw=payload)]
             message_payload = payload.get("message")
             if isinstance(message_payload, dict):
                 return self._emit_full_message(message_payload, payload)
+        if event_type == "result" and self._saw_partial_assistant:
+            return [ExternalAgentStreamEvent(raw=payload)]
         delta_text = _extract_delta_text(payload)
         if not delta_text:
             return [ExternalAgentStreamEvent(raw=payload)]

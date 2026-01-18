@@ -73,7 +73,7 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.utils.constants import C
+from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -633,7 +633,7 @@ class ExternalAgentRunner:
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
         if strategy == ExternalAgentWorkingDirStrategy.project_root:
-            return C.CWD
+            return CWD
         if strategy == ExternalAgentWorkingDirStrategy.temp_dir:
             return Path(tempfile.mkdtemp(prefix="setta-external-agent-"))
         if strategy == ExternalAgentWorkingDirStrategy.custom:
@@ -644,7 +644,7 @@ class ExternalAgentRunner:
             path = Path(config.workingDir)
             path.mkdir(parents=True, exist_ok=True)
             return path
-        return C.CWD
+        return CWD
 
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}

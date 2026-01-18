@@ -238,6 +238,69 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertEqual(result.tool_name, "Bash")
             self.assertEqual(result.content[0].text, "ok")
 
+    def test_stream_event_message_start_parses_event_key(self) -> None:
+        parser = _ClaudeSdkEventParser()
+        events = parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "message_start",
+                    "message": {"id": "msg-stream", "content": []},
+                },
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
+
+    def test_assistant_payload_ignored_after_partial_stream(self) -> None:
+        parser = _ClaudeSdkEventParser()
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "message_start",
+                    "message": {"id": "msg-partial", "content": []},
+                },
+            }
+        )
+
+        events = parser.handle(
+            {
+                "type": "assistant",
+                "message": {
+                    "id": "msg-partial",
+                    "content": [{"type": "text", "text": "Hello"}],
+                },
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertIsNone(events[0].stream_chunk)
+
+    def test_result_payload_ignored_after_partial_stream(self) -> None:
+        parser = _ClaudeSdkEventParser()
+        parser.handle(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "message_start",
+                    "message": {"id": "msg-partial", "content": []},
+                },
+            }
+        )
+
+        events = parser.handle(
+            {
+                "type": "result",
+                "result": "Hello",
+                "final": True,
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertIsNone(events[0].stream_chunk)
+
     def test_build_command_uses_node_path(self) -> None:
         adapter = ClaudeSdkAdapter()
         config = ExternalAgentConfig(
