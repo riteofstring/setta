@@ -4,6 +4,7 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
+    MoveParamGroup,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
 )
@@ -51,7 +52,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -64,13 +64,11 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
 )
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     SectionSize,
     SectionType,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -194,7 +192,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | ChartSectionImplArgs
         | DrawSectionImplArgs
         | TextBlockSectionImplArgs
-        | PromptSectionImplArgs
         | MetaControlSectionImplArgs
         | SocialSectionImplArgs
         | GlobalVariablesSectionImplArgs
@@ -329,12 +326,35 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
+class ListenerIndentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+
+
 class ListenerKillSubprocessesRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
 class ListenerListenerCoverageRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
+
+
+class ListenerMoveParamGroupsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    moves: list[MoveParamGroup]
+
+
+class ListenerMoveParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
+    newParentId: ID
+    newIndex: int
 
 
 class ListenerMoveSectionRequestPayload(TypedDict):
@@ -482,8 +502,6 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     sectionId: ID
     managed: bool
     llmConfigId: str | None
-    agentProfileId: ID | None
-    externalAgentConfigId: NotRequired[ID | None]
     deepThink: bool
 
 
@@ -581,27 +599,6 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetPromptFormatRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    format: PromptFormat
-
-
-class ListenerSetPromptInputsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    inputs: dict[str, str]
-
-
-class ListenerSetPromptTemplateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    template: str
-
-
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -662,13 +659,6 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
-
-
-class ListenerSetSectionWithParamsDisplayModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    displayMode: SectionWithParamsDisplayMode
 
 
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
@@ -824,6 +814,13 @@ class ListenerUngroupGroupsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     groupIds: list[ID]
+
+
+class ListenerUnindentParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramIds: list[ID]
 
 
 class ListenerUnselectAllParamsRequestPayload(TypedDict):
@@ -1009,10 +1006,21 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_group_sections", payload)
 
+    async def indent_params(self, payload: ListenerIndentParamsRequestPayload) -> None:
+        return await self._caller("route_indent_params", payload)
+
     async def kill_subprocesses(
         self, payload: ListenerKillSubprocessesRequestPayload
     ) -> None:
         return await self._caller("route_kill_subprocesses", payload)
+
+    async def move_param_groups(
+        self, payload: ListenerMoveParamGroupsRequestPayload
+    ) -> None:
+        return await self._caller("route_move_param_groups", payload)
+
+    async def move_params(self, payload: ListenerMoveParamsRequestPayload) -> None:
+        return await self._caller("route_move_params", payload)
 
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)
@@ -1170,21 +1178,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
 
-    async def set_prompt_format(
-        self, payload: ListenerSetPromptFormatRequestPayload
-    ) -> None:
-        return await self._caller("route_set_prompt_format", payload)
-
-    async def set_prompt_inputs(
-        self, payload: ListenerSetPromptInputsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_prompt_inputs", payload)
-
-    async def set_prompt_template(
-        self, payload: ListenerSetPromptTemplateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_prompt_template", payload)
-
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
     ) -> None:
@@ -1229,11 +1222,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionVariantNameRequestPayload
     ) -> None:
         return await self._caller("route_set_section_variant_name", payload)
-
-    async def set_section_with_params_display_mode(
-        self, payload: ListenerSetSectionWithParamsDisplayModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_with_params_display_mode", payload)
 
     async def set_show_param_display_names(
         self, payload: ListenerSetShowParamDisplayNamesRequestPayload
@@ -1348,6 +1336,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUngroupGroupsRequestPayload
     ) -> None:
         return await self._caller("route_ungroup_groups", payload)
+
+    async def unindent_params(
+        self, payload: ListenerUnindentParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_unindent_params", payload)
 
     async def unselect_all_params(
         self, payload: ListenerUnselectAllParamsRequestPayload

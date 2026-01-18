@@ -39,12 +39,9 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import {
-  receiveAgentProfilesUpdate,
-  receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
-  receivePromptTemplatesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
@@ -337,12 +334,6 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
-      return receiveAgentProfilesUpdate(m.content.profiles);
-    case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
-      return receivePromptTemplatesUpdate(m.content.templates);
-    case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
-      return receiveExternalAgentConfigsUpdate(m.content.configs);
     default:
       return m satisfies never;
   }
