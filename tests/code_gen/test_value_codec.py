@@ -148,6 +148,19 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_section(section_node), "None")
 
+    def test_prompt_section_formats_as_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Prompt",
+            full_path_name="prompt",
+            type=SectionType.Prompt,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("Hello Ada"),
+        )
+        self.assertEqual(codec.format_section(section_node), "'Hello Ada'")
+
     def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
