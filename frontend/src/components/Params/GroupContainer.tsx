@@ -33,6 +33,7 @@ import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
   getPinnedParamsMinHeightKey,
+  getParamGroupPaddingKey,
   getUnpinnedParamsMinHeightKey,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -439,6 +440,7 @@ function ResizablePinnedArea({
   const [measuredContainerHeight, setMeasuredContainerHeight] = useState<
     number | null
   >(null);
+  const [containerPadding, setContainerPadding] = useState(0);
   const isPinnedManual = typeof height === "number";
   const resizeStartHeightRef = useRef<number | null>(null);
   const didResizeRef = useRef(false);
@@ -447,15 +449,25 @@ function ResizablePinnedArea({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [minContentHeight, setMinContentHeight] = useState<number | null>(null);
+  const lastMeasuredMinHeightRef = useRef<number | null>(null);
   const edgesStripHeight = useTemporaryMiscState(
     (x) => x[getEdgesStripHeightKey(sectionId)] ?? 0,
   );
   const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
+  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+  const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
+  const cachedUnpinnedMinHeight = useTemporaryMiscState(
+    (x) => x[unpinnedMinHeightKey] ?? 0,
+  );
 
-  const resolvedUnpinnedMinHeight =
-    unpinnedMinHeight === null
-      ? pinnedParamsAreaMinHeight
-      : Math.max(pinnedParamsAreaMinHeight, unpinnedMinHeight);
+  let resolvedUnpinnedMinHeight: number;
+  if (unpinnedMinHeight !== null) {
+    resolvedUnpinnedMinHeight = unpinnedMinHeight;
+  } else if (cachedUnpinnedMinHeight > 0) {
+    resolvedUnpinnedMinHeight = cachedUnpinnedMinHeight;
+  } else {
+    resolvedUnpinnedMinHeight = 0;
+  }
   const reservedUnpinnedHeight = hasUnpinnedParams
     ? resolvedUnpinnedMinHeight
     : 0;
@@ -557,6 +569,8 @@ function ResizablePinnedArea({
     const node = outerRef.current;
     if (!node) {
       setMeasuredContainerHeight(null);
+      setContainerPadding(0);
+      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
       return;
     }
     const update = () => {
@@ -565,6 +579,15 @@ function ResizablePinnedArea({
       const nextHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
       const roundedHeight = Math.ceil(nextHeight);
       setMeasuredContainerHeight(roundedHeight > 0 ? roundedHeight : null);
+      const style = window.getComputedStyle(node);
+      const nextPadding = Math.ceil(
+        (Number.parseFloat(style.paddingTop) || 0) +
+          (Number.parseFloat(style.paddingBottom) || 0),
+      );
+      setContainerPadding(nextPadding > 0 ? nextPadding : 0);
+      useTemporaryMiscState.setState({
+        [paramGroupPaddingKey]: nextPadding > 0 ? nextPadding : 0,
+      });
     };
     update();
     const observer = new ResizeObserver(() => {
@@ -582,6 +605,7 @@ function ResizablePinnedArea({
     if (!wrapper || !list) {
       setContentHeight(null);
       setMinContentHeight(null);
+      lastMeasuredMinHeightRef.current = null;
       useTemporaryMiscState.setState({ [pinnedMinHeightKey]: 0 });
       return;
     }
@@ -602,17 +626,25 @@ function ResizablePinnedArea({
         listHeight + headerHeight + padding + borderHeight,
       );
       setContentHeight(nextHeight > 0 ? nextHeight : null);
-      const row = list.querySelector(
-        "article.section-args-nested-key-value, article.section-lg-value",
-      );
-      const rowHeight = row ? row.offsetHeight : 0;
+      const rowHeight = getMinParamRowHeight(list, true);
+      if (rowHeight <= 0) {
+        const lastMeasured = lastMeasuredMinHeightRef.current;
+        if (typeof lastMeasured === "number" && lastMeasured > 0) {
+          setMinContentHeight(lastMeasured);
+          useTemporaryMiscState.setState({
+            [pinnedMinHeightKey]: lastMeasured,
+          });
+          return;
+        }
+      }
       const nextMinHeight = Math.ceil(
         rowHeight + headerHeight + padding + borderHeight,
       );
-      const resolvedMinHeight = nextMinHeight > 0 ? nextMinHeight : 0;
-      setMinContentHeight(resolvedMinHeight > 0 ? resolvedMinHeight : null);
+      const resolvedMinHeight = nextMinHeight > 0 ? nextMinHeight : null;
+      lastMeasuredMinHeightRef.current = resolvedMinHeight;
+      setMinContentHeight(resolvedMinHeight);
       useTemporaryMiscState.setState({
-        [pinnedMinHeightKey]: resolvedMinHeight,
+        [pinnedMinHeightKey]: resolvedMinHeight ?? 0,
       });
     };
     update();
@@ -632,7 +664,12 @@ function ResizablePinnedArea({
     initialMaxHeight ??
     infiniteMaxHeight;
   const availableHeight = Math.max(
-    Math.ceil(containerHeight - edgesStripHeight - reservedUnpinnedHeight),
+    Math.ceil(
+      containerHeight -
+        containerPadding -
+        edgesStripHeight -
+        reservedUnpinnedHeight,
+    ),
     0,
   );
   const maxHeight =
@@ -641,7 +678,7 @@ function ResizablePinnedArea({
       : availableHeight;
   const pinnedMinHeight =
     typeof minContentHeight === "number"
-      ? Math.max(minContentHeight, pinnedParamsAreaMinHeight)
+      ? minContentHeight
       : pinnedParamsAreaMinHeight;
   const minHeight = maxHeight > 0 ? Math.min(pinnedMinHeight, maxHeight) : 0;
   const resolvedMinHeight = minHeight;
@@ -753,7 +790,9 @@ function GetUnpinnedParams({
   unpinnedMinHeight,
 }: GetUnpinnedParamsProps) {
   const { ref, isScrollable } = useIsScrollable();
-  const { hideUnpinnedParams, hasUnpinnedParams } = useProjectState((x) => {
+  const lastMeasuredMinHeightRef = useRef<number | null>(null);
+  const { hideUnpinnedParams, hasUnpinnedParams, unpinnedTopLevelParamIds } =
+    useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
@@ -770,26 +809,79 @@ function GetUnpinnedParams({
       hasUnpinnedParams:
         !impl.hideUnpinnedParams &&
         filteredUnpinned.topLevelParamIds.length > 0,
+      unpinnedTopLevelParamIds: filteredUnpinned.topLevelParamIds,
     };
   }, _.isEqual);
-  const { pinnedParamsAreaMinHeight } = useSettings((x) => ({
-    pinnedParamsAreaMinHeight:
-      x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
-  }));
   const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+  const cachedUnpinnedMinHeight = useTemporaryMiscState(
+    (x) => x[unpinnedMinHeightKey] ?? 0,
+  );
 
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node || !hasUnpinnedParams) {
+      lastMeasuredMinHeightRef.current = null;
       setUnpinnedMinHeight(null);
       useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
       return;
     }
+    let observedRow: HTMLElement | null = null;
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    const mutationObserver = new MutationObserver(() => {
+      update();
+    });
+    const updateObservedRow = () => {
+      const nextRow = (node.querySelector(
+        ":scope > article.section-args-nested-key-value",
+      ) ??
+        node.querySelector(
+          ":scope > article.section-lg-value",
+        )) as HTMLElement | null;
+      if (nextRow === observedRow) {
+        return nextRow;
+      }
+      if (observedRow) {
+        observer.unobserve(observedRow);
+      }
+      observedRow = nextRow;
+      if (observedRow) {
+        observer.observe(observedRow);
+      }
+      return observedRow;
+    };
+    const underlineBuffer = 2;
     const update = () => {
-      const row = node.querySelector(
-        "article.section-args-nested-key-value, article.section-lg-value",
-      );
-      if (!row) {
+      const observedRow = updateObservedRow();
+      let rowHeight =
+        observedRow?.offsetHeight ?? getMinParamRowHeight(node, true);
+      if (observedRow) {
+        const nestedContainer = observedRow.querySelector<HTMLElement>(
+          ":scope > div.section-args-nested.section-key-value",
+        );
+        if (nestedContainer) {
+          const rowStyle = window.getComputedStyle(observedRow);
+          const rowGapValue = Number.parseFloat(rowStyle.rowGap);
+          const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
+          const nestedHeight = nestedContainer.offsetHeight;
+          const headerHeight = Math.ceil(
+            rowHeight - nestedHeight - rowGap,
+          );
+          if (headerHeight > 0) {
+            rowHeight = headerHeight;
+          }
+        }
+      }
+      if (rowHeight <= 0) {
+        const lastMeasured = lastMeasuredMinHeightRef.current;
+        if (typeof lastMeasured === "number" && lastMeasured > 0) {
+          setUnpinnedMinHeight(lastMeasured);
+          useTemporaryMiscState.setState({
+            [unpinnedMinHeightKey]: lastMeasured,
+          });
+          return;
+        }
         setUnpinnedMinHeight(null);
         useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
         return;
@@ -798,30 +890,37 @@ function GetUnpinnedParams({
       const padding =
         Number.parseFloat(style.paddingTop) +
         Number.parseFloat(style.paddingBottom);
-      const nextHeight = Math.ceil(row.offsetHeight + padding);
+      const nextHeight = Math.ceil(rowHeight + padding + underlineBuffer);
       const resolvedMinHeight = nextHeight > 0 ? nextHeight : null;
+      lastMeasuredMinHeightRef.current = resolvedMinHeight;
       setUnpinnedMinHeight(resolvedMinHeight);
       useTemporaryMiscState.setState({
         [unpinnedMinHeightKey]: resolvedMinHeight ?? 0,
       });
     };
     update();
-    const observer = new ResizeObserver(() => {
-      update();
-    });
     observer.observe(node);
-    return () => observer.disconnect();
+    mutationObserver.observe(node, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+    };
   }, [
     hasUnpinnedParams,
     ref,
     setUnpinnedMinHeight,
     unpinnedMinHeightKey,
+    unpinnedTopLevelParamIds.length,
   ]);
 
-  const resolvedUnpinnedMinHeight =
-    unpinnedMinHeight === null
-      ? pinnedParamsAreaMinHeight
-      : Math.max(pinnedParamsAreaMinHeight, unpinnedMinHeight);
+  let resolvedUnpinnedMinHeight: number;
+  if (unpinnedMinHeight !== null) {
+    resolvedUnpinnedMinHeight = unpinnedMinHeight;
+  } else if (cachedUnpinnedMinHeight > 0) {
+    resolvedUnpinnedMinHeight = cachedUnpinnedMinHeight;
+  } else {
+    resolvedUnpinnedMinHeight = 0;
+  }
 
   return (
     <div
@@ -892,6 +991,34 @@ function getLongestListLength(obj: Record<string, Array<string>>) {
     (max, arr) => (arr.length > max ? arr.length : max),
     0,
   );
+}
+
+function getMinParamRowHeight(
+  container: HTMLElement,
+  directChildrenOnly: boolean,
+): number {
+  const prefix = directChildrenOnly ? ":scope > " : "";
+  const rows = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      `${prefix}article.section-args-nested-key-value`,
+    ),
+  );
+  const candidates =
+    rows.length > 0
+      ? rows
+      : Array.from(
+          container.querySelectorAll<HTMLElement>(
+            `${prefix}article.section-lg-value`,
+          ),
+        );
+  let minHeight = Number.POSITIVE_INFINITY;
+  for (const row of candidates) {
+    const height = row.offsetHeight;
+    if (height > 0 && height < minHeight) {
+      minHeight = height;
+    }
+  }
+  return Number.isFinite(minHeight) ? minHeight : 0;
 }
 
 function filterEdgeInputs(

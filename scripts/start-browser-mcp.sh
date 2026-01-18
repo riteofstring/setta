@@ -3,12 +3,10 @@ set -euo pipefail
 
 DEBUG_PORT="${DEBUG_PORT:-9222}"
 CHROME_BIN="${CHROME_BIN:-}"
-AGENT_BROWSER_MCP_BIN="${AGENT_BROWSER_MCP_BIN:-}"
 FOREGROUND="0"
-MODE="agent-browser"
+MODE="playwriter"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-AGENT_BROWSER_EXTRA_ARGS=()
 
 profile_suffix() {
   local root="$1"
@@ -38,10 +36,10 @@ write_pid() {
 
 usage() {
   cat <<'EOF'
-Usage: start-browser-mcp.sh [--agent-browser] [--playwriter] [--devtools] [--foreground] [-- ...]
+Usage: start-browser-mcp.sh [--playwriter] [--devtools] [--foreground]
 
-Default mode starts Vercel's agent-browser MCP server.
-Use --playwriter to open a dedicated Chrome profile for Playwriter (extension-based).
+Default mode opens a dedicated Chrome profile for Playwriter (extension-based).
+Use --playwriter for the same behavior when you want to be explicit.
 Use --devtools to start a dedicated Chrome/Chromium instance with remote
 debugging enabled for chrome-devtools-mcp. This is separate from your main profile.
 
@@ -50,23 +48,16 @@ Environment variables:
   PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
   PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: /tmp/chrome-profile-playwriter-mcp-<repo>)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
-  AGENT_BROWSER_MCP_BIN  Path to agent-browser-mcp binary (auto-detected if unset)
 
 Flags:
-  --agent-browser  Start the agent-browser MCP server (default)
   --playwriter     Open Chrome for Playwriter
-  --devtools    Start Chrome with remote debugging for chrome-devtools-mcp
-  --foreground  Keep the debug browser attached to this terminal (devtools only)
-  --            Pass remaining args to agent-browser-mcp
+  --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
+  --foreground     Keep the debug browser attached to this terminal (devtools only)
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --agent-browser)
-      MODE="agent-browser"
-      shift
-      ;;
     --devtools)
       MODE="devtools"
       shift
@@ -74,11 +65,6 @@ while [[ $# -gt 0 ]]; do
     --playwriter)
       MODE="playwriter"
       shift
-      ;;
-    --)
-      shift
-      AGENT_BROWSER_EXTRA_ARGS+=("$@")
-      break
       ;;
     --foreground)
       FOREGROUND="1"
@@ -95,36 +81,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-if [[ "$MODE" == "agent-browser" ]]; then
-  if [[ "$FOREGROUND" == "1" ]]; then
-    echo "--foreground only applies to --devtools mode." >&2
-    exit 1
-  fi
-
-  if [[ -z "$AGENT_BROWSER_MCP_BIN" ]]; then
-    if [[ -x "${ROOT_DIR}/frontend/node_modules/.bin/agent-browser-mcp" ]]; then
-      AGENT_BROWSER_MCP_BIN="${ROOT_DIR}/frontend/node_modules/.bin/agent-browser-mcp"
-    elif command -v agent-browser-mcp >/dev/null 2>&1; then
-      AGENT_BROWSER_MCP_BIN="agent-browser-mcp"
-    elif command -v pnpm >/dev/null 2>&1; then
-      AGENT_BROWSER_MCP_BIN="pnpm"
-      AGENT_BROWSER_EXTRA_ARGS=(
-        -C
-        "${ROOT_DIR}/frontend"
-        exec
-        agent-browser-mcp
-        "${AGENT_BROWSER_EXTRA_ARGS[@]}"
-      )
-    else
-      echo "agent-browser-mcp not found. Install it with: pnpm -C frontend add -D --save-exact agent-browser-mcp" >&2
-      exit 1
-    fi
-  fi
-
-  write_pid "${MCP_RUN_DIR}/agent-browser.pid" "$$"
-  exec "$AGENT_BROWSER_MCP_BIN" "${AGENT_BROWSER_EXTRA_ARGS[@]}"
-fi
 
 if [[ -z "$CHROME_BIN" ]]; then
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then

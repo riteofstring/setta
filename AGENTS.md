@@ -30,6 +30,8 @@
 ## Testing Guidelines
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
+- Always use the agent-browser CLI to verify any visual edits, even when Playwright/Vitest tests run.
+- Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
@@ -61,7 +63,7 @@ To run python tests: `source activate.sh && python -m unittest discover`.
 
 To run anything python related: `source activate.sh && <python command goes here>`
 
-Don't bother running `pnpm test` for now, as there are currently no frontend tests.
+If frontend tests still don't exist, call that out and propose what should be added; otherwise run the relevant tests.
 
 ## Project State access style
 

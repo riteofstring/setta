@@ -1,11 +1,11 @@
-# Browser MCP Quickstart (Agent Browser + Playwriter + Chrome DevTools)
+# Browser MCP Quickstart (Playwriter + Chrome DevTools)
 
 This is the shortest path to a headed browser in Codex + Claude, with optional
 performance profiling.
 
 ## Setup once
 
-1) Install frontend deps (includes agent-browser-mcp):
+1) Install frontend deps:
    `cd frontend && pnpm install`
 
 2) Install the Playwriter Chrome extension:
@@ -13,17 +13,7 @@ performance profiling.
 
 3) MCP servers are already configured in Codex and Claude.
 
-## Default use (Agent Browser)
-
-1) Start your app:
-   `pnpm start`
-
-2) Start the agent-browser MCP server:
-   `scripts/start-browser-mcp.sh`
-
-3) Use the agent-browser MCP tools in Codex or Claude.
-
-## Daily use (low context, Playwriter)
+## Default use (Playwriter)
 
 1) Start your app:
    `pnpm start`
@@ -62,6 +52,6 @@ performance profiling.
 - If you want lowest context overhead, only enable Playwriter and turn on
   Chrome DevTools MCP when profiling.
 - Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh`
-  (use `--agentbrowser`, `--playwriter`, or `--devtools` to target one).
+  (use `--playwriter` or `--devtools` to target one).
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.

@@ -20,6 +20,8 @@ import {
 } from "state/definitions";
 import {
   getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+  getParamGroupPaddingKey,
   getPinnedParamsMinHeightKey,
   getUnpinnedParamsMinHeightKey,
 } from "utils/constants";
@@ -206,6 +208,10 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getEdgesStripHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
+  const kwargsControlsHeight = useTemporaryMiscState((x) => {
+    const height = x[getKwargsControlsHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
   const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
     const height = x[getPinnedParamsMinHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
@@ -213,6 +219,10 @@ export function useSectionMinMaxDims(sectionId: string) {
   const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
     const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
+  });
+  const paramGroupPadding = useTemporaryMiscState((x) => {
+    const padding = x[getParamGroupPaddingKey(sectionId)];
+    return typeof padding === "number" ? padding : 0;
   });
 
   return useProjectState((x) => {
@@ -298,8 +308,14 @@ export function useSectionMinMaxDims(sectionId: string) {
       if (hasUnpinnedParams) {
         requiredParamsHeight += resolvedUnpinnedMinHeight;
       }
+      if (kwargsControlsHeight > 0) {
+        requiredParamsHeight += kwargsControlsHeight;
+      }
       if (hasEdges) {
         requiredParamsHeight += edgesStripHeight;
+      }
+      if (hasPinnedParams || hasUnpinnedParams || hasEdges) {
+        requiredParamsHeight += paramGroupPadding;
       }
       if (requiredParamsHeight > 0) {
         minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);

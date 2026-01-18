@@ -1,12 +1,18 @@
 import _ from "lodash";
+import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   route_add_kwarg,
   route_delete_kwarg,
@@ -30,6 +36,37 @@ export function KwargsControls({
   sectionId,
   bgColor = "bg-transparent",
 }: KwargsControlsProps) {
+  const controlsRef = useRef<HTMLElement | null>(null);
+  const heightKey = getKwargsControlsHeightKey(sectionId);
+
+  useLayoutEffect(() => {
+    const node = controlsRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+    updateHeight();
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [heightKey]);
+
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -131,6 +168,7 @@ export function KwargsControls({
     <>
       <section
         className={`section-args z-10 mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid  border-white px-1 pb-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
+        ref={controlsRef}
       >
         <article className="flex flex-wrap items-center">
           <section className="ml-1 flex items-center gap-1">

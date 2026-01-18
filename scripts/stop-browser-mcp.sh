@@ -26,13 +26,12 @@ PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}}"
 PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}}"
 MCP_RUN_DIR="${ROOT_DIR}/setta_files/run/mcp"
 
-TARGET_AGENT="0"
 TARGET_DEVTOOLS="0"
 TARGET_PLAYWRITER="0"
 
 usage() {
   cat <<'EOF'
-Usage: stop-browser-mcp.sh [--agentbrowser] [--playwriter] [--devtools]
+Usage: stop-browser-mcp.sh [--playwriter] [--devtools]
 
 Default behavior stops all browser MCP processes.
 
@@ -42,24 +41,18 @@ Environment variables:
   PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: /tmp/chrome-profile-playwriter-mcp-<repo>)
 
 Flags:
-  --agentbrowser  Stop the agent-browser MCP server
   --playwriter    Stop the playwriter Chrome profile
   --devtools      Stop the devtools Chrome profile
 EOF
 }
 
 if [[ $# -eq 0 ]]; then
-  TARGET_AGENT="1"
   TARGET_DEVTOOLS="1"
   TARGET_PLAYWRITER="1"
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --agentbrowser|--agent-browser)
-      TARGET_AGENT="1"
-      shift
-      ;;
     --playwriter)
       TARGET_PLAYWRITER="1"
       shift
@@ -120,12 +113,6 @@ stop_by_profile() {
   echo "Stopped ${label}."
   return 0
 }
-
-if [[ "$TARGET_AGENT" == "1" ]]; then
-  if ! stop_pid_file "agent-browser MCP server" "${MCP_RUN_DIR}/agent-browser.pid"; then
-    echo "No agent-browser MCP server PID for this repo."
-  fi
-fi
 
 if [[ "$TARGET_DEVTOOLS" == "1" ]]; then
   if ! stop_pid_file "devtools Chrome" "${MCP_RUN_DIR}/devtools.pid"; then
