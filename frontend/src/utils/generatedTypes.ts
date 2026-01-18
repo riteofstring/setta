@@ -358,9 +358,6 @@ export const RouteEnum = {
   RUN_MCP_TOOLS: "/runMcpTools",
   EMIT_CHAT_STREAM_DELTA: "/emitChatStreamDelta",
   RUN_CODE: "/runCode",
-  RUN_DETACHED: "/runDetached",
-  GET_RUN_STATUS: "/getRunStatus",
-  CANCEL_RUN: "/cancelRun",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
   SET_CALLABLE: "/setCallable",
@@ -394,6 +391,7 @@ export const RouteEnum = {
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
+  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
@@ -3368,6 +3366,7 @@ const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   showParamDisplayNames: z.boolean().default(false),
+  allowJsonSourceKeyEdits: z.boolean().default(true),
   previewImgColor: z
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
@@ -6527,6 +6526,18 @@ export type SetTypeErrorIgnoreRequestInput = z.input<
   typeof SetTypeErrorIgnoreRequestSchema
 >;
 
+const SetVariantJsonSourceKeysRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  variantId: IDSchema,
+  jsonSourceKeys: z.array(z.string()),
+});
+
+export type SetVariantJsonSourceKeysRequestInput = z.input<
+  typeof SetVariantJsonSourceKeysRequestSchema
+>;
+
 const SetViewModeNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6768,71 +6779,6 @@ const SetProjectConfigNameRequestSchema = z.object({
 export type SetProjectConfigNameRequestInput = z.input<
   typeof SetProjectConfigNameRequestSchema
 >;
-
-const CancelRunRequestSchema = z.object({
-  runId: z.string(),
-});
-
-export type CancelRunRequestInput = z.input<typeof CancelRunRequestSchema>;
-
-const GetRunStatusRequestSchema = z.object({
-  runId: z.string(),
-});
-
-export type GetRunStatusRequestInput = z.input<
-  typeof GetRunStatusRequestSchema
->;
-
-const RunDetachedRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  entrySectionId: z.union([IDSchema, z.null()]).default(null),
-  runSnapshotMode: z
-    .union([z.enum(RunSnapshotModeEnum), z.null()])
-    .default(null),
-  sectionVariantOverrides: z
-    .union([z.record(IDSchema, IDSchema), z.null()])
-    .default(null),
-  paramOverrides: z
-    .union([z.record(z.string(), z.string()), z.null()])
-    .default(null),
-  tags: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
-});
-
-export type RunDetachedRequestInput = z.input<typeof RunDetachedRequestSchema>;
-
-const RunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-
-const RunDetachedResponseSchema = z.object({
-  runId: z.string(),
-  status: z.enum(RunStatusEnum),
-});
-
-export type RunDetachedResponse = z.infer<typeof RunDetachedResponseSchema>;
-
-const RunStatusResponseSchema = z.object({
-  runId: z.string(),
-  status: z.enum(RunStatusEnum),
-  createdAtMs: z.int(),
-  startedAtMs: z.union([z.int(), z.null()]),
-  exitedAtMs: z.union([z.int(), z.null()]),
-  exitCode: z.union([z.int(), z.null()]),
-  pid: z.union([z.int(), z.null()]),
-  command: z.string(),
-  snapshotPath: z.string(),
-  projectConfigId: IDSchema,
-  entrySectionId: z.union([IDSchema, z.null()]),
-  tags: z.record(z.string(), z.string()),
-});
-
-export type RunStatusResponse = z.infer<typeof RunStatusResponseSchema>;
 
 const CreateFileRequestSchema = z.object({
   filepath: z.string(),

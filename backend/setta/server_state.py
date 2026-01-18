@@ -27,7 +27,6 @@ from setta.project_state.session_project_manager import (
     SessionProjectManager,
 )
 from setta.project_state.share_runtime_state import ShareRuntimeState
-from setta.run_manager import DetachedRunManager
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
@@ -199,7 +198,6 @@ class SettaFastAPIState:
             self.websocket_manager,
             share_mode=self.share_mode,
         )
-        self.detached_run_manager = DetachedRunManager(self.dbe)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
