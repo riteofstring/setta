@@ -6,8 +6,10 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getHighestAncestor,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
+import { setZIndices } from "./sections/sectionPositions";
 
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
@@ -62,6 +64,12 @@ export function clearActiveSectionIds() {
   optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = [];
   });
+}
+
+export function setActiveSectionIdAndUpdateZIndex(id: string) {
+  setActiveSectionIds([id]);
+  const highestAncestor = getHighestAncestor(id);
+  setZIndices([highestAncestor], false);
 }
 
 export function selectAll() {

@@ -22,12 +22,14 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -181,58 +183,6 @@ class UpdateParamImplConfigRequest(ProjectManagerRequestWithSectionParam):
 
     newConfig: dict = Field(
         description="Arbitrary dict serialized into the implementation config.",
-    )
-
-
-class MoveParamsRequest(ProjectManagerRequestWithSection):
-    """Reorder or reparent parameters within a section."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to move.",
-    )
-    newParentId: ID = Field(
-        description="Parent code object that will receive the parameters.",
-    )
-    newIndex: int = Field(
-        description="Index within the new parent's children list.",
-    )
-
-
-class MoveParamGroup(BaseModel):
-    """Single ordered move operation for parameters."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to move.",
-    )
-    newParentId: ID = Field(
-        description="Parent code object that will receive the parameters.",
-    )
-    newIndex: int = Field(
-        description="Index within the new parent's children list.",
-    )
-
-
-class MoveParamGroupsRequest(ProjectManagerRequestWithSection):
-    """Apply multiple parameter move operations as a single batch."""
-
-    moves: list[MoveParamGroup] = Field(
-        description="Ordered param move operations to apply.",
-    )
-
-
-class IndentParamsRequest(ProjectManagerRequestWithSection):
-    """Indent parameters under the previous sibling."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to indent.",
-    )
-
-
-class UnindentParamsRequest(ProjectManagerRequestWithSection):
-    """Unindent parameters to the parent's parent."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to unindent.",
     )
 
 
@@ -437,6 +387,18 @@ class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSectionVari
 
 class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
+
+
+class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
+    template: str
+
+
+class SetPromptInputsRequest(ProjectManagerRequestWithSection):
+    inputs: dict[str, str]
+
+
+class SetPromptFormatRequest(ProjectManagerRequestWithSection):
+    format: PromptFormat
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
@@ -694,6 +656,10 @@ class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
 
 
+class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
+    displayMode: SectionWithParamsDisplayMode
+
+
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
     hideParams: bool
 
@@ -725,7 +691,8 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
-    llmConfigId: str | None
+    engineConfigId: ID | None
+    agentProfileId: ID | None
     deepThink: bool
 
 
