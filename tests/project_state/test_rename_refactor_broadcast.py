@@ -8,12 +8,14 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     DeclineRenameRefactorRequest,
     SetParamEnteredValueRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetSectionNameRequest,
 )
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.helpers_lvl2 import get_curr_top_level_param_ids
 from setta.types.id import ID
+from setta.types.project_config import ProjectCodegenPythonTarget
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
@@ -39,6 +41,12 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             self.fail("Expected default project config id for rename test.")
         self.project_config_id: ID = project_config_id
 
+        await self.manager.set_project_config_codegen_targets(
+            SetProjectConfigCodegenTargetsRequest(
+                projectConfigId=self.project_config_id,
+                codegenTargets=[ProjectCodegenPythonTarget()],
+            )
+        )
         self.project_state = await self.manager.load_project_config(
             self.project_config_id
         )
@@ -91,7 +99,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         for section_id, section_core in state.sections.items():
             try:
                 param_ids = get_curr_top_level_param_ids(state, section_id)
-            except TypeError:
+            except (TypeError, ValueError):
                 continue
             for param_id in param_ids:
                 try:
@@ -241,7 +249,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             for section_id, section_core in state_before.sections.items():
                 try:
                     param_ids = get_curr_top_level_param_ids(state_before, section_id)
-                except TypeError:
+                except (TypeError, ValueError):
                     continue
                 for param_id in param_ids:
                     try:

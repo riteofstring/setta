@@ -1,10 +1,5 @@
-import {
-  KeyboardSensor,
-  PointerActivationConstraints,
-  PointerSensor,
-} from "@dnd-kit/dom";
+import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
 import { useMemo } from "react";
-import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useDndState } from "./dndState";
 
@@ -16,26 +11,8 @@ export function useDNDSensors() {
     }
 
     const pointerSensor = PointerSensor.configure({
-      activationConstraints: (_event, source) => {
-        const type = (
-          source.data as { current?: { type?: string } } | undefined
-        )?.current?.type;
-        if (type === "param") {
-          return [
-            new PointerActivationConstraints.Distance({
-              value: 5,
-            }),
-          ];
-        }
-        return undefined;
-      },
+      activationConstraints: () => undefined,
       preventActivation: (_event, source) => {
-        const type = (
-          source.data as { current?: { type?: string } } | undefined
-        )?.current?.type;
-        if (type === "param") {
-          return !useMisc.getState().isSelectingParams;
-        }
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = Boolean(
           (source.data as { current?: { isTopLevel?: boolean } } | undefined)
@@ -56,12 +33,6 @@ export function useDNDSensors() {
 
     const keyboardSensor = KeyboardSensor.configure({
       preventActivation: (_event, source) => {
-        const type = (
-          source.data as { current?: { type?: string } } | undefined
-        )?.current?.type;
-        if (type === "param") {
-          return !useMisc.getState().isSelectingParams;
-        }
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = Boolean(
           (source.data as { current?: { isTopLevel?: boolean } } | undefined)

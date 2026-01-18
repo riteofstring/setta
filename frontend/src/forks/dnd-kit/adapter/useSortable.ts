@@ -66,7 +66,6 @@ export function useSortable({
     disableTransforms,
     sortedRects,
     overIndex,
-    sortingEnabled,
     useDragOverlay,
     strategy: globalStrategy,
   } = useContext(Context);
@@ -82,14 +81,12 @@ export function useSortable({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const shouldTrackSorting = sortingEnabled && isDragActive;
-  const disableFeedback = sortingEnabled;
+  const shouldTrackSorting = dndMode.isSorting && isDragActive;
+  const disableFeedback = dndMode.isSorting;
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
-  const customType =
-    (customData as { type?: string } | undefined)?.type ?? null;
-  if (dndMode.isSorting && customType !== "param") {
+  if (dndMode.isSorting) {
     const containerIsHorizontal =
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
@@ -188,7 +185,7 @@ export function useSortable({
   const isActiveItem = index === activeIndex && activeIndex !== -1;
   const isDraggingActive = isDragging || (isSorting && isActiveItem);
   const shouldDisableTransition =
-    sortingEnabled && wasDragActiveRef.current && itemsHaveChanged;
+    dndMode.isSorting && wasDragActiveRef.current && itemsHaveChanged;
   const displaceItem =
     isSorting &&
     !disableTransforms &&
@@ -232,13 +229,13 @@ export function useSortable({
   }, [disabled, sortable]);
 
   useEffect(() => {
-    if (sortingEnabled && isDragActive && !isDraggingActive) {
+    if (dndMode.isSorting && isDragActive && !isDraggingActive) {
       sortable.transition = transition ?? null;
       return;
     }
 
     sortable.transition = null;
-  }, [sortingEnabled, isDragActive, isDraggingActive, sortable, transition]);
+  }, [dndMode.isSorting, isDragActive, isDraggingActive, sortable, transition]);
 
   return {
     attributes: attributes ?? {},

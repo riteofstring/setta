@@ -11,8 +11,6 @@ type CollisionDroppableData = {
   current?: CollisionSortableData;
 };
 
-type ChildParentMap = Record<string, string | null>;
-
 function getCollisionSortableContainerId(
   collision: SettaCollision | null,
 ): string | number | null {
@@ -68,32 +66,27 @@ function getCollisionTriggerDist(
 function getChildCollisionForParent(
   collisions: SettaCollision[] | null,
   parentCollision: SettaCollision | null,
-  parentByChild: ChildParentMap,
 ): SettaCollision | null {
   if (!parentCollision) {
     return null;
   }
 
-  return getChildCollisionForParentId(
-    collisions,
-    parentCollision.id,
-    parentByChild,
-  );
+  return getChildCollisionForParentId(collisions, parentCollision.id);
 }
 
 function getChildCollisionForParentId(
   collisions: SettaCollision[] | null,
   parentId: string | number,
-  parentByChild: ChildParentMap,
 ): SettaCollision | null {
   if (!collisions || collisions.length === 0) {
     return null;
   }
 
   const parentIdKey = String(parentId);
+  const dndChildrenState = useDndChildren.getState();
   for (const collision of collisions) {
     const collisionId = String(collision.id);
-    if (parentByChild[collisionId] === parentIdKey) {
+    if (dndChildrenState.y[collisionId] === parentIdKey) {
       return collision;
     }
   }
@@ -159,7 +152,6 @@ function compareCollisions(
 
 function pickBestCollision(
   collisions: SettaCollision[] | null,
-  parentByChild: ChildParentMap,
 ): SettaCollision | null {
   if (!collisions || collisions.length === 0) {
     return null;
@@ -170,24 +162,18 @@ function pickBestCollision(
     bestCollision = compareCollisions(bestCollision, collision);
   }
 
-  const childCollision = getChildCollisionForParent(
-    collisions,
-    bestCollision,
-    parentByChild,
-  );
+  const childCollision = getChildCollisionForParent(collisions, bestCollision);
   return childCollision ?? bestCollision;
 }
 
 export function resolveOverCollision(
   collisions: SettaCollision[] | null,
-  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): SettaCollision | null {
   if (!collisions || collisions.length === 0) {
     return null;
   }
 
-  const baseCollision =
-    pickBestCollision(collisions, parentByChild) ?? collisions[0] ?? null;
+  const baseCollision = pickBestCollision(collisions) ?? collisions[0] ?? null;
   if (!baseCollision) {
     return null;
   }
@@ -195,7 +181,6 @@ export function resolveOverCollision(
   const childCollision = getChildCollisionForParentId(
     collisions,
     baseCollision.id,
-    parentByChild,
   );
   return childCollision ?? baseCollision;
 }
@@ -203,9 +188,8 @@ export function resolveOverCollision(
 export function resolveOverCollisionId(
   collisions: SettaCollision[] | null,
   fallbackId: string | number | null,
-  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): string | number | null {
-  const resolvedCollision = resolveOverCollision(collisions, parentByChild);
+  const resolvedCollision = resolveOverCollision(collisions);
   if (resolvedCollision) {
     return resolvedCollision.id;
   }
@@ -215,13 +199,12 @@ export function resolveOverCollisionId(
 
 export function promoteBestCollision(
   collisions: SettaCollision[] | null,
-  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): SettaCollision[] {
   if (!collisions || collisions.length === 0) {
     return [];
   }
 
-  const bestCollision = resolveOverCollision(collisions, parentByChild);
+  const bestCollision = resolveOverCollision(collisions);
   if (!bestCollision) {
     return collisions.slice();
   }
