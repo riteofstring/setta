@@ -20,6 +20,10 @@ from setta.types.helpers_lvl2 import (
     delete_sections,
     get_curr_top_level_param_ids,
     set_chat_section_chat_id,
+    set_chat_section_settings,
+    set_prompt_section_format,
+    set_prompt_section_inputs,
+    set_prompt_section_template,
 )
 from setta.types.project_config import (
     Position,
@@ -29,9 +33,11 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.id import ID
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     ChatSectionImpl,
+    PromptSectionImpl,
     SectionSize,
     SectionType,
 )
@@ -135,6 +141,132 @@ class ChatSectionChatIdTests(unittest.TestCase):
             ChatSectionImpl,
         )
         self.assertEqual(section_impl.chatId, chat_id)
+
+    def test_set_chat_section_settings_updates_agent_profile(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        agent_profile_id = ID("agent-1")
+
+        set_chat_section_settings(
+            self.project_state,
+            section_id,
+            managed=True,
+            llmConfigId="primary",
+            agentProfileId=agent_profile_id,
+            deepThink=True,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        self.assertTrue(section_impl.managed)
+        self.assertEqual(section_impl.llmConfigId, "primary")
+        self.assertEqual(section_impl.agentProfileId, agent_profile_id)
+        self.assertTrue(section_impl.deepThink)
+
+
+class PromptSectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_prompt_section_renders_inputs(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        self.assertEqual(impl.renderedText, "")
+        self.assertEqual(impl.missingVariables, ["name"])
+        self.assertEqual(impl.renderError, "Missing variables: name")
+
+        set_prompt_section_inputs(
+            self.project_state,
+            section_id,
+            {"name": "Ada"},
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        self.assertEqual(impl.renderedText, "Hello Ada")
+        self.assertEqual(impl.missingVariables, [])
+        self.assertIsNone(impl.renderError)
+
+    def test_prompt_section_reports_syntax_errors(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name ",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        self.assertEqual(impl.renderedText, "")
+        self.assertEqual(impl.missingVariables, [])
+        self.assertIsNotNone(impl.renderError)
+
+    def test_prompt_section_format_updates_rendering(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        set_prompt_section_inputs(
+            self.project_state,
+            section_id,
+            {"name": "Ada"},
+        )
+        set_prompt_section_format(
+            self.project_state,
+            section_id,
+            PromptFormat.Jinja,
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        self.assertEqual(impl.renderedText, "Hello Ada")
+        self.assertEqual(impl.missingVariables, [])
+        self.assertIsNone(impl.renderError)
 
 
 class ChangeParamImplTests(unittest.TestCase):

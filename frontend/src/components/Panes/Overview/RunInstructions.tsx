@@ -1,4 +1,3 @@
-import * as Switch from "@radix-ui/react-switch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
@@ -19,7 +18,6 @@ import {
 } from "state/actions/sectionInfos";
 import {
   CustomRunItem,
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useRunControl,
@@ -29,20 +27,10 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  getPythonCodegenTarget,
-  projectConfigHasPythonCodegen,
-} from "utils/codegenTargets";
-import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
-import {
-  createProjectCodegenPythonTarget,
-  createSectionCodegenPolicy,
   isBaseParentSectionImpl,
-  ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
   type Core,
-  type ProjectCodegenPythonTarget,
-  type SectionType,
   type SettingsState,
   type ViewModeConfig,
 } from "utils/generatedTypes";
@@ -50,34 +38,6 @@ import {
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 type RunSnapshotModeChoice = RunSnapshotMode | "default";
-type SectionCodegenMode = "inherit" | "include" | "exclude";
-type SectionRepresentationMode = "json" | "file" | "base64";
-type SectionOption = { id: string; name: string; type: SectionType };
-
-const TOGGLE_ROOT_CLASSES =
-  "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
-const TOGGLE_THUMB_CLASSES =
-  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
-const TOGGLE_LABEL_CLASSES = "text-[10px] text-setta-500 dark:text-setta-400";
-const CODEGEN_SECTION_TYPES: SectionType[] = [
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.ListRoot,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.GlobalVariables,
-  SectionTypeEnum.TextBlock,
-  SectionTypeEnum.Draw,
-  SectionTypeEnum.MetaControl,
-  SectionTypeEnum.Chat,
-];
-const SECTION_CODEGEN_MODE_OPTIONS: Array<{
-  value: SectionCodegenMode;
-  label: string;
-}> = [
-  { value: "inherit", label: "inherit" },
-  { value: "include", label: "include" },
-  { value: "exclude", label: "exclude" },
-];
 
 const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
   value: RunSnapshotMode;
@@ -116,8 +76,7 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
 export function RunInstructions() {
   const { canRun } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const projectConfig = useProjectState((x) => x.projectConfig);
-  const projectConfigId = projectConfig.id;
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const runSnapshotModeOverride = useLocalStorage(
     (x) => x.runSnapshotModeByProjectConfigId[projectConfigId],
   );
@@ -136,87 +95,6 @@ export function RunInstructions() {
       continuousRunCustomRunId: x.continuousRunCustomRunId,
     }));
   const runnableCodeBlocks = useRunnableCodeBlockListing();
-  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
-  const currentPythonTarget = getPythonCodegenTarget(projectConfig);
-  const nonPythonTargets = projectConfig.codegenTargets.filter(
-    (target) => target.language !== ProjectCodegenLanguageEnum.python,
-  );
-  const defaultPolicy = React.useMemo(() => createSectionCodegenPolicy(), []);
-  const pythonTarget =
-    currentPythonTarget ?? createProjectCodegenPythonTarget();
-  const sectionPolicy = pythonTarget.sectionPolicy;
-  const defaultAllowlist = defaultPolicy.allowlist ?? [];
-  const [cachedAllowlist, setCachedAllowlist] = React.useState<SectionType[]>(
-    sectionPolicy.allowlist ?? defaultAllowlist,
-  );
-  const [pendingOverrideId, setPendingOverrideId] = React.useState("");
-  const sectionOptions = useSectionOptions();
-  const sectionOptionsById = React.useMemo(() => {
-    const entries = new Map<string, SectionOption>();
-    for (const option of sectionOptions) {
-      entries.set(option.id, option);
-    }
-    return entries;
-  }, [sectionOptions]);
-
-  React.useEffect(() => {
-    if (sectionPolicy.allowlist) {
-      setCachedAllowlist(sectionPolicy.allowlist);
-    }
-  }, [sectionPolicy.allowlist]);
-
-  const applyCodegenTargets = (
-    nextTargets: ProjectCodegenPythonTarget[],
-  ): void => {
-    void route_set_project_config_codegen_targets({
-      projectConfigId,
-      codegenTargets: nextTargets,
-    });
-    useAllProjectMetadata.setState((state) => ({
-      ...state,
-      projectMetadata: state.projectMetadata.map((entry) =>
-        entry.id === projectConfigId
-          ? { ...entry, codegenTargets: nextTargets }
-          : entry,
-      ),
-    }));
-    useProjectState.setState((state) => {
-      state.projectConfig.codegenTargets = nextTargets;
-    });
-  };
-
-  const handleCodegenTargetToggle = (checked: boolean): void => {
-    if (isShareMode) {
-      return;
-    }
-    const nextTargets = checked
-      ? [
-          ...nonPythonTargets,
-          currentPythonTarget ?? createProjectCodegenPythonTarget(),
-        ]
-      : nonPythonTargets;
-    applyCodegenTargets(nextTargets);
-  };
-
-  const updatePythonTarget = (
-    updater: (target: ProjectCodegenPythonTarget) => ProjectCodegenPythonTarget,
-  ): void => {
-    if (isShareMode || !pythonCodegenEnabled) {
-      return;
-    }
-    const nextTarget = updater(pythonTarget);
-    const nextTargets = [...nonPythonTargets, nextTarget];
-    applyCodegenTargets(nextTargets);
-  };
-
-  const updateSectionPolicy = (
-    nextPolicy: ProjectCodegenPythonTarget["sectionPolicy"],
-  ): void => {
-    updatePythonTarget((target) => ({
-      ...target,
-      sectionPolicy: nextPolicy,
-    }));
-  };
 
   React.useEffect(() => {
     if (!canRun) {
@@ -224,6 +102,14 @@ export function RunInstructions() {
     }
     ensureDefaultCustomRuns(projectConfigId);
   }, [projectConfigId, canRun]);
+
+  if (!canRun) {
+    return (
+      <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
+        Run controls are disabled in sharing mode.
+      </div>
+    );
+  }
 
   const runSnapshotModeMeta =
     RUN_SNAPSHOT_MODE_OPTIONS.find(
@@ -259,43 +145,6 @@ export function RunInstructions() {
     }));
   };
 
-  const allowlistEnabled = sectionPolicy.allowlist !== null;
-  const allowlist = sectionPolicy.allowlist ?? cachedAllowlist;
-  const availableOverrideSections = sectionOptions
-    .filter((option) => !sectionPolicy.sectionOverrides[option.id])
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const overrideEntries = Object.entries(sectionPolicy.sectionOverrides)
-    .map(([sectionId, override]) => {
-      const section = sectionOptionsById.get(sectionId) ?? null;
-      return {
-        sectionId,
-        override,
-        name: section?.name ?? sectionId,
-        type: section?.type ?? null,
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  React.useEffect(() => {
-    if (!pendingOverrideId) {
-      return;
-    }
-    const stillAvailable = availableOverrideSections.some(
-      (option) => option.id === pendingOverrideId,
-    );
-    if (!stillAvailable) {
-      setPendingOverrideId("");
-    }
-  }, [availableOverrideSections, pendingOverrideId]);
-
-  if (!canRun) {
-    return (
-      <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
-        Run controls are disabled in sharing mode.
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <p className="mx-[2px] text-xs text-setta-500 dark:text-setta-300">
@@ -329,381 +178,8 @@ export function RunInstructions() {
           </select>
         </div>
       )}
-      {!isShareMode && (
-        <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-              Codegen Targets
-            </div>
-            <div className="text-[11px] text-setta-600 dark:text-setta-300">
-              Enable generated code sections for this project.
-            </div>
-          </div>
-          <div className="ml-2 flex items-center gap-1">
-            <span className={TOGGLE_LABEL_CLASSES}>Python</span>
-            <Switch.Root
-              className={TOGGLE_ROOT_CLASSES}
-              checked={pythonCodegenEnabled}
-              disabled={isShareMode}
-              onCheckedChange={handleCodegenTargetToggle}
-            >
-              <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-            </Switch.Root>
-          </div>
-        </div>
-      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-          Codegen Policy
-        </h3>
-        {!pythonCodegenEnabled ? (
-          <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
-            Enable Python codegen to edit section policy settings.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                  Generated Metadata
-                </div>
-                <div className="text-[11px] text-setta-600 dark:text-setta-300">
-                  Attach project and section metadata to state.__state__.
-                </div>
-              </div>
-              <div className="ml-2 flex items-center gap-1">
-                <span className={TOGGLE_LABEL_CLASSES}>Meta</span>
-                <Switch.Root
-                  className={TOGGLE_ROOT_CLASSES}
-                  checked={pythonTarget.generateMetadata}
-                  disabled={isShareMode}
-                  onCheckedChange={(checked) =>
-                    updatePythonTarget((target) => ({
-                      ...target,
-                      generateMetadata: checked,
-                    }))
-                  }
-                >
-                  <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                </Switch.Root>
-              </div>
-            </div>
-
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                    Section Allowlist
-                  </div>
-                  <div className="text-[11px] text-setta-600 dark:text-setta-300">
-                    Choose which section types emit code by default.
-                  </div>
-                </div>
-                <div className="ml-2 flex items-center gap-1">
-                  <span className={TOGGLE_LABEL_CLASSES}>Allowlist</span>
-                  <Switch.Root
-                    className={TOGGLE_ROOT_CLASSES}
-                    checked={allowlistEnabled}
-                    disabled={isShareMode}
-                    onCheckedChange={(checked) => {
-                      const nextAllowlist = checked ? allowlist : null;
-                      updateSectionPolicy({
-                        ...sectionPolicy,
-                        allowlist: nextAllowlist,
-                      });
-                    }}
-                  >
-                    <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                  </Switch.Root>
-                </div>
-              </div>
-              {allowlistEnabled ? (
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
-                  {CODEGEN_SECTION_TYPES.map((sectionType) => {
-                    const isChecked = allowlist.includes(sectionType);
-                    return (
-                      <label
-                        key={sectionType}
-                        className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={isShareMode}
-                          onChange={(event) => {
-                            const nextAllowlist = event.target.checked
-                              ? Array.from(new Set([...allowlist, sectionType]))
-                              : allowlist.filter(
-                                  (item) => item !== sectionType,
-                                );
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              allowlist: nextAllowlist,
-                            });
-                          }}
-                          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-                        />
-                        <span>{sectionType}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
-                  All supported section types are included.
-                </div>
-              )}
-            </div>
-
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-              <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                Section Type Defaults
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                <div className="flex-1">Type</div>
-                <div className="w-20 text-right">Mode</div>
-                <div className="w-24 text-right">Representation</div>
-              </div>
-              <div className="mt-1 space-y-1">
-                {CODEGEN_SECTION_TYPES.map((sectionType) => {
-                  const typePolicy = sectionPolicy.typePolicies[sectionType];
-                  const representationOptions =
-                    getRepresentationOptions(sectionType);
-                  const representationOptionsWithFallback =
-                    representationOptions.includes(typePolicy.representation)
-                      ? representationOptions
-                      : [typePolicy.representation, ...representationOptions];
-                  const representationDisabled =
-                    representationOptionsWithFallback.length === 1;
-                  return (
-                    <div key={sectionType} className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
-                        {sectionType}
-                      </div>
-                      <select
-                        className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-                        disabled={isShareMode}
-                        value={typePolicy.mode}
-                        onChange={(event) => {
-                          const nextMode = event.target
-                            .value as SectionCodegenMode;
-                          updateSectionPolicy({
-                            ...sectionPolicy,
-                            typePolicies: {
-                              ...sectionPolicy.typePolicies,
-                              [sectionType]: {
-                                ...typePolicy,
-                                mode: nextMode,
-                              },
-                            },
-                          });
-                        }}
-                      >
-                        {SECTION_CODEGEN_MODE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                        disabled={isShareMode || representationDisabled}
-                        value={typePolicy.representation}
-                        onChange={(event) => {
-                          const nextRepresentation = event.target
-                            .value as SectionRepresentationMode;
-                          updateSectionPolicy({
-                            ...sectionPolicy,
-                            typePolicies: {
-                              ...sectionPolicy.typePolicies,
-                              [sectionType]: {
-                                ...typePolicy,
-                                representation: nextRepresentation,
-                              },
-                            },
-                          });
-                        }}
-                      >
-                        {representationOptionsWithFallback.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-              <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                Section Overrides
-              </div>
-              <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
-                Include or exclude individual sections and set their
-                representation.
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <select
-                  className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-                  disabled={
-                    isShareMode || availableOverrideSections.length === 0
-                  }
-                  value={pendingOverrideId}
-                  onChange={(event) => {
-                    setPendingOverrideId(event.target.value);
-                  }}
-                >
-                  <option value="">Select a section</option>
-                  {availableOverrideSections.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
-                  disabled={isShareMode || !pendingOverrideId}
-                  onClick={() => {
-                    const selected =
-                      sectionOptionsById.get(pendingOverrideId) ?? null;
-                    if (!selected) {
-                      return;
-                    }
-                    const basePolicy =
-                      sectionPolicy.typePolicies[selected.type];
-                    const nextOverrides = {
-                      ...sectionPolicy.sectionOverrides,
-                      [pendingOverrideId]: {
-                        mode: "inherit",
-                        representation: basePolicy?.representation ?? "json",
-                      },
-                    };
-                    updateSectionPolicy({
-                      ...sectionPolicy,
-                      sectionOverrides: nextOverrides,
-                    });
-                    setPendingOverrideId("");
-                  }}
-                  type="button"
-                  {...getFloatingBoxHandlers({ content: "Add override" })}
-                >
-                  <i className="gg-add" />
-                </button>
-              </div>
-              {overrideEntries.length === 0 ? (
-                <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
-                  No overrides yet.
-                </div>
-              ) : (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                    <div className="flex-1">Section</div>
-                    <div className="w-20 text-right">Mode</div>
-                    <div className="w-24 text-right">Representation</div>
-                    <div className="w-6" />
-                  </div>
-                  {overrideEntries.map((entry) => {
-                    const representationOptions = getRepresentationOptions(
-                      entry.type,
-                    );
-                    const overrideRepresentationOptions =
-                      representationOptions.includes(
-                        entry.override.representation,
-                      )
-                        ? representationOptions
-                        : [entry.override.representation];
-                    const representationDisabled =
-                      overrideRepresentationOptions.length === 1;
-                    return (
-                      <div
-                        key={entry.sectionId}
-                        className="flex items-center gap-2"
-                      >
-                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
-                          {entry.name}
-                        </div>
-                        <select
-                          className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isShareMode}
-                          value={entry.override.mode}
-                          onChange={(event) => {
-                            const nextMode = event.target
-                              .value as SectionCodegenMode;
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              sectionOverrides: {
-                                ...sectionPolicy.sectionOverrides,
-                                [entry.sectionId]: {
-                                  ...entry.override,
-                                  mode: nextMode,
-                                },
-                              },
-                            });
-                          }}
-                        >
-                          {SECTION_CODEGEN_MODE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isShareMode || representationDisabled}
-                          value={entry.override.representation}
-                          onChange={(event) => {
-                            const nextRepresentation = event.target
-                              .value as SectionRepresentationMode;
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              sectionOverrides: {
-                                ...sectionPolicy.sectionOverrides,
-                                [entry.sectionId]: {
-                                  ...entry.override,
-                                  representation: nextRepresentation,
-                                },
-                              },
-                            });
-                          }}
-                        >
-                          {overrideRepresentationOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
-                          disabled={isShareMode}
-                          onClick={() => {
-                            const nextOverrides = {
-                              ...sectionPolicy.sectionOverrides,
-                            };
-                            delete nextOverrides[entry.sectionId];
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              sectionOverrides: nextOverrides,
-                            });
-                          }}
-                          type="button"
-                          {...getFloatingBoxHandlers({
-                            content: "Remove override",
-                          })}
-                        >
-                          <i className="gg-trash" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
           Run Button Dropdown Items
         </h3>
@@ -858,7 +334,6 @@ function useRunnableCodeBlockListing() {
     const outputList: Array<RunnableCodeBlock> = [];
     const viewMode = getActiveViewModeConfig(x);
     const { isEditingViewMode } = x.projectConfig;
-    const pythonCodegenEnabled = projectConfigHasPythonCodegen(x.projectConfig);
     for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
@@ -869,40 +344,11 @@ function useRunnableCodeBlockListing() {
         x,
         viewMode,
         isEditingViewMode,
-        pythonCodegenEnabled,
         outputList,
       );
     }
     return outputList;
   }, _.isEqual);
-}
-
-function useSectionOptions(): SectionOption[] {
-  return useProjectState((x) => {
-    const outputList: Array<SectionOption> = [];
-    for (const [sectionId, section] of Object.entries(x.sections)) {
-      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-      outputList.push({
-        id: sectionId,
-        name: section.name,
-        type: sectionImpl.type,
-      });
-    }
-    outputList.sort((a, b) => a.name.localeCompare(b.name));
-    return outputList;
-  }, _.isEqual);
-}
-
-function getRepresentationOptions(
-  sectionType: SectionType | null,
-): SectionRepresentationMode[] {
-  if (sectionType === SectionTypeEnum.Chat) {
-    return ["json", "file"];
-  }
-  if (sectionType === SectionTypeEnum.Draw) {
-    return ["base64"];
-  }
-  return ["json"];
 }
 
 function getRunnableCodeBlockListingHelper(
@@ -912,13 +358,11 @@ function getRunnableCodeBlockListingHelper(
   x: ZustandProjectState,
   viewMode: ViewModeConfig,
   isEditingViewMode: boolean,
-  pythonCodegenEnabled: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {
   const isRunnable =
     sectionImpl.type === SectionTypeEnum.Code ||
-    (pythonCodegenEnabled &&
-      sectionImpl.type === SectionTypeEnum.GenPythonCode);
+    sectionImpl.type === SectionTypeEnum.GenPythonCode;
 
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
@@ -944,7 +388,6 @@ function getRunnableCodeBlockListingHelper(
         x,
         viewMode,
         isEditingViewMode,
-        pythonCodegenEnabled,
         outputList,
       );
     }
