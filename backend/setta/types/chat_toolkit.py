@@ -11,7 +11,7 @@ from setta.types.id import ID
 
 
 class CreateChatRequest(BaseModel):
-    engineConfigId: ID | None = None
+    llmConfigId: str
     firstMessage: BaseChatMessageUnionWithDiscriminator
 
 

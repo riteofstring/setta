@@ -17,7 +17,6 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -32,7 +31,6 @@ BaseSectionImplUnion = (
     | ChartSectionImpl
     | DrawSectionImpl
     | TextBlockSectionImpl
-    | PromptSectionImpl
     | MetaControlSectionImpl
     | SocialSectionImpl
     | GlobalVariablesSectionImpl
@@ -153,7 +151,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -168,7 +165,6 @@ BaseSectionImplArgsUnion = (
     | ChartSectionImplArgs
     | DrawSectionImplArgs
     | TextBlockSectionImplArgs
-    | PromptSectionImplArgs
     | MetaControlSectionImplArgs
     | SocialSectionImplArgs
     | GlobalVariablesSectionImplArgs

@@ -9,12 +9,12 @@ import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
-import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { shortcutCodemirrorFormat } from "utils/utils";
+import { moveFocus } from "utils/focusManager";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": {
@@ -56,8 +56,6 @@ export function getExtensions({
     extensions.push(python());
   } else if (language === "javascript") {
     extensions.push(javascript());
-  } else if (language === "yaml") {
-    extensions.push(yaml());
   } else if (language === "json") {
     extensions.push(json());
   } else if (language === "markdown") {
@@ -89,6 +87,7 @@ export function getExtensions({
       keymap.of(
         getKeyMapArray({
           indentWithTab,
+          singleLine,
           tabToAutocomplete,
           onTab,
           onEscape,
@@ -103,12 +102,14 @@ export function getExtensions({
 
 function getKeyMapArray({
   indentWithTab,
+  singleLine,
   tabToAutocomplete,
   onTab,
   onEscape,
   keyComboActions,
 }) {
   const settings = useSettings.getState();
+  const shouldHandleTabNavigation = tabToAutocomplete && !indentWithTab;
 
   // we call undo and redo here because in keyActivations,
   // undo/redo are disabled in input fields.
@@ -152,11 +153,19 @@ function getKeyMapArray({
   if (indentWithTab) {
     keymapArray.push({
       key: "Shift-Tab",
-      // if tab controls indent, then always prevent default and stop propagation
       preventDefault: true,
       stopPropagation: true,
       run: (view) => {
         indentLess(view);
+      },
+    });
+  } else if (shouldHandleTabNavigation || singleLine) {
+    keymapArray.push({
+      key: "Shift-Tab",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        return moveFocus({ direction: -1, from: view.contentDOM });
       },
     });
   }
@@ -164,22 +173,22 @@ function getKeyMapArray({
   if (tabToAutocomplete || indentWithTab) {
     keymapArray.push({
       key: "Tab",
-      preventDefault: false, // we want to control when preventDefault (and therefore also stopPropagation) is called
+      preventDefault: false,
       stopPropagation: true,
       run: (view) => {
         let completionResult = false;
+        let movedFocus = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {
-          // trigger preventDefault & stopPropagation based on completion
           completionResult = acceptCompletion(view);
         } else if (indentWithTab) {
           indentMore(view);
+        } else if (shouldHandleTabNavigation || singleLine) {
+          movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
         }
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
         }
-        // if tab controls indent, then we never want to propagate the keystroke, so return true
-        // otherwise it depends on the completion result
-        return indentWithTab || completionResult;
+        return indentWithTab || completionResult || movedFocus;
       },
     });
   }

@@ -29,7 +29,6 @@ import {
 } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
-import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import { LoadingSpinner } from "../LoadingSpinner";
 
 export function HomePage() {
@@ -347,6 +346,17 @@ function ThumbnailArea({
 }) {
   const navigate = useNavigate();
 
+  function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.code !== "Space") {
+      return;
+    }
+    if (!projectPath) {
+      return;
+    }
+    event.preventDefault();
+    navigate(projectPath);
+  }
+
   return (
     <div
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
@@ -365,9 +375,7 @@ function ThumbnailArea({
       <div
         className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
         tabIndex={0}
-        onKeyDown={(e) =>
-          homePageProjectItemOnKeyDown(e, navigate, projectPath)
-        }
+        onKeyDown={onThumbnailKeyDown}
       >
         <PreviewImg topLevelSections={project.topLevelSections} />
       </div>

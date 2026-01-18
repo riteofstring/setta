@@ -45,10 +45,7 @@ def apply_stream_delta(
     input_text = state.inputText
 
     if isinstance(chunk, MessageStartEvent):
-        message = chunk.message
-        if isinstance(message, AssistantChatMessage):
-            message = message.model_copy(deep=True)
-        messages = _upsert_message(messages, message)
+        messages = _upsert_message(messages, chunk.message)
         waiting_for_response = True
         return build_chat_section_state(
             messages=messages,

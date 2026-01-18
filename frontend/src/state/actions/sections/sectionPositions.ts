@@ -12,7 +12,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
-import { setActiveSectionIds } from "../activeSections";
+import { applyActiveSectionChange } from "../activeSectionController";
 import {
   debounced_route_set_top_level_section_layout,
   getCurrProjectConfigId,
@@ -80,8 +80,7 @@ export function goToSection(sectionId: string) {
     nextTransform,
   );
 
-  setActiveSectionIds([sectionId]);
-  setZIndices([sectionId]);
+  applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
 
 export function autoLayout() {
