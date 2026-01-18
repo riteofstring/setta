@@ -14,6 +14,7 @@ import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { shortcutCodemirrorFormat } from "utils/utils";
+import { moveFocus } from "utils/focusManager";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": {
@@ -86,6 +87,7 @@ export function getExtensions({
       keymap.of(
         getKeyMapArray({
           indentWithTab,
+          singleLine,
           tabToAutocomplete,
           onTab,
           onEscape,
@@ -100,12 +102,14 @@ export function getExtensions({
 
 function getKeyMapArray({
   indentWithTab,
+  singleLine,
   tabToAutocomplete,
   onTab,
   onEscape,
   keyComboActions,
 }) {
   const settings = useSettings.getState();
+  const shouldHandleTabNavigation = tabToAutocomplete && !indentWithTab;
 
   // we call undo and redo here because in keyActivations,
   // undo/redo are disabled in input fields.
@@ -155,6 +159,15 @@ function getKeyMapArray({
         indentLess(view);
       },
     });
+  } else if (shouldHandleTabNavigation || singleLine) {
+    keymapArray.push({
+      key: "Shift-Tab",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        return moveFocus({ direction: -1, from: view.contentDOM });
+      },
+    });
   }
 
   if (tabToAutocomplete || indentWithTab) {
@@ -164,15 +177,18 @@ function getKeyMapArray({
       stopPropagation: true,
       run: (view) => {
         let completionResult = false;
+        let movedFocus = false;
         if (tabToAutocomplete && completionStatus(view.state) === "active") {
           completionResult = acceptCompletion(view);
         } else if (indentWithTab) {
           indentMore(view);
+        } else if (shouldHandleTabNavigation || singleLine) {
+          movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
         }
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
         }
-        return indentWithTab || completionResult;
+        return indentWithTab || completionResult || movedFocus;
       },
     });
   }

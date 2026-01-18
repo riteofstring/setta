@@ -18,6 +18,16 @@ const tabScopes = new Map<string, TabScopeRegistration>();
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
 
+function normalizeFocusableElement(element: HTMLElement): HTMLElement {
+  if (element.classList.contains("cm-content")) {
+    const cmEditor = element.closest(".cm-editor");
+    if (cmEditor instanceof HTMLElement && cmEditor.tabIndex >= 0) {
+      return cmEditor;
+    }
+  }
+  return element;
+}
+
 export function useTabScope({
   scopeId,
   order,
@@ -32,17 +42,20 @@ export function useTabScope({
   }, [scopeId, order, rootRef, behavior]);
 }
 
-export function handleTabNavigation(event: KeyboardEvent): boolean {
-  if (event.defaultPrevented) {
-    return false;
-  }
+type TabNavigationOptions = {
+  target: HTMLElement;
+  direction: 1 | -1;
+  allowInputTarget?: boolean;
+};
 
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  if (!target) {
-    return false;
-  }
+function performTabNavigation({
+  target,
+  direction,
+  allowInputTarget = false,
+}: TabNavigationOptions): boolean {
+  const normalizedTarget = normalizeFocusableElement(target);
 
-  if (target.closest("[data-tab-native]")) {
+  if (normalizedTarget.closest("[data-tab-native]")) {
     return false;
   }
 
@@ -51,13 +64,12 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
     return false;
   }
 
-  const currentScope = getScopeForElement(target);
-  const isInputTarget = isNativeInput(target);
-  if (isInputTarget && currentScope?.behavior !== "canvas") {
+  const currentScope = getScopeForElement(normalizedTarget);
+  const isInputTarget = isNativeInput(normalizedTarget);
+  if (!allowInputTarget && isInputTarget && currentScope?.behavior !== "canvas") {
     return false;
   }
 
-  const direction = event.shiftKey ? -1 : 1;
   const startScope =
     currentScope ?? getFirstScopeWithFocusable(orderedScopes, direction > 0);
   if (!startScope) {
@@ -68,7 +80,7 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
     startScope,
     orderedScopes,
     direction,
-    target,
+    target: normalizedTarget,
   });
   if (!focusResult) {
     return false;
@@ -79,6 +91,38 @@ export function handleTabNavigation(event: KeyboardEvent): boolean {
     movePaneToIncludeElement(focusResult.element);
   }
   return true;
+}
+
+export function handleTabNavigation(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented) {
+    return false;
+  }
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (!target) {
+    return false;
+  }
+  const direction = event.shiftKey ? -1 : 1;
+  return performTabNavigation({ target, direction });
+}
+
+export function moveFocus({
+  direction,
+  from,
+}: {
+  direction: 1 | -1;
+  from?: HTMLElement | null;
+}): boolean {
+  const target =
+    from ??
+    (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  if (!target) {
+    return false;
+  }
+  return performTabNavigation({
+    target,
+    direction,
+    allowInputTarget: true,
+  });
 }
 
 export function focusOnSection(
@@ -299,8 +343,12 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
   const elements: HTMLElement[] = [];
-  if (root.matches(FOCUSABLE_SELECTOR) && isFocusableElement(root)) {
-    elements.push(root);
+  const normalizedRoot = normalizeFocusableElement(root);
+  if (
+    normalizedRoot.matches(FOCUSABLE_SELECTOR) &&
+    isFocusableElement(normalizedRoot)
+  ) {
+    elements.push(normalizedRoot);
   }
   const candidates = Array.from(
     root.querySelectorAll(FOCUSABLE_SELECTOR),
@@ -309,8 +357,15 @@ function getFocusableElements(root: HTMLElement): HTMLElement[] {
     if (candidate === root) {
       continue;
     }
+    if (candidate.classList.contains("cm-content")) {
+      continue;
+    }
+    const normalizedCandidate = normalizeFocusableElement(candidate);
+    if (normalizedCandidate !== candidate && normalizedCandidate === root) {
+      continue;
+    }
     if (isFocusableElement(candidate)) {
-      elements.push(candidate);
+      elements.push(normalizedCandidate);
     }
   }
   return elements;
@@ -336,12 +391,19 @@ function resolveCurrentElement(
   focusables: HTMLElement[],
 ): HTMLElement | null {
   const active = document.activeElement;
-  if (active instanceof HTMLElement && focusables.includes(active)) {
-    return active;
+  if (active instanceof HTMLElement) {
+    const normalizedActive = normalizeFocusableElement(active);
+    if (focusables.includes(normalizedActive)) {
+      return normalizedActive;
+    }
   }
-  const nearest = target.closest(FOCUSABLE_SELECTOR);
-  if (nearest instanceof HTMLElement && focusables.includes(nearest)) {
-    return nearest;
+  const normalizedTarget = normalizeFocusableElement(target);
+  const nearest = normalizedTarget.closest(FOCUSABLE_SELECTOR);
+  if (nearest instanceof HTMLElement) {
+    const normalizedNearest = normalizeFocusableElement(nearest);
+    if (focusables.includes(normalizedNearest)) {
+      return normalizedNearest;
+    }
   }
   return null;
 }

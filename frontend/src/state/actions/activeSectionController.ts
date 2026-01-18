@@ -147,7 +147,7 @@ export function applyActiveSectionChange(
     setActiveSectionIds(decision.nextActiveIds);
   }
 
-  if (decision.updateZIndex && activeIdsChanged) {
+  if (decision.updateZIndex) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
       setZIndices(zIndexTargets, false);

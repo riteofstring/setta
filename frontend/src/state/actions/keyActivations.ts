@@ -321,6 +321,7 @@ function getMacosIgnoreWhenInInputField(parsedShortcut) {
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
+    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModPlus(parsedShortcut, ["KeyC"]) || // Copy selected text.
     isModPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard.
@@ -368,6 +369,7 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
   return (
     (!mod && !shift && !ctrl && !alt) ||
     isShiftPlus(parsedShortcut, []) ||
+    isShiftPlus(parsedShortcut, ["Tab"]) ||
     isModPlus(parsedShortcut, []) ||
     isModOrCtrlPlus(parsedShortcut, ["KeyA"]) || // Select all text
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
