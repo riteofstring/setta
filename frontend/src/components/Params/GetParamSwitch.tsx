@@ -1,3 +1,4 @@
+import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import {
@@ -14,12 +15,14 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel = false,
+  listKey,
 }: {
   sectionId: string;
   paramIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
+  listKey: ParamListKey;
 }) {
   // TODO: make this more efficient
   const filteredIds = useProjectState((x) => {
@@ -54,17 +57,18 @@ export function GetParamSwitch({
       }
     }
 
-    return paramIds.filter((p) => filteredRequired.has(p));
+    return paramIds.filter((p) => filteredRequired.has(p) || isTempParam(p));
   }, _.isEqual);
 
-  return filteredIds.map((e, idx) => (
+  return filteredIds.map((paramId, idx) => (
     <ParamSwitch
-      key={e}
+      key={paramId}
       sectionId={sectionId}
-      paramInfoId={e}
+      paramInfoId={paramId}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
+      listKey={listKey}
     />
   ));
 }

@@ -13,7 +13,7 @@ from setta.api.chat_toolkit import (
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
 from setta.database.db_objs import DBE
-from setta.llm.chat_store import AgentRunChatStore
+from setta.llm.chat_store import DBEChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.types.chat_messages import (
@@ -86,7 +86,7 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_stream_exception_resets_waiting_state(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
+            history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             first_message = UserChatMessage(
@@ -153,7 +153,7 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_cancel_emits_message_finalized_when_partial_message(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
+            history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
             section_id = ID("section-1")
             first_message = UserChatMessage(
@@ -237,9 +237,8 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_uses_system_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
+            history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
             section_id = ID("section-1")
             captured_messages: list[object] = []
             section_chat_ids: dict[ID, ID] = {}
@@ -277,7 +276,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             await ChatSession.open_from_event(
                 ctx=ctx,
                 section_id=section_id,
-                engine_config_id=engine_config_id,
+                llm_config_id=llm_config.id,
                 event=event,
             )
 
@@ -287,9 +286,8 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_uses_assistant_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
+            history = ChatHistory(DBEChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
             section_id = ID("section-1")
             captured_messages: list[object] = []
             section_chat_ids: dict[ID, ID] = {}
@@ -327,7 +325,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
             await ChatSession.open_from_event(
                 ctx=ctx,
                 section_id=section_id,
-                engine_config_id=engine_config_id,
+                llm_config_id=llm_config.id,
                 event=event,
             )
 
@@ -337,7 +335,6 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
     async def test_open_from_event_rejects_tool_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
             section_id = ID("section-1")
 
             async def router_caller(endpoint_name: str, payload: object) -> object:
@@ -359,7 +356,7 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
                 await ChatSession.open_from_event(
                     ctx=ctx,
                     section_id=section_id,
-                    engine_config_id=engine_config_id,
+                    llm_config_id=llm_config.id,
                     event=event,
                 )
 
