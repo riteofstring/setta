@@ -13,7 +13,6 @@ import {
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   getCurrSectionVariant,
@@ -73,9 +72,10 @@ export function onDragStart({ active }: DragStartEvent) {
   if (!active.data || !active.data.current) {
     return;
   }
-  const { width, height } = getSectionRectWithNested(active.id);
   const sectionRef = useSectionRefs.getState().withNested[active.id];
   const rect = sectionRef?.getBoundingClientRect() ?? null;
+  const rawWidth = rect?.width ?? sectionRef?.clientWidth ?? 0;
+  const rawHeight = rect?.height ?? sectionRef?.clientHeight ?? 0;
   const activeRect = rect
     ? {
         top: rect.top,
@@ -88,8 +88,8 @@ export function onDragStart({ active }: DragStartEvent) {
     : null;
   const zoom = useReactFlow.getState().transform[2];
   const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth = width / safeZoom;
-  const normalizedHeight = height / safeZoom;
+  const normalizedWidth = rawWidth;
+  const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
   setActiveDnd(
     active.id,
