@@ -121,6 +121,7 @@ class ExternalAgentQuestionState:
     project_config_id: ID
     chat_id: ID
     section_id: ID | None
+    approval_id: str | None = None
 
 
 class ExternalAgentRunner:
@@ -149,6 +150,7 @@ class ExternalAgentRunner:
         self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
         self._pending_approvals: dict[str, ExternalAgentApprovalState] = {}
         self._pending_questions: dict[str, ExternalAgentQuestionState] = {}
+        self._pending_question_approvals: dict[ID, list[str]] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     @property
@@ -910,6 +912,7 @@ class ExternalAgentRunner:
         for tool_call_id, state in list(self._pending_questions.items()):
             if state.run_id == run_id:
                 self._pending_questions.pop(tool_call_id, None)
+        self._pending_question_approvals.pop(run_id, None)
 
     def _maybe_register_question_call(
         self,
@@ -940,12 +943,19 @@ class ExternalAgentRunner:
         section_raw = self._extract_input_string(run.inputs, "sectionId")
         if section_raw:
             section_id = ID(section_raw)
+        approval_id = None
+        pending_approvals = self._pending_question_approvals.get(run_id)
+        if pending_approvals:
+            approval_id = pending_approvals.pop(0)
+            if not pending_approvals:
+                self._pending_question_approvals.pop(run_id, None)
         self._pending_questions[tool_call_id] = ExternalAgentQuestionState(
             tool_call_id=tool_call_id,
             run_id=run_id,
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
+            approval_id=approval_id,
         )
 
     @staticmethod
@@ -966,6 +976,25 @@ class ExternalAgentRunner:
         is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
             if context.config.toolType == ExternalAgentToolType.claude_code:
+                attached = False
+                for tool_call_id, state in list(self._pending_questions.items()):
+                    if state.run_id != run.id:
+                        continue
+                    if state.approval_id is not None:
+                        continue
+                    self._pending_questions[tool_call_id] = ExternalAgentQuestionState(
+                        tool_call_id=state.tool_call_id,
+                        run_id=state.run_id,
+                        project_config_id=state.project_config_id,
+                        chat_id=state.chat_id,
+                        section_id=state.section_id,
+                        approval_id=approval_id,
+                    )
+                    attached = True
+                    break
+                if not attached:
+                    approvals = self._pending_question_approvals.setdefault(run.id, [])
+                    approvals.append(approval_id)
                 self._record_event(
                     run,
                     "approval_request",
@@ -978,6 +1007,7 @@ class ExternalAgentRunner:
                 project_config_id=context.project_config_id,
                 chat_id=context.chat_id,
                 section_id=context.section_id,
+                approval_id=approval_id,
             )
             tool_arguments = self._extract_tool_input(payload) or {}
             tool_call = ToolCall(
@@ -1137,9 +1167,10 @@ class ExternalAgentRunner:
         run_state = self._run_state.get(run_id)
         if run_state is None:
             raise KeyError(f"Run {run_id} is not active")
+        response_id = state.approval_id or tool_call_id
         await run_state.adapter.send_tool_response(
             run_state.handle,
-            tool_call_id,
+            response_id,
             {"answers": answers},
         )
         content = _format_question_answers(answers)

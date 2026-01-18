@@ -933,7 +933,7 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
-    async def test_question_request_emits_tool_call(self) -> None:
+    async def test_question_request_queues_claude_approval(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
@@ -967,19 +967,18 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            self.assertIn("question-1", runner._pending_questions)
+            self.assertNotIn("question-1", runner._pending_questions)
             self.assertNotIn("question-1", runner._pending_approvals)
+            self.assertEqual(
+                runner._pending_question_approvals.get(run.id),
+                ["question-1"],
+            )
             event_types = [event.type for event in run.events]
             self.assertIn("approval_request", event_types)
             self.assertNotIn("stream_chunk", event_types)
             self.assertNotIn("external_event", event_types)
             messages = run.outputs.get("messages") if run.outputs else None
-            self.assertIsInstance(messages, list)
-            self.assertTrue(messages)
-            tool_calls = messages[-1].get("tool_calls")
-            self.assertIsInstance(tool_calls, list)
-            self.assertEqual(tool_calls[0]["function"]["name"], "AskUserQuestion")
-            self.assertEqual(tool_calls[0]["function"]["arguments"], question_payload)
+            self.assertIsNone(messages)
 
     async def test_stream_chunk_registers_question_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1018,6 +1017,101 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(state.run_id, run.id)
             self.assertEqual(state.chat_id, ID("chat-1"))
             self.assertEqual(state.section_id, ID("section-1"))
+            self.assertIsNone(state.approval_id)
+
+    async def test_question_approval_attaches_after_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                },
+            )
+            run = context.run
+
+            await runner._handle_stream_chunk(
+                context,
+                run,
+                ToolCallDeltaEvent(
+                    message_id="message-1",
+                    tool_call_id="tool-1",
+                    arguments_delta="{",
+                    tool_name="AskUserQuestion",
+                ),
+            )
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "approval-1",
+                    "tool": "AskUserQuestion",
+                    "input": {},
+                },
+            )
+
+            state = runner._pending_questions["tool-1"]
+            self.assertEqual(state.approval_id, "approval-1")
+            self.assertIsNone(runner._pending_question_approvals.get(run.id))
+
+    async def test_question_approval_attaches_before_tool_call(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                },
+            )
+            run = context.run
+
+            await runner._handle_approval_request(
+                context,
+                run,
+                {
+                    "type": "approval_request",
+                    "approvalId": "approval-1",
+                    "tool": "AskUserQuestion",
+                    "input": {},
+                },
+            )
+
+            await runner._handle_stream_chunk(
+                context,
+                run,
+                ToolCallDeltaEvent(
+                    message_id="message-1",
+                    tool_call_id="tool-1",
+                    arguments_delta="{",
+                    tool_name="AskUserQuestion",
+                ),
+            )
+
+            state = runner._pending_questions["tool-1"]
+            self.assertEqual(state.approval_id, "approval-1")
+            self.assertIsNone(runner._pending_question_approvals.get(run.id))
 
     async def test_respond_to_question_emits_flat_result(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1081,3 +1175,58 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             last_tool = tool_messages[-1]
             self.assertEqual(last_tool.get("result"), {"answers": answers})
             self.assertNotIn("question-1", runner._pending_questions)
+
+    async def test_respond_to_question_uses_approval_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID("chat-1"),
+            )
+            save_agent_run(dbe, run)
+
+            output_path = Path(tmpdir) / "tool_response.jsonl"
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "import sys; from pathlib import Path; Path(sys.argv[1]).write_text(sys.stdin.read())",
+                str(output_path),
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+            runner._pending_question_approvals[run.id] = ["approval-1"]
+            runner._register_question_call(
+                run.id,
+                project_config.id,
+                ID("chat-1"),
+                "question-1",
+            )
+            answers = {"Language": "Python"}
+
+            try:
+                await runner.respond_to_question("question-1", answers)
+            finally:
+                process.terminate()
+                await process.wait()
+
+            payload_lines = output_path.read_text().strip().splitlines()
+            self.assertTrue(payload_lines)
+            payload = json.loads(payload_lines[-1])
+            self.assertEqual(payload.get("type"), "tool_response")
+            self.assertEqual(payload.get("toolCallId"), "approval-1")
