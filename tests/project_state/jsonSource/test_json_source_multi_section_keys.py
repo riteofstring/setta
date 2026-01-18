@@ -165,3 +165,78 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
             self.project_state, section_id, BaseDictSectionImpl
         )
         self.assertTrue(impl.jsonSourceMissing)
+
+    def test_unrequested_shared_variant_is_not_updated(self) -> None:
+        section_a, variant_a = self._create_json_source_section(["alpha"])
+        section_b, variant_b = self._create_json_source_section(["alpha"])
+
+        processed = self.json_source.process_json_object({"alpha": {"one": 1}})
+        json_sources = {normalize_path("sample.json"): processed}
+
+        load_json_sources_into_data_structures(
+            self.project_state,
+            json_sources,
+            [(section_a, variant_a), (section_b, variant_b)],
+        )
+
+        impl_a = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_a, BaseDictSectionImpl
+        )
+        impl_b = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_b, BaseDictSectionImpl
+        )
+        prev_a_map = dict(impl_a.codeObjVariantMap)
+        prev_b_map = dict(impl_b.codeObjVariantMap)
+        prev_b_top_level = impl_b.topLevelParamId
+
+        processed_next = self.json_source.process_json_object(
+            {"alpha": {"one": 1, "two": 2}}
+        )
+        json_sources_next = {normalize_path("sample.json"): processed_next}
+
+        load_json_sources_into_data_structures(
+            self.project_state,
+            json_sources_next,
+            [(section_a, variant_a)],
+        )
+
+        impl_a_updated = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_a, BaseDictSectionImpl
+        )
+        impl_b_updated = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_b, BaseDictSectionImpl
+        )
+
+        self.assertGreater(len(impl_a_updated.codeObjVariantMap), len(prev_a_map))
+        self.assertEqual(prev_b_map, impl_b_updated.codeObjVariantMap)
+        self.assertEqual(prev_b_top_level, impl_b_updated.topLevelParamId)
+        for code_obj_id in prev_b_map.keys():
+            self.assertIn(code_obj_id, self.project_state.codeObjs)
+
+    def test_unrequested_shared_variant_marks_missing(self) -> None:
+        section_a, variant_a = self._create_json_source_section(["alpha"])
+        section_b, _ = self._create_json_source_section(["alpha"])
+
+        impl_a = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_a, BaseDictSectionImpl
+        )
+        impl_b = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_b, BaseDictSectionImpl
+        )
+        self.assertFalse(impl_a.jsonSourceMissing)
+        self.assertFalse(impl_b.jsonSourceMissing)
+
+        load_json_sources_into_data_structures(
+            self.project_state,
+            {},
+            [(section_a, variant_a)],
+        )
+
+        impl_a_after = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_a, BaseDictSectionImpl
+        )
+        impl_b_after = get_curr_effective_section_impl_with_type_guard(
+            self.project_state, section_b, BaseDictSectionImpl
+        )
+        self.assertTrue(impl_a_after.jsonSourceMissing)
+        self.assertTrue(impl_b_after.jsonSourceMissing)

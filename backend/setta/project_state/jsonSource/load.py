@@ -141,6 +141,8 @@ def load_json_sources_into_data_structures(
             )
             if json_source_missing:
                 continue
+            if (section.id, variant_id) not in section_variant_set:
+                continue
             replacements: dict[ID, ReplacementInfo] = {}
             unmatched: dict[ID, UnmatchedCodeObjInfo] = {}
             currCodeObjsToDelete, id_remap = compute_existing_replacement_mapping(

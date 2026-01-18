@@ -3,7 +3,6 @@ import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -21,7 +20,6 @@ from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, DictSectionImpl
-from setta.utils.constants import C
 from setta.utils.structured_data import write_json_source_payload
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -72,22 +70,6 @@ class JsonSourceKeysRefreshTests(unittest.IsolatedAsyncioTestCase):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
-        self.code_folder = self.setta_root / "code"
-        self.artifacts_folder = self.setta_root / "artifacts"
-        self.backup_folder = self.setta_root / "backups"
-
-        for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
-            path.mkdir(parents=True, exist_ok=True)
-
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
-
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
@@ -151,8 +133,6 @@ class JsonSourceKeysRefreshTests(unittest.IsolatedAsyncioTestCase):
             await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        for patcher in self._patchers:
-            patcher.stop()
         self._tmpdir.cleanup()
 
     def _build_project_state(self, json_path: Path) -> ProjectStateSingleConfig:
