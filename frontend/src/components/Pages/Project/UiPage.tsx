@@ -1,6 +1,10 @@
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
+import {
+  ParamDndMonitor,
+  ParamDragOverlay,
+} from "components/Params/ParamDndMonitor";
 import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
@@ -17,6 +21,8 @@ export function UIPage() {
 
   return (
     <GlobalDndContext>
+      <ParamDndMonitor />
+      <ParamDragOverlay />
       <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
