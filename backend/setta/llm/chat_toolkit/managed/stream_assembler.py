@@ -19,12 +19,13 @@ class StreamContentEntry:
     text: str
     index: int | None
     signature: str | None = None
+    summary: str | None = None
 
     @property
     def has_payload(self) -> bool:
         if self.kind == "text":
             return bool(self.text)
-        return bool(self.text) or self.signature is not None
+        return bool(self.text) or self.signature is not None or self.summary is not None
 
 
 class ManagedStreamAssembler:
@@ -44,6 +45,8 @@ class ManagedStreamAssembler:
                 block = self._ensure_thinking_block(index)
                 if entry.text:
                     block.thinking += entry.text
+                if entry.summary is not None:
+                    block.summary = entry.summary
                 if entry.signature is not None:
                     block.signature = entry.signature
                 if entry.has_payload:
@@ -51,6 +54,7 @@ class ManagedStreamAssembler:
                         MessageThinkingDelta(
                             index=index,
                             thinking=entry.text,
+                            summary=entry.summary,
                             signature=entry.signature,
                         )
                     )

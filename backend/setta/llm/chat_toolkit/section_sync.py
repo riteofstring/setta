@@ -45,7 +45,10 @@ def apply_stream_delta(
     input_text = state.inputText
 
     if isinstance(chunk, MessageStartEvent):
-        messages = _upsert_message(messages, chunk.message)
+        message = chunk.message
+        if isinstance(message, AssistantChatMessage):
+            message = message.model_copy(deep=True)
+        messages = _upsert_message(messages, message)
         waiting_for_response = True
         return build_chat_section_state(
             messages=messages,
@@ -161,6 +164,8 @@ def _apply_message_delta(
             block = _ensure_thinking_block(content, index)
             if delta.thinking:
                 block.thinking += delta.thinking
+            if delta.summary is not None:
+                block.summary = delta.summary
             if delta.signature is not None:
                 block.signature = delta.signature
     assistant.content = content

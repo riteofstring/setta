@@ -70,8 +70,9 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
 
-      await onSubmit(inputValue);
+      const submittedValue = inputValue;
       clearInput();
+      await onSubmit(submittedValue);
     },
     [clearInput, inputValue, onStop, onSubmit, waitingForResponse],
   );

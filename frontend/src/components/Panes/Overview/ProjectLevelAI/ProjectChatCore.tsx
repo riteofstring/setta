@@ -4,13 +4,19 @@ import { Dispatch, SetStateAction, memo, useCallback, useEffect } from "react";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import {
   clearPendingChatDetails,
+  findLatestRunningExternalRunId,
   getDefaultChatDetails,
+  getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   submitMessage,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import { route_stop_llm_chat } from "utils/generatedEndpoints";
+import {
+  route_stop_external_agent_run,
+  route_stop_llm_chat,
+} from "utils/generatedEndpoints";
+import { EngineTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
 function EmptyChatState() {
@@ -30,14 +36,20 @@ function EmptyChatState() {
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
   placeholderText,
-  deepThink,
-  llmConfigId,
+  thinking,
+  engineConfigId,
+  engineType,
+  hasLLMConfig,
+  externalEngineAvailable,
   setChatId,
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
-  deepThink: boolean;
-  llmConfigId: string | null;
+  thinking: boolean;
+  engineConfigId: string | null;
+  engineType: EngineTypeEnum | null;
+  hasLLMConfig: boolean;
+  externalEngineAvailable: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
@@ -52,13 +64,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
+  const isExternalEngine = engineType === EngineTypeEnum.external_agent;
 
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
+    if (isExternalEngine) {
+      getExternalAgentChat(chatId, null);
+      return;
+    }
     getLLMChat(chatId);
-  }, [chatId]);
+  }, [chatId, isExternalEngine]);
 
   const handleNewChatStart = useCallback(() => {
     initializePendingChatDetails();
@@ -83,7 +100,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleSubmit = useCallback(
     async (message: string) => {
-      if (!llmConfigId) {
+      if (!message.trim()) {
+        return;
+      }
+      if (!engineConfigId) {
+        return;
+      }
+      if (!isExternalEngine && !hasLLMConfig) {
+        return;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
         return;
       }
       const isFirstMessage = chatId === undefined;
@@ -97,8 +123,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         submittedChatId = await submitMessage(
           chatId ?? null,
           message,
-          deepThink,
-          llmConfigId,
+          thinking,
+          engineConfigId,
+          isExternalEngine,
+          undefined,
+          null,
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
@@ -109,17 +138,41 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         }
       }
     },
-    [chatId, deepThink, handleNewChatSettled, handleNewChatStart, llmConfigId],
+    [
+      chatId,
+      thinking,
+      engineConfigId,
+      handleNewChatSettled,
+      handleNewChatStart,
+      isExternalEngine,
+      externalEngineAvailable,
+      hasLLMConfig,
+      messages,
+    ],
   );
 
   const handleStop = useCallback(async () => {
+    if (isExternalEngine) {
+      if (typeof chatId !== "string") {
+        return;
+      }
+      const runId = await findLatestRunningExternalRunId(chatId, null);
+      if (!runId) {
+        return;
+      }
+      await route_stop_external_agent_run({ runId });
+      return;
+    }
     if (typeof chatId !== "string") {
       return;
     }
     await route_stop_llm_chat({ chatId });
-  }, [chatId]);
+  }, [chatId, isExternalEngine]);
 
-  const isDisabled = !llmConfigId;
+  const isDisabled =
+    !engineConfigId ||
+    (!isExternalEngine && !hasLLMConfig) ||
+    (isExternalEngine && !externalEngineAvailable);
   const showEmptyState = typeof chatId === "undefined";
 
   return (

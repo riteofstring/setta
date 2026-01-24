@@ -1,0 +1,31 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@openai/codex-sdk':
+        specifier: '*'
+        version: 0.87.0
+      '@opencode-ai/sdk':
+        specifier: '*'
+        version: 1.1.28
+
+packages:
+
+  '@openai/codex-sdk@0.87.0':
+    resolution: {integrity: sha512-HV9DKSCq1PTc1Ti1XvfXFgwc+WR1sPT2JSyPkFkDV5Ip1lkK4C0WeQ++WE4y0fSIS3x3XtBGmdT4oDfaeqj63g==}
+    engines: {node: '>=18'}
+
+  '@opencode-ai/sdk@1.1.28':
+    resolution: {integrity: sha512-fR5mPWu4O6Pu1u+Bj5eUpZix1PCOSSDh7GeE/KyM5pFEqLLoxcNjon5XRMNVggGI4zEFjq48pxdpP4z4mbGeew==}
+
+snapshots:
+
+  '@openai/codex-sdk@0.87.0': {}
+
+  '@opencode-ai/sdk@1.1.28': {}
