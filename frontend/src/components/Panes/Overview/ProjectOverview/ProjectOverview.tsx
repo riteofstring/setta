@@ -16,7 +16,6 @@ import {
 } from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
-import { WatchCodeSettings } from "./WatchCodeSettings";
 
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
@@ -33,7 +32,6 @@ function ProjectOverviewCore({
   return (
     <>
       <ProjectName />
-      <WatchCodeSettings />
       <search className="nodrag relative mx-[2px] flex min-w-0 items-center pb-4 dark:text-setta-200">
         <div className="absolute left-0 grid select-none place-items-center pl-1">
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />

@@ -82,6 +82,7 @@ export const ArtifactTypeEnum = {
   BrushStroke: "BrushStroke",
   DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
   ChartData: "ChartData",
+  File: "File",
 } as const;
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
@@ -156,6 +157,11 @@ export const CodeObjTypeEnum = {
 } as const;
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
 
 export const HttpRequestMethodEnum = {
   GET: "GET",
@@ -480,6 +486,12 @@ export const BackgroundVariantEnum = {
   cross: "cross",
 } as const;
 
+const MetaControlSizeModeEnum = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
+} as const;
+
 export const PanOnScrollModeEnum = {
   free: "free",
   vertical: "vertical",
@@ -743,6 +755,19 @@ const DrawAreaTransformSchema = z.tuple([
 ]);
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
+
+const FileArtifactSchema = z.object({
+  type: z.literal("File").default(ArtifactTypeEnum.File),
+  id: z
+    .string()
+    .default(
+      () =>
+        "setta_files/artifacts/6ccd9993-0997-4405-9b76-fad0f65fab3c.bin" as const,
+    ),
+  value: z.string(),
+});
+
+export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
@@ -1245,6 +1270,7 @@ const SharedModifierSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).optional(),
   managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -1258,6 +1284,7 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1359,10 +1386,12 @@ const CoreSchema = z.object({
         "llmConfigId",
         "managed",
         "max",
+        "maxAttachments",
         "messages",
         "metaControlParamId",
         "metaControlStyle",
         "min",
+        "mode",
         "name",
         "overflowMode",
         "paramFilter",
@@ -2076,9 +2105,13 @@ const DropzoneParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
-type DropzoneParamCodeObjImpl = z.infer<typeof DropzoneParamCodeObjImplSchema>;
+export type DropzoneParamCodeObjImpl = z.infer<
+  typeof DropzoneParamCodeObjImplSchema
+>;
 
 const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
@@ -2553,6 +2586,8 @@ const DropzoneParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
 });
 
 type DropzoneParamCodeObjImplArgs = z.infer<
@@ -3831,6 +3866,121 @@ function createSectionSizingPolicyByType(
   return SectionSizingPolicyByTypeSchema.parse(options);
 }
 
+const MetaControlSizingPolicyTypeEntrySchema = z.object({
+  minHeight: z.number(),
+  minWidth: z.number(),
+  sizeModeHeight: z
+    .enum(MetaControlSizeModeEnum)
+    .default(MetaControlSizeModeEnum.any),
+  sizeModeWidth: z
+    .enum(MetaControlSizeModeEnum)
+    .default(MetaControlSizeModeEnum.any),
+});
+
+export type MetaControlSizingPolicyTypeEntry = z.infer<
+  typeof MetaControlSizingPolicyTypeEntrySchema
+>;
+
+function createMetaControlSizingPolicyTypeEntry(
+  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+): MetaControlSizingPolicyTypeEntry {
+  return MetaControlSizingPolicyTypeEntrySchema.parse(options);
+}
+
+const MetaControlSizingPolicyByTypeSchema = z.object({
+  CodeCallable: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  CodeParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  TextParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  ButtonParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  SliderParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  RotaryParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  SwitchParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  ColorPickerParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  DropdownParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  PasswordParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  TextAreaParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 80.0,
+      minWidth: 200.0,
+    }),
+  ),
+  DropzoneParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 120.0,
+      minWidth: 240.0,
+    }),
+  ),
+  NestedParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+});
+
+type MetaControlSizingPolicyByType = z.infer<
+  typeof MetaControlSizingPolicyByTypeSchema
+>;
+
+function createMetaControlSizingPolicyByType(
+  options: Partial<MetaControlSizingPolicyByType> = {},
+): MetaControlSizingPolicyByType {
+  return MetaControlSizingPolicyByTypeSchema.parse(options);
+}
+
 const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
   minimizedHeight: z.number().default(32),
@@ -3852,6 +4002,9 @@ function createSectionSizingPolicyGlobals(
 const SectionSizingPolicySchema = z.object({
   byType: SectionSizingPolicyByTypeSchema.default(
     createSectionSizingPolicyByType,
+  ),
+  metaControlByType: MetaControlSizingPolicyByTypeSchema.default(
+    createMetaControlSizingPolicyByType,
   ),
   globals: SectionSizingPolicyGlobalsSchema.default(
     createSectionSizingPolicyGlobals,
@@ -4383,6 +4536,8 @@ const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
 type UserDefaultDropzoneParamCodeObjImpl = z.infer<
@@ -4661,6 +4816,7 @@ const UpdateArtifactMsgContentSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   updateType: z.literal(["update", "delete"]),
@@ -5552,6 +5708,7 @@ const UpdateArtifactsRequestSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   conflictStrategy: z
