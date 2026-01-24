@@ -14,14 +14,10 @@ import {
   Position,
   SectionType,
   SectionTypeEnum,
-  TextBlockDisplayModeEnum,
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import {
-  focusOnSectionSearch,
-  focusOnSectionTextInput,
-} from "utils/tabbingLogic";
+import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import {
   createTopLevelSectionLayoutDict,
@@ -50,15 +46,11 @@ export async function createTopLevelSection({
     return null;
   }
   const placement = getSmartPlacementContext();
-  const resolvedImplOverrides = resolveTextBlockImplOverrides(
-    implType,
-    implOverrides,
-  );
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
     implType,
     controlCodeObjType,
-    implOverrides: resolvedImplOverrides,
+    implOverrides,
     position,
     topLevelSections: placement.topLevelSections,
     viewportBounds: placement.viewportBounds,
@@ -72,29 +64,7 @@ export async function createTopLevelSection({
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
   }
-  setActiveSectionIdAndUpdateZIndex(sectionId);
-  ensureSectionOnTop(sectionId);
-  if (
-    implType === SectionTypeEnum.TextBlock ||
-    implType === SectionTypeEnum.Code ||
-    implType === SectionTypeEnum.Terminal
-  ) {
-    focusOnSectionTextInput(sectionId);
-  }
   return sectionId;
-}
-
-function ensureSectionOnTop(sectionId: string, attempt = 0) {
-  const nodeInternals = useNodeInternals.getState().x;
-  if (nodeInternals.has(sectionId)) {
-    setActiveSectionIdAndUpdateZIndex(sectionId);
-    return;
-  }
-  if (attempt < 20) {
-    requestAnimationFrame(() =>
-      ensureSectionOnTop(sectionId, attempt + 1),
-    );
-  }
 }
 
 async function addSectionInEmptySpace(
@@ -114,12 +84,15 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
+    setActiveSectionIdAndUpdateZIndex(newId);
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Group);
+  addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
+    setActiveSectionIdAndUpdateZIndex(newId);
+  });
 }
 
 export function addTerminalInEmptySpace() {
@@ -177,33 +150,4 @@ export function getEmptySpacePosition() {
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
   return { x: x + positionOffset.x, y: y + positionOffset.y };
-}
-
-function resolveTextBlockImplOverrides(
-  implType: CreateTopLevelSectionRequestInput["implType"],
-  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
-): CreateTopLevelSectionRequestInput["implOverrides"] {
-  if (implType !== SectionTypeEnum.TextBlock) {
-    return implOverrides;
-  }
-
-  if (!implOverrides) {
-    return {
-      type: SectionTypeEnum.TextBlock,
-      textDisplayMode: TextBlockDisplayModeEnum.Edit,
-    };
-  }
-
-  const resolvedBase =
-    "type" in implOverrides && implOverrides.type
-      ? implOverrides
-      : { ...implOverrides, type: SectionTypeEnum.TextBlock };
-  if ("textDisplayMode" in resolvedBase && resolvedBase.textDisplayMode) {
-    return resolvedBase;
-  }
-
-  return {
-    ...resolvedBase,
-    textDisplayMode: TextBlockDisplayModeEnum.Edit,
-  };
 }

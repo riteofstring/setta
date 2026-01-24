@@ -5,11 +5,7 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import {
-  SectionTypeEnum,
-  TextBlockFormatEnum,
-  type SectionType,
-} from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -17,7 +13,6 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
-import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 
 type SectionHeaderProps = {
@@ -78,9 +73,6 @@ function _SectionHeader({
             />
           </>
         )}
-        {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
-          <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
-        )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
         {!isUserView && <DeleteOrHideButton sectionId={sectionId} />}
@@ -122,26 +114,17 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const { headingAsSectionName, format, text } = useProjectState((x) => {
+  const headingAsSectionName = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
-    return {
-      headingAsSectionName: impl.headingAsSectionName,
-      format: impl.format,
-      text: impl.text,
-    };
+    return impl.headingAsSectionName;
   }, _.isEqual);
-  const hasMarkdownHeading =
-    format === TextBlockFormatEnum.Markdown && hasMarkdownH1(text);
-  const useHeadingAsSectionName =
-    headingAsSectionName &&
-    (format !== TextBlockFormatEnum.Markdown || hasMarkdownHeading);
 
   return (
-    !useHeadingAsSectionName && (
+    !headingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
         titleProps={getTitleStyles({
@@ -152,17 +135,6 @@ function TextBlockCardTitle({
       />
     )
   );
-}
-
-function hasMarkdownH1(markdown: string) {
-  const trimmed = markdown.trimStart();
-  const match = trimmed.match(
-    /(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)/,
-  );
-  if (!match) {
-    return false;
-  }
-  return match[1].trim().length > 0;
 }
 
 function getTitleStyles({
