@@ -3,11 +3,12 @@ import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useId, useMemo, useRef } from "react";
-import { getDndSectionId, useDndMode } from "../dndState";
+import { getDndSectionId } from "../dndState";
 import {
   clearSortingOverState,
   setSortingOverState,
 } from "../sortingOverState";
+import { useDndProviderContext } from "./DndProviderContext";
 import {
   getSortedRects,
   itemsEqual,
@@ -22,6 +23,7 @@ interface Props {
   strategy?: SortingStrategy;
   id?: string;
   disabled?: boolean | Disabled;
+  forceSorting?: boolean;
 }
 
 interface ContextDescriptor {
@@ -34,6 +36,7 @@ interface ContextDescriptor {
   useDragOverlay: boolean;
   sortedRects: Array<ClientRect | undefined>;
   strategy: SortingStrategy;
+  sortingEnabled: boolean;
 }
 
 const ID_PREFIX = "Sortable";
@@ -51,6 +54,7 @@ export const Context = React.createContext<ContextDescriptor>({
     draggable: false,
     droppable: false,
   },
+  sortingEnabled: false,
 });
 
 export function SortableContext({
@@ -59,9 +63,10 @@ export function SortableContext({
   items: userDefinedItems,
   strategy = rectSortingStrategy,
   disabled: disabledProp = false,
+  forceSorting = false,
 }: Props) {
   const manager = useDragDropManager();
-  const dndMode = useDndMode();
+  const { isSorting, isMovingFree } = useDndProviderContext();
   const isDragActive = useComputed(() => {
     if (!manager) {
       return false;
@@ -70,7 +75,8 @@ export function SortableContext({
     const status = manager.dragOperation.status;
     return status.dragging || status.initializing;
   }, [manager]).value;
-  const shouldTrackSorting = dndMode.isSorting && isDragActive;
+  const sortingEnabled = forceSorting || isSorting;
+  const shouldTrackSorting = sortingEnabled && isDragActive;
   const generatedId = useId();
   const containerId = id ?? `${ID_PREFIX}-${generatedId}`;
   const items = useMemo<UniqueIdentifier[]>(
@@ -125,8 +131,9 @@ export function SortableContext({
   > | null>(null);
 
   const isDragging = shouldTrackSorting && active != null;
+  const allowTemp = isMovingFree || isSorting;
   const activeIndex = shouldTrackSorting
-    ? getActiveIndex(active, items, dndMode.isMovingFree)
+    ? getActiveIndex(active, items, allowTemp)
     : -1;
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
   const resolvedOverId = useMemo(() => {
@@ -258,6 +265,7 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
+      sortingEnabled,
       useDragOverlay,
       sortedRects,
       strategy,
@@ -269,6 +277,7 @@ export function SortableContext({
       disableTransforms,
       items,
       overIndex,
+      sortingEnabled,
       sortedRects,
       useDragOverlay,
       strategy,

@@ -128,10 +128,24 @@
   pointer-events: none;
 }
 
+.react-flow__nodesselection-hitbox {
+  z-index: 1;
+  transform-origin: left top;
+  pointer-events: none;
+}
+
 .react-flow__nodesselection-rect {
   position: absolute;
   pointer-events: all;
   cursor: grab;
+}
+
+.react-flow__nodesselection-hitbox-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
+  background: transparent;
+  border: none;
 }
 
 .react-flow__handle {
