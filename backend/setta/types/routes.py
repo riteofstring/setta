@@ -154,7 +154,7 @@ class Route(str, Enum):
     ACCEPT_RENAME_REFACTOR = "/acceptRenameRefactor"
     DECLINE_RENAME_REFACTOR = "/declineRenameRefactor"
     APPEND_DRAW_AREA_LAYER_ITEM = "/appendDrawAreaLayerItem"
-    MOVE_SECTION = "/moveSection"
+    MOVE_SECTIONS = "/moveSections"
     MOVE_PARAMS = "/moveParams"
     MOVE_PARAM_GROUPS = "/moveParamGroups"
     INDENT_PARAMS = "/indentParams"
