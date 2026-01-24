@@ -26,10 +26,7 @@ export function getPinnedResizeHeight({
   let nextHeight: number | null = null;
   if (typeof startHeight === "number" && Number.isFinite(startHeight)) {
     nextHeight = startHeight + delta.height;
-  } else if (
-    typeof styleHeight === "number" &&
-    Number.isFinite(styleHeight)
-  ) {
+  } else if (typeof styleHeight === "number" && Number.isFinite(styleHeight)) {
     nextHeight = styleHeight;
   }
 

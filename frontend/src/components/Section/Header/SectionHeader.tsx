@@ -17,8 +17,8 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
-import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
+import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 
 type SectionHeaderProps = {
   sectionId: string;
@@ -142,7 +142,7 @@ function TextBlockCardTitle({
     }
     let isFirst = true;
     const debouncedCompute = _.debounce((text: string) => {
-      setHasMarkdownHeading(hasMarkdownH1(text));
+      setHasMarkdownHeading(hasMarkdownHeadingText(text));
     }, 150);
     const unsubscribe = useProjectState.subscribe(
       (state) => {
@@ -156,7 +156,7 @@ function TextBlockCardTitle({
       (text) => {
         if (isFirst) {
           isFirst = false;
-          setHasMarkdownHeading(hasMarkdownH1(text));
+          setHasMarkdownHeading(hasMarkdownHeadingText(text));
           return;
         }
         debouncedCompute(text);
@@ -187,11 +187,9 @@ function TextBlockCardTitle({
   );
 }
 
-function hasMarkdownH1(markdown: string) {
+export function hasMarkdownHeadingText(markdown: string) {
   const trimmed = markdown.trimStart();
-  const match = trimmed.match(
-    /(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)/,
-  );
+  const match = trimmed.match(/(?:^|\n)\s{0,3}#{1,6}(?!#)\s*(.*?)(?=\n|$)/);
   if (!match) {
     return false;
   }

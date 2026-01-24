@@ -1,15 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEBUG_PORT="${DEBUG_PORT:-9222}"
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
 MODE="playwriter"
 AGENT_BROWSER_AUTO_START="${AGENT_BROWSER_AUTO_START:-1}"
 AGENT_BROWSER_URL="${AGENT_BROWSER_URL:-http://${SETTA_HOST:-127.0.0.1}:${SETTA_DEV_FRONTEND_PORT:-3000}}"
 AGENT_BROWSER_BOOTSTRAP="${AGENT_BROWSER_BOOTSTRAP:-1}"
+CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+
+instance_offset() {
+  local instance_name="$1"
+  local segment="${instance_name}"
+
+  case "${segment}" in
+    setta.*)
+      segment="${segment#setta.}"
+      ;;
+  esac
+  case "${segment}" in
+    *-*)
+      segment="${segment##*-}"
+      ;;
+  esac
+  case "${segment}" in
+    *_*)
+      segment="${segment##*_}"
+      ;;
+  esac
+  case "${segment}" in
+    *.*)
+      segment="${segment##*.}"
+      ;;
+  esac
+
+  local offset="${segment##*[!0-9]}"
+  if [ -z "${offset}" ] && [ "${#segment}" -eq 1 ]; then
+    case "${segment}" in
+      [a-z])
+        offset=$(( $(printf '%d' "'${segment}") - 97 ))
+        ;;
+      [A-Z])
+        offset=$(( $(printf '%d' "'${segment}") - 65 ))
+        ;;
+    esac
+  fi
+  if [ -z "${offset}" ] && [ -n "${segment}" ]; then
+    if command -v cksum >/dev/null 2>&1; then
+      CKSUM_OUTPUT=$(printf "%s" "${segment}" | cksum)
+      CKSUM_VALUE=${CKSUM_OUTPUT%% *}
+      if [ -n "${CKSUM_VALUE}" ]; then
+        offset=$(( CKSUM_VALUE % 100 ))
+      fi
+    fi
+  fi
+  echo "${offset:-0}"
+}
+
+INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
+INSTANCE_OFFSET="$(instance_offset "${INSTANCE_NAME}")"
+DEFAULT_DEBUG_PORT=$((9222 + INSTANCE_OFFSET))
+DEBUG_PORT="${DEBUG_PORT:-${DEFAULT_DEBUG_PORT}}"
 
 profile_suffix() {
   local root="$1"
@@ -27,19 +81,19 @@ profile_suffix() {
   basename "$root" | tr ' ' '_'
 }
 
-PROFILE_SUFFIX="$(profile_suffix "$ROOT_DIR")"
+PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
 AGENT_BROWSER_SESSION_DEFAULT="setta-${PROFILE_SUFFIX}"
 AGENT_BROWSER_SESSION="${AGENT_BROWSER_SESSION:-${AGENT_BROWSER_SESSION_DEFAULT}}"
-PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}}"
-PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-shared}"
+MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
+PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
+PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
 PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
 PLAYWRITER_BOOTSTRAP="${PLAYWRITER_BOOTSTRAP:-1}"
-MCP_RUN_DIR="${ROOT_DIR}/setta_files/run/mcp"
 AGENT_BROWSER_TMPDIR="${AGENT_BROWSER_TMPDIR:-${MCP_RUN_DIR}/agent-browser-tmp}"
 AGENT_BROWSER_SOCKET_PATH_LIMIT="${AGENT_BROWSER_SOCKET_PATH_LIMIT:-100}"
 
 default_playwriter_profile_dir() {
-  echo "/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
+  echo "${MCP_RUN_DIR}/playwriter-profile"
 }
 
 resolve_playwright_browsers_path() {
@@ -113,6 +167,12 @@ if [[ -z "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
   if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
     export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="mac-arm64"
   fi
+fi
+
+CHROME_ARGS=()
+if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
+  # shellcheck disable=SC2206
+  CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
 
 write_pid() {
@@ -249,13 +309,14 @@ Use --devtools to start a dedicated Chrome/Chromium instance with remote
 debugging enabled for chrome-devtools-mcp. This is separate from your main profile.
 
 Environment variables:
-  DEBUG_PORT   Remote debugging port (default: 9222)
-  PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
-  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: shared profile; overrides mode)
-  PLAYWRITER_PROFILE_MODE  shared|isolated (default: shared)
+  DEBUG_PORT   Remote debugging port (default: 9222 + worktree offset)
+  PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
+  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: setta_files/run/mcp/playwriter-profile; overrides mode)
+  PLAYWRITER_PROFILE_MODE  shared|isolated (default: isolated)
   PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
   PLAYWRITER_BOOTSTRAP  Open /__setta__/bootstrap with token when possible (default: 1)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
+  CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
   AGENT_BROWSER_AUTO_START  Set to 0 to disable auto-starting agent-browser (default: 1)
   AGENT_BROWSER_SESSION  Session name for agent-browser (default: setta-<worktree-suffix>)
   AGENT_BROWSER_URL  URL to open in agent-browser (default: http://127.0.0.1:3000)
@@ -348,9 +409,10 @@ if [[ "$MODE" == "playwriter" ]]; then
     --user-data-dir="$PLAYWRITER_PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
+    "${CHROME_ARGS[@]}" \
     "$start_url" >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/playwriter.pid" "$!"
-  start_agent_browser
+  # Direct agent-browser launch disabled; rely on CDP via scripts/ab-cdp.sh.
   echo "Playwriter mode: install the extension in ${PLAYWRITER_PROFILE_DIR} and click it on a tab to connect."
   echo "Use --devtools when you want chrome-devtools-mcp instead."
   exit 0
@@ -373,6 +435,7 @@ if [[ "$FOREGROUND" == "1" ]]; then
     --user-data-dir="$PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
+    "${CHROME_ARGS[@]}" \
     about:blank
 else
   "$CHROME_BIN" \
@@ -380,6 +443,7 @@ else
     --user-data-dir="$PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
+    "${CHROME_ARGS[@]}" \
     about:blank >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"

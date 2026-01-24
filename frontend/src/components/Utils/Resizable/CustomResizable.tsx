@@ -28,6 +28,8 @@ import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
+const AUTO_CLAMP_TOLERANCE = 2;
+
 export function CustomResizable({
   sectionId,
   bgColor,
@@ -148,17 +150,23 @@ function CustomResizableCore({
 
   useEffect(() => {
     const nextSize: Partial<SectionSize> = {};
+    const heightDelta =
+      typeof size.height === "number" ? minHeight - size.height : null;
+    const widthDelta =
+      typeof size.width === "number" ? minWidth - size.width : null;
     if (
       sizeMode.height !== SIZE_MODE.auto_only &&
       typeof size.height === "number" &&
-      size.height < minHeight
+      heightDelta !== null &&
+      heightDelta > AUTO_CLAMP_TOLERANCE
     ) {
       nextSize.height = minHeight;
     }
     if (
       sizeMode.width !== SIZE_MODE.auto_only &&
       typeof size.width === "number" &&
-      size.width < minWidth
+      widthDelta !== null &&
+      widthDelta > AUTO_CLAMP_TOLERANCE
     ) {
       nextSize.width = minWidth;
     }

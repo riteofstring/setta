@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEBUG_PORT="${DEBUG_PORT:-9222}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 
 profile_suffix() {
   local root="$1"
@@ -21,14 +21,16 @@ profile_suffix() {
   basename "$root" | tr ' ' '_'
 }
 
-PROFILE_SUFFIX="$(profile_suffix "$ROOT_DIR")"
-PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}}"
-PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-shared}"
+PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
+MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
+PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
+PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
 PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
-MCP_RUN_DIR="${ROOT_DIR}/setta_files/run/mcp"
+LEGACY_PROFILE_DIR="/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}"
+LEGACY_PLAYWRITER_PROFILE_DIR="/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
 
 default_playwriter_profile_dir() {
-  echo "/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
+  echo "${MCP_RUN_DIR}/playwriter-profile"
 }
 
 resolve_playwriter_profile_dir() {
@@ -63,10 +65,9 @@ Usage: stop-browser-mcp.sh [--playwriter] [--devtools]
 Default behavior stops all browser MCP processes.
 
 Environment variables:
-  DEBUG_PORT   Remote debugging port (default: 9222)
-  PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
-  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: shared profile; overrides mode)
-  PLAYWRITER_PROFILE_MODE  shared|isolated (default: shared)
+  PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
+  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: setta_files/run/mcp/playwriter-profile; overrides mode)
+  PLAYWRITER_PROFILE_MODE  shared|isolated (default: isolated)
   PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
 
 Flags:
@@ -164,7 +165,15 @@ stop_by_profile() {
 if [[ "$TARGET_DEVTOOLS" == "1" ]]; then
   if ! stop_pid_file "devtools Chrome" "${MCP_RUN_DIR}/devtools.pid"; then
     if ! stop_by_profile "devtools Chrome (profile ${PROFILE_DIR})" "$PROFILE_DIR"; then
-      echo "No devtools Chrome process for this repo."
+      if [[ "$PROFILE_DIR" != "$LEGACY_PROFILE_DIR" ]]; then
+        if stop_by_profile "devtools Chrome (profile ${LEGACY_PROFILE_DIR})" "$LEGACY_PROFILE_DIR"; then
+          :
+        else
+          echo "No devtools Chrome process for this repo."
+        fi
+      else
+        echo "No devtools Chrome process for this repo."
+      fi
     fi
   fi
 fi
@@ -172,7 +181,15 @@ fi
 if [[ "$TARGET_PLAYWRITER" == "1" ]]; then
   if ! stop_pid_file "playwriter Chrome" "${MCP_RUN_DIR}/playwriter.pid"; then
     if ! stop_by_profile "playwriter Chrome (profile ${PLAYWRITER_PROFILE_DIR})" "$PLAYWRITER_PROFILE_DIR"; then
-      echo "No playwriter Chrome process for this repo."
+      if [[ "$PLAYWRITER_PROFILE_DIR" != "$LEGACY_PLAYWRITER_PROFILE_DIR" ]]; then
+        if stop_by_profile "playwriter Chrome (profile ${LEGACY_PLAYWRITER_PROFILE_DIR})" "$LEGACY_PLAYWRITER_PROFILE_DIR"; then
+          :
+        else
+          echo "No playwriter Chrome process for this repo."
+        fi
+      else
+        echo "No playwriter Chrome process for this repo."
+      fi
     fi
   fi
 fi

@@ -14,9 +14,9 @@ import { createEdgeFromConnection } from "state/actions/edges";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
   getCurrShownParamIds,
   getParamDisplayName,
-  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
@@ -32,14 +32,17 @@ import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
-  getPinnedParamsMinHeightKey,
   getParamGroupPaddingKey,
+  getPinnedParamsMinHeightKey,
   getUnpinnedParamsMinHeightKey,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { SectionSizeModeEnum, isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { route_set_section_pinned_area_height } from "utils/generatedEndpoints";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionSizeModeEnum,
+} from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
 
@@ -150,51 +153,54 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
   const heightKey = getEdgesStripHeightKey(sectionId);
   const { inputPorts, outputPorts, shouldRoundBottom, positionAndSizeLocked } =
     useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const pinned = getCurrShownParamIds(state, sectionId, true, true);
-    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-    const requiredParamIdsToPaths = {
-      ...pinned.requiredParamIdsToPaths,
-      ...unpinned.requiredParamIdsToPaths,
-    };
-    const inputPorts = impl.edgeInputParams
-      .map((paramId) => {
-        const path = requiredParamIdsToPaths[paramId];
-        const label = path
-          ? paramNameFromPathArray(state, sectionId, path)
-          : getParamDisplayName(state, sectionId, paramId);
-        return { id: paramId, label };
-      })
-      .filter((entry) => entry.label.length > 0);
-    const outputPorts = impl.edgeOutputPorts.map((port) => ({
-      id: port.id,
-      label:
-        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-    }));
-    const filteredPinned = filterEdgeInputs(
-      pinned.requiredParamIdsToPaths,
-      pinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const filteredUnpinned = filterEdgeInputs(
-      unpinned.requiredParamIdsToPaths,
-      unpinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
-    const hasUnpinnedParams =
-      !impl.hideUnpinnedParams && filteredUnpinned.topLevelParamIds.length > 0;
-    return {
-      inputPorts,
-      outputPorts,
-      shouldRoundBottom: !hasPinnedParams && !hasUnpinnedParams,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-    };
-  }, _.isEqual);
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        state,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const pinned = getCurrShownParamIds(state, sectionId, true, true);
+      const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+      const requiredParamIdsToPaths = {
+        ...pinned.requiredParamIdsToPaths,
+        ...unpinned.requiredParamIdsToPaths,
+      };
+      const inputPorts = impl.edgeInputParams
+        .map((paramId) => {
+          const path = requiredParamIdsToPaths[paramId];
+          const label = path
+            ? paramNameFromPathArray(state, sectionId, path)
+            : getParamDisplayName(state, sectionId, paramId);
+          return { id: paramId, label };
+        })
+        .filter((entry) => entry.label.length > 0);
+      const outputPorts = impl.edgeOutputPorts.map((port) => ({
+        id: port.id,
+        label:
+          port.accessor.trim() === ""
+            ? C.EDGE_OUTPUT_BASE_LABEL
+            : port.accessor,
+      }));
+      const filteredPinned = filterEdgeInputs(
+        pinned.requiredParamIdsToPaths,
+        pinned.topLevelParamIds,
+        impl.edgeInputParams,
+      );
+      const filteredUnpinned = filterEdgeInputs(
+        unpinned.requiredParamIdsToPaths,
+        unpinned.topLevelParamIds,
+        impl.edgeInputParams,
+      );
+      const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        filteredUnpinned.topLevelParamIds.length > 0;
+      return {
+        inputPorts,
+        outputPorts,
+        shouldRoundBottom: !hasPinnedParams && !hasUnpinnedParams,
+        positionAndSizeLocked: impl.positionAndSizeLocked,
+      };
+    }, _.isEqual);
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
 
@@ -280,20 +286,20 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             {inputPorts.map((port) => (
               <div
                 key={port.id}
-              className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
-            >
-              <Handle
-                id={port.id}
-                type="target"
-                position={HandlePosition.Left}
-                onConnect={createEdgeFromConnection}
-                isConnectable={canEditStructure}
-                isConnectableStart={canEditStructure}
-                isConnectableEnd={canEditStructure}
-              />
-              <span className="truncate">{port.label}</span>
-            </div>
-          ))}
+                className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+              >
+                <Handle
+                  id={port.id}
+                  type="target"
+                  position={HandlePosition.Left}
+                  onConnect={createEdgeFromConnection}
+                  isConnectable={canEditStructure}
+                  isConnectableStart={canEditStructure}
+                  isConnectableEnd={canEditStructure}
+                />
+                <span className="truncate">{port.label}</span>
+              </div>
+            ))}
           </div>
         </div>
         <div className="flex flex-col px-2 pb-3">
@@ -304,20 +310,20 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             {outputPorts.map((port) => (
               <div
                 key={port.id}
-              className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
-            >
-              <span className="truncate">{port.label}</span>
-              <Handle
-                id={port.id}
-                type="source"
-                position={HandlePosition.Right}
-                onConnect={createEdgeFromConnection}
-                isConnectable={canEditStructure}
-                isConnectableStart={canEditStructure}
-                isConnectableEnd={canEditStructure}
-              />
-            </div>
-          ))}
+                className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+              >
+                <span className="truncate">{port.label}</span>
+                <Handle
+                  id={port.id}
+                  type="source"
+                  position={HandlePosition.Right}
+                  onConnect={createEdgeFromConnection}
+                  isConnectable={canEditStructure}
+                  isConnectableStart={canEditStructure}
+                  isConnectableEnd={canEditStructure}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -727,7 +733,7 @@ function ResizablePinnedArea({
     0,
   );
   const maxHeight =
-    typeof contentHeight === "number"
+    typeof contentHeight === "number" && !isPinnedManual
       ? Math.min(availableHeight, contentHeight)
       : availableHeight;
   const pinnedMinHeight =
@@ -814,7 +820,7 @@ function ResizablePinnedArea({
       }}
     >
       <div
-        className="flex w-full flex-1 min-h-0 flex-col pb-3 pt-4"
+        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-4"
         ref={contentRef}
       >
         <header className="flex w-full gap-1 px-2" ref={headerRef}>
@@ -825,7 +831,7 @@ function ResizablePinnedArea({
         </header>
 
         <div
-          className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid w-full flex-1 min-h-0 grid-cols-subgrid content-start gap-y-1 overflow-y-auto pr-1.5`}
+          className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 overflow-y-auto pr-1.5`}
           ref={listRef}
         >
           <GetParamSwitch
@@ -852,25 +858,25 @@ function GetUnpinnedParams({
   const lastMeasuredMinHeightRef = useRef<number | null>(null);
   const { hideUnpinnedParams, hasUnpinnedParams, unpinnedTopLevelParamIds } =
     useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
-    const filteredUnpinned = filterEdgeInputs(
-      unpinned.requiredParamIdsToPaths,
-      unpinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    return {
-      hideUnpinnedParams: impl.hideUnpinnedParams,
-      hasUnpinnedParams:
-        !impl.hideUnpinnedParams &&
-        filteredUnpinned.topLevelParamIds.length > 0,
-      unpinnedTopLevelParamIds: filteredUnpinned.topLevelParamIds,
-    };
-  }, _.isEqual);
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+      const filteredUnpinned = filterEdgeInputs(
+        unpinned.requiredParamIdsToPaths,
+        unpinned.topLevelParamIds,
+        impl.edgeInputParams,
+      );
+      return {
+        hideUnpinnedParams: impl.hideUnpinnedParams,
+        hasUnpinnedParams:
+          !impl.hideUnpinnedParams &&
+          filteredUnpinned.topLevelParamIds.length > 0,
+        unpinnedTopLevelParamIds: filteredUnpinned.topLevelParamIds,
+      };
+    }, _.isEqual);
   const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
   const cachedUnpinnedMinHeight = useTemporaryMiscState(
     (x) => x[unpinnedMinHeightKey] ?? 0,
@@ -1004,9 +1010,7 @@ function GetUnpinnedParams({
       } min-h-0 min-w-0 !max-w-full ${hasUnpinnedParams ? "flex-auto" : ""}`}
       ref={ref}
       style={
-        hasUnpinnedParams
-          ? { minHeight: resolvedUnpinnedMinHeight }
-          : undefined
+        hasUnpinnedParams ? { minHeight: resolvedUnpinnedMinHeight } : undefined
       }
     >
       {!hideUnpinnedParams && (

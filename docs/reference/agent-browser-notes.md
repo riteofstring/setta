@@ -1,6 +1,7 @@
 # Agent-Browser Notes (setta)
 
-- Preferred entrypoint: `pnpm -C frontend abcdp` (or `scripts/ab-cdp`). This uses a CDP-enabled Chrome, applies the bootstrap token, and takes a snapshot.
+- Preferred entrypoint: `pnpm -C frontend abcdp` (or `scripts/ab-cdp.sh`). This uses a CDP-enabled Chrome, applies the bootstrap token, and takes a snapshot.
+- `scripts/ab-cdp.sh` now injects `--cdp` for any agent-browser args passed after `--` (for example: `pnpm -C frontend abcdp -- snapshot -i`).
 
 - Daemon socket bind can fail under the sandbox (EPERM on `/var/folders/.../agent-browser-<session>.sock`). Workaround: start the daemon manually with a dedicated session, then use the same `AGENT_BROWSER_SESSION` for CLI commands. The scripts now default to `setta-<worktree-suffix>` and keep sockets under `setta_files/run/mcp/agent-browser-tmp`. If the daemon still fails to start, check `setta_files/run/mcp/agent-browser-daemon.log`.
 

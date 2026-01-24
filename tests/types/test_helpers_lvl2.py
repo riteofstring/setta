@@ -19,6 +19,7 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_sections,
     get_curr_top_level_param_ids,
+    get_first_markdown_heading,
 )
 from setta.types.project_config import (
     Position,
@@ -213,6 +214,7 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(pan_to.x, position.x + 80.0)
         self.assertAlmostEqual(pan_to.y, position.y + 50.0)
 
+
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -243,6 +245,20 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
+
+
+class MarkdownHeadingTests(unittest.TestCase):
+    def test_get_first_markdown_heading_accepts_h2(self) -> None:
+        text = "## Tasks\nSome text"
+        self.assertEqual(get_first_markdown_heading(text), "Tasks")
+
+    def test_get_first_markdown_heading_accepts_h3_with_indent(self) -> None:
+        text = "  ### Notes\n- item"
+        self.assertEqual(get_first_markdown_heading(text), "Notes")
+
+    def test_get_first_markdown_heading_rejects_h7(self) -> None:
+        text = "####### Too Deep"
+        self.assertIsNone(get_first_markdown_heading(text))
 
 
 if __name__ == "__main__":  # pragma: no cover

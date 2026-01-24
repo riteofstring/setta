@@ -18,10 +18,14 @@ performance profiling.
 1) Start your app:
    `pnpm start`
 
+   Or use the combined helper:
+   `pnpm -C frontend ai` (adds CDP Chrome + bootstrap/app open)
+   `pnpm -C frontend aicdt` (same + auto-open DevTools)
+
 2) Open Chrome normally and load your app (or run `scripts/start-browser-mcp.sh --playwriter`
    for a dedicated profile; install the extension once in that profile).
-   By default, the script uses a shared profile at `~/.setta/playwriter-profile`.
-   Use `--playwriter-isolated` (or `PLAYWRITER_PROFILE_MODE=isolated`) for per-worktree isolation,
+   By default, the script uses a per-worktree profile under `setta_files/run/mcp/playwriter-profile`.
+   Use `--playwriter-shared` (or `PLAYWRITER_PROFILE_MODE=shared`) for a shared profile,
    or `PLAYWRITER_PROFILE_DIR` for a custom profile path.
 
 3) Click the Playwriter extension icon on the tab you want to control.
@@ -58,6 +62,8 @@ performance profiling.
   (use `--playwriter` or `--devtools` to target one).
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.
+- Future option: add dedicated pnpm scripts for Playwriter-only or DevTools-only
+  startup if the current combined helpers are too heavy for your workflow.
 
 ## Playwright E2E (reliable path)
 

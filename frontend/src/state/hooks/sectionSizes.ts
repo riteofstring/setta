@@ -27,12 +27,12 @@ import {
 } from "utils/constants";
 import {
   CodeObjTypeEnum,
+  isBaseSectionWithParamsImpl,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
   SectionTypeEnum,
   SectionWithParamsDisplayModeEnum,
-  isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 

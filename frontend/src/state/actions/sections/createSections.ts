@@ -90,9 +90,7 @@ function ensureSectionOnTop(sectionId: string, attempt = 0) {
     return;
   }
   if (attempt < 20) {
-    requestAnimationFrame(() =>
-      ensureSectionOnTop(sectionId, attempt + 1),
-    );
+    requestAnimationFrame(() => ensureSectionOnTop(sectionId, attempt + 1));
   }
 }
 

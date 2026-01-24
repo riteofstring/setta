@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
 import {
@@ -25,7 +26,6 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 
 type KwargsControlsProps = {
   sectionId: string;
@@ -172,11 +172,11 @@ export function KwargsControls({
       >
         <article className="flex flex-wrap items-center">
           <section className="ml-1 flex items-center gap-1">
-            <h3 className="hidden @[300px]:block my-auto ml-2 mr-[.1rem] text-xs font-bold uppercase tracking-tighter text-setta-600/70 dark:text-setta-400/30">
+            <h3 className="my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter text-setta-600/70 @[300px]:block dark:text-setta-400/30">
               Args
             </h3>
             <button
-              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={() =>
                 route_delete_kwarg({
                   projectConfigId: getCurrProjectConfigId(),
@@ -191,7 +191,7 @@ export function KwargsControls({
               <i className="gg-math-minus before:!left-0 " />
             </button>
             <button
-              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={() =>
                 route_add_kwarg({
                   projectConfigId: getCurrProjectConfigId(),
@@ -207,7 +207,7 @@ export function KwargsControls({
             </button>
 
             <button
-              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={onClickPinParam}
               tabIndex={0}
               disabled={pinParamsDisabled}
@@ -217,7 +217,7 @@ export function KwargsControls({
               <i className="gg-pin-alt mt-1 !scale-50" />
             </button>
             <button
-              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={onClickConvertToEdgeInputs}
               tabIndex={0}
               disabled={convertToEdgeDisabled}
@@ -230,7 +230,7 @@ export function KwargsControls({
               <i className="gg-link !scale-50" />
             </button>
             <button
-              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={onClickDeleteSelectedKwargs}
               tabIndex={0}
               disabled={variantIsFrozen}

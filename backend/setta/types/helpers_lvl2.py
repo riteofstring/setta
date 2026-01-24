@@ -470,7 +470,7 @@ def create_section(
     }
     if isinstance(impl, TextBlockSectionImpl) and impl.headingAsSectionName:
         first_heading = (
-            get_first_markdown_h1(impl.text)
+            get_first_markdown_heading(impl.text)
             if impl.format == TextBlockFormat.Markdown
             else get_first_heading_or_text(impl.text)
         )
@@ -1625,7 +1625,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
     )
     if impl.headingAsSectionName:
         first_heading = (
-            get_first_markdown_h1(text)
+            get_first_markdown_heading(text)
             if impl.format == TextBlockFormat.Markdown
             else get_first_heading_or_text(text)
         )
@@ -1648,7 +1648,7 @@ def set_text_block_heading_as_section_name(
     )
     if headingAsSectionName:
         first_heading = (
-            get_first_markdown_h1(impl.text)
+            get_first_markdown_heading(impl.text)
             if impl.format == TextBlockFormat.Markdown
             else get_first_heading_or_text(impl.text)
         )
@@ -1671,10 +1671,10 @@ def get_first_heading_or_text(markdown: str):
     return None
 
 
-def get_first_markdown_h1(markdown: str):
+def get_first_markdown_heading(markdown: str):
     trimmed_markdown = markdown.lstrip()
     heading_match = re.search(
-        r"(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)",
+        r"(?:^|\n)\s{0,3}#{1,6}(?!#)\s*(.*?)(?=\n|$)",
         trimmed_markdown,
     )
     if heading_match:
