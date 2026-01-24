@@ -1139,7 +1139,7 @@ class BaseProjectManager(ABC):
         refetch_targets: list[tuple[ID, str]] = []
         for section_id in sorted(sectionIds):
             if section_id not in project_state.sections:
-                raise KeyError(f"Missing section {section_id}.")
+                continue
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CallableSectionImpl):
                 continue

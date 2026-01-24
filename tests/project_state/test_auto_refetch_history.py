@@ -254,6 +254,14 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(self.manager.history._history), history_len)
 
+    async def test_auto_refetch_missing_section_is_ignored(self):
+        history_len = len(self.manager.history._history)
+        await self.manager.auto_refetch_callable_params(
+            self.project_state.projectConfig.id,
+            {ID("missing-section")},
+        )
+        self.assertEqual(len(self.manager.history._history), history_len)
+
     async def test_auto_refetch_updates_on_empty_callable_name(self):
         project_state = self.project_state.model_copy(deep=True)
         section_impl = get_curr_effective_section_impl(project_state, self.section_id)
