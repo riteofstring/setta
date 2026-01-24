@@ -11,12 +11,12 @@ from watchdog.observers import Observer
 
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.utils import convert_path_to_module_path
+from setta.types.dependency_key import create_dep_key
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
     resolve_top_level_section_position_and_pan,
 )
-from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import (
@@ -872,9 +872,7 @@ class WatchCodeManager:
                     project_config_id, callable_name, source=callable_name
                 )
 
-    def _create_callable_section(
-        self, project_state: ProjectStateSingleConfig
-    ) -> ID:
+    def _create_callable_section(self, project_state: ProjectStateSingleConfig) -> ID:
         settings = self._project_manager.settings_file.settings
         position, _ = resolve_top_level_section_position_and_pan(
             settings,
