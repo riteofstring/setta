@@ -55,9 +55,9 @@ reparent both sections and params in the project UI.
 - Move/over: `useDropType` evaluates collisions, `pastHalfway`, and
   `triggerDistCondition` to update `useDndChildren` and `behaviorDropType`.
 - End: `useMoveSection.useOnDragEnd` commits the move.
-  - Sorting calls `moveSectionWithBackend` with the new index.
+  - Sorting calls `moveSectionsWithBackend` with the new index.
   - Moving free resolves the new parent/index (or canvas position) and then
-    calls `moveSectionWithBackend`.
+    calls `moveSectionsWithBackend`.
   - Cancelled drags force a reset via `forceDeactivateDnd`.
 
 ## Drop rules

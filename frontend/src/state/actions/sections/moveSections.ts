@@ -1,8 +1,4 @@
-import {
-  addNodes,
-  deleteNodes,
-  justMoveANode,
-} from "state/actions/nodeInternals";
+import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
 import { useNodeInternals, ZustandProjectState } from "state/definitions";
 import { route_move_sections } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
@@ -117,10 +113,11 @@ function moveSectionsToPane({
     removeTopLevelNodes: false,
   });
   let maxZIndex = getMaxZIndex();
+  const existingMoves: Array<{ id: string; position: Position }> = [];
   for (const sectionId of sectionIds) {
     const position = positionsById[sectionId];
     if (hasNode(sectionId)) {
-      justMoveANode(sectionId, position);
+      existingMoves.push({ id: sectionId, position });
       updateTopLevelLayout(
         state,
         sectionId,
@@ -142,6 +139,7 @@ function moveSectionsToPane({
     ]);
     updateTopLevelLayout(state, sectionId, position, maxZIndex);
   }
+  moveNodes(existingMoves);
   for (const sectionId of sectionIds) {
     state.parentSectionMap[sectionId] = null;
   }
