@@ -825,10 +825,10 @@ class SetSocialUrlRequest(ProjectManagerRequestWithSection):
     url: str
 
 
-class MoveSectionRequest(ProjectManagerRequestWithSection):
+class MoveSectionsRequest(ProjectManagerRequestWithSectionIds):
     newParentId: ID | None
     newIndex: int | None
-    position: Position | None
+    positionsById: dict[ID, Position] | None
 
 
 class GroupSectionsRequest(ProjectManagerRequestWithSectionIds):

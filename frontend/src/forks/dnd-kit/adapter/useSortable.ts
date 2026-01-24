@@ -72,7 +72,7 @@ export function useSortable({
   } = useContext(Context);
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
   const index = items.indexOf(id);
-  const { isSorting: isSortingMode } = useDndProviderContext();
+  const { isSorting: isSortingMode, isMovingFree } = useDndProviderContext();
   const manager = useDragDropManager();
   const isDragActive = useComputed(() => {
     if (!manager) {
@@ -85,7 +85,8 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const itemType =
     typeof customData?.type === "string" ? customData.type : null;
-  const disableFeedback = sortingEnabled || itemType === "param";
+  const disableFeedback =
+    sortingEnabled || isMovingFree || itemType === "param";
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
