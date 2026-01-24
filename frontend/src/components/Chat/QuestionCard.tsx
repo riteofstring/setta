@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IoMdCheckmark } from "react-icons/io";
 import { respondExternalAgentQuestion } from "state/actions/ai";
 import {
   AskUserQuestionPayload,
@@ -193,6 +194,22 @@ export function QuestionCard({
   }
   if (hasMissingOtherValue) {
     helperText = "Fill in the custom response for each custom selection.";
+  }
+
+  let footerStatus = (
+    <span className="mr-auto text-xs text-setta-500">{helperText}</span>
+  );
+  if (error) {
+    footerStatus = (
+      <span className="mr-auto text-xs text-red-500">{error}</span>
+    );
+  } else if (answered) {
+    footerStatus = (
+      <span className="mr-auto flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+        <IoMdCheckmark className="text-emerald-500" size={12} />
+        Submitted
+      </span>
+    );
   }
 
   return (
@@ -394,53 +411,51 @@ export function QuestionCard({
           </div>
         )}
       </div>
-      {answered ? null : (
-        <div className="border-t border-setta-100 bg-setta-50 px-3 py-2 dark:border-setta-800 dark:bg-setta-950/40">
-          <div className="flex flex-wrap items-center gap-2">
-            {error ? (
-              <span className="mr-auto text-xs text-red-500">{error}</span>
-            ) : (
-              <span className="mr-auto text-xs text-setta-500">
-                {helperText}
-              </span>
-            )}
-            {hasSummary ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveIndex((prev) => Math.max(prev - 1, 0))
-                  }
-                  disabled={activeIndex === 0}
-                  className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
-                >
-                  Previous
-                </button>
-                {isSummaryTab ? null : (
+      <div className="border-t border-setta-100 bg-setta-50 px-3 py-2 dark:border-setta-800 dark:bg-setta-950/40">
+        <div className="flex flex-wrap items-center gap-2">
+          {footerStatus}
+          {answered ? null : (
+            <>
+              {hasSummary ? (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() =>
-                      setActiveIndex((prev) => Math.min(prev + 1, lastTabIndex))
+                      setActiveIndex((prev) => Math.max(prev - 1, 0))
                     }
-                    className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
+                    disabled={activeIndex === 0}
+                    className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
                   >
-                    {activeIndex === questionCount - 1 ? "Review" : "Next"}
+                    Previous
                   </button>
-                )}
-              </div>
-            ) : null}
-            {showSubmit ? (
-              <button
-                className="cursor-pointer rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleSubmit}
-                disabled={!canSubmit || pending}
-              >
-                Submit
-              </button>
-            ) : null}
-          </div>
+                  {isSummaryTab ? null : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveIndex((prev) =>
+                          Math.min(prev + 1, lastTabIndex),
+                        )
+                      }
+                      className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
+                    >
+                      {activeIndex === questionCount - 1 ? "Review" : "Next"}
+                    </button>
+                  )}
+                </div>
+              ) : null}
+              {showSubmit ? (
+                <button
+                  className="cursor-pointer rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || pending}
+                >
+                  Submit
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
