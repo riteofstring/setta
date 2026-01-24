@@ -2,8 +2,6 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
-
 from setta.database.backup import maybe_create_backup
 from setta.lsp.managers import NoopLSPWriters
 from setta.project_state.base_project_manager import BaseProjectManager
@@ -14,10 +12,8 @@ from setta.project_state.jsonSource.save import (
 )
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
-    RunDetachedRequest,
     SaveAsNewProjectConfigRequest,
 )
-from setta.project_state.readable_export import build_readable_project_export
 from setta.project_state.settings_project import apply_settings_display_names
 from setta.share.policy import ensure_share_listener_emit_updates_allowed
 from setta.types.helpers_lvl3 import (
@@ -246,19 +242,6 @@ class SessionProjectManager(BaseProjectManager):
         )
 
     @BaseProjectManager.enqueue_method
-    async def create_run_command_with_overrides(
-        self,
-        x: RunDetachedRequest,
-    ) -> tuple[str, Path, ID | None]:
-        if self.share_runtime_state is None:
-            return (
-                await BaseProjectManager.create_run_command_with_overrides.__wrapped__(
-                    self, x
-                )
-            )
-        raise NotImplementedError("Share mode does not support detached run overrides.")
-
-    @BaseProjectManager.enqueue_method
     async def load_json_sources(
         self,
         json_sources: dict[Path, object],
@@ -303,21 +286,6 @@ class SessionProjectManager(BaseProjectManager):
         )
         self.dbe.write_project(payload)
         self.artifacts.save()
-        self._maybe_export_readable_project()
-
-    def _maybe_export_readable_project(self) -> None:
-        backend_settings = self.settings_file.settings.backend
-        export_readable = backend_settings.exportDbReadableOnSave
-        export_with_variants = backend_settings.exportDbReadableWithVariantsOnSave
-        if not export_readable and not export_with_variants:
-            return
-        payload = build_readable_project_export(
-            self.project_state_backend,
-            include_variants=export_with_variants,
-        )
-        output_path = self.dbe.path / "project.readable.yaml"
-        yaml_payload = yaml.safe_dump(payload, sort_keys=False)
-        self.dbe.write(output_path, yaml_payload)
 
     def _save_settings_project(self) -> None:
         self._flush_code_files_for_all_configs()

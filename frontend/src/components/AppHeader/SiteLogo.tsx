@@ -1,28 +1,18 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { resolveHomePath } from "utils/constants";
+import { siteLogoOnKeyDown } from "utils/tabbingLogic";
 
 export function SiteLogo() {
   const navigate = useNavigate();
   const location = useLocation();
   const homePath = resolveHomePath(location.pathname);
 
-  function onKeyDown(event: React.KeyboardEvent<HTMLAnchorElement>) {
-    if (event.code !== "Space") {
-      return;
-    }
-    if (location.pathname === homePath) {
-      return;
-    }
-    event.preventDefault();
-    navigate(homePath);
-  }
-
   return (
     <Link
       id="SiteLogo"
       className="rounded-md outline-2 outline-offset-4 outline-blue-500 focus-visible:outline"
       to={homePath}
-      onKeyDown={onKeyDown}
+      onKeyDown={(e) => siteLogoOnKeyDown(e, navigate, location, homePath)}
     >
       <SVG
         styles="w-12 mt-[4px] group"

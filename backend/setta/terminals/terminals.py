@@ -6,7 +6,6 @@ import platform
 import select
 import shlex
 import time
-import warnings
 from asyncio import CancelledError
 from collections import defaultdict, deque
 from typing import Any, Callable
@@ -76,18 +75,7 @@ class Terminals:
             terminal_shell = get_terminal_shell(
                 self.settings_file.settings.backend.defaultTerminalShell
             )
-            # Python 3.13 warns about forkpty in multi-threaded processes; ptyprocess
-            # still relies on forkpty, so suppress the specific deprecation noise here.
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message=(
-                        r"This process .* use of forkpty\(\) may lead to deadlocks in the child\."
-                    ),
-                    category=DeprecationWarning,
-                    module="pty",
-                )
-                pty_process = PtyProcess.spawn(terminal_shell)
+            pty_process = PtyProcess.spawn(terminal_shell)
             self.PTY_PIDS[sectionId] = {
                 "pid": pty_process.pid,
                 "start": time.time(),
