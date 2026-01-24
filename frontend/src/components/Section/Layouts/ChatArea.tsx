@@ -1,24 +1,15 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
-import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import {
-  getChatPlaceholderText,
-  getExternalEngineStatus,
-} from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
-  pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
-import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
-  findLatestRunningExternalRunId,
   getDefaultChatDetails,
-  getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   submitMessage,
@@ -36,14 +27,12 @@ import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import {
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_stop_external_agent_run,
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
   ChatSectionState,
   DependencyKeyTypeEnum,
-  EngineTypeEnum,
   SectionTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
@@ -135,9 +124,8 @@ function emitChatStopAction({
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
-    engineConfigId,
-    agentProfileId,
-    thinking,
+    llmConfigId,
+    deepThink,
     messages,
     inputText,
     waitingForResponse,
@@ -151,9 +139,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     );
     return {
       managed: impl.managed,
-      engineConfigId: impl.engineConfigId,
-      agentProfileId: impl.agentProfileId,
-      thinking: impl.thinking,
+      llmConfigId: impl.llmConfigId,
+      deepThink: impl.deepThink,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -166,9 +153,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return (
       <ManagedChatArea
         sectionId={sectionId}
-        engineConfigId={engineConfigId}
-        agentProfileId={agentProfileId}
-        thinking={thinking}
+        llmConfigId={llmConfigId}
+        deepThink={deepThink}
       />
     );
   }
@@ -368,19 +354,16 @@ function ScriptableChatArea({
 
 type ManagedChatAreaProps = {
   sectionId: string;
-  engineConfigId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
+  llmConfigId: string | null;
+  deepThink: boolean;
 };
 
 function ManagedChatArea({
   sectionId,
-  engineConfigId,
-  agentProfileId,
-  thinking,
+  llmConfigId,
+  deepThink,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
-  useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const chatId = useProjectState((state) => {
@@ -391,6 +374,7 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
+
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
       if (chatId === null) {
@@ -404,24 +388,10 @@ function ManagedChatArea({
     shallow,
   );
 
-  const {
-    apiKeys,
-    allLLMConfigs,
-    agentProfiles,
-    engineConfigs,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
-    externalAgentConfigs,
-  } = useAIStore(
+  const { apiKeys, allLLMConfigs } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
       allLLMConfigs: state.allLLMConfigs,
-      agentProfiles: state.agentProfiles,
-      engineConfigs: state.engineConfigs,
-      externalAgentHealth: state.externalAgentHealth,
-      externalAgentHealthInitialLoadComplete:
-        state.externalAgentHealthInitialLoadComplete,
-      externalAgentConfigs: state.externalAgentConfigs,
     }),
     _.isEqual,
   );
@@ -431,118 +401,20 @@ function ManagedChatArea({
     [allLLMConfigs, apiKeys],
   );
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
-  const selectedProfile = useMemo(() => {
-    if (!agentProfileId) {
-      return null;
-    }
-    return (
-      agentProfiles.find((profile) => profile.id === agentProfileId) ?? null
-    );
-  }, [agentProfileId, agentProfiles]);
-  const effectiveEngineConfigId =
-    engineConfigId ?? selectedProfile?.engineConfigId ?? null;
-  const selectedEngineConfig = useMemo(() => {
-    if (!effectiveEngineConfigId) {
-      return null;
-    }
-    return (
-      engineConfigs.find((config) => config.id === effectiveEngineConfigId) ??
-      null
-    );
-  }, [effectiveEngineConfigId, engineConfigs]);
-  const engineType = selectedEngineConfig?.engineType ?? null;
-  const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const selectedLLMConfigId = useMemo(() => {
-    if (!selectedEngineConfig) {
-      return null;
-    }
-    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-      return null;
-    }
-    return (
-      selectedEngineConfig.settaLlmConfigId ??
-      pickDefaultConfigId(allLLMConfigs)
-    );
-  }, [allLLMConfigs, selectedEngineConfig]);
-  const hasEngineConfig = Boolean(selectedEngineConfig);
-  const hasLLMConfig = Boolean(selectedLLMConfigId);
-  const externalEngineStatus = useMemo(
-    () =>
-      getExternalEngineStatus(
-        selectedEngineConfig,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      ),
-    [
-      selectedEngineConfig,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    ],
-  );
-  const externalEngineAvailable = externalEngineStatus
-    ? externalEngineStatus.status === "available"
-    : true;
-  const externalAgentConfig = useMemo(() => {
-    if (!selectedEngineConfig?.externalAgentConfigId) {
-      return null;
-    }
-    return (
-      externalAgentConfigs.find(
-        (config) => config.id === selectedEngineConfig.externalAgentConfigId,
-      ) ?? null
-    );
-  }, [externalAgentConfigs, selectedEngineConfig]);
-  const showPlanModeBadge =
-    engineType === EngineTypeEnum.external_agent &&
-    externalAgentConfig?.toolType === "claude_code" &&
-    externalAgentConfig.approvalPolicy === "plan";
 
-  const placeholderText = getChatPlaceholderText({
-    engineType,
-    hasEngineConfig,
-    hasLLMConfig,
-    noLLMConfigsAvailable: noConfigsAvailable,
-  });
-  const externalStatusMessage = useMemo(() => {
-    if (!externalEngineStatus) {
-      return null;
-    }
-    if (externalEngineStatus.status === "loading") {
-      return "Checking external engine status...";
-    }
-    if (externalEngineStatus.status === "available") {
-      return "External engine available";
-    }
-    if (externalEngineStatus.issues.length > 0) {
-      return `External engine unavailable: ${externalEngineStatus.issues.join(
-        "; ",
-      )}`;
-    }
-    return "External engine unavailable";
-  }, [externalEngineStatus]);
-  const externalStatusClassName = useMemo(() => {
-    if (!externalEngineStatus) {
-      return "";
-    }
-    if (externalEngineStatus.status === "available") {
-      return "text-emerald-600 dark:text-emerald-400";
-    }
-    if (externalEngineStatus.status === "loading") {
-      return "text-setta-500 dark:text-setta-400";
-    }
-    return "text-red-600 dark:text-red-400";
-  }, [externalEngineStatus]);
+  let placeholderText = "Type a message...";
+  if (noConfigsAvailable) {
+    placeholderText = "Add API key!";
+  } else if (!llmConfigId) {
+    placeholderText = "Select an LLM";
+  }
 
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
-    if (isExternalEngine) {
-      getExternalAgentChat(chatId, projectConfigId);
-      return;
-    }
     getLLMChat(chatId);
-  }, [chatId, isExternalEngine, projectConfigId]);
+  }, [chatId]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
@@ -599,13 +471,7 @@ function ManagedChatArea({
       if (!message.trim()) {
         return;
       }
-      if (!hasEngineConfig) {
-        return;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
+      if (!llmConfigId) {
         return;
       }
       const messageId = createNewId();
@@ -626,17 +492,12 @@ function ManagedChatArea({
       let submittedChatId: string | null = null;
       let succeeded = false;
       try {
-        if (!effectiveEngineConfigId) {
-          return;
-        }
         submittedChatId = await submitMessage(
           chatId,
           message,
-          thinking,
-          effectiveEngineConfigId,
-          isExternalEngine,
+          deepThink,
+          llmConfigId,
           messageId,
-          agentProfileId,
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
@@ -649,66 +510,31 @@ function ManagedChatArea({
     },
     [
       chatId,
-      effectiveEngineConfigId,
+      deepThink,
       handleNewChatSettled,
       handleNewChatStart,
-      hasEngineConfig,
-      isExternalEngine,
-      externalEngineAvailable,
-      hasLLMConfig,
-      agentProfileId,
-      messages,
+      llmConfigId,
       sectionId,
-      thinking,
     ],
   );
 
   const handleStop = useCallback(async () => {
+    if (typeof chatId !== "string") {
+      return;
+    }
     emitChatStopAction({
       sectionId,
       managed: true,
       timestampMs: Date.now(),
     });
-    if (isExternalEngine) {
-      if (typeof chatId !== "string") {
-        return;
-      }
-      const runId = await findLatestRunningExternalRunId(
-        chatId,
-        projectConfigId,
-      );
-      if (!runId) {
-        return;
-      }
-      await route_stop_external_agent_run({ runId });
-      return;
-    }
-    if (typeof chatId !== "string") {
-      return;
-    }
     await route_stop_llm_chat({ chatId });
-  }, [chatId, isExternalEngine, projectConfigId, sectionId]);
+  }, [chatId, sectionId]);
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
-  const isDisabled =
-    !hasEngineConfig ||
-    (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
-    (isExternalEngine && !externalEngineAvailable);
+  const isDisabled = !llmConfigId || noConfigsAvailable;
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
-      {externalStatusMessage || showPlanModeBadge ? (
-        <div className="flex items-center justify-between gap-2 px-4 pt-2">
-          {externalStatusMessage ? (
-            <p className={`text-xs ${externalStatusClassName}`}>
-              {externalStatusMessage}
-            </p>
-          ) : (
-            <span />
-          )}
-          {showPlanModeBadge ? <PlanModeBadge /> : null}
-        </div>
-      ) : null}
       <ChatMessageList
         messages={messages}
         waitingForResponse={waitingForResponse}
