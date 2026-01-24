@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -14,7 +16,6 @@ from setta.agentic.external_adapters.base import (
 )
 from setta.agentic.external_adapters.prompt_utils import build_prompt_from_inputs
 from setta.agentic.external_adapters.stream_utils import (
-    collect_stream_lines,
     iter_stream_lines,
     parse_json_line,
 )
@@ -43,63 +44,101 @@ logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "codex_sdk_runner.mjs"
 _MESSAGE_ITEM_TYPES = {"agent_message", "assistant_message", "message"}
 _REASONING_ITEM_TYPES = {"reasoning"}
+_MAX_CLI_STDERR_LINES = 200
+
+
+@dataclass
+class _CodexProcessState:
+    process: asyncio.subprocess.Process
+    queue: asyncio.Queue[str | None]
+    stderr_lines: list[str]
+    reader_task: asyncio.Task[None]
+    stderr_task: asyncio.Task[None] | None
+    lock: asyncio.Lock
+    config_id: str
+    working_dir: Path
+    env_signature: tuple[tuple[str, str], ...]
+    thread_id: str | None = None
 
 
 class CodexSdkAdapter(ExternalAgentAdapter):
     tool_type = ExternalAgentToolType.codex
     supported_run_modes = {ExternalAgentRunMode.sdk}
+    _process_states: dict[str, _CodexProcessState] = {}
+    _process_lock = asyncio.Lock()
 
     async def start_run(
         self, context: ExternalAgentRunContext
     ) -> ExternalAgentRunHandle:
         prompt = self._build_prompt(context)
-        command = self._build_command(context)
-        logger.info("Starting Codex SDK run: %s", " ".join(command))
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(context.working_dir),
-            env=context.env,
-        )
-        if process.stdin is not None:
-            payload = {
-                "prompt": prompt,
-                "itemId": str(context.run.id),
-            }
-            thread_id = _extract_thread_id(context.inputs)
-            if thread_id is not None:
-                payload["threadId"] = thread_id
-            process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
-            await process.stdin.drain()
-        return ExternalAgentRunHandle(run_id=context.run.id, process=process)
+        state = await self._ensure_process_state(context)
+        await state.lock.acquire()
+        handle = ExternalAgentRunHandle(run_id=context.run.id, process=state.process)
+        handle.metadata["stderr_lines"] = state.stderr_lines
+        handle.metadata["process_state"] = state
+        handle.metadata["run_id"] = str(context.run.id)
+        if state.thread_id:
+            handle.thread_id = state.thread_id
+        process = state.process
+        try:
+            if process.stdin is not None:
+                payload = {
+                    "prompt": prompt,
+                    "runId": str(context.run.id),
+                }
+                thread_id = _extract_thread_id(context.inputs)
+                if thread_id is not None:
+                    payload["threadId"] = thread_id
+                process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
+                await process.stdin.drain()
+            return handle
+        except Exception:
+            state.lock.release()
+            raise
 
     async def stream_events(
         self, handle: ExternalAgentRunHandle, _context: ExternalAgentRunContext
     ) -> AsyncIterator[ExternalAgentStreamEvent]:
         process = handle.process
-        if process is None or process.stdout is None:
+        state = handle.metadata.get("process_state")
+        run_id = handle.metadata.get("run_id")
+        if (
+            process is None
+            or not isinstance(state, _CodexProcessState)
+            or not isinstance(run_id, str)
+        ):
             return
-        stderr_task: asyncio.Task[list[str]] | None = None
-        if process.stderr is not None:
-            stderr_task = asyncio.create_task(collect_stream_lines(process.stderr))
         parser = _CodexSdkEventParser()
-        async for line in iter_stream_lines(process.stdout):
-            if not line:
-                continue
-            raw = parse_json_line(line)
-            if raw is None:
-                yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
-                continue
-            _maybe_set_thread_id(handle, raw)
-            for event in parser.handle(raw):
-                yield event
-        if stderr_task is not None:
-            for line in await stderr_task:
-                if line:
-                    yield ExternalAgentStreamEvent(raw={"type": "stderr", "text": line})
-        handle.return_code = await process.wait()
+        try:
+            while True:
+                line = await state.queue.get()
+                if line is None:
+                    handle.return_code = await process.wait()
+                    break
+                if not line:
+                    continue
+                raw = parse_json_line(line)
+                if raw is None:
+                    yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
+                    continue
+                raw_run_id = raw.get("settaRunId")
+                if isinstance(raw_run_id, str) and raw_run_id and raw_run_id != run_id:
+                    continue
+                if raw.get("type") in {"thread.started", "thread.start"}:
+                    thread_id = raw.get("thread_id") or raw.get("threadId")
+                    if isinstance(thread_id, str) and thread_id:
+                        handle.thread_id = thread_id
+                        state.thread_id = thread_id
+                for event in parser.handle(raw):
+                    yield event
+                event_type = raw.get("type")
+                if event_type in {"turn.completed", "turn.complete"}:
+                    break
+                if event_type in {"turn.failed", "turn.error"}:
+                    handle.return_code = 1
+                    break
+        finally:
+            state.lock.release()
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
         process = handle.process
@@ -133,6 +172,120 @@ class CodexSdkAdapter(ExternalAgentAdapter):
             "Codex SDK tool responses are not supported "
             f"(run_id={handle.run_id}, tool_call_id={tool_call_id}, payload_keys={payload_keys})"
         )
+
+    @classmethod
+    async def _ensure_process_state(
+        cls, context: ExternalAgentRunContext
+    ) -> _CodexProcessState:
+        key = str(context.chat_id)
+        async with cls._process_lock:
+            state = cls._process_states.get(key)
+            if state is not None and state.process.returncode is not None:
+                await cls._cleanup_state(state)
+                state = None
+            if state is not None and not cls._state_matches(state, context):
+                await cls._terminate_state(state)
+                await cls._cleanup_state(state)
+                state = None
+            if state is None:
+                state = await cls._spawn_process(context)
+                cls._process_states[key] = state
+            return state
+
+    @classmethod
+    async def _spawn_process(
+        cls, context: ExternalAgentRunContext
+    ) -> _CodexProcessState:
+        command = cls._build_command(context)
+        logger.info("Starting Codex SDK run: %s", " ".join(command))
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(context.working_dir),
+            env=context.env,
+        )
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        stderr_lines: list[str] = []
+        reader_task = asyncio.create_task(cls._read_stdout(process, queue))
+        stderr_task = None
+        if process.stderr is not None:
+            stderr_task = asyncio.create_task(cls._read_stderr(process, stderr_lines))
+        return _CodexProcessState(
+            process=process,
+            queue=queue,
+            stderr_lines=stderr_lines,
+            reader_task=reader_task,
+            stderr_task=stderr_task,
+            lock=asyncio.Lock(),
+            config_id=str(context.config.id),
+            working_dir=context.working_dir,
+            env_signature=cls._env_signature(context.env),
+        )
+
+    @classmethod
+    async def _terminate_state(cls, state: _CodexProcessState) -> None:
+        process = state.process
+        if process.returncode is not None:
+            return
+        process.terminate()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            process.kill()
+
+    @classmethod
+    async def _cleanup_state(cls, state: _CodexProcessState) -> None:
+        state.reader_task.cancel()
+        if state.stderr_task is not None:
+            state.stderr_task.cancel()
+        with contextlib.suppress(Exception):
+            await state.reader_task
+        if state.stderr_task is not None:
+            with contextlib.suppress(Exception):
+                await state.stderr_task
+
+    @classmethod
+    def _state_matches(
+        cls, state: _CodexProcessState, context: ExternalAgentRunContext
+    ) -> bool:
+        if state.config_id != str(context.config.id):
+            return False
+        if state.working_dir != context.working_dir:
+            return False
+        if state.env_signature != cls._env_signature(context.env):
+            return False
+        return True
+
+    @staticmethod
+    def _env_signature(env: dict[str, str]) -> tuple[tuple[str, str], ...]:
+        return tuple(sorted(env.items()))
+
+    @staticmethod
+    async def _read_stdout(
+        process: asyncio.subprocess.Process,
+        queue: asyncio.Queue[str | None],
+    ) -> None:
+        if process.stdout is None:
+            await queue.put(None)
+            return
+        async for line in iter_stream_lines(process.stdout):
+            await queue.put(line)
+        await queue.put(None)
+
+    @staticmethod
+    async def _read_stderr(
+        process: asyncio.subprocess.Process, stderr_lines: list[str]
+    ) -> None:
+        if process.stderr is None:
+            return
+        async for line in iter_stream_lines(process.stderr):
+            if not line:
+                continue
+            stderr_lines.append(line)
+            if len(stderr_lines) > _MAX_CLI_STDERR_LINES:
+                del stderr_lines[: len(stderr_lines) - _MAX_CLI_STDERR_LINES]
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:

@@ -95,7 +95,7 @@ class AgenticStoreTests(unittest.TestCase):
                     defaultModel="o1",
                     sandboxPolicy="read-only",
                     approvalPolicy="on-failure",
-                    envVarWhitelist=["OPENAI_API_KEY"],
+                    envVarWhitelist=["CODEX_API_KEY"],
                     workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
                 ),
                 ExternalAgentConfig(

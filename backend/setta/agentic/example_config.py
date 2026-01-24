@@ -81,7 +81,7 @@ _DEFAULT_EXTERNAL_AGENT_CONFIGS: list[ExternalAgentConfig] = [
         settingsFilePath=None,
         settingsAllowSettaEdits=True,
         settingsManagedBlock=None,
-        envVarWhitelist=["OPENAI_API_KEY"],
+        envVarWhitelist=["CODEX_API_KEY"],
         workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
         workingDir=None,
     ),

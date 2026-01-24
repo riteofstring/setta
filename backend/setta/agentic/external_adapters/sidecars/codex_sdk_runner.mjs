@@ -241,13 +241,31 @@ const rl = readline.createInterface({
   crlfDelay: Infinity,
 });
 
-let resolveStartPayload;
-let startPayloadResolved = false;
-const startPayloadPromise = new Promise((resolve) => {
-  resolveStartPayload = resolve;
-});
-
 const pendingApprovals = new Map();
+const inputQueue = [];
+let resolveNextInput = null;
+let stdinClosed = false;
+
+function enqueueInput(payload) {
+  if (resolveNextInput) {
+    resolveNextInput(payload);
+    resolveNextInput = null;
+    return;
+  }
+  inputQueue.push(payload);
+}
+
+async function nextInput() {
+  if (inputQueue.length > 0) {
+    return inputQueue.shift();
+  }
+  if (stdinClosed) {
+    return null;
+  }
+  return new Promise((resolve) => {
+    resolveNextInput = resolve;
+  });
+}
 
 function resolveApprovalResponse(payload) {
   const approvalId = extractApprovalId(payload, payload);
@@ -289,57 +307,97 @@ rl.on("line", (line) => {
     resolveApprovalResponse(payload);
     return;
   }
-  if (!startPayloadResolved && (payload.type === "start" || payload.prompt)) {
-    startPayloadResolved = true;
-    resolveStartPayload(payload);
+  if (payload.type === "start" || payload.prompt) {
+    enqueueInput(payload);
+  }
+});
+rl.on("close", () => {
+  stdinClosed = true;
+  if (resolveNextInput) {
+    resolveNextInput(null);
+    resolveNextInput = null;
   }
 });
 
-const input = await startPayloadPromise;
-if (!input) {
-  process.exit(0);
-}
-
-const prompt = typeof input.prompt === "string" ? input.prompt : "";
-const threadId = typeof input.threadId === "string" ? input.threadId : null;
-const itemId = typeof input.itemId === "string" ? input.itemId : `item_${Date.now()}`;
-
 const codex = new Codex();
-const thread = threadId ? codex.resumeThread(threadId) : codex.startThread();
-const resolvedThreadId = extractThreadId(thread);
-if (resolvedThreadId) {
-  writeEvent({ type: "thread.started", thread_id: resolvedThreadId });
+let thread = null;
+let activeThreadId = null;
+
+async function runTurn(input) {
+  const prompt = typeof input.prompt === "string" ? input.prompt : "";
+  const runId =
+    typeof input.runId === "string"
+      ? input.runId
+      : typeof input.itemId === "string"
+        ? input.itemId
+        : `run_${Date.now()}`;
+  const desiredThreadId = typeof input.threadId === "string" ? input.threadId : null;
+  if (!thread || (desiredThreadId && desiredThreadId !== activeThreadId)) {
+    thread = desiredThreadId ? codex.resumeThread(desiredThreadId) : codex.startThread();
+    activeThreadId = extractThreadId(thread);
+    if (activeThreadId) {
+      writeEvent({
+        type: "thread.started",
+        thread_id: activeThreadId,
+        settaRunId: runId,
+      });
+    }
+  }
+
+  writeEvent({ type: "turn.started", settaRunId: runId });
+  try {
+    if (typeof thread.runStreamed === "function") {
+      const streamResult = await Promise.resolve(thread.runStreamed(prompt));
+      const events = streamResult?.events ?? streamResult;
+      if (!events || typeof events[Symbol.asyncIterator] !== "function") {
+        throw new Error("Codex SDK runStreamed() did not return an async iterable");
+      }
+      for await (const event of events) {
+        const approvalRequest = maybeHandleApprovalRequest(event, thread);
+        if (approvalRequest) {
+          const responder =
+            approvalRequest.responder ||
+            ((approved) => {
+              writeEvent({
+                type: "error",
+                message: `Codex SDK approval ${approvalRequest.approvalId} has no responder; decision=${approved}`,
+                settaRunId: runId,
+              });
+            });
+          pendingApprovals.set(approvalRequest.approvalId, responder);
+          writeEvent({ ...approvalRequest.payload, settaRunId: runId });
+          continue;
+        }
+        writeEvent({ ...event, settaRunId: runId });
+      }
+    } else {
+      const result = await thread.run(prompt);
+      const text = extractText(result);
+      writeEvent({
+        type: "item.started",
+        item: { id: runId, type: "agent_message" },
+        settaRunId: runId,
+      });
+      writeEvent({
+        type: "item.completed",
+        item: { id: runId, type: "agent_message", text },
+        settaRunId: runId,
+      });
+    }
+    writeEvent({ type: "turn.completed", settaRunId: runId });
+  } catch (err) {
+    writeEvent({
+      type: "turn.failed",
+      error: { message: err instanceof Error ? err.message : String(err) },
+      settaRunId: runId,
+    });
+  }
 }
 
-writeEvent({ type: "turn.started" });
-if (typeof thread.runStreamed === "function") {
-  for await (const event of thread.runStreamed(prompt)) {
-    const approvalRequest = maybeHandleApprovalRequest(event, thread);
-    if (approvalRequest) {
-      const responder =
-        approvalRequest.responder ||
-        ((approved) => {
-          writeEvent({
-            type: "error",
-            message: `Codex SDK approval ${approvalRequest.approvalId} has no responder; decision=${approved}`,
-          });
-        });
-      pendingApprovals.set(approvalRequest.approvalId, responder);
-      writeEvent(approvalRequest.payload);
-      continue;
-    }
-    writeEvent(event);
+while (true) {
+  const input = await nextInput();
+  if (!input) {
+    break;
   }
-} else {
-  const result = await thread.run(prompt);
-  const text = extractText(result);
-  writeEvent({
-    type: "item.started",
-    item: { id: itemId, type: "agent_message" },
-  });
-  writeEvent({
-    type: "item.completed",
-    item: { id: itemId, type: "agent_message", text },
-  });
+  await runTurn(input);
 }
-writeEvent({ type: "turn.completed" });

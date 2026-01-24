@@ -276,7 +276,7 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         defaultModel="o1-mini",
                         sandboxPolicy="read-only",
                         approvalPolicy="on-failure",
-                        envVarWhitelist=["OPENAI_API_KEY"],
+                        envVarWhitelist=["CODEX_API_KEY"],
                         workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
                     ),
                     ctx,

@@ -687,18 +687,18 @@ class ExternalAgentRunnerTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
+            dbe.write_dot_env({"CODEX_API_KEY": "secret"})
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=["OPENAI_API_KEY"],
+                envVarWhitelist=["CODEX_API_KEY"],
             )
 
             env = runner._build_env(config)
 
-            self.assertEqual(env.get("OPENAI_API_KEY"), "secret")
+            self.assertEqual(env.get("CODEX_API_KEY"), "secret")
 
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
