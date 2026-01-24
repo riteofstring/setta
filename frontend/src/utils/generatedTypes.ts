@@ -1169,7 +1169,9 @@ export function createDrawAreaLayer(
 }
 
 const SectionSizeSchema = z.object({
-  width: z.union([z.number(), z.literal("auto")]).default(250.0),
+  width: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   height: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
@@ -1750,7 +1752,9 @@ const TerminalSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 250.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -4238,7 +4242,9 @@ function createUserDefaultSocialSectionImpl(
 
 const UserDefaultTerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 250.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),

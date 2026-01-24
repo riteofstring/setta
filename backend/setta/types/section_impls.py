@@ -51,7 +51,7 @@ class SectionSize(BaseModel, extra="forbid"):
     """Explicit width/height constraints that layout-aware tools can override."""
 
     width: float | Literal[SectionSizeMode.auto] = Field(
-        default=250.0,
+        default=SectionSizeMode.auto,
         description="Section width in pixels or 'auto' to defer to layout heuristics.",
     )
     height: float | Literal[SectionSizeMode.auto] = Field(

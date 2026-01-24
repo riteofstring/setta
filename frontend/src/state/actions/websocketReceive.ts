@@ -144,8 +144,8 @@ export const openWebSocket = _.debounce(
             await fetchListenerCoverageSnapshot(projectConfigId);
           }
         } else {
-          startAuthRefresh();
           const projectConfigId = getCurrProjectConfigId();
+          let runImmediateAuthRefresh = true;
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
             const res = await route_get_latest_project_state({
               projectConfigId: getCurrProjectConfigId(),
@@ -153,8 +153,10 @@ export const openWebSocket = _.debounce(
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
+              runImmediateAuthRefresh = false;
             }
           }
+          startAuthRefresh({ runImmediately: runImmediateAuthRefresh });
         }
       });
 
@@ -283,9 +285,11 @@ function stopShareHeartbeat() {
   shareHeartbeatTimer = null;
 }
 
-function startAuthRefresh() {
+function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
   stopAuthRefresh();
-  void runAuthRefresh();
+  if (runImmediately) {
+    void runAuthRefresh();
+  }
   authRefreshTimer = window.setInterval(() => {
     void runAuthRefresh();
   }, AUTH_REFRESH_INTERVAL_MS);

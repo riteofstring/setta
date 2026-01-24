@@ -4,11 +4,17 @@ from setta.types.section_impls import (
     ChartSectionImpl,
     ChatSectionImpl,
     DrawSectionImpl,
+    SectionSize,
+    SectionSizeMode,
 )
 from setta.types.settings_state import SectionSizingPolicy
 
 
 class SectionDefaultSizingTests(unittest.TestCase):
+    def test_section_size_defaults_to_auto_width(self) -> None:
+        size = SectionSize()
+        self.assertEqual(size.width, SectionSizeMode.auto)
+
     def test_default_section_sizes_meet_policy_minimums(self) -> None:
         policy = SectionSizingPolicy()
         cases = [
