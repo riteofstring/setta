@@ -452,11 +452,13 @@ const ChatMessage = memo(function ChatMessage({
     () => getStreamActivityKey(assistantContent),
     [assistantContent],
   );
+  const spinnerDelayMs =
+    assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming && toolCalls.length === 0,
     activityKey,
-    IDLE_SPINNER_DELAY_MS,
+    spinnerDelayMs,
   );
 
   if (message.role === ChatRoleEnum.assistant) {
