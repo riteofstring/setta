@@ -264,6 +264,35 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
         self.assertEqual(errors[section_id].callable, ["MissingFunc is not defined"])
         self.assertIn(section_id, undefined_sections)
 
+    def test_ignored_callable_undefined_still_tracked(self):
+        project_state, section_id, _ = build_project_state("value")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        dep_key = create_dep_key(sectionId=section_id)
+        line = code_generator.lines[dep_key]
+        value_start = line.pos + line.prefix_len
+        value_end = value_start + line.value_len
+        start = value_start
+        end = min(value_start + 4, value_end)
+        code = code_generator.code
+        diagnostic = build_diagnostic(
+            code,
+            start,
+            end,
+            "MissingFunc is not defined",
+            "reportUndefinedFunction",
+        )
+
+        ignored = {section_id: TypeErrorIgnoreState(callable=True, params={})}
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
+            [diagnostic],
+            code_generator,
+            dep_graph,
+            ignored,
+        )
+        self.assertEqual(errors, {})
+        self.assertIn(section_id, undefined_sections)
+
     def test_undefined_symbol_on_param_does_not_mark_callable(self):
         project_state, section_id, param_id = build_project_state("unknown_symbol")
         dep_graph, code_generator = build_code_generator(project_state)

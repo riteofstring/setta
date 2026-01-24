@@ -57,6 +57,8 @@ def process_gen_code_diagnostics_with_undefined_symbols(
             range_index,
             is_undefined_symbol,
         ):
+            if is_undefined_symbol and param_id is None:
+                undefined_callable_sections.add(section_id)
             if should_ignore_type_error(
                 section_id,
                 param_id,
@@ -64,8 +66,6 @@ def process_gen_code_diagnostics_with_undefined_symbols(
             ):
                 continue
             add_error_message(output, section_id, param_id, message)
-            if is_undefined_symbol and param_id is None:
-                undefined_callable_sections.add(section_id)
     return output, undefined_callable_sections
 
 
