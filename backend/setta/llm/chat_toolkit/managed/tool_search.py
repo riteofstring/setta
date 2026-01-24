@@ -9,6 +9,7 @@ from setta.mcp.tool_search_index import (
     build_tool_search_entries_from_llm_definitions,
 )
 from setta.types.chat_messages import ToolCall, ToolChatMessage, ToolReferenceContent
+from setta.types.id import ID
 
 
 def run_local_search_tool(
@@ -112,6 +113,7 @@ def format_tool_reference_summary(tool_names: list[str]) -> str:
 
 def build_search_tool_chat_message(
     *,
+    chat_id: ID,
     tool_name: str,
     tool_call: ToolCall,
     call_result: CallToolResult,
