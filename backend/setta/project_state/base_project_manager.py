@@ -68,7 +68,6 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
-from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectBasicCode,
@@ -310,7 +309,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    CallableSectionImpl,
     ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
@@ -329,9 +327,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
-
-HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
-HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -965,12 +960,6 @@ class BaseProjectManager(ABC):
     )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
-        section_ids = sorted(x.sectionSizes.keys())
-        coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
-        self.add_new_history_entry(
-            coalesce_key=coalesce_key,
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)
         await self.update_and_broadcast_project_state(project_state)
@@ -1008,11 +997,7 @@ class BaseProjectManager(ABC):
 
         if python_codegen_enabled:
             dep_graph = DependencyGraph(projectState)
-            prev_undefined_callable_sections: set[ID] = set()
             if projectConfigId in self.gen_code:
-                prev_undefined_callable_sections = set(
-                    self.gen_code[projectConfigId].latest_undefined_callable_sections
-                )
                 await self.maybe_do_rename_refactor(
                     projectState, projectConfigId, dep_graph
                 )
@@ -1037,8 +1022,6 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
                 ignore_type_errors_by_section,
-                initial_undefined_callable_sections=prev_undefined_callable_sections,
-                on_callable_symbols_resolved=self.auto_refetch_callable_params,
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
@@ -1125,58 +1108,6 @@ class BaseProjectManager(ABC):
         async with self._project_state_lock.read_lock():
             gen_code = self._require_python_codegen(projectConfigId)
         await gen_code.type_check()
-
-    @enqueue_method
-    async def auto_refetch_callable_params(
-        self,
-        projectConfigId: ID,
-        sectionIds: set[ID],
-    ) -> None:
-        if not sectionIds:
-            return
-        project_state = self.get_single_config_state(projectConfigId)
-        refetch_targets: list[tuple[ID, str]] = []
-        for section_id in sorted(sectionIds):
-            if section_id not in project_state.sections:
-                raise KeyError(f"Missing section {section_id}.")
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CallableSectionImpl):
-                continue
-            if section_impl.callable is None:
-                continue
-            callable_id = section_impl.callable
-            if callable_id not in project_state.codeObjs:
-                raise KeyError(
-                    f"Missing callable {callable_id} for section {section_id}."
-                )
-            callable_name = project_state.codeObjs[callable_id].name
-            refetch_targets.append((section_id, callable_name))
-        if not refetch_targets:
-            return
-        refetch_section_ids = [section_id for section_id, _ in refetch_targets]
-        coalesce_key = (
-            f"autoRefetchCallable:{projectConfigId}:"
-            f"{','.join(map(str, refetch_section_ids))}"
-        )
-        self.add_new_history_entry(
-            coalesce_key=coalesce_key,
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
-        gen_code = self._require_python_codegen(projectConfigId)
-        settings = self.settings_file.settings
-        did_update = False
-        for section_id, callable_name in refetch_targets:
-            response = await gen_code.set_callable(
-                settings,
-                project_state,
-                section_id,
-                callable_name,
-                True,
-            )
-            if response.lspStatus != SignatureHelpStatus.SKIPPED:
-                did_update = True
-        if did_update:
-            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
@@ -1368,10 +1299,7 @@ class BaseProjectManager(ABC):
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
-        self.add_new_history_entry(
-            coalesce_key=(f"param:{x.projectConfigId}:{x.sectionId}:{x.paramInfoId}"),
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
             project_state,
@@ -1409,10 +1337,7 @@ class BaseProjectManager(ABC):
     )
     async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
         """Set a parameter's name and value in one step."""
-        self.add_new_history_entry(
-            coalesce_key=f"param:{x.projectConfigId}:{x.sectionId}:{x.codeObjId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
         set_param_entered_value(
@@ -2205,10 +2130,6 @@ class BaseProjectManager(ABC):
         Passing `None` for the viewport instructs the UI to re-fit the project into
         view instead of persisting explicit coordinates.
         """
-        self.add_new_history_entry(
-            coalesce_key=f"viewport:{x.projectConfigId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-        )
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].viewport = x.viewport
@@ -2378,20 +2299,12 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
-        self.add_new_history_entry(
-            coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
-        self.add_new_history_entry(
-            coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_column_widths(
             project_state,
@@ -2553,17 +2466,12 @@ class BaseProjectManager(ABC):
         if x.newParentId is None:
             if x.position is None:
                 raise KeyError("Expected position when moving section to pane.")
-            self.add_new_history_entry(
-                coalesce_key=f"moveSection:{x.projectConfigId}:{x.sectionId}",
-                coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            )
             move_section_to_pane(project_state, x.sectionId, x.position)
         else:
             if x.newIndex is None:
                 raise KeyError(
                     "Expected newIndex when moving section into parent section."
                 )
-            self.add_new_history_entry()
             move_section_to_parent_section(
                 project_state, x.newParentId, x.sectionId, x.newIndex
             )
@@ -2729,15 +2637,8 @@ class BaseProjectManager(ABC):
     def project_state_backend_getter_fn(self):
         return self.project_state_backend
 
-    def add_new_history_entry(
-        self,
-        trigger_autosave: bool = True,
-        coalesce_key: str | None = None,
-        coalesce_window_s: float | None = None,
-    ):
-        self.history.add_current_copy(
-            coalesce_key=coalesce_key, coalesce_window_s=coalesce_window_s
-        )
+    def add_new_history_entry(self, trigger_autosave=True):
+        self.history.add_current_copy()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
 
