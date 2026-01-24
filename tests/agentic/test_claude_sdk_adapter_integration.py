@@ -520,13 +520,10 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
             self.assertTrue(settings_path.exists())
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
-            setta_block = payload.get("setta")
-            self.assertIsInstance(setta_block, dict)
-            if isinstance(setta_block, dict):
-                permissions = setta_block.get("permissions")
-                self.assertIsInstance(permissions, dict)
-                if isinstance(permissions, dict):
-                    self.assertEqual(permissions.get("ask"), ["Bash(echo:*)"])
+            permissions = payload.get("permissions")
+            self.assertIsInstance(permissions, dict)
+            if isinstance(permissions, dict):
+                self.assertEqual(permissions.get("ask"), ["Bash(echo:*)"])
 
     async def test_claude_sdk_emits_thinking_blocks(self) -> None:
         self._require_claude_sdk()

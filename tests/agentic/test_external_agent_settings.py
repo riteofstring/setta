@@ -52,10 +52,7 @@ class ExternalAgentSettingsTests(unittest.TestCase):
             expected = project_root / ".claude" / "settings.local.json"
             self.assertEqual(path, expected)
             payload = json.loads(expected.read_text(encoding="utf-8"))
-            self.assertIn("setta", payload)
-            setta_block = payload.get("setta")
-            self.assertIsInstance(setta_block, dict)
-            permissions = setta_block.get("permissions") if isinstance(setta_block, dict) else None
+            permissions = payload.get("permissions")
             self.assertIsInstance(permissions, dict)
             if isinstance(permissions, dict):
                 self.assertEqual(permissions.get("allow"), ["Read"])
@@ -99,13 +96,10 @@ class ExternalAgentSettingsTests(unittest.TestCase):
             self.assertEqual(path, settings_path)
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("userSetting"), {"foo": "bar"})
-            setta_block = payload.get("setta")
-            self.assertIsInstance(setta_block, dict)
-            if isinstance(setta_block, dict):
-                permissions = setta_block.get("permissions")
-                self.assertIsInstance(permissions, dict)
-                if isinstance(permissions, dict):
-                    self.assertEqual(permissions.get("allow"), ["New"])
+            permissions = payload.get("permissions")
+            self.assertIsInstance(permissions, dict)
+            if isinstance(permissions, dict):
+                self.assertEqual(permissions.get("allow"), ["New"])
 
     def test_write_claude_settings_file_read_only_skips(self) -> None:
         with TemporaryDirectory() as tmpdir:

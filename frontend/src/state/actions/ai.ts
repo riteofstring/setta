@@ -749,7 +749,7 @@ type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
 
 type RunPayload = Record<string, unknown>;
 
-export function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
   const outputMessages = extractRunMessages(run.outputs);
   if (outputMessages) {
     return buildChatSectionState(
@@ -1373,8 +1373,7 @@ export function finalizePendingChatDetails(chatId: string) {
       state.activeChatId === null ||
       state.activeChatId === undefined ||
       state.activeChatId === chatId;
-    const needsActiveUpdate =
-      shouldSetActive && state.activeChatId !== chatId;
+    const needsActiveUpdate = shouldSetActive && state.activeChatId !== chatId;
     if (!pendingDetails && !needsActiveUpdate) {
       return {};
     }

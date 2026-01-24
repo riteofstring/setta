@@ -14,7 +14,6 @@ import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
@@ -33,6 +32,7 @@ import {
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import {
   route_set_chat_section_chat_id,

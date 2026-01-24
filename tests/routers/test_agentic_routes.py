@@ -9,6 +9,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from setta.agentic.external_agent_defaults import (
+    DEFAULT_CLAUDE_ALLOW_RULES,
     DEFAULT_CLAUDE_ASK_RULES,
     DEFAULT_OPENCODE_PERMISSION,
 )
@@ -342,13 +343,11 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
             self.assertTrue(settings_path.exists())
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
-            setta_block = payload.get("setta")
-            self.assertIsInstance(setta_block, dict)
-            if isinstance(setta_block, dict):
-                permissions = setta_block.get("permissions")
-                self.assertIsInstance(permissions, dict)
-                if isinstance(permissions, dict):
-                    self.assertEqual(permissions.get("ask"), DEFAULT_CLAUDE_ASK_RULES)
+            permissions = payload.get("permissions")
+            self.assertIsInstance(permissions, dict)
+            if isinstance(permissions, dict):
+                self.assertEqual(permissions.get("allow"), DEFAULT_CLAUDE_ALLOW_RULES)
+                self.assertEqual(permissions.get("ask"), DEFAULT_CLAUDE_ASK_RULES)
 
     async def test_external_agent_config_initializes_codex_settings_file(self) -> None:
         with TemporaryDirectory() as tmpdir:

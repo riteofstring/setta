@@ -151,7 +151,7 @@ export const ChatInput = memo(function ChatInput({
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${buttonClassName} disabled:opacity-40 focus:outline-none focus:ring-0 dark:hover:text-blue-700`}
+          className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${buttonClassName} focus:outline-none focus:ring-0 disabled:opacity-40 dark:hover:text-blue-700`}
         >
           {buttonIcon}
         </button>

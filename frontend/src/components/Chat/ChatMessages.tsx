@@ -353,7 +353,7 @@ const ToolCallItem = memo(function ToolCallItem({
           />
         </Accordion.Trigger>
 
-        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=open]:-mt-2.5 data-[state=open]:mb-2">
+        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=open]:-mt-2.5 data-[state=open]:mb-2 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
             <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
               <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
