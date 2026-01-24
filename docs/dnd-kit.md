@@ -30,7 +30,8 @@ reparent both sections and params in the project UI.
 ## State and temporary children
 
 - `useDndState` stores the active/over ids, mode flags, and the current
-  `behaviorDropType`.
+  `behaviorDropType`. It also tracks `draggingIds` for multi-selection and
+  `draggingRectsById` for selection bounding boxes.
 - `useDndChildren` mirrors the current parent -> children map so drag reordering
   can happen without mutating project state. It is synced from project state in
   `frontend/src/state/subscriptions.ts`.
@@ -48,16 +49,31 @@ reparent both sections and params in the project UI.
 - Shortcuts for both modes are registered in
   `frontend/src/state/actions/keyActivations.ts`.
 
+## Selection-aware drags
+
+- Dragging in share mode always targets the active section only.
+- In non-share mode, drag selection is resolved from `projectConfig.activeIds`:
+  the drag uses root selections (selected sections that do not have a selected
+  ancestor).
+- Selection across multiple parents is rejected with a notification and falls
+  back to dragging the active section only.
+- Moving-free drags derive a bounding rect for the selection. This keeps drag
+  overlays and dnd shapes stable for multi-section moves.
+- The selection rectangle exposes a drag handle (`NodesSelectionDragHandle`)
+  during moving-free mode so users can drag the entire selection from the
+  selection box.
+
 ## Drag lifecycle
 
-- Start: `useDropType.onDragStart` sets the active section size and swaps in the
-  temp placeholder when moving free.
+- Start: `useDropType.onDragStart` resolves the drag selection, sets the active
+  section size (or selection-derived size), and swaps in the temp placeholder
+  when moving free.
 - Move/over: `useDropType` evaluates collisions, `pastHalfway`, and
   `triggerDistCondition` to update `useDndChildren` and `behaviorDropType`.
 - End: `useMoveSection.useOnDragEnd` commits the move.
   - Sorting calls `moveSectionsWithBackend` with the new index.
-  - Moving free resolves the new parent/index (or canvas position) and then
-    calls `moveSectionsWithBackend`.
+  - Moving free resolves the new parent/index or per-section canvas positions
+    (`positionsById`) and then calls `moveSectionsWithBackend`.
   - Cancelled drags force a reset via `forceDeactivateDnd`.
 
 ## Drop rules
