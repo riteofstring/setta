@@ -55,6 +55,7 @@ type NameValidationOptions = {
   allowEmpty: boolean;
   requirePythonIdentifier: boolean;
   allowedCharsRegex?: RegExp;
+  skipPathChecks?: boolean;
 };
 
 function validateName(
@@ -71,11 +72,13 @@ function validateName(
   if (CONTROL_CHAR_REGEX.test(normalized)) {
     return `${options.label} cannot include control characters.`;
   }
-  if (normalized.includes("/") || normalized.includes("\\")) {
-    return `${options.label} cannot include path separators.`;
-  }
-  if (normalized.includes("..")) {
-    return `${options.label} cannot include '..' path segments.`;
+  if (!options.skipPathChecks) {
+    if (normalized.includes("/") || normalized.includes("\\")) {
+      return `${options.label} cannot include path separators.`;
+    }
+    if (normalized.includes("..")) {
+      return `${options.label} cannot include '..' path segments.`;
+    }
   }
   if (
     options.allowedCharsRegex &&
@@ -122,6 +125,7 @@ export function validateParamNameInput(
   options: {
     allowEmpty: boolean;
     requirePythonIdentifier: boolean;
+    skipPathChecks?: boolean;
   },
 ): string | null {
   return validateName(name, {
@@ -129,5 +133,6 @@ export function validateParamNameInput(
     reservedNames: PARAM_RESERVED_NAMES,
     allowEmpty: options.allowEmpty,
     requirePythonIdentifier: options.requirePythonIdentifier,
+    skipPathChecks: options.skipPathChecks,
   });
 }

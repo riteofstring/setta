@@ -18,6 +18,7 @@ import {
   route_set_code_obj_name,
 } from "utils/generatedEndpoints";
 import {
+  isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
@@ -43,6 +44,7 @@ export function ParamNameInput({
 }: ParamNameInputProps) {
   const {
     configLanguage,
+    isDictSection,
     displayName,
     name,
     isKwarg,
@@ -70,6 +72,7 @@ export function ParamNameInput({
     return {
       // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
+      isDictSection: isBaseDictSectionImpl(impl),
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
       isKwarg: codeObjImpl.coreNameEditable,
@@ -87,6 +90,7 @@ export function ParamNameInput({
     (state) => state.paramErrors[paramInfoId],
   );
   const requirePythonIdentifier =
+    !isDictSection &&
     pythonCodegenEnabled &&
     (passingStyle === "DEFAULT" || passingStyle === "KEYWORD_ONLY");
   const validationError = useDisplayName
@@ -94,6 +98,7 @@ export function ParamNameInput({
     : validateParamNameInput(value, {
         allowEmpty: isKwarg,
         requirePythonIdentifier,
+        skipPathChecks: isDictSection,
       });
   const errorMessages: Array<string> = [];
   if (validationError) {

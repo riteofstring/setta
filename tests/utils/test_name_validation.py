@@ -1,10 +1,18 @@
 import unittest
 
+from setta.types.code_obj_impls import CodeCallableCodeObjImpl
+from setta.types.core import Core
+from setta.types.generated.impl_args_as_typed_dicts import (
+    CallableSectionImplArgsWithCallable,
+)
 from setta.types.generated.settings_state import SettingsState
+from setta.types.id import ID
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
+    add_code_obj,
     add_kwarg,
     create_child_sections,
     create_top_level_section,
@@ -24,6 +32,20 @@ from setta.utils.name_validation import (
     collect_section_name_conflicts,
     validate_param_name,
 )
+
+
+def _ensure_callable_root(
+    project_state: ProjectStateSingleConfig,
+    section_id: ID,
+) -> None:
+    callable_impl = CodeCallableCodeObjImpl()
+    callable_core = Core(name="callable")
+    add_code_obj(project_state, [section_id], callable_core, callable_impl)
+    set_curr_effective_section_impl_value(
+        project_state,
+        section_id,
+        CallableSectionImplArgsWithCallable(callable=callable_core.id),
+    )
 
 
 class ProjectNameValidationTests(unittest.TestCase):
@@ -372,10 +394,11 @@ class ParamNameValidationTests(unittest.TestCase):
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
-            SectionType.Dict,
+            SectionType.Callable,
             Position(),
         )
         self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
         param_id = add_kwarg(self.settings, self.project_state, section_id)
         with self.assertRaises(InvalidParamName):
             validate_param_name(
@@ -389,10 +412,11 @@ class ParamNameValidationTests(unittest.TestCase):
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
-            SectionType.Dict,
+            SectionType.Callable,
             Position(),
         )
         self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
         param_id = add_kwarg(self.settings, self.project_state, section_id)
         with self.assertRaises(InvalidParamName):
             validate_param_name(
@@ -406,6 +430,58 @@ class ParamNameValidationTests(unittest.TestCase):
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        with self.assertRaises(InvalidParamName):
+            validate_param_name(
+                self.project_state,
+                section_id,
+                param_id,
+                "bad/name",
+            )
+
+    def test_dict_param_name_allows_punctuation(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        normalized = validate_param_name(
+            self.project_state,
+            section_id,
+            param_id,
+            "user-id@v2",
+        )
+        self.assertEqual("user-id@v2", normalized)
+
+    def test_dict_param_name_allows_path_like_keys(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        normalized = validate_param_name(
+            self.project_state,
+            section_id,
+            param_id,
+            "foo/bar..baz",
+        )
+        self.assertEqual("foo/bar..baz", normalized)
+
+    def test_dict_param_name_rejects_control_chars(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
             SectionType.Dict,
             Position(),
         )
@@ -416,7 +492,7 @@ class ParamNameValidationTests(unittest.TestCase):
                 self.project_state,
                 section_id,
                 param_id,
-                "bad/name",
+                "bad\nname",
             )
 
     def test_param_name_duplicate_rejected(self) -> None:

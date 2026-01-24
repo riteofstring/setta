@@ -314,6 +314,14 @@ def _get_section_param_root_id(
     raise TypeError(f"Section {section_id} does not support params.")
 
 
+def _is_dict_param(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+) -> bool:
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    return isinstance(section_impl, BaseDictSectionImpl)
+
+
 def _collect_param_hierarchy(
     project_state: "ProjectStateSingleConfig",
     section_id: "ID",
@@ -353,28 +361,29 @@ def validate_param_name_format(
                 return normalized
     _ensure_non_empty(normalized, InvalidParamName, "Param name")
     _ensure_no_control_chars(normalized, InvalidParamName, "Param name")
-    _ensure_no_path_separators(normalized, InvalidParamName, "Param name")
-    _ensure_no_dotdot(normalized, InvalidParamName, "Param name")
-    _ensure_not_reserved(
-        normalized, PARAM_RESERVED_NAMES, InvalidParamName, "Param name"
-    )
-    python_codegen_enabled = project_config_has_codegen_language(
-        project_state.projectConfig, ProjectCodegenLanguage.python
-    )
-    if python_codegen_enabled and code_obj_impl.passingStyle in (
-        ParameterPassingStyle.DEFAULT,
-        ParameterPassingStyle.KEYWORD_ONLY,
-    ):
-        if not normalized.isidentifier():
-            _raise_invalid_name(
-                "Param name must be a valid Python identifier.",
-                InvalidParamName,
-            )
-        if keyword.iskeyword(normalized):
-            _raise_invalid_name(
-                "Param name cannot be a Python keyword.",
-                InvalidParamName,
-            )
+    if not _is_dict_param(project_state, section_id):
+        _ensure_no_path_separators(normalized, InvalidParamName, "Param name")
+        _ensure_no_dotdot(normalized, InvalidParamName, "Param name")
+        _ensure_not_reserved(
+            normalized, PARAM_RESERVED_NAMES, InvalidParamName, "Param name"
+        )
+        python_codegen_enabled = project_config_has_codegen_language(
+            project_state.projectConfig, ProjectCodegenLanguage.python
+        )
+        if python_codegen_enabled and code_obj_impl.passingStyle in (
+            ParameterPassingStyle.DEFAULT,
+            ParameterPassingStyle.KEYWORD_ONLY,
+        ):
+            if not normalized.isidentifier():
+                _raise_invalid_name(
+                    "Param name must be a valid Python identifier.",
+                    InvalidParamName,
+                )
+            if keyword.iskeyword(normalized):
+                _raise_invalid_name(
+                    "Param name cannot be a Python keyword.",
+                    InvalidParamName,
+                )
     return normalized
 
 
