@@ -40,7 +40,7 @@ type ChatSectionSettingsPayload = {
   managed: boolean;
   engineConfigId: string | null;
   agentProfileId: string | null;
-  deepThink: boolean;
+  thinking: boolean;
 };
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
@@ -50,7 +50,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const { canEditParams } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
 
-  const { managed, engineConfigId, agentProfileId, deepThink, isFrozen } =
+  const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
     useProjectState((state) => {
       const impl = getCurrEffectiveSectionImplOfType(
         state,
@@ -61,7 +61,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         managed: impl.managed,
         engineConfigId: impl.engineConfigId,
         agentProfileId: impl.agentProfileId,
-        deepThink: impl.deepThink,
+        thinking: impl.thinking,
         isFrozen: impl.isFrozen,
       };
     }, _.isEqual);
@@ -195,7 +195,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             managed: nextSettings.managed,
             engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
-            deepThink: nextSettings.deepThink,
+            thinking: nextSettings.thinking,
           });
         },
         send: (frontendOpId) =>
@@ -205,7 +205,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             managed: nextSettings.managed,
             engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
-            deepThink: nextSettings.deepThink,
+            thinking: nextSettings.thinking,
             frontendOpId,
           }),
       });
@@ -219,19 +219,19 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         managed: value,
         engineConfigId,
         agentProfileId,
-        deepThink,
+        thinking,
       });
     },
-    [agentProfileId, deepThink, engineConfigId, updateSettings],
+    [agentProfileId, engineConfigId, thinking, updateSettings],
   );
 
-  const handleDeepThinkChange = useCallback(
+  const handleThinkingChange = useCallback(
     (value: boolean) => {
       updateSettings({
         managed,
         engineConfigId,
         agentProfileId,
-        deepThink: value,
+        thinking: value,
       });
     },
     [agentProfileId, engineConfigId, managed, updateSettings],
@@ -263,10 +263,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         managed,
         engineConfigId,
         agentProfileId: value,
-        deepThink,
+        thinking,
       });
     },
-    [deepThink, engineConfigId, managed, updateSettings],
+    [engineConfigId, managed, thinking, updateSettings],
   );
 
   const handleNewChat = useCallback(() => {
@@ -295,7 +295,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         managed,
         engineConfigId: nextEngineId,
         agentProfileId,
-        deepThink,
+        thinking,
       });
       if (nextEngineId !== selectedEngineId) {
         handleNewChat();
@@ -303,10 +303,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [
       agentProfileId,
-      deepThink,
       handleNewChat,
       managed,
       selectedEngineId,
+      thinking,
       updateSettings,
     ],
   );
@@ -378,12 +378,12 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             <>
               <div className="flex w-full items-center justify-between gap-4">
                 <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-                  Deep Think
+                  Thinking
                 </p>
                 <SwitchInput
                   isDisabled={isDisabled}
-                  value={deepThink}
-                  onChange={handleDeepThinkChange}
+                  value={thinking}
+                  onChange={handleThinkingChange}
                   outerDivClassName="flex items-center"
                 />
               </div>

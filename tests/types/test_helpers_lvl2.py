@@ -158,7 +158,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
             managed=True,
             engineConfigId=engine_config_id,
             agentProfileId=agent_profile_id,
-            deepThink=True,
+            thinking=True,
         )
 
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -169,7 +169,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
         self.assertTrue(section_impl.managed)
         self.assertEqual(section_impl.engineConfigId, engine_config_id)
         self.assertEqual(section_impl.agentProfileId, agent_profile_id)
-        self.assertTrue(section_impl.deepThink)
+        self.assertTrue(section_impl.thinking)
 
 
 class PromptSectionTests(unittest.TestCase):

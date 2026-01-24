@@ -1925,7 +1925,7 @@ class BaseProjectManager(ABC):
             x.managed,
             x.engineConfigId,
             x.agentProfileId,
-            x.deepThink,
+            x.thinking,
         )
         await self.update_and_broadcast_project_state(project_state)
 

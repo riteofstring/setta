@@ -64,7 +64,7 @@ Non-blocking items (do NOT prevent completion):
 
 ### Phase 1: Agent primitives (implemented)
 - Add data models in `backend/setta/types/agentic.py`:
-  - `EngineConfig` (name, engineType, settaLlmConfigId, externalAgentConfigId, defaults: { deepThink })
+  - `EngineConfig` (name, engineType, settaLlmConfigId, externalAgentConfigId, defaults: { thinking })
   - `AgentProfile` (name, description, systemPrompt, engineConfigId, toolAllowlist, memoryScope)
   - `AgentRun` and `RunEvent` (inputs, outputs, tool calls, timestamps, status, costs)
 - Extend `backend/setta/database/db_objs.py` with paths and helpers for:
@@ -205,7 +205,7 @@ Example structure for `setta_files/engine_configs.json`:
     "engineType": "setta_llm",
     "settaLlmConfigId": "primary",
     "defaults": {
-      "deepThink": true
+      "thinking": true
     }
   },
   {

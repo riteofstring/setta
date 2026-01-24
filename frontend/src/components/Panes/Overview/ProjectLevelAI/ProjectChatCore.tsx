@@ -36,7 +36,7 @@ function EmptyChatState() {
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
   placeholderText,
-  deepThink,
+  thinking,
   engineConfigId,
   engineType,
   hasLLMConfig,
@@ -45,7 +45,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
-  deepThink: boolean;
+  thinking: boolean;
   engineConfigId: string | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
@@ -123,7 +123,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         submittedChatId = await submitMessage(
           chatId ?? null,
           message,
-          deepThink,
+          thinking,
           engineConfigId,
           isExternalEngine,
           undefined,
@@ -140,7 +140,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
-      deepThink,
+      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,

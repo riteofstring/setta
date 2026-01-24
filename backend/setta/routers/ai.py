@@ -94,7 +94,7 @@ class GetLLMResponseRequest(BaseModel):
     message: BaseChatMessageUnionWithDiscriminator
     engineConfigId: ID
     agentProfileId: ID | None = None
-    deepThink: bool
+    thinking: bool
     projectConfigId: ID
 
 
@@ -173,7 +173,7 @@ async def route_get_llm_response(
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
-            "deepThink": x.deepThink,
+            "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
             "runType": LLM_CHAT_RUN_TYPE,
             "messages": [
@@ -210,7 +210,7 @@ async def route_get_llm_response(
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
-            "deepThink": x.deepThink,
+            "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages

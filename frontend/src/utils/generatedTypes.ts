@@ -1261,7 +1261,6 @@ const SharedModifierSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
-  deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
@@ -1331,6 +1330,7 @@ const SharedModifierSchema = z.object({
   template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
+  thinking: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
@@ -1384,7 +1384,6 @@ const CoreSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
-        "deepThink",
         "defaultVal",
         "description",
         "displayMode",
@@ -1443,6 +1442,7 @@ const CoreSchema = z.object({
         "template",
         "text",
         "textDisplayMode",
+        "thinking",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -1876,7 +1876,7 @@ const ChatSectionImplSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
-  deepThink: z.boolean().default(false),
+  thinking: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -3017,7 +3017,7 @@ const ChatSectionImplArgsSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
-  deepThink: z.boolean().optional(),
+  thinking: z.boolean().optional(),
   messages: z
     .array(
       z.union([
@@ -3920,7 +3920,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
-  deepThink: z.boolean().default(false),
+  thinking: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -4816,7 +4816,7 @@ const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
 });
 
 const EngineConfigDefaultsSchema = z.object({
-  deepThink: z.union([z.boolean(), z.null()]).default(null),
+  thinking: z.union([z.boolean(), z.null()]).default(null),
 });
 
 type EngineConfigDefaults = z.infer<typeof EngineConfigDefaultsSchema>;
@@ -5909,7 +5909,7 @@ const GetLLMResponseRequestSchema = z.object({
   ]),
   engineConfigId: IDSchema,
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
-  deepThink: z.boolean(),
+  thinking: z.boolean(),
   projectConfigId: IDSchema,
 });
 
@@ -6554,7 +6554,7 @@ const SetChatSectionSettingsRequestSchema = z.object({
   managed: z.boolean(),
   engineConfigId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
-  deepThink: z.boolean(),
+  thinking: z.boolean(),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<

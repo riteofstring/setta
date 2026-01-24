@@ -180,7 +180,7 @@ class AgentRunnerTests(unittest.TestCase):
             self.assertEqual(default_context.project_config_id, default_id)
             self.assertEqual(default_context.chat_id, default_context.run.id)
             self.assertIsNone(default_context.section_id)
-            self.assertFalse(default_context.deep_think)
+            self.assertFalse(default_context.thinking)
 
             override_context = runner._build_context(
                 profile,
@@ -188,13 +188,13 @@ class AgentRunnerTests(unittest.TestCase):
                     "projectConfigId": str(second_config.id),
                     "chatId": "chat-1",
                     "sectionId": "section-1",
-                    "deepThink": True,
+                    "thinking": True,
                 },
             )
             self.assertEqual(override_context.project_config_id, second_config.id)
             self.assertEqual(override_context.chat_id, ID("chat-1"))
             self.assertEqual(override_context.section_id, ID("section-1"))
-            self.assertTrue(override_context.deep_think)
+            self.assertTrue(override_context.thinking)
 
     def test_context_validates_input_types(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -224,7 +224,7 @@ class AgentRunnerTests(unittest.TestCase):
             with self.assertRaises(TypeError):
                 runner._build_context(profile, inputs={"sectionId": 123})
             with self.assertRaises(TypeError):
-                runner._build_context(profile, inputs={"deepThink": "yes"})
+                runner._build_context(profile, inputs={"thinking": "yes"})
 
     def test_system_prompt_includes_profile_and_project(self) -> None:
         with TemporaryDirectory() as tmpdir:

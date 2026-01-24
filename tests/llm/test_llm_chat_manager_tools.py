@@ -134,7 +134,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -174,7 +174,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -226,7 +226,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -259,7 +259,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -297,7 +297,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=messages,
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -342,7 +342,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=messages,
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -378,7 +378,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )
@@ -489,7 +489,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             payload = runner._build_llm_request_payload(
                 llm_config=llm_config,
                 messages=_build_messages(),
-                deep_think=False,
+                thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
             )

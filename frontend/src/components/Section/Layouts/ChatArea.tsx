@@ -137,7 +137,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     managed,
     engineConfigId,
     agentProfileId,
-    deepThink,
+    thinking,
     messages,
     inputText,
     waitingForResponse,
@@ -153,7 +153,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       managed: impl.managed,
       engineConfigId: impl.engineConfigId,
       agentProfileId: impl.agentProfileId,
-      deepThink: impl.deepThink,
+      thinking: impl.thinking,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -168,7 +168,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
         sectionId={sectionId}
         engineConfigId={engineConfigId}
         agentProfileId={agentProfileId}
-        deepThink={deepThink}
+        thinking={thinking}
       />
     );
   }
@@ -370,14 +370,14 @@ type ManagedChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
   agentProfileId: string | null;
-  deepThink: boolean;
+  thinking: boolean;
 };
 
 function ManagedChatArea({
   sectionId,
   engineConfigId,
   agentProfileId,
-  deepThink,
+  thinking,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -632,7 +632,7 @@ function ManagedChatArea({
         submittedChatId = await submitMessage(
           chatId,
           message,
-          deepThink,
+          thinking,
           effectiveEngineConfigId,
           isExternalEngine,
           messageId,
@@ -649,7 +649,6 @@ function ManagedChatArea({
     },
     [
       chatId,
-      deepThink,
       effectiveEngineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -660,6 +659,7 @@ function ManagedChatArea({
       agentProfileId,
       messages,
       sectionId,
+      thinking,
     ],
   );
 

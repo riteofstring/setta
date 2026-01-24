@@ -483,7 +483,7 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     managed: bool
     engineConfigId: ID | None
     agentProfileId: ID | None
-    deepThink: bool
+    thinking: bool
 
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):

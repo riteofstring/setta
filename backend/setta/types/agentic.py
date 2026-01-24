@@ -15,7 +15,7 @@ class EngineType(str, Enum):
 
 
 class EngineConfigDefaults(BaseModel, extra="forbid"):
-    deepThink: bool | None = None
+    thinking: bool | None = None
 
 
 class EngineConfig(BaseModel, extra="forbid"):

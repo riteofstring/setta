@@ -7,7 +7,7 @@ Chat sections store the following fields on the section impl:
 - `managed`: toggles managed vs scriptable mode.
 - `engineConfigId`: selected engine config (managed mode only).
 - `chatId`: chat store id for managed mode (null means "new chat").
-- `deepThink`: toggles deep-think behavior for managed mode.
+- `thinking`: toggles thinking behavior for managed mode.
 - `messages`: list of chat messages (scriptable mode state; managed mode uses chat store).
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
@@ -16,7 +16,7 @@ Chat sections store the following fields on the section impl:
 ## Managed mode
 Managed mode uses the central LLM chat manager:
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
-- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, and `deepThink`.
+- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, and `thinking`.
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.

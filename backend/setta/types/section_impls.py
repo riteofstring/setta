@@ -305,7 +305,7 @@ class ChatSectionImpl(BaseSectionImpl):
     engineConfigId: ID | None = None
     agentProfileId: ID | None = None
     chatId: ID | None = None
-    deepThink: bool = False
+    thinking: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

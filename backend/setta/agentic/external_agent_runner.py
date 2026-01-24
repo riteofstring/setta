@@ -633,9 +633,7 @@ class ExternalAgentRunner:
     def _write_claude_mcp_config(self, mcp_url: str) -> Path:
         config_dir = self._create_temp_dir("setta-claude-mcp-")
         path = config_dir / _CLAUDE_MCP_CONFIG_NAME
-        payload = {
-            "mcpServers": {_MCP_SERVER_NAME: {"type": "sse", "url": mcp_url}}
-        }
+        payload = {"mcpServers": {_MCP_SERVER_NAME: {"type": "sse", "url": mcp_url}}}
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 

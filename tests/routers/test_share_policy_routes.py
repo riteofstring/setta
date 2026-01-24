@@ -342,7 +342,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     content=[MessageTextContent(text="hello")],
                 ),
                 engineConfigId=ID("engine-default"),
-                deepThink=False,
+                thinking=False,
                 projectConfigId=project_config_id,
             )
 

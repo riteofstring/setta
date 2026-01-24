@@ -81,7 +81,6 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
-                "deepThink",
                 "defaultVal",
                 "description",
                 "displayMode",
@@ -140,6 +139,7 @@ class CoreArgs(TypedDict):
                 "template",
                 "text",
                 "textDisplayMode",
+                "thinking",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -573,7 +573,7 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     engineConfigId: NotRequired[ID | None]
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
-    deepThink: NotRequired[bool]
+    thinking: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -593,7 +593,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    deepThink: NotRequired[bool | Callable[[bool], bool]]
+    thinking: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

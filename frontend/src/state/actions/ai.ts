@@ -571,7 +571,7 @@ export async function getExternalAgentChat(
 export async function submitMessage(
   chatId: string | null,
   message: string,
-  deepThink: boolean,
+  thinking: boolean,
   engineConfigId: string,
   isExternalEngine: boolean,
   messageId?: string,
@@ -595,7 +595,7 @@ export async function submitMessage(
     const projectConfigId = getCurrProjectConfigId();
     const res = await route_get_llm_response({
       message: userMessage,
-      deepThink,
+      thinking,
       chatId,
       engineConfigId,
       agentProfileId: agentProfileId ?? null,

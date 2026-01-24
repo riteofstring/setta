@@ -20,7 +20,7 @@ _DEFAULT_ENGINE_CONFIGS: list[EngineConfig] = [
         name="Setta LLM (Claude Sonnet 4.5)",
         engineType=EngineType.setta_llm,
         settaLlmConfigId="claude-sonnet",
-        defaults=EngineConfigDefaults(deepThink=True),
+        defaults=EngineConfigDefaults(thinking=True),
     ),
     EngineConfig(
         id="engine-claude-code",

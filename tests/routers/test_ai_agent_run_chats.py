@@ -246,7 +246,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                             ),
                             engineConfigId=ID("engine-1"),
                             agentProfileId=None,
-                            deepThink=False,
+                            thinking=False,
                             projectConfigId=project_config_id,
                         ),
                         runtime_ctx,

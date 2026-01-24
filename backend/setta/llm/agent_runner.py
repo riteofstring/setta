@@ -117,7 +117,7 @@ class AgentRunContext:
     project_config_id: ID
     chat_id: ID
     section_id: ID | None
-    deep_think: bool
+    thinking: bool
     system_prompt: str
     allowlist: ToolAllowlist | None
     emit_stream: bool
@@ -306,7 +306,7 @@ class AgentRunner:
                 payload = self._build_llm_request_payload(
                     llm_config=context.llm_config,
                     messages=messages,
-                    deep_think=context.deep_think,
+                    thinking=context.thinking,
                     system_prompt=context.system_prompt,
                     allowlist=context.allowlist,
                 )
@@ -624,12 +624,12 @@ class AgentRunner:
             section_id = ID(raw_section_id)
         else:
             section_id = None
-        deep_think = False
-        if inputs and "deepThink" in inputs:
-            raw_deep_think = inputs["deepThink"]
-            if not isinstance(raw_deep_think, bool):
-                raise TypeError("deepThink must be a boolean")
-            deep_think = raw_deep_think
+        thinking = False
+        if inputs and "thinking" in inputs:
+            raw_thinking = inputs["thinking"]
+            if not isinstance(raw_thinking, bool):
+                raise TypeError("thinking must be a boolean")
+            thinking = raw_thinking
         payload_inputs = dict(inputs or {})
         engine_config_id, llm_config = self._resolve_engine_llm_config(profile)
         payload_inputs.setdefault("engineConfigId", str(engine_config_id))
@@ -644,7 +644,7 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id or run.id,
             section_id=section_id,
-            deep_think=deep_think,
+            thinking=thinking,
             system_prompt=system_prompt,
             allowlist=allowlist,
             emit_stream=emit_stream,
@@ -744,7 +744,7 @@ class AgentRunner:
         llm_config: LLMConfig,
         messages: list[BaseChatMessageUnion],
         *,
-        deep_think: bool,
+        thinking: bool,
         system_prompt: str,
         allowlist: ToolAllowlist | None,
     ) -> dict[str, Any]:
@@ -782,7 +782,7 @@ class AgentRunner:
         if tools:
             request["tools"] = tools
 
-        self._apply_request_overrides(request, deep_think)
+        self._apply_request_overrides(request, thinking)
         if not request.get("model"):
             raise ValueError("LLM config must specify a model via config or override")
         return request
@@ -999,9 +999,9 @@ class AgentRunner:
     def _apply_request_overrides(
         self,
         request: dict[str, Any],
-        deep_think: bool,
+        thinking: bool,
     ) -> None:
-        if not deep_think:
+        if not thinking:
             return
         if "reasoning_effort" in request:
             return
@@ -1009,17 +1009,17 @@ class AgentRunner:
         model_name = request.get("model")
         provider = request.get("custom_llm_provider")
         if not model_name:
-            raise ValueError("Deep think requires a configured model")
+            raise ValueError("Thinking requires a configured model")
         if not self._should_enable_reasoning_override(model_name, provider):
             provider_display = provider or "default"
             raise ValueError(
-                f"Deep think is not supported for model '{model_name}' via provider '{provider_display}'"
+                f"Thinking is not supported for model '{model_name}' via provider '{provider_display}'"
             )
 
         request["reasoning_effort"] = "high"
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "[deep-think] enabling reasoning_effort=high for model=%s provider=%s",
+                "[thinking] enabling reasoning_effort=high for model=%s provider=%s",
                 model_name,
                 provider,
             )
@@ -1618,7 +1618,7 @@ class AgentRunner:
             "engineConfigId": str(context.engine_config_id),
             "llmConfigId": str(context.llm_config.id),
             "model": context.llm_config.model,
-            "deepThink": context.deep_think,
+            "thinking": context.thinking,
             "chatId": str(context.chat_id),
             "projectConfigId": str(context.project_config_id),
         }

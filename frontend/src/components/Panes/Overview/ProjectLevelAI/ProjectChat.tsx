@@ -42,7 +42,7 @@ export function ProjectChat() {
     },
     [],
   );
-  const [deepThink, setDeepThink] = useState(false);
+  const [thinking, setThinking] = useState(true);
   useHydrateLLMState();
   useHydrateAgenticState();
 
@@ -283,16 +283,14 @@ export function ProjectChat() {
               {engineType === EngineTypeEnum.setta_llm ? (
                 <>
                   <button
-                    className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
-                    aria-label="Extended Thinking"
+                    className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
+                    aria-label="Thinking"
                     onClick={() => {
-                      setDeepThink(!deepThink);
+                      setThinking(!thinking);
                     }}
                   >
                     <BiSolidBrain size={15} />
-                    <span className="hidden @[33.5rem]:block">
-                      Deep Thinking
-                    </span>
+                    <span className="hidden @[33.5rem]:block">Thinking</span>
                   </button>
 
                   <IdNameCombobox
@@ -329,7 +327,7 @@ export function ProjectChat() {
             <ProjectChatCore
               chatId={chatId}
               placeholderText={placeholderText}
-              deepThink={deepThink}
+              thinking={thinking}
               engineConfigId={selectedEngineId}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
