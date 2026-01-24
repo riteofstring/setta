@@ -100,12 +100,6 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   });
   const normalizedWidth = placeholderSize?.width ?? rawWidth / safeZoom;
   const normalizedHeight = placeholderSize?.height ?? rawHeight / safeZoom;
-  console.log("[dnd] section drag start", {
-    activeId,
-    draggingIds: selection.draggingIds,
-    isSorting: dndState.isSorting,
-    isMovingFree: dndState.isMovingFree,
-  });
   setActiveDnd(
     activeId,
     active.data.current.isTopLevel,

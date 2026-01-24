@@ -5963,6 +5963,19 @@ const MoveParamsRequestSchema = z.object({
 
 export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
 
+const MoveSectionsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionIds: z.array(IDSchema),
+  newParentId: z.union([IDSchema, z.null()]),
+  newIndex: z.union([z.int(), z.null()]),
+  positionsById: z.union([z.record(IDSchema, PositionSchema), z.null()]),
+});
+
+export type MoveSectionsRequestInput = z.input<
+  typeof MoveSectionsRequestSchema
+>;
+
 const OutputAccessorCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6863,19 +6876,6 @@ const GetJSONSourcePathToBeDeletedSchema = z.object({
 
 export type GetJSONSourcePathToBeDeletedInput = z.input<
   typeof GetJSONSourcePathToBeDeletedSchema
->;
-
-const MoveSectionsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionIds: z.array(IDSchema),
-  newParentId: z.union([IDSchema, z.null()]),
-  newIndex: z.union([z.int(), z.null()]),
-  positionsById: z.union([z.record(IDSchema, PositionSchema), z.null()]),
-});
-
-export type MoveSectionsRequestInput = z.input<
-  typeof MoveSectionsRequestSchema
 >;
 
 const NewJSONVersionNameRequestSchema = z.object({
