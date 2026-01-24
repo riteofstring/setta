@@ -7,26 +7,29 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { CodeLanguage } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
-import { route_create_top_level_section } from "utils/generatedEndpoints";
+import { focusOnSectionSearch } from "utils/focusManager";
 import {
+  route_create_top_level_section,
+  route_set_section_name,
+} from "utils/generatedEndpoints";
+import {
+  CodeFileAccessModeEnum,
   CreateTopLevelSectionRequestInput,
   Position,
   SectionType,
   SectionTypeEnum,
-  TextBlockDisplayModeEnum,
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import {
-  focusOnSectionSearch,
-  focusOnSectionTextInput,
-} from "utils/tabbingLogic";
-import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import { applyActiveSectionChange } from "../activeSectionController";
 import {
   createTopLevelSectionLayoutDict,
+  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "../sectionInfos";
+import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionArgs = {
   implType: CreateTopLevelSectionRequestInput["implType"];
@@ -50,15 +53,11 @@ export async function createTopLevelSection({
     return null;
   }
   const placement = getSmartPlacementContext();
-  const resolvedImplOverrides = resolveTextBlockImplOverrides(
-    implType,
-    implOverrides,
-  );
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
     implType,
     controlCodeObjType,
-    implOverrides: resolvedImplOverrides,
+    implOverrides,
     position,
     topLevelSections: placement.topLevelSections,
     viewportBounds: placement.viewportBounds,
@@ -72,29 +71,7 @@ export async function createTopLevelSection({
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
   }
-  setActiveSectionIdAndUpdateZIndex(sectionId);
-  ensureSectionOnTop(sectionId);
-  if (
-    implType === SectionTypeEnum.TextBlock ||
-    implType === SectionTypeEnum.Code ||
-    implType === SectionTypeEnum.Terminal
-  ) {
-    focusOnSectionTextInput(sectionId);
-  }
   return sectionId;
-}
-
-function ensureSectionOnTop(sectionId: string, attempt = 0) {
-  const nodeInternals = useNodeInternals.getState().x;
-  if (nodeInternals.has(sectionId)) {
-    setActiveSectionIdAndUpdateZIndex(sectionId);
-    return;
-  }
-  if (attempt < 20) {
-    requestAnimationFrame(() =>
-      ensureSectionOnTop(sectionId, attempt + 1),
-    );
-  }
 }
 
 async function addSectionInEmptySpace(
@@ -114,12 +91,15 @@ async function addSectionInEmptySpace(
 
 export function addCallableSectionInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
     focusOnSectionSearch(newId);
   });
 }
 
 export function addGroupInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Group);
+  addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
+    applyActiveSectionChange({ interaction: "go-to", sectionId: newId });
+  });
 }
 
 export function addTerminalInEmptySpace() {
@@ -179,31 +159,55 @@ export function getEmptySpacePosition() {
   return { x: x + positionOffset.x, y: y + positionOffset.y };
 }
 
-function resolveTextBlockImplOverrides(
-  implType: CreateTopLevelSectionRequestInput["implType"],
-  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
-): CreateTopLevelSectionRequestInput["implOverrides"] {
-  if (implType !== SectionTypeEnum.TextBlock) {
-    return implOverrides;
-  }
+type OpenFileInCodeSectionArgs = {
+  filePath: string;
+  fileName: string;
+  codeLanguage: CodeLanguage;
+};
 
-  if (!implOverrides) {
-    return {
-      type: SectionTypeEnum.TextBlock,
-      textDisplayMode: TextBlockDisplayModeEnum.Edit,
-    };
+export async function openFileInCodeSection({
+  filePath,
+  fileName,
+  codeLanguage,
+}: OpenFileInCodeSectionArgs) {
+  if (useShareSession.getState().isShareMode) {
+    return null;
   }
-
-  const resolvedBase =
-    "type" in implOverrides && implOverrides.type
-      ? implOverrides
-      : { ...implOverrides, type: SectionTypeEnum.TextBlock };
-  if ("textDisplayMode" in resolvedBase && resolvedBase.textDisplayMode) {
-    return resolvedBase;
+  const projectState = useProjectState.getState();
+  for (const sectionId of Object.keys(projectState.sections)) {
+    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+    if (impl.type !== SectionTypeEnum.Code) {
+      continue;
+    }
+    const binding = impl.codeFileBinding;
+    if (!binding) {
+      continue;
+    }
+    if (binding.canonical_path === filePath) {
+      goToSection(sectionId);
+      return sectionId;
+    }
   }
-
-  return {
-    ...resolvedBase,
-    textDisplayMode: TextBlockDisplayModeEnum.Edit,
-  };
+  const newSectionId = await createTopLevelSection({
+    implType: SectionTypeEnum.Code,
+    implOverrides: {
+      type: SectionTypeEnum.Code,
+      codeLanguage,
+      codeFileBinding: {
+        canonical_path: filePath,
+        access_mode: CodeFileAccessModeEnum.read_write,
+      },
+    },
+    position: null,
+  });
+  if (!newSectionId) {
+    return null;
+  }
+  await route_set_section_name({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId: newSectionId,
+    name: fileName,
+  });
+  goToSection(newSectionId);
+  return newSectionId;
 }
