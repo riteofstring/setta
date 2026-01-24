@@ -1,8 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from setta.database.utils import create_new_id
 from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
@@ -61,6 +60,17 @@ class UnmatchedCodeObjInfo:
 
 
 @dataclass
+class ReplacementsAndUnmatchedDicts:
+    replacements: dict[str, ReplacementInfo] = field(default_factory=dict)
+    unmatched: dict[str, UnmatchedCodeObjInfo] = field(default_factory=dict)
+
+
+FilenameToKeysToReplacementsAndUnmatchedDicts = dict[
+    Path, dict[tuple[str, ...], ReplacementsAndUnmatchedDicts]
+]
+
+
+@dataclass
 class SectionVariantToUpdate:
     section: Core
     baseImpl: BaseDictSectionImplUnionWithDiscriminator
@@ -69,9 +79,6 @@ class SectionVariantToUpdate:
     processedJson: ProcessedJSONInfo
     filename: Path
     jsonSourceKeys: tuple[str, ...]
-    replacements: dict[ID, ReplacementInfo]
-    unmatched: dict[ID, UnmatchedCodeObjInfo]
-    idRemap: dict[ID, ID]
 
 
 def load_json_sources_into_data_structures(
@@ -89,6 +96,8 @@ def load_json_sources_into_data_structures(
         filename = normalize_path(variant.name)
         jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
 
+    # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
+    replacements_and_unmatched: FilenameToKeysToReplacementsAndUnmatchedDicts = {}
     sectionVariantsToUpdate: dict[tuple[ID, ID], SectionVariantToUpdate] = {}
     codeObjsToDelete: set[ID] = set()
     processedVariantIds: set[ID] = set()
@@ -112,47 +121,25 @@ def load_json_sources_into_data_structures(
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue
             processedJson = json_sources.get(filename)
-            json_source_missing = processedJson is None
-            if not json_source_missing:
-                processed_id = processedJson.hierarchy.name_path_to_id.get(
-                    jsonSourceKeys
-                )
-                if processed_id is None:
-                    json_source_missing = True
-                else:
-                    processed_variant_id = processedJson.keyValueInfo.codeObjVariantMap[
-                        processed_id
-                    ]
-                    variant_info = processedJson.keyValueInfo.codeObjVariants[
-                        processed_variant_id
-                    ]
-                    processed_impl = processedJson.keyValueInfo.codeObjImpls[
-                        variant_info.impl
-                    ]
-                    if not isinstance(processed_impl, BaseParentCodeObjImpl):
-                        json_source_missing = True
+            isMissing = processedJson is None
             impl = set_effective_impl_value(
                 base_impl,
                 section,
                 variant,
-                BaseDictSectionImplArgsWithCallable(
-                    jsonSourceMissing=json_source_missing
-                ),
+                BaseDictSectionImplArgsWithCallable(jsonSourceMissing=isMissing),
             )
-            if json_source_missing:
+            if isMissing:
                 continue
-            if (section.id, variant_id) not in section_variant_set:
-                continue
-            replacements: dict[ID, ReplacementInfo] = {}
-            unmatched: dict[ID, UnmatchedCodeObjInfo] = {}
-            currCodeObjsToDelete, id_remap = compute_existing_replacement_mapping(
+            r = replacements_and_unmatched.setdefault(filename, {}).setdefault(
+                jsonSourceKeys, ReplacementsAndUnmatchedDicts()
+            )
+            currCodeObjsToDelete = compute_existing_replacement_mapping(
                 p,
                 processedJson,
                 impl,
-                replacements,
-                unmatched,
+                r.replacements,
+                r.unmatched,
             )
-            filter_out_replacements_from_unmatched(replacements, unmatched)
             if (section.id, variant_id) in section_variant_set:
                 sectionVariantsToUpdate[(section.id, variant_id)] = (
                     SectionVariantToUpdate(
@@ -163,33 +150,27 @@ def load_json_sources_into_data_structures(
                         processedJson,
                         filename,
                         jsonSourceKeys,
-                        replacements,
-                        unmatched,
-                        id_remap,
                     )
                 )
                 codeObjsToDelete.update(currCodeObjsToDelete)
 
+    for jToR in replacements_and_unmatched.values():
+        for r in jToR.values():
+            filter_out_replacements_from_unmatched(r.replacements, r.unmatched)
+
     delete_old_code_objs(p, codeObjsToDelete)
 
     for toUpdate in sectionVariantsToUpdate.values():
-        merge_into_existing(
-            p,
-            toUpdate,
-            toUpdate.replacements,
-            toUpdate.unmatched,
-            codeObjsToDelete,
-            toUpdate.idRemap,
-        )
+        r = replacements_and_unmatched[toUpdate.filename][toUpdate.jsonSourceKeys]
+        merge_into_existing(p, toUpdate, r.replacements, r.unmatched, codeObjsToDelete)
 
 
 def merge_into_existing(
     p: ProjectStateCore,
     to_update: SectionVariantToUpdate,
-    replacements: dict[ID, ReplacementInfo],
-    unmatchedCodeObj: dict[ID, UnmatchedCodeObjInfo],
+    replacements: dict[str, ReplacementInfo],
+    unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
     codeObjsToDelete: set[ID],
-    id_remap: dict[ID, ID],
 ):
     newCodeObjVariantMapEntries: dict[ID, ID] = {}
     for r in replacements.values():
@@ -213,7 +194,10 @@ def merge_into_existing(
                 codeObjCore,
                 variant,
                 NestedParamCodeObjImplArgsWithCallable(
-                    children=[id_remap[c] for c in r.matchedImpl.children],
+                    children=[
+                        replacements[c].existingCodeObjId if c in replacements else c
+                        for c in r.matchedImpl.children
+                    ]
                 ),
             )
         elif (
@@ -230,34 +214,21 @@ def merge_into_existing(
         else:
             raise TypeError
 
-    for processed_id, u in unmatchedCodeObj.items():
-        if processed_id not in id_remap:
-            raise KeyError(f"Missing JSON source id remap for {processed_id}")
-        new_id = id_remap[processed_id]
-        if new_id not in p.codeObjs:
+    for u in unmatchedCodeObj.values():
+        if u.codeObj.id not in p.codeObjs:
             u.codeObj.variants = []
             u.codeObj.defaultVariant = None
-            u.codeObj.id = new_id
-            if isinstance(u.codeObjImpl, BaseParentCodeObjImpl):
-                children = u.codeObjImpl.children
-                shared_children = u.codeObj.sharedModifier.get("children")
-                if shared_children is not None:
-                    children = shared_children
-                remapped_children = [id_remap[child_id] for child_id in children]
-                u.codeObjImpl.children = remapped_children
-                u.codeObj.sharedModifier["children"] = remapped_children
-            p.codeObjs[new_id] = u.codeObj
-        variantId = create_new_code_obj_variant(p, new_id, None, u.codeObjImpl)
+            p.codeObjs[u.codeObj.id] = u.codeObj
+        variantId = create_new_code_obj_variant(p, u.codeObj.id, None, u.codeObjImpl)
         if not u.codeObj.defaultVariant:
             u.codeObj.defaultVariant = variantId
-        newCodeObjVariantMapEntries[new_id] = variantId
+        newCodeObjVariantMapEntries[u.codeObj.id] = variantId
 
-    processed_top_level_id = to_update.processedJson.hierarchy.name_path_to_id[
+    newTopLevelParamId = to_update.processedJson.hierarchy.name_path_to_id[
         tuple(to_update.impl.jsonSourceKeys)
     ]
-    if processed_top_level_id not in id_remap:
-        raise KeyError(f"Missing JSON source id remap for {processed_top_level_id}")
-    newTopLevelParamId = id_remap[processed_top_level_id]
+    if newTopLevelParamId in replacements:
+        newTopLevelParamId = replacements[newTopLevelParamId].existingCodeObjId
     set_effective_impl_value(
         to_update.baseImpl,
         to_update.section,
@@ -274,8 +245,8 @@ def compute_existing_replacement_mapping(
     p: ProjectStateCore,
     processedJson: ProcessedJSONInfo,
     section_impl: BaseDictSectionImpl,
-    replacements: dict[ID, ReplacementInfo],
-    unmatchedCodeObj: dict[ID, UnmatchedCodeObjInfo],
+    replacements: dict[str, ReplacementInfo],
+    unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
 ):
     topLevelParamIds = get_top_level_param_ids(p, section_impl)
     jsonSourceKeys = tuple(section_impl.jsonSourceKeys)
@@ -298,12 +269,12 @@ def compute_existing_replacement_mapping(
     keyValueInfo = processedJson.keyValueInfo
 
     idsToProcess: set[ID] = set()
-    id_remap: dict[ID, ID] = {}
     if jsonSourceKeys in processedJson.hierarchy.name_path_to_id:
         idsToProcess = processedJson.hierarchy.name_path_to_descendant_ids.get(
             jsonSourceKeys, set()
         )
         idsToProcess.add(processedJson.hierarchy.name_path_to_id[jsonSourceKeys])
+        idsToProcess = idsToProcess.difference(replacements.keys())
 
     for id in idsToProcess:
         existingCodeObjId = hierarchy.name_path_to_id.get(
@@ -315,6 +286,9 @@ def compute_existing_replacement_mapping(
         uImpl = keyValueInfo.codeObjImpls[uVariant.impl]
 
         if id not in unmatchedCodeObj:
+            # .model_copy is important because currently
+            # if multiple sections point to the same json
+            # then they can end up pointing to the same unmatchedCodeObj
             unmatchedCodeObj[id] = UnmatchedCodeObjInfo(
                 uCodeObj.model_copy(deep=True), uImpl.model_copy(deep=True)
             )
@@ -329,26 +303,21 @@ def compute_existing_replacement_mapping(
                 and isinstance(uImpl, BaseParentCodeObjImpl)
             ):
                 codeObjsToDelete.add(existingCodeObjId)
-                new_id = create_new_id()
-                id_remap[id] = new_id
             else:
                 effectiveImpl = get_effective_impl(uImpl, uCodeObj, uVariant)
                 replacements[id] = ReplacementInfo(existingCodeObjId, effectiveImpl)
-                id_remap[id] = existingCodeObjId
-        else:
-            id_remap[id] = create_new_id()
 
     for name_path, id in hierarchy.name_path_to_id.items():
         matchedId = processedJson.hierarchy.name_path_to_id.get(name_path)
         if not matchedId:
             codeObjsToDelete.add(id)
 
-    return codeObjsToDelete, id_remap
+    return codeObjsToDelete
 
 
 def filter_out_replacements_from_unmatched(
-    replacements: dict[ID, ReplacementInfo],
-    unmatchedCodeObj: dict[ID, UnmatchedCodeObjInfo],
+    replacements: dict[str, ReplacementInfo],
+    unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
 ):
     for r in replacements.keys():
         unmatchedCodeObj.pop(r, None)

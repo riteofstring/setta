@@ -1,7 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
@@ -58,7 +58,7 @@ export function TextInputCodeMirror({
     }
     if (event.button === 0) {
       setActivationEvent(event);
-      applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      setActiveSectionIdAndUpdateZIndex(sectionId);
     }
     onMouseDown?.(event);
   }
@@ -190,7 +190,7 @@ function CoreCodeMirror({
       onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
-      tabIndex={0} // keep focusable for tab navigation
+      tabIndex={0} // need this for tabbingLogic to work
     />
   );
 }
