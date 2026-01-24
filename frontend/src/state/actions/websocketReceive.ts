@@ -11,6 +11,7 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -75,7 +76,10 @@ const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
-const AUTH_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+const AUTH_REFRESH_INTERVAL_MS = Math.max(
+  1000,
+  Math.floor(C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS * 1000 * 0.5),
+);
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 let authRecoveryTimer: number | null = null;
@@ -282,6 +286,7 @@ function stopShareHeartbeat() {
 
 function startAuthRefresh() {
   stopAuthRefresh();
+  void runAuthRefresh();
   authRefreshTimer = window.setInterval(() => {
     void runAuthRefresh();
   }, AUTH_REFRESH_INTERVAL_MS);
