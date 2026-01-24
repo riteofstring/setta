@@ -66,6 +66,7 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     model="claude-sonnet-4-5-20250929",
                     provider="anthropic",
                     api_key_env="ANTHROPIC_API_KEY",
+                    other_params={"temperature": 1},
                     mcpServerIds=[],
                 )
                 runner.update_config(AllLLMConfigs(configs={llm_config.id: llm_config}))
@@ -119,6 +120,26 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.fail(f"Claude Sonnet 4.5 initial run failed: {error}")
                 outputs = completed_first.outputs
                 self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                final_text = outputs.get("finalText")
+                self.assertIsInstance(final_text, str)
+                if not isinstance(final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                self.assertEqual(final_text.strip(), "HELLO")
+                metadata = outputs.get("metadata")
+                self.assertIsInstance(metadata, dict)
+                if not isinstance(metadata, dict):
+                    raise AssertionError("Expected metadata to be a dict")
+                self.assertEqual(metadata.get("engineConfigId"), str(engine_config.id))
+                self.assertEqual(metadata.get("llmConfigId"), llm_config.id)
+                self.assertEqual(metadata.get("model"), llm_config.model)
+                self.assertEqual(metadata.get("provider"), llm_config.provider)
+                self.assertEqual(metadata.get("thinking"), True)
+                self.assertEqual(
+                    metadata.get("projectConfigId"), str(project_config.id)
+                )
+                self.assertEqual(metadata.get("chatId"), str(first_run.id))
                 messages_out = (
                     outputs.get("messages") if isinstance(outputs, dict) else None
                 )
@@ -170,3 +191,12 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             error = payload.get("error")
                         break
                     self.fail(f"Claude Sonnet 4.5 follow-up run failed: {error}")
+                second_outputs = completed_second.outputs
+                self.assertIsInstance(second_outputs, dict)
+                if not isinstance(second_outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                second_final_text = second_outputs.get("finalText")
+                self.assertIsInstance(second_final_text, str)
+                if not isinstance(second_final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                self.assertEqual(second_final_text.strip(), "OK")
