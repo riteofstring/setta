@@ -4,8 +4,17 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.agentic.engine_resolver import resolve_engine_config
+from setta.agentic.external_agent_defaults import (
+    build_default_claude_settings_block,
+    build_default_opencode_settings_block,
+)
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
+)
+from setta.agentic.external_agent_settings import (
+    build_codex_settings_file,
+    build_opencode_settings_file,
+    write_claude_settings_file,
 )
 from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
@@ -47,6 +56,7 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
+from setta.utils.constants import C
 
 router = SettaAPIRouter()
 
@@ -139,10 +149,10 @@ class CreateExternalAgentConfigRequest(BaseModel):
     defaultModel: str | None = None
     sandboxPolicy: str | None = None
     approvalPolicy: str | None = None
-    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.read_only
+    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.managed_local
     settingsSources: list[ClaudeSettingsSource] | None = None
     settingsFilePath: str | None = None
-    settingsAllowSettaEdits: bool = False
+    settingsAllowSettaEdits: bool = True
     settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
     envVarWhitelist: list[str] = Field(default_factory=list)
     workingDirStrategy: ExternalAgentWorkingDirStrategy = (
@@ -544,6 +554,19 @@ async def route_create_external_agent_config(
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating external agent configs.")
     configs = load_external_agent_configs(ctx.state.dbe)
+    approval_policy = x.approvalPolicy
+    sandbox_policy = x.sandboxPolicy
+    if x.toolType == ExternalAgentToolType.codex:
+        if approval_policy is None:
+            approval_policy = "on-failure"
+        if sandbox_policy is None:
+            sandbox_policy = "workspace-write"
+    settings_block = x.settingsManagedBlock
+    if settings_block is None:
+        if x.toolType == ExternalAgentToolType.claude_code:
+            settings_block = build_default_claude_settings_block()
+        elif x.toolType == ExternalAgentToolType.opencode:
+            settings_block = build_default_opencode_settings_block()
     config = ExternalAgentConfig(
         name=x.name,
         description=x.description,
@@ -552,19 +575,40 @@ async def route_create_external_agent_config(
         commandPath=x.commandPath,
         baseUrl=x.baseUrl,
         defaultModel=x.defaultModel,
-        sandboxPolicy=x.sandboxPolicy,
-        approvalPolicy=x.approvalPolicy,
+        sandboxPolicy=sandbox_policy,
+        approvalPolicy=approval_policy,
         settingsMode=x.settingsMode,
         settingsSources=x.settingsSources,
         settingsFilePath=x.settingsFilePath,
         settingsAllowSettaEdits=x.settingsAllowSettaEdits,
-        settingsManagedBlock=x.settingsManagedBlock,
+        settingsManagedBlock=settings_block,
         envVarWhitelist=x.envVarWhitelist,
         workingDirStrategy=x.workingDirStrategy,
         workingDir=x.workingDir,
     )
     configs.append(config)
     save_external_agent_configs(ctx.state.dbe, configs)
+    if config.toolType == ExternalAgentToolType.claude_code:
+        write_claude_settings_file(
+            config,
+            project_root=ctx.state.dbe.path.parent,
+        )
+    elif config.toolType == ExternalAgentToolType.codex:
+        build_codex_settings_file(
+            ctx.state.dbe,
+            config,
+            allowlist=None,
+            mcp_url=f"{C.BACKEND}/mcp",
+            auth_headers=None,
+        )
+    elif config.toolType == ExternalAgentToolType.opencode:
+        build_opencode_settings_file(
+            ctx.state.dbe,
+            config,
+            allowlist=None,
+            mcp_url=f"{C.BACKEND}/mcp",
+            auth_headers=None,
+        )
     await ctx.state.wmh_frontend_sender.broadcast_external_agent_configs_update(configs)
     return config
 

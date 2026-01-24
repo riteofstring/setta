@@ -58,7 +58,7 @@ class CodexSettingsManaged(BaseModel, extra="forbid"):
 
 
 class OpenCodeSettingsManaged(BaseModel, extra="forbid"):
-    permission: dict[str, str] | None = None
+    permission: dict[str, str | dict[str, str]] | None = None
     mcp: dict[str, Any] | None = None
     model: str | None = None
 
@@ -80,10 +80,10 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
     defaultModel: str | None = None
     sandboxPolicy: str | None = None
     approvalPolicy: str | None = None
-    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.read_only
+    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.managed_local
     settingsSources: list[ClaudeSettingsSource] | None = None
     settingsFilePath: str | None = None
-    settingsAllowSettaEdits: bool = False
+    settingsAllowSettaEdits: bool = True
     settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
     envVarWhitelist: list[str] = Field(default_factory=list)
     workingDirStrategy: ExternalAgentWorkingDirStrategy = (

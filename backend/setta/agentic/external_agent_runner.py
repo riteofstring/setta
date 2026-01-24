@@ -578,7 +578,9 @@ class ExternalAgentRunner:
             if config.settingsFilePath:
                 metadata["settingsFilePath"] = config.settingsFilePath
             metadata["settingsAllowSettaEdits"] = config.settingsAllowSettaEdits
-            settings_paths = build_settings_paths(self.dbe, config)
+            settings_paths = build_settings_paths(
+                self.dbe, config, project_root=self.dbe.path.parent
+            )
             resolved_paths: dict[str, str] = {}
             if settings_paths.claude_settings is not None:
                 resolved_paths["claude"] = str(settings_paths.claude_settings)
@@ -634,7 +636,7 @@ class ExternalAgentRunner:
                 config_path = self._write_claude_mcp_config(mcp_url)
                 payload_inputs["mcpConfig"] = str(config_path)
                 cleanup_paths.append(config_path.parent)
-            write_claude_settings_file(config)
+            write_claude_settings_file(config, project_root=self.dbe.path.parent)
             allowed_tools = self._build_claude_allowed_tools(profile)
             if allowed_tools:
                 payload_inputs["allowedTools"] = allowed_tools

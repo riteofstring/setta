@@ -105,6 +105,21 @@ const TEXTAREA_CLASS_NAME =
 const SELECT_CLASS_NAME =
   "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 
+const DEFAULT_CLAUDE_ASK_RULES = [
+  "Bash(rm:*)",
+  "Bash(sudo:*)",
+  "Bash(chmod:*)",
+  "Bash(chown:*)",
+  "Bash(git push:*)",
+  "Bash(git reset:*)",
+  "Bash(git clean:*)",
+  "Bash(dd:*)",
+  "Bash(mkfs:*)",
+  "Bash(diskutil:*)",
+  "Bash(shutdown:*)",
+  "Bash(reboot:*)",
+];
+
 export function ProjectAISettings() {
   useHydrateAgenticState();
   const isShareMode = useShareSession((x) => x.isShareMode);
@@ -911,15 +926,18 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         defaultModel: "",
         sandboxPolicy: "",
         approvalPolicy: "",
-        settingsMode: ExternalAgentSettingsModeEnum.read_only,
-        settingsSources: [],
+        settingsMode: ExternalAgentSettingsModeEnum.managed_local,
+        settingsSources: [
+          ClaudeSettingsSourceEnum.project,
+          ClaudeSettingsSourceEnum.local,
+        ],
         settingsFilePath: "",
-        settingsAllowSettaEdits: false,
+        settingsAllowSettaEdits: true,
         envVarWhitelistText: "",
         workingDirStrategy: ExternalAgentWorkingDirStrategyEnum.project_root,
         workingDir: "",
         claudeAllowText: "",
-        claudeAskText: "",
+        claudeAskText: DEFAULT_CLAUDE_ASK_RULES.join("\n"),
         claudeDenyText: "",
       });
       return;
@@ -1473,10 +1491,14 @@ function buildExternalAgentConfigDraft(
     sandboxPolicy: config.sandboxPolicy ?? "",
     approvalPolicy: config.approvalPolicy ?? "",
     settingsMode:
-      config.settingsMode ?? ExternalAgentSettingsModeEnum.read_only,
-    settingsSources: config.settingsSources ?? [],
+      config.settingsMode ?? ExternalAgentSettingsModeEnum.managed_local,
+    settingsSources:
+      config.settingsSources ??
+      (config.toolType === ExternalAgentToolTypeEnum.claude_code
+        ? [ClaudeSettingsSourceEnum.project, ClaudeSettingsSourceEnum.local]
+        : []),
     settingsFilePath: config.settingsFilePath ?? "",
-    settingsAllowSettaEdits: config.settingsAllowSettaEdits ?? false,
+    settingsAllowSettaEdits: config.settingsAllowSettaEdits ?? true,
     envVarWhitelistText: (config.envVarWhitelist ?? []).join("\n"),
     workingDirStrategy: config.workingDirStrategy,
     workingDir: config.workingDir ?? "",

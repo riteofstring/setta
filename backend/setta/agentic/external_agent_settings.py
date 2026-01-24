@@ -63,10 +63,10 @@ def resolve_opencode_settings_path(
 
 
 def build_settings_paths(
-    dbe: DBE, config: ExternalAgentConfig
+    dbe: DBE, config: ExternalAgentConfig, project_root: Path | None = None
 ) -> ExternalAgentSettingsPaths:
     return ExternalAgentSettingsPaths(
-        claude_settings=resolve_claude_settings_path(config),
+        claude_settings=resolve_claude_settings_path(config, project_root),
         codex_config=resolve_codex_settings_path(dbe, config),
         opencode_config=resolve_opencode_settings_path(dbe, config),
     )

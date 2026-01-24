@@ -13,8 +13,13 @@ from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistr
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
 from setta.types.external_agents import (
+    ClaudeSettingsManaged,
+    ClaudeSettingsPermissions,
+    ClaudeSettingsSource,
     ExternalAgentConfig,
     ExternalAgentRunMode,
+    ExternalAgentSettingsManagedBlock,
+    ExternalAgentSettingsMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -130,6 +135,17 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     return tool_call_id
             await asyncio.sleep(0.1)
         self.fail("Claude SDK run did not request a user question in time.")
+        raise AssertionError("Unreachable")
+
+    async def _await_pending_approval(
+        self, runner: ExternalAgentRunner, run_id: ID
+    ) -> str:
+        for _ in range(200):
+            for approval_id, state in runner._pending_approvals.items():
+                if state.run_id == run_id:
+                    return approval_id
+            await asyncio.sleep(0.1)
+        self.fail("Claude SDK run did not request a tool approval in time.")
         raise AssertionError("Unreachable")
 
     def _assert_python_sdk_handle(self, handle: ExternalAgentRunHandle) -> None:
@@ -418,6 +434,99 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if isinstance(call, dict)
             }
             self.assertIn("Bash", tool_names)
+
+    async def test_claude_sdk_local_settings_prompt_for_echo(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            work_dir = Path(tmpdir) / "workspace"
+            work_dir.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
+                workingDir=str(work_dir),
+                settingsMode=ExternalAgentSettingsMode.managed_local,
+                settingsSources=[ClaudeSettingsSource.local],
+                settingsAllowSettaEdits=True,
+                settingsManagedBlock=ExternalAgentSettingsManagedBlock(
+                    claude=ClaudeSettingsManaged(
+                        permissions=ClaudeSettingsPermissions(
+                            ask=["Bash(echo:*)"]
+                        )
+                    )
+                ),
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "You must call the Bash tool to run "
+                        "`echo setta-claude-settings` in the current directory. "
+                        "Do not answer until after the tool result. "
+                        "Then reply with only the exact command output."
+                    ),
+                    "allowedTools": ["Bash"],
+                    "mcpConfig": mcp_config,
+                    "maxTurns": 1,
+                },
+            )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
+
+            approval_id = await self._await_pending_approval(runner, run.id)
+            await runner.respond_to_approval(approval_id, True)
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            all_text = self._collect_message_texts(messages)
+            if "setta-claude-settings" not in all_text:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        "Echo command output missing expected token.",
+                    )
+                )
+
+            settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
+            self.assertTrue(settings_path.exists())
+            payload = json.loads(settings_path.read_text(encoding="utf-8"))
+            setta_block = payload.get("setta")
+            self.assertIsInstance(setta_block, dict)
+            if isinstance(setta_block, dict):
+                permissions = setta_block.get("permissions")
+                self.assertIsInstance(permissions, dict)
+                if isinstance(permissions, dict):
+                    self.assertEqual(permissions.get("ask"), ["Bash(echo:*)"])
 
     async def test_claude_sdk_emits_thinking_blocks(self) -> None:
         self._require_claude_sdk()

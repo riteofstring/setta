@@ -1,3 +1,5 @@
+import json
+import tomllib
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,6 +8,10 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
+from setta.agentic.external_agent_defaults import (
+    DEFAULT_CLAUDE_ASK_RULES,
+    DEFAULT_OPENCODE_PERMISSION,
+)
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -56,6 +62,7 @@ from setta.types.external_agents import (
     ExternalAgentEnvVarStatus,
     ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
+    ExternalAgentSettingsMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -63,6 +70,7 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.runtime_context import runtime_context
@@ -302,6 +310,129 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         GetExternalAgentConfigRequest(configId=updated.id),
                         ctx,
                     )
+
+    async def test_external_agent_config_initializes_claude_settings_file(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="Claude SDK",
+                        toolType=ExternalAgentToolType.claude_code,
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+
+            self.assertEqual(
+                created.settingsMode,
+                ExternalAgentSettingsMode.managed_local,
+            )
+            self.assertTrue(created.settingsAllowSettaEdits)
+
+            settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
+            self.assertTrue(settings_path.exists())
+            payload = json.loads(settings_path.read_text(encoding="utf-8"))
+            setta_block = payload.get("setta")
+            self.assertIsInstance(setta_block, dict)
+            if isinstance(setta_block, dict):
+                permissions = setta_block.get("permissions")
+                self.assertIsInstance(permissions, dict)
+                if isinstance(permissions, dict):
+                    self.assertEqual(permissions.get("ask"), DEFAULT_CLAUDE_ASK_RULES)
+
+    async def test_external_agent_config_initializes_codex_settings_file(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="Codex SDK",
+                        toolType=ExternalAgentToolType.codex,
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+
+            self.assertEqual(created.approvalPolicy, "on-failure")
+            self.assertEqual(created.sandboxPolicy, "workspace-write")
+
+            settings_path = (
+                setta_root
+                / "external_agent_settings"
+                / "codex"
+                / str(created.id)
+                / "config.toml"
+            )
+            self.assertTrue(settings_path.exists())
+            payload = tomllib.loads(settings_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("approval_policy"), "on-failure")
+            self.assertEqual(payload.get("sandbox_mode"), "workspace-write")
+            mcp_servers = payload.get("mcp_servers")
+            self.assertIsInstance(mcp_servers, dict)
+            if isinstance(mcp_servers, dict):
+                self.assertEqual(
+                    mcp_servers.get("setta", {}).get("url"),
+                    f"{C.BACKEND}/mcp",
+                )
+
+    async def test_external_agent_config_initializes_opencode_settings_file(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="OpenCode SDK",
+                        toolType=ExternalAgentToolType.opencode,
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+
+            settings_path = (
+                setta_root
+                / "external_agent_settings"
+                / "opencode"
+                / str(created.id)
+                / "opencode.json"
+            )
+            self.assertTrue(settings_path.exists())
+            payload = json.loads(settings_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("permission"), DEFAULT_OPENCODE_PERMISSION)
+            mcp = payload.get("mcp")
+            self.assertIsInstance(mcp, dict)
+            if isinstance(mcp, dict):
+                self.assertEqual(
+                    mcp.get("setta", {}).get("url"),
+                    f"{C.BACKEND}/mcp",
+                )
 
     async def test_external_agent_run_blocks_on_preflight(self) -> None:
         class _Runner:

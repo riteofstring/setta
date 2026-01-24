@@ -38,8 +38,11 @@ from setta.types.chat_stream_events import (
     ToolCallDeltaEvent,
 )
 from setta.types.external_agents import (
+    ClaudeSettingsManaged,
+    ClaudeSettingsPermissions,
     ExternalAgentConfig,
     ExternalAgentRunMode,
+    ExternalAgentSettingsManagedBlock,
     ExternalAgentSettingsMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
@@ -150,6 +153,52 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
+
+    def test_configure_external_tools_writes_claude_settings(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                settingsMode=ExternalAgentSettingsMode.managed_local,
+                settingsAllowSettaEdits=True,
+                settingsManagedBlock=ExternalAgentSettingsManagedBlock(
+                    claude=ClaudeSettingsManaged(
+                        permissions=ClaudeSettingsPermissions(ask=["Bash(rm:*)"])
+                    )
+                ),
+            )
+
+            payload_inputs: dict[str, Any] = {}
+            env: dict[str, str] = {}
+            cleanup_paths: list[Path] = []
+
+            runner._configure_external_tools(
+                config=config,
+                profile=None,
+                payload_inputs=payload_inputs,
+                env=env,
+                cleanup_paths=cleanup_paths,
+            )
+
+            mcp_config = payload_inputs.get("mcpConfig")
+            self.assertIsInstance(mcp_config, str)
+            if isinstance(mcp_config, str):
+                self.assertTrue(Path(mcp_config).exists())
+
+            settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
+            self.assertTrue(settings_path.exists())
+            payload = json.loads(settings_path.read_text(encoding="utf-8"))
+            setta_block = payload.get("setta")
+            self.assertIsInstance(setta_block, dict)
+            if isinstance(setta_block, dict):
+                permissions = setta_block.get("permissions")
+                self.assertIsInstance(permissions, dict)
+                if isinstance(permissions, dict):
+                    self.assertEqual(permissions.get("ask"), ["Bash(rm:*)"])
 
     def test_context_inherits_thread_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -347,6 +396,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
                 approvalPolicy="ask",
+                settingsMode=ExternalAgentSettingsMode.read_only,
             )
 
             context = _build_context_for_test(runner, config)
@@ -519,8 +569,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertEqual(metadata.get("model"), "gpt-4o-mini")
             self.assertEqual(metadata.get("approvalPolicy"), "never")
             self.assertEqual(metadata.get("sandboxPolicy"), "restricted")
-            self.assertEqual(metadata.get("settingsMode"), "read_only")
-            self.assertEqual(metadata.get("settingsAllowSettaEdits"), False)
+            self.assertEqual(metadata.get("settingsMode"), "managed_local")
+            self.assertEqual(metadata.get("settingsAllowSettaEdits"), True)
             settings_paths = metadata.get("settingsPaths")
             self.assertIsInstance(settings_paths, dict)
             expected_codex_path = (
