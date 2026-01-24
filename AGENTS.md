@@ -22,6 +22,7 @@
 - Keep FastAPI routers grouped by feature under `backend/setta/routers/` and name endpoint functions with verbs (`get_notifications`, `create_project_state`).
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
+- Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
@@ -29,6 +30,8 @@
 ## Testing Guidelines
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
+- Always use the agent-browser CLI to verify any visual edits, even when Playwright/Vitest tests run.
+- Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
@@ -60,7 +63,7 @@ To run python tests: `source activate.sh && python -m unittest discover`.
 
 To run anything python related: `source activate.sh && <python command goes here>`
 
-Don't bother running `pnpm test` for now, as there are currently no frontend tests.
+If frontend tests still don't exist, call that out and propose what should be added; otherwise run the relevant tests.
 
 ## Project State access style
 
@@ -70,7 +73,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 
 ## Generated types
 
-Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`. 
+Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
 
 To cleanup generated files after you've imported what you need from them, you can run pnpm full-cleanup to remove unused generated types.
 

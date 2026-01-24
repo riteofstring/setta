@@ -7,15 +7,16 @@ from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import (
-    DependencyEvent,
+    ControlActionEvent,
     ListenerDependencyMode,
     ListenerRegisterCallback,
     ListenerRealtimeDelta,
 )
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
-    WebsocketMsgListenerDependencyEvent,
+    WebsocketMsgListenerActionEvent,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.generated.websocket_unions import (
@@ -101,14 +102,14 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         self._websockets[socket_id] = websocket
 
     async def test_send_action_event_targets_action_subscribers(self) -> None:
-        action_dependency = create_dep_key(sectionId=ID("section-action"))
         self.listener_registry.upsert_registration(
             websocket_id="socket-specific",
             project_config_id=self.project_config_id,
             callbacks={
                 "cb-specific": ListenerRegisterCallback(
-                    dependencies=[action_dependency],
-                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
+                    dependencies=[],
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=["inspect_state"],
                 )
             },
         )
@@ -118,7 +119,8 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-wildcard": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=[],
                 )
             },
         )
@@ -129,6 +131,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
                 "cb-none": ListenerRegisterCallback(
                     dependencies=[],
                     dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=None,
                 )
             },
         )
@@ -138,20 +141,23 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-other": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=["inspect_state"],
                 )
             },
         )
 
-        action_event = DependencyEvent(
-            dependencyKey=action_dependency,
+        action_event = ControlActionEvent(
+            controlName="Run",
+            actionId="inspect_state",
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
 
-        await self.sender.send_dependency_event(
+        await self.sender.send_action_event(
             projectConfigId=self.project_config_id,
-            dependencyEvents=[action_event],
+            actionEvents=[action_event],
             sequence=3,
         )
 
@@ -172,47 +178,49 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         parsed_specific = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             specific_messages[0]
         )
-        self.assertIsInstance(parsed_specific, WebsocketMsgListenerDependencyEvent)
+        self.assertIsInstance(parsed_specific, WebsocketMsgListenerActionEvent)
         self.assertEqual(self.project_config_id, parsed_specific.content.projectConfigId)
         self.assertEqual(3, parsed_specific.content.sequence)
-        self.assertEqual(1, len(parsed_specific.content.dependencyEvents))
+        self.assertEqual(1, len(parsed_specific.content.actionEvents))
         self.assertEqual(
-            action_dependency, parsed_specific.content.dependencyEvents[0].dependencyKey
+            "inspect_state", parsed_specific.content.actionEvents[0].actionId
         )
 
         parsed_wildcard = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             wildcard_messages[0]
         )
-        self.assertIsInstance(parsed_wildcard, WebsocketMsgListenerDependencyEvent)
+        self.assertIsInstance(parsed_wildcard, WebsocketMsgListenerActionEvent)
         self.assertEqual(self.project_config_id, parsed_wildcard.content.projectConfigId)
         self.assertEqual(3, parsed_wildcard.content.sequence)
 
     async def test_emit_action_event_increments_sequence(self) -> None:
-        action_dependency = create_dep_key(sectionId=ID("section-action"))
         self.listener_registry.upsert_registration(
             websocket_id="socket-wildcard",
             project_config_id=self.project_config_id,
             callbacks={
                 "cb-wildcard": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=[],
                 )
             },
         )
 
-        action_event = DependencyEvent(
-            dependencyKey=action_dependency,
+        action_event = ControlActionEvent(
+            controlName="Run",
+            actionId="inspect_state",
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
 
-        await self.event_hub.emit_dependency_event(
+        await self.event_hub.emit_action_event(
             project_config_id=self.project_config_id,
-            dependency_events=[action_event],
+            action_events=[action_event],
         )
-        await self.event_hub.emit_dependency_event(
+        await self.event_hub.emit_action_event(
             project_config_id=self.project_config_id,
-            dependency_events=[action_event],
+            action_events=[action_event],
         )
 
         wildcard_messages = _sent_text_messages(
@@ -226,8 +234,8 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         parsed_second = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             wildcard_messages[1]
         )
-        self.assertIsInstance(parsed_first, WebsocketMsgListenerDependencyEvent)
-        self.assertIsInstance(parsed_second, WebsocketMsgListenerDependencyEvent)
+        self.assertIsInstance(parsed_first, WebsocketMsgListenerActionEvent)
+        self.assertIsInstance(parsed_second, WebsocketMsgListenerActionEvent)
         self.assertEqual(1, parsed_first.content.sequence)
         self.assertEqual(2, parsed_second.content.sequence)
 
@@ -236,14 +244,14 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             sectionId=ID("section-a"),
             codeObjId=ID("param-a"),
         )
-        action_dependency = create_dep_key(sectionId=ID("section-action"))
         self.listener_registry.upsert_registration(
             websocket_id="socket-specific",
             project_config_id=self.project_config_id,
             callbacks={
                 "cb-specific": ListenerRegisterCallback(
-                    dependencies=[dependency, action_dependency],
-                    dependencyMode=ListenerDependencyMode.REALTIME_ONLY,
+                    dependencies=[dependency],
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
+                    actions=["inspect_state"],
                 )
             },
         )
@@ -257,14 +265,16 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             deltas=[delta],
         )
 
-        action_event = DependencyEvent(
-            dependencyKey=action_dependency,
+        action_event = ControlActionEvent(
+            controlName="Run",
+            actionId="inspect_state",
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=321,
         )
-        await self.event_hub.emit_dependency_event(
+        await self.event_hub.emit_action_event(
             project_config_id=self.project_config_id,
-            dependency_events=[action_event],
+            action_events=[action_event],
         )
 
         specific_messages = _sent_text_messages(
@@ -279,15 +289,15 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             specific_messages[1]
         )
         self.assertIsInstance(parsed_delta, WebsocketMsgListenerRealtimeEvent)
-        self.assertIsInstance(parsed_action, WebsocketMsgListenerDependencyEvent)
+        self.assertIsInstance(parsed_action, WebsocketMsgListenerActionEvent)
         self.assertEqual(1, parsed_delta.content.sequence)
         self.assertEqual(2, parsed_action.content.sequence)
 
     async def test_emit_action_event_rejects_empty_payload(self) -> None:
         with self.assertRaises(ValueError):
-            await self.event_hub.emit_dependency_event(
+            await self.event_hub.emit_action_event(
                 project_config_id=self.project_config_id,
-                dependency_events=[],
+                action_events=[],
             )
 
 

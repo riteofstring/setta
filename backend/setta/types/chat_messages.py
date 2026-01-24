@@ -37,7 +37,6 @@ class MessageImageUrlContent(BaseModel):
 class MessageThinkingContent(BaseModel):
     type: Literal["thinking"] = "thinking"
     thinking: str = ""
-    summary: str | None = ""
     signature: str | None = ""
 
 

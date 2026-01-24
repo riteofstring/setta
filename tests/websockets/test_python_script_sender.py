@@ -64,7 +64,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                                 codeObjId=ID("param-1"),
                             )
                         ],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
+                        dependencyMode=ListenerDependencyMode.SPECIFIC,
                     ),
                 },
             )
@@ -112,7 +112,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=ID("param-1"),
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
                 "cb-additional": ListenerRegisterCallback(
                     dependencies=[
@@ -121,11 +121,11 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=ID("param-2"),
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
                 "cb-any": ListenerRegisterCallback(
                     dependencies=[],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 ),
                 "cb-refresh-only": ListenerRegisterCallback(
                     dependencies=[
@@ -149,7 +149,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=ID("param-3"),
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
@@ -164,7 +164,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=ID("param-1"),
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
@@ -268,7 +268,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=ID("param-2"),
                         )
                     ],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
