@@ -1,16 +1,22 @@
 import copy
 import time
-from typing import Generic, List, TypeVar
+from typing import Callable, Generic, List, TypeVar
 
 T = TypeVar("T")
 
 
 class History(Generic[T]):
-    def __init__(self, state: T | None = None, max_size: int | None = 1000) -> None:
+    def __init__(
+        self,
+        state: T | None = None,
+        max_size: int | None = 1000,
+        now_fn: Callable[[], float] | None = None,
+    ) -> None:
         self._history: List[T] = []
         self._current: int = -1
         self._copy_func = copy.deepcopy
         self._max_size = max_size
+        self._now_fn = now_fn or time.monotonic
         self._last_entry_key: str | None = None
         self._last_entry_ts: float | None = None
         if state:
@@ -38,7 +44,7 @@ class History(Generic[T]):
     ) -> T:
         current = self.get_current()
         if coalesce_key and coalesce_window_s:
-            now = time.monotonic()
+            now = self._now_fn()
             if (
                 self._last_entry_key == coalesce_key
                 and self._last_entry_ts is not None

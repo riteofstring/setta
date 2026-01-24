@@ -1134,12 +1134,33 @@ class BaseProjectManager(ABC):
         if not sectionIds:
             return
         project_state = self.get_single_config_state(projectConfigId)
-        gen_code = self._require_python_codegen(projectConfigId)
-        settings = self.settings_file.settings
-        did_update = False
+        refetch_sections: list[ID] = []
         for section_id in sorted(sectionIds):
             if section_id not in project_state.sections:
                 raise KeyError(f"Missing section {section_id}.")
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CallableSectionImpl):
+                continue
+            if section_impl.callable is None:
+                continue
+            callable_id = section_impl.callable
+            if callable_id not in project_state.codeObjs:
+                raise KeyError(
+                    f"Missing callable {callable_id} for section {section_id}."
+                )
+            refetch_sections.append(section_id)
+        if not refetch_sections:
+            return
+        coalesce_key = f"autoRefetchCallable:{projectConfigId}:{','.join(map(str, refetch_sections))}"
+        self.add_new_history_entry(
+            coalesce_key=coalesce_key,
+            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+        )
+        project_state = self.get_single_config_state(projectConfigId)
+        gen_code = self._require_python_codegen(projectConfigId)
+        settings = self.settings_file.settings
+        did_update = False
+        for section_id in refetch_sections:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CallableSectionImpl):
                 continue

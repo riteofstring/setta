@@ -8,6 +8,9 @@ Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need b
 
 
 
+Read docs/mcp-multi-server-plan.md. Read the code base. Is the plan fully implemented?
+
+
 
 
 Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after.
