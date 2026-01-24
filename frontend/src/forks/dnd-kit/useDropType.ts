@@ -16,9 +16,9 @@ import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrEffectiveSectionImpl,
   getCurrSectionVariant,
   getSectionChildren,
+  getSectionIsHorizontalOrientation,
   getSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
@@ -34,7 +34,6 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -557,7 +556,7 @@ function resolveSectionPlaceholderSize({
     getSharedParentId(state, draggingIds) ??
     state.parentSectionMap[draggingIds[0]] ??
     null;
-  const orientation = resolveParentOrientation(state, parentId);
+  const orientation = resolveParentOrientation(parentId);
 
   const children = parentId ? getSectionChildren(state, parentId) : null;
   const indexById = children
@@ -581,18 +580,11 @@ function resolveSectionPlaceholderSize({
   };
 }
 
-function resolveParentOrientation(
-  state: ReturnType<typeof useProjectState.getState>,
-  parentId: string | null,
-): SectionOrientation {
+function resolveParentOrientation(parentId: string | null): SectionOrientation {
   if (!parentId) {
     return "vertical";
   }
-  const impl = getCurrEffectiveSectionImpl(state, parentId);
-  if (
-    impl.type === SectionTypeEnum.Group &&
-    impl.isHorizontalOrientation === true
-  ) {
+  if (getSectionIsHorizontalOrientation(parentId)) {
     return "horizontal";
   }
   return "vertical";

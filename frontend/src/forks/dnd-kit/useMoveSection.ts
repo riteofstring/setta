@@ -183,6 +183,15 @@ async function onFreeMoveEnd({
       return;
     }
   }
+  if (
+    newParentId === null &&
+    positionsById &&
+    areAllTopLevel(state, draggingIds) &&
+    positionsMatchTopLevelLayouts(state, positionsById)
+  ) {
+    manualDndChildrenReset();
+    return;
+  }
 
   // const maybeNewSectionData = await maybeMakeCopyOfSection({
   //   sectionId,
@@ -338,6 +347,35 @@ function arraysEqual(left: string[], right: string[]): boolean {
   }
   for (let i = 0; i < left.length; i += 1) {
     if (left[i] !== right[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areAllTopLevel(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionIds: string[],
+): boolean {
+  for (const sectionId of sectionIds) {
+    const parentId = state.parentSectionMap[sectionId] ?? null;
+    if (parentId !== null) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function positionsMatchTopLevelLayouts(
+  state: ReturnType<typeof useProjectState.getState>,
+  positionsById: Record<string, Position>,
+): boolean {
+  for (const [sectionId, position] of Object.entries(positionsById)) {
+    const layout = state.projectConfig.topLevelSections[sectionId];
+    if (!layout) {
+      return false;
+    }
+    if (layout.x !== position.x || layout.y !== position.y) {
       return false;
     }
   }

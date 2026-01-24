@@ -2576,7 +2576,6 @@ class BaseProjectManager(ABC):
         if not x.sectionIds:
             return
         project_state = self.get_single_config_state(x.projectConfigId)
-        next_state = copy.deepcopy(project_state)
         if x.newParentId is None:
             if not x.positionsById:
                 raise KeyError("Expected positionsById when moving sections to pane.")
@@ -2587,7 +2586,7 @@ class BaseProjectManager(ABC):
                     raise KeyError(
                         f"Missing position when moving section {section_id} to pane."
                     )
-                move_section_to_pane(next_state, section_id, position)
+                move_section_to_pane(project_state, section_id, position)
         else:
             if x.newIndex is None:
                 raise KeyError(
@@ -2595,9 +2594,9 @@ class BaseProjectManager(ABC):
                 )
             self.add_new_history_entry()
             move_sections_to_parent_section(
-                next_state, x.newParentId, x.sectionIds, x.newIndex
+                project_state, x.newParentId, x.sectionIds, x.newIndex
             )
-        await self.update_and_broadcast_project_state(next_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
