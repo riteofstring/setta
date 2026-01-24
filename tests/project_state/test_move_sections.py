@@ -169,6 +169,7 @@ class MoveSectionsTests(unittest.TestCase):
             0,
         )
         project_state.validate_parent_section_map()
+        original_children = get_curr_section_children_ids(project_state, parent_id)
 
         with self.assertRaisesRegex(
             ValueError, "New index exceeds available sibling range."
@@ -179,6 +180,11 @@ class MoveSectionsTests(unittest.TestCase):
                 [child_ids[1]],
                 3,
             )
+        self.assertEqual(
+            get_curr_section_children_ids(project_state, parent_id),
+            original_children,
+        )
+        project_state.validate_parent_section_map()
 
     def test_move_sections_from_multiple_parents_updates_map(self) -> None:
         settings = SettingsState()

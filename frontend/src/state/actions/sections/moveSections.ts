@@ -105,6 +105,11 @@ function moveSectionsToPane({
   if (!positionsById) {
     throw new Error("Expected positionsById when moving sections to pane.");
   }
+  for (const sectionId of sectionIds) {
+    if (!positionsById[sectionId]) {
+      throw new Error(`Missing position for section ${sectionId}.`);
+    }
+  }
   removeSectionsFromParents({
     sectionIds,
     parentsById,
@@ -114,9 +119,6 @@ function moveSectionsToPane({
   let maxZIndex = getMaxZIndex();
   for (const sectionId of sectionIds) {
     const position = positionsById[sectionId];
-    if (!position) {
-      throw new Error(`Missing position for section ${sectionId}.`);
-    }
     if (hasNode(sectionId)) {
       justMoveANode(sectionId, position);
       updateTopLevelLayout(

@@ -2418,6 +2418,11 @@ def move_sections_to_parent_section(
             raise ValueError("Cannot reparent into a descendant of selection.")
         ancestor = p.parentSectionMap[ancestor]
 
+    curr_children = get_curr_section_children_ids(p, newParentId)
+    remaining = [c for c in curr_children if c not in selected_set]
+    if newIndex > len(remaining):
+        raise ValueError("New index exceeds available sibling range.")
+
     ids_by_parent: dict[ID | None, list[ID]] = {}
     for section_id in sectionIds:
         parent_id = p.parentSectionMap[section_id]
@@ -2442,8 +2447,6 @@ def move_sections_to_parent_section(
 
     def insert_children(curr_children: list[ID]):
         remaining = [c for c in curr_children if c not in selected_set]
-        if newIndex > len(remaining):
-            raise ValueError("New index exceeds available sibling range.")
         return insert_into_array(remaining, newIndex, sectionIds)
 
     set_curr_effective_section_impl_value(
