@@ -11,12 +11,6 @@ const lineWrapStyle = {
   overflowWrap: "anywhere",
   flexShrink: 1,
 };
-const singleLineStyle = {
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  flexShrink: 1,
-};
 
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
@@ -29,11 +23,7 @@ export function DummyCodeMirror({
   className,
   placeholder,
   language,
-  singleLine = false,
-  wrapLines,
 }) {
-  const shouldWrap = wrapLines ?? !singleLine;
-  const resolvedStyle = shouldWrap ? lineWrapStyle : singleLineStyle;
   return code ? (
     <HighlightedCode
       divId={divId}
@@ -43,7 +33,6 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       className={className}
       language={language}
-      style={resolvedStyle}
     />
   ) : (
     <PlaceholderCode
@@ -52,7 +41,6 @@ export function DummyCodeMirror({
       placeholder={placeholder}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
-      style={resolvedStyle}
     />
   );
 }
@@ -63,14 +51,13 @@ function PlaceholderCode({
   placeholder,
   onMouseDownCapture,
   onFocus,
-  style,
 }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
       id={divId}
       className={`${className} text-gray-600 outline-none`}
-      style={style}
+      style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       tabIndex={0}
@@ -88,7 +75,6 @@ function HighlightedCode({
   className,
   language,
   onFocus,
-  style,
 }) {
   const tree = getLanguageParser(language).parser.parse(code);
   const highlightStyle = theme[1][2].value;
@@ -156,7 +142,7 @@ function HighlightedCode({
     <div
       id={divId}
       className={`${className} ${scopeClassName} outline-none`}
-      style={style}
+      style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       tabIndex={0}

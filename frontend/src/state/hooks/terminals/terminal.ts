@@ -6,10 +6,6 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import {
-  clearPendingSectionTextFocus,
-  isPendingSectionTextFocus,
-} from "utils/tabbingLogic";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
@@ -40,13 +36,11 @@ export function useTerminal({
   setHasScrollbar: (value: boolean) => void;
 }) {
   const terminalRef = useRef(null); // Ref for the terminal container
-  const terminalReadyRef = useRef(false);
   const fitAddon = useFitAddon();
   const isShareMode = useShareSession((x) => x.isShareMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
-    terminalReadyRef.current = false;
     if (isShareMode && !shareSessionId) {
       return;
     }
@@ -60,37 +54,6 @@ export function useTerminal({
     }); // Instantiate the terminal
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
-
-    const focusTerminalInput = (attempt = 0) => {
-      if (!isPendingSectionTextFocus(sectionId)) {
-        return;
-      }
-      const focusTarget = terminalRef.current?.querySelector?.(
-        ".xterm-helper-textarea, .xterm textarea",
-      );
-      if (focusTarget instanceof HTMLElement) {
-        focusTarget.focus({ preventScroll: true });
-        terminal.focus();
-        const active = document.activeElement;
-        if (
-          terminalReadyRef.current &&
-          terminalRef.current &&
-          active instanceof HTMLElement &&
-          terminalRef.current.contains(active)
-        ) {
-          clearPendingSectionTextFocus(sectionId);
-          return;
-        }
-      }
-      terminal.focus();
-      if (attempt < 240) {
-        requestAnimationFrame(() => focusTerminalInput(attempt + 1));
-      }
-    };
-
-    if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
-      requestAnimationFrame(() => focusTerminalInput());
-    }
 
     const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
 
@@ -110,14 +73,10 @@ export function useTerminal({
 
     function onInitialMessage(message) {
       if (message.data === C.SETTA_TERMINAL_READY) {
-        terminalReadyRef.current = true;
         const attachAddon = new AttachAddon(ws, {
           bidirectional: !isShareMode,
         });
         terminal.loadAddon(attachAddon);
-        if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
-          requestAnimationFrame(() => focusTerminalInput());
-        }
         ws.removeEventListener("message", onInitialMessage);
       }
     }
