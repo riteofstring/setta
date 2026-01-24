@@ -10,6 +10,7 @@ from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
+from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -87,6 +88,37 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return stored
 
     @staticmethod
+    def _build_config(node_path: str) -> ExternalAgentConfig:
+        return ExternalAgentConfig(
+            name="Codex SDK",
+            toolType=ExternalAgentToolType.codex,
+            runMode=ExternalAgentRunMode.sdk,
+            commandPath=node_path,
+            approvalPolicy="on-failure",
+            envVarWhitelist=["CODEX_API_KEY"],
+        )
+
+    @staticmethod
+    def _build_runner(root: Path) -> tuple[DBE, ExternalAgentRunner]:
+        dbe = DBE(root / "setta_files")
+        project_config = ProjectConfig()
+        dbe.write_project(
+            ProjectStateBackend(
+                projectConfigs={project_config.id: project_config},
+                defaultProjectConfigId=project_config.id,
+            )
+        )
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+        registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
+        runner = ExternalAgentRunner(
+            dbe,
+            frontend_sender,
+            adapter_registry=registry,
+        )
+        return dbe, runner
+
+    @staticmethod
     def _collect_message_texts(messages: list[dict]) -> str:
         parts: list[str] = []
         for message in messages:
@@ -105,31 +137,8 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_codex_sdk_streams_message(self) -> None:
         node_path = self._require_codex_sdk()
         with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir) / "setta_files")
-            project_config = ProjectConfig()
-            dbe.write_project(
-                ProjectStateBackend(
-                    projectConfigs={project_config.id: project_config},
-                    defaultProjectConfigId=project_config.id,
-                )
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                adapter_registry=registry,
-            )
-
-            config = ExternalAgentConfig(
-                name="Codex SDK",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
-                approvalPolicy="on-failure",
-                envVarWhitelist=["CODEX_API_KEY"],
-            )
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
 
             run = runner.start_run(
                 config.id,
@@ -157,31 +166,8 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_codex_sdk_persists_thread_id(self) -> None:
         node_path = self._require_codex_sdk()
         with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir) / "setta_files")
-            project_config = ProjectConfig()
-            dbe.write_project(
-                ProjectStateBackend(
-                    projectConfigs={project_config.id: project_config},
-                    defaultProjectConfigId=project_config.id,
-                )
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                adapter_registry=registry,
-            )
-
-            config = ExternalAgentConfig(
-                name="Codex SDK",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
-                approvalPolicy="on-failure",
-                envVarWhitelist=["CODEX_API_KEY"],
-            )
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
 
             run = runner.start_run(
                 config.id,
@@ -203,31 +189,8 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_codex_sdk_reuses_thread_id_for_chat(self) -> None:
         node_path = self._require_codex_sdk()
         with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir) / "setta_files")
-            project_config = ProjectConfig()
-            dbe.write_project(
-                ProjectStateBackend(
-                    projectConfigs={project_config.id: project_config},
-                    defaultProjectConfigId=project_config.id,
-                )
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                adapter_registry=registry,
-            )
-
-            config = ExternalAgentConfig(
-                name="Codex SDK",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
-                approvalPolicy="on-failure",
-                envVarWhitelist=["CODEX_API_KEY"],
-            )
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
 
             first_run = runner.start_run(
                 config.id,
@@ -256,3 +219,131 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(second_inputs.get("threadId"), thread_id)
 
             await self._await_completed_run(dbe, second_run.id)
+
+    async def test_codex_sdk_uses_message_history(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            code_word = "setta-codex-history-codeword"
+            user_message = UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text=f"The code word is {code_word}.",
+                    )
+                ],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "messages": [user_message.model_dump(mode="json")],
+                    "prompt": "What is the code word? Reply with only the code word.",
+                },
+            )
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            final_text = outputs.get("finalText")
+            self.assertIsInstance(final_text, str)
+            if not isinstance(final_text, str):
+                raise AssertionError("Expected finalText to be a string")
+            self.assertIn(code_word, final_text.lower())
+
+    async def test_codex_sdk_multi_turn_remembers_prompt(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            code_word = "setta-codex-memory-codeword"
+
+            first_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        f"Reply with the code word '{code_word}' and nothing else."
+                    ),
+                },
+            )
+            await self._await_completed_run(dbe, first_run.id)
+
+            second_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "What code word did you just reply with? "
+                        "Reply with only the code word."
+                    ),
+                    "chatId": str(first_run.id),
+                },
+            )
+            stored = await self._await_completed_run(dbe, second_run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            final_text = outputs.get("finalText")
+            self.assertIsInstance(final_text, str)
+            if not isinstance(final_text, str):
+                raise AssertionError("Expected finalText to be a string")
+            self.assertIn(code_word, final_text.lower())
+
+    async def test_codex_sdk_resumes_thread_id_across_chats(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            code_word = "setta-codex-thread-codeword"
+
+            first_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        f"Reply with the code word '{code_word}' and nothing else."
+                    ),
+                },
+            )
+            first_stored = await self._await_completed_run(dbe, first_run.id)
+            first_outputs = first_stored.get("outputs")
+            self.assertIsInstance(first_outputs, dict)
+            if not isinstance(first_outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            thread_id = first_outputs.get("threadId")
+            self.assertIsInstance(thread_id, str)
+            if not isinstance(thread_id, str) or not thread_id:
+                raise AssertionError("Expected non-empty threadId in outputs")
+
+            second_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "What code word did you just reply with? "
+                        "Reply with only the code word."
+                    ),
+                    "threadId": thread_id,
+                },
+            )
+            stored = await self._await_completed_run(dbe, second_run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            final_text = outputs.get("finalText")
+            self.assertIsInstance(final_text, str)
+            if not isinstance(final_text, str):
+                raise AssertionError("Expected finalText to be a string")
+            self.assertIn(code_word, final_text.lower())
+            self.assertEqual(outputs.get("threadId"), thread_id)
