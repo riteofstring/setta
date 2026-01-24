@@ -7,7 +7,9 @@ export class C_ADDRESSES {
   // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
-      const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
+      const override = import.meta.env?.VITE_BACKEND_ORIGIN as
+        | string
+        | undefined;
       if (override) {
         return override;
       }
