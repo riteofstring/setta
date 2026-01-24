@@ -91,6 +91,12 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
   const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
+  console.log("[dnd] section drag start", {
+    activeId,
+    draggingIds: selection.draggingIds,
+    isSorting: dndState.isSorting,
+    isMovingFree: dndState.isMovingFree,
+  });
   setActiveDnd(
     activeId,
     active.data.current.isTopLevel,
