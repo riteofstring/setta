@@ -10,6 +10,7 @@ import { EdgePortsSettings } from "./EdgePortsSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { MetaControlSettings } from "./MetaControlSettings";
+import { PromptSettings } from "./PromptSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
@@ -40,6 +41,8 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlockSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Prompt:
+      return <PromptSettings sectionId={sectionId} />;
     case SectionTypeEnum.MetaControl:
       return <MetaControlSettings sectionId={sectionId} />;
     case SectionTypeEnum.Draw:

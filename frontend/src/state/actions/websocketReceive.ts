@@ -39,9 +39,13 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import {
+  receiveAgentProfilesUpdate,
+  receiveEngineConfigsUpdate,
+  receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
+  receivePromptTemplatesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
@@ -75,13 +79,10 @@ const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
-const AUTH_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
-let authRefreshTimer: number | null = null;
-let authRefreshInFlight = false;
 let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
@@ -133,7 +134,6 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        startAuthRefresh();
         if (isShareMode) {
           startShareHeartbeat();
           const projectConfigId = getCurrProjectConfigId();
@@ -165,7 +165,6 @@ export const openWebSocket = _.debounce(
         if (wss && wss !== socket) {
           return;
         }
-        stopAuthRefresh();
         stopShareHeartbeat();
         wss = null;
         currentShareSessionId = null;
@@ -250,7 +249,6 @@ function closeWebSocket() {
     wss.close();
     wss = null;
   }
-  stopAuthRefresh();
   stopShareHeartbeat();
 }
 
@@ -278,39 +276,6 @@ function stopShareHeartbeat() {
   }
   window.clearInterval(shareHeartbeatTimer);
   shareHeartbeatTimer = null;
-}
-
-function startAuthRefresh() {
-  stopAuthRefresh();
-  authRefreshTimer = window.setInterval(() => {
-    void runAuthRefresh();
-  }, AUTH_REFRESH_INTERVAL_MS);
-}
-
-function stopAuthRefresh() {
-  if (authRefreshTimer === null) {
-    return;
-  }
-  window.clearInterval(authRefreshTimer);
-  authRefreshTimer = null;
-}
-
-async function runAuthRefresh() {
-  if (authLost || authRefreshInFlight) {
-    return;
-  }
-  authRefreshInFlight = true;
-  const res = await route_get_backend_init_status();
-  authRefreshInFlight = false;
-  if (res200(res)) {
-    return;
-  }
-  if (!res.hasResponse) {
-    return;
-  }
-  if (res.status === 401 && wssReady(wss)) {
-    wss.close(AUTH_CLOSE_CODE);
-  }
 }
 
 async function handleShareSessionRecovery() {
@@ -373,6 +338,14 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
+      return receiveAgentProfilesUpdate(m.content.profiles);
+    case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
+      return receivePromptTemplatesUpdate(m.content.templates);
+    case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
+      return receiveExternalAgentConfigsUpdate(m.content.configs);
+    case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
+      return receiveEngineConfigsUpdate(m.content.configs);
     default:
       return m satisfies never;
   }

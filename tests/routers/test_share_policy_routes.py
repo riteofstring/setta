@@ -341,8 +341,8 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 message=UserChatMessage(
                     content=[MessageTextContent(text="hello")],
                 ),
-                llmConfigId="default",
-                deepThink=False,
+                engineConfigId=ID("engine-default"),
+                thinking=False,
                 projectConfigId=project_config_id,
             )
 
