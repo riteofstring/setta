@@ -929,12 +929,6 @@ export async function route_get_backend_init_status(): Promise<
   return await get("/backendInitStatus");
 }
 
-export async function route_get_auth_refresh_status(): Promise<
-  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
-> {
-  return await get("/authRefreshStatus");
-}
-
 export async function route_list_share_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
 > {

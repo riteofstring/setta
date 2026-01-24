@@ -5,7 +5,6 @@
 - `codegen-section-policy-and-metadata.md` – explains the section policy rules and the generated metadata output.
 - `ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
-- `section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
 - `draw-image-representation.md` – how Draw and Image sections are represented in realtime and packaged runtime.
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
@@ -24,7 +23,6 @@
 - `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
 - `sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
-- `auth-and-sessions.md` – auth tokens, cookies, share sessions, and refresh behavior.
 - `setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
 - `param-sweeps.md` – how to run parameter sweeps via the Python runner API.
 - `remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
