@@ -51,7 +51,7 @@ class SectionSize(BaseModel, extra="forbid"):
     """Explicit width/height constraints that layout-aware tools can override."""
 
     width: float | Literal[SectionSizeMode.auto] = Field(
-        default=SectionSizeMode.auto,
+        default=250.0,
         description="Section width in pixels or 'auto' to defer to layout heuristics.",
     )
     height: float | Literal[SectionSizeMode.auto] = Field(
@@ -162,7 +162,7 @@ class CodeFileBinding(BaseModel, extra="forbid"):
 
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
 
 
@@ -209,12 +209,15 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
         default_factory=LineChartSettings
     )
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=400, height=400)
+        default_factory=lambda: SectionSize(width=300.0, height=300.0)
     )
 
 
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=402.0, height=100.0)
+    )
     layers: list[DrawAreaLayer] = Field(default_factory=list)
     renderedImagePath: str | None = None
     activeLayerIdx: int = 0
@@ -230,9 +233,7 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
 
 class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
@@ -272,7 +273,7 @@ class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
 class TerminalSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=700, height=300)
+        default_factory=lambda: SectionSize(width=250.0, height=150.0)
     )
 
 
@@ -290,7 +291,7 @@ class ChatSectionState(BaseModel, extra="forbid"):
 class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Chat] = SectionType.Chat
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=405, height=405)
+        default_factory=lambda: SectionSize(width=400.0, height=200.0)
     )
     managed: bool = False
     llmConfigId: str | None = None

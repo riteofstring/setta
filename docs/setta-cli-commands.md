@@ -16,8 +16,6 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
-| `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
-| `setta api` | yes | no | Call Setta HTTP endpoints with auto-auth. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -80,84 +78,6 @@ Examples:
 setta status --connect-info --workspace /path/to/project --latest
 setta status --connect-info --json -w /path/to/project
 setta status --list-sessions --json
-```
-
-## `setta auth`
-
-Emit machine-readable auth metadata for the selected session. This is meant for
-agents or scripts that need a stable JSON contract.
-
-Options:
-- `--workspace PATH` (`-w` works too) filters sessions by workspace (default: current).
-- `--session ID` selects a specific session.
-- `--latest` selects the newest session.
-- `--base-url` overrides the backend base URL for the output.
-- `--json` emits strict JSON only (no extra stdout).
-
-JSON output schema:
-```json
-{
-  "baseUrl": "http://127.0.0.1:8000",
-  "apiBaseUrl": "http://127.0.0.1:8000/api",
-  "cookieHeader": "Cookie: setta_auth=....",
-  "cookie": "setta_auth=....",
-  "cookieName": "setta_auth",
-  "session": {
-    "id": "...",
-    "workspacePath": "...",
-    "host": "127.0.0.1",
-    "port": 8000,
-    "pid": 12345,
-    "startedAt": "2025-01-01T12:00:00.000000"
-  },
-  "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
-  "bootstrapUrlPlain": "http://127.0.0.1:8000/__setta__/bootstrap",
-  "source": "bootstrap"
-}
-```
-
-Example:
-```sh
-setta auth --json --latest > /tmp/setta_auth.json
-```
-
-## `setta api`
-
-Call Setta HTTP endpoints with auto-auth for the current workspace. Use either a
-route key (from `Route`) or a raw path.
-
-Inputs:
-- `ROUTE_OR_PATH` (e.g., `GET_LATEST_PROJECT_STATE` or `/getLatestProjectState`)
-- `--json` inline JSON payload
-- `--stdin` read JSON payload from stdin
-- `--file PATH` read JSON payload from a file
-
-Auth sources (highest priority first):
-- `--cookie-header` / `--cookie`
-- `--auth-json PATH` (from `setta auth --json`)
-- `--auth-stdin`
-- Auto-auth from the newest session in the current workspace
-
-Other options:
-- `--base-url` override backend base URL
-- `--method` override HTTP verb (default: `POST`)
-- `--json-output` emit raw JSON only on stdout
-
-Examples:
-```sh
-setta api GET_LATEST_PROJECT_STATE --json '{"projectConfigId":"..."}' --json-output
-setta api /getLatestProjectState --stdin --json-output
-setta api GET_LATEST_PROJECT_STATE --auth-json /tmp/setta_auth.json --json '{"projectConfigId":"..."}'
-```
-
-Error contract (for `--json-output`):
-```json
-{
-  "error": "HTTPError",
-  "status": 403,
-  "url": "http://127.0.0.1:8000/api/getLatestProjectState",
-  "body": { "detail": "Unauthorized" }
-}
 ```
 
 ## `setta stop`
