@@ -18,8 +18,8 @@ type DndMonitorHandlers = Partial<{
 
 export function useDndMonitor(handlers: DndMonitorHandlers): void {
   useDragDropMonitor({
-    onDragStart: (event) => {
-      const mapped = mapDragStartEvent(event);
+    onDragStart: (event, manager) => {
+      const mapped = mapDragStartEvent(event, manager);
       if (!mapped) {
         return;
       }
