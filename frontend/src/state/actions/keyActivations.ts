@@ -42,7 +42,7 @@ import {
 } from "state/actions/params/moveParams";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
-import { focusScope, handleTabNavigation } from "utils/focusManager";
+import { handleTabNavigation } from "utils/focusManager";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
@@ -487,10 +487,6 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", handleTabKeyDown],
     ["shift + tab", handleTabKeyDown],
-    ["ctrl + shift + 1", () => focusScope("header")],
-    ["ctrl + shift + 2", () => focusScope("overview")],
-    ["ctrl + shift + 3", () => focusScope("canvas")],
-    ["ctrl + shift + 4", () => focusScope("ui-editor")],
     [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
