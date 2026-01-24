@@ -543,6 +543,20 @@ class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
+class SetWatchCodeConfigRequest(ProjectManagerRequestWithProjectConfig):
+    """Update watch code settings for a project."""
+
+    watchCodeEnabled: bool = Field(
+        description="Whether watch code mode is enabled for this project.",
+    )
+    watchCodeFolders: list[WatchCodeFolder] = Field(
+        description="Folders to scan for tagged callables.",
+    )
+    watchCodeFiles: list[str] = Field(
+        description="Files to scan for tagged callables.",
+    )
+
+
 class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     """Assign a new manual value to a parameter within a section."""
 
