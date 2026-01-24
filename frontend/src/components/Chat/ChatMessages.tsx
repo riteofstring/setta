@@ -329,7 +329,7 @@ const ToolCallItem = memo(function ToolCallItem({
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
-        <Accordion.Trigger className="relative my-1 flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-900 dark:hover:bg-setta-950 dark:hover:shadow-none">
+        <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-900 dark:hover:bg-setta-950 dark:hover:shadow-none">
           <div className="px-2 py-2 ">
             <PiWrenchFill
               size={15}
@@ -346,7 +346,7 @@ const ToolCallItem = memo(function ToolCallItem({
           />
         </Accordion.Trigger>
 
-        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=open]:-mt-2.5 data-[state=open]:mb-2">
           {args && (
             <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
               <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
@@ -482,80 +482,84 @@ const ChatMessage = memo(function ChatMessage({
             <i className="gg-spinner !scale-75 text-blue-500/70" />
           </div>
         )}
-        {toolCalls.map((toolCall: ToolCall) => {
-          const toolResult = toolResultsById[toolCall.id];
-          const questionPayload =
-            toolCallContext.questionPayloadById[toolCall.id];
-          if (questionPayload) {
-            const resolvedAnswers = resolveQuestionAnswers(
-              questionPayload,
-              toolResult,
-            );
-            return (
-              <QuestionCard
-                key={toolCall.id}
-                toolCallId={toolCall.id}
-                payload={questionPayload}
-                resolvedAnswers={resolvedAnswers}
-              />
-            );
-          }
-          const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
-          if (todoPayload) {
-            const summaryOnly =
-              toolCallContext.latestTodoCallId !== toolCall.id;
-            return (
-              <TodoListCard
-                key={toolCall.id}
-                todos={todoPayload.todos}
-                summaryOnly={summaryOnly}
-              />
-            );
-          }
-          const approvalPayload =
-            toolCallContext.approvalPayloadById[toolCall.id];
-          if (approvalPayload) {
-            return (
-              <ApprovalCard
-                key={toolCall.id}
-                toolCallId={toolCall.id}
-                toolName={approvalPayload.toolName ?? null}
-                toolType={approvalPayload.toolType ?? null}
-                input={approvalPayload.input}
-                toolResult={toolResult}
-                isStreaming={isStreaming}
-              />
-            );
-          }
-          const argsFromAssistant = toolCall.function?.arguments;
-          const pendingArgs = toolCallArguments?.[toolCall.id];
-          let argsToDisplay = pendingArgs;
-          if (
-            toolResult?.arguments &&
-            Object.keys(toolResult.arguments).length > 0
-          ) {
-            argsToDisplay = toolResult.arguments;
-          } else if (
-            argsFromAssistant &&
-            Object.keys(argsFromAssistant).length > 0
-          ) {
-            argsToDisplay = argsFromAssistant;
-          }
-          const rawToolName =
-            toolResult?.tool_name ||
-            toolCall.function?.name ||
-            `Tool call ${toolCall.id}`;
-          return (
-            <ToolCallItem
-              key={toolCall.id}
-              name={rawToolName}
-              args={argsToDisplay}
-              result={formatToolResult(toolResult)}
-              success={toolResult ? !toolResult.is_error : undefined}
-              isStreaming={isStreaming}
-            />
-          );
-        })}
+        {toolCalls.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {toolCalls.map((toolCall: ToolCall) => {
+              const toolResult = toolResultsById[toolCall.id];
+              const questionPayload =
+                toolCallContext.questionPayloadById[toolCall.id];
+              if (questionPayload) {
+                const resolvedAnswers = resolveQuestionAnswers(
+                  questionPayload,
+                  toolResult,
+                );
+                return (
+                  <QuestionCard
+                    key={toolCall.id}
+                    toolCallId={toolCall.id}
+                    payload={questionPayload}
+                    resolvedAnswers={resolvedAnswers}
+                  />
+                );
+              }
+              const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
+              if (todoPayload) {
+                const summaryOnly =
+                  toolCallContext.latestTodoCallId !== toolCall.id;
+                return (
+                  <TodoListCard
+                    key={toolCall.id}
+                    todos={todoPayload.todos}
+                    summaryOnly={summaryOnly}
+                  />
+                );
+              }
+              const approvalPayload =
+                toolCallContext.approvalPayloadById[toolCall.id];
+              if (approvalPayload) {
+                return (
+                  <ApprovalCard
+                    key={toolCall.id}
+                    toolCallId={toolCall.id}
+                    toolName={approvalPayload.toolName ?? null}
+                    toolType={approvalPayload.toolType ?? null}
+                    input={approvalPayload.input}
+                    toolResult={toolResult}
+                    isStreaming={isStreaming}
+                  />
+                );
+              }
+              const argsFromAssistant = toolCall.function?.arguments;
+              const pendingArgs = toolCallArguments?.[toolCall.id];
+              let argsToDisplay = pendingArgs;
+              if (
+                toolResult?.arguments &&
+                Object.keys(toolResult.arguments).length > 0
+              ) {
+                argsToDisplay = toolResult.arguments;
+              } else if (
+                argsFromAssistant &&
+                Object.keys(argsFromAssistant).length > 0
+              ) {
+                argsToDisplay = argsFromAssistant;
+              }
+              const rawToolName =
+                toolResult?.tool_name ||
+                toolCall.function?.name ||
+                `Tool call ${toolCall.id}`;
+              return (
+                <ToolCallItem
+                  key={toolCall.id}
+                  name={rawToolName}
+                  args={argsToDisplay}
+                  result={formatToolResult(toolResult)}
+                  success={toolResult ? !toolResult.is_error : undefined}
+                  isStreaming={isStreaming}
+                />
+              );
+            })}
+          </div>
+        ) : null}
       </LLMChatBubble>
     );
   }

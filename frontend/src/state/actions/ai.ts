@@ -520,13 +520,16 @@ export async function getLLMChat(chatId: string) {
       const nextWaitingForResponse = waitingForResponse
         ? existingDetails?.waitingForResponse ?? true
         : false; // keep false once streaming finishes to avoid stale flips
+      const nextMessages = nextWaitingForResponse
+        ? mergeChatMessages(existingDetails?.messages ?? [], messages)
+        : messages;
       return {
         chatDetails: {
           ...state.chatDetails,
           [chatId]: {
             ...getDefaultChatDetails(),
             ...(existingDetails ?? {}),
-            messages,
+            messages: nextMessages,
             waitingForResponse: nextWaitingForResponse,
             llmConfig: llmConfig,
           },
@@ -551,13 +554,16 @@ export async function getExternalAgentChat(
       const nextWaitingForResponse = waitingForResponse
         ? existingDetails?.waitingForResponse ?? true
         : false;
+      const nextMessages = nextWaitingForResponse
+        ? mergeChatMessages(existingDetails?.messages ?? [], messages)
+        : messages;
       return {
         chatDetails: {
           ...state.chatDetails,
           [chatId]: {
             ...getDefaultChatDetails(),
             ...(existingDetails ?? {}),
-            messages,
+            messages: nextMessages,
             waitingForResponse: nextWaitingForResponse,
             toolCallArguments,
             llmConfig: null,
@@ -1193,6 +1199,26 @@ function mergeChatMessages(
   return merged;
 }
 
+function mergeChatDetails(
+  existingDetails: ChatDetails,
+  pendingDetails: ChatDetails,
+): ChatDetails {
+  return {
+    ...existingDetails,
+    ...pendingDetails,
+    messages: mergeChatMessages(
+      existingDetails.messages,
+      pendingDetails.messages,
+    ),
+    toolCallArguments: {
+      ...existingDetails.toolCallArguments,
+      ...pendingDetails.toolCallArguments,
+    },
+    waitingForResponse:
+      pendingDetails.waitingForResponse || existingDetails.waitingForResponse,
+  };
+}
+
 function promotePendingChatDetailsIfNeeded(chatId: string) {
   useAIStore.setState((state) => {
     if (state.activeChatId !== null) {
@@ -1204,20 +1230,7 @@ function promotePendingChatDetailsIfNeeded(chatId: string) {
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
     const pendingDetails = state.pendingChatDetails;
-    const mergedDetails: ChatDetails = {
-      ...existingDetails,
-      ...pendingDetails,
-      messages: mergeChatMessages(
-        existingDetails.messages,
-        pendingDetails.messages,
-      ),
-      toolCallArguments: {
-        ...existingDetails.toolCallArguments,
-        ...pendingDetails.toolCallArguments,
-      },
-      waitingForResponse:
-        pendingDetails.waitingForResponse || existingDetails.waitingForResponse,
-    };
+    const mergedDetails = mergeChatDetails(existingDetails, pendingDetails);
     return {
       activeChatId: chatId,
       pendingChatDetails: null,
@@ -1226,6 +1239,35 @@ function promotePendingChatDetailsIfNeeded(chatId: string) {
         [chatId]: mergedDetails,
       },
     };
+  });
+}
+
+export function finalizePendingChatDetails(chatId: string) {
+  useAIStore.setState((state) => {
+    const pendingDetails = state.pendingChatDetails;
+    const shouldSetActive =
+      state.activeChatId === null ||
+      state.activeChatId === undefined ||
+      state.activeChatId === chatId;
+    const needsActiveUpdate =
+      shouldSetActive && state.activeChatId !== chatId;
+    if (!pendingDetails && !needsActiveUpdate) {
+      return {};
+    }
+    const nextState: Partial<ReturnType<typeof useAIStore.getState>> = {};
+    if (pendingDetails) {
+      const existingDetails =
+        state.chatDetails[chatId] ?? getDefaultChatDetails();
+      nextState.chatDetails = {
+        ...state.chatDetails,
+        [chatId]: mergeChatDetails(existingDetails, pendingDetails),
+      };
+      nextState.pendingChatDetails = null;
+    }
+    if (shouldSetActive) {
+      nextState.activeChatId = chatId;
+    }
+    return nextState;
   });
 }
 

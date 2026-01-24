@@ -12,6 +12,7 @@ import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
+  finalizePendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
@@ -99,16 +100,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      clearPendingChatDetails();
-      setChatId((currentChatId) => {
-        if (currentChatId !== null) {
-          return currentChatId;
-        }
-        if (!succeeded || !newChatId) {
+      if (!succeeded || !newChatId) {
+        clearPendingChatDetails();
+        setChatId((currentChatId) => {
+          if (currentChatId !== null) {
+            return currentChatId;
+          }
           return undefined;
-        }
-        return newChatId;
-      });
+        });
+        return;
+      }
+      finalizePendingChatDetails(newChatId);
     },
     [setChatId],
   );
