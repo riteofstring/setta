@@ -1,4 +1,4 @@
-import { useDragDropManager } from "@dnd-kit/react";
+import { DragOverlay, useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
@@ -32,142 +32,39 @@ export const TempDNDSection = forwardRef<HTMLDivElement, Record<string, never>>(
   },
 );
 
-type OverlayRect = {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-};
-
-function resolveOverlayRect(
-  draggingRectsById: Record<
-    string,
-    {
-      top: number;
-      left: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    }
-  > | null,
-  fallbackRect: {
-    top: number;
-    left: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  } | null,
-): OverlayRect | null {
-  if (draggingRectsById) {
-    const rects = Object.values(draggingRectsById);
-    if (rects.length > 0) {
-      let left = rects[0].left;
-      let top = rects[0].top;
-      let right = rects[0].right;
-      let bottom = rects[0].bottom;
-      for (const rect of rects.slice(1)) {
-        left = Math.min(left, rect.left);
-        top = Math.min(top, rect.top);
-        right = Math.max(right, rect.right);
-        bottom = Math.max(bottom, rect.bottom);
-      }
-      return {
-        left,
-        top,
-        width: right - left,
-        height: bottom - top,
-      };
-    }
-  }
-
-  if (fallbackRect) {
-    return {
-      left: fallbackRect.left,
-      top: fallbackRect.top,
-      width: fallbackRect.width,
-      height: fallbackRect.height,
-    };
-  }
-
-  return null;
-}
+const DummySection = forwardRef<HTMLDivElement, Record<string, never>>(
+  ({}, ref) => (
+    <div
+      style={{ width: "100%", height: "100%" }}
+      className="rounded-xl bg-blue-500/90 shadow-lg dark:bg-blue-700/90"
+      ref={ref}
+    />
+  ),
+);
 
 export const DummyDragOverlay = forwardRef<
   HTMLDivElement,
   Record<string, never>
 >(({}, ref) => {
   const manager = useDragDropManager();
-  const { draggingRectsById, activeRect, draggingIds } = useDndState(
-    (state) => ({
-      draggingRectsById: state.draggingRectsById,
-      activeRect: state.activeRect,
-      draggingIds: state.draggingIds,
-    }),
-    _.isEqual,
-  );
   const isDropped = useComputed(
     () => manager?.dragOperation.status.dropped ?? false,
-    [manager],
-  ).value;
-  const isDragging = useComputed(
-    () => manager?.dragOperation.status.dragging ?? false,
     [manager],
   ).value;
   const shouldRenderOverlay = useComputed(
     () => manager?.dragOperation.status.initialized ?? false,
     [manager],
   ).value;
-  const dragTransform = useComputed(() => {
-    if (!manager) {
-      return null;
-    }
-    const transform = manager.dragOperation.transform;
-    return {
-      x: transform?.x ?? 0,
-      y: transform?.y ?? 0,
-    };
-  }, [manager]).value;
+  const overlayStyle = isDropped ? { opacity: 0 } : undefined;
 
-  if (!shouldRenderOverlay || isDropped) {
+  if (!shouldRenderOverlay) {
     return null;
   }
-
-  if (!isDragging) {
-    return null;
-  }
-
-  const overlayRectBase = resolveOverlayRect(draggingRectsById, activeRect);
-  if (!overlayRectBase) {
-    return null;
-  }
-  const overlayRect = {
-    top: overlayRectBase.top + (dragTransform?.y ?? 0),
-    left: overlayRectBase.left + (dragTransform?.x ?? 0),
-    width: overlayRectBase.width,
-    height: overlayRectBase.height,
-  };
-
-  const overlayClassName =
-    draggingIds.length > 1
-      ? "rounded-xl border-2 border-blue-400/70 bg-blue-500/20 shadow-lg dark:border-blue-400/60 dark:bg-blue-700/20"
-      : "rounded-xl bg-blue-500/90 shadow-lg dark:bg-blue-700/90";
 
   return createPortal(
-    <div
-      className={overlayClassName}
-      style={{
-        position: "fixed",
-        top: overlayRect.top,
-        left: overlayRect.left,
-        width: overlayRect.width,
-        height: overlayRect.height,
-        pointerEvents: "none",
-        zIndex: 1000,
-      }}
-      ref={ref}
-    />,
+    <DragOverlay style={overlayStyle}>
+      <DummySection ref={ref} />
+    </DragOverlay>,
     document.body,
   );
 });

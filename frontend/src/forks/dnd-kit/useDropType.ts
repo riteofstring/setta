@@ -2,7 +2,7 @@ import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addDndChild,
   removeDndChild,
-  replaceDndSectionsWithTemp,
+  replaceDndSectionWithTemp,
   useDndChildren,
 } from "forks/dnd-kit/dndChildren";
 import {
@@ -13,27 +13,15 @@ import {
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { addTemporaryNotification } from "state/actions/notifications";
+import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
   getSectionChildren,
-  getSectionIsHorizontalOrientation,
   getSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
-import {
-  getRootSelectedSectionIds,
-  getSharedParentId,
-  isDescendantOfSectionSelection,
-  orderSectionIdsByParent,
-} from "state/actions/sections/sectionSelection";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import {
-  useProjectState,
-  useSectionRefs,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -77,50 +65,19 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
-export function onDragStart({ active, activeRect }: DragStartEvent) {
+export function onDragStart({ active }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
   }
-  const activeId = String(active.id);
-  const rawWidth = activeRect?.width ?? 0;
-  const rawHeight = activeRect?.height ?? 0;
-  const zoom = useReactFlow.getState().transform[2];
-  const safeZoom = zoom > 0 ? zoom : 1;
+  const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
-  const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
-  const placeholderSize = resolveSectionPlaceholderSize({
-    draggingIds: selection.draggingIds,
-    rectsById: selection.rectsById,
-    zoom: safeZoom,
-  });
-  const normalizedWidth = placeholderSize?.width ?? rawWidth / safeZoom;
-  const normalizedHeight = placeholderSize?.height ?? rawHeight / safeZoom;
-  setActiveDnd(
-    activeId,
-    active.data.current.isTopLevel,
-    normalizedWidth,
-    normalizedHeight,
-    activeRect,
-  );
-  useDndState.setState({
-    draggingIds: selection.draggingIds,
-    draggingRectsById: selection.draggingRectsById,
-  });
-  if (dndState.isMovingFree || dndState.isSorting) {
+  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
+  if (dndState.isMovingFree) {
     manualDndChildrenReset();
-    requestAnimationFrame(() => {
-      const latestState = useDndState.getState();
-      if (
-        (!latestState.isMovingFree && !latestState.isSorting) ||
-        latestState.activeId !== activeId
-      ) {
-        return;
-      }
-      replaceDndSectionsWithTemp(activeId, selection.draggingIds);
-    });
+    replaceDndSectionWithTemp(active.id);
   }
 }
 
@@ -245,9 +202,8 @@ function onDragOver({
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
 
-  let ignoredLeftDist = false;
   if (calledFromOnDragMove && dndState.triggerDistCondition) {
-    const handledLeftDist = leftDistBehavior({
+    leftDistBehavior({
       active,
       over,
       dndChildrenState,
@@ -255,10 +211,7 @@ function onDragOver({
       dndSectionId,
       collisions,
     });
-    if (handledLeftDist) {
-      return;
-    }
-    ignoredLeftDist = true;
+    return;
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
@@ -276,8 +229,8 @@ function onDragOver({
     return;
   }
 
-  if (dndState.triggerDistCondition && !ignoredLeftDist) {
-    const handledLeftDist = leftDistBehavior({
+  if (dndState.triggerDistCondition) {
+    leftDistBehavior({
       active,
       over,
       dndChildrenState,
@@ -285,9 +238,7 @@ function onDragOver({
       dndSectionId,
       collisions,
     });
-    if (handledLeftDist) {
-      return;
-    }
+    return;
   }
 
   // Dragging over the temporary section
@@ -414,31 +365,20 @@ function leftDistBehavior({
   oldParentId,
   dndSectionId,
   collisions,
-}): boolean {
+}) {
   const overId = getOverId(over, collisions);
-  const overIdKey = overId ? String(overId) : null;
-  if (!overIdKey || overIdKey === dndSectionId) {
-    return true;
-  }
-
-  const behaviorDropType = getBehaviorDropType(active.id, overIdKey);
-  if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
-    // Ignore left-dist when the hovered section can't be a parent.
-    setNullBehavior(overId);
-    return false;
-  }
-
   // Consider overId to be the new parent, if it's not the temp section.
-  maybeMoveToNewParent({
-    active,
-    over,
-    dndSectionId,
-    oldParentId,
-    newParentId: overIdKey,
-    dndChildrenState,
-    collisions,
-  });
-  return true;
+  if (overId !== dndSectionId) {
+    maybeMoveToNewParent({
+      active,
+      over,
+      dndSectionId,
+      oldParentId,
+      newParentId: overId,
+      dndChildrenState,
+      collisions,
+    });
+  }
 }
 
 function setNullBehavior(overId) {
@@ -470,15 +410,6 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
     !getSectionIsRoot(newParentId) ||
     getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
     getSectionIsGlobalVariables(activeId)
-  ) {
-    return BehaviorDropTypeEnum.INVALID;
-  }
-
-  const draggingIds = useDndState.getState().draggingIds;
-  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
-  const state = useProjectState.getState();
-  if (
-    isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }
@@ -535,270 +466,4 @@ function getSectionIsGlobalVariables(sectionId: string) {
 
 function getSectionIsRoot(sectionId: string) {
   return getIsRoot(getSectionType(useProjectState.getState(), sectionId));
-}
-
-type DragRect = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
-
-type PlaceholderSize = {
-  width: number;
-  height: number;
-};
-
-type PlaceholderSizeInput = {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect> | null;
-  zoom: number;
-};
-
-type SectionOrientation = "horizontal" | "vertical";
-
-function resolveSectionPlaceholderSize({
-  draggingIds,
-  rectsById,
-  zoom,
-}: PlaceholderSizeInput): PlaceholderSize | null {
-  if (draggingIds.length === 0 || !rectsById) {
-    return null;
-  }
-
-  const state = useProjectState.getState();
-  const parentId =
-    getSharedParentId(state, draggingIds) ??
-    state.parentSectionMap[draggingIds[0]] ??
-    null;
-  const orientation = resolveParentOrientation(parentId);
-
-  const children = parentId ? getSectionChildren(state, parentId) : null;
-  const indexById = children
-    ? new Map(children.map((childId, index) => [childId, index]))
-    : null;
-  const size = accumulateSectionSizes({
-    draggingIds,
-    rectsById,
-    orientation,
-    indexById,
-  });
-
-  if (size.width <= 0 || size.height <= 0) {
-    return null;
-  }
-
-  const safeZoom = zoom > 0 ? zoom : 1;
-  return {
-    width: size.width / safeZoom,
-    height: size.height / safeZoom,
-  };
-}
-
-function resolveParentOrientation(parentId: string | null): SectionOrientation {
-  if (!parentId) {
-    return "vertical";
-  }
-  if (getSectionIsHorizontalOrientation(parentId)) {
-    return "horizontal";
-  }
-  return "vertical";
-}
-
-function collectSectionRects({
-  activeId,
-  activeRect,
-  draggingIds,
-}: {
-  activeId: string;
-  activeRect: DragStartEvent["activeRect"] | null;
-  draggingIds: string[];
-}): Record<string, DragRect> | null {
-  const refs = useSectionRefs.getState();
-  const rectsById: Record<string, DragRect> = {};
-
-  for (const sectionId of draggingIds) {
-    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
-    if (ref) {
-      const rect = ref.getBoundingClientRect();
-      rectsById[sectionId] = {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-      continue;
-    }
-
-    if (sectionId === activeId && activeRect) {
-      rectsById[sectionId] = { ...activeRect };
-    }
-  }
-
-  if (Object.keys(rectsById).length === 0) {
-    return null;
-  }
-  return rectsById;
-}
-
-function accumulateSectionSizes({
-  draggingIds,
-  rectsById,
-  orientation,
-  indexById,
-}: {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect>;
-  orientation: SectionOrientation;
-  indexById: Map<string, number> | null;
-}): PlaceholderSize {
-  let width = 0;
-  let height = 0;
-
-  for (const sectionId of draggingIds) {
-    const rect = rectsById[sectionId];
-    if (!rect) {
-      continue;
-    }
-    if (orientation === "horizontal") {
-      width += rect.width;
-      height = Math.max(height, rect.height);
-    } else {
-      width = Math.max(width, rect.width);
-      height += rect.height;
-    }
-  }
-
-  if (indexById) {
-    const gapTotal = resolveAdjacentGapTotal({
-      draggingIds,
-      rectsById,
-      orientation,
-      indexById,
-    });
-    if (orientation === "horizontal") {
-      width += gapTotal;
-    } else {
-      height += gapTotal;
-    }
-  }
-
-  return { width, height };
-}
-
-function resolveAdjacentGapTotal({
-  draggingIds,
-  rectsById,
-  orientation,
-  indexById,
-}: {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect>;
-  orientation: SectionOrientation;
-  indexById: Map<string, number>;
-}): number {
-  let gapTotal = 0;
-
-  for (let i = 0; i < draggingIds.length - 1; i += 1) {
-    const currentId = draggingIds[i];
-    const nextId = draggingIds[i + 1];
-    const currentIndex = indexById.get(currentId);
-    const nextIndex = indexById.get(nextId);
-    if (
-      currentIndex === undefined ||
-      nextIndex === undefined ||
-      nextIndex !== currentIndex + 1
-    ) {
-      continue;
-    }
-
-    const currentRect = rectsById[currentId];
-    const nextRect = rectsById[nextId];
-    if (!currentRect || !nextRect) {
-      continue;
-    }
-
-    const gap =
-      orientation === "horizontal"
-        ? nextRect.left - (currentRect.left + currentRect.width)
-        : nextRect.top - (currentRect.top + currentRect.height);
-    if (gap > 0) {
-      gapTotal += gap;
-    }
-  }
-
-  return gapTotal;
-}
-
-function resolveSectionDragSelection(
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect> | null;
-  draggingRectsById: Record<string, DragRect> | null;
-} {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return buildSectionSelection([activeId], activeId, activeRect);
-  }
-
-  const state = useProjectState.getState();
-  const activeIds = state.projectConfig.activeIds;
-  if (!activeIds.includes(activeId)) {
-    return buildSectionSelection([activeId], activeId, activeRect);
-  }
-
-  const { rootIds } = getRootSelectedSectionIds(state, activeIds);
-  if (rootIds.length === 0) {
-    return buildSectionSelection([activeId], activeId, activeRect);
-  }
-
-  const sharedParentId = getSharedParentId(state, rootIds);
-  if (rootIds.length > 1 && sharedParentId === undefined) {
-    addTemporaryNotification("Section selection spans multiple parents.");
-    return buildSectionSelection([activeId], activeId, activeRect);
-  }
-
-  const orderedIds = orderSectionIdsByParent(
-    state,
-    sharedParentId ?? null,
-    rootIds,
-  );
-  return buildSectionSelection(orderedIds, activeId, activeRect);
-}
-
-function buildSectionSelection(
-  draggingIds: string[],
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect> | null;
-  draggingRectsById: Record<string, DragRect> | null;
-} {
-  const rectsById = collectSectionRects({
-    activeId,
-    activeRect,
-    draggingIds,
-  });
-  return {
-    draggingIds,
-    rectsById,
-    draggingRectsById: resolveDraggingRectsForSelection(rectsById),
-  };
-}
-
-function resolveDraggingRectsForSelection(
-  rectsById: Record<string, DragRect> | null,
-): Record<string, DragRect> | null {
-  const dndState = useDndState.getState();
-  if (!dndState.isMovingFree || !rectsById) {
-    return null;
-  }
-  return rectsById;
 }
