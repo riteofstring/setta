@@ -1,7 +1,7 @@
 # Setta CLI agent skill plan
 
 ## Goal
-Provide a CLI-first, non-MCP integration surface that yields the best results for agent frameworks (Codex, Claude Code, OpenCode) by giving them a consistent, machine-readable way to authenticate and call Setta APIs.
+Provide a CLI-first, non-MCP integration surface that yields the best results for agent frameworks (Codex, Claude Code, OpenCode) by giving them a consistent, machine-readable way to authenticate and call Setta APIs. The CLI surface should match what MCP exposes to the LLM.
 
 ## Why CLI-first
 - All three agent frameworks can reliably run shell commands.
@@ -9,7 +9,7 @@ Provide a CLI-first, non-MCP integration surface that yields the best results fo
 - A stable JSON contract enables tooling-agnostic integrations and skill documents.
 
 ## Scope
-- Add CLI commands that expose auth + API calls as pure JSON.
+- Add CLI commands that expose auth + MCP-parity tool calls as pure JSON.
 - Publish a skill document that instructs agents to use these CLI commands.
 - Update docs to formalize the contract and examples.
 - Optimize the LLM experience so one command is enough for most API calls.
@@ -23,7 +23,7 @@ Provide a CLI-first, non-MCP integration surface that yields the best results fo
 ## Current state (relevant pieces)
 - `setta status --connect-info --json` returns bootstrap URLs + session metadata.
 - Bootstrap token can be exchanged for an auth cookie via `POST /__setta__/bootstrap/consume`.
-- All API routes are exposed under `/api/*` (OpenAPI at `/api/openapi.json`).
+- MCP tools are registered via `setta.mcp.tool_setup` and exposed in `setta.mcp.server`.
 - CLI lives in `backend/setta/start.py` with Click commands.
 
 ## Proposed CLI surface
@@ -65,8 +65,17 @@ Notes:
 - `cookieName` should use `C.AUTH_COOKIE_NAME`.
 - `source` indicates how auth was minted (bootstrap, session-secret, env).
 
-### 2) `setta api`
-Call Setta HTTP endpoints with **auto-auth** for the lowest-friction LLM experience.
+### 2) `setta tools`
+Return the exact MCP tool list (schemas + descriptions) that the LLM sees, but
+expose **bare tool names** (no `setta__` prefix) for CLI ergonomics.
+
+Behavior:
+- Outputs strict JSON only.
+- Includes the same schemas and descriptions as MCP, but uses bare tool names.
+- Hidden MCP args (settaMcpHidden) are omitted.
+
+### 3) `setta api`
+Call Setta MCP tools with **auto-auth** for the lowest-friction LLM experience.
 
 Behavior:
 - **Auto-auth default**: resolve auth from the newest local session in the current
@@ -76,17 +85,14 @@ Behavior:
   - `--cookie-header` / `--cookie`
   - `--auth-json PATH` (file produced by `setta auth --json`)
   - `--auth-stdin` (reads JSON from stdin)
-- Accept either:
-  - a route key (maps to `Route` enum, ex: `GET_LATEST_PROJECT_STATE`)
-  - a raw path (ex: `/getLatestProjectState`)
+- Accept a bare MCP tool name (e.g. `getLatestProjectState`), and resolve it
+  internally to the namespaced MCP tool name.
 - Sends JSON payload via `--json` or `--stdin`/`--file`.
 - Emits only raw JSON on stdout when `--json-output` is set.
 
 Examples:
 ```
-setta api GET_LATEST_PROJECT_STATE --json '{"projectConfigId":"..."}'
-
-setta api /getLatestProjectState --stdin
+setta api getLatestProjectState --json '{"projectConfigId":"..."}'
 ```
 
 Error contract (for `--json-output`):
@@ -94,7 +100,7 @@ Error contract (for `--json-output`):
 {
   "error": "HTTPError",
   "status": 403,
-  "url": "http://127.0.0.1:8000/api/getLatestProjectState",
+  "tool": "getLatestProjectState",
   "body": { ... }
 }
 ```
@@ -118,12 +124,17 @@ Error contract (for `--json-output`):
 
 ## Implementation plan
 
-### Phase 1: CLI commands
+### Phase 1: Tool-call backend + CLI
+- Add a generic HTTP endpoint to invoke MCP tools by name.
+- Add `setta tools` to emit the MCP tool list (schemas + descriptions).
 - Add `setta auth` and `setta api` commands in `backend/setta/start.py`.
+- `setta api` must accept bare MCP tool names only and call the tool-invocation endpoint.
 - Reuse session selection helpers already used by `setta status`.
 - Reuse bootstrap token flow and auth cookie minting logic (same as SettaRunner).
-- Ensure `--json` output is strict JSON with no extra logs.
+- Ensure JSON output is strict JSON with no extra logs.
 - Implement `setta api` auto-auth using the local session registry by default.
+- Avoid duplicate logic: if MCP-specific code needs to be reused for CLI/tool discovery,
+  move it into shared helpers and have both MCP and CLI consume the shared logic.
 
 ### Phase 2: Docs
 - Update `docs/setta-cli-commands.md` with new commands and JSON contracts.
@@ -137,12 +148,24 @@ Error contract (for `--json-output`):
 ### Phase 4: Tests
 - Add tests under `tests/start/` for:
   - `setta auth --json` output schema.
-  - `setta api` route resolution and error contract.
+  - `setta tools --json` parity with MCP registration.
+  - `setta api` tool resolution and error contract.
 - Add a lightweight integration test that starts a local session, calls `setta auth`,
-  then uses `setta api` against `GET_LATEST_PROJECT_STATE`.
+  then uses `setta api` against `getLatestProjectState`.
+
+### Implementation details (carry-forward)
+- Tool list source: generate from MCP registry (SETTA_MCP_TOOLS / SETTA_INIT_MCP_TOOLS)
+  using the same FastMCP tool metadata pipeline; output bare names.
+- Tool call endpoint: define a single HTTP route (e.g. `/__setta__/tools/call`) that
+  accepts `{ "tool": "<bare_name>", "arguments": { ... } }`, resolves the MCP tool,
+  invokes it, and returns the result. On error, return a JSON error contract.
+- Name resolution: CLI accepts bare tool names only; internally prefix with `setta__`
+  to match MCP namespacing; reject unknown names with a clear JSON error.
+- Parity rule: merge init + discoverable tools, omit hidden args (settaMcpHidden),
+  keep descriptions from tool docstrings.
+- No MCP client dependency: CLI uses backend HTTP endpoint + local registry only.
 
 ## Open questions
-- Should `setta api` accept route keys only, raw paths only, or both?
 - Should `setta auth` support remote sessions via SSH (or defer to `setta connect`)?
 - Should `setta auth --json` redact cookies by default unless `--show-cookie` is set?
 - Should `setta api` fall back to prompting for session selection when multiple
