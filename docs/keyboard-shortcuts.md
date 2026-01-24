@@ -20,16 +20,6 @@ is configurable.
   section's param filter instead of the global search bar.
 - Mod + P: open advanced search.
 - Mod + Shift + P: open command palette.
-- Ctrl + Shift + 1/2/3/4: focus header / overview / canvas / UI editor panes.
-- Alt + J / Alt + K: focus next / previous top-level section (canvas scope).
-
-## Pane and tab switching
-
-- V: show the Version (section variants) tab in the UI editor (requires an
-  active section).
-- P: show the Params (UI config) tab in the UI editor (requires an active
-  section).
-- O: show the Project Overview tab.
 
 ## Canvas view controls
 
