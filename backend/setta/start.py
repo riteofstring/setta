@@ -13,14 +13,19 @@ import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePath
+from typing import Any
 
 import click
+import requests
 import uvicorn
+import yaml
 
 from setta import __version__
-from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
+from setta.auth.validation import consume_bootstrap_token
 from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
+from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
@@ -30,7 +35,11 @@ from setta.share.deployment_utils import (
 )
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.network import build_bootstrap_urls, format_host_for_ssh_tunnel
+from setta.utils.network import (
+    build_bootstrap_urls,
+    format_host_for_ssh_tunnel,
+    format_host_for_url,
+)
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -807,6 +816,187 @@ def _emit_connect_info_json(payload: dict) -> None:
     click.echo(f"{_CONNECT_INFO_JSON_PREFIX}{encoded}")
 
 
+def _normalize_base_url(base_url: str) -> str:
+    trimmed = base_url.strip()
+    if not trimmed:
+        raise click.ClickException("Empty base URL.")
+    trimmed = trimmed.rstrip("/")
+    if trimmed.endswith(Route.PREFIX.value):
+        trimmed = trimmed[: -len(Route.PREFIX.value)].rstrip("/")
+    if not trimmed.startswith(("http://", "https://")):
+        trimmed = f"http://{trimmed}"
+    return trimmed
+
+
+def _base_url_from_session(session: SessionMetadata) -> str:
+    host = format_host_for_url(session.host)
+    return f"http://{host}:{session.port}"
+
+
+def _build_bootstrap_urls_from_base(base_url: str, token: str) -> tuple[str, str]:
+    plain = f"{base_url}{Route.BOOTSTRAP_PAGE.value}"
+    return f"{plain}#token={token}", plain
+
+
+def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
+    return {
+        "id": session.id,
+        "workspacePath": session.workspacePath,
+        "host": session.host,
+        "port": session.port,
+        "pid": session.pid,
+        "startedAt": session.startedAt.isoformat(),
+    }
+
+
+def _load_session_secret(registry: SessionRegistry, session: SessionMetadata) -> bytes:
+    secret_path = registry.resolve_secret_path(session)
+    if not secret_path.exists():
+        raise click.ClickException(f"Secret file missing for session {session.id}.")
+    return secret_path.read_bytes()
+
+
+def _resolve_latest_session_for_workspace(
+    workspace: Path,
+) -> tuple[SessionMetadata, bytes]:
+    registry = _build_session_registry(workspace)
+    sessions = registry.find_sessions_by_workspace(workspace)
+    if not sessions:
+        raise click.ClickException("No matching Setta sessions found.")
+    session = max(sessions, key=lambda entry: entry.startedAt)
+    secret = _load_session_secret(registry, session)
+    return session, secret
+
+
+def _emit_json_output(payload: Any) -> None:
+    click.echo(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
+def _load_json_value(raw: str, label: str) -> Any:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid {label} JSON: {exc}") from exc
+
+
+def _load_json_payload(
+    json_payload: str | None, payload_stdin: bool, payload_file: Path | None
+) -> Any | None:
+    sources = [json_payload is not None, payload_stdin, payload_file is not None]
+    if sum(sources) > 1:
+        raise click.ClickException("Use only one of --json, --stdin, or --file.")
+    if json_payload is not None:
+        raw = json_payload.strip()
+    elif payload_stdin:
+        raw = sys.stdin.read().strip()
+    elif payload_file is not None:
+        raw = payload_file.read_text(encoding="utf-8").strip()
+    else:
+        return None
+    if not raw:
+        return None
+    return _load_json_value(raw, "payload")
+
+
+def _load_auth_payload(
+    auth_json: Path | None, auth_stdin: bool
+) -> dict[str, Any] | None:
+    if auth_json is None and not auth_stdin:
+        return None
+    if auth_json is not None and auth_stdin:
+        raise click.ClickException("Use only one of --auth-json or --auth-stdin.")
+    if auth_json is not None:
+        raw = auth_json.read_text(encoding="utf-8").strip()
+    else:
+        raw = sys.stdin.read().strip()
+    if not raw:
+        raise click.ClickException("Auth JSON input was empty.")
+    payload = _load_json_value(raw, "auth")
+    if not isinstance(payload, dict):
+        raise click.ClickException("Auth JSON must be an object.")
+    return payload
+
+
+def _strip_cookie_header_prefix(value: str) -> str:
+    cleaned = value.strip()
+    if cleaned.lower().startswith("cookie:"):
+        return cleaned.split(":", 1)[1].strip()
+    return cleaned
+
+
+def _cookie_header_from_auth_payload(payload: dict[str, Any]) -> str:
+    header = payload.get("cookieHeader")
+    if isinstance(header, str) and header.strip():
+        return _strip_cookie_header_prefix(header)
+    cookie = payload.get("cookie")
+    if isinstance(cookie, str) and cookie.strip():
+        cookie_value = _strip_cookie_header_prefix(cookie)
+        if "=" not in cookie_value:
+            name = payload.get("cookieName") or C.AUTH_COOKIE_NAME
+            cookie_value = f"{name}={cookie_value}"
+        return cookie_value
+    raise click.ClickException("Auth JSON missing cookieHeader/cookie fields.")
+
+
+def _base_url_from_auth_payload(payload: dict[str, Any]) -> str | None:
+    base_url = payload.get("baseUrl")
+    if isinstance(base_url, str) and base_url.strip():
+        return _normalize_base_url(base_url)
+    api_base_url = payload.get("apiBaseUrl")
+    if isinstance(api_base_url, str) and api_base_url.strip():
+        return _normalize_base_url(api_base_url)
+    return None
+
+
+def _resolve_route_path(route_or_path: str) -> str:
+    if route_or_path.startswith("/"):
+        return route_or_path
+    if route_or_path in Route.__members__:
+        return Route[route_or_path].value
+    for route in Route:
+        if route.value.lstrip("/") == route_or_path:
+            return route.value
+    raise click.ClickException(
+        f"Unknown route {route_or_path!r}. Use a Route key or raw /path."
+    )
+
+
+def _build_api_url(base_url: str, route_path: str) -> str:
+    normalized_base = _normalize_base_url(base_url)
+    path = route_path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    if path.startswith(Route.PREFIX.value):
+        return f"{normalized_base}{path}"
+    return f"{normalized_base}{Route.PREFIX.value}{path}"
+
+
+def _build_http_error_payload(
+    response: requests.Response | None, url: str
+) -> dict[str, Any]:
+    body: Any = None
+    status = None
+    if response is not None:
+        status = response.status_code
+        try:
+            body = response.json()
+        except ValueError:
+            body = response.text
+    return {
+        "error": "HTTPError",
+        "status": status,
+        "url": url,
+        "body": body,
+    }
+
+
+def _build_request_error_payload(exc: Exception, url: str | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"error": "RequestError", "message": str(exc)}
+    if url is not None:
+        payload["url"] = url
+    return payload
+
+
 def _select_local_stop_targets(
     sessions: list[SessionMetadata],
     session_id: str | None,
@@ -867,11 +1057,31 @@ def version() -> None:
     is_flag=True,
     help="Export in readable format with variants",
 )
-def export_db(readable: bool, readable_with_variants: bool) -> None:
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output path for readable export (default: setta_files/project.readable.yaml).",
+)
+def export_db(
+    readable: bool, readable_with_variants: bool, output: Path | None
+) -> None:
     if not any([readable, readable_with_variants]):
         readable_with_variants = True
 
-    # TODO
+    include_variants = readable_with_variants
+    dbe = DBE(C.SETTA_FILES_FOLDER)
+    project_state = dbe.read_project_required()
+    payload = build_readable_project_export(
+        project_state,
+        include_variants=include_variants,
+    )
+    output_path = (
+        output if output is not None else C.SETTA_FILES_FOLDER / "project.readable.yaml"
+    )
+    yaml_payload = yaml.safe_dump(payload, sort_keys=False)
+    dbe.write(output_path, yaml_payload)
+    click.echo(f"Wrote readable export to {output_path}")
 
 
 @click.command()
@@ -1074,6 +1284,217 @@ def status(
             token,
         )
     )
+
+
+@click.command()
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option("-w", "--workspace", type=click.Path(path_type=Path))
+@click.option("--session", "session_id", default=None)
+@click.option("--latest", is_flag=True)
+@click.option(
+    "--base-url",
+    default=None,
+    help="Override the backend base URL (scheme://host:port).",
+)
+def auth(
+    json_output: bool,
+    workspace: Path | None,
+    session_id: str | None,
+    latest: bool,
+    base_url: str | None,
+) -> None:
+    if session_id and latest:
+        raise click.ClickException("Use either --session or --latest, not both.")
+
+    registry = _build_session_registry(workspace)
+    if workspace is None:
+        sessions = registry.load_sessions()
+    else:
+        sessions = registry.find_sessions_by_workspace(workspace)
+
+    if not sessions:
+        raise click.ClickException("No matching Setta sessions found.")
+
+    allow_prompt = sys.stdin.isatty() and not json_output
+    session = _select_session_for_connect_info(
+        sessions,
+        session_id=session_id,
+        latest=latest,
+        allow_prompt=allow_prompt,
+    )
+
+    secret = _load_session_secret(registry, session)
+    token_for_cookie = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    if consume_bootstrap_token(token_for_cookie, session.id, secret) is None:
+        raise click.ClickException("Failed to consume bootstrap token.")
+
+    resolved_base_url = (
+        _normalize_base_url(base_url) if base_url else _base_url_from_session(session)
+    )
+    api_base_url = f"{resolved_base_url}{Route.PREFIX.value}"
+    token_for_output = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls_from_base(
+        resolved_base_url, token_for_output
+    )
+
+    cookie_value = AUTH_COOKIE_MANAGER.mint(session.id, secret)
+    cookie = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
+    cookie_header = f"Cookie: {cookie}"
+
+    payload = {
+        "baseUrl": resolved_base_url,
+        "apiBaseUrl": api_base_url,
+        "cookieHeader": cookie_header,
+        "cookie": cookie,
+        "cookieName": C.AUTH_COOKIE_NAME,
+        "session": _format_session_payload(session),
+        "bootstrapUrlFragment": bootstrap_url_fragment,
+        "bootstrapUrlPlain": bootstrap_url_plain,
+        "source": "bootstrap",
+    }
+
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(f"Base URL: {resolved_base_url}")
+    click.echo(f"API Base URL: {api_base_url}")
+    click.echo(f"Cookie Header: {cookie_header}")
+    click.echo(f"Bootstrap URL: {bootstrap_url_fragment}")
+
+
+@click.command()
+@click.argument("route_or_path")
+@click.option("--json", "json_payload", default=None, help="Inline JSON payload")
+@click.option("--stdin", "payload_stdin", is_flag=True, help="Read JSON payload from stdin")
+@click.option(
+    "--file",
+    "payload_file",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Read JSON payload from a file",
+)
+@click.option(
+    "--json-output",
+    is_flag=True,
+    help="Emit JSON only (stdout) for machine parsing",
+)
+@click.option("--cookie-header", default=None, help="Explicit Cookie header value")
+@click.option("--cookie", default=None, help="Explicit cookie value")
+@click.option(
+    "--auth-json",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Auth JSON file from `setta auth --json`",
+)
+@click.option("--auth-stdin", is_flag=True, help="Read auth JSON from stdin")
+@click.option("--base-url", default=None, help="Override backend base URL")
+@click.option(
+    "--method",
+    type=click.Choice(["GET", "POST", "PUT", "PATCH", "DELETE"], case_sensitive=False),
+    default="POST",
+)
+def api(
+    route_or_path: str,
+    json_payload: str | None,
+    payload_stdin: bool,
+    payload_file: Path | None,
+    json_output: bool,
+    cookie_header: str | None,
+    cookie: str | None,
+    auth_json: Path | None,
+    auth_stdin: bool,
+    base_url: str | None,
+    method: str,
+) -> None:
+    if auth_stdin and payload_stdin:
+        raise click.ClickException("Use --auth-stdin or --stdin, not both.")
+
+    try:
+        payload = _load_json_payload(json_payload, payload_stdin, payload_file)
+        auth_payload = _load_auth_payload(auth_json, auth_stdin)
+        resolved_base_url = _normalize_base_url(base_url) if base_url else None
+        cookie_value: str | None = None
+
+        if cookie_header or cookie:
+            if cookie_header:
+                cookie_value = _strip_cookie_header_prefix(cookie_header)
+            elif cookie:
+                cookie_value = _strip_cookie_header_prefix(cookie)
+                if "=" not in cookie_value:
+                    cookie_value = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
+            if resolved_base_url is None:
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
+                resolved_base_url = _base_url_from_session(session)
+        elif auth_payload is not None:
+            cookie_value = _cookie_header_from_auth_payload(auth_payload)
+            if resolved_base_url is None:
+                resolved_base_url = _base_url_from_auth_payload(auth_payload)
+            if resolved_base_url is None:
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
+                resolved_base_url = _base_url_from_session(session)
+        else:
+            session, secret = _resolve_latest_session_for_workspace(Path.cwd().resolve())
+            resolved_base_url = (
+                _normalize_base_url(base_url)
+                if base_url
+                else _base_url_from_session(session)
+            )
+            cookie_value = f"{C.AUTH_COOKIE_NAME}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
+
+        if resolved_base_url is None:
+            raise click.ClickException("Missing base URL. Use --base-url or --auth-json.")
+        if cookie_value is None:
+            raise click.ClickException("Missing auth cookie.")
+
+        route_path = _resolve_route_path(route_or_path)
+        url = _build_api_url(resolved_base_url, route_path)
+    except click.ClickException as exc:
+        if json_output:
+            _emit_json_output({"error": "InputError", "message": str(exc)})
+            raise SystemExit(1) from exc
+        raise
+
+    headers = {"Cookie": cookie_value}
+    request_kwargs: dict[str, Any] = {"headers": headers}
+    if payload is not None:
+        request_kwargs["json"] = payload
+
+    response: requests.Response | None = None
+    try:
+        response = requests.request(method.upper(), url, **request_kwargs)
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        if json_output:
+            _emit_json_output(_build_http_error_payload(exc.response, url))
+            raise SystemExit(1) from exc
+        raise click.ClickException(
+            f"{response.status_code} {response.text if response else ''}".strip()
+        ) from exc
+    except requests.RequestException as exc:
+        if json_output:
+            _emit_json_output(_build_request_error_payload(exc, url))
+            raise SystemExit(1) from exc
+        raise click.ClickException(str(exc)) from exc
+
+    if response is None or not response.content:
+        if json_output:
+            _emit_json_output(None)
+        return
+
+    try:
+        data = response.json()
+    except ValueError:
+        if json_output:
+            _emit_json_output({"raw": response.text})
+        else:
+            click.echo(response.text)
+        return
+
+    if json_output:
+        _emit_json_output(data)
+    else:
+        click.echo(json.dumps(data, indent=2, sort_keys=True))
 
 
 @click.command()
@@ -1422,6 +1843,8 @@ cli.add_command(version)
 cli.add_command(export_db)
 cli.add_command(share)
 cli.add_command(status)
+cli.add_command(auth)
+cli.add_command(api)
 cli.add_command(stop)
 cli.add_command(connect)
 cli.add_command(connect, name="c")
