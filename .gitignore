@@ -45,3 +45,4 @@ setta_files/
 auth.json
 mcp-tools.json
 backend/setta/vendor/node/
+.claude

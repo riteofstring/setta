@@ -74,6 +74,7 @@ type MarkdownContentProps = {
   className: string;
   role: ChatRoleEnum;
   isStreaming: boolean;
+  typingIndicator?: boolean;
 };
 
 function MarkdownContent({
@@ -81,19 +82,25 @@ function MarkdownContent({
   className,
   role,
   isStreaming,
+  typingIndicator = false,
 }: MarkdownContentProps) {
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
-      className={className}
-      components={{ code: CodeBlock }}
+    <div
+      className={typingIndicator ? "chat-typing" : undefined}
+      data-typing={typingIndicator ? "true" : undefined}
     >
-      {displayText}
-    </ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        className={className}
+        components={{ code: CodeBlock }}
+      >
+        {displayText}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -376,18 +383,21 @@ const ToolCallItem = memo(function ToolCallItem({
 function StreamItem({
   item,
   isStreaming,
+  showTypingIndicator = false,
 }: {
   item: ChatContentItem;
   isStreaming: boolean;
+  showTypingIndicator?: boolean;
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
       return (
         <MarkdownContent
           content={item.text}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400 "
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
+          typingIndicator={showTypingIndicator}
         />
       );
     case C.LLM_THINKING:
@@ -470,18 +480,35 @@ const ChatMessage = memo(function ChatMessage({
     activityKey,
     spinnerDelayMs,
   );
+  const lastTextIndex = useMemo(() => {
+    let lastIndex = -1;
+    for (let i = 0; i < assistantContent.length; i += 1) {
+      if (assistantContent[i].type === C.LLM_TEXT) {
+        lastIndex = i;
+      }
+    }
+    return lastIndex;
+  }, [assistantContent]);
 
   if (message.role === ChatRoleEnum.assistant) {
+    const showTypingIndicator = showAssistantSpinner;
     return (
       <LLMChatBubble>
         {message.content.map((item, idx) => (
-          <StreamItem key={idx} item={item} isStreaming={isStreaming} />
+          <StreamItem
+            key={idx}
+            item={item}
+            isStreaming={isStreaming}
+            showTypingIndicator={showTypingIndicator && idx === lastTextIndex}
+          />
         ))}
-        {showAssistantSpinner && (
-          <div className="flex items-center">
-            <i className="gg-spinner !scale-75 text-blue-500/70" />
-          </div>
-        )}
+        {showTypingIndicator && lastTextIndex === -1 ? (
+          <span
+            className="chat-typing-inline"
+            data-typing="true"
+            aria-hidden="true"
+          />
+        ) : null}
         {toolCalls.length > 0 ? (
           <div className="flex flex-col gap-1">
             {toolCalls.map((toolCall: ToolCall) => {
