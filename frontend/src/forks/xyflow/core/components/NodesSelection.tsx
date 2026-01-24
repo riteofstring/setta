@@ -1,9 +1,4 @@
 import cc from "classcat";
-import { useDndMode } from "forks/dnd-kit/dndState";
-import {
-  setSelectionDragHandle,
-  setSelectionDragPrimaryId,
-} from "forks/dnd-kit/selectionDragHandle";
 import useDrag from "forks/xyflow/core/hooks/useDrag";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -26,29 +21,12 @@ function _NodesSelection({ x, y, width, height }: Rect) {
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
-  const { isSorting, isMovingFree } = useDndMode();
-  const activeIds = useProjectState(
-    (state) => state.projectConfig.activeIds,
-    _.isEqual,
-  );
   const nodeRef = useRef<HTMLDivElement>(null);
-  const primarySelectionId =
-    activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
 
   useEffect(() => {
     nodeRef.current?.focus({
       preventScroll: true,
     });
-  }, []);
-
-  useEffect(() => {
-    setSelectionDragPrimaryId(primarySelectionId);
-  }, [primarySelectionId]);
-
-  useEffect(() => {
-    return () => {
-      setSelectionDragPrimaryId(null);
-    };
   }, []);
 
   useDrag({
@@ -95,46 +73,6 @@ function _NodesSelection({ x, y, width, height }: Rect) {
           height,
           top: y,
           left: x,
-          pointerEvents: isSorting || isMovingFree ? "none" : undefined,
-        }}
-      />
-    </div>
-  );
-}
-
-function _NodesSelectionDragHandle({ x, y, width, height }: Rect) {
-  const transformString = useReactFlow(
-    (s) =>
-      `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
-  );
-  const nodeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSelectionDragHandle(nodeRef.current);
-    return () => {
-      setSelectionDragHandle(null);
-    };
-  }, []);
-
-  return (
-    <div
-      className={cc([
-        "react-flow__nodesselection-hitbox",
-        "react-flow__container",
-        NO_PAN_CLASS_NAME,
-      ])}
-      style={{
-        transform: transformString,
-      }}
-    >
-      <div
-        ref={nodeRef}
-        className="react-flow__nodesselection-hitbox-rect"
-        style={{
-          width,
-          height,
-          top: y,
-          left: x,
         }}
       />
     </div>
@@ -148,20 +86,5 @@ function _NodesSelectionWrapper() {
   );
   return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
 }
-function _NodesSelectionDragHandleWrapper() {
-  const nodesSelectionDims = useReactFlow(
-    (s) => s.nodesSelectionDims,
-    _.isEqual,
-  );
-  const { isMovingFree } = useDndMode();
-  if (!nodesSelectionDims || !isMovingFree) {
-    return null;
-  }
-  return <NodesSelectionDragHandle {...nodesSelectionDims} />;
-}
 const NodesSelection = React.memo(_NodesSelection);
-const NodesSelectionDragHandle = React.memo(_NodesSelectionDragHandle);
 export const NodesSelectionWrapper = React.memo(_NodesSelectionWrapper);
-export const NodesSelectionDragHandleWrapper = React.memo(
-  _NodesSelectionDragHandleWrapper,
-);
