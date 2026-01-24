@@ -23,10 +23,8 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    PromptFormat,
     SectionSize,
     SectionSizeMode,
-    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -46,7 +44,6 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
-    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
@@ -104,6 +101,7 @@ class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbi
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     layers: list[DrawAreaLayer] = Field(default_factory=list)
+    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
@@ -124,18 +122,6 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
-
-
-class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
-    template: str = ""
-    format: PromptFormat = PromptFormat.Jinja
-    inputs: dict[str, str] = Field(default_factory=dict)
-    renderedText: str = ""
-    missingVariables: list[str] = Field(default_factory=list)
-    renderError: str | None = None
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -162,6 +148,12 @@ class UserDefaultGenPythonCodeSectionImpl(
     pass
 
 
+class UserDefaultGenPythonMetadataSectionImpl(
+    UserDefaultBaseCodeSectionImpl, extra="forbid"
+):
+    pass
+
+
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=700, height=300)
@@ -177,8 +169,7 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
         default_factory=lambda: SectionSize(width=405, height=405)
     )
     managed: bool = False
-    engineConfigId: ID | None = None
-    agentProfileId: ID | None = None
+    llmConfigId: str | None = None
     chatId: ID | None = None
     deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
