@@ -1,14 +1,16 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import {
+  getPythonCodegenTarget,
+  projectConfigHasPythonCodegen,
+} from "utils/codegenTargets";
+import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   Position,
   SectionTypeEnum,
-  TextBlockFormatEnum,
 } from "utils/generatedTypes";
-import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
@@ -23,6 +25,12 @@ export function useCreateSectionsList() {
     (x) => x.singletonSections,
     _.isEqual,
   );
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
+  const metadataEnabled = useProjectState(
+    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
+  );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
     { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
@@ -31,20 +39,7 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.ListRoot },
     },
     { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
-    {
-      name: "Markdown",
-      implSpecs: {
-        type: SectionTypeEnum.TextBlock,
-        format: TextBlockFormatEnum.Markdown,
-      },
-    },
-    {
-      name: "Plain text",
-      implSpecs: {
-        type: SectionTypeEnum.TextBlock,
-        format: TextBlockFormatEnum.Plaintext,
-      },
-    },
+    { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
   ];
 
   if (!singletonSections.GlobalVariables) {
@@ -75,11 +70,19 @@ export function useCreateSectionsList() {
     },
   ];
 
-  if (!singletonSections.GenPythonCode) {
+  if (pythonCodegenEnabled && !singletonSections.GenPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
       implSpecs: {
         type: SectionTypeEnum.GenPythonCode,
+      },
+    });
+  }
+  if (metadataEnabled && !singletonSections.GenPythonMetadata) {
+    codeGroupItems.push({
+      name: "Show Generated Python Metadata",
+      implSpecs: {
+        type: SectionTypeEnum.GenPythonMetadata,
       },
     });
   }
@@ -196,17 +199,10 @@ export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
   position: Position | null = null,
 ) {
-  void createTopLevelSection({
+  createTopLevelSection({
     implType: menuItem.implSpecs.type,
     controlCodeObjType: menuItem.controlCodeObjType,
     implOverrides: menuItem.implSpecs,
     position,
-  }).then((sectionId) => {
-    if (!sectionId) {
-      return;
-    }
-    if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
-      focusOnSectionSearch(sectionId);
-    }
   });
 }

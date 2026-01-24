@@ -11,6 +11,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 )
 from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
+from setta.types.project_config import get_python_codegen_target_with_type_guard
 from tests.code_gen.test_code_generator_formatting import (
     build_callable_project_state,
 )
@@ -26,10 +27,13 @@ class CodeGeneratorBenchmarkTests(TestCase):
 
         project_state = build_callable_project_state(param_count)
         dep_graph = DependencyGraph(project_state)
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
         generator = PythonCodeGenerator(
             dep_graph,
-            project_state.projectConfig.genCodePrefix,
-            project_state.projectConfig.genCodeSuffix,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
         )
         generator.generate_code()
 
@@ -57,22 +61,6 @@ class CodeGeneratorBenchmarkTests(TestCase):
         generate_ms = (generate_elapsed / generate_iterations) * 1000
         change_ms = (change_elapsed / change_iterations) * 1000
         diagnostics_ms = (diagnostics_elapsed / diagnostics_iterations) * 1000
-
-        print(
-            "codegen.generate_code:",
-            f"{generate_ms:.2f} ms/iter",
-            f"(iters={generate_iterations}, params={param_count})",
-        )
-        print(
-            "codegen.change_value:",
-            f"{change_ms:.2f} ms/iter",
-            f"(iters={change_iterations}, params={param_count})",
-        )
-        print(
-            "codegen.process_gen_code_diagnostics:",
-            f"{diagnostics_ms:.2f} ms/iter",
-            f"(iters={diagnostics_iterations}, diagnostics={len(diagnostics)})",
-        )
 
         self.assertGreaterEqual(generate_elapsed, 0)
         self.assertGreaterEqual(change_elapsed, 0)

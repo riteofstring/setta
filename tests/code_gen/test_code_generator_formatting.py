@@ -19,6 +19,7 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
+    get_python_codegen_target_with_type_guard,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import CallableSectionImpl, SectionType
@@ -132,10 +133,13 @@ class CodeGeneratorFormattingTests(TestCase):
             param_ids.append(param_id)
 
         dep_graph = DependencyGraph(project_state)
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
         generator = PythonCodeGenerator(
             dep_graph,
-            project_state.projectConfig.genCodePrefix,
-            project_state.projectConfig.genCodeSuffix,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
         )
         generator.generate_code()
         generated_lines = generator.generated_code.splitlines()
@@ -171,10 +175,13 @@ class CodeGeneratorFormattingTests(TestCase):
         project_state = build_callable_project_state(param_count)
 
         dep_graph = DependencyGraph(project_state)
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
         generator = PythonCodeGenerator(
             dep_graph,
-            project_state.projectConfig.genCodePrefix,
-            project_state.projectConfig.genCodeSuffix,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
         )
         generator.generate_code()
         generated_lines = generator.generated_code.splitlines()

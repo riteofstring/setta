@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import { useTabScope } from "utils/focusManager";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";
@@ -14,10 +16,18 @@ export function HeaderContainer({ path }: { path: string }) {
     projectIs404: x.projectIs404,
   }));
   const isShareMode = useShareSession((x) => x.isShareMode);
+  const headerRef = useRef<HTMLElement>(null);
+  useTabScope({
+    scopeId: "header",
+    order: 5,
+    rootRef: headerRef,
+  });
 
   return (
     <header
       className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center border-b border-transparent bg-white px-4 shadow-md dark:border-setta-700/30 dark:bg-setta-875 `}
+      ref={headerRef}
+      data-tab-scope="header"
     >
       <SiteLogo />
       {!projectIsLoading && !projectIs404 && (

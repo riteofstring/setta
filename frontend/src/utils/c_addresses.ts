@@ -7,10 +7,6 @@ export class C_ADDRESSES {
   // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
-      const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
-      if (override) {
-        return override;
-      }
       return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
     }
     return location.origin;
@@ -21,9 +17,10 @@ export class C_ADDRESSES {
   }
 
   static get WEBSOCKET() {
-    const origin = this.BACKEND_ORIGIN;
-    const originUrl = new URL(origin);
-    const protocol = originUrl.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${originUrl.host}${RouteEnum.PREFIX}`;
+    if (this.DEV_MODE) {
+      return `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${RouteEnum.PREFIX}`;
+    }
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${location.host}${RouteEnum.PREFIX}`;
   }
 }

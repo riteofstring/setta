@@ -125,5 +125,5 @@ pnpm start
 - Which env var names do we want to standardize (`SETTA_DEV_FRONTEND_PORT` vs
   `VITE_DEV_SERVER_PORT`)?
 - Do we want a committed helper script, or keep this as a manual workflow?
-- Should we add a small doc entry in `docs/guides/dev-vs-built.md` once the behavior
+- Should we add a small doc entry in `docs/dev-vs-built.md` once the behavior
   exists?

@@ -31,9 +31,13 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
+from setta.listeners.router_endpoint_local_updates import (
+    build_local_router_endpoint_updates,
+)
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
+from setta.project_state.project_code import build_python_code_generator
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -50,8 +54,8 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.listener import (
-    ControlActionEvent,
-    ListenerActionEventContent,
+    DependencyEvent,
+    ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
@@ -62,10 +66,14 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
 )
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    project_config_has_codegen_language,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
-    WebsocketMsgListenerActionEvent,
+    WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
@@ -83,6 +91,7 @@ from .scheduling import ListenerCallbackScheduler
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
+    from setta.listeners.router_endpoint_local_updates import LocalDependencyUpdate
     from setta.types.id import ID
 
     from .hot_reload import ListenerHotReloader
@@ -114,7 +123,6 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     declared_dependencies: tuple["ListenerDependencySpec", ...]
-    declared_actions: tuple[str, ...] | None
     dependency_mode: ListenerDependencyMode
     debounce_ms: int | None
     throttle_ms: int | None
@@ -128,7 +136,7 @@ class ListenerCallbackSpec:
 class ListenerCallbackContext:
     changed: dict[str, Any]
     changed_by_id: dict["ListenerDependencyId", Any]
-    actions: list[ControlActionEvent]
+    events: list[DependencyEvent]
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
     project_manager: RouterEndpointAPI
@@ -576,8 +584,8 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
             return
-        if isinstance(message, WebsocketMsgListenerActionEvent):
-            await self._handle_action_event(message.content)
+        if isinstance(message, WebsocketMsgListenerDependencyEvent):
+            await self._handle_dependency_event(message.content)
             return
         if isinstance(message, WebsocketMsgListenerForceRefresh):
             await self._handle_force_refresh(message.content)
@@ -712,24 +720,23 @@ class SettaListener:
         self,
         *,
         deps: Iterable[ListenerDependencySpec] | None = None,
-        actions: Iterable[str] | None = None,
         dependency_mode: ListenerDependencyMode | str | None = None,
         debounce_ms: int | None = None,
         throttle_ms: int | None = None,
         run_on_refresh: bool = False,
     ) -> Callable[[ListenerCallback], ListenerCallback]:
         def decorator(func: ListenerCallback) -> ListenerCallback:
+            deps_provided = deps is not None
             dependencies = tuple(deps) if deps is not None else ()
-            action_ids = None if actions is None else tuple(actions)
             normalized_mode = self._normalize_dependency_mode(
-                dependency_mode, declared_dependencies=dependencies
+                dependency_mode,
+                deps_provided=deps_provided,
             )
             callback_id = uuid4().hex
             spec = ListenerCallbackSpec(
                 function=func,
                 callback_id=callback_id,
                 declared_dependencies=dependencies,
-                declared_actions=action_ids,
                 dependency_mode=normalized_mode,
                 debounce_ms=debounce_ms,
                 throttle_ms=throttle_ms,
@@ -803,11 +810,6 @@ class SettaListener:
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
                 runOnRefresh=spec.run_on_refresh,
-                actions=(
-                    list(spec.declared_actions)
-                    if spec.declared_actions is not None
-                    else None
-                ),
             )
         return ListenerRegisterContent(
             projectConfigId=self._require_project_id(), callbacks=callbacks
@@ -874,11 +876,11 @@ class SettaListener:
     def _normalize_dependency_mode(
         mode: ListenerDependencyMode | str | None,
         *,
-        declared_dependencies: tuple[ListenerDependencySpec, ...],
+        deps_provided: bool,
     ) -> ListenerDependencyMode:
         if mode is None:
-            if declared_dependencies:
-                return ListenerDependencyMode.SPECIFIC
+            if deps_provided:
+                return ListenerDependencyMode.ALWAYS
             return ListenerDependencyMode.REFRESH_ONLY
         try:
             normalized = ListenerDependencyMode(mode)
@@ -887,16 +889,9 @@ class SettaListener:
             raise ValueError(
                 f"Unknown dependency mode {mode!r}. Expected one of: {choices}"
             ) from error
-        if normalized is ListenerDependencyMode.SPECIFIC and not declared_dependencies:
+        if not deps_provided and normalized is not ListenerDependencyMode.REFRESH_ONLY:
             raise ValueError(
-                "Listener dependency_mode 'specific' requires at least one dependency"
-            )
-        if (
-            normalized is ListenerDependencyMode.ANY_DEPENDENCY
-            and declared_dependencies
-        ):
-            raise ValueError(
-                "Listener dependency_mode 'any_dependency' does not accept explicit dependencies"
+                "Listener dependency_mode requires deps (use deps=[] for all dependencies)"
             )
         return normalized
 
@@ -986,6 +981,18 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
+        if not project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        ):
+            logger.error(
+                "Listener %s requires python codegen; disabled for project %s",
+                self._log_identifier,
+                incoming_project_id,
+            )
+            self.stop()
+            raise RuntimeError("Listener requires python codegen to be enabled.")
+
         try:
             runtime_state = self._build_runtime_state(project_state)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
@@ -1027,56 +1034,28 @@ class SettaListener:
             self._scheduler.reset(spec.callback_id)
             changed: dict[str, Any] = {}
             mode = spec.dependency_mode
-            should_run = False
-
-            if (
-                spec.declared_actions is not None
-                and not spec.declared_dependencies
-                and mode is ListenerDependencyMode.REFRESH_ONLY
-            ):
-                if (
-                    refresh_kind in {"bootstrap", "force_refresh"}
-                    and spec.run_on_refresh
-                ):
-                    callbacks_to_run.append((spec, changed))
+            if mode is ListenerDependencyMode.REALTIME_ONLY:
                 continue
 
-            if mode is ListenerDependencyMode.SPECIFIC:
-                for dependency in spec.dependency_names:
-                    value = self._get_dependency_value(
-                        runtime_state.s_instance,
-                        dependency,
-                        snapshot_values,
-                    )
-                    if value is _UNAVAILABLE:
-                        continue
-                    previous = self._dependency_cache.get(dependency, _MISSING)
-                    updated_cache[dependency] = value
-                    if previous is _MISSING or value != previous:
-                        changed[dependency] = value
-                should_run = bool(changed)
-                if (
-                    refresh_kind in {"bootstrap", "force_refresh"}
-                    and spec.run_on_refresh
-                ):
+            for dependency in spec.dependency_names:
+                value = self._get_dependency_value(
+                    runtime_state.s_instance,
+                    dependency,
+                    snapshot_values,
+                )
+                if value is _UNAVAILABLE:
+                    continue
+                previous = self._dependency_cache.get(dependency, _MISSING)
+                updated_cache[dependency] = value
+                if previous is _MISSING or value != previous:
+                    changed[dependency] = value
+
+            if mode is ListenerDependencyMode.ALWAYS:
+                should_run = bool(changed) or spec.run_on_refresh
+                if not spec.dependency_names:
                     should_run = True
-            elif mode is ListenerDependencyMode.ANY_DEPENDENCY:
-                should_run = True
             else:  # ListenerDependencyMode.REFRESH_ONLY
-                if refresh_kind in {"bootstrap", "force_refresh"}:
-                    should_run = True
-                    for dependency in spec.dependency_names:
-                        value = self._get_dependency_value(
-                            runtime_state.s_instance,
-                            dependency,
-                            snapshot_values,
-                        )
-                        if value is _UNAVAILABLE:
-                            continue
-                        previous = self._dependency_cache.get(dependency, _MISSING)
-                        updated_cache[dependency] = value
-                        if previous is _MISSING or value != previous:
-                            changed[dependency] = value
+                should_run = True
 
             if should_run:
                 callbacks_to_run.append((spec, changed))
@@ -1088,7 +1067,7 @@ class SettaListener:
             await self._send_listener_register()
 
         for spec, changed in callbacks_to_run:
-            ctx = self._build_callback_context(spec, changed, [])
+            ctx = self._build_callback_context(spec, changed, events=[])
             spawn_background_task(
                 self._invoke_refresh_callback(spec, runtime_state.s_instance, ctx),
                 label="listener-refresh-callback",
@@ -1102,11 +1081,9 @@ class SettaListener:
         self, project_state: ProjectStateSingleConfig
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
-        project_config = project_state.projectConfig
-        code_generator = PythonCodeGenerator(
+        code_generator = build_python_code_generator(
+            project_state,
             dep_graph,
-            project_config.genCodePrefix,
-            project_config.genCodeSuffix,
             value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:
@@ -1306,7 +1283,7 @@ class SettaListener:
         for spec in self._callbacks.values():
             if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
                 continue
-            if spec.dependency_mode is ListenerDependencyMode.ANY_DEPENDENCY:
+            if not spec.structured_dependencies:
                 callbacks_to_run.append((spec, dict(applied_dependencies)))
                 continue
 
@@ -1339,15 +1316,17 @@ class SettaListener:
         for spec, changed in callbacks_to_run:
             self._scheduler.submit(spec.callback_id, changed=dict(changed))
 
-    async def _handle_action_event(self, content: ListenerActionEventContent) -> None:
-        """Apply realtime action events and invoke interested callbacks."""
+    async def _handle_dependency_event(
+        self, content: ListenerDependencyEventContent
+    ) -> None:
+        """Apply realtime dependency events and invoke interested callbacks."""
         project_config_id = self._project_config_id
         if (
             project_config_id is not None
             and content.projectConfigId != project_config_id
         ):
             logger.debug(
-                "Listener %s ignoring action event for project %s",
+                "Listener %s ignoring dependency event for project %s",
                 self._log_identifier,
                 content.projectConfigId,
             )
@@ -1356,14 +1335,14 @@ class SettaListener:
         runtime_state = self._runtime_state
         if runtime_state is None:
             logger.debug(
-                "Listener %s received action event before bootstrap; ignoring",
+                "Listener %s received dependency event before bootstrap; ignoring",
                 self._log_identifier,
             )
             return
 
         if runtime_state.s_instance is None:
             logger.debug(
-                "Listener %s ignoring action event because runtime state is unavailable",
+                "Listener %s ignoring dependency event because runtime state is unavailable",
                 self._log_identifier,
             )
             return
@@ -1374,7 +1353,7 @@ class SettaListener:
             if content.sequence <= last_sequence:
                 logger.debug(
                     (
-                        "Listener %s ignoring out-of-order action sequence %s "
+                        "Listener %s ignoring out-of-order dependency sequence %s "
                         "(last=%s session=%s)"
                     ),
                     self._log_identifier,
@@ -1385,35 +1364,35 @@ class SettaListener:
                 return
 
         self._set_last_realtime_sequence(content.sequence)
-        if not content.actionEvents:
+        if not content.dependencyEvents:
             logger.debug(
-                "Listener %s received action event with no actions (sequence=%s)",
+                "Listener %s received dependency event with no events (sequence=%s)",
                 self._log_identifier,
                 content.sequence,
             )
             return
 
-        callbacks_to_run: dict[str, list[ControlActionEvent]] = {}
-        for event in content.actionEvents:
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        callbacks_to_run: dict[str, list[DependencyEvent]] = {}
+        for event in content.dependencyEvents:
             for spec in self._callbacks.values():
-                declared_actions = spec.declared_actions
-                if declared_actions is None:
+                if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
                     continue
-                if not declared_actions:
+                if not spec.structured_dependencies:
                     callbacks_to_run.setdefault(spec.callback_id, []).append(event)
                     continue
-                if event.actionId not in declared_actions:
+                if event.dependencyKey not in spec.structured_dependencies:
                     continue
                 callbacks_to_run.setdefault(spec.callback_id, []).append(event)
 
         if not callbacks_to_run:
             return
 
-        for callback_id, actions in callbacks_to_run.items():
+        for callback_id, events in callbacks_to_run.items():
             spec = self._callbacks.get(callback_id)
             if spec is None:
                 continue
-            self._scheduler.submit(spec.callback_id, actions=list(actions))
+            self._scheduler.submit(spec.callback_id, events=list(events))
 
     async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
@@ -1501,12 +1480,13 @@ class SettaListener:
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
         project_config_id = self._require_project_id()
+        serialized_payload = self._serialize_router_endpoint_payload(payload)
         message = WebsocketMsgListenerRouterEndpointCall(
             content=ListenerRouterEndpointCallContent(
                 projectConfigId=project_config_id,
                 callId=call_id,
                 endpointName=endpoint_name,
-                payload=self._serialize_router_endpoint_payload(payload),
+                payload=serialized_payload,
             )
         )
         logger.debug(
@@ -1517,9 +1497,48 @@ class SettaListener:
         )
         await self._send_websocket_payload(message.model_dump_json())
         try:
-            return await future
+            result = await future
         finally:
             self._pending_router_endpoint_calls.pop(call_id, None)
+        updates = build_local_router_endpoint_updates(
+            endpoint_name=endpoint_name,
+            payload=serialized_payload,
+        )
+        self._apply_local_dependency_updates(updates=updates)
+        return result
+
+    def _apply_local_dependency_updates(
+        self,
+        *,
+        updates: list["LocalDependencyUpdate"],
+    ) -> None:
+        runtime_state = self._runtime_state
+        if runtime_state is None or runtime_state.s_instance is None:
+            return
+        if not updates:
+            return
+        graph = runtime_state.dependency_graph.graph
+        for update in updates:
+            dep_key = update.dependency_key
+            if dep_key not in graph:
+                if isinstance(dep_key, SectionDependencyKey):
+                    raise KeyError(
+                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId=None"
+                    )
+                if isinstance(dep_key, SectionParamDependencyKey):
+                    raise KeyError(
+                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId={dep_key.codeObjId}"
+                    )
+                raise KeyError(f"Unknown dependency id: {dep_key}")
+            node = graph[dep_key]
+            hydrated = self._set_dependency_value(
+                runtime_state,
+                runtime_state.s_instance,
+                node.full_path_name,
+                update.value,
+                node,
+            )
+            self._dependency_cache[node.full_path_name] = hydrated
 
     def _serialize_listener_artifact_updates(
         self,
@@ -1595,12 +1614,12 @@ class SettaListener:
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(
-            changed: dict[str, Any], actions: list[ControlActionEvent]
+            changed: dict[str, Any], events: list[DependencyEvent]
         ) -> None:
             runtime_state = self._runtime_state
             if runtime_state is None or runtime_state.s_instance is None:
                 return
-            ctx = self._build_callback_context(spec, changed, actions)
+            ctx = self._build_callback_context(spec, changed, events)
             await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
         try:
@@ -1624,15 +1643,15 @@ class SettaListener:
         self,
         spec: ListenerCallbackSpec,
         changed: dict[str, Any],
-        actions: list[ControlActionEvent] | None = None,
+        events: list[DependencyEvent] | None = None,
     ) -> ListenerCallbackContext:
         spec_logger = spec.logger
         if spec_logger is None:
             spec_logger = logger.getChild(f"callback.{spec.callback_id}")
             spec.logger = spec_logger
 
-        if actions is None:
-            actions = []
+        if events is None:
+            events = []
 
         project_manager = self._get_router_endpoint_api()
         runtime_state = self._runtime_state
@@ -1651,7 +1670,7 @@ class SettaListener:
             changed_by_id=self._build_changed_by_id(
                 runtime_state.dependency_graph, changed
             ),
-            actions=actions,
+            events=events,
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
             project_manager=project_manager,
@@ -1747,13 +1766,7 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if (
-                spec.declared_actions is not None
-                and not spec.declared_dependencies
-                and spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY
-            ):
-                if spec.run_on_refresh:
-                    callbacks_to_run.append((spec, {}))
+            if spec.dependency_mode is ListenerDependencyMode.REALTIME_ONLY:
                 continue
             dependencies = spec.dependency_names
             if not dependencies:
@@ -1778,5 +1791,5 @@ class SettaListener:
         self._dependency_cache = updated_cache
 
         for spec, changed in callbacks_to_run:
-            ctx = self._build_callback_context(spec, changed, [])
+            ctx = self._build_callback_context(spec, changed, events=[])
             await self._invoke_callback(spec, state_instance, ctx)
