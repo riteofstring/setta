@@ -11,12 +11,6 @@ async function route_bootstrap_consume(
   return await post("/__setta__/bootstrap/consume", payload);
 }
 
-async function route_call_mcp_tool(
-  payload: gt.MCPToolCallRequestInput,
-): Promise<ResponseDataAndStatus<Record<string, any>>> {
-  return await post("/__setta__/tools/call", payload);
-}
-
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
@@ -833,10 +827,10 @@ export async function route_set_social_url(
   return await post("/setSocialUrl", x);
 }
 
-export async function route_move_section(
-  x: gt.MoveSectionRequestInput,
+export async function route_move_sections(
+  x: gt.MoveSectionsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveSection", x);
+  return await post("/moveSections", x);
 }
 
 export async function route_move_params(
@@ -933,6 +927,12 @@ export async function route_get_backend_init_status(): Promise<
   ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
+}
+
+export async function route_get_auth_refresh_status(): Promise<
+  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
+> {
+  return await get("/authRefreshStatus");
 }
 
 export async function route_list_share_deployments(): Promise<

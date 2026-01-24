@@ -34,6 +34,7 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
+import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { C } from "utils/c";
 import {
   getPythonCodegenTarget,
@@ -683,6 +684,7 @@ export function useCodeAreaHeight({ sectionId }) {
     return impl.size.height;
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
+  const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
@@ -755,11 +757,15 @@ export function useCodeAreaHeight({ sectionId }) {
     }
   }, [readyToBeVisible]);
 
+  const isAutoHeight = height === "auto";
   const maxHeight =
-    height === "auto" || resizeEvent === "start"
+    resizeEvent === "start"
       ? undefined
-      : `${height - 30}px`;
-  const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
+      : isAutoHeight
+        ? `${Math.max(0, sectionMaxHeight - 30)}px`
+        : `${height - 30}px`;
+  const overflow =
+    resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
   const wrapperScrollTop = wrapperRef.current?.scrollTop;

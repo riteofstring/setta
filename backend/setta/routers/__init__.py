@@ -5,7 +5,6 @@ from .code_info import router as code_info_router
 from .listener import router as listener_router
 from .llm import router as llm_router
 from .lsp import router as lsp_router
-from .mcp_tools import router as mcp_tools_router
 from .project_manager import router as project_manager_router
 from .projects import router as projects_router
 from .runs import router as runs_router

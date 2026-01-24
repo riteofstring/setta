@@ -8,7 +8,7 @@ import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useDndChildren } from "../dndChildren";
-import { isTempSection } from "../dndState";
+import { isTempSection, useDndState } from "../dndState";
 import { isTempParam } from "../paramDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
@@ -76,9 +76,19 @@ export function createCollisionTracker({
       return null;
     }
 
+    const droppableId = String(droppable.id);
+    const draggingIds = useDndState.getState().draggingIds;
     if (
-      isTempSection(String(droppable.id)) ||
-      (mode === "param" && isTempParam(String(droppable.id)))
+      isTempSection(droppableId) ||
+      (mode === "param" && isTempParam(droppableId))
+    ) {
+      return null;
+    }
+
+    if (
+      mode === "section" &&
+      draggingIds.length > 0 &&
+      draggingIds.includes(droppableId)
     ) {
       return null;
     }
@@ -180,9 +190,19 @@ export function createCollisionTracker({
       return null;
     }
 
+    const droppableId = String(droppable.id);
+    const draggingIds = useDndState.getState().draggingIds;
     if (
-      isTempSection(String(droppable.id)) ||
-      (mode === "param" && isTempParam(String(droppable.id)))
+      isTempSection(droppableId) ||
+      (mode === "param" && isTempParam(droppableId))
+    ) {
+      return null;
+    }
+
+    if (
+      mode === "section" &&
+      draggingIds.length > 0 &&
+      draggingIds.includes(droppableId)
     ) {
       return null;
     }
