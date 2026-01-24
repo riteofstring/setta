@@ -241,7 +241,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         identity = f"{callable_name}:function"
         self.assertIn(identity, state.projectConfig.watchCodeRegistry)
         entry = state.projectConfig.watchCodeRegistry[identity]
-        self.assertEqual(entry.callableName, callable_name)
+        self.assertEqual(entry.callableName, "new_func")
         self.assertEqual(len(entry.sectionIds), 1)
         section_impl = get_curr_effective_section_impl(state, entry.sectionIds[0])
         self.assertIsInstance(section_impl, CallableSectionImpl)

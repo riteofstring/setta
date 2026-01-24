@@ -15,7 +15,6 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
     resolve_top_level_section_position_and_pan,
-    set_section_name,
 )
 from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
@@ -56,7 +55,9 @@ DEFAULT_WATCH_CODE_IGNORE_DIRS = {
 @dataclass(frozen=True)
 class WatchCodeCallableInfo:
     identity: str
-    callable_name: str
+    canonical_name: str
+    module_path: str
+    symbol_name: str
     kind: WatchCodeCallableKind
     signature_hash: str
     body_hash: str
@@ -216,11 +217,13 @@ def _build_callable_info(
     body_hash: str,
     source_path: Path,
 ) -> WatchCodeCallableInfo:
-    callable_name = f"{module_path}.{name}" if module_path else name
-    identity = build_callable_identity(callable_name, kind)
+    canonical_name = f"{module_path}.{name}" if module_path else name
+    identity = build_callable_identity(canonical_name, kind)
     return WatchCodeCallableInfo(
         identity=identity,
-        callable_name=callable_name,
+        canonical_name=canonical_name,
+        module_path=module_path,
+        symbol_name=name,
         kind=kind,
         signature_hash=signature_hash,
         body_hash=body_hash,
@@ -757,10 +760,20 @@ class WatchCodeManager:
                 )
                 entry.sectionIds = self._prune_section_ids(project_state, entry)
                 entry.sectionsCount = len(entry.sectionIds)
+                reference_name = self._resolve_reference_name(
+                    registry, new_info, exclude_identity=new_info.identity
+                )
+                self._ensure_gen_code_import(
+                    project_state,
+                    new_info.module_path,
+                    new_info.symbol_name,
+                    reference_name,
+                )
+                entry.callableName = reference_name
                 await self._update_sections_for_callable(
                     project_state,
                     entry.sectionIds,
-                    new_info.callable_name,
+                    reference_name,
                 )
                 did_update = True
             added_identities = set(current_by_identity.keys()) - set(registry.keys())
@@ -775,7 +788,7 @@ class WatchCodeManager:
                     entry.bodyHash = info.body_hash
                     entry.sourcePath = info.source_path
                     await self._update_sections_for_callable(
-                        project_state, entry.sectionIds, info.callable_name
+                        project_state, entry.sectionIds, entry.callableName
                     )
                     did_update = True
                 else:
@@ -784,12 +797,16 @@ class WatchCodeManager:
                 continue
             if identity in baseline_entries:
                 continue
-            self._ensure_gen_code_import(project_state, info.callable_name)
-            section_id = self._create_callable_section(
-                project_state, info.callable_name
+            reference_name = self._resolve_reference_name(registry, info)
+            self._ensure_gen_code_import(
+                project_state,
+                info.module_path,
+                info.symbol_name,
+                reference_name,
             )
+            section_id = self._create_callable_section(project_state)
             registry[identity] = WatchCodeRegistryEntry(
-                callableName=info.callable_name,
+                callableName=reference_name,
                 kind=info.kind,
                 signatureHash=info.signature_hash,
                 bodyHash=info.body_hash,
@@ -799,7 +816,7 @@ class WatchCodeManager:
             )
             did_update = True
             await self._update_sections_for_callable(
-                project_state, [section_id], info.callable_name
+                project_state, [section_id], reference_name
             )
         return did_update
 
@@ -811,7 +828,6 @@ class WatchCodeManager:
         info: WatchCodeCallableInfo,
     ) -> None:
         registry.pop(old_identity)
-        entry.callableName = info.callable_name
         entry.kind = info.kind
         entry.signatureHash = info.signature_hash
         entry.bodyHash = info.body_hash
@@ -848,7 +864,6 @@ class WatchCodeManager:
                 callable_name,
                 True,
             )
-            set_section_name(project_state, section_id, callable_name)
             if (
                 response.lspStatus is SignatureHelpStatus.NO_MATCH
                 and gen_code.lsp_writer is not None
@@ -858,7 +873,7 @@ class WatchCodeManager:
                 )
 
     def _create_callable_section(
-        self, project_state: ProjectStateSingleConfig, callable_name: str
+        self, project_state: ProjectStateSingleConfig
     ) -> ID:
         settings = self._project_manager.settings_file.settings
         position, _ = resolve_top_level_section_position_and_pan(
@@ -876,15 +891,15 @@ class WatchCodeManager:
             SectionType.Callable,
             position=position,
         )
-        set_section_name(project_state, section_id, callable_name)
         return section_id
 
     def _ensure_gen_code_import(
-        self, project_state: ProjectStateSingleConfig, callable_name: str
+        self,
+        project_state: ProjectStateSingleConfig,
+        module_path: str,
+        symbol_name: str,
+        reference_name: str,
     ) -> None:
-        if "." not in callable_name:
-            return
-        module_path = callable_name.rsplit(".", 1)[0]
         if not module_path:
             return
         if module_path.startswith("."):
@@ -893,19 +908,41 @@ class WatchCodeManager:
         for part in parts:
             if not part.isidentifier():
                 return
+        if not symbol_name.isidentifier():
+            return
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
-        import_line = f"import {module_path}"
+        alias = None
+        if reference_name != symbol_name:
+            alias = reference_name
+        import_line = (
+            f"from {module_path} import {symbol_name}"
+            if alias is None
+            else f"from {module_path} import {symbol_name} as {alias}"
+        )
         existing_lines = python_target.genCodePrefix.splitlines()
         for line in existing_lines:
             stripped = line.strip()
+            if not stripped:
+                continue
             if stripped == import_line:
                 return
-            if stripped.startswith(f"from {module_path} import"):
-                return
-            if stripped.startswith(f"import {module_path} as"):
-                return
+            if not stripped.startswith(f"from {module_path} import"):
+                continue
+            if "#" in stripped:
+                stripped = stripped.split("#", 1)[0].strip()
+            parts = stripped.split("import", 1)
+            if len(parts) != 2:
+                continue
+            imports = [item.strip() for item in parts[1].split(",")]
+            for item in imports:
+                if not item:
+                    continue
+                if alias is None and item == symbol_name:
+                    return
+                if alias is not None and item == f"{symbol_name} as {alias}":
+                    return
         prefix = python_target.genCodePrefix
         if prefix and not prefix.endswith("\n"):
             prefix = f"{prefix}\n"
@@ -946,3 +983,25 @@ class WatchCodeManager:
         await self._project_manager.websocket_msg_handler.broadcast_notification(
             notification
         )
+
+    def _resolve_reference_name(
+        self,
+        registry: dict[str, WatchCodeRegistryEntry],
+        info: WatchCodeCallableInfo,
+        *,
+        exclude_identity: str | None = None,
+    ) -> str:
+        reserved: set[str] = set()
+        for identity, entry in registry.items():
+            if exclude_identity is not None and identity == exclude_identity:
+                continue
+            reserved.add(entry.callableName)
+        base = info.symbol_name
+        if base not in reserved:
+            return base
+        suffix = 2
+        while True:
+            candidate = f"{base}{suffix}"
+            if candidate not in reserved:
+                return candidate
+            suffix += 1
