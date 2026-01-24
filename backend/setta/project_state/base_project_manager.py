@@ -109,7 +109,7 @@ from setta.project_state.project_manager_types import (
     IndentParamsRequest,
     MoveParamGroupsRequest,
     MoveParamsRequest,
-    MoveSectionRequest,
+    MoveSectionsRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -229,7 +229,7 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_metadata_section,
     move_params_to_parent,
     move_section_to_pane,
-    move_section_to_parent_section,
+    move_sections_to_parent_section,
     reconnect_edge,
     resolve_top_level_section_position_and_pan,
     set_browser_area_view_mode,
@@ -2572,26 +2572,32 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def move_section(self, x: MoveSectionRequest):
+    async def move_sections(self, x: MoveSectionsRequest):
+        if not x.sectionIds:
+            return
         project_state = self.get_single_config_state(x.projectConfigId)
+        next_state = copy.deepcopy(project_state)
         if x.newParentId is None:
-            if x.position is None:
-                raise KeyError("Expected position when moving section to pane.")
-            self.add_new_history_entry(
-                coalesce_key=f"moveSection:{x.projectConfigId}:{x.sectionId}",
-                coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            )
-            move_section_to_pane(project_state, x.sectionId, x.position)
+            if not x.positionsById:
+                raise KeyError("Expected positionsById when moving sections to pane.")
+            self.add_new_history_entry()
+            for section_id in x.sectionIds:
+                position = x.positionsById.get(section_id)
+                if position is None:
+                    raise KeyError(
+                        f"Missing position when moving section {section_id} to pane."
+                    )
+                move_section_to_pane(next_state, section_id, position)
         else:
             if x.newIndex is None:
                 raise KeyError(
-                    "Expected newIndex when moving section into parent section."
+                    "Expected newIndex when moving sections into parent section."
                 )
             self.add_new_history_entry()
-            move_section_to_parent_section(
-                project_state, x.newParentId, x.sectionId, x.newIndex
+            move_sections_to_parent_section(
+                next_state, x.newParentId, x.sectionIds, x.newIndex
             )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(next_state)
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
