@@ -17,6 +17,7 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
 export const OverviewTabNameEnum = {
   Overview: "Overview",
+  FileBrowser: "FileBrowser",
   RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
@@ -30,6 +31,7 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
+  [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
@@ -85,12 +87,12 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
   [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.GenPythonMetadata]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TextBlock]: [
     UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.InfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
-  [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],

@@ -1,13 +1,10 @@
 import json
-import logging
 import unittest
 
 from mcp.types import CallToolResult, TextContent
-from setta.llm.chat_store import AgentRunChatStore
-from setta.llm.chat_toolkit.history import ChatHistory
-from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import UpdateAIFollowResultAction
 from setta.llm.chat_toolkit.managed.ai_follow import build_tool_result_follow_ids
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
@@ -29,7 +26,6 @@ from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
 )
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
@@ -144,16 +140,10 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = fixture.websocket_manager
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            history = ChatHistory(AgentRunChatStore(fixture.dbe))
-            executor = ManagedActionExecutor(
-                chat_history=history,
-                websocket_msg_handler=frontend_sender,
-                mcp_client=mcp_client,
-                dbe=fixture.dbe,
-                search_tool_name=build_namespaced_tool_name(
-                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
-                ),
-                logger=logging.getLogger(__name__),
+            chat_manager = LLMChatManager(
+                fixture.dbe,
+                mcp_client,
+                frontend_sender,
             )
 
             websocket_id = "tool-result-follow-socket"
@@ -245,12 +235,14 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 )
                 if follow_ids is None:
                     raise AssertionError("Expected ai-follow result ids")
-                await executor.apply(
-                    UpdateAIFollowResultAction(
-                        project_config_id=project_config_id,
-                        chat_id=chat_id,
-                        ids_by_type=follow_ids,
-                    )
+                await chat_manager._apply_actions(
+                    [
+                        UpdateAIFollowResultAction(
+                            project_config_id=project_config_id,
+                            chat_id=chat_id,
+                            ids_by_type=follow_ids,
+                        )
+                    ]
                 )
 
                 follow_updates = [

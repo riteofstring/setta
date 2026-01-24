@@ -49,6 +49,7 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { applyActiveSectionChange } from "./activeSectionController";
 
 function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -342,6 +343,18 @@ export function setCurrEffectiveSectionImplValue<
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
   const variant = getCurrSectionVariant(state, sectionId);
+  const impl = getSectionImpl(state, variant.impl);
+  const core = getSectionCore(state, sectionId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
+}
+
+export function setSectionVariantImplValue<K extends keyof ImplArgsBundleMap>(
+  state: ZustandProjectState,
+  sectionId: string,
+  variantId: string,
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
+  const variant = getSectionVariant(state, variantId);
   const impl = getSectionImpl(state, variant.impl);
   const core = getSectionCore(state, sectionId);
   return setEffectiveImplValue<K>(impl, core, variant, args);
@@ -996,6 +1009,18 @@ export function dispatchOptimisticProjectStateUpdate({
 }
 
 export function toggleParamSelected(sectionId: string, paramInfoId: string) {
+  const currentState = useProjectState.getState();
+  const impl = getCurrEffectiveSectionImplWithTypeGuard(
+    currentState,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
+  const wasSelected = impl.selectedParams.includes(paramInfoId);
+  const nextSelectedCount = wasSelected
+    ? impl.selectedParams.length - 1
+    : impl.selectedParams.length + 1;
+  const hasSelectedParams = nextSelectedCount > 0;
+
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -1018,6 +1043,12 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
         paramInfoId,
         frontendOpId,
       }),
+  });
+
+  applyActiveSectionChange({
+    interaction: wasSelected ? "param-unselect" : "param-select",
+    sectionId,
+    hasSelectedParams,
   });
 }
 
