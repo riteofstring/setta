@@ -37,13 +37,19 @@ from setta.types.chat_stream_events import (
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
-from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
+)
 from setta.utils.timestamps import get_now_timestamp
 
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "codex_sdk_runner.mjs"
 _MESSAGE_ITEM_TYPES = {"agent_message", "assistant_message", "message"}
 _REASONING_ITEM_TYPES = {"reasoning"}
+_COMMAND_EXECUTION_ITEM_TYPE = "command_execution"
+_COMMAND_EXECUTION_TOOL_NAME = "command_execution"
 _MAX_CLI_STDERR_LINES = 200
 
 
@@ -89,6 +95,9 @@ class CodexSdkAdapter(ExternalAgentAdapter):
                 thread_id = _extract_thread_id(context.inputs)
                 if thread_id is not None:
                     payload["threadId"] = thread_id
+                thread_options = _build_thread_options(context.config)
+                if thread_options is not None:
+                    payload["threadOptions"] = thread_options
                 process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
                 await process.stdin.drain()
             return handle
@@ -341,10 +350,13 @@ class _CodexSdkEventParser:
     def _handle_tool_events(
         self, payload: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        events: list[ExternalAgentStreamEvent] = []
         message_id = _extract_message_id(payload) or self._last_message_id
+        command_item = _extract_command_execution_item(payload)
+        if message_id is None and command_item is not None:
+            message_id = _extract_command_execution_id(command_item)
         if not message_id:
             return []
-        events: list[ExternalAgentStreamEvent] = []
         for tool_payload in _extract_tool_call_payloads(payload):
             tool_event = _build_tool_call_delta(message_id, tool_payload)
             if tool_event is None:
@@ -368,6 +380,42 @@ class _CodexSdkEventParser:
                     stream_chunk=ToolResultEvent(result=tool_result),
                 )
             )
+        if command_item is not None:
+            command_events = self._handle_command_execution_item(
+                payload, message_id, command_item
+            )
+            if command_events:
+                events.extend(command_events)
+        return events
+
+    def _handle_command_execution_item(
+        self,
+        payload: dict[str, Any],
+        message_id: str,
+        command_item: dict[str, Any],
+    ) -> list[ExternalAgentStreamEvent]:
+        command_id = _extract_command_execution_id(command_item)
+        if not command_id:
+            return []
+        events: list[ExternalAgentStreamEvent] = []
+        if command_id not in self._emitted_tool_calls:
+            tool_event = _build_command_execution_tool_call(
+                message_id, command_id, command_item
+            )
+            if tool_event is not None:
+                self._emitted_tool_calls.add(command_id)
+                events.append(
+                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                )
+        if _command_execution_is_terminal(command_item):
+            tool_result = _build_command_execution_result(command_id, command_item)
+            if tool_result is not None:
+                events.append(
+                    ExternalAgentStreamEvent(
+                        raw=payload,
+                        stream_chunk=ToolResultEvent(result=tool_result),
+                    )
+                )
         return events
 
     def _handle_item_start(
@@ -685,6 +733,12 @@ def _extract_thread_id(inputs: dict[str, Any] | None) -> str | None:
     return None
 
 
+def _build_thread_options(config: ExternalAgentConfig) -> dict[str, bool] | None:
+    if config.codexSkipGitRepoCheck is None:
+        return None
+    return {"skipGitRepoCheck": config.codexSkipGitRepoCheck}
+
+
 def _is_message_item(payload: dict[str, Any]) -> bool:
     item = _extract_item_payload(payload)
     if item is not None:
@@ -887,6 +941,81 @@ def _is_reasoning_item(payload: dict[str, Any]) -> bool:
         return False
     item_type = item.get("type")
     return isinstance(item_type, str) and item_type in _REASONING_ITEM_TYPES
+
+
+def _extract_command_execution_item(
+    payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    item = _extract_item_payload(payload)
+    if item is None:
+        return None
+    item_type = item.get("type")
+    if isinstance(item_type, str) and item_type == _COMMAND_EXECUTION_ITEM_TYPE:
+        return item
+    return None
+
+
+def _extract_command_execution_id(item: dict[str, Any]) -> str | None:
+    raw = item.get("id")
+    if isinstance(raw, str) and raw:
+        return raw
+    return None
+
+
+def _command_execution_is_terminal(item: dict[str, Any]) -> bool:
+    status = item.get("status")
+    if isinstance(status, str) and status in {"completed", "failed"}:
+        return True
+    return item.get("exit_code") is not None
+
+
+def _build_command_execution_tool_call(
+    message_id: str,
+    command_id: str,
+    item: dict[str, Any],
+) -> ToolCallDeltaEvent | None:
+    command = item.get("command")
+    if not isinstance(command, str) or not command:
+        return None
+    arguments = {"command": command}
+    return ToolCallDeltaEvent(
+        message_id=message_id,
+        tool_call_id=command_id,
+        arguments_delta=json.dumps(arguments),
+        tool_name=_COMMAND_EXECUTION_TOOL_NAME,
+    )
+
+
+def _build_command_execution_result(
+    command_id: str,
+    item: dict[str, Any],
+) -> ToolChatMessage | None:
+    command = item.get("command")
+    aggregated_output = item.get("aggregated_output")
+    exit_code = item.get("exit_code")
+    status = item.get("status")
+    result: dict[str, Any] = {
+        "command": command,
+        "aggregated_output": aggregated_output,
+        "exit_code": exit_code,
+        "status": status,
+    }
+    content_text = _stringify_tool_result(aggregated_output)
+    content = [TextContent(type="text", text=content_text)] if content_text else []
+    is_error = False
+    if isinstance(status, str) and status == "failed":
+        is_error = True
+    if isinstance(exit_code, int) and exit_code != 0:
+        is_error = True
+    return ToolChatMessage(
+        tool_call_id=command_id,
+        tool_name=_COMMAND_EXECUTION_TOOL_NAME,
+        arguments={"command": command} if isinstance(command, str) else {},
+        result=result,
+        content=content,
+        is_error=is_error,
+        completed_at=get_now_timestamp(),
+    )
 
 
 def _stringify_reasoning_parts(parts: Any) -> str:

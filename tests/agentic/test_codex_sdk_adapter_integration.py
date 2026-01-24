@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import shutil
 import socket
 import unittest
@@ -15,6 +16,7 @@ from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
     ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
 )
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
@@ -96,6 +98,7 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             commandPath=node_path,
             approvalPolicy="on-failure",
             envVarWhitelist=["CODEX_API_KEY"],
+            codexSkipGitRepoCheck=True,
         )
 
     @staticmethod
@@ -133,6 +136,16 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(text, str) and text:
                         parts.append(text)
         return "\n".join(parts)
+
+    @staticmethod
+    def _debug_dump(outputs: dict | None, stderr_lines: list[str] | None, label: str) -> str:
+        stderr_tail: list[str] = []
+        if isinstance(stderr_lines, list):
+            stderr_tail = [str(line) for line in stderr_lines[-50:]]
+        return (
+            f"{label} outputs={outputs} "
+            f"cliStderrTail={stderr_tail if stderr_tail else '[]'}"
+        )
 
     async def test_codex_sdk_streams_message(self) -> None:
         node_path = self._require_codex_sdk()
@@ -347,3 +360,85 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 raise AssertionError("Expected finalText to be a string")
             self.assertIn(code_word, final_text.lower())
             self.assertEqual(outputs.get("threadId"), thread_id)
+
+    async def test_codex_sdk_runs_command_execution_item(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            token = f"setta-codex-command-{secrets.token_hex(8)}"
+            with TemporaryDirectory() as workspace_dir:
+                work_dir = Path(workspace_dir)
+                token_path = work_dir / "token.txt"
+                token_path.write_text(token, encoding="utf-8")
+                command = "cat token.txt"
+
+                config = self._build_config(node_path)
+                config.sandboxPolicy = "workspace-write"
+                config.workingDirStrategy = ExternalAgentWorkingDirStrategy.custom
+                config.workingDir = str(work_dir)
+
+                run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {
+                        "prompt": (
+                            f"Run the shell command `{command}` in the current "
+                            "directory. Do not answer until after it completes. "
+                            "Then reply with only the exact command output."
+                        )
+                    },
+                )
+
+                stored = await self._await_completed_run(dbe, run.id)
+                outputs = stored.get("outputs")
+                events = stored.get("events")
+                stderr_lines = None
+                if run.id in runner._run_state:
+                    stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                final_text = outputs.get("finalText")
+                self.assertIsInstance(final_text, str)
+                if not isinstance(final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                if token not in final_text:
+                    self.fail(
+                        self._debug_dump(
+                            outputs, stderr_lines, "Command output missing."
+                        )
+                    )
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                tool_messages = []
+                if isinstance(messages, list):
+                    tool_messages = [
+                        message
+                        for message in messages
+                        if isinstance(message, dict)
+                        and message.get("role") == "tool"
+                    ]
+                self.assertTrue(tool_messages)
+                command_tools = [
+                    message
+                    for message in tool_messages
+                    if message.get("tool_name") == "command_execution"
+                ]
+                self.assertTrue(command_tools)
+                tool_text = self._collect_message_texts(command_tools)
+                if token not in tool_text:
+                    self.fail(
+                        self._debug_dump(
+                            outputs, stderr_lines, "Command tool output missing."
+                        )
+                    )
+                if isinstance(events, list):
+                    event_types = [
+                        event.get("type")
+                        for event in events
+                        if isinstance(event, dict) and event.get("type")
+                    ]
+                    self.assertIn("run_completed", event_types)

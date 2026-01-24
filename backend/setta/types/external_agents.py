@@ -90,6 +90,7 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
         ExternalAgentWorkingDirStrategy.project_root
     )
     workingDir: str | None = None
+    codexSkipGitRepoCheck: bool | None = None
 
 
 class ExternalAgentConfigList(BaseModel, extra="forbid"):

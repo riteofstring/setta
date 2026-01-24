@@ -386,6 +386,54 @@ class CodexSdkAdapterParserTests(unittest.TestCase):
             self.assertTrue(chunk.result.is_error)
             self.assertEqual(chunk.result.result, "Bad input")
 
+    def test_command_execution_item_emits_tool_events(self) -> None:
+        parser = _CodexSdkEventParser()
+        start_events = parser.handle(
+            {
+                "type": "item.started",
+                "item": {
+                    "id": "cmd-1",
+                    "type": "command_execution",
+                    "command": "ls",
+                    "status": "in_progress",
+                },
+            }
+        )
+        tool_calls = [
+            event.stream_chunk
+            for event in start_events
+            if isinstance(event.stream_chunk, ToolCallDeltaEvent)
+        ]
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0].tool_name, "command_execution")
+        self.assertIn("ls", tool_calls[0].arguments_delta)
+
+        completed_events = parser.handle(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "cmd-1",
+                    "type": "command_execution",
+                    "command": "ls",
+                    "aggregated_output": "alpha",
+                    "exit_code": 0,
+                    "status": "completed",
+                },
+            }
+        )
+        tool_results = [
+            event.stream_chunk
+            for event in completed_events
+            if isinstance(event.stream_chunk, ToolResultEvent)
+        ]
+        self.assertEqual(len(tool_results), 1)
+        self.assertEqual(tool_results[0].result.tool_name, "command_execution")
+        result_payload = tool_results[0].result.result
+        self.assertIsInstance(result_payload, dict)
+        if isinstance(result_payload, dict):
+            self.assertEqual(result_payload.get("exit_code"), 0)
+            self.assertIn("alpha", result_payload.get("aggregated_output", ""))
+
     def test_extract_thread_id_from_inputs(self) -> None:
         self.assertEqual(
             _extract_thread_id({"threadId": "thread-1"}), "thread-1"

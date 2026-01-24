@@ -24,6 +24,20 @@ function normalizeString(value) {
   return value.trim();
 }
 
+function normalizeThreadOptions(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const options = {};
+  if (typeof value.skipGitRepoCheck === "boolean") {
+    options.skipGitRepoCheck = value.skipGitRepoCheck;
+  }
+  if (Object.keys(options).length === 0) {
+    return null;
+  }
+  return options;
+}
+
 function extractText(result) {
   if (typeof result === "string") {
     return result;
@@ -332,8 +346,15 @@ async function runTurn(input) {
         ? input.itemId
         : `run_${Date.now()}`;
   const desiredThreadId = typeof input.threadId === "string" ? input.threadId : null;
+  const threadOptions = normalizeThreadOptions(input.threadOptions);
   if (!thread || (desiredThreadId && desiredThreadId !== activeThreadId)) {
-    thread = desiredThreadId ? codex.resumeThread(desiredThreadId) : codex.startThread();
+    if (desiredThreadId) {
+      thread = codex.resumeThread(desiredThreadId);
+    } else if (threadOptions) {
+      thread = codex.startThread(threadOptions);
+    } else {
+      thread = codex.startThread();
+    }
     activeThreadId = extractThreadId(thread);
     if (activeThreadId) {
       writeEvent({
