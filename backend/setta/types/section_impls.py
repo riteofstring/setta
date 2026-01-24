@@ -209,12 +209,15 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
         default_factory=LineChartSettings
     )
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=250.0, height=150.0)
+        default_factory=lambda: SectionSize(width=300.0, height=300.0)
     )
 
 
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=402.0, height=100.0)
+    )
     layers: list[DrawAreaLayer] = Field(default_factory=list)
     renderedImagePath: str | None = None
     activeLayerIdx: int = 0
@@ -287,7 +290,9 @@ class ChatSectionState(BaseModel, extra="forbid"):
 
 class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Chat] = SectionType.Chat
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=250.0))
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=400.0, height=200.0)
+    )
     managed: bool = False
     llmConfigId: str | None = None
     chatId: ID | None = None

@@ -1533,7 +1533,9 @@ const ChartSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 300.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1554,7 +1556,9 @@ const DrawSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 402.0, height: 100.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1780,7 +1784,9 @@ const ChatSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize()),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 400.0, height: 200.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3909,7 +3915,9 @@ function createUserDefaultCallableSectionImpl(
 
 const UserDefaultChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 300.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -3928,7 +3936,9 @@ function createUserDefaultChartSectionImpl(
 
 const UserDefaultChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize()),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 400.0, height: 200.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -4013,7 +4023,9 @@ function createUserDefaultDictSectionImpl(
 
 const UserDefaultDrawSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 402.0, height: 100.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),

@@ -95,11 +95,14 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     dataPath: str = ""
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=250.0, height=150.0)
+        default_factory=lambda: SectionSize(width=300.0, height=300.0)
     )
 
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=402.0, height=100.0)
+    )
     layers: list[DrawAreaLayer] = Field(default_factory=list)
     renderedImagePath: str | None = None
     activeLayerIdx: int = 0
@@ -163,7 +166,9 @@ class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 
 class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=250.0))
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=400.0, height=200.0)
+    )
     managed: bool = False
     llmConfigId: str | None = None
     chatId: ID | None = None

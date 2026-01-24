@@ -3,8 +3,6 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from types import SimpleNamespace
-
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -23,7 +21,8 @@ class AuthCookieRefreshTests(unittest.TestCase):
 
         self._set_session_env(None)
         self._set_sessions_root_env(None)
-        self._clear_session_cache()
+        self._stash_session_cache()
+        auth_session._clear_cached_session()
 
         sessions_root = Path(self.temp_dir.name) / "sessions"
         registry = SessionRegistry(sessions_root=sessions_root)
@@ -40,7 +39,6 @@ class AuthCookieRefreshTests(unittest.TestCase):
         self._set_sessions_root_env(str(sessions_root))
 
         app = FastAPI()
-        app.state.setta = SimpleNamespace(share_mode=False)
         app.add_middleware(AuthMiddleware)
 
         @app.get("/api/secure")
@@ -54,10 +52,17 @@ class AuthCookieRefreshTests(unittest.TestCase):
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
 
-    def _clear_session_cache(self) -> None:
-        auth_session._cached_metadata = None
-        auth_session._cached_secret = None
-        auth_session._cached_sessions_root = None
+    def _stash_session_cache(self) -> None:
+        original_metadata = auth_session._cached_metadata
+        original_secret = auth_session._cached_secret
+        original_sessions_root = auth_session._cached_sessions_root
+
+        def restore_cache() -> None:
+            auth_session._cached_metadata = original_metadata
+            auth_session._cached_secret = original_secret
+            auth_session._cached_sessions_root = original_sessions_root
+
+        self.addCleanup(restore_cache)
 
     def _set_session_env(self, value: str | None) -> None:
         original = os.environ.get(SESSION_ID_ENV_VAR)
