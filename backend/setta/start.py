@@ -17,7 +17,6 @@ from typing import Any
 
 import click
 import requests
-import uvicorn
 import yaml
 
 from setta import __version__
@@ -1149,6 +1148,8 @@ def share(
     )
     click.echo(f"Share URL: {share_url}")
 
+    import uvicorn
+
     config = uvicorn.Config(
         "setta.server:app",
         host=resolved_host,
@@ -1853,6 +1854,8 @@ def cli(
                 is_remote_session,
             )
         )
+
+        import uvicorn
 
         config = uvicorn.Config(
             "setta.server:app",

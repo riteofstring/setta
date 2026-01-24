@@ -132,6 +132,7 @@ class ApiCommandIntegrationTests(unittest.TestCase):
                 port=port,
                 wait_for_ready=True,
                 open_browser=False,
+                ws_protocol="none",
             )
         except Exception as exc:  # pragma: no cover - environment dependent
             cls._cleanup_class_resources()

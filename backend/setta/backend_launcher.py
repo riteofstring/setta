@@ -6,8 +6,6 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import uvicorn
-
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
@@ -21,6 +19,7 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
 
 if TYPE_CHECKING:
+    import uvicorn
     from types import TracebackType
 
 _READY_POLL_INTERVAL_SECONDS = 0.05
@@ -33,7 +32,7 @@ class BackendServerHandle:
 
     def __init__(
         self,
-        server: uvicorn.Server,
+        server: "uvicorn.Server",
         thread: threading.Thread,
         *,
         session: SessionMetadata | None = None,
@@ -61,7 +60,7 @@ class BackendServerHandle:
         self._in_process_env_updated = in_process_env_updated
 
     @property
-    def server(self) -> uvicorn.Server:
+    def server(self) -> "uvicorn.Server":
         return self._server
 
     @property
@@ -142,6 +141,7 @@ def start_backend(
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
     open_browser: bool | str = False,
+    ws_protocol: str | None = None,
 ) -> BackendServerHandle:
     """Start the packaged FastAPI backend in a background thread.
 
@@ -157,6 +157,8 @@ def start_backend(
         Maximum seconds to wait for readiness when wait_for_ready is True.
     open_browser:
         When True open the bootstrap URL; when a string, open that URL.
+    ws_protocol:
+        Override uvicorn's websocket protocol selection (e.g. "none" for tests).
     """
 
     _ensure_frontend_bundle_available()
@@ -187,13 +189,21 @@ def start_backend(
     resolved_level = configure_logging(level_override=log_level)
     uvicorn_level = logging.getLevelName(resolved_level).lower()
 
+    import uvicorn
+
+    config_kwargs = {
+        "host": resolved_host,
+        "port": resolved_port,
+        "log_level": uvicorn_level,
+        "log_config": None,
+        "timeout_graceful_shutdown": 1,
+    }
+    if ws_protocol is not None:
+        config_kwargs["ws"] = ws_protocol
+
     config = uvicorn.Config(
         "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_level,
-        log_config=None,
-        timeout_graceful_shutdown=1,
+        **config_kwargs,
     )
     server = uvicorn.Server(config)
 
