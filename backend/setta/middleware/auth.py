@@ -70,9 +70,23 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 def _unauthorized_response(request: Request) -> Response:
-    if request.url.path.startswith(Route.PREFIX.value):
+    if _is_json_unauthorized_path(request.url.path):
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return HTMLResponse(UNAUTHORIZED_HTML, status_code=401)
+
+
+def _is_json_unauthorized_path(path: str) -> bool:
+    if path.startswith(Route.PREFIX.value):
+        return True
+    return _path_matches_route(path, Route.TOOLS_CALL.value)
+
+
+def _path_matches_route(path: str, route: str) -> bool:
+    if path == route:
+        return True
+    if path.endswith("/"):
+        return path.rstrip("/") == route
+    return False
 
 
 def _is_auth_exempt_path(path: str) -> bool:

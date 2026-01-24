@@ -1,8 +1,9 @@
-import json
 from typing import Any
 
 from fastapi import Depends, HTTPException, status
-from mcp.types import CallToolResult, TextContent
+from mcp.server.fastmcp.exceptions import ToolError
+from mcp.shared.exceptions import UrlElicitationRequiredError
+from mcp.types import CallToolResult
 from pydantic import BaseModel, ValidationError
 
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -40,7 +41,7 @@ async def route_call_mcp_tool(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="arguments must be an object.",
         )
-    tool = ctx.state.mcp_server._tool_manager.get_tool(tool_name)
+    tool = ctx.state.mcp_server.get_tool(tool_name)
     if tool is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -48,18 +49,23 @@ async def route_call_mcp_tool(
         )
     try:
         context = ctx.state.mcp_server.get_context()
-        result = await tool.fn_metadata.call_fn_with_arg_validation(
-            tool.fn,
-            tool.is_async,
-            arguments,
-            {tool.context_kwarg: context} if tool.context_kwarg is not None else None,
-        )
-    except ValidationError as exc:
+        result = await tool.run(arguments, context=context, convert_result=True)
+    except UrlElicitationRequiredError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=exc.errors(),
+            status_code=status.HTTP_409_CONFLICT,
+            detail=exc.error.model_dump(by_alias=True, exclude_none=True),
         ) from exc
-    result = tool.fn_metadata.convert_result(result)
+    except ToolError as exc:
+        cause = exc.__cause__
+        if isinstance(cause, ValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=cause.errors(),
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "ToolError", "message": str(exc)},
+        ) from exc
     call_result = _normalize_call_result(result)
     return call_result.model_dump(by_alias=True)
 
@@ -72,12 +78,6 @@ def _normalize_call_result(result: Any) -> CallToolResult:
         return CallToolResult(
             content=list(content),
             structuredContent=structured,
-            isError=False,
-        )
-    if isinstance(result, dict):
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps(result, indent=2))],
-            structuredContent=result,
             isError=False,
         )
     if isinstance(result, list):

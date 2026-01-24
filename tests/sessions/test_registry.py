@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import tempfile
@@ -5,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from setta.sessions.registry import SessionRegistry
+from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 
 
@@ -254,6 +256,72 @@ class SessionRegistryTests(unittest.TestCase):
             self.assertIsNone(loaded)
             self.assertFalse((sessions_root / session.id).exists())
             self.assertIsNone(process.poll())
+
+    def test_load_sessions_prunes_current_pid_without_in_process_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            original = os.environ.get(IN_PROCESS_ENV_VAR)
+
+            def restore_env() -> None:
+                if original is None:
+                    os.environ.pop(IN_PROCESS_ENV_VAR, None)
+                else:
+                    os.environ[IN_PROCESS_ENV_VAR] = original
+
+            self.addCleanup(restore_env)
+            os.environ.pop(IN_PROCESS_ENV_VAR, None)
+
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=os.getpid(),
+            )
+            if registry.is_session_process_setta(session):
+                raise unittest.SkipTest("Current process is detected as Setta.")
+
+            sessions = registry.load_sessions(prune_stale=True)
+
+            self.assertEqual(sessions, [])
+            self.assertFalse((sessions_root / session.id).exists())
+
+    def test_load_sessions_keeps_current_pid_with_in_process_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            original = os.environ.get(IN_PROCESS_ENV_VAR)
+
+            def restore_env() -> None:
+                if original is None:
+                    os.environ.pop(IN_PROCESS_ENV_VAR, None)
+                else:
+                    os.environ[IN_PROCESS_ENV_VAR] = original
+
+            self.addCleanup(restore_env)
+            os.environ[IN_PROCESS_ENV_VAR] = "1"
+
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=os.getpid(),
+            )
+            if registry.is_session_process_setta(session):
+                raise unittest.SkipTest("Current process is detected as Setta.")
+
+            sessions = registry.load_sessions(prune_stale=True)
+
+            self.assertEqual(len(sessions), 1)
+            self.assertEqual(sessions[0].id, session.id)
 
 
 if __name__ == "__main__":

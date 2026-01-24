@@ -326,6 +326,24 @@ class ApiCommandIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("arguments", response.json().get("detail", ""))
 
+    def test_tools_call_endpoint_tool_error_contract(self) -> None:
+        auth_payload = json.loads(self._write_auth_json().read_text())
+        cookie = auth_payload["cookie"]
+        base_url = auth_payload["baseUrl"]
+        url = f"{base_url}{Route.TOOLS_CALL.value}"
+        headers = {"Cookie": cookie}
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"tool": "getTerminalOutput", "arguments": {"sectionId": "missing"}},
+            timeout=5,
+        )
+        self.assertEqual(response.status_code, 500)
+        detail = response.json().get("detail")
+        self.assertIsInstance(detail, dict)
+        self.assertEqual(detail.get("error"), "ToolError")
+
     def test_setta_api_payload_stdin(self) -> None:
         auth_path = self._write_auth_json()
         runner = CliRunner()

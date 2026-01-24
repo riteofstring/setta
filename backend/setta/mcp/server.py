@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Context
+from mcp.server.fastmcp.tools import Tool
 from mcp.server.sse import SseServerTransport
 
 from setta.database.db_objs import DBE
@@ -98,6 +99,9 @@ class SettaFastMCP(FastMCP):
 
     def list_registered_tools(self):
         return self._tool_manager.list_tools()
+
+    def get_tool(self, name: str) -> Tool | None:
+        return self._tool_manager.get_tool(name)
 
     def setta_id_transformer(self, func):
         is_async = inspect.iscoroutinefunction(func)
