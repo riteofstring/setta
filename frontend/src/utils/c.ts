@@ -12,7 +12,6 @@ export class C {
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_NAME = "setta_auth";
-  static AUTH_COOKIE_REFRESH_WINDOW_SECONDS = 3600;
   static AUTH_COOKIE_SAMESITE = "lax";
   static AUTH_COOKIE_SECURE = false;
   static BACKEND_INIT_DELAY_SECONDS = 0.0;

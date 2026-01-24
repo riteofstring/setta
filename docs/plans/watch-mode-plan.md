@@ -1,102 +1,71 @@
-# Watch Code Mode Plan (New Callables Only)
+# Watch Code Mode Plan
 
 This document outlines how "Watch Code" should auto-surface function args as UI
-sections when code changes, with a toggle in the top nav bar. Watch mode only
-adds classes/functions defined after it is enabled (or after a watch input is
-added).
+sections when code changes, with a toggle in the top nav bar.
 
 ## Goals
 - Add a top-nav toggle that enables/disables watch mode per project.
-- When enabled, **new** top-level functions/classes appear as callable UI sections.
-- Work for new projects and pre-existing codebases via explicit watch roots.
+- When enabled, new functions with args appear as callable UI sections.
+- Work for new projects and pre-existing codebases.
 - Code sections update live; external files update on save.
 - Avoid running user code; rely on static parsing.
 
 ## UX Behavior
 - Add a "Watch Code" toggle next to existing nav actions (ProjectNav).
-- Provide a simple UI for watch inputs:
-  - Folder watches: path + recursive on/off.
-  - File watches: explicit file paths.
-- On enable, run an initial scan and baseline existing top-level defs (do not add).
-- When new watch inputs are added while enabled, baseline existing defs in those
-  files/folders (do not add).
-- For code sections edited inside Setta, auto-managed callables update as soon as the
+- On enable, run an initial scan and surface new callable sections.
+- For code sections edited inside Setta, new functions appear as soon as the
   definition stabilizes (debounced by existing `set_code` updates).
-- For external files, auto-managed callables update after the file save event.
+- For external files, new functions appear after the file save event.
 - Watch mode does not block normal editing; it only adds or refreshes UI sections.
 
 ## Function Detection Rules
-- Parse Python AST for **top-level def/class discovery only** (no AST param extraction).
-- Only top-level `def`/`async def`/`class` are candidates (no nested defs/classes).
-- Only **new** defs created after watch is enabled (or watch input is added) are
-  auto-surfaced.
-- `def`/`async def` produce callable sections.
-- `class` produces callable sections targeting the class constructor.
-- Use a canonical callable name: `<module_path>.<callable_name>`.
-- Callable identity is `<module_path> + <callable_name> + <kind>`.
+- Parse Python AST for top-level `def` and `async def`.
+- Skip functions with zero args. Count `*args`/`**kwargs` as args.
+- Default: ignore nested functions and class methods.
+- Use a canonical callable name: `<module_path>.<function_name>`.
 - Track a signature hash (arg names, kinds, defaults) to detect changes.
-- Do not auto-surface existing symbols present at baseline time.
-
-## Module Path Resolution
-- Derive module paths exactly like run commands do today:
-  - `module_path = convert_path_to_module_path(normalize_path(file_path))`
-- This matches `build_python_module_run_command` behavior and keeps imports consistent
-  with how code sections are executed.
-- If a watched file resolves **outside** the workspace root, imports may fail; surface
-  a notification and still create the section (with empty params if LSP fails).
 
 ## Watch Registry + State
 - Add a per-project flag: `watchCodeEnabled`.
-- Add per-project watch inputs:
-  - `watchCodeFolders: list[{ path: str, recursive: bool }]`
-  - `watchCodeFiles: list[str]`
 - Add a per-project registry:
-  - `watchCodeRegistry[callableName] = { sectionIds, sectionsCount, signatureHash, sourcePath }`
+  - `watchCodeRegistry[callableName] = { sectionId, signatureHash, sourcePath }`
 - Registry lets us avoid duplicates and update only when signatures change.
-- `sectionIds` is ordered to match `sectionsCount` so N copies stay stable across rescans.
 - If the flag is off, no scanning or auto-creation occurs.
-- Track a per-file baseline set of callable names seen when watch mode is enabled
-  or when a watch input is added. Only defs not in the baseline are considered new.
-- Persist the baseline across app restarts (store in project state).
 
 ## Backend Flow
 - Add a watch mode manager (new module under `backend/setta/project_state/`).
 - Entry points:
-  - On toggle enable: scan configured watch folders + files and record baseline defs.
-  - On watch inputs change: scan affected paths and record baseline defs.
-  - On file move/rename into watched roots: record baseline defs in the moved file.
+  - On toggle enable: scan configured roots and populate registry.
   - On `set_code`: parse the updated code section.
   - On `reload_code_sections`: parse updated file content.
-  - File watcher for watch inputs (folders + files).
-- For each new function/class (not in baseline):
+  - Optional: file watcher for general workspace files (pre-existing projects).
+- For each new function:
   - Create a callable top-level section.
-  - Set section name to the callable name (or a display name derived from it).
-  - Create/attach callable + params via `set_callable` (LSP signature help).
-- For signature changes on auto-managed sections:
+  - Set section name to the function name (or a display name derived from it).
+  - Create/attach callable + params from the AST signature.
+- For signature changes:
   - Rebuild params only for auto-managed sections.
   - Preserve user-set values when possible.
-- For removals: do nothing (do not delete or mark stale).
-- Required rename detection: if a callable disappears and a new one appears in the
-  same file with a matching body/signature hash, treat it as a rename and update
-  the existing auto-managed section instead of creating a new one.
+- For removals:
+  - Do not auto-delete by default; mark as stale (open question).
 
 ## Param Extraction
-- **Rely on LSP signature help only** (via `set_callable`).
-- If LSP cannot resolve, create the callable section with no params.
+- Build params directly from AST to avoid importing user code.
+- Use `docstring_parser` on the function docstring for descriptions/defaults.
+- Map args to `ParameterPassingStyle` using existing conventions.
 - Reuse code object creation helpers (`create_code_obj_impl`, `add_children_of_callable`).
-- Do not exclude empty-arg callables; if auto-managed, create the section.
 
 ## Import Handling
 - If `callableName` uses a module path, the generated code still needs imports.
-- Best-effort auto-imports:
-  - Auto-insert `import <module>` and reference `<module>.<callable>`.
-  - If import fails (non-importable module), keep the section but params stay empty.
-  - Surface a notification (similar to existing LSP/type error UX) so the user can fix imports manually.
+- Options:
+  1) Auto-insert `from <module> import <function>` into `genCodePrefix`.
+  2) Auto-insert `import <module>` and reference `<module>.<function>`.
+  3) Require users to manage imports manually (lowest automation).
+- Prefer option 2 to avoid name collisions; keep a deduped import list.
 
 ## Frontend Flow
 - Add a `WatchCodeToggleButton` similar to `FollowAIToggleButton`.
 - Store the toggle in project state (`ProjectConfig.watchCodeEnabled`).
-- Add UI for watch folders + files (path + recursive).
 - On toggle change, call a new endpoint and rely on websocket updates.
 - Optional: show a small "scanning" indicator while initial scan runs.
 
@@ -120,12 +89,13 @@ added).
   - `frontend/src/utils/generatedEndpoints.ts` (via `pnpm generate`)
 
 ## Tests
-- Baseline behavior on enable (no existing defs added).
-- Baseline behavior for new watch inputs (no existing defs added).
+- AST signature extraction (positional, keyword-only, varargs, defaults).
 - Auto-create callable section on new function in a code section.
 - External file update flow (simulate reload + watch mode on).
 - Signature change refresh (new arg added) without mocks.
-- Class handling (LSP resolution on class callable).
 
 ## Open Questions
-- None (current default: do nothing when `sections=N` decreases).
+- Should watch mode auto-remove sections when a function disappears?
+- Should class methods be included if they have args?
+- What are the default watch roots for pre-existing repos?
+- Should watch mode auto-edit `genCodePrefix`, or prompt instead?
