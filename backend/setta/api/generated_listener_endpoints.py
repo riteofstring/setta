@@ -754,14 +754,6 @@ class ListenerSetViewportRequestPayload(TypedDict):
     viewport: Viewport | None
 
 
-class ListenerSetWatchCodeConfigRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    watchCodeEnabled: bool
-    watchCodeFolders: list[WatchCodeFolder]
-    watchCodeFiles: list[str]
-
-
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1311,11 +1303,6 @@ class RouterEndpointAPI:
 
     async def set_viewport(self, payload: ListenerSetViewportRequestPayload) -> None:
         return await self._caller("route_set_viewport", payload)
-
-    async def set_watch_code_config(
-        self, payload: ListenerSetWatchCodeConfigRequestPayload
-    ) -> None:
-        return await self._caller("route_set_watch_code_config", payload)
 
     async def text_field_completion(
         self, payload: ListenerTextFieldCompletionRequestPayload

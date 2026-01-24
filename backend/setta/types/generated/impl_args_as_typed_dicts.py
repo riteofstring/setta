@@ -161,10 +161,6 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
-    watchCodeEnabled: NotRequired[bool]
-    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
-    watchCodeFiles: NotRequired[list[str]]
-    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
 
 
 class BaseSectionImplArgs(TypedDict):
