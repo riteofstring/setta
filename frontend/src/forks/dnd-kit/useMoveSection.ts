@@ -3,6 +3,7 @@ import {
   getDndSectionId,
   useDndState,
 } from "forks/dnd-kit/dndState";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
 import {
@@ -176,6 +177,7 @@ async function onFreeMoveEnd({
     positionsById,
   });
   manualDndChildrenReset();
+  scheduleSelectionBoundsUpdate();
 }
 
 export function useOnDragEnd() {
@@ -338,4 +340,14 @@ function getSortingOverIdFromCollisions(
   }
 
   return null;
+}
+
+function scheduleSelectionBoundsUpdate() {
+  const activeIds = useProjectState.getState().projectConfig.activeIds;
+  if (activeIds.length === 0) {
+    return;
+  }
+  requestAnimationFrame(() => {
+    useReactFlow.getState().setNodesSelection(activeIds.length, true);
+  });
 }
