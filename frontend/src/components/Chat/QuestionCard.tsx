@@ -33,9 +33,13 @@ export function QuestionCard({
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [otherValues, setOtherValues] = useState<Record<string, string>>({});
   const [activeIndex, setActiveIndex] = useState(0);
+  const [submittedAnswers, setSubmittedAnswers] = useState<
+    Record<string, string> | null
+  >(null);
 
+  const displayedAnswers = resolvedAnswers ?? submittedAnswers;
   const answered = Boolean(
-    resolvedAnswers && Object.keys(resolvedAnswers).length,
+    displayedAnswers && Object.keys(displayedAnswers).length,
   );
   const questionCount = payload.questions.length;
   const hasSummary = questionCount > 1;
@@ -52,6 +56,9 @@ export function QuestionCard({
       buildSelectionsFromAnswers(payload.questions, resolvedAnswers);
     setSelections(nextSelections);
     setOtherValues(nextOtherValues);
+    if (Object.keys(resolvedAnswers).length > 0) {
+      setSubmittedAnswers(resolvedAnswers);
+    }
   }, [payload.questions, resolvedAnswers]);
 
   useEffect(() => {
@@ -161,14 +168,15 @@ export function QuestionCard({
       if (!ok) {
         setPending(false);
         setError("Failed to send answers.");
+        return;
       }
+      setSubmittedAnswers(answers);
     } catch (err) {
       setPending(false);
       setError(err instanceof Error ? err.message : "Failed to send answers.");
     }
   };
 
-  const displayedAnswers = answered ? resolvedAnswers : null;
   const activeQuestion =
     activeIndex < questionCount ? payload.questions[activeIndex] : null;
   const showSubmit = !answered && (!hasSummary || isSummaryTab);
@@ -224,7 +232,7 @@ export function QuestionCard({
                   key={question.question}
                   type="button"
                   onClick={() => setActiveIndex(index)}
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition ${tabClass}`}
+                  className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition ${tabClass}`}
                 >
                   <span className="max-w-[120px] truncate">{tabLabel}</span>
                   <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
@@ -234,7 +242,7 @@ export function QuestionCard({
             <button
               type="button"
               onClick={() => setActiveIndex(questionCount)}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition ${
+              className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition ${
                 isSummaryTab
                   ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/70 dark:bg-blue-900/40 dark:text-blue-200"
                   : "border-setta-200 text-setta-500 hover:bg-setta-50 dark:border-setta-800 dark:text-setta-400 dark:hover:bg-setta-800/40"
@@ -404,7 +412,7 @@ export function QuestionCard({
                     setActiveIndex((prev) => Math.max(prev - 1, 0))
                   }
                   disabled={activeIndex === 0}
-                  className="rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 disabled:opacity-50 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
+                  className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
                 >
                   Previous
                 </button>
@@ -414,7 +422,7 @@ export function QuestionCard({
                     onClick={() =>
                       setActiveIndex((prev) => Math.min(prev + 1, lastTabIndex))
                     }
-                    className="rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
+                    className="cursor-pointer rounded-md border border-setta-200 px-2 py-1 text-xs font-semibold text-setta-500 transition hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/40"
                   >
                     {activeIndex === questionCount - 1 ? "Review" : "Next"}
                   </button>
@@ -423,7 +431,7 @@ export function QuestionCard({
             ) : null}
             {showSubmit ? (
               <button
-                className="rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:opacity-60"
+                className="cursor-pointer rounded-md bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={handleSubmit}
                 disabled={!canSubmit || pending}
               >

@@ -1,6 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { ReactNode, Ref, memo, useEffect, useMemo, useRef } from "react";
+import { ReactNode, Ref, memo, useEffect, useMemo, useRef, useState } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -50,6 +50,9 @@ type ToolCallContext = {
   latestTodoCallId: string | null;
 };
 
+const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
+const IDLE_SPINNER_DELAY_MS = 1000;
+
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
@@ -97,6 +100,67 @@ function formatToolArgs(args: unknown) {
   } catch {
     return String(args);
   }
+}
+
+function getStreamActivityKey(content: ChatContentItem[]): string {
+  let textLength = 0;
+  let thinkingLength = 0;
+  let summaryLength = 0;
+  let signatureLength = 0;
+  let imageCount = 0;
+  for (const item of content) {
+    if (item.type === C.LLM_TEXT) {
+      textLength += item.text.length;
+      continue;
+    }
+    if (item.type === C.LLM_THINKING) {
+      thinkingLength += item.thinking.length;
+      if (item.summary) {
+        summaryLength += item.summary.length;
+      }
+      if (item.signature) {
+        signatureLength += item.signature.length;
+      }
+      continue;
+    }
+    if (item.type === "image_url") {
+      imageCount += 1;
+    }
+  }
+  return `${textLength}-${thinkingLength}-${summaryLength}-${signatureLength}-${imageCount}`;
+}
+
+function useIdleStreamSpinner(
+  shouldTrack: boolean,
+  activityKey: string,
+  delayMs: number,
+): boolean {
+  const [showSpinner, setShowSpinner] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (!shouldTrack) {
+      setShowSpinner(false);
+      return;
+    }
+    lastActivityRef.current = Date.now();
+    setShowSpinner(false);
+  }, [activityKey, shouldTrack]);
+
+  useEffect(() => {
+    if (!shouldTrack) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      const idleMs = Date.now() - lastActivityRef.current;
+      if (idleMs >= delayMs) {
+        setShowSpinner(true);
+      }
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [activityKey, delayMs, shouldTrack]);
+
+  return showSpinner;
 }
 
 function ChatImage({ url, className }: { url: string; className?: string }) {
@@ -382,9 +446,20 @@ const ChatMessage = memo(function ChatMessage({
   isStreaming: boolean;
   toolCallContext: ToolCallContext;
 }) {
+  const isAssistant = message.role === ChatRoleEnum.assistant;
+  const assistantContent = isAssistant ? message.content : EMPTY_ASSISTANT_CONTENT;
+  const activityKey = useMemo(
+    () => getStreamActivityKey(assistantContent),
+    [assistantContent],
+  );
+  const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
+  const showAssistantSpinner = useIdleStreamSpinner(
+    isAssistant && isStreaming && toolCalls.length === 0,
+    activityKey,
+    IDLE_SPINNER_DELAY_MS,
+  );
+
   if (message.role === ChatRoleEnum.assistant) {
-    const toolCalls = message.tool_calls ?? [];
-    const showAssistantSpinner = isStreaming && toolCalls.length === 0;
     return (
       <LLMChatBubble>
         {message.content.map((item, idx) => (
@@ -561,22 +636,28 @@ function ChatMessages({
     [allMessages, toolCallArguments],
   );
   const output: ReactNode[] = [];
+  const lastMessage = messages[messages.length - 1];
+  let streamingMessageId: string | null = null;
+  if (waitingForResponse && lastMessage?.role === ChatRoleEnum.assistant) {
+    streamingMessageId = lastMessage.id;
+  }
   for (const message of messages) {
+    const isStreamingMessage =
+      waitingForResponse &&
+      message.role === ChatRoleEnum.assistant &&
+      message.id === streamingMessageId;
     output.push(
       <ChatMessage
         key={message.id}
         message={message}
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
-        isStreaming={
-          waitingForResponse && message.role === ChatRoleEnum.assistant
-        }
+        isStreaming={isStreamingMessage}
         toolCallContext={toolCallContext}
       />,
     );
   }
 
-  const lastMessage = messages[messages.length - 1];
   if (waitingForResponse && lastMessage?.role !== ChatRoleEnum.assistant) {
     const pendingMessageId = lastMessage?.id
       ? `pending-${lastMessage.id}`
@@ -594,6 +675,7 @@ function ChatMessages({
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
         isStreaming={true}
+        toolCallContext={toolCallContext}
       />,
     );
   }
