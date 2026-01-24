@@ -328,7 +328,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             dependencies=[
                 create_dep_key(sectionId=ID("Homepage__hero__title"), codeObjId=None)
             ],
-            dependencyMode=ListenerDependencyMode.ALWAYS,
+            dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
         content = ListenerRegisterContent(
             projectConfigId=PROJECT_ID,
@@ -391,7 +391,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
 
         callback = ListenerRegisterCallback(
             dependencies=[create_dep_key(sectionId=temporary_section_id)],
-            dependencyMode=ListenerDependencyMode.ALWAYS,
+            dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
         content = ListenerRegisterContent(
             projectConfigId=temporary_project_id,

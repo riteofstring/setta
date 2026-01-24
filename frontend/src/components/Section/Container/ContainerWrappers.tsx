@@ -86,7 +86,6 @@ function _DndWatcherAndContainer({
       visibility,
       isEditingViewMode,
       ancestorHasSameVisibility,
-      isSorting,
     ),
   };
 
@@ -112,13 +111,12 @@ function maybeGetOpacityStyle(
   visibility,
   isEditingViewMode,
   ancestorHasSameVisibility,
-  isSorting,
 ) {
   if (!visibility && isEditingViewMode) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
   }
   if (activeIsSelf) {
-    return { opacity: isSorting ? 0.85 : 0.5 };
+    return { opacity: 0.5 };
   }
   return {};
 }

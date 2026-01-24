@@ -4,9 +4,9 @@
 - The backend exposes an MCP server (`backend/setta/mcp/server.py`) that registers init and discoverable tools, injects docstrings into schemas, and handles ID translation between canonical and temporary IDs.
 - The LLM stack (`backend/setta/llm/llm_chat_manager.py`) injects the system prompt, streams tool calls/results, and supports tool search with deferred loading for Anthropic.
 - Tool discovery uses a BM25 search index with tags and categories, and MCP tool calls stream through `MultiMCPClient` to any configured server.
-- AIFollow highlights sections touched by tool calls and keeps the viewport in sync (`docs/ai-follow.md`).
+- AIFollow highlights sections touched by tool calls and keeps the viewport in sync (`docs/reference/ai-follow.md`).
 - Project state is the canonical source of truth (sections, params, variants, artifacts), with codegen + LSP sync (`backend/setta/project_state/base_project_manager.py`).
-- Listeners provide a realtime event loop with dependency keys, actions, and `emit_to_frontend` to push UI updates (`docs/setta-realtime-behavior.md`).
+- Listeners provide a realtime event loop with dependency keys, actions, and `emit_to_frontend` to push UI updates (`docs/reference/setta-realtime-behavior.md`).
 
 ## Re-assessed gaps for a prompter's paradise
 - No first-class agent profiles or sub-agent orchestration; the chat is single-agent per conversation.
