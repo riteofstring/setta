@@ -137,15 +137,14 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        startAuthRefresh();
         if (isShareMode) {
           startShareHeartbeat();
           const projectConfigId = getCurrProjectConfigId();
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
             await fetchListenerCoverageSnapshot(projectConfigId);
           }
-        }
-        if (!isShareMode) {
+        } else {
+          startAuthRefresh();
           const projectConfigId = getCurrProjectConfigId();
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
             const res = await route_get_latest_project_state({
