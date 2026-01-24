@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
@@ -148,20 +149,7 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_section(section_node), "None")
 
-    def test_prompt_section_formats_as_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Prompt",
-            full_path_name="prompt",
-            type=SectionType.Prompt,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("Hello Ada"),
-        )
-        self.assertEqual(codec.format_section(section_node), "'Hello Ada'")
-
-    def test_draw_section_uses_dependency_value_helpers(self) -> None:
+    def test_draw_section_uses_file_read_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -170,16 +158,69 @@ class PythonValueCodecTest(TestCase):
             type=SectionType.Draw,
             isTopLevel=True,
             deps={},
-            value=Base64DependencyValue("c29tZQ=="),
+            value=FileReadDependencyValue("/tmp/draw.png"),
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
             rendered,
-            "_helpers.decode_base64_value('c29tZQ==')",
+            "_helpers.read_file_value('/tmp/draw.png')",
         )
         self.assertEqual(
             codec.required_imports,
             ("from setta.code_gen.python import value_helpers as _helpers",),
+        )
+
+    def test_image_section_with_literal_path_is_quoted(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Image",
+            full_path_name="image",
+            type=SectionType.Image,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("artifacts/reversed_image.png"),
+        )
+        self.assertEqual(
+            codec.format_section(section_node),
+            "'artifacts/reversed_image.png'",
+        )
+
+    def test_image_section_uses_file_read_value_helpers(self) -> None:
+        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Image",
+            full_path_name="image",
+            type=SectionType.Image,
+            isTopLevel=True,
+            deps={},
+            value=FileReadDependencyValue("/tmp/image.png"),
+        )
+        rendered = codec.format_section(section_node)
+        self.assertEqual(
+            rendered,
+            "_helpers.read_file_value('/tmp/image.png')",
+        )
+        self.assertEqual(
+            codec.required_imports,
+            ("from setta.code_gen.python import value_helpers as _helpers",),
+        )
+
+    def test_draw_section_without_value_has_placeholder_comment(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Draw",
+            full_path_name="draw",
+            type=SectionType.Draw,
+            isTopLevel=True,
+            deps={},
+            value=None,
+        )
+        self.assertEqual(
+            codec.format_section(section_node),
+            "None  # draw snapshot pending (run to capture)",
         )
 
     def test_packaged_mode_uses_helper_for_file_reads(self) -> None:
@@ -210,3 +251,80 @@ class PythonValueCodecTest(TestCase):
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(rendered, "'secret'")
+
+    def test_dropzone_param_empty_value_renders_empty_list(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        param_node = ParamNode(
+            id=ID("param-dropzone"),
+            name="dropzone",
+            full_path_name="section.dropzone",
+            type=CodeObjType.DropzoneParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue(""),
+            passing_style=ParameterPassingStyle.DEFAULT,
+        )
+        self.assertEqual(codec.format_param_expression(param_node), "[]")
+
+    def test_dropzone_param_payload_renders_as_attachment_list(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "file",
+                    "id": "artifacts/test.txt",
+                    "name": "test.txt",
+                    "mimeType": "text/plain",
+                    "size": 12,
+                },
+                {
+                    "kind": "text",
+                    "id": "text:abc",
+                    "name": "Dropped text",
+                    "text": "hello",
+                },
+            ],
+        }
+        param_node = ParamNode(
+            id=ID("param-dropzone"),
+            name="dropzone",
+            full_path_name="section.dropzone",
+            type=CodeObjType.DropzoneParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue(json.dumps(payload)),
+            passing_style=ParameterPassingStyle.DEFAULT,
+        )
+        expected = repr(
+            [
+                {
+                    "kind": "file",
+                    "id": "artifacts/test.txt",
+                    "name": "test.txt",
+                    "mimeType": "text/plain",
+                    "size": 12,
+                },
+                {
+                    "kind": "text",
+                    "id": "text:abc",
+                    "name": "Dropped text",
+                    "text": "hello",
+                },
+            ]
+        )
+        self.assertEqual(codec.format_param_expression(param_node), expected)
+
+    def test_dropzone_param_invalid_payload_falls_back_to_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        param_node = ParamNode(
+            id=ID("param-dropzone"),
+            name="dropzone",
+            full_path_name="section.dropzone",
+            type=CodeObjType.DropzoneParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("{invalid"),
+            passing_style=ParameterPassingStyle.DEFAULT,
+        )
+        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
