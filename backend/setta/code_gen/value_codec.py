@@ -10,6 +10,7 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
+from setta.types.dropzone import dropzone_value_to_attachments
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.section_impls import SectionType
@@ -190,6 +191,9 @@ class PythonValueCodec:
         literal_value: str,
         deps: dict[BaseDependencyKeyUnion, bool] | None = None,
     ) -> str:
+        if param_type == CodeObjType.DropzoneParam:
+            return self._format_dropzone_literal(literal_value)
+
         if param_type in (
             CodeObjType.CodeParam,
             CodeObjType.SliderParam,
@@ -202,7 +206,6 @@ class PythonValueCodec:
             CodeObjType.TextParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
-            CodeObjType.DropzoneParam,
         ):
             return repr(literal_value)
 
@@ -218,6 +221,14 @@ class PythonValueCodec:
             return self.format_dict(deps)
 
         raise ValueError(f"Unsupported CodeObjType {param_type}")
+
+    def _format_dropzone_literal(self, literal_value: str) -> str:
+        if literal_value == "":
+            return "[]"
+        attachments = dropzone_value_to_attachments(literal_value)
+        if attachments is None:
+            return repr(literal_value)
+        return repr(attachments)
 
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]

@@ -20,6 +20,7 @@ import {
   CodeObjTypeEnum,
   ColorPickerParamCodeObjImpl,
   DropdownParamCodeObjImpl,
+  DropzoneParamCodeObjImpl,
   RotaryParamCodeObjImpl,
   SectionType,
   SectionTypeEnum,
@@ -114,6 +115,11 @@ export type ColorPickerConfigForFrontend = Pick<
   "colorChoices"
 >;
 
+export type DropzoneConfigForFrontend = Pick<
+  DropzoneParamCodeObjImpl,
+  "mode" | "maxAttachments"
+>;
+
 type ButtonConfigForFrontend = Pick<
   ButtonParamCodeObjImpl,
   | "label"
@@ -160,6 +166,12 @@ const UI_CONFIG_EXTRACTORS = {
     requestHeaderKey: obj.requestHeaderKey,
     requestHeaderValue: obj.requestHeaderValue,
     requestBody: obj.requestBody,
+  }),
+  [CodeObjTypeEnum.DropzoneParam]: (
+    obj: DropzoneParamCodeObjImpl,
+  ): DropzoneConfigForFrontend => ({
+    mode: obj.mode,
+    maxAttachments: obj.maxAttachments,
   }),
 } as const;
 
