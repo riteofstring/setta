@@ -1,9 +1,9 @@
 import asyncio
+import os
 import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -15,6 +15,7 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -171,22 +172,17 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self.setta_root = root / "setta_files"
-        self.code_folder = self.setta_root / "code"
-        self.artifacts_folder = self.setta_root / "artifacts"
-        self.backup_folder = self.setta_root / "backups"
+        self._old_cwd = Path.cwd()
+        os.chdir(root)
+        self.addCleanup(os.chdir, self._old_cwd)
+
+        self.setta_root = (Path.cwd() / C.SETTA_FILES_FOLDER).resolve()
+        self.code_folder = (Path.cwd() / C.CODE_FOLDER).resolve()
+        self.artifacts_folder = (Path.cwd() / C.ARTIFACTS_FOLDER).resolve()
+        self.backup_folder = (Path.cwd() / C.DB_BACKUP_FOLDER).resolve()
 
         for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
-
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
@@ -239,6 +235,8 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.update(self.project_state.model_copy(deep=True))
 
     async def asyncTearDown(self):
+        if Path.cwd() != self._old_cwd:
+            os.chdir(self._old_cwd)
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -246,8 +244,6 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
             await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        for patcher in self._patchers:
-            patcher.stop()
         self._tmpdir.cleanup()
 
     async def test_auto_refetch_skipped_does_not_add_history(self):
@@ -257,6 +253,25 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
             {self.section_id},
         )
         self.assertEqual(len(self.manager.history._history), history_len)
+
+    async def test_auto_refetch_updates_on_empty_callable_name(self):
+        project_state = self.project_state.model_copy(deep=True)
+        section_impl = get_curr_effective_section_impl(project_state, self.section_id)
+        callable_id = section_impl.callable
+        self.assertIsNotNone(callable_id)
+        project_state.codeObjs[callable_id].name = ""
+        await self.manager.update(project_state)
+
+        await self.manager.auto_refetch_callable_params(
+            project_state.projectConfig.id,
+            {self.section_id},
+        )
+
+        updated_state = self.manager.get_single_config_state(
+            project_state.projectConfig.id
+        )
+        updated_impl = get_curr_effective_section_impl(updated_state, self.section_id)
+        self.assertIsNone(updated_impl.callable)
 
 
 if __name__ == "__main__":

@@ -1172,6 +1172,10 @@ class BaseProjectManager(ABC):
         settings = self.settings_file.settings
         did_update = False
         for section_id, callable_name in refetch_targets:
+            prev_callable = get_curr_section_callable_code_obj(
+                project_state, section_id
+            )
+            prev_callable_id = prev_callable.id if prev_callable else None
             response = await gen_code.set_callable(
                 settings,
                 project_state,
@@ -1180,6 +1184,9 @@ class BaseProjectManager(ABC):
                 True,
             )
             if response.lspStatus != SignatureHelpStatus.SKIPPED:
+                did_update = True
+                continue
+            if response.callableId != prev_callable_id:
                 did_update = True
         if did_update:
             await self.update_and_broadcast_project_state(project_state)
