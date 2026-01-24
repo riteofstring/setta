@@ -24,7 +24,7 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
               borderRadius: "1.5rem",
               padding: padding,
               margin: margin,
-              backgroundColor: colors.red[600],
+              backgroundColor: "rgba(185, 28, 28, 0.2)",
             }
           : {},
     };
