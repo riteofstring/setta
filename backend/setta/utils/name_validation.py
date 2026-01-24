@@ -39,6 +39,9 @@ PROJECT_RESERVED_NAMES: frozenset[str] = frozenset(
 )
 SECTION_RESERVED_NAMES: frozenset[str] = frozenset()
 PARAM_RESERVED_NAMES: frozenset[str] = frozenset()
+ALLOWED_SIMPLE_NAME_CHARS: frozenset[str] = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-"
+)
 
 
 def _normalize_name(name: str) -> str:
@@ -102,6 +105,19 @@ def _ensure_no_dotdot(
         )
 
 
+def _ensure_allowed_chars(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    for char in name:
+        if char not in ALLOWED_SIMPLE_NAME_CHARS:
+            _raise_invalid_name(
+                f"{label} can only contain letters, numbers, spaces, '_' and '-'.",
+                exc_type,
+            )
+
+
 def _ensure_not_reserved(
     name: str,
     reserved_names: frozenset[str],
@@ -125,6 +141,7 @@ def validate_project_name_format(
     _ensure_no_control_chars(normalized, InvalidProjectName, "Project name")
     _ensure_no_path_separators(normalized, InvalidProjectName, "Project name")
     _ensure_no_dotdot(normalized, InvalidProjectName, "Project name")
+    _ensure_allowed_chars(normalized, InvalidProjectName, "Project name")
     if not allow_reserved:
         _ensure_not_reserved(
             normalized, PROJECT_RESERVED_NAMES, InvalidProjectName, "Project name"
@@ -163,6 +180,7 @@ def validate_section_name_format(name: str) -> str:
     _ensure_no_control_chars(normalized, InvalidSectionName, "Section name")
     _ensure_no_path_separators(normalized, InvalidSectionName, "Section name")
     _ensure_no_dotdot(normalized, InvalidSectionName, "Section name")
+    _ensure_allowed_chars(normalized, InvalidSectionName, "Section name")
     _ensure_not_reserved(
         normalized, SECTION_RESERVED_NAMES, InvalidSectionName, "Section name"
     )

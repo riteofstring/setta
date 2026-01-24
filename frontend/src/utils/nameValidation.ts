@@ -1,6 +1,7 @@
 import { C } from "utils/c";
 
 const CONTROL_CHAR_REGEX = /[\x00-\x1F\x7F]/;
+const SIMPLE_NAME_REGEX = /^[A-Za-z0-9 _-]+$/;
 const PYTHON_IDENTIFIER_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PYTHON_KEYWORDS = new Set([
   "False",
@@ -53,6 +54,7 @@ type NameValidationOptions = {
   reservedNames: Array<string>;
   allowEmpty: boolean;
   requirePythonIdentifier: boolean;
+  allowedCharsRegex?: RegExp;
 };
 
 function validateName(
@@ -75,6 +77,12 @@ function validateName(
   if (normalized.includes("..")) {
     return `${options.label} cannot include '..' path segments.`;
   }
+  if (
+    options.allowedCharsRegex &&
+    !options.allowedCharsRegex.test(normalized)
+  ) {
+    return `${options.label} can only contain letters, numbers, spaces, '_' and '-'.`;
+  }
   if (options.reservedNames.includes(normalized.toLowerCase())) {
     return `${options.label} '${normalized}' is reserved.`;
   }
@@ -94,6 +102,7 @@ export function validateProjectNameInput(name: string): string | null {
     label: "Project name",
     reservedNames: PROJECT_RESERVED_NAMES,
     allowEmpty: false,
+    allowedCharsRegex: SIMPLE_NAME_REGEX,
     requirePythonIdentifier: false,
   });
 }
@@ -103,6 +112,7 @@ export function validateSectionNameInput(name: string): string | null {
     label: "Section name",
     reservedNames: SECTION_RESERVED_NAMES,
     allowEmpty: false,
+    allowedCharsRegex: SIMPLE_NAME_REGEX,
     requirePythonIdentifier: false,
   });
 }

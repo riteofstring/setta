@@ -14,7 +14,11 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.section_impls import BaseCodeSectionImpl, SectionType
+from setta.types.section_impls import (
+    BaseCodeSectionImpl,
+    BaseDictSectionImpl,
+    SectionType,
+)
 from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
 from setta.utils.name_validation import (
     collect_section_name_conflicts,
@@ -59,6 +63,24 @@ class ProjectNameValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidProjectName):
             set_project_config_name(backend, project_config.id, "bad..name")
 
+    def test_project_name_rejects_leading_dot(self) -> None:
+        project_config = ProjectConfig(name="valid-project")
+        backend = ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            defaultProjectConfigId=project_config.id,
+        )
+        with self.assertRaises(InvalidProjectName):
+            set_project_config_name(backend, project_config.id, ".dog")
+
+    def test_project_name_rejects_special_chars(self) -> None:
+        project_config = ProjectConfig(name="valid-project")
+        backend = ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            defaultProjectConfigId=project_config.id,
+        )
+        with self.assertRaises(InvalidProjectName):
+            set_project_config_name(backend, project_config.id, "bad@name")
+
     def test_project_name_invalid_after_sanitization_rejected(self) -> None:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
@@ -67,6 +89,39 @@ class ProjectNameValidationTests(unittest.TestCase):
         )
         with self.assertRaises(InvalidProjectName):
             set_project_config_name(backend, project_config.id, "__")
+
+    def test_project_name_trims_whitespace(self) -> None:
+        project_config = ProjectConfig(name="valid-project")
+        backend = ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            defaultProjectConfigId=project_config.id,
+        )
+        set_project_config_name(backend, project_config.id, "  Foo Bar  ")
+        self.assertEqual(
+            "Foo Bar",
+            backend.projectConfigs[project_config.id].name,
+        )
+
+    def test_project_name_allows_simple_chars(self) -> None:
+        project_config = ProjectConfig(name="valid-project")
+        backend = ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            defaultProjectConfigId=project_config.id,
+        )
+        set_project_config_name(backend, project_config.id, "Alpha-2 _Beta")
+        self.assertEqual(
+            "Alpha-2 _Beta",
+            backend.projectConfigs[project_config.id].name,
+        )
+
+    def test_project_name_rejects_empty_after_trim(self) -> None:
+        project_config = ProjectConfig(name="valid-project")
+        backend = ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            defaultProjectConfigId=project_config.id,
+        )
+        with self.assertRaises(InvalidProjectName):
+            set_project_config_name(backend, project_config.id, "   ")
 
     def test_project_slug_collision_rejected(self) -> None:
         primary = ProjectConfig(name="foo_bar")
@@ -132,6 +187,61 @@ class SectionNameValidationTests(unittest.TestCase):
         self.project_state.validate_parent_section_map()
         with self.assertRaises(InvalidSectionName):
             set_section_name(self.project_state, section_id, "bad..name")
+
+    def test_section_name_trims_whitespace(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, section_id, "  Section One  ")
+        self.assertEqual("Section One", self.project_state.sections[section_id].name)
+
+    def test_section_name_allows_simple_chars(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, section_id, "Group-1 _X")
+        self.assertEqual("Group-1 _X", self.project_state.sections[section_id].name)
+
+    def test_section_name_rejects_empty_after_trim(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        with self.assertRaises(InvalidSectionName):
+            set_section_name(self.project_state, section_id, "   ")
+
+    def test_section_name_rejects_leading_dot(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        with self.assertRaises(InvalidSectionName):
+            set_section_name(self.project_state, section_id, ".dog")
+
+    def test_section_name_rejects_special_chars(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        with self.assertRaises(InvalidSectionName):
+            set_section_name(self.project_state, section_id, "bad#name")
 
     def test_move_conflict_marks_invalid_and_clears_bindings(self) -> None:
         parent_a = create_top_level_section(
@@ -234,6 +344,30 @@ class ParamNameValidationTests(unittest.TestCase):
         )
         self.assertEqual("", normalized)
 
+    def test_param_name_allows_empty_for_dict_root(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        add_kwarg(self.settings, self.project_state, section_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseDictSectionImpl,
+        )
+        if section_impl.topLevelParamId is None:
+            raise KeyError("Expected dict section to have a topLevelParamId.")
+        normalized = validate_param_name(
+            self.project_state,
+            section_id,
+            section_impl.topLevelParamId,
+            "",
+        )
+        self.assertEqual("", normalized)
+
     def test_param_name_requires_python_identifier(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -249,6 +383,40 @@ class ParamNameValidationTests(unittest.TestCase):
                 section_id,
                 param_id,
                 "invalid name",
+            )
+
+    def test_param_name_rejects_python_keyword(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        with self.assertRaises(InvalidParamName):
+            validate_param_name(
+                self.project_state,
+                section_id,
+                param_id,
+                "class",
+            )
+
+    def test_param_name_rejects_path_separators(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        with self.assertRaises(InvalidParamName):
+            validate_param_name(
+                self.project_state,
+                section_id,
+                param_id,
+                "bad/name",
             )
 
     def test_param_name_duplicate_rejected(self) -> None:
