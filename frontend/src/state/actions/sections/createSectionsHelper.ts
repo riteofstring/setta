@@ -1,6 +1,10 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import {
+  getPythonCodegenTarget,
+  projectConfigHasPythonCodegen,
+} from "utils/codegenTargets";
+import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
@@ -21,6 +25,12 @@ export function useCreateSectionsList() {
     (x) => x.singletonSections,
     _.isEqual,
   );
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
+  const metadataEnabled = useProjectState(
+    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
+  );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
     { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
@@ -30,7 +40,6 @@ export function useCreateSectionsList() {
     },
     { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
-    { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
   ];
 
   if (!singletonSections.GlobalVariables) {
@@ -61,11 +70,19 @@ export function useCreateSectionsList() {
     },
   ];
 
-  if (!singletonSections.GenPythonCode) {
+  if (pythonCodegenEnabled && !singletonSections.GenPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
       implSpecs: {
         type: SectionTypeEnum.GenPythonCode,
+      },
+    });
+  }
+  if (metadataEnabled && !singletonSections.GenPythonMetadata) {
+    codeGroupItems.push({
+      name: "Show Generated Python Metadata",
+      implSpecs: {
+        type: SectionTypeEnum.GenPythonMetadata,
       },
     });
   }

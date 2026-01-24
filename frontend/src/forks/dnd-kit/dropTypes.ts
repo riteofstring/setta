@@ -7,5 +7,5 @@ export const BehaviorDropTypeEnum = {
 export type BehaviorDropType = ObjectValues<typeof BehaviorDropTypeEnum>;
 
 export const behaviorToPretty = {
-  INVALID: "Invalid",
+  INVALID: "No nesting",
 };

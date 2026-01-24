@@ -2,5 +2,4 @@
 cd frontend && \
 pnpm install && \
 cd .. && \
-./scripts/install_sidecars.sh && \
 ./cleanup.sh
