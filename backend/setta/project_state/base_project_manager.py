@@ -193,6 +193,7 @@ from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
+    create_dep_key,
 )
 from setta.types.edges import Edge
 from setta.types.generated.unions import (
@@ -1153,16 +1154,21 @@ class BaseProjectManager(ABC):
             refetch_targets.append((section_id, callable_name))
         if not refetch_targets:
             return
-        refetch_section_ids = [section_id for section_id, _ in refetch_targets]
-        coalesce_key = (
-            f"autoRefetchCallable:{projectConfigId}:"
-            f"{','.join(map(str, refetch_section_ids))}"
-        )
-        self.add_new_history_entry(
-            coalesce_key=coalesce_key,
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
         gen_code = self._require_python_codegen(projectConfigId)
+        should_add_history = any(
+            create_dep_key(sectionId=section_id) in gen_code.code_generator.lines
+            for section_id, _ in refetch_targets
+        )
+        if should_add_history:
+            refetch_section_ids = [section_id for section_id, _ in refetch_targets]
+            coalesce_key = (
+                f"autoRefetchCallable:{projectConfigId}:"
+                f"{','.join(map(str, refetch_section_ids))}"
+            )
+            self.add_new_history_entry(
+                coalesce_key=coalesce_key,
+                coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            )
         settings = self.settings_file.settings
         did_update = False
         for section_id, callable_name in refetch_targets:
