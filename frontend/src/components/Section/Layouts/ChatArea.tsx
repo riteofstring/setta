@@ -14,6 +14,7 @@ import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
@@ -343,6 +344,10 @@ function ScriptableChatArea({
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const effectiveInputText =
     waitingForResponse && draftInputText !== null ? draftInputText : inputText;
+  const submitDisabled = useMemo(
+    () => !waitingForResponse && hasPendingToolInteraction(messages),
+    [messages, waitingForResponse],
+  );
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
@@ -356,6 +361,7 @@ function ScriptableChatArea({
       <ChatInput
         placeholderText="Type a message..."
         waitingForResponse={waitingForResponse}
+        submitDisabled={submitDisabled}
         disabled={isFrozen}
         value={effectiveInputText}
         onChange={handleInputChange}
@@ -694,6 +700,10 @@ function ManagedChatArea({
     !hasEngineConfig ||
     (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
     (isExternalEngine && !externalEngineAvailable);
+  const submitDisabled = useMemo(
+    () => !waitingForResponse && hasPendingToolInteraction(messages),
+    [messages, waitingForResponse],
+  );
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
@@ -719,6 +729,7 @@ function ManagedChatArea({
       <ChatInput
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
+        submitDisabled={submitDisabled}
         disabled={isDisabled}
         onSubmit={handleSubmit}
         onStop={handleStop}

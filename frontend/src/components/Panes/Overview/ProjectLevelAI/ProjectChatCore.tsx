@@ -6,6 +6,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
@@ -20,6 +21,7 @@ import {
   submitMessage,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
+import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_stop_external_agent_run,
   route_stop_llm_chat,
@@ -191,6 +193,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (!isExternalEngine && !hasLLMConfig) ||
     (isExternalEngine && !externalEngineAvailable);
   const showEmptyState = typeof chatId === "undefined";
+  const submitDisabled = useMemo(
+    () => !waitingForResponse && hasPendingToolInteraction(messages),
+    [messages, waitingForResponse],
+  );
 
   return (
     <>
@@ -206,6 +212,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       <ChatInput
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
+        submitDisabled={submitDisabled}
         disabled={isDisabled}
         onSubmit={handleSubmit}
         onStop={handleStop}

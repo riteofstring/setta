@@ -1,4 +1,8 @@
-import { ToolCall } from "utils/generatedTypes";
+import {
+  BaseChatMessageUnion,
+  ChatRoleEnum,
+  ToolCall,
+} from "utils/generatedTypes";
 
 export const APPROVAL_TOOL_NAME = "setta.approval";
 export const TODO_TOOL_NAME = "TodoWrite";
@@ -198,6 +202,51 @@ export function parseAnswers(value: unknown): Record<string, string> | null {
     }
   }
   return Object.keys(output).length > 0 ? output : null;
+}
+
+export function hasPendingToolInteraction(
+  messages: Array<BaseChatMessageUnion>,
+): boolean {
+  if (messages.length === 0) {
+    return false;
+  }
+  let lastAssistantIndex = -1;
+  const toolResultIndexById = new Map<string, number>();
+
+  for (let i = 0; i < messages.length; i += 1) {
+    const message = messages[i];
+    if (message.role === ChatRoleEnum.assistant) {
+      lastAssistantIndex = i;
+    }
+    if (message.role === ChatRoleEnum.tool && message.tool_call_id) {
+      toolResultIndexById.set(message.tool_call_id, i);
+    }
+  }
+
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    const toolCalls = message.tool_calls ?? [];
+    for (const toolCall of toolCalls) {
+      const normalizedName = normalizeToolName(toolCall.function?.name);
+      if (
+        normalizedName !== QUESTION_TOOL_NAME &&
+        normalizedName !== APPROVAL_TOOL_NAME
+      ) {
+        continue;
+      }
+      const toolResultIndex = toolResultIndexById.get(toolCall.id);
+      if (toolResultIndex === undefined) {
+        return true;
+      }
+      if (toolResultIndex > lastAssistantIndex) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function extractToolName(value: Record<string, unknown>): string | undefined {
