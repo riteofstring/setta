@@ -145,6 +145,23 @@ export function moveFocus({
   });
 }
 
+export function focusScope(scopeId: string): boolean {
+  const scope = tabScopes.get(scopeId);
+  if (!scope || !scope.rootRef.current) {
+    return false;
+  }
+  const focusables = getFocusableElementsForScope(scope);
+  const element = focusables[0] ?? null;
+  if (!element) {
+    return false;
+  }
+  element.focus({ preventScroll: true });
+  if (scope.behavior === "canvas") {
+    movePaneToIncludeElement(element);
+  }
+  return true;
+}
+
 export function focusOnSection(
   event: KeyboardEvent | null,
   sectionId: string,

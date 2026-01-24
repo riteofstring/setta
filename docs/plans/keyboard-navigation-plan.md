@@ -15,6 +15,7 @@
 ## Progress
 - Added a header tab scope to include the full navbar in the custom focus loop.
 - Removed the standalone SiteLogo scope so header navigation remains a single scope.
+- Added pane focus shortcuts: Mod+Shift+1/2/3/4 for Header, Overview, Canvas, UI Editor.
 
 ## Plan
 1. Header scope and inclusion in tab order
@@ -22,7 +23,7 @@
    - Implemented in `frontend/src/components/AppHeader/Header.tsx`.
 2. Pane cycling shortcuts
    - Add a helper in `frontend/src/utils/focusManager.ts` to focus a scope by id.
-   - Bind shortcuts (e.g., F6 / Shift+F6, or Ctrl+1/2/3/4) in `frontend/src/state/actions/keyActivations.ts` to jump to Overview, Canvas, UI Editor, Header.
+   - Done: `focusScope` helper added and Mod+Shift+1/2/3/4 bound in `frontend/src/state/actions/keyActivations.ts`.
 3. Remember last focus per scope
    - Track the last focused element per scope to improve pane cycling ergonomics.
    - Store in `focusManager` and prefer it over first/last element when re-entering a scope.
