@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+SCRIPTABLE_LLM_CONFIG_ID = "scriptable"
+
 
 class MCPServerConfig(BaseModel):
     transport: Literal["sse", "streamable_http", "stdio"]
@@ -51,6 +53,15 @@ class LLMConfig(BaseModel):
     temporary: bool = False
 
     model_config = ConfigDict(extra="forbid")
+
+
+def build_scriptable_llm_config() -> "LLMConfig":
+    return LLMConfig(
+        id=SCRIPTABLE_LLM_CONFIG_ID,
+        model=SCRIPTABLE_LLM_CONFIG_ID,
+        mcpServerIds=[],
+        temporary=True,
+    )
 
 
 class AllLLMConfigs(BaseModel):
@@ -144,6 +155,16 @@ class AllLLMConfigs(BaseModel):
         if not config:
             raise ValueError(f"LLM config missing provider '{llm_config_id}'")
         return config
+
+    def resolve_listener_config(
+        self,
+        llm_config_id: str,
+    ) -> LLMConfig:
+        if not llm_config_id:
+            raise ValueError("Listener chat requires an LLM config id or 'scriptable'")
+        if llm_config_id == SCRIPTABLE_LLM_CONFIG_ID:
+            return build_scriptable_llm_config()
+        return self.resolve_config(llm_config_id)
 
     def build_llm_params(
         self,
