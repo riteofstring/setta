@@ -20,6 +20,9 @@ performance profiling.
 
 2) Open Chrome normally and load your app (or run `scripts/start-browser-mcp.sh --playwriter`
    for a dedicated profile; install the extension once in that profile).
+   By default, the script uses a shared profile at `~/.setta/playwriter-profile`.
+   Use `--playwriter-isolated` (or `PLAYWRITER_PROFILE_MODE=isolated`) for per-worktree isolation,
+   or `PLAYWRITER_PROFILE_DIR` for a custom profile path.
 
 3) Click the Playwriter extension icon on the tab you want to control.
 
@@ -55,3 +58,19 @@ performance profiling.
   (use `--playwriter` or `--devtools` to target one).
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.
+
+## Playwright E2E (reliable path)
+
+1) Start the backend + frontend (`pnpm start` or `pnpm startr`).
+2) Run the suite with the helper (auto-mints a bootstrap token):
+   `scripts/run-playwright-e2e.sh`
+
+Optional overrides:
+- `PLAYWRIGHT_BASE_URL` (frontend URL)
+- `SETTA_BACKEND_ORIGIN` (backend origin)
+- `SETTA_PROJECT_URL` (project path)
+- `SETTA_BOOTSTRAP_TOKEN` (skip auto-mint)
+
+If browser installs fail with permissions under `~/Library/Caches`, install to a
+repo-local path:
+`PLAYWRIGHT_BROWSERS_PATH=setta_files/run/playwright-browsers npx playwright install`

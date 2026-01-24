@@ -6307,7 +6307,7 @@ export const SectionSizingPolicyByTypeSchema = z.object({
       minWidth: 200.0,
       maxWidth: 100000.0,
       hideSearchMinHeight: 78.0,
-      hideParamsMinHeight: 58.0,
+      hideParamsMinHeight: 32.0,
     }),
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
@@ -6456,6 +6456,7 @@ export function createSectionSizingPolicyByType(
 
 export const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
+  unpinnedParamsAreaMinHeight: z.number().default(38),
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),

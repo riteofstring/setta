@@ -8,6 +8,7 @@ DEFAULT_MIN_WIDTH = 200
 ROOT_SECTION_HEIGHT = 50
 MINIMIZED_SECTION_HEIGHT = 32
 PINNED_PARAMS_AREA_MIN_HEIGHT = 64
+UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38
 
 
 class RenameRefactorMode(str, Enum):
@@ -145,6 +146,7 @@ class SectionSizingPolicyCallableTypeEntry(SectionSizingPolicyTypeEntry):
 
 class SectionSizingPolicyGlobals(BaseModel):
     pinnedParamsAreaMinHeight: float = PINNED_PARAMS_AREA_MIN_HEIGHT
+    unpinnedParamsAreaMinHeight: float = UNPINNED_PARAMS_AREA_MIN_HEIGHT
     minimizedHeight: float = MINIMIZED_SECTION_HEIGHT
     infiniteMaxHeight: float = INFINITE_MAX_HEIGHT
     infiniteMaxWidth: float = INFINITE_MAX_WIDTH
@@ -158,7 +160,7 @@ class SectionSizingPolicyByType(BaseModel):
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
             hideSearchMinHeight=78,
-            hideParamsMinHeight=58,
+            hideParamsMinHeight=32,
         )
     )
     Dict: SectionSizingPolicyTypeEntry = Field(

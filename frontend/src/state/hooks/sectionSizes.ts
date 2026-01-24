@@ -293,7 +293,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       const resolvedUnpinnedMinHeight =
         unpinnedParamsMinHeight > 0
           ? unpinnedParamsMinHeight
-          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+          : sizingPolicy.globals.unpinnedParamsAreaMinHeight;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
         if (typeof impl.pinnedAreaHeight === "number") {

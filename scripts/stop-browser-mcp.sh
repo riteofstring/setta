@@ -23,8 +23,34 @@ profile_suffix() {
 
 PROFILE_SUFFIX="$(profile_suffix "$ROOT_DIR")"
 PROFILE_DIR="${PROFILE_DIR:-/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}}"
-PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}}"
+PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-shared}"
+PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
 MCP_RUN_DIR="${ROOT_DIR}/setta_files/run/mcp"
+
+default_playwriter_profile_dir() {
+  echo "/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
+}
+
+resolve_playwriter_profile_dir() {
+  if [[ -n "${PLAYWRITER_PROFILE_DIR+x}" ]]; then
+    PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-$(default_playwriter_profile_dir)}"
+    return
+  fi
+
+  case "${PLAYWRITER_PROFILE_MODE}" in
+    shared)
+      PLAYWRITER_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR}"
+      ;;
+    isolated)
+      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
+      ;;
+    *)
+      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
+      ;;
+  esac
+}
+
+resolve_playwriter_profile_dir
 
 TARGET_DEVTOOLS="0"
 TARGET_PLAYWRITER="0"
@@ -39,10 +65,14 @@ Default behavior stops all browser MCP processes.
 Environment variables:
   DEBUG_PORT   Remote debugging port (default: 9222)
   PROFILE_DIR  User data dir for the debug instance (default: /tmp/chrome-profile-mcp-<repo>)
-  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: /tmp/chrome-profile-playwriter-mcp-<repo>)
+  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: shared profile; overrides mode)
+  PLAYWRITER_PROFILE_MODE  shared|isolated (default: shared)
+  PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
 
 Flags:
   --playwriter    Stop the playwriter Chrome profile
+  --playwriter-shared   Target the shared Playwriter profile
+  --playwriter-isolated Target the per-worktree Playwriter profile
   --devtools      Stop the devtools Chrome profile
   --agent-browser Stop the agent-browser daemon
 EOF
@@ -58,6 +88,16 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --playwriter)
       TARGET_PLAYWRITER="1"
+      shift
+      ;;
+    --playwriter-shared)
+      TARGET_PLAYWRITER="1"
+      PLAYWRITER_PROFILE_MODE="shared"
+      shift
+      ;;
+    --playwriter-isolated)
+      TARGET_PLAYWRITER="1"
+      PLAYWRITER_PROFILE_MODE="isolated"
       shift
       ;;
     --devtools)

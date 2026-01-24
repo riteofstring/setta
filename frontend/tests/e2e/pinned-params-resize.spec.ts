@@ -6,11 +6,17 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import type { SettingsState } from "../../src/utils/generatedTypes";
 
 const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
+const PARAM_SELECT_KEY = "Shift";
 const SELECT_ALL_SHORTCUT = MOD_KEY === "Meta" ? "Meta+A" : "Control+A";
 const JUMP_TO_START_SHORTCUT =
   MOD_KEY === "Meta" ? "Meta+ArrowUp" : "Control+Home";
+const TARGET_CALLABLE = "math.sqrt";
+const FALLBACK_CALLABLE_SECTION_NAME = "__pw_callable__";
+const EXPECTED_CALLABLE_HIDE_PARAMS_MIN_HEIGHT = 32;
+const EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
@@ -24,28 +30,33 @@ const PROJECT_URL =
 type DragHandle = "bottom" | "right" | "bottomRight";
 type Box = { x: number; y: number; width: number; height: number };
 type ScrollMetrics = { clientHeight: number; scrollHeight: number };
+type ProjectMetadataEntry = { id: string; name: string };
+type ProjectMetadataResponse = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: ProjectMetadataEntry[];
+};
 
 test("pinned params resize behavior", async ({ page }, testInfo) => {
-  await page.goto(PROJECT_URL);
   await ensureAppReady(page);
+
+  const didUpdateSettings = await ensureSizingPolicyDefaults(page);
+  if (didUpdateSettings) {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+  }
 
   const sections = page.locator('section[class*="card-section"]');
   await ensureProjectConfig(page, sections);
 
-  let callableSection = await findCallableSection(
+  const ensuredCallable = await ensureCallableSectionWithMathSqrt(
     page,
     sections,
   );
-  const callableName = await getSectionTitle(callableSection);
-  await replaceEditable(
-    page,
-    callableSection.locator("search.section-search").first(),
-    "math.sqrt",
-    true,
-  );
+  let callableSection = ensuredCallable.callableSection;
+  const callableName = ensuredCallable.callableName;
   await ensureImportMath(page);
 
-  await focusSectionFromOverview(page, callableName);
+  await focusSectionFromOverview(page, callableName, callableSection);
   let paramGroup = callableSection.locator("div.section-row-pin-main").first();
   let unpinnedArea = paramGroup
     .locator(":scope > div.section-args-nested")
@@ -313,7 +324,7 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   } else {
     callableSection = await findCallableSection(page, sectionsAfterReload);
   }
-  await focusSectionFromOverview(page, callableName);
+  await focusSectionFromOverview(page, callableName, callableSection);
   await callableSection.locator("header.section-title").first().click({
     force: true,
   });
@@ -456,7 +467,10 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     edgesStrip,
   );
   const unpinnedMinExpectedAtMin =
-    layoutMetricsAtMin.unpinnedRowHeight + layoutMetricsAtMin.unpinnedPadding;
+    layoutMetricsAtMin.unpinnedMinHeight > 0
+      ? layoutMetricsAtMin.unpinnedMinHeight
+      : layoutMetricsAtMin.unpinnedRowHeight +
+        layoutMetricsAtMin.unpinnedPadding;
   const pinnedMinExpectedAtMin =
     pinnedRowHeightAfterReload +
     layoutMetricsAtMin.pinnedHeaderHeight +
@@ -536,12 +550,11 @@ async function ensureProjectConfig(
   if ((await sections.count()) > 0) {
     return;
   }
-  throw new Error(
-    "No sections found. Open a project config with a callable section before running this test.",
-  );
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 }
 
 async function ensureAppReady(page: Page): Promise<void> {
+  await page.goto(PROJECT_URL);
   if (await isAppReady(page)) {
     return;
   }
@@ -562,6 +575,74 @@ async function isAppReady(page: Page): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function ensureCallableSectionWithMathSqrt(
+  page: Page,
+  sections: Locator,
+): Promise<{ callableSection: Locator; callableName: string }> {
+  const existing = await findCallableSectionWithCallable(
+    page,
+    sections,
+    TARGET_CALLABLE,
+    true,
+  );
+  if (existing) {
+    return {
+      callableSection: existing,
+      callableName: await getSectionTitle(existing),
+    };
+  }
+
+  const fallback = await findCallableSectionWithCallable(
+    page,
+    sections,
+    TARGET_CALLABLE,
+    false,
+  );
+  if (fallback) {
+    await resetCallableSectionForTest(page, fallback);
+    return {
+      callableSection: fallback,
+      callableName: await getSectionTitle(fallback),
+    };
+  }
+
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const created = await postBackend(page, "/createTopLevelSection", {
+    projectConfigId,
+    implType: "Callable",
+  });
+  const sectionId = created?.sectionId;
+  if (!sectionId) {
+    throw new Error("Missing sectionId when creating callable section.");
+  }
+
+  const sectionName = await resolveUniqueSectionName(
+    page,
+    FALLBACK_CALLABLE_SECTION_NAME,
+  );
+  await postBackend(page, "/setSectionName", {
+    projectConfigId,
+    sectionId,
+    name: sectionName,
+  });
+  await postBackendWithRetries(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName: TARGET_CALLABLE,
+    refetchParams: false,
+  });
+
+  const createdSection = findSectionCandidates(page, sectionName).first();
+  await expect(createdSection).toBeVisible();
+  await expect.poll(async () => {
+    return getCallableSearchText(createdSection);
+  }).toContain(TARGET_CALLABLE);
+  return {
+    callableSection: createdSection,
+    callableName: sectionName,
+  };
 }
 
 async function replaceEditable(
@@ -589,23 +670,12 @@ async function replaceEditable(
 async function ensureImportMath(
   page: Page,
 ): Promise<void> {
-  const generatedSection = findSectionCandidates(
-    page,
-    "Generated Python Code",
-  ).first();
-  if ((await generatedSection.count()) > 0) {
-    const generatedText = await getSectionText(generatedSection);
-    if (/\bimport math\b/.test(generatedText)) {
-      return;
-    }
-  }
-
   if (await hasImportMathInCodeAreas(page)) {
     return;
   }
 
-  const codeSection = findSectionCandidates(page, "__pw_code__").first();
-  if ((await codeSection.count()) === 0) {
+  const codeSection = await findUserCodeSection(page);
+  if (!codeSection) {
     return;
   }
   const codeArea = codeSection.locator("article.section-full-no-title").first();
@@ -633,6 +703,267 @@ async function hasImportMathInCodeAreas(page: Page): Promise<boolean> {
   return false;
 }
 
+async function findUserCodeSection(page: Page): Promise<Locator | null> {
+  const sections = page.locator('section[class*="card-section"]');
+  const count = await sections.count();
+  for (let i = 0; i < count; i += 1) {
+    const section = sections.nth(i);
+    const titleLocator = section.locator("header.section-title p").first();
+    const title =
+      (await titleLocator.count()) > 0
+        ? (await titleLocator.innerText()).trim()
+        : "";
+    if (title === "Generated Python Code") {
+      continue;
+    }
+    if ((await section.locator("article.section-full-no-title").count()) > 0) {
+      return section;
+    }
+  }
+  return null;
+}
+
+async function getCallableSearchText(section: Locator): Promise<string> {
+  const search = section.locator("search.section-search").first();
+  if ((await search.count()) === 0) {
+    return "";
+  }
+  return (await search.textContent())?.trim() ?? "";
+}
+
+async function getSectionIdFromSection(section: Locator): Promise<string> {
+  const handle = section.locator('[id$="-CustomResizable"]').first();
+  if ((await handle.count()) === 0) {
+    throw new Error("Section id handle not found.");
+  }
+  const id = await handle.getAttribute("id");
+  if (!id) {
+    throw new Error("Section id attribute missing.");
+  }
+  return id.replace(/-CustomResizable$/, "");
+}
+
+async function isCallableSectionClean(section: Locator): Promise<boolean> {
+  const paramGroup = section.locator("div.section-row-pin-main").first();
+  if ((await paramGroup.count()) === 0) {
+    return false;
+  }
+  const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
+  if ((await pinnedArea.count()) > 0) {
+    const pinnedList = pinnedArea.locator("div.section-args-nested").first();
+    const pinnedRows = pinnedList.locator(
+      ":scope > article.section-args-nested-key-value",
+    );
+    if ((await pinnedRows.count()) > 0) {
+      return false;
+    }
+  }
+  const edgesStrip = paramGroup.locator(":scope > section.section-row-pin-main");
+  if ((await edgesStrip.count()) > 0) {
+    const edgeRows = edgesStrip
+      .locator("div.grid > div")
+      .first()
+      .locator("div.flex.flex-col.gap-1 > div");
+    if ((await edgeRows.count()) > 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function resetCallableSectionForTest(
+  page: Page,
+  section: Locator,
+): Promise<void> {
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const sectionId = await getSectionIdFromSection(section);
+  await postBackend(page, "/setSectionPinnedParams", {
+    projectConfigId,
+    sectionId,
+    pinnedParams: [],
+  });
+  await postBackend(page, "/setSectionEdgeInputs", {
+    projectConfigId,
+    sectionId,
+    edgeInputParams: [],
+  });
+  await postBackend(page, "/setSectionEdgeOutputs", {
+    projectConfigId,
+    sectionId,
+    edgeOutputPorts: [],
+  });
+  await postBackend(page, "/setSectionPinnedAreaHeight", {
+    projectConfigId,
+    sectionId,
+    pinnedAreaHeight: "auto",
+  });
+  await postBackend(page, "/setSectionParamFilter", {
+    projectConfigId,
+    sectionId,
+    value: "",
+  });
+  await expect.poll(async () => isCallableSectionClean(section)).toBe(true);
+}
+
+async function findCallableSectionWithCallable(
+  page: Page,
+  sections: Locator,
+  callableName: string,
+  requireClean = false,
+): Promise<Locator | null> {
+  const callableCandidates = sections.filter({
+    has: page.getByRole("button", { name: "Add arg" }),
+  });
+  const count = await callableCandidates.count();
+  for (let i = 0; i < count; i += 1) {
+    const section = callableCandidates.nth(i);
+    const callableText = await getCallableSearchText(section);
+    if (callableText.includes(callableName)) {
+      if (requireClean && !(await isCallableSectionClean(section))) {
+        continue;
+      }
+      await expect(section).toBeVisible();
+      return section;
+    }
+  }
+  return null;
+}
+
+async function postBackend<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+): Promise<T | null> {
+  const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
+    data: payload,
+  });
+  const text = await response.text();
+  if (!response.ok()) {
+    const detail = text ? ` ${text}` : "";
+    throw new Error(
+      `Backend request failed (${response.status()}): ${path}${detail}`,
+    );
+  }
+  if (!text) {
+    return null;
+  }
+  return JSON.parse(text) as T;
+}
+
+async function postBackendWithRetries<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+  attempts = 8,
+  delayMs = 500,
+): Promise<T | null> {
+  let lastStatus = 0;
+  let lastText = "";
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
+      data: payload,
+    });
+    lastStatus = response.status();
+    lastText = await response.text();
+    if (response.ok()) {
+      if (!lastText) {
+        return null;
+      }
+      return JSON.parse(lastText) as T;
+    }
+    if (attempt < attempts - 1) {
+      await page.waitForTimeout(delayMs);
+    }
+  }
+  const detail = lastText ? ` ${lastText}` : "";
+  throw new Error(
+    `Backend request failed (${lastStatus}): ${path}${detail}`,
+  );
+}
+
+async function ensureSizingPolicyDefaults(page: Page): Promise<boolean> {
+  const settings = await postBackend<SettingsState>(
+    page,
+    "/loadSettings",
+    null,
+  );
+  if (!settings) {
+    throw new Error("Missing settings payload.");
+  }
+
+  let didUpdate = false;
+  const callablePolicy = settings.sectionSizingPolicy.byType.Callable;
+  if (callablePolicy.hideParamsMinHeight !== EXPECTED_CALLABLE_HIDE_PARAMS_MIN_HEIGHT) {
+    callablePolicy.hideParamsMinHeight = EXPECTED_CALLABLE_HIDE_PARAMS_MIN_HEIGHT;
+    didUpdate = true;
+  }
+  const globals = settings.sectionSizingPolicy.globals;
+  if (
+    globals.unpinnedParamsAreaMinHeight !==
+    EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+  ) {
+    globals.unpinnedParamsAreaMinHeight =
+      EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+    didUpdate = true;
+  }
+
+  if (didUpdate) {
+    await postBackend(page, "/saveSettings", { settings });
+  }
+
+  return didUpdate;
+}
+
+async function getCurrentProjectConfigId(page: Page): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    const match = metadata.projectMetadata.find((p) => p.name === projectName);
+    if (match?.id) {
+      return match.id;
+    }
+  }
+
+  if (metadata.defaultProjectConfigId) {
+    return metadata.defaultProjectConfigId;
+  }
+
+  throw new Error("Unable to resolve projectConfigId for test.");
+}
+
+async function resolveUniqueSectionName(
+  page: Page,
+  baseName: string,
+): Promise<string> {
+  const existingTitles = new Set(await getSectionTitles(page));
+  if (!existingTitles.has(baseName)) {
+    return baseName;
+  }
+  for (let i = 1; i <= 5; i += 1) {
+    const candidate = `${baseName}-${i}`;
+    if (!existingTitles.has(candidate)) {
+      return candidate;
+    }
+  }
+  return `${baseName}-${Date.now()}`;
+}
+
+async function getSectionTitles(page: Page): Promise<string[]> {
+  const titles = await page
+    .locator('section[class*="card-section"] header.section-title p')
+    .allTextContents();
+  return titles.map((title) => title.trim()).filter((title) => title.length > 0);
+}
+
 function findSectionCandidates(page: Page, name: string): Locator {
   return page
     .locator('section[class*="card-section"]')
@@ -643,7 +974,7 @@ async function findCallableSection(
   page: Page,
   sections: Locator,
 ): Promise<Locator> {
-  const preferred = findSectionCandidates(page, "__pw_callable__");
+  const preferred = findSectionCandidates(page, FALLBACK_CALLABLE_SECTION_NAME);
   if ((await preferred.count()) > 0) {
     const first = preferred.first();
     await expect(first).toBeVisible();
@@ -660,7 +991,7 @@ async function findCallableSection(
   }
 
   throw new Error(
-    "No callable section found. Create one or rename a callable to __pw_callable__.",
+    `No callable section found. Create one or rename a callable to ${FALLBACK_CALLABLE_SECTION_NAME}.`,
   );
 }
 
@@ -680,11 +1011,20 @@ async function getSectionText(section: Locator): Promise<string> {
 async function focusSectionFromOverview(
   page: Page,
   name: string,
+  fallbackSection?: Locator,
 ): Promise<void> {
   const overviewItem = page.getByRole("listitem", { name }).first();
   if ((await overviewItem.count()) > 0) {
     await overviewItem.click();
+    return;
   }
+  if (fallbackSection) {
+    await fallbackSection.locator("header.section-title").first().click({
+      force: true,
+    });
+    return;
+  }
+  throw new Error(`Overview item not found for ${name}.`);
 }
 
 function getEditableArgRows(container: Locator): Locator {
@@ -715,11 +1055,13 @@ async function selectArgRowsByIndex(
   indices: number[],
 ): Promise<void> {
   await page.keyboard.down(MOD_KEY);
+  await page.keyboard.down(PARAM_SELECT_KEY);
   for (const idx of indices) {
     const row = rows.nth(idx);
     await row.scrollIntoViewIfNeeded();
     await row.click({ force: true });
   }
+  await page.keyboard.up(PARAM_SELECT_KEY);
   await page.keyboard.up(MOD_KEY);
 }
 
@@ -728,11 +1070,13 @@ async function selectArgRowsById(
   rowIds: string[],
 ): Promise<void> {
   await page.keyboard.down(MOD_KEY);
+  await page.keyboard.down(PARAM_SELECT_KEY);
   for (const rowId of rowIds) {
     const row = page.locator(`#${rowId}`);
     await row.scrollIntoViewIfNeeded();
     await row.click({ force: true });
   }
+  await page.keyboard.up(PARAM_SELECT_KEY);
   await page.keyboard.up(MOD_KEY);
 }
 
