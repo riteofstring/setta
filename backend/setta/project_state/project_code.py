@@ -1,17 +1,15 @@
 import copy
 from pathlib import Path
-from typing import Awaitable, Callable
 
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
-from setta.code_gen.python.meta_generator import build_python_meta_code
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.utils import create_new_id
-from setta.project_state.code import BashCode, Code, PythonCode
+from setta.project_state.code import BashCode, PythonCode
 from setta.project_state.code_files import (
     GEN_CODE_SECTION_ID,
     GEN_CODE_VARIANT_ID,
@@ -21,7 +19,7 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
-    process_gen_code_diagnostics_with_undefined_symbols,
+    process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     SignatureHelpStatus,
@@ -60,36 +58,28 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
-from setta.types.project_config import get_python_codegen_target_with_type_guard
-from setta.types.project_state import CODE_LANGUAGE_EXTENSIONS, ProjectStateSingleConfig
+from setta.types.project_state import (
+    ProjectStateSingleConfig,
+)
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
-    CodeLanguage,
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
 from setta.utils.constants import C
-from setta.utils.utils import GEN_CODE_META_FILENAME
 
 
 def build_python_code_generator(
     project_state: ProjectStateSingleConfig,
     dep_graph: DependencyGraph,
-    *,
-    value_mode: PythonValueMode = PythonValueMode.PACKAGED_RUNTIME,
 ) -> PythonCodeGenerator:
     project_config = project_state.projectConfig
-    python_target = get_python_codegen_target_with_type_guard(project_config)
-    meta_code = None
-    if python_target.generateMetadata:
-        meta_code = build_python_meta_code(project_state, dep_graph)
     return PythonCodeGenerator(
         dep_graph,
-        python_target.genCodePrefix,
-        python_target.genCodeSuffix,
-        value_mode=value_mode,
-        meta_code=meta_code,
+        project_config.genCodePrefix,
+        project_config.genCodeSuffix,
+        value_mode=PythonValueMode.PACKAGED_RUNTIME,
     )
 
 
@@ -105,22 +95,12 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
         ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
-        *,
-        initial_undefined_callable_sections: set[ID] | None = None,
-        on_callable_symbols_resolved: Callable[[ID, set[ID]], Awaitable[None]]
-        | None = None,
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.ignored_type_errors_by_section = ignored_type_errors_by_section
-        self.latest_undefined_callable_sections = (
-            set(initial_undefined_callable_sections)
-            if initial_undefined_callable_sections
-            else set()
-        )
-        self._on_callable_symbols_resolved = on_callable_symbols_resolved
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -143,7 +123,6 @@ class ProjectGenPythonCode(PythonCode):
             self.code_generator.gen_code_prefix,
             self.code_generator.gen_code_suffix,
             value_mode=self.code_generator.value_mode,
-            meta_code=self.code_generator.meta_code,
         )
         generator_copy.generate_code()
         return generator_copy
@@ -253,19 +232,9 @@ class ProjectGenPythonCode(PythonCode):
         sectionId: ID,
         callableName: str,
         refetchParams: bool,
-        *,
-        on_before_mutation: Callable[[], None] | None = None,
     ) -> SetCallableResponse:
         current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
         current_callable_id = current_callable.id if current_callable else None
-        did_invoke_before_mutation = False
-
-        def maybe_invoke_before_mutation() -> None:
-            nonlocal did_invoke_before_mutation
-            if did_invoke_before_mutation or on_before_mutation is None:
-                return
-            did_invoke_before_mutation = True
-            on_before_mutation()
 
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
@@ -278,7 +247,6 @@ class ProjectGenPythonCode(PythonCode):
             )
 
         if callableName == "":
-            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -293,7 +261,6 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if prev_selected and not refetchParams:
-            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -336,7 +303,6 @@ class ProjectGenPythonCode(PythonCode):
             documentation, codeObjs, codeObjImplMap = result
             lsp_status = SignatureHelpStatus.MATCHED
 
-        maybe_invoke_before_mutation()
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
                 CodeObjType.CodeCallable,
@@ -454,26 +420,12 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response.params
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
-        errors, undefined_callable_sections = (
-            process_gen_code_diagnostics_with_undefined_symbols(
-                params.diagnostics,
-                self.code_generator,
-                self.dep_graph,
-                self.ignored_type_errors_by_section,
-            )
+        errors = process_gen_code_diagnostics(
+            params.diagnostics,
+            self.code_generator,
+            self.dep_graph,
+            self.ignored_type_errors_by_section,
         )
-        resolved_sections: set[ID] = set()
-        if self.latest_undefined_callable_sections:
-            for section_id in self.latest_undefined_callable_sections:
-                dep_key = create_dep_key(sectionId=section_id)
-                if dep_key not in self.dep_graph.graph:
-                    continue
-                if section_id in undefined_callable_sections:
-                    continue
-                if section_id in errors and errors[section_id].callable:
-                    continue
-                resolved_sections.add(section_id)
-        self.latest_undefined_callable_sections = undefined_callable_sections
         content = SettaProjectConfigDiagnostics(
             projectConfigId=self.project_config_id,
             errors=errors,
@@ -482,16 +434,9 @@ class ProjectGenPythonCode(PythonCode):
 
         self.latest_diagnostics = content
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
-        if resolved_sections and self._on_callable_symbols_resolved:
-            await self._on_callable_symbols_resolved(
-                self.project_config_id, resolved_sections
-            )
 
     def get_gen_python_code_path(self):
         return self.binding.canonical_path
-
-    def get_gen_python_meta_path(self):
-        return self.binding.canonical_path.with_name(GEN_CODE_META_FILENAME)
 
     @property
     def code(self):
@@ -501,24 +446,8 @@ class ProjectGenPythonCode(PythonCode):
     def generated_code(self) -> str:
         return self.code_generator.generated_code
 
-    @property
-    def meta_code(self) -> str | None:
-        return self.code_generator.meta_code
-
-    def write_meta_to_disk(self) -> bool:
-        if self.meta_code is None:
-            return False
-        meta_path = self.get_gen_python_meta_path()
-        meta_path.parent.mkdir(parents=True, exist_ok=True)
-        self.dbe.write(meta_path, self.meta_code)
-        return True
-
     def write_to_folder(self, folder: Path):
-        path = super().write_to_folder(self.code, folder)
-        if self.meta_code is not None:
-            meta_path = folder / GEN_CODE_META_FILENAME
-            self.dbe.write(meta_path, self.meta_code)
-        return path
+        return super().write_to_folder(self.code, folder)
 
 
 class ProjectPythonCode(PythonCode):
@@ -618,51 +547,6 @@ class ProjectBashCode(BashCode):
                 access_mode=binding.access_mode,
             ),
         )
-
-    def write_to_folder(self, folder):
-        return super().write_to_folder(self.code, folder)
-
-
-class ProjectBasicCode(Code):
-    def __init__(
-        self,
-        dbe,
-        code_files,
-        project_state: ProjectStateSingleConfig,
-        sectionId,
-        code_language: CodeLanguage,
-    ):
-        section_impl = get_curr_effective_section_impl(project_state, sectionId)
-        if not isinstance(section_impl, CodeSectionImpl):
-            raise TypeError
-        binding = section_impl.codeFileBinding
-        if binding is None:
-            raise ValueError("Code section missing codeFileBinding")
-        super().__init__(dbe, code_files, binding)
-        self.sectionId = sectionId
-        self.code = section_impl.code
-        self.code_language = code_language
-        project_config = project_state.projectConfig
-        variant_id = project_config.sectionVariantMap.get(sectionId)
-        if variant_id is None:
-            raise ValueError(
-                f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
-            )
-        code_files.register_binding(
-            binding.canonical_path,
-            RegisteredCodeFileBinding(
-                section_id=sectionId,
-                variant_id=variant_id,
-                project_config_id=project_config.id,
-                access_mode=binding.access_mode,
-            ),
-        )
-
-    def get_extension(self):
-        return CODE_LANGUAGE_EXTENSIONS[self.code_language]
-
-    def get_run_command(self, path: Path):
-        raise ValueError(f"Run is not supported for language {self.code_language}")
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)

@@ -3,7 +3,6 @@ from typing import assert_never
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
-    Node,
     ParamNode,
     SectionNode,
 )
@@ -67,20 +66,13 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
             parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
         return self._format_collection("{", "}", parts)
 
     def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
-        items = []
-        for dep_key, is_used in deps.items():
-            if not is_used:
-                continue
-            node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
-            items.append(self.var_lookup(dep_key))
+        items = [
+            self.var_lookup(dep_key) for dep_key, is_used in deps.items() if is_used
+        ]
         return self._format_collection("[", "]", items)
 
     def _format_collection(
@@ -124,22 +116,10 @@ class PythonValueCodec:
                 if node.value:
                     return repr(node.value.payload)
                 return "None"
-            case SectionType.Chat:
-                if node.value:
-                    if node.value.type is DependencyValueType.Literal:
-                        return repr(node.value.payload)
-                    return self.format_dependency_value(node.value)
-                return "None"
-            case SectionType.Image:
-                if node.value:
-                    if node.value.type is DependencyValueType.Literal:
-                        return repr(node.value.payload)
-                    return self.format_dependency_value(node.value)
-                return "None"
             case SectionType.Draw:
                 if node.value:
                     return self.format_dependency_value(node.value)
-                return "None  # draw snapshot pending (run to capture)"
+                return "None"
             case _:
                 return None
 
@@ -227,8 +207,6 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
             if not isinstance(node, ParamNode):
                 continue
             var_name = self.var_lookup(dep_key)
@@ -258,9 +236,6 @@ class PythonValueCodec:
             return repr(payload)
         helper_alias = self._require_value_helpers()
         return f"{helper_alias}.read_file_value({repr(payload)})"
-
-    def _node_in_codegen(self, node: Node) -> bool:
-        return getattr(node, "include_in_codegen", True)
 
     def _require_value_helpers(self) -> str:
         import_stmt = (

@@ -1,23 +1,31 @@
 import _ from "lodash";
+import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   route_add_kwarg,
   route_delete_kwarg,
   route_set_section_edge_inputs,
   route_set_section_param_filter,
+  route_set_section_pinned_params,
 } from "utils/generatedEndpoints";
 import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 
 type KwargsControlsProps = {
   sectionId: string;
@@ -28,9 +36,40 @@ export function KwargsControls({
   sectionId,
   bgColor = "bg-transparent",
 }: KwargsControlsProps) {
+  const controlsRef = useRef<HTMLElement | null>(null);
+  const heightKey = getKwargsControlsHeightKey(sectionId);
+
+  useLayoutEffect(() => {
+    const node = controlsRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+    updateHeight();
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [heightKey]);
+
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-  const { canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const callableMissing = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -47,24 +86,61 @@ export function KwargsControls({
 
   const onClickDeleteSelectedKwargs = () => {};
 
-  function onClickPinParam() {}
+  const { selectedParams, edgeInputParams, pinnedParams } = useProjectState(
+    (x) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      return {
+        selectedParams: impl.selectedParams,
+        edgeInputParams: impl.edgeInputParams,
+        pinnedParams: impl.pinnedParams,
+      };
+    },
+    _.isEqual,
+  );
 
-  const { selectedParams, edgeInputParams } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
+  const canPinParams =
+    selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
+  const pinParamsDisabled = !canPinParams;
+
+  function onClickPinParam() {
+    if (!canPinParams) {
+      return;
+    }
+    const nextPinnedParams = Array.from(
+      new Set([...pinnedParams, ...selectedParams]),
     );
-    return {
-      selectedParams: impl.selectedParams,
-      edgeInputParams: impl.edgeInputParams,
-    };
-  }, _.isEqual);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          state,
+          sectionId,
+          {
+            pinnedParams: nextPinnedParams,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_pinned_params({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          pinnedParams: nextPinnedParams,
+          frontendOpId,
+        }),
+    });
+  }
 
   const canConvertToEdge =
     selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
+  const convertToEdgeDisabled = !canConvertToEdge;
 
   function onClickConvertToEdgeInputs() {
+    if (!canConvertToEdge) {
+      return;
+    }
     const nextInputs = Array.from(
       new Set([...edgeInputParams, ...selectedParams]),
     );
@@ -88,22 +164,19 @@ export function KwargsControls({
     });
   }
 
-  const classes =
-    "focus-visible:ring-2 flex nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 w-[18px] rounded-full items-center justify-center";
-
   return (
     <>
       <section
         className={`section-args z-10 mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid  border-white px-1 pb-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
+        ref={controlsRef}
       >
         <article className="flex flex-wrap items-center">
-          <section className="ml-1 flex">
-            <h3 className=" my-auto ml-2 mr-[.1rem]  text-xs font-bold uppercase tracking-tighter text-setta-600/70  dark:text-setta-400/30 ">
+          <section className="ml-1 flex items-center gap-1">
+            <h3 className="hidden @[300px]:block my-auto ml-2 mr-[.1rem] text-xs font-bold uppercase tracking-tighter text-setta-600/70 dark:text-setta-400/30">
               Args
             </h3>
-
             <button
-              className={classes}
+              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={() =>
                 route_delete_kwarg({
                   projectConfigId: getCurrProjectConfigId(),
@@ -112,11 +185,13 @@ export function KwargsControls({
               }
               tabIndex={0}
               disabled={kwargButtonsDisabled}
+              aria-label="Remove arg"
+              {...getFloatingBoxHandlers({ content: "Remove arg" })}
             >
               <i className="gg-math-minus before:!left-0 " />
             </button>
             <button
-              className={classes}
+              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={() =>
                 route_add_kwarg({
                   projectConfigId: getCurrProjectConfigId(),
@@ -125,26 +200,42 @@ export function KwargsControls({
               }
               tabIndex={0}
               disabled={kwargButtonsDisabled}
+              aria-label="Add arg"
+              {...getFloatingBoxHandlers({ content: "Add arg" })}
             >
               <i className="gg-math-plus !scale-50" />
             </button>
 
-            <button className={classes} onClick={onClickPinParam} tabIndex={0}>
+            <button
+              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
+              onClick={onClickPinParam}
+              tabIndex={0}
+              disabled={pinParamsDisabled}
+              aria-label="Pin selected args"
+              {...getFloatingBoxHandlers({ content: "Pin selected args" })}
+            >
               <i className="gg-pin-alt mt-1 !scale-50" />
             </button>
             <button
-              className={classes}
+              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={onClickConvertToEdgeInputs}
               tabIndex={0}
-              disabled={!canConvertToEdge}
+              disabled={convertToEdgeDisabled}
+              aria-disabled={convertToEdgeDisabled}
+              aria-label="Convert to edge connectors"
+              {...getFloatingBoxHandlers({
+                content: "Convert selected args to edge connectors",
+              })}
             >
               <i className="gg-link !scale-50" />
             </button>
             <button
-              className={classes}
+              className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={onClickDeleteSelectedKwargs}
               tabIndex={0}
               disabled={variantIsFrozen}
+              aria-label="Delete selected args"
+              {...getFloatingBoxHandlers({ content: "Delete selected args" })}
             >
               <i className="gg-close !scale-50" />
             </button>
