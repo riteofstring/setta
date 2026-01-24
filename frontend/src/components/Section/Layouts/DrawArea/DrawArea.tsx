@@ -1,9 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useRef } from "react";
-import {
-  registerDrawSnapshotProvider,
-  unregisterDrawSnapshotProvider,
-} from "state/actions/drawSnapshots";
+import { useEffect, useRef } from "react";
 import {
   getCurrEffectiveSectionImplOfType,
   setCurrEffectiveSectionImplValue,
@@ -27,7 +23,6 @@ import {
   DrawAreaModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { serializeLayerStackToBase64 } from "./base64Conversion";
 import {
   drawAllLayers,
   getActiveLayerAndCanvas,
@@ -116,20 +111,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       drawThrottleDelay,
     },
   );
-
-  const snapshotProvider = useCallback(() => {
-    return serializeLayerStackToBase64(
-      layerCanvasRefs.current ?? [],
-      draftCanvasRef.current,
-    );
-  }, [layerCanvasRefs, draftCanvasRef]);
-
-  useEffect(() => {
-    registerDrawSnapshotProvider(sectionId, snapshotProvider);
-    return () => {
-      unregisterDrawSnapshotProvider(sectionId);
-    };
-  }, [sectionId, snapshotProvider]);
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");

@@ -61,11 +61,11 @@ class ChatHistoryClient:
     async def create(
         self,
         *,
-        llm_config_id: str,
+        engine_config_id: ID | None,
         first_message: BaseChatMessageUnion,
     ) -> Chat:
         payload: dict[str, object] = {
-            "llmConfigId": llm_config_id,
+            "engineConfigId": engine_config_id,
             "firstMessage": first_message,
         }
         return _coerce_chat(await self._project_manager.create_chat(payload))
@@ -116,7 +116,7 @@ class ChatHistoryClient:
         self,
         *,
         section_id: ID,
-        llm_config_id: str,
+        engine_config_id: ID | None,
         first_message: BaseChatMessageUnion,
     ) -> tuple[ID, bool]:
         payload: dict[str, object] = {"sectionId": section_id}
@@ -124,7 +124,7 @@ class ChatHistoryClient:
         if chat_id:
             return ID(chat_id), False
         chat = await self.create(
-            llm_config_id=llm_config_id,
+            engine_config_id=engine_config_id,
             first_message=first_message,
         )
         set_payload: dict[str, object] = {"sectionId": section_id, "chatId": chat.id}
@@ -184,6 +184,7 @@ class ChatStreamEmitterClient:
         thinking: str,
         section_id: ID | None = None,
         index: int = 0,
+        summary: str | None = None,
         signature: str | None = None,
     ) -> None:
         await self._emit(
@@ -195,6 +196,7 @@ class ChatStreamEmitterClient:
                     MessageThinkingDelta(
                         index=index,
                         thinking=thinking,
+                        summary=summary,
                         signature=signature,
                     )
                 ],
@@ -387,7 +389,7 @@ class ChatSession:
         *,
         ctx: "ListenerCallbackContext",
         section_id: ID,
-        llm_config_id: str,
+        engine_config_id: ID | None,
         event: ChatSendEvent | None = None,
     ) -> "ChatSession":
         resolved_event = event or on_chat_send_event(ctx, section_id=section_id)
@@ -422,7 +424,7 @@ class ChatSession:
             raise ValueError(f"Unsupported chat role: {resolved_event.role!r}")
         chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
-            llm_config_id=llm_config_id,
+            engine_config_id=engine_config_id,
             first_message=first_message,
         )
         if not created:

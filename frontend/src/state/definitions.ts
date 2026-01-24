@@ -11,6 +11,8 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AgentProfile,
+  AgentRun,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
@@ -18,14 +20,17 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  ChatMetadata,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
+  EngineConfig,
+  ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
   ProjectStateSingleConfig,
+  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaNotification,
@@ -99,6 +104,7 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
+          yamlValues: {},
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
@@ -247,22 +253,6 @@ type ZustandNotificationState = { notifications: Array<SettaNotification> };
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
     notifications: [],
-  })),
-);
-
-type FileBrowserState = {
-  rootPath: string | null;
-  selectedPath: string | null;
-  expandedPaths: Record<string, boolean>;
-  filterText: string;
-};
-
-export const useFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
   })),
 );
 
@@ -469,6 +459,11 @@ export const useMisc = withProjectState(
   ),
 );
 
+// maps from variantId to yaml metadata
+const useOriginalYamlObj = withProjectState(
+  createWithEqualityFn(withResetFn(() => {})),
+);
+
 export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
@@ -481,13 +476,30 @@ type ZustandAIStore = {
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
-  allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
+  agentProfiles: Array<AgentProfile>;
+  agentProfilesInitialLoadComplete: boolean;
+  agentProfilesLoadError: string | null;
+  agentRuns: Array<AgentRun>;
+  agentRunsInitialLoadComplete: boolean;
+  agentRunsLoadError: string | null;
+  promptTemplates: Array<PromptTemplate>;
+  promptTemplatesInitialLoadComplete: boolean;
+  promptTemplatesLoadError: string | null;
+  externalAgentConfigs: Array<ExternalAgentConfig>;
+  externalAgentConfigsInitialLoadComplete: boolean;
+  externalAgentConfigsLoadError: string | null;
+  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealthInitialLoadComplete: boolean;
+  externalAgentHealthLoadError: string | null;
+  engineConfigs: Array<EngineConfig>;
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigsLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -502,11 +514,28 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         activeChatId: undefined,
         chatDetails: {},
         pendingChatDetails: null,
-        allChatMetadata: [],
         viewHistory: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
+        agentProfiles: [],
+        agentProfilesInitialLoadComplete: false,
+        agentProfilesLoadError: null,
+        agentRuns: [],
+        agentRunsInitialLoadComplete: false,
+        agentRunsLoadError: null,
+        promptTemplates: [],
+        promptTemplatesInitialLoadComplete: false,
+        promptTemplatesLoadError: null,
+        externalAgentConfigs: [],
+        externalAgentConfigsInitialLoadComplete: false,
+        externalAgentConfigsLoadError: null,
+        externalAgentHealth: [],
+        externalAgentHealthInitialLoadComplete: false,
+        externalAgentHealthLoadError: null,
+        engineConfigs: [],
+        engineConfigsInitialLoadComplete: false,
+        engineConfigsLoadError: null,
       }),
       {
         name: "setta_ai_data",
