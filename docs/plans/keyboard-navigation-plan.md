@@ -18,6 +18,7 @@
 - Added pane focus shortcuts: Ctrl+Shift+1/2/3/4 for Header, Overview, Canvas, UI Editor.
 - Added `data-tab-native` to modal content so Tab stays inside Radix dialogs.
 - Added last-focused element memory per scope so pane jumps return to where you left off.
+- Added top-level section navigation shortcuts (Alt+J/K) that jump between sections on the canvas.
 
 ## Plan
 1. Header scope and inclusion in tab order
@@ -33,6 +34,7 @@
    - Add shortcuts for next/previous top-level section and a drill-in action.
    - Use `focusOnSection` and the existing top-level layout ordering in `getCanvasFocusableElements`.
    - Candidate: `frontend/src/utils/focusManager.ts` + bindings in `frontend/src/state/actions/keyActivations.ts`.
+   - Done: added top-level section jump shortcuts and shared ordering logic in `frontend/src/utils/focusManager.ts`.
 5. Keyboard panning and zooming when canvas is focused
    - Add arrow-key pan (small step) and Shift+Arrow (larger step).
    - Reuse `updateMapPosition` or `d3Zoom.translateBy` from the ReactFlow container.
