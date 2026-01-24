@@ -77,12 +77,24 @@ const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
+export const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
   DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
   ChartData: "ChartData",
-  File: "File",
 } as const;
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
@@ -158,11 +170,6 @@ export const CodeObjTypeEnum = {
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
-export const DropzoneModeEnum = {
-  STATEFUL: "STATEFUL",
-  STATELESS: "STATELESS",
-} as const;
-
 export const HttpRequestMethodEnum = {
   GET: "GET",
   POST: "POST",
@@ -194,12 +201,12 @@ export const SectionTypeEnum = {
   Chart: "Chart",
   Draw: "Draw",
   TextBlock: "TextBlock",
+  Prompt: "Prompt",
   MetaControl: "MetaControl",
   Social: "Social",
   GlobalVariables: "GlobalVariables",
   Code: "Code",
   GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
   Terminal: "Terminal",
   IFrame: "IFrame",
   Chat: "Chat",
@@ -219,6 +226,37 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+
+export const ExternalAgentRunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+} as const;
+
+export const ExternalAgentSettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+
+export const ExternalAgentToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+  opencode: "opencode",
+} as const;
+
+export const ExternalAgentWorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -227,20 +265,18 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-export const CodeLanguageEnum = {
-  python: "python",
-  bash: "bash",
-  javascript: "javascript",
-  typescript: "typescript",
-  json: "json",
-  yaml: "yaml",
-  markdown: "markdown",
-  plaintext: "plaintext",
-} as const;
+export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
+export const PromptFormatEnum = { Jinja: "Jinja" } as const;
+
 const SectionSizeModeEnum = { auto: "auto" } as const;
+
+export const SectionWithParamsDisplayModeEnum = {
+  Gui: "Gui",
+  Yaml: "Yaml",
+} as const;
 
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
@@ -270,20 +306,6 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
-export const ProjectCodegenLanguageEnum = { python: "python" } as const;
-
-const SectionCodegenModeEnum = {
-  inherit: "inherit",
-  include: "include",
-  exclude: "exclude",
-} as const;
-
-const SectionRepresentationModeEnum = {
-  json: "json",
-  file: "file",
-  base64: "base64",
-} as const;
-
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
   read_write: "read_write",
@@ -296,7 +318,6 @@ export const RouteEnum = {
   PREFIX: "/api",
   BOOTSTRAP_PAGE: "/__setta__/bootstrap",
   BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
-  TOOLS_CALL: "/__setta__/tools/call",
   SWAGGER_DOCS: "/docs",
   OPENAPI_DOCS: "/openapi.json",
   REDOC_DOCS: "/redoc",
@@ -310,7 +331,6 @@ export const RouteEnum = {
   SAVE_SETTINGS: "/saveSettings",
   LOAD_SETTINGS: "/loadSettings",
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
-  GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
   TERMINAL: "/{projectConfigId}/{sectionId}/{id}",
@@ -329,6 +349,7 @@ export const RouteEnum = {
   READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
+  SECTION_TO_YAML: "/sectionToYaml",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
   NEW_JSON_VERSION_NAME: "/newJsonVersionName",
   SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
@@ -350,7 +371,38 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
+  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENT_PROFILES: "/getAgentProfiles",
+  GET_AGENT_PROFILE: "/getAgentProfile",
+  CREATE_AGENT_PROFILE: "/createAgentProfile",
+  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
+  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
+  START_AGENT_RUN: "/startAgentRun",
+  STOP_AGENT_RUN: "/stopAgentRun",
+  START_RUN_CHAIN: "/startRunChain",
+  STOP_RUN_CHAIN: "/stopRunChain",
+  GET_AGENT_RUN: "/getAgentRun",
+  GET_AGENT_RUNS: "/getAgentRuns",
+  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
+  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
+  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
+  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
+  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
+  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
+  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
+  GET_EXTERNAL_AGENT_HEALTH: "/getExternalAgentHealth",
+  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
+  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
+  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
+  GET_ENGINE_CONFIGS: "/getEngineConfigs",
+  GET_ENGINE_CONFIG: "/getEngineConfig",
+  CREATE_ENGINE_CONFIG: "/createEngineConfig",
+  UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
+  DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
+  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
+  RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
+  RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
   CREATE_CHAT: "/createChat",
   GET_CHAT: "/getChat",
   APPEND_CHAT_MESSAGES: "/appendChatMessages",
@@ -360,9 +412,6 @@ export const RouteEnum = {
   RUN_MCP_TOOLS: "/runMcpTools",
   EMIT_CHAT_STREAM_DELTA: "/emitChatStreamDelta",
   RUN_CODE: "/runCode",
-  RUN_DETACHED: "/runDetached",
-  GET_RUN_STATUS: "/getRunStatus",
-  CANCEL_RUN: "/cancelRun",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
   SET_CALLABLE: "/setCallable",
@@ -396,9 +445,10 @@ export const RouteEnum = {
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
-  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
-  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
+  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
+  SET_PROMPT_INPUTS: "/setPromptInputs",
+  SET_PROMPT_FORMAT: "/setPromptFormat",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
@@ -432,6 +482,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
@@ -447,18 +498,13 @@ export const RouteEnum = {
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
-  MOVE_SECTIONS: "/moveSections",
-  MOVE_PARAMS: "/moveParams",
-  MOVE_PARAM_GROUPS: "/moveParamGroups",
-  INDENT_PARAMS: "/indentParams",
-  UNINDENT_PARAMS: "/unindentParams",
+  MOVE_SECTION: "/moveSection",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
   UNSELECT_ALL_PARAMS: "/unselectAllParams",
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
   PASTE_SECTIONS: "/pasteSections",
-  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
@@ -538,6 +584,10 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -750,19 +800,6 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
-const FileArtifactSchema = z.object({
-  type: z.literal("File").default(ArtifactTypeEnum.File),
-  id: z
-    .string()
-    .default(
-      () =>
-        "setta_files/artifacts/b837c49b-a335-4cf2-a001-4f460558b960.bin" as const,
-    ),
-  value: z.string(),
-});
-
-export type FileArtifact = z.infer<typeof FileArtifactSchema>;
-
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
@@ -809,6 +846,7 @@ export type MessageImageUrlContent = z.infer<
 const MessageThinkingContentSchema = z.object({
   type: z.literal("thinking").default("thinking" as const),
   thinking: z.string().default("" as const),
+  summary: z.union([z.string(), z.null()]).default("" as const),
   signature: z.union([z.string(), z.null()]).default("" as const),
 });
 
@@ -1005,6 +1043,7 @@ const MessageThinkingDeltaSchema = z.object({
   type: z.literal("thinking_delta").default("thinking_delta" as const),
   index: z.int(),
   thinking: z.string(),
+  summary: z.union([z.string(), z.null()]).default(null),
   signature: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -1209,6 +1248,7 @@ export function createSectionSize(
 const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -1234,15 +1274,18 @@ const SharedModifierSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
-  deepThink: z.boolean().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
+  engineConfigId: z.union([IDSchema, z.null()]).optional(),
   eraserBrushSize: z.int().optional(),
   folder: z.string().optional(),
-  format: z.enum(TextBlockFormatEnum).optional(),
+  format: z
+    .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
+    .optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1251,6 +1294,7 @@ const SharedModifierSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   imagePath: z.string().optional(),
   inputText: z.string().optional(),
+  inputs: z.record(z.string(), z.string()).optional(),
   isFrozen: z.boolean().optional(),
   isHorizontalOrientation: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
@@ -1261,10 +1305,8 @@ const SharedModifierSchema = z.object({
   jsonSourceMissing: z.boolean().optional(),
   label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
-  llmConfigId: z.union([z.string(), z.null()]).optional(),
   managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
-  maxAttachments: z.union([z.int(), z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -1278,7 +1320,7 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
-  mode: z.enum(DropzoneModeEnum).optional(),
+  missingVariables: z.array(z.string()).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1286,7 +1328,9 @@ const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedImagePath: z.union([z.string(), z.null()]).optional(),
+  renderError: z.union([z.string(), z.null()]).optional(),
+  renderedText: z.string().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1296,8 +1340,10 @@ const SharedModifierSchema = z.object({
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
+  template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
+  thinking: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
@@ -1327,6 +1373,7 @@ const CoreSchema = z.object({
       z.literal([
         "actionMode",
         "activeLayerIdx",
+        "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -1350,12 +1397,13 @@ const CoreSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
-        "deepThink",
         "defaultVal",
         "description",
+        "displayMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
+        "engineConfigId",
         "eraserBrushSize",
         "folder",
         "format",
@@ -1367,6 +1415,7 @@ const CoreSchema = z.object({
         "ignoreTypeErrors",
         "imagePath",
         "inputText",
+        "inputs",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",
@@ -1377,15 +1426,13 @@ const CoreSchema = z.object({
         "jsonSourceMissing",
         "label",
         "layers",
-        "llmConfigId",
         "managed",
         "max",
-        "maxAttachments",
         "messages",
         "metaControlParamId",
         "metaControlStyle",
         "min",
-        "mode",
+        "missingVariables",
         "name",
         "overflowMode",
         "paramFilter",
@@ -1393,7 +1440,9 @@ const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
-        "renderedImagePath",
+        "renderError",
+        "renderedText",
+        "renderedValue",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -1403,8 +1452,10 @@ const CoreSchema = z.object({
         "showSectionTitle",
         "size",
         "step",
+        "template",
         "text",
         "textDisplayMode",
+        "thinking",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -1454,6 +1505,9 @@ const CallableSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
@@ -1488,6 +1542,9 @@ const DictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1561,7 +1618,7 @@ const ChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 300.0 }),
+    createSectionSize({ width: 400.0, height: 400.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1569,6 +1626,7 @@ const ChartSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -1583,17 +1641,15 @@ const DrawSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 402.0, height: 100.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   layers: z.array(DrawAreaLayerSchema).default([]),
-  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -1615,7 +1671,9 @@ const TextBlockSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1632,6 +1690,31 @@ const TextBlockSectionImplSchema = z.object({
 });
 
 type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
+
+const PromptSectionImplSchema = z.object({
+  type: z.literal("Prompt").default(SectionTypeEnum.Prompt),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  template: z.string().default("" as const),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputs: z.record(z.string(), z.string()).default({}),
+  renderedText: z.string().default("" as const),
+  missingVariables: z.array(z.string()).default([]),
+  renderError: z.union([z.string(), z.null()]).default(null),
+});
+
+type PromptSectionImpl = z.infer<typeof PromptSectionImplSchema>;
 
 const MetaControlSectionImplSchema = z.object({
   type: z.literal("MetaControl").default(SectionTypeEnum.MetaControl),
@@ -1697,6 +1780,9 @@ const GlobalVariablesSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -1748,29 +1834,6 @@ const GenPythonCodeSectionImplSchema = z.object({
 
 type GenPythonCodeSectionImpl = z.infer<typeof GenPythonCodeSectionImplSchema>;
 
-const GenPythonMetadataSectionImplSchema = z.object({
-  type: z
-    .literal("GenPythonMetadata")
-    .default(SectionTypeEnum.GenPythonMetadata),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  code: z.string().default("" as const),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-});
-
-type GenPythonMetadataSectionImpl = z.infer<
-  typeof GenPythonMetadataSectionImplSchema
->;
-
 const TerminalSectionImplSchema = z.object({
   type: z.literal("Terminal").default(SectionTypeEnum.Terminal),
   id: IDSchema.default(create_new_id),
@@ -1778,7 +1841,7 @@ const TerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 250.0, height: 150.0 }),
+    createSectionSize({ width: 700.0, height: 300.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1814,7 +1877,7 @@ const ChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 400.0, height: 200.0 }),
+    createSectionSize({ width: 405.0, height: 405.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1823,9 +1886,10 @@ const ChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
-  deepThink: z.boolean().default(false),
+  thinking: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -2099,13 +2163,9 @@ const DropzoneParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
-  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
-export type DropzoneParamCodeObjImpl = z.infer<
-  typeof DropzoneParamCodeObjImplSchema
->;
+type DropzoneParamCodeObjImpl = z.infer<typeof DropzoneParamCodeObjImplSchema>;
 
 const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
@@ -2137,12 +2197,12 @@ const ProjectStateCoreSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
-        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -2339,12 +2399,12 @@ const BaseSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
   TextBlockSectionImplSchema,
+  PromptSectionImplSchema,
   MetaControlSectionImplSchema,
   SocialSectionImplSchema,
   GlobalVariablesSectionImplSchema,
   CodeSectionImplSchema,
   GenPythonCodeSectionImplSchema,
-  GenPythonMetadataSectionImplSchema,
   TerminalSectionImplSchema,
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
@@ -2376,6 +2436,7 @@ const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2397,8 +2458,8 @@ const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
-  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
@@ -2580,8 +2641,6 @@ const DropzoneParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
-  mode: z.enum(DropzoneModeEnum).optional(),
-  maxAttachments: z.union([z.int(), z.null()]).optional(),
 });
 
 type DropzoneParamCodeObjImplArgs = z.infer<
@@ -2680,27 +2739,6 @@ type GenPythonCodeSectionImplArgs = z.infer<
   typeof GenPythonCodeSectionImplArgsSchema
 >;
 
-const GenPythonMetadataSectionImplArgsSchema = z.object({
-  type: z.literal("GenPythonMetadata").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  code: z.string().optional(),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
-});
-
-type GenPythonMetadataSectionImplArgs = z.infer<
-  typeof GenPythonMetadataSectionImplArgsSchema
->;
-
 const DictSectionImplArgsSchema = z.object({
   type: z.literal("Dict").optional(),
   id: IDSchema.optional(),
@@ -2723,6 +2761,7 @@ const DictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2755,6 +2794,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -2827,6 +2867,7 @@ const CallableSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
@@ -2874,6 +2915,29 @@ const TextBlockSectionImplArgsSchema = z.object({
 });
 
 type TextBlockSectionImplArgs = z.infer<typeof TextBlockSectionImplArgsSchema>;
+
+const PromptSectionImplArgsSchema = z.object({
+  type: z.literal("Prompt").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  template: z.string().optional(),
+  format: z.enum(PromptFormatEnum).optional(),
+  inputs: z.record(z.string(), z.string()).optional(),
+  renderedText: z.string().optional(),
+  missingVariables: z.array(z.string()).optional(),
+  renderError: z.union([z.string(), z.null()]).optional(),
+});
+
+type PromptSectionImplArgs = z.infer<typeof PromptSectionImplArgsSchema>;
 
 const MetaControlSectionImplArgsSchema = z.object({
   type: z.literal("MetaControl").optional(),
@@ -2963,9 +3027,10 @@ const ChatSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
-  llmConfigId: z.union([z.string(), z.null()]).optional(),
+  engineConfigId: z.union([IDSchema, z.null()]).optional(),
+  agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
-  deepThink: z.boolean().optional(),
+  thinking: z.boolean().optional(),
   messages: z
     .array(
       z.union([
@@ -3251,101 +3316,6 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
-const SectionTypeCodegenPolicySchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
-
-function createSectionTypeCodegenPolicy(
-  options: Partial<SectionTypeCodegenPolicy> = {},
-): SectionTypeCodegenPolicy {
-  return SectionTypeCodegenPolicySchema.parse(options);
-}
-
-const SectionCodegenOverrideSchema = z.object({
-  mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
-  representation: z
-    .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
-});
-
-const SectionCodegenPolicySchema = z.object({
-  allowlist: z
-    .union([z.array(z.enum(SectionTypeEnum)), z.null()])
-    .default(() => [
-      SectionTypeEnum.Callable,
-      SectionTypeEnum.Dict,
-      SectionTypeEnum.ListRoot,
-      SectionTypeEnum.Group,
-      SectionTypeEnum.GlobalVariables,
-      SectionTypeEnum.TextBlock,
-      SectionTypeEnum.Draw,
-      SectionTypeEnum.MetaControl,
-    ]),
-  exclude: z.array(IDSchema).default([]),
-  typePolicies: z
-    .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
-    .default(() => ({
-      Callable: createSectionTypeCodegenPolicy(),
-      Dict: createSectionTypeCodegenPolicy(),
-      ListRoot: createSectionTypeCodegenPolicy(),
-      Group: createSectionTypeCodegenPolicy(),
-      Image: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      Chart: createSectionTypeCodegenPolicy(),
-      Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      TextBlock: createSectionTypeCodegenPolicy(),
-      MetaControl: createSectionTypeCodegenPolicy(),
-      Social: createSectionTypeCodegenPolicy(),
-      GlobalVariables: createSectionTypeCodegenPolicy(),
-      Code: createSectionTypeCodegenPolicy(),
-      GenPythonCode: createSectionTypeCodegenPolicy(),
-      GenPythonMetadata: createSectionTypeCodegenPolicy(),
-      Terminal: createSectionTypeCodegenPolicy(),
-      IFrame: createSectionTypeCodegenPolicy(),
-      Chat: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
-      }),
-      Browser: createSectionTypeCodegenPolicy(),
-    })),
-  sectionOverrides: z
-    .record(IDSchema, SectionCodegenOverrideSchema)
-    .default({}),
-});
-
-type SectionCodegenPolicy = z.infer<typeof SectionCodegenPolicySchema>;
-
-export function createSectionCodegenPolicy(
-  options: Partial<SectionCodegenPolicy> = {},
-): SectionCodegenPolicy {
-  return SectionCodegenPolicySchema.parse(options);
-}
-
-const ProjectCodegenPythonTargetSchema = z.object({
-  language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
-  generateMetadata: z.boolean().default(false),
-  sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
-});
-
-export type ProjectCodegenPythonTarget = z.infer<
-  typeof ProjectCodegenPythonTargetSchema
->;
-
-export function createProjectCodegenPythonTarget(
-  options: Partial<ProjectCodegenPythonTarget> = {},
-): ProjectCodegenPythonTarget {
-  return ProjectCodegenPythonTargetSchema.parse(options);
-}
-
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3383,7 +3353,6 @@ const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   showParamDisplayNames: z.boolean().default(false),
-  allowJsonSourceKeyEdits: z.boolean().default(true),
   previewImgColor: z
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
@@ -3391,9 +3360,8 @@ const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  codegenTargets: z
-    .array(ProjectCodegenPythonTargetSchema)
-    .default(() => [createProjectCodegenPythonTarget()]),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("state = SettaState()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -3412,7 +3380,6 @@ export function createProjectConfig(
 const SingletonSectionsSchema = z.object({
   GlobalVariables: z.union([IDSchema, z.null()]).default(null),
   GenPythonCode: z.union([IDSchema, z.null()]).default(null),
-  GenPythonMetadata: z.union([IDSchema, z.null()]).default(null),
 });
 
 type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
@@ -3455,12 +3422,12 @@ const ProjectStateSingleConfigSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        PromptSectionImplSchema,
         MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
         GenPythonCodeSectionImplSchema,
-        GenPythonMetadataSectionImplSchema,
         TerminalSectionImplSchema,
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
@@ -3496,6 +3463,7 @@ const ProjectStateSingleConfigSchema = z.object({
   parentSectionMap: z
     .record(IDSchema, z.union([IDSchema, z.null()]))
     .default({}),
+  yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
   requiredDecodedImages: z.array(z.string()).default([]),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
@@ -3575,19 +3543,9 @@ const SettingsShortcutsSchema = z.object({
   showVersionsTabShortcut: z.string().default("V" as const),
   showParamUITypeTabShortcut: z.string().default("P" as const),
   showProjectOverviewTabShortcut: z.string().default("O" as const),
-  focusHeaderShortcut: z.string().default("Ctrl + Shift + 1" as const),
-  focusOverviewShortcut: z.string().default("Ctrl + Shift + 2" as const),
-  focusCanvasShortcut: z.string().default("Ctrl + Shift + 3" as const),
-  focusUiEditorShortcut: z.string().default("Ctrl + Shift + 4" as const),
-  nextTopLevelSectionShortcut: z.string().default("Alt + J" as const),
-  prevTopLevelSectionShortcut: z.string().default("Alt + K" as const),
   runCodeShortcut: z.string().default("Mod + Enter" as const),
   runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
   paramSelect: z.string().default("Mod + Shift" as const),
-  paramIndentShortcut: z.string().default("Tab" as const),
-  paramUnindentShortcut: z.string().default("Shift + Tab" as const),
-  paramMoveUpShortcut: z.string().default("Alt + ArrowUp" as const),
-  paramMoveDownShortcut: z.string().default("Alt + ArrowDown" as const),
   formatCode: z.string().default("Shift + Alt + F" as const),
   selectionKeyCode: z.string().default("Shift" as const),
   multiSelectionKeyCode: z.string().default("Mod" as const),
@@ -3808,14 +3766,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  GenPythonMetadata: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 0.0,
-      maxHeight: 100000.0,
-      minWidth: 200.0,
-      maxWidth: 100000.0,
-    }),
-  ),
   Terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
@@ -3865,7 +3815,6 @@ const SectionSizingPolicyGlobalsSchema = z.object({
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),
-  autoMaxHeight: z.number().default(350.0),
 });
 
 type SectionSizingPolicyGlobals = z.infer<
@@ -3933,6 +3882,9 @@ const UserDefaultCallableSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
@@ -3951,7 +3903,7 @@ function createUserDefaultCallableSectionImpl(
 const UserDefaultChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 300.0 }),
+    createSectionSize({ width: 400.0, height: 400.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3972,15 +3924,16 @@ function createUserDefaultChartSectionImpl(
 const UserDefaultChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 400.0, height: 200.0 }),
+    createSectionSize({ width: 405.0, height: 405.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
-  llmConfigId: z.union([z.string(), z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
-  deepThink: z.boolean().default(false),
+  thinking: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -4040,6 +3993,9 @@ const UserDefaultDictSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4058,14 +4014,11 @@ function createUserDefaultDictSectionImpl(
 
 const UserDefaultDrawSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 402.0, height: 100.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(DrawAreaLayerSchema).default([]),
-  renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -4109,26 +4062,6 @@ function createUserDefaultGenPythonCodeSectionImpl(
   return UserDefaultGenPythonCodeSectionImplSchema.parse(options);
 }
 
-const UserDefaultGenPythonMetadataSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  code: z.string().default("" as const),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-});
-
-type UserDefaultGenPythonMetadataSectionImpl = z.infer<
-  typeof UserDefaultGenPythonMetadataSectionImplSchema
->;
-
-function createUserDefaultGenPythonMetadataSectionImpl(
-  options: Partial<UserDefaultGenPythonMetadataSectionImpl> = {},
-): UserDefaultGenPythonMetadataSectionImpl {
-  return UserDefaultGenPythonMetadataSectionImplSchema.parse(options);
-}
-
 const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
@@ -4142,6 +4075,9 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4252,6 +4188,32 @@ function createUserDefaultMetaControlSectionImpl(
   return UserDefaultMetaControlSectionImplSchema.parse(options);
 }
 
+const UserDefaultPromptSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  template: z.string().default("" as const),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputs: z.record(z.string(), z.string()).default({}),
+  renderedText: z.string().default("" as const),
+  missingVariables: z.array(z.string()).default([]),
+  renderError: z.union([z.string(), z.null()]).default(null),
+});
+
+type UserDefaultPromptSectionImpl = z.infer<
+  typeof UserDefaultPromptSectionImplSchema
+>;
+
+function createUserDefaultPromptSectionImpl(
+  options: Partial<UserDefaultPromptSectionImpl> = {},
+): UserDefaultPromptSectionImpl {
+  return UserDefaultPromptSectionImplSchema.parse(options);
+}
+
 const UserDefaultSocialSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
@@ -4274,7 +4236,7 @@ function createUserDefaultSocialSectionImpl(
 const UserDefaultTerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 250.0, height: 150.0 }),
+    createSectionSize({ width: 700.0, height: 300.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4293,7 +4255,9 @@ function createUserDefaultTerminalSectionImpl(
 
 const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -4412,8 +4376,6 @@ const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
-  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
 type UserDefaultDropzoneParamCodeObjImpl = z.infer<
@@ -4582,10 +4544,6 @@ const SettingsStateSchema = z.object({
     UserDefaultGenPythonCodeSectionImplSchema.default(
       createUserDefaultGenPythonCodeSectionImpl,
     ),
-  genPythonMetadataSectionDefault:
-    UserDefaultGenPythonMetadataSectionImplSchema.default(
-      createUserDefaultGenPythonMetadataSectionImpl,
-    ),
   globalVariablesSectionDefault:
     UserDefaultGlobalVariablesSectionImplSchema.default(
       createUserDefaultGlobalVariablesSectionImpl,
@@ -4604,6 +4562,9 @@ const SettingsStateSchema = z.object({
   ),
   metaControlSectionDefault: UserDefaultMetaControlSectionImplSchema.default(
     createUserDefaultMetaControlSectionImpl,
+  ),
+  promptSectionDefault: UserDefaultPromptSectionImplSchema.default(
+    createUserDefaultPromptSectionImpl,
   ),
   socialSectionDefault: UserDefaultSocialSectionImplSchema.default(
     createUserDefaultSocialSectionImpl,
@@ -4692,7 +4653,6 @@ const UpdateArtifactMsgContentSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
-      FileArtifactSchema,
     ]),
   ),
   updateType: z.literal(["update", "delete"]),
@@ -4788,6 +4748,173 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
+const AgentProfileSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+
+const AgentProfileListSchema = z.object({
+  profiles: z.array(AgentProfileSchema),
+});
+
+const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AgentProfileListSchema,
+  messageType: z
+    .literal("AgentProfilesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
+});
+
+const PromptTemplateSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  template: z.string(),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputSchema: z.record(z.string(), z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
+});
+
+export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
+
+const PromptTemplateListSchema = z.object({
+  templates: z.array(PromptTemplateSchema),
+});
+
+const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: PromptTemplateListSchema,
+  messageType: z
+    .literal("PromptTemplatesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated),
+});
+
+const ClaudeSettingsPermissionsSchema = z.object({
+  allow: z.array(z.string()).default([]),
+  ask: z.array(z.string()).default([]),
+  deny: z.array(z.string()).default([]),
+});
+
+const ClaudeSettingsManagedSchema = z.object({
+  permissions: z
+    .union([ClaudeSettingsPermissionsSchema, z.null()])
+    .default(null),
+  defaultMode: z.union([z.string(), z.null()]).default(null),
+  mcp: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+const CodexSettingsManagedSchema = z.object({
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  sandboxMode: z.union([z.string(), z.null()]).default(null),
+  enabledTools: z.union([z.array(z.string()), z.null()]).default(null),
+  model: z.union([z.string(), z.null()]).default(null),
+});
+
+const OpenCodeSettingsManagedSchema = z.object({
+  permission: z
+    .union([
+      z.record(
+        z.string(),
+        z.union([z.string(), z.record(z.string(), z.string())]),
+      ),
+      z.null(),
+    ])
+    .default(null),
+  mcp: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  model: z.union([z.string(), z.null()]).default(null),
+});
+
+const ExternalAgentSettingsManagedBlockSchema = z.object({
+  claude: z.union([ClaudeSettingsManagedSchema, z.null()]).default(null),
+  codex: z.union([CodexSettingsManagedSchema, z.null()]).default(null),
+  opencode: z.union([OpenCodeSettingsManagedSchema, z.null()]).default(null),
+});
+
+const ExternalAgentConfigSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  description: z.string().default("" as const),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  commandPath: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  defaultModel: z.union([z.string(), z.null()]).default(null),
+  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  settingsMode: z
+    .enum(ExternalAgentSettingsModeEnum)
+    .default(ExternalAgentSettingsModeEnum.managed_local),
+  settingsSources: z
+    .union([z.array(z.enum(ClaudeSettingsSourceEnum)), z.null()])
+    .default(null),
+  settingsFilePath: z.union([z.string(), z.null()]).default(null),
+  settingsAllowSettaEdits: z.boolean().default(true),
+  settingsManagedBlock: z
+    .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
+    .default(null),
+  envVarWhitelist: z.array(z.string()).default([]),
+  workingDirStrategy: z
+    .enum(ExternalAgentWorkingDirStrategyEnum)
+    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ExternalAgentConfig = z.infer<typeof ExternalAgentConfigSchema>;
+
+const ExternalAgentConfigListSchema = z.object({
+  configs: z.array(ExternalAgentConfigSchema),
+});
+
+const WebsocketMsgExternalAgentConfigsUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ExternalAgentConfigListSchema,
+  messageType: z
+    .literal("ExternalAgentConfigsUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated),
+});
+
+const EngineConfigDefaultsSchema = z.object({
+  thinking: z.union([z.boolean(), z.null()]).default(null),
+});
+
+type EngineConfigDefaults = z.infer<typeof EngineConfigDefaultsSchema>;
+
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return EngineConfigDefaultsSchema.parse(options);
+}
+
+const EngineConfigSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  engineType: z.enum(EngineTypeEnum),
+  settaLlmConfigId: z.union([z.string(), z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
+  defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
+});
+
+export type EngineConfig = z.infer<typeof EngineConfigSchema>;
+
+const EngineConfigListSchema = z.object({
+  configs: z.array(EngineConfigSchema),
+});
+
+const WebsocketMsgEngineConfigsUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: EngineConfigListSchema,
+  messageType: z
+    .literal("EngineConfigsUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated),
+});
+
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
@@ -4839,6 +4966,10 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
+  WebsocketMsgAgentProfilesUpdatedSchema,
+  WebsocketMsgPromptTemplatesUpdatedSchema,
+  WebsocketMsgExternalAgentConfigsUpdatedSchema,
+  WebsocketMsgEngineConfigsUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -4860,6 +4991,7 @@ const BaseCanvasSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
 });
 
 type BaseCanvasSectionImplArgs = z.infer<
@@ -4934,6 +5066,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -5029,6 +5162,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
 });
@@ -5040,12 +5174,53 @@ type BaseSectionWithParamsImplArgs = z.infer<
 const FolderContentItemSchema = z.object({
   name: z.string(),
   type: z.string(),
-  fullPath: z.string(),
-  mtime: z.number().optional(),
-  size: z.int().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
+
+const RunEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+  type: z.string(),
+  payload: z.record(z.string(), z.any()).default({}),
+});
+
+export type RunEvent = z.infer<typeof RunEventSchema>;
+
+const AgentRunSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  profileId: z.union([IDSchema, z.null()]).default(null),
+  status: z.enum(AgentRunStatusEnum).default(AgentRunStatusEnum.queued),
+  startedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  finishedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  outputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  toolCalls: z.array(z.record(z.string(), z.any())).default([]),
+  cost: z.union([z.number(), z.null()]).default(null),
+  events: z.array(RunEventSchema).default([]),
+});
+
+export type AgentRun = z.infer<typeof AgentRunSchema>;
+
+const RunChainStepSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string().default("" as const),
+  engineConfigId: IDSchema,
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  prompt: z.union([z.string(), z.null()]).default(null),
+  messages: z
+    .union([z.array(z.record(z.string(), z.any())), z.null()])
+    .default(null),
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  includePreviousOutputs: z.boolean().default(true),
+});
+
+const RunChainSpecSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string().default("" as const),
+  steps: z.array(RunChainStepSchema),
+  stopOnFailure: z.boolean().default(true),
+});
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -5093,7 +5268,7 @@ export type AppendChatMessagesRequestInput = z.input<
 >;
 
 const CreateChatRequestSchema = z.object({
-  llmConfigId: z.string(),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
   firstMessage: z.union([
     SystemChatMessageSchema,
     AssistantChatMessageSchema,
@@ -5226,6 +5401,44 @@ const BaseSectionImplSchema = z.object({
 
 type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
 
+const ExternalAgentEnvVarStatusSchema = z.object({
+  present: z.array(z.string()).default([]),
+  missing: z.array(z.string()).default([]),
+});
+
+type ExternalAgentEnvVarStatus = z.infer<
+  typeof ExternalAgentEnvVarStatusSchema
+>;
+
+function createExternalAgentEnvVarStatus(
+  options: Partial<ExternalAgentEnvVarStatus> = {},
+): ExternalAgentEnvVarStatus {
+  return ExternalAgentEnvVarStatusSchema.parse(options);
+}
+
+const ExternalAgentPreflightStatusSchema = z.object({
+  configId: IDSchema,
+  name: z.string(),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  supported: z.boolean(),
+  available: z.boolean(),
+  issues: z.array(z.string()).default([]),
+  nodePath: z.union([z.string(), z.null()]).default(null),
+  nodeVersion: z.union([z.string(), z.null()]).default(null),
+  sdkVersion: z.union([z.string(), z.null()]).default(null),
+  cliVersion: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+  envVars: ExternalAgentEnvVarStatusSchema.default(
+    createExternalAgentEnvVarStatus,
+  ),
+});
+
+export type ExternalAgentPreflightStatus = z.infer<
+  typeof ExternalAgentPreflightStatusSchema
+>;
+
 const BaseCanvasSectionImplSchema = z.object({
   type: z.any(),
   id: IDSchema.default(create_new_id),
@@ -5239,6 +5452,7 @@ const BaseCanvasSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
 });
 
 type BaseCanvasSectionImpl = z.infer<typeof BaseCanvasSectionImplSchema>;
@@ -5288,6 +5502,9 @@ const BaseDictSectionImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
@@ -5342,11 +5559,14 @@ const BaseSectionWithParamsImplSchema = z.object({
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
+  displayMode: z
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
-export type BaseSectionWithParamsImpl = z.infer<
+type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
 
@@ -5465,12 +5685,236 @@ const WebsocketMsgSchema = z.object({
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
 
-const DeleteLLMChatRequestSchema = z.object({
-  chatId: IDSchema,
+const CreateAgentProfileRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  systemPrompt: z.string().default("" as const),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  toolAllowlist: z.array(z.string()).default([]),
+  memoryScope: z.union([z.string(), z.null()]).default(null),
 });
 
-export type DeleteLLMChatRequestInput = z.input<
-  typeof DeleteLLMChatRequestSchema
+export type CreateAgentProfileRequestInput = z.input<
+  typeof CreateAgentProfileRequestSchema
+>;
+
+const CreateEngineConfigRequestSchema = z.object({
+  name: z.string(),
+  engineType: z.enum(EngineTypeEnum),
+  settaLlmConfigId: z.union([z.string(), z.null()]).default(null),
+  externalAgentConfigId: z.union([IDSchema, z.null()]).default(null),
+  defaults: EngineConfigDefaultsSchema.default(createEngineConfigDefaults),
+});
+
+export type CreateEngineConfigRequestInput = z.input<
+  typeof CreateEngineConfigRequestSchema
+>;
+
+const CreateExternalAgentConfigRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  toolType: z.enum(ExternalAgentToolTypeEnum),
+  runMode: z.enum(ExternalAgentRunModeEnum),
+  commandPath: z.union([z.string(), z.null()]).default(null),
+  baseUrl: z.union([z.string(), z.null()]).default(null),
+  defaultModel: z.union([z.string(), z.null()]).default(null),
+  sandboxPolicy: z.union([z.string(), z.null()]).default(null),
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  settingsMode: z
+    .enum(ExternalAgentSettingsModeEnum)
+    .default(ExternalAgentSettingsModeEnum.managed_local),
+  settingsSources: z
+    .union([z.array(z.enum(ClaudeSettingsSourceEnum)), z.null()])
+    .default(null),
+  settingsFilePath: z.union([z.string(), z.null()]).default(null),
+  settingsAllowSettaEdits: z.boolean().default(true),
+  settingsManagedBlock: z
+    .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
+    .default(null),
+  envVarWhitelist: z.array(z.string()).default([]),
+  workingDirStrategy: z
+    .enum(ExternalAgentWorkingDirStrategyEnum)
+    .default(ExternalAgentWorkingDirStrategyEnum.project_root),
+  workingDir: z.union([z.string(), z.null()]).default(null),
+});
+
+export type CreateExternalAgentConfigRequestInput = z.input<
+  typeof CreateExternalAgentConfigRequestSchema
+>;
+
+const CreatePromptTemplateRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().default("" as const),
+  template: z.string(),
+  format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
+  inputSchema: z.record(z.string(), z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
+});
+
+export type CreatePromptTemplateRequestInput = z.input<
+  typeof CreatePromptTemplateRequestSchema
+>;
+
+const DeleteAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type DeleteAgentProfileRequestInput = z.input<
+  typeof DeleteAgentProfileRequestSchema
+>;
+
+const DeleteEngineConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type DeleteEngineConfigRequestInput = z.input<
+  typeof DeleteEngineConfigRequestSchema
+>;
+
+const DeleteExternalAgentConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type DeleteExternalAgentConfigRequestInput = z.input<
+  typeof DeleteExternalAgentConfigRequestSchema
+>;
+
+const DeletePromptTemplateRequestSchema = z.object({
+  templateId: IDSchema,
+});
+
+export type DeletePromptTemplateRequestInput = z.input<
+  typeof DeletePromptTemplateRequestSchema
+>;
+
+const GetAgentProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type GetAgentProfileRequestInput = z.input<
+  typeof GetAgentProfileRequestSchema
+>;
+
+const GetAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetEngineConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type GetEngineConfigRequestInput = z.input<
+  typeof GetEngineConfigRequestSchema
+>;
+
+const GetExternalAgentConfigRequestSchema = z.object({
+  configId: IDSchema,
+});
+
+export type GetExternalAgentConfigRequestInput = z.input<
+  typeof GetExternalAgentConfigRequestSchema
+>;
+
+const GetPromptTemplateRequestSchema = z.object({
+  templateId: IDSchema,
+});
+
+export type GetPromptTemplateRequestInput = z.input<
+  typeof GetPromptTemplateRequestSchema
+>;
+
+const RespondExternalAgentApprovalRequestSchema = z.object({
+  approvalId: z.string(),
+  approved: z.boolean(),
+});
+
+export type RespondExternalAgentApprovalRequestInput = z.input<
+  typeof RespondExternalAgentApprovalRequestSchema
+>;
+
+const RespondExternalAgentQuestionRequestSchema = z.object({
+  toolCallId: z.string(),
+  answers: z.record(z.string(), z.string()),
+});
+
+export type RespondExternalAgentQuestionRequestInput = z.input<
+  typeof RespondExternalAgentQuestionRequestSchema
+>;
+
+const StartAgentRunRequestSchema = z.object({
+  profileId: IDSchema,
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartAgentRunRequestInput = z.input<
+  typeof StartAgentRunRequestSchema
+>;
+
+const StartRunChainRequestSchema = z.object({
+  spec: RunChainSpecSchema,
+  inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type StartRunChainRequestInput = z.input<
+  typeof StartRunChainRequestSchema
+>;
+
+const StopAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopAgentRunRequestInput = z.input<
+  typeof StopAgentRunRequestSchema
+>;
+
+const StopExternalAgentRunRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopExternalAgentRunRequestInput = z.input<
+  typeof StopExternalAgentRunRequestSchema
+>;
+
+const StopRunChainRequestSchema = z.object({
+  runId: IDSchema,
+});
+
+export type StopRunChainRequestInput = z.input<
+  typeof StopRunChainRequestSchema
+>;
+
+const UpdateAgentProfileRequestSchema = z.object({
+  profile: AgentProfileSchema,
+});
+
+export type UpdateAgentProfileRequestInput = z.input<
+  typeof UpdateAgentProfileRequestSchema
+>;
+
+const UpdateEngineConfigRequestSchema = z.object({
+  config: EngineConfigSchema,
+});
+
+export type UpdateEngineConfigRequestInput = z.input<
+  typeof UpdateEngineConfigRequestSchema
+>;
+
+const UpdateExternalAgentConfigRequestSchema = z.object({
+  config: ExternalAgentConfigSchema,
+});
+
+export type UpdateExternalAgentConfigRequestInput = z.input<
+  typeof UpdateExternalAgentConfigRequestSchema
+>;
+
+const UpdatePromptTemplateRequestSchema = z.object({
+  template: PromptTemplateSchema,
+});
+
+export type UpdatePromptTemplateRequestInput = z.input<
+  typeof UpdatePromptTemplateRequestSchema
 >;
 
 const GetAIFollowSnapshotRequestSchema = z.object({
@@ -5479,6 +5923,32 @@ const GetAIFollowSnapshotRequestSchema = z.object({
 
 export type GetAIFollowSnapshotRequestInput = z.input<
   typeof GetAIFollowSnapshotRequestSchema
+>;
+
+const GetExternalAgentChatRequestSchema = z.object({
+  chatId: IDSchema,
+  projectConfigId: z.union([IDSchema, z.null()]),
+});
+
+export type GetExternalAgentChatRequestInput = z.input<
+  typeof GetExternalAgentChatRequestSchema
+>;
+
+const GetExternalAgentChatResponseSchema = z.object({
+  messages: z.array(
+    z.discriminatedUnion("role", [
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
+  waitingForResponse: z.boolean(),
+  toolCallArguments: z.record(z.string(), z.string()).default({}),
+});
+
+export type GetExternalAgentChatResponse = z.infer<
+  typeof GetExternalAgentChatResponseSchema
 >;
 
 const GetLLMChatRequestSchema = z.object({
@@ -5513,8 +5983,9 @@ const GetLLMResponseRequestSchema = z.object({
     UserChatMessageSchema,
     ToolChatMessageSchema,
   ]),
-  llmConfigId: z.string(),
-  deepThink: z.boolean(),
+  engineConfigId: IDSchema,
+  agentProfileId: z.union([IDSchema, z.null()]).default(null),
+  thinking: z.boolean(),
   projectConfigId: IDSchema,
 });
 
@@ -5546,23 +6017,8 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
-const GetFileBrowserRootResponseSchema = z.object({
-  rootPath: z.string(),
-  pathSeparator: z.string(),
-  ignorePatterns: z.array(z.string()),
-});
-
-export type GetFileBrowserRootResponse = z.infer<
-  typeof GetFileBrowserRootResponseSchema
->;
-
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
-  includeMtime: z.boolean().default(false),
-  includeSize: z.boolean().default(false),
-  includeHidden: z.boolean().default(false),
-  ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
-  maxEntries: z.union([z.int(), z.null()]).default(null),
 });
 
 export type GetFolderContentsRequestInput = z.input<
@@ -5584,7 +6040,6 @@ const UpdateArtifactsRequestSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
-      FileArtifactSchema,
     ]),
   ),
   conflictStrategy: z
@@ -5625,13 +6080,6 @@ const TypeCheckRequestSchema = z.object({
 });
 
 export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
-
-const MCPToolCallRequestSchema = z.object({
-  tool: z.string(),
-  arguments: z.union([z.any(), z.null()]).default(null),
-});
-
-export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;
 
 const AcceptRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5785,12 +6233,12 @@ const CreateTopLevelSectionRequestSchema = z.object({
         ChartSectionImplArgsSchema,
         DrawSectionImplArgsSchema,
         TextBlockSectionImplArgsSchema,
+        PromptSectionImplArgsSchema,
         MetaControlSectionImplArgsSchema,
         SocialSectionImplArgsSchema,
         GlobalVariablesSectionImplArgsSchema,
         CodeSectionImplArgsSchema,
         GenPythonCodeSectionImplArgsSchema,
-        GenPythonMetadataSectionImplArgsSchema,
         TerminalSectionImplArgsSchema,
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
@@ -5967,57 +6415,16 @@ export type GroupSectionsRequestInput = z.input<
   typeof GroupSectionsRequestSchema
 >;
 
-const IndentParamsRequestSchema = z.object({
+const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type IndentParamsRequestInput = z.input<
-  typeof IndentParamsRequestSchema
->;
-
-const MoveParamGroupSchema = z.object({
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-const MoveParamGroupsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  moves: z.array(MoveParamGroupSchema),
-});
-
-export type MoveParamGroupsRequestInput = z.input<
-  typeof MoveParamGroupsRequestSchema
->;
-
-const MoveParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-  newParentId: IDSchema,
-  newIndex: z.int(),
-});
-
-export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
-
-const MoveSectionsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionIds: z.array(IDSchema),
   newParentId: z.union([IDSchema, z.null()]),
   newIndex: z.union([z.int(), z.null()]),
-  positionsById: z.union([z.record(IDSchema, PositionSchema), z.null()]),
+  position: z.union([PositionSchema, z.null()]),
 });
 
-export type MoveSectionsRequestInput = z.input<
-  typeof MoveSectionsRequestSchema
->;
+export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
 
 const OutputAccessorCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -6221,8 +6628,9 @@ const SetChatSectionSettingsRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   managed: z.boolean(),
-  llmConfigId: z.union([z.string(), z.null()]),
-  deepThink: z.boolean(),
+  engineConfigId: z.union([IDSchema, z.null()]),
+  agentProfileId: z.union([IDSchema, z.null()]),
+  thinking: z.boolean(),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<
@@ -6371,14 +6779,37 @@ export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
 >;
 
-const SetProjectConfigCodegenTargetsRequestSchema = z.object({
+const SetPromptFormatRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
+  sectionId: IDSchema,
+  format: z.enum(PromptFormatEnum),
 });
 
-export type SetProjectConfigCodegenTargetsRequestInput = z.input<
-  typeof SetProjectConfigCodegenTargetsRequestSchema
+export type SetPromptFormatRequestInput = z.input<
+  typeof SetPromptFormatRequestSchema
+>;
+
+const SetPromptInputsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  inputs: z.record(z.string(), z.string()),
+});
+
+export type SetPromptInputsRequestInput = z.input<
+  typeof SetPromptInputsRequestSchema
+>;
+
+const SetPromptTemplateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  template: z.string(),
+});
+
+export type SetPromptTemplateRequestInput = z.input<
+  typeof SetPromptTemplateRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({
@@ -6479,6 +6910,17 @@ export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
 >;
 
+const SetSectionWithParamsDisplayModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
+});
+
+export type SetSectionWithParamsDisplayModeRequestInput = z.input<
+  typeof SetSectionWithParamsDisplayModeRequestSchema
+>;
+
 const SetShowParamDisplayNamesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6575,18 +7017,6 @@ const SetTypeErrorIgnoreRequestSchema = z.object({
 
 export type SetTypeErrorIgnoreRequestInput = z.input<
   typeof SetTypeErrorIgnoreRequestSchema
->;
-
-const SetVariantJsonSourceKeysRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  variantId: IDSchema,
-  jsonSourceKeys: z.array(z.string()),
-});
-
-export type SetVariantJsonSourceKeysRequestInput = z.input<
-  typeof SetVariantJsonSourceKeysRequestSchema
 >;
 
 const SetViewModeNameRequestSchema = z.object({
@@ -6730,17 +7160,6 @@ export type UngroupGroupsRequestInput = z.input<
   typeof UngroupGroupsRequestSchema
 >;
 
-const UnindentParamsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramIds: z.array(IDSchema),
-});
-
-export type UnindentParamsRequestInput = z.input<
-  typeof UnindentParamsRequestSchema
->;
-
 const UnselectAllParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6842,71 +7261,6 @@ export type SetProjectConfigNameRequestInput = z.input<
   typeof SetProjectConfigNameRequestSchema
 >;
 
-const CancelRunRequestSchema = z.object({
-  runId: z.string(),
-});
-
-export type CancelRunRequestInput = z.input<typeof CancelRunRequestSchema>;
-
-const GetRunStatusRequestSchema = z.object({
-  runId: z.string(),
-});
-
-export type GetRunStatusRequestInput = z.input<
-  typeof GetRunStatusRequestSchema
->;
-
-const RunDetachedRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  entrySectionId: z.union([IDSchema, z.null()]).default(null),
-  runSnapshotMode: z
-    .union([z.enum(RunSnapshotModeEnum), z.null()])
-    .default(null),
-  sectionVariantOverrides: z
-    .union([z.record(IDSchema, IDSchema), z.null()])
-    .default(null),
-  paramOverrides: z
-    .union([z.record(z.string(), z.string()), z.null()])
-    .default(null),
-  tags: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
-});
-
-export type RunDetachedRequestInput = z.input<typeof RunDetachedRequestSchema>;
-
-const RunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-
-const RunDetachedResponseSchema = z.object({
-  runId: z.string(),
-  status: z.enum(RunStatusEnum),
-});
-
-export type RunDetachedResponse = z.infer<typeof RunDetachedResponseSchema>;
-
-const RunStatusResponseSchema = z.object({
-  runId: z.string(),
-  status: z.enum(RunStatusEnum),
-  createdAtMs: z.int(),
-  startedAtMs: z.union([z.int(), z.null()]),
-  exitedAtMs: z.union([z.int(), z.null()]),
-  exitCode: z.union([z.int(), z.null()]),
-  pid: z.union([z.int(), z.null()]),
-  command: z.string(),
-  snapshotPath: z.string(),
-  projectConfigId: IDSchema,
-  entrySectionId: z.union([IDSchema, z.null()]),
-  tags: z.record(z.string(), z.string()),
-});
-
-export type RunStatusResponse = z.infer<typeof RunStatusResponseSchema>;
-
 const CreateFileRequestSchema = z.object({
   filepath: z.string(),
 });
@@ -6970,14 +7324,6 @@ export type PublishShareDeploymentRequestInput = z.input<
   typeof PublishShareDeploymentRequestSchema
 >;
 
-const AuthRefreshStatusResponseSchema = z.object({
-  authCookieRefreshWindowSeconds: z.int(),
-});
-
-export type AuthRefreshStatusResponse = z.infer<
-  typeof AuthRefreshStatusResponseSchema
->;
-
 const BackendInitEventSchema = z.object({
   message: z.string(),
   timestamp: z.iso.datetime().default(get_now_timestamp),
@@ -6987,7 +7333,6 @@ const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
-  authCookieRefreshWindowSeconds: z.int(),
 });
 
 export type BackendInitStatusResponse = z.infer<
@@ -7016,9 +7361,6 @@ const RunCodeRequestSchema = z.object({
   cliId: z.union([z.string(), z.null()]).default(null),
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
-    .default(null),
-  drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, z.string()), z.null()])
     .default(null),
 });
 
@@ -7166,6 +7508,11 @@ export type ImplArgsBundleMap = {
     >;
   };
 
+  PromptSection: {
+    impl: PromptSectionImpl;
+    args: ImplArgsBundleWithUpdaters<PromptSectionImplArgs, PromptSectionImpl>;
+  };
+
   MetaControlSection: {
     impl: MetaControlSectionImpl;
     args: ImplArgsBundleWithUpdaters<
@@ -7197,14 +7544,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       GenPythonCodeSectionImplArgs,
       GenPythonCodeSectionImpl
-    >;
-  };
-
-  GenPythonMetadataSection: {
-    impl: GenPythonMetadataSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      GenPythonMetadataSectionImplArgs,
-      GenPythonMetadataSectionImpl
     >;
   };
 

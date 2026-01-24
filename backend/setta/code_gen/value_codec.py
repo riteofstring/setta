@@ -3,14 +3,12 @@ from typing import assert_never
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
-    Node,
     ParamNode,
     SectionNode,
 )
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
-from setta.types.dropzone import dropzone_value_to_attachments
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.section_impls import SectionType
@@ -68,20 +66,13 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
             parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
         return self._format_collection("{", "}", parts)
 
     def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
-        items = []
-        for dep_key, is_used in deps.items():
-            if not is_used:
-                continue
-            node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
-            items.append(self.var_lookup(dep_key))
+        items = [
+            self.var_lookup(dep_key) for dep_key, is_used in deps.items() if is_used
+        ]
         return self._format_collection("[", "]", items)
 
     def _format_collection(
@@ -125,22 +116,18 @@ class PythonValueCodec:
                 if node.value:
                     return repr(node.value.payload)
                 return "None"
+            case SectionType.Prompt:
+                if node.value:
+                    return repr(node.value.payload)
+                return "None"
             case SectionType.Chat:
                 if node.value:
-                    if node.value.type is DependencyValueType.Literal:
-                        return repr(node.value.payload)
-                    return self.format_dependency_value(node.value)
-                return "None"
-            case SectionType.Image:
-                if node.value:
-                    if node.value.type is DependencyValueType.Literal:
-                        return repr(node.value.payload)
-                    return self.format_dependency_value(node.value)
+                    return repr(node.value.payload)
                 return "None"
             case SectionType.Draw:
                 if node.value:
                     return self.format_dependency_value(node.value)
-                return "None  # draw snapshot pending (run to capture)"
+                return "None"
             case _:
                 return None
 
@@ -191,9 +178,6 @@ class PythonValueCodec:
         literal_value: str,
         deps: dict[BaseDependencyKeyUnion, bool] | None = None,
     ) -> str:
-        if param_type == CodeObjType.DropzoneParam:
-            return self._format_dropzone_literal(literal_value)
-
         if param_type in (
             CodeObjType.CodeParam,
             CodeObjType.SliderParam,
@@ -206,6 +190,7 @@ class PythonValueCodec:
             CodeObjType.TextParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
+            CodeObjType.DropzoneParam,
         ):
             return repr(literal_value)
 
@@ -222,14 +207,6 @@ class PythonValueCodec:
 
         raise ValueError(f"Unsupported CodeObjType {param_type}")
 
-    def _format_dropzone_literal(self, literal_value: str) -> str:
-        if literal_value == "":
-            return "[]"
-        attachments = dropzone_value_to_attachments(literal_value)
-        if attachments is None:
-            return repr(literal_value)
-        return repr(attachments)
-
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
     ) -> str:
@@ -238,8 +215,6 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
-            if not self._node_in_codegen(node):
-                continue
             if not isinstance(node, ParamNode):
                 continue
             var_name = self.var_lookup(dep_key)
@@ -269,9 +244,6 @@ class PythonValueCodec:
             return repr(payload)
         helper_alias = self._require_value_helpers()
         return f"{helper_alias}.read_file_value({repr(payload)})"
-
-    def _node_in_codegen(self, node: Node) -> bool:
-        return getattr(node, "include_in_codegen", True)
 
     def _require_value_helpers(self) -> str:
         import_stmt = (

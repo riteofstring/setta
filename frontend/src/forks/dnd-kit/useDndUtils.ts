@@ -8,6 +8,7 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
+import colors from "tailwindcss/colors";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
 export function useHighlightDroppable({ sectionId, isGroup }) {
@@ -23,7 +24,7 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
               borderRadius: "1.5rem",
               padding: padding,
               margin: margin,
-              backgroundColor: "rgba(185, 28, 28, 0.2)",
+              backgroundColor: colors.red[600],
             }
           : {},
     };
@@ -79,7 +80,7 @@ export function useDisableSortable(sectionId: string) {
     }
   }
 
-  function onDragDone({ active }) {
+  function onDragDone() {
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
@@ -112,7 +113,7 @@ export function useDndProps({ sectionId, isTopLevel }) {
 
   return {
     id: sectionId,
-    data: { type: "section", isTopLevel, hasNested, onlyChildId },
+    data: { isTopLevel, hasNested, onlyChildId },
     disabled,
   };
 }

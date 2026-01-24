@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from mcp.types import Tool
 
 from setta.database.db_objs import DBE
-from setta.llm.chat_store import DBEChatStore
+from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import (
@@ -45,7 +45,7 @@ class ManagedActionExecutorTests(unittest.IsolatedAsyncioTestCase):
                 inputSchema={"type": "object", "properties": {}},
             )
             mcp_client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [tool])
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             executor = ManagedActionExecutor(
                 chat_history=history,
                 websocket_msg_handler=frontend_sender,
@@ -99,7 +99,7 @@ class ManagedActionExecutorTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             executor = ManagedActionExecutor(
                 chat_history=history,
                 websocket_msg_handler=frontend_sender,
@@ -137,7 +137,7 @@ class ManagedActionExecutorTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             executor = ManagedActionExecutor(
                 chat_history=history,
                 websocket_msg_handler=frontend_sender,
@@ -180,7 +180,7 @@ class ManagedActionExecutorTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             tool = Tool(
                 name="alpha_tool",
                 description="alpha tool",

@@ -1,7 +1,7 @@
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
-import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
+import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
@@ -16,13 +16,13 @@ export function UIPage() {
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
-    <SectionDndContext>
+    <GlobalDndContext>
       <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
       <TypeErrorContextMenu />
       {showMiniMap && <ResponsiveMiniMap />}
-    </SectionDndContext>
+    </GlobalDndContext>
   );
 }
 
