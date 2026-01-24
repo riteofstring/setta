@@ -11,3 +11,7 @@ Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need b
 
 
 Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after.
+
+
+
+Implement the fixes. Add tests if appropriate.
