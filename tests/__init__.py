@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 import os
 import sys
+import warnings
 
 _ROOT_DIR = Path(__file__).resolve().parents[1]
 _BACKEND_PATH = str(_ROOT_DIR / "backend")
@@ -50,3 +51,25 @@ logging.getLogger("asyncio").setLevel(_test_log_level)
 
 if _suppress_output and logging.lastResort is not None:
     logging.lastResort.setLevel(_test_log_level)
+
+def apply_warning_filters() -> None:
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            r"^enable_cleanup_closed ignored because https://github.com/python/cpython/pull/118960 is fixed"
+        ),
+        category=DeprecationWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=r"^This process .* use of forkpty\\(\\) may lead to deadlocks in the child\\.$",
+        category=DeprecationWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=r"^unclosed transport ",
+        category=ResourceWarning,
+    )
+
+
+apply_warning_filters()

@@ -1,6 +1,5 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { isTempParam } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -10,7 +9,6 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
@@ -25,16 +23,9 @@ function _ParamContainer({
   isTopLevelWithPad,
   paramChildren,
   onMouseDown,
-  onClick,
   maybeErrorMessage,
   border,
   bg,
-  dndAttributes,
-  dndListeners,
-  dndRef,
-  dndStyle,
-  dndClassName,
-  listKey,
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
@@ -72,29 +63,16 @@ function _ParamContainer({
       ]
     : [{ title: paramName, content: paramDescription }];
 
-  const renderChildren = useParamDndChildrenForParent(
-    paramInfoId,
-    paramChildren,
-  );
-  const hasTempChild = renderChildren.some((childId) => isTempParam(childId));
-
   return !isNestedParam ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} ${dndClassName ?? ""} `}
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
         style={{
           gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-          ...(dndStyle ?? {}),
         }}
         {...getFloatingBoxHandlers(...tooltipContentArray)}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-        onClick={onClick}
-        ref={dndRef}
-        {...(dndAttributes ?? {})}
-        {...(dndListeners ?? {})}
-        tabIndex={-1}
-        role={undefined}
       >
         {!isKwarg ? (
           <div
@@ -115,46 +93,25 @@ function _ParamContainer({
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
         )}
-        {hasTempChild && (
-          <div className="section-args-nested section-key-value relative grid gap-y-1">
-            <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
-            <GetParamSwitch
-              sectionId={sectionId}
-              paramIds={renderChildren}
-              requiredParamIdsToPaths={requiredParamIdsToPaths}
-              onResizeStart={onResizeStart}
-              listKey={listKey}
-            />
-          </div>
-        )}
       </article>
     </>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       style={{
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
       }}
-      onMouseDownCapture={onMouseDown}
-      onClick={onClick}
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
-      tabIndex={-1}
-      role={undefined}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
         <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
-          paramIds={renderChildren}
+          paramIds={paramChildren}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
-          listKey={listKey}
         />
       </div>
     </article>

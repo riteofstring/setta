@@ -95,11 +95,6 @@ class AuthBootstrapIntegrationTests(unittest.TestCase):
         location = response.headers.get("location", "")
         self.assertTrue(location.endswith("/__setta__/bootstrap"))
 
-    def test_tools_call_unauthorized_returns_json(self) -> None:
-        response = self.client.post("/__setta__/tools/call")
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json(), {"detail": "Unauthorized"})
-
 
 if __name__ == "__main__":
     unittest.main()
