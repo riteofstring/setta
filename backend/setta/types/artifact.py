@@ -26,10 +26,6 @@ def create_png_artifact_id():
     return create_artifact_id(".png")
 
 
-def create_file_artifact_id(extension: str = ".bin"):
-    return create_artifact_id(extension)
-
-
 ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
@@ -40,7 +36,6 @@ class ArtifactType(str, Enum):
     BrushStroke = "BrushStroke"
     DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
     ChartData = "ChartData"
-    File = "File"
 
 
 class ChartType(str, Enum):
@@ -172,14 +167,7 @@ class ChartDataArtifact(BaseArtifact):
     value: ChartData
 
 
-class FileArtifact(BaseArtifact):
-    type: Literal[ArtifactType.File] = ArtifactType.File
-    id: str = Field(default_factory=create_file_artifact_id)
-    value: str
-
-
 ImageMapping = dict[Path, ImageArtifact]
 BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
 DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
 ChartDataMapping = dict[Path, ChartDataArtifact]
-FileMapping = dict[Path, FileArtifact]

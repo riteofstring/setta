@@ -6,8 +6,8 @@ listener-driven updates move through the system, plus when disk writes happen.
 ## Flow A: Meta control realtime -> listeners
 ```
 UI change
-  -> if meta control is an action control (button or stateless dropzone):
-       send RealtimeDependencyEvent (SectionDependencyKey + JSON payload)
+  -> if meta control is an action control:
+       send RealtimeDependencyEvent (SectionDependencyKey)
      else:
        update local pending value on the control param
        send RealtimeUIChange for SectionDependencyKey
@@ -31,10 +31,6 @@ Key paths:
   `backend/setta/websockets/listener_registry.py`
 - Listener realtime/action handling: `backend/setta/api/listener.py`
 
-Payload note:
-- Stateless dropzone events include `{ sectionId, paramInfoId, attachments }` where
-  file attachments carry raw base64 (no data URI prefix).
-
 ## Flow B: Chat send/stop -> listeners
 ```
 Chat input send/stop
@@ -53,10 +49,13 @@ Key paths:
 - Listener action handling: `backend/setta/api/listener.py`
 - Listener helpers: `backend/setta/api/chat_toolkit.py`
 
+Note:
+- Listener chat history accepts an internal `engineConfigId`, or `None` for scriptable-only chats (no LLM).
+
 ## Flow C: Meta control persistence -> project state
 ```
 UI change
-  -> debounced route_set_param_entered_value (50ms, stateful controls only)
+  -> debounced route_set_param_entered_value (50ms)
       -> project manager set_param_entered_value()
           -> add history entry (autosave debounce)
           -> update_and_broadcast_project_state()
