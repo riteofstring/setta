@@ -298,6 +298,111 @@ class ApiCommandIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("arguments", response.json().get("detail", ""))
 
+    def test_setta_api_payload_stdin(self) -> None:
+        auth_path = self._write_auth_json()
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "getProjectConfigNamesAndIds",
+                "--auth-json",
+                str(auth_path),
+                "--stdin",
+                "--json-output",
+            ],
+            input="{}",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        data = json.loads(result.output)
+        self.assertFalse(data.get("isError", True))
+        self.assertIsInstance(data.get("content"), list)
+
+    def test_setta_api_payload_file(self) -> None:
+        auth_path = self._write_auth_json()
+        payload_path = self.root / "payload.json"
+        payload_path.write_text("{}", encoding="utf-8")
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "getProjectConfigNamesAndIds",
+                "--auth-json",
+                str(auth_path),
+                "--file",
+                str(payload_path),
+                "--json-output",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        data = json.loads(result.output)
+        self.assertFalse(data.get("isError", True))
+        self.assertIsInstance(data.get("content"), list)
+
+    def test_setta_api_auth_stdin(self) -> None:
+        auth_payload = self._write_auth_json().read_text(encoding="utf-8")
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "getProjectConfigNamesAndIds",
+                "--auth-stdin",
+                "--json",
+                "{}",
+                "--json-output",
+            ],
+            input=auth_payload,
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        data = json.loads(result.output)
+        self.assertFalse(data.get("isError", True))
+        self.assertIsInstance(data.get("content"), list)
+
+    def test_setta_api_cookie_header(self) -> None:
+        auth_payload = json.loads(self._write_auth_json().read_text())
+        cookie_header = auth_payload["cookieHeader"]
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "getProjectConfigNamesAndIds",
+                "--cookie-header",
+                cookie_header,
+                "--json-output",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        data = json.loads(result.output)
+        self.assertFalse(data.get("isError", True))
+        self.assertIsInstance(data.get("content"), list)
+
+    def test_setta_api_cookie_value(self) -> None:
+        auth_payload = json.loads(self._write_auth_json().read_text())
+        cookie = auth_payload["cookie"]
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "getProjectConfigNamesAndIds",
+                "--cookie",
+                cookie,
+                "--json-output",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        data = json.loads(result.output)
+        self.assertFalse(data.get("isError", True))
+        self.assertIsInstance(data.get("content"), list)
+
 
 class ApiCommandInputTests(unittest.TestCase):
     def setUp(self) -> None:
