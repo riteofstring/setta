@@ -46,6 +46,7 @@ import {
   focusAdjacentTopLevelSection,
   focusScope,
   handleTabNavigation,
+  isCanvasScopeActive,
 } from "utils/focusManager";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
@@ -550,6 +551,14 @@ export function attachKeyEventListeners() {
     [shortcuts.saveShortcut, saveProject],
     [shortcuts.loadShortcut, openFileMenuLoadProjectConfigModal],
     [shortcuts.saveAsShortcut, openFileMenuSaveProjectConfigAsModal],
+    [shortcuts.panUpShortcut, () => panCanvas(0, -30), null, true],
+    [shortcuts.panDownShortcut, () => panCanvas(0, 30), null, true],
+    [shortcuts.panLeftShortcut, () => panCanvas(-30, 0), null, true],
+    [shortcuts.panRightShortcut, () => panCanvas(30, 0), null, true],
+    [shortcuts.panUpLargeShortcut, () => panCanvas(0, -120), null, true],
+    [shortcuts.panDownLargeShortcut, () => panCanvas(0, 120), null, true],
+    [shortcuts.panLeftLargeShortcut, () => panCanvas(-120, 0), null, true],
+    [shortcuts.panRightLargeShortcut, () => panCanvas(120, 0), null, true],
     [shortcuts.searchShortcut, focusOnSearch],
     [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
     [shortcuts.commandPaletteShortcut, focusOnCommandPalette],
@@ -786,6 +795,18 @@ function handleTabKeyDown(event: KeyboardEvent) {
   if (didHandle) {
     event.preventDefault();
   }
+}
+
+function panCanvas(dx: number, dy: number) {
+  if (!isCanvasScopeActive()) {
+    return false;
+  }
+  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
+  if (!d3Zoom || !d3Selection) {
+    return false;
+  }
+  d3Zoom.translateBy(d3Selection, dx / transform[2], dy / transform[2]);
+  return true;
 }
 
 function resolveTabParamAction(event: KeyboardEvent) {
