@@ -9,6 +9,7 @@ from setta.code_gen.utils import sanitize_name
 from setta.utils.constants import CWD
 
 GEN_CODE_FILENAME = "setta_gen.py"
+GEN_CODE_META_FILENAME = "setta_gen_meta.py"
 
 
 def get_absolute_path(src_path, file_path):

@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
+import { processNameValidationErrors } from "state/actions/nameValidation";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -11,18 +12,18 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_get_backend_init_status,
+  route_get_auth_refresh_status,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  CodeObjType,
-  ControlActionEvent,
+  DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
@@ -32,7 +33,7 @@ import {
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
-  WebsocketMsgRealtimeActionEvent,
+  WebsocketMsgRealtimeDependencyEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
@@ -76,10 +77,18 @@ const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
+const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
+  C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
+let authRefreshTimer: number | null = null;
+let authRefreshInFlight = false;
+let authRefreshWindowSeconds = DEFAULT_AUTH_REFRESH_WINDOW_SECONDS;
+let authRefreshIntervalMs = getAuthRefreshIntervalMs(
+  DEFAULT_AUTH_REFRESH_WINDOW_SECONDS,
+);
 let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
@@ -137,9 +146,9 @@ export const openWebSocket = _.debounce(
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
             await fetchListenerCoverageSnapshot(projectConfigId);
           }
-        }
-        if (!isShareMode) {
+        } else {
           const projectConfigId = getCurrProjectConfigId();
+          let runImmediateAuthRefresh = true;
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
             const res = await route_get_latest_project_state({
               projectConfigId: getCurrProjectConfigId(),
@@ -147,8 +156,10 @@ export const openWebSocket = _.debounce(
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
+              runImmediateAuthRefresh = false;
             }
           }
+          startAuthRefresh({ runImmediately: runImmediateAuthRefresh });
         }
       });
 
@@ -162,6 +173,7 @@ export const openWebSocket = _.debounce(
         if (wss && wss !== socket) {
           return;
         }
+        stopAuthRefresh();
         stopShareHeartbeat();
         wss = null;
         currentShareSessionId = null;
@@ -216,6 +228,7 @@ function scheduleAuthRecovery(pathname: string) {
   if (!authLost) {
     return;
   }
+  stopAuthRefresh();
   if (authRecoveryTimer !== null) {
     return;
   }
@@ -230,9 +243,10 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res = await route_get_backend_init_status();
+  const res = await route_get_auth_refresh_status();
   authRecoveryInFlight = false;
   if (res200(res)) {
+    updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
     authLost = false;
     clearAuthRecoveryTimer();
     openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -246,6 +260,7 @@ function closeWebSocket() {
     wss.close();
     wss = null;
   }
+  stopAuthRefresh();
   stopShareHeartbeat();
 }
 
@@ -273,6 +288,73 @@ function stopShareHeartbeat() {
   }
   window.clearInterval(shareHeartbeatTimer);
   shareHeartbeatTimer = null;
+}
+
+function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
+  stopAuthRefresh();
+  if (authLost) {
+    return;
+  }
+  if (runImmediately) {
+    void runAuthRefresh();
+  }
+  authRefreshTimer = window.setInterval(() => {
+    void runAuthRefresh();
+  }, authRefreshIntervalMs);
+}
+
+function stopAuthRefresh() {
+  if (authRefreshTimer === null) {
+    return;
+  }
+  window.clearInterval(authRefreshTimer);
+  authRefreshTimer = null;
+}
+
+async function runAuthRefresh() {
+  if (authLost || authRefreshInFlight) {
+    return;
+  }
+  authRefreshInFlight = true;
+  const res = await route_get_auth_refresh_status();
+  authRefreshInFlight = false;
+  if (res200(res)) {
+    updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
+    return;
+  }
+  if (!res.hasResponse) {
+    return;
+  }
+  if (res.status === 401 && wssReady(wss)) {
+    wss.close(AUTH_CLOSE_CODE);
+  }
+}
+
+function getAuthRefreshIntervalMs(windowSeconds: number): number {
+  return Math.max(1000, Math.floor(windowSeconds * 1000 * 0.5));
+}
+
+function updateAuthRefreshWindowSeconds(
+  windowSeconds: number | null | undefined,
+) {
+  if (windowSeconds === null || windowSeconds === undefined) {
+    return;
+  }
+  if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
+    return;
+  }
+  if (windowSeconds === authRefreshWindowSeconds) {
+    return;
+  }
+  authRefreshWindowSeconds = windowSeconds;
+  const nextIntervalMs = getAuthRefreshIntervalMs(windowSeconds);
+  if (nextIntervalMs === authRefreshIntervalMs) {
+    return;
+  }
+  authRefreshIntervalMs = nextIntervalMs;
+  if (authRefreshTimer !== null && !authLost) {
+    startAuthRefresh({ runImmediately: false });
+  }
 }
 
 async function handleShareSessionRecovery() {
@@ -308,6 +390,8 @@ function receiveMessage(message: string) {
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
       return processTypeErrors(m.content);
+    case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
+      return processNameValidationErrors(m.content);
     case WebsocketMsgTypeForFrontendEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
@@ -371,34 +455,29 @@ function emitRealtimeDependencyValue(
   sendMessage(message);
 }
 
-type ControlActionEventInput = {
-  controlName: string;
-  actionId: string;
-  actionControlType: CodeObjType;
+type DependencyEventInput = {
+  dependencyKey: BaseDependencyKeyUnion;
   payload?: string | null;
+  timestampMs?: number;
 };
 
-export function sendRealtimeControlAction(
-  action: ControlActionEventInput,
-): void {
+export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
 
-  const actionEvent: ControlActionEvent = {
-    controlName: action.controlName,
-    actionId: action.actionId,
-    actionControlType: action.actionControlType,
-    payload: action.payload ?? null,
-    timestampMs: Date.now(),
+  const dependencyEvent: DependencyEvent = {
+    dependencyKey: event.dependencyKey,
+    payload: event.payload ?? null,
+    timestampMs: event.timestampMs ?? Date.now(),
   };
-  const message: WebsocketMsgRealtimeActionEvent = {
+  const message: WebsocketMsgRealtimeDependencyEvent = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeActionEvent,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
     content: {
       projectConfigId,
-      actionEvent,
+      dependencyEvent,
     },
   };
   sendMessage(message);

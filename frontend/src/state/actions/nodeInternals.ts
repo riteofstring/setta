@@ -130,13 +130,42 @@ export function raiseTempZIndex(nodes: Array<Node>) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function justMoveANode(id: string, position: Position) {
+function justMoveANode(id: string, position: Position) {
   const newNodes = getNewNodes();
   newNodes.get(id).position = position;
   useNodeInternals.setState({ x: newNodes });
   const projectState = useProjectState.getState();
   const sectionIds = getSectionDescendants(id, projectState);
   scheduleEdgeHandlePositionUpdate(sectionIds);
+}
+
+export function moveNodes(
+  nodeMoves: Array<{
+    id: string;
+    position: Position;
+  }>,
+) {
+  if (nodeMoves.length === 0) {
+    return;
+  }
+  const newNodes = getNewNodes();
+  for (const move of nodeMoves) {
+    const node = newNodes.get(move.id);
+    if (!node) {
+      throw new Error(`Missing node ${move.id}`);
+    }
+    node.position = move.position;
+  }
+  useNodeInternals.setState({ x: newNodes });
+  const projectState = useProjectState.getState();
+  const sectionIds = new Set<string>();
+  for (const move of nodeMoves) {
+    const descendants = getSectionDescendants(move.id, projectState);
+    for (const id of descendants) {
+      sectionIds.add(id);
+    }
+  }
+  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 function getNewNodes() {

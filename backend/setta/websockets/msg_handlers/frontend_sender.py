@@ -25,6 +25,7 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
+from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEvent,
     SettaBackendLogEventSeverity,
@@ -48,6 +49,7 @@ from setta.types.websocket import (
     WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
+    WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -248,6 +250,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         chatId: ID,
         chunk: LLMStreamingResponseChunk,
         *,
+        section_id: ID | None = None,
         share_session_id: str | None = None,
     ):
         await self._broadcast_frontend(
@@ -255,6 +258,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                 content=LLMStreamingResponse(
                     chatId=chatId,
                     chunk=chunk,
+                    sectionId=section_id,
                 )
             ),
             share_session_id,
@@ -268,6 +272,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self._broadcast_frontend(
             WebsocketMsgLSPDiagnostics(content=content),
+            share_session_id,
+        )
+
+    async def broadcast_name_validation_errors(
+        self,
+        content: SettaProjectNameValidationErrors,
+        *,
+        share_session_id: str | None = None,
+    ):
+        await self._broadcast_frontend(
+            WebsocketMsgNameValidationErrors(content=content),
             share_session_id,
         )
 

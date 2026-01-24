@@ -19,7 +19,12 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_sections,
     get_curr_top_level_param_ids,
-    get_first_markdown_heading,
+    indent_params,
+    move_params_to_parent,
+    move_params_within_parent,
+    set_chat_section_chat_id,
+    set_section_param_filter,
+    unindent_params,
 )
 from setta.types.project_config import (
     Position,
@@ -28,7 +33,13 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import BaseDictSectionImpl, SectionSize, SectionType
+from setta.types.id import ID
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    ChatSectionImpl,
+    SectionSize,
+    SectionType,
+)
 
 
 class AddKwargTests(unittest.TestCase):
@@ -105,6 +116,32 @@ class DeleteSectionsTests(unittest.TestCase):
         self.project_state.validate_code_file_bindings()
 
 
+class ChatSectionChatIdTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_set_chat_section_chat_id_updates_impl(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        chat_id = ID("chat-1")
+
+        set_chat_section_chat_id(self.project_state, section_id, chat_id)
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        self.assertEqual(section_impl.chatId, chat_id)
+
+
 class ChangeParamImplTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
@@ -168,6 +205,210 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
+class ParamMoveTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        self.section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.param_ids = [
+            add_kwarg(self.settings, self.project_state, self.section_id)
+            for _ in range(3)
+        ]
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            BaseDictSectionImpl,
+        )
+        self.root_id = section_impl.topLevelParamId
+        assert self.root_id is not None
+
+    def _get_root_impl(self) -> NestedParamCodeObjImpl:
+        return get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.root_id,
+            NestedParamCodeObjImpl,
+        )
+
+    def test_move_params_within_parent_reorders(self) -> None:
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
+        )
+
+    def test_param_filter_whitespace_allows_reorder(self) -> None:
+        set_section_param_filter(self.project_state, self.section_id, "   ")
+
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
+        )
+
+    def test_indent_converts_previous_sibling(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [self.param_ids[0], self.param_ids[2]])
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.children, [self.param_ids[1]])
+
+    def test_indent_non_contiguous_groups(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [param_ids[0], param_ids[2]])
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.children, [param_ids[1]])
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.children, [param_ids[3]])
+
+    def test_unindent_converts_empty_nested(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[0], self.param_ids[1], self.param_ids[2]],
+        )
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.value, "{}")
+
+    def test_unindent_multi_parent_selection(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, param_ids)
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.value, "{}")
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.value, "{}")
+
+    def test_move_params_to_parent_reparents(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        move_params_to_parent(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[2]],
+            self.param_ids[0],
+            new_index=1,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [self.param_ids[0]])
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.children, [self.param_ids[1], self.param_ids[2]])
+
+
 class SmartLayoutTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
@@ -214,7 +455,6 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(pan_to.x, position.x + 80.0)
         self.assertAlmostEqual(pan_to.y, position.y + 50.0)
 
-
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -245,20 +485,6 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
-
-
-class MarkdownHeadingTests(unittest.TestCase):
-    def test_get_first_markdown_heading_accepts_h2(self) -> None:
-        text = "## Tasks\nSome text"
-        self.assertEqual(get_first_markdown_heading(text), "Tasks")
-
-    def test_get_first_markdown_heading_accepts_h3_with_indent(self) -> None:
-        text = "  ### Notes\n- item"
-        self.assertEqual(get_first_markdown_heading(text), "Notes")
-
-    def test_get_first_markdown_heading_rejects_h7(self) -> None:
-        text = "####### Too Deep"
-        self.assertIsNone(get_first_markdown_heading(text))
 
 
 if __name__ == "__main__":  # pragma: no cover
