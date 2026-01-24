@@ -1159,16 +1159,26 @@ class BaseProjectManager(ABC):
             create_dep_key(sectionId=section_id) in gen_code.code_generator.lines
             for section_id, _ in refetch_targets
         )
+        on_before_mutation = None
         if should_add_history:
             refetch_section_ids = [section_id for section_id, _ in refetch_targets]
             coalesce_key = (
                 f"autoRefetchCallable:{projectConfigId}:"
                 f"{','.join(map(str, refetch_section_ids))}"
             )
-            self.add_new_history_entry(
-                coalesce_key=coalesce_key,
-                coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            )
+            history_recorded = False
+
+            def record_history() -> None:
+                nonlocal history_recorded
+                if history_recorded:
+                    return
+                history_recorded = True
+                self.add_new_history_entry(
+                    coalesce_key=coalesce_key,
+                    coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+                )
+
+            on_before_mutation = record_history
         settings = self.settings_file.settings
         did_update = False
         for section_id, callable_name in refetch_targets:
@@ -1182,6 +1192,7 @@ class BaseProjectManager(ABC):
                 section_id,
                 callable_name,
                 True,
+                on_before_mutation=on_before_mutation,
             )
             if response.lspStatus != SignatureHelpStatus.SKIPPED:
                 did_update = True

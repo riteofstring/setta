@@ -253,9 +253,19 @@ class ProjectGenPythonCode(PythonCode):
         sectionId: ID,
         callableName: str,
         refetchParams: bool,
+        *,
+        on_before_mutation: Callable[[], None] | None = None,
     ) -> SetCallableResponse:
         current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
         current_callable_id = current_callable.id if current_callable else None
+        did_invoke_before_mutation = False
+
+        def maybe_invoke_before_mutation() -> None:
+            nonlocal did_invoke_before_mutation
+            if did_invoke_before_mutation or on_before_mutation is None:
+                return
+            did_invoke_before_mutation = True
+            on_before_mutation()
 
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
@@ -268,6 +278,7 @@ class ProjectGenPythonCode(PythonCode):
             )
 
         if callableName == "":
+            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -282,6 +293,7 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if prev_selected and not refetchParams:
+            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -324,6 +336,7 @@ class ProjectGenPythonCode(PythonCode):
             documentation, codeObjs, codeObjImplMap = result
             lsp_status = SignatureHelpStatus.MATCHED
 
+        maybe_invoke_before_mutation()
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
                 CodeObjType.CodeCallable,

@@ -16,14 +16,17 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     process_gen_code_diagnostics,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
+from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import ProjectGenPythonCode
 from setta.project_state.code_files import CodeFiles
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.lsp.managers import LSPServers, LSPWriters
+from setta.lsp.managers import LSPServers, LSPWriters, NoopLSPWriters
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
+from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
 from setta.types.project_config import (
     ProjectConfig,
@@ -423,6 +426,106 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await gen_code.diagnostics_callback(notification)
 
             self.assertEqual(callback_calls, [{section_id}])
+
+
+class ProjectGenPythonCodeMutationHookTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hook_not_called_on_noop(self):
+        project_state, section_id, _ = build_project_state("value")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dbe = DBE(root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            specific_file_watcher = SpecificFileWatcher()
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            lsp_writers = NoopLSPWriters()
+
+            binding = CodeFileBinding(
+                canonical_path=root / "code" / "DiagnosticsProject" / "setta_gen.py",
+                access_mode=CodeFileAccessMode.write_only,
+            )
+
+            gen_code = ProjectGenPythonCode(
+                dbe,
+                code_files,
+                binding,
+                lsp_writers,
+                frontend_sender,
+                project_state.projectConfig.id,
+                dep_graph,
+                code_generator,
+                {},
+            )
+
+            hook_called = False
+
+            def on_before_mutation() -> None:
+                nonlocal hook_called
+                hook_called = True
+
+            response = await gen_code.set_callable(
+                SettingsState(),
+                project_state,
+                section_id,
+                "MissingFunc",
+                False,
+                on_before_mutation=on_before_mutation,
+            )
+
+            self.assertEqual(response.lspStatus, SignatureHelpStatus.SKIPPED)
+            self.assertFalse(hook_called)
+
+    async def test_hook_called_on_clear_callable(self):
+        project_state, section_id, _ = build_project_state("value")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dbe = DBE(root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            specific_file_watcher = SpecificFileWatcher()
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            lsp_writers = NoopLSPWriters()
+
+            binding = CodeFileBinding(
+                canonical_path=root / "code" / "DiagnosticsProject" / "setta_gen.py",
+                access_mode=CodeFileAccessMode.write_only,
+            )
+
+            gen_code = ProjectGenPythonCode(
+                dbe,
+                code_files,
+                binding,
+                lsp_writers,
+                frontend_sender,
+                project_state.projectConfig.id,
+                dep_graph,
+                code_generator,
+                {},
+            )
+
+            hook_called = False
+
+            def on_before_mutation() -> None:
+                nonlocal hook_called
+                hook_called = True
+
+            response = await gen_code.set_callable(
+                SettingsState(),
+                project_state,
+                section_id,
+                "",
+                True,
+                on_before_mutation=on_before_mutation,
+            )
+
+            self.assertEqual(response.lspStatus, SignatureHelpStatus.SKIPPED)
+            self.assertTrue(hook_called)
+            updated_impl = get_curr_effective_section_impl(project_state, section_id)
+            self.assertIsNone(updated_impl.callable)
 
 
 if __name__ == "__main__":
