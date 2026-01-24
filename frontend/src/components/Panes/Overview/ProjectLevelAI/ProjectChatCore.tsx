@@ -1,6 +1,13 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
-import { Dispatch, SetStateAction, memo, useCallback, useEffect } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import {
   clearPendingChatDetails,
@@ -65,17 +72,25 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     shallow,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const lastFetchedChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
+    if (waitingForResponse) {
+      return;
+    }
+    if (lastFetchedChatIdRef.current === chatId) {
+      return;
+    }
+    lastFetchedChatIdRef.current = chatId;
     if (isExternalEngine) {
       getExternalAgentChat(chatId, null);
       return;
     }
     getLLMChat(chatId);
-  }, [chatId, isExternalEngine]);
+  }, [chatId, isExternalEngine, waitingForResponse]);
 
   const handleNewChatStart = useCallback(() => {
     initializePendingChatDetails();

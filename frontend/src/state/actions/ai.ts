@@ -708,6 +708,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     }
     return;
   }
+  promotePendingChatDetailsIfNeeded(chatId);
   switch (chunk.type) {
     case StreamingEventTypeEnum.MESSAGE_START:
       handleMessageStart(chatId, chunk);
@@ -820,7 +821,7 @@ function applyChatSectionStreamDelta(
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   updateChatDetails(chatId, (details) => ({
     ...details,
-    messages: [...details.messages, chunk.message],
+    messages: upsertMessage(details.messages, chunk.message),
     waitingForResponse: true,
   }));
 }
@@ -830,61 +831,10 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
     return;
   }
   updateChatDetails(chatId, (details) => {
-    const { messages, changed } = updateMessageById(
-      details.messages,
-      chunk.message_id,
-      (message) => {
-        let mutated = false;
-        const newContent = [...message.content];
-        for (const delta of chunk.content ?? []) {
-          switch (delta.type) {
-            case "thinking_delta": {
-              const block = ensureThinkingContentBlock(newContent, delta.index);
-              const thinkingUpdate = delta.thinking ?? "";
-              const summaryUpdate = delta.summary;
-              const signatureUpdate = delta.signature;
-              let blockMutated = false;
-              if (thinkingUpdate) {
-                block.thinking += thinkingUpdate;
-                blockMutated = true;
-              }
-              if (summaryUpdate !== undefined && summaryUpdate !== null) {
-                block.summary = summaryUpdate;
-                blockMutated = true;
-              }
-              if (signatureUpdate !== undefined) {
-                block.signature = signatureUpdate ?? "";
-                blockMutated = true;
-              }
-              if (blockMutated) {
-                mutated = true;
-              }
-              break;
-            }
-            case "text_delta": {
-              const block = ensureTextContentBlock(newContent, delta.index);
-              block.text += delta.text;
-              mutated = true;
-              break;
-            }
-            default: {
-              delta satisfies never;
-              break;
-            }
-          }
-        }
-        if (!mutated) {
-          return null;
-        }
-        return { ...message, content: newContent };
-      },
-    );
-    if (!changed) {
-      return null;
-    }
     return {
       ...details,
-      messages,
+      messages: applyMessageDeltaToChatMessages(details.messages, chunk),
+      waitingForResponse: true,
     };
   });
 }
@@ -1219,6 +1169,65 @@ function updatePendingChatDetails(
   });
 }
 
+function mergeChatMessages(
+  existing: Array<BaseChatMessageUnion>,
+  incoming: Array<BaseChatMessageUnion>,
+): Array<BaseChatMessageUnion> {
+  if (incoming.length === 0) {
+    return [...existing];
+  }
+  const merged = [...existing];
+  const indexById = new Map<string, number>();
+  merged.forEach((message, index) => {
+    indexById.set(message.id, index);
+  });
+  for (const message of incoming) {
+    const existingIndex = indexById.get(message.id);
+    if (existingIndex === undefined) {
+      indexById.set(message.id, merged.length);
+      merged.push(message);
+    } else {
+      merged[existingIndex] = message;
+    }
+  }
+  return merged;
+}
+
+function promotePendingChatDetailsIfNeeded(chatId: string) {
+  useAIStore.setState((state) => {
+    if (state.activeChatId !== null) {
+      return {};
+    }
+    if (!state.pendingChatDetails) {
+      return {};
+    }
+    const existingDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingDetails = state.pendingChatDetails;
+    const mergedDetails: ChatDetails = {
+      ...existingDetails,
+      ...pendingDetails,
+      messages: mergeChatMessages(
+        existingDetails.messages,
+        pendingDetails.messages,
+      ),
+      toolCallArguments: {
+        ...existingDetails.toolCallArguments,
+        ...pendingDetails.toolCallArguments,
+      },
+      waitingForResponse:
+        pendingDetails.waitingForResponse || existingDetails.waitingForResponse,
+    };
+    return {
+      activeChatId: chatId,
+      pendingChatDetails: null,
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: mergedDetails,
+      },
+    };
+  });
+}
+
 function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
@@ -1431,6 +1440,7 @@ function applyStreamDeltaToChatSectionState(
     }
   }
 }
+
 
 function applyMessageDeltaToChatMessages(
   messages: Array<BaseChatMessageUnion>,
