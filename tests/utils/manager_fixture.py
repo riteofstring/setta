@@ -26,8 +26,10 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
+from setta.types.llm_config import AllLLMConfigs, MCPServerConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.utils.constants import C
@@ -82,7 +84,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
     SettingsProjectManager can bootstrap a blank temp workspace via SettingsFile.
     For project manager coverage, use ``real_project_manager`` which seeds a
-    minimal project bundle.
+    canonical project bundle.
     """
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -172,7 +174,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a SessionProjectManager (main) backed by a minimal project bundle."""
+    """Provision a SessionProjectManager (main) backed by a seeded temp setta_files bundle."""
 
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -341,6 +343,7 @@ def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")
     _write_sample_settings_files(setta_root)
+    _write_sample_llm_configs(setta_root)
     _write_sample_code_files(setta_root)
 
 
@@ -356,6 +359,22 @@ def _write_sample_settings_files(setta_root: Path) -> None:
     settings_path.write_text(settings_state.model_dump_json(indent=2))
     settings_project = create_settings_project_state(settings_path)
     settings_project_path.write_text(settings_project.model_dump_json(indent=2))
+
+
+def _write_sample_llm_configs(setta_root: Path) -> None:
+    dbe = DBE(setta_root)
+    config = AllLLMConfigs(
+        mcpServers={
+            SETTA_MCP_SERVER_ID: MCPServerConfig(
+                transport="sse",
+                url=f"http://{C.DEFAULT_HOST}:{C.DEFAULT_PORT}/mcp",
+            )
+        },
+        defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
+    )
+    payload = config.model_dump(exclude_unset=True)
+    dbe.write_llm_config(payload)
+    dbe.write_llm_config_example(payload)
 
 
 def _write_sample_code_files(setta_root: Path) -> None:
