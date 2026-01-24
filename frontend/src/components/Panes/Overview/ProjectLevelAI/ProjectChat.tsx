@@ -315,7 +315,7 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory setChatId={setChatId} />
+          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
         ) : (
           <>
             {externalStatusMessage ? (
