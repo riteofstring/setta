@@ -1,0 +1,648 @@
+# Page snapshot
+
+```yaml
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - link [ref=e5] [cursor=pointer]:
+        - /url: /home
+        - img [ref=e7]
+      - navigation [ref=e14]:
+        - generic [ref=e15]:
+          - menubar [ref=e16]:
+            - menuitem "File" [ref=e17] [cursor=pointer]
+            - menuitem "Edit" [ref=e18] [cursor=pointer]
+            - menuitem [ref=e19] [cursor=pointer]:
+              - img [ref=e20]
+            - button "Follow AI" [ref=e22] [cursor=pointer]:
+              - img [ref=e23]
+              - text: Follow AI
+            - generic [ref=e26]:
+              - button "Run" [ref=e27] [cursor=pointer]:
+                - img [ref=e28]
+                - text: Run
+              - menuitem [ref=e30] [cursor=pointer]:
+                - img [ref=e31]
+          - button "Stop" [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+            - text: Stop
+      - search [ref=e37]:
+        - textbox "Args (⌘ + K) / Search (⌘ + P) / Create (⌘ + Shift + P)" [ref=e38]
+      - generic [ref=e39]:
+        - complementary [ref=e40]:
+          - generic [ref=e41]:
+            - paragraph [ref=e42]: Hold "Q" for tool tips
+            - button [ref=e43] [cursor=pointer]
+        - switch [checked] [ref=e45] [cursor=pointer]:
+          - img [ref=e47]
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - button [ref=e52] [cursor=pointer]
+          - button [ref=e54] [cursor=pointer]
+          - button [ref=e56] [cursor=pointer]:
+            - img [ref=e57]
+          - button [ref=e59] [cursor=pointer]:
+            - img [ref=e60]
+          - button [ref=e63] [cursor=pointer]:
+            - img [ref=e64]
+          - button [ref=e67] [cursor=pointer]:
+            - img [ref=e69]
+          - button [ref=e72] [cursor=pointer]:
+            - img [ref=e73]
+          - button [ref=e75] [cursor=pointer]:
+            - img [ref=e76]
+          - generic [ref=e79]:
+            - button "zoom in" [ref=e80] [cursor=pointer]:
+              - img [ref=e81]
+            - button "zoom out" [ref=e83] [cursor=pointer]:
+              - img [ref=e84]
+            - button "fit view" [ref=e86] [cursor=pointer]:
+              - img [ref=e87]
+            - button [ref=e91] [cursor=pointer]:
+              - img [ref=e92]
+            - button [ref=e102] [cursor=pointer]:
+              - img [ref=e103]
+            - button [ref=e107] [cursor=pointer]:
+              - img [ref=e108]
+          - link [ref=e110] [cursor=pointer]:
+            - /url: https://docs.setta.dev
+            - img [ref=e111]
+        - complementary [ref=e114]:
+          - generic [ref=e115]:
+            - heading "Overview" [level=2] [ref=e116] [cursor=pointer]
+            - paragraph [ref=e118]: mane_ready
+            - search [ref=e119]:
+              - textbox "Filter" [ref=e122]
+            - list [ref=e124]:
+              - listitem [ref=e125] [cursor=pointer]: standing_mint
+              - listitem [ref=e126] [cursor=pointer]: __pw_callable__-3
+              - listitem [ref=e127] [cursor=pointer]: __pw_callable__-4
+              - listitem [ref=e128] [cursor=pointer]: __pw_callable__-1
+              - listitem [ref=e129] [cursor=pointer]: __pw_callable__-2
+              - listitem [ref=e130] [cursor=pointer]: Generated Python Code
+              - listitem [ref=e131] [cursor=pointer]: __pw_callable__
+              - listitem [ref=e132] [cursor=pointer]: __pw_callable__-5
+              - listitem [ref=e133] [cursor=pointer]: __pw_callable__-1769187912799
+              - listitem [ref=e134] [cursor=pointer]: __pw_callable__-1769188038505
+      - generic [ref=e136]:
+        - generic [ref=e137]:
+          - button [ref=e138] [cursor=pointer]:
+            - img [ref=e139]
+          - button [ref=e142] [cursor=pointer]:
+            - img [ref=e143]
+          - button [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+          - button [disabled] [ref=e151] [cursor=pointer]:
+            - img [ref=e152]
+          - button [ref=e154] [cursor=pointer]:
+            - img [ref=e155]
+        - complementary [ref=e157]:
+          - complementary [ref=e158]:
+            - generic [ref=e159]:
+              - img [ref=e160]
+              - heading "Select A Section to Edit" [level=4] [ref=e162]
+      - article [ref=e163]:
+        - generic [ref=e165]:
+          - generic [ref=e167]:
+            - generic:
+              - img
+              - generic:
+                - generic [ref=e171]:
+                  - generic [ref=e172]:
+                    - menubar [ref=e173]:
+                      - menuitem [ref=e174] [cursor=pointer]
+                    - paragraph [ref=e176] [cursor=pointer]: standing_mint
+                    - generic [ref=e177]:
+                      - button [ref=e178] [cursor=pointer]
+                      - button [ref=e180] [cursor=pointer]
+                      - button [ref=e182] [cursor=pointer]
+                  - search [ref=e184]:
+                    - generic [ref=e186]: math.sqrt
+                  - generic [ref=e187]:
+                    - article [ref=e188]:
+                      - generic [ref=e189]:
+                        - heading "Args" [level=3] [ref=e190]
+                        - button "Remove arg" [ref=e191] [cursor=pointer]
+                        - button "Add arg" [ref=e193] [cursor=pointer]
+                        - button "Pin selected args" [active] [ref=e195] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e197] [cursor=pointer]
+                        - button "Delete selected args" [ref=e199] [cursor=pointer]
+                    - search [ref=e201]:
+                      - textbox "⌘ + K" [ref=e203]
+                  - generic [ref=e204]:
+                    - generic [ref=e206]:
+                      - generic [ref=e207]:
+                        - generic [ref=e208]: In
+                        - generic [ref=e209]:
+                          - generic [ref=e212]: a
+                          - generic [ref=e215]: b
+                          - generic [ref=e218]: m
+                          - generic [ref=e221]: "n"
+                          - generic [ref=e224]: x
+                          - generic [ref=e227]: c
+                          - generic [ref=e230]: d
+                          - generic [ref=e233]: e
+                          - generic [ref=e236]: f
+                      - generic [ref=e238]: Out
+                    - generic [ref=e241]:
+                      - paragraph [ref=e244]: Pinned Params
+                      - generic [ref=e245]:
+                        - article [ref=e246]:
+                          - generic [ref=e248]: a
+                        - article [ref=e255]:
+                          - generic [ref=e257]: b
+                        - article [ref=e264]:
+                          - generic [ref=e266]: good
+                    - generic [ref=e274]:
+                      - article [ref=e275]:
+                        - generic [ref=e277]: h
+                      - article [ref=e284]:
+                        - generic [ref=e286]: i
+                      - article [ref=e293]:
+                        - generic [ref=e295]: j
+                      - article [ref=e302]:
+                        - generic [ref=e304]: a
+                      - article [ref=e311]:
+                        - generic [ref=e313]: b
+                      - article [ref=e320]:
+                        - generic [ref=e321]: Please Enter Key
+                      - article [ref=e328]:
+                        - generic [ref=e329]: Please Enter Key
+                      - article [ref=e336]:
+                        - generic [ref=e337]: Please Enter Key
+                      - article [ref=e344]:
+                        - generic [ref=e345]: Please Enter Key
+                      - article [ref=e352]:
+                        - generic [ref=e353]: Please Enter Key
+                      - article [ref=e360]:
+                        - generic [ref=e361]: Please Enter Key
+                      - article [ref=e368]:
+                        - generic [ref=e369]: Please Enter Key
+                      - article [ref=e376]:
+                        - generic [ref=e377]: Please Enter Key
+                      - article [ref=e384]:
+                        - generic [ref=e385]: Please Enter Key
+                      - article [ref=e392]:
+                        - generic [ref=e393]: Please Enter Key
+                      - article [ref=e400]:
+                        - generic [ref=e401]: Please Enter Key
+                      - article [ref=e408]:
+                        - generic [ref=e409]: Please Enter Key
+                      - article [ref=e416]:
+                        - generic [ref=e417]: Please Enter Key
+                - generic [ref=e430]:
+                  - generic [ref=e431]:
+                    - menubar [ref=e432]:
+                      - menuitem [ref=e433] [cursor=pointer]
+                    - paragraph [ref=e435] [cursor=pointer]: __pw_callable__-3
+                    - generic [ref=e436]:
+                      - button [ref=e437] [cursor=pointer]
+                      - button [ref=e439] [cursor=pointer]
+                      - button [ref=e441] [cursor=pointer]
+                  - search [ref=e443]:
+                    - generic [ref=e445]: math.sqrt
+                  - generic [ref=e446]:
+                    - article [ref=e447]:
+                      - generic [ref=e448]:
+                        - button "Remove arg" [ref=e449] [cursor=pointer]
+                        - button "Add arg" [ref=e451] [cursor=pointer]
+                        - button "Pin selected args" [ref=e453] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e455] [cursor=pointer]
+                        - button "Delete selected args" [ref=e457] [cursor=pointer]
+                    - search [ref=e459]:
+                      - textbox "Filter" [ref=e461]
+                  - generic [ref=e462]:
+                    - generic [ref=e464]:
+                      - generic [ref=e465]:
+                        - generic [ref=e466]: In
+                        - generic [ref=e470]: b
+                      - generic [ref=e472]: Out
+                    - generic [ref=e475]:
+                      - paragraph [ref=e478]: Pinned Params
+                      - generic [ref=e479]:
+                        - article [ref=e480]:
+                          - paragraph [ref=e482] [cursor=pointer]: x
+                          - img [ref=e488]
+                        - article [ref=e491]:
+                          - generic [ref=e492]: Please Enter Key
+                        - article [ref=e499]:
+                          - generic [ref=e500]: Please Enter Key
+                    - generic [ref=e508]:
+                      - article [ref=e509]:
+                        - generic [ref=e510]: Please Enter Key
+                      - article [ref=e517]:
+                        - generic [ref=e518]: Please Enter Key
+                      - article [ref=e525]:
+                        - generic [ref=e526]: Please Enter Key
+                      - article [ref=e533]:
+                        - generic [ref=e534]: Please Enter Key
+                      - article [ref=e541]:
+                        - generic [ref=e542]: Please Enter Key
+                      - article [ref=e549]:
+                        - generic [ref=e550]: Please Enter Key
+                - generic [ref=e563]:
+                  - generic [ref=e564]:
+                    - menubar [ref=e565]:
+                      - menuitem [ref=e566] [cursor=pointer]
+                    - paragraph [ref=e568] [cursor=pointer]: __pw_callable__-4
+                    - generic [ref=e569]:
+                      - button [ref=e570] [cursor=pointer]
+                      - button [ref=e572] [cursor=pointer]
+                      - button [ref=e574] [cursor=pointer]
+                  - search [ref=e576]:
+                    - generic [ref=e578]: math.sqrt
+                  - generic [ref=e579]:
+                    - article [ref=e580]:
+                      - generic [ref=e581]:
+                        - button "Remove arg" [ref=e582] [cursor=pointer]
+                        - button "Add arg" [ref=e584] [cursor=pointer]
+                        - button "Pin selected args" [ref=e586] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e588] [cursor=pointer]
+                        - button "Delete selected args" [ref=e590] [cursor=pointer]
+                    - search [ref=e592]:
+                      - textbox "Filter" [ref=e594]
+                  - generic [ref=e595]:
+                    - generic [ref=e597]:
+                      - generic [ref=e598]:
+                        - generic [ref=e599]: In
+                        - generic [ref=e603]: b
+                      - generic [ref=e605]: Out
+                    - generic [ref=e608]:
+                      - paragraph [ref=e611]: Pinned Params
+                      - generic [ref=e612]:
+                        - article [ref=e613]:
+                          - paragraph [ref=e615] [cursor=pointer]: x
+                          - img [ref=e621]
+                        - article [ref=e624]:
+                          - generic [ref=e625]: Please Enter Key
+                        - article [ref=e632]:
+                          - generic [ref=e633]: Please Enter Key
+                    - generic [ref=e641]:
+                      - article [ref=e642]:
+                        - generic [ref=e643]: Please Enter Key
+                      - article [ref=e650]:
+                        - generic [ref=e651]: Please Enter Key
+                      - article [ref=e658]:
+                        - generic [ref=e659]: Please Enter Key
+                      - article [ref=e666]:
+                        - generic [ref=e667]: Please Enter Key
+                      - article [ref=e674]:
+                        - generic [ref=e675]: Please Enter Key
+                      - article [ref=e682]:
+                        - generic [ref=e683]: Please Enter Key
+                - generic [ref=e696]:
+                  - generic [ref=e697]:
+                    - menubar [ref=e698]:
+                      - menuitem [ref=e699] [cursor=pointer]
+                    - paragraph [ref=e701] [cursor=pointer]: __pw_callable__-1
+                    - generic [ref=e702]:
+                      - button [ref=e703] [cursor=pointer]
+                      - button [ref=e705] [cursor=pointer]
+                      - button [ref=e707] [cursor=pointer]
+                  - search [ref=e709]:
+                    - generic [ref=e711]: math.sqrt
+                  - generic [ref=e712]:
+                    - article [ref=e713]:
+                      - generic [ref=e714]:
+                        - button "Remove arg" [ref=e715] [cursor=pointer]
+                        - button "Add arg" [ref=e717] [cursor=pointer]
+                        - button "Pin selected args" [ref=e719] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e721] [cursor=pointer]
+                        - button "Delete selected args" [ref=e723] [cursor=pointer]
+                    - search [ref=e725]:
+                      - textbox "Filter" [ref=e727]
+                  - generic [ref=e728]:
+                    - generic [ref=e730]:
+                      - generic [ref=e731]:
+                        - generic [ref=e732]: In
+                        - generic [ref=e736]: b
+                      - generic [ref=e738]: Out
+                    - generic [ref=e741]:
+                      - paragraph [ref=e744]: Pinned Params
+                      - generic [ref=e745]:
+                        - article [ref=e746]:
+                          - paragraph [ref=e748] [cursor=pointer]: x
+                          - img [ref=e754]
+                        - article [ref=e757]:
+                          - generic [ref=e758]: Please Enter Key
+                        - article [ref=e765]:
+                          - generic [ref=e766]: Please Enter Key
+                    - generic [ref=e774]:
+                      - article [ref=e775]:
+                        - generic [ref=e776]: Please Enter Key
+                      - article [ref=e783]:
+                        - generic [ref=e784]: Please Enter Key
+                      - article [ref=e791]:
+                        - generic [ref=e792]: Please Enter Key
+                      - article [ref=e799]:
+                        - generic [ref=e800]: Please Enter Key
+                      - article [ref=e807]:
+                        - generic [ref=e808]: Please Enter Key
+                      - article [ref=e815]:
+                        - generic [ref=e816]: Please Enter Key
+                - generic [ref=e829]:
+                  - generic [ref=e830]:
+                    - menubar [ref=e831]:
+                      - menuitem [ref=e832] [cursor=pointer]
+                    - paragraph [ref=e834] [cursor=pointer]: __pw_callable__-2
+                    - generic [ref=e835]:
+                      - button [ref=e836] [cursor=pointer]
+                      - button [ref=e838] [cursor=pointer]
+                      - button [ref=e840] [cursor=pointer]
+                  - search [ref=e842]:
+                    - generic [ref=e844]: math.sqrt
+                  - generic [ref=e845]:
+                    - article [ref=e846]:
+                      - generic [ref=e847]:
+                        - button "Remove arg" [ref=e848] [cursor=pointer]
+                        - button "Add arg" [ref=e850] [cursor=pointer]
+                        - button "Pin selected args" [ref=e852] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e854] [cursor=pointer]
+                        - button "Delete selected args" [ref=e856] [cursor=pointer]
+                    - search [ref=e858]:
+                      - textbox "Filter" [ref=e860]
+                  - generic [ref=e861]:
+                    - generic [ref=e863]:
+                      - generic [ref=e864]:
+                        - generic [ref=e865]: In
+                        - generic [ref=e869]: b
+                      - generic [ref=e871]: Out
+                    - generic [ref=e874]:
+                      - paragraph [ref=e877]: Pinned Params
+                      - generic [ref=e878]:
+                        - article [ref=e879]:
+                          - paragraph [ref=e881] [cursor=pointer]: x
+                          - img [ref=e887]
+                        - article [ref=e890]:
+                          - generic [ref=e891]: Please Enter Key
+                        - article [ref=e898]:
+                          - generic [ref=e899]: Please Enter Key
+                    - generic [ref=e907]:
+                      - article [ref=e908]:
+                        - generic [ref=e909]: Please Enter Key
+                      - article [ref=e916]:
+                        - generic [ref=e917]: Please Enter Key
+                      - article [ref=e924]:
+                        - generic [ref=e925]: Please Enter Key
+                      - article [ref=e932]:
+                        - generic [ref=e933]: Please Enter Key
+                      - article [ref=e940]:
+                        - generic [ref=e941]: Please Enter Key
+                      - article [ref=e948]:
+                        - generic [ref=e949]: Please Enter Key
+                - generic [ref=e962]:
+                  - generic [ref=e963]:
+                    - img [ref=e965]
+                    - heading "Generated Python Code" [level=2] [ref=e969] [cursor=pointer]
+                    - generic [ref=e970]:
+                      - button [ref=e971] [cursor=pointer]:
+                        - img [ref=e972]
+                      - button [ref=e974] [cursor=pointer]:
+                        - img [ref=e975]
+                      - button [ref=e977] [cursor=pointer]
+                      - button [ref=e979] [cursor=pointer]
+                      - button [ref=e981] [cursor=pointer]
+                  - article [ref=e983]:
+                    - generic [ref=e986]:
+                      - generic [ref=e987]:
+                        - generic [ref=e988]:
+                          - generic [ref=e989]: "1"
+                          - generic [ref=e990]: "2"
+                          - generic [ref=e991]: "3"
+                          - generic [ref=e992]: "4"
+                          - generic [ref=e993]: "5"
+                          - generic [ref=e994]: "6"
+                          - generic [ref=e995]: "7"
+                          - generic [ref=e996]: "8"
+                          - generic [ref=e997]: "9"
+                          - generic [ref=e998]: "10"
+                          - generic [ref=e999]: "11"
+                          - generic [ref=e1000]: "12"
+                          - generic [ref=e1001]: "13"
+                          - generic [ref=e1002]: "14"
+                          - generic [ref=e1003]: "15"
+                        - generic [ref=e1004]:
+                          - generic [ref=e1006]: ⌄
+                          - generic [ref=e1007]: ⌄
+                      - textbox [ref=e1008]:
+                        - generic [ref=e1009]: import math
+                        - generic [ref=e1010]: Generated read-only
+                        - generic [ref=e1011]: "class SettaState:"
+                        - generic [ref=e1012]: "def __init__(state):"
+                        - generic [ref=e1013]: state.standing_mint = math.sqrt()
+                        - generic [ref=e1014]: state.pw_callable_-3 = math.sqrt()
+                        - generic [ref=e1015]: state.pw_callable_-4 = math.sqrt()
+                        - generic [ref=e1016]: state.pw_callable_-1 = math.sqrt()
+                        - generic [ref=e1017]: state.pw_callable_-2 = math.sqrt()
+                        - generic [ref=e1018]: state.pw_callable = math.sqrt()
+                        - generic [ref=e1019]: state.pw_callable_-5 = math.sqrt()
+                        - generic [ref=e1020]: state.pw_callable_-1769187912799 = math.sqrt()
+                        - generic [ref=e1021]: state.pw_callable_-1769188038505 = math.sqrt()
+                        - generic [ref=e1023]: state = SettaState()
+                - generic [ref=e1031]:
+                  - generic [ref=e1032]:
+                    - menubar [ref=e1033]:
+                      - menuitem [ref=e1034] [cursor=pointer]
+                    - paragraph [ref=e1036] [cursor=pointer]: __pw_callable__
+                    - generic [ref=e1037]:
+                      - button [ref=e1038] [cursor=pointer]
+                      - button [ref=e1040] [cursor=pointer]
+                      - button [ref=e1042] [cursor=pointer]
+                  - search [ref=e1044]:
+                    - generic [ref=e1046]: math.sqrt
+                  - generic [ref=e1047]:
+                    - article [ref=e1048]:
+                      - generic [ref=e1049]:
+                        - button "Remove arg" [ref=e1050] [cursor=pointer]
+                        - button "Add arg" [ref=e1052] [cursor=pointer]
+                        - button "Pin selected args" [ref=e1054] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e1056] [cursor=pointer]
+                        - button "Delete selected args" [ref=e1058] [cursor=pointer]
+                    - search [ref=e1060]:
+                      - textbox "Filter" [ref=e1062]
+                  - generic [ref=e1063]:
+                    - generic [ref=e1065]:
+                      - generic [ref=e1066]:
+                        - generic [ref=e1067]: In
+                        - generic [ref=e1071]: b
+                      - generic [ref=e1073]: Out
+                    - generic [ref=e1076]:
+                      - paragraph [ref=e1079]: Pinned Params
+                      - generic [ref=e1080]:
+                        - article [ref=e1081]:
+                          - paragraph [ref=e1083] [cursor=pointer]: x
+                          - img [ref=e1089]
+                        - article [ref=e1092]:
+                          - generic [ref=e1093]: Please Enter Key
+                        - article [ref=e1100]:
+                          - generic [ref=e1101]: Please Enter Key
+                    - generic [ref=e1109]:
+                      - article [ref=e1110]:
+                        - generic [ref=e1111]: Please Enter Key
+                      - article [ref=e1118]:
+                        - generic [ref=e1119]: Please Enter Key
+                      - article [ref=e1126]:
+                        - generic [ref=e1127]: Please Enter Key
+                      - article [ref=e1134]:
+                        - generic [ref=e1135]: Please Enter Key
+                      - article [ref=e1142]:
+                        - generic [ref=e1143]: Please Enter Key
+                      - article [ref=e1150]:
+                        - generic [ref=e1151]: Please Enter Key
+                - generic [ref=e1164]:
+                  - generic [ref=e1165]:
+                    - menubar [ref=e1166]:
+                      - menuitem [ref=e1167] [cursor=pointer]
+                    - paragraph [ref=e1169] [cursor=pointer]: __pw_callable__-5
+                    - generic [ref=e1170]:
+                      - button [ref=e1171] [cursor=pointer]
+                      - button [ref=e1173] [cursor=pointer]
+                      - button [ref=e1175] [cursor=pointer]
+                  - search [ref=e1177]:
+                    - generic [ref=e1179]: math.sqrt
+                  - generic [ref=e1180]:
+                    - article [ref=e1181]:
+                      - generic [ref=e1182]:
+                        - button "Remove arg" [ref=e1183] [cursor=pointer]
+                        - button "Add arg" [ref=e1185] [cursor=pointer]
+                        - button "Pin selected args" [ref=e1187] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e1189] [cursor=pointer]
+                        - button "Delete selected args" [ref=e1191] [cursor=pointer]
+                    - search [ref=e1193]:
+                      - textbox "Filter" [ref=e1195]
+                  - generic [ref=e1196]:
+                    - generic [ref=e1198]:
+                      - generic [ref=e1199]:
+                        - generic [ref=e1200]: In
+                        - generic [ref=e1204]: b
+                      - generic [ref=e1206]: Out
+                    - generic [ref=e1209]:
+                      - paragraph [ref=e1212]: Pinned Params
+                      - generic [ref=e1213]:
+                        - article [ref=e1214]:
+                          - paragraph [ref=e1216] [cursor=pointer]: x
+                          - img [ref=e1222]
+                        - article [ref=e1225]:
+                          - generic [ref=e1226]: Please Enter Key
+                        - article [ref=e1233]:
+                          - generic [ref=e1234]: Please Enter Key
+                    - generic [ref=e1242]:
+                      - article [ref=e1243]:
+                        - generic [ref=e1244]: Please Enter Key
+                      - article [ref=e1251]:
+                        - generic [ref=e1252]: Please Enter Key
+                      - article [ref=e1259]:
+                        - generic [ref=e1260]: Please Enter Key
+                      - article [ref=e1267]:
+                        - generic [ref=e1268]: Please Enter Key
+                      - article [ref=e1275]:
+                        - generic [ref=e1276]: Please Enter Key
+                      - article [ref=e1283]:
+                        - generic [ref=e1284]: Please Enter Key
+                - generic [ref=e1297]:
+                  - generic [ref=e1298]:
+                    - menubar [ref=e1299]:
+                      - menuitem [ref=e1300] [cursor=pointer]
+                    - paragraph [ref=e1302] [cursor=pointer]: __pw_callable__-1769187912799
+                    - generic [ref=e1303]:
+                      - button [ref=e1304] [cursor=pointer]
+                      - button [ref=e1306] [cursor=pointer]
+                      - button [ref=e1308] [cursor=pointer]
+                  - search [ref=e1310]:
+                    - generic [ref=e1312]: math.sqrt
+                  - generic [ref=e1313]:
+                    - article [ref=e1314]:
+                      - generic [ref=e1315]:
+                        - heading "Args" [level=3] [ref=e1316]
+                        - button "Remove arg" [ref=e1317] [cursor=pointer]
+                        - button "Add arg" [ref=e1319] [cursor=pointer]
+                        - button "Pin selected args" [ref=e1321] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e1323] [cursor=pointer]
+                        - button "Delete selected args" [ref=e1325] [cursor=pointer]
+                    - search [ref=e1327]:
+                      - textbox "Filter" [ref=e1329]
+                  - generic [ref=e1330]:
+                    - generic [ref=e1332]:
+                      - generic [ref=e1333]:
+                        - generic [ref=e1334]: In
+                        - generic [ref=e1338]: b
+                      - generic [ref=e1340]: Out
+                    - generic [ref=e1343]:
+                      - paragraph [ref=e1346]: Pinned Params
+                      - generic [ref=e1347]:
+                        - article [ref=e1348]:
+                          - paragraph [ref=e1350] [cursor=pointer]: x
+                          - img [ref=e1356]
+                        - article [ref=e1359]:
+                          - generic [ref=e1360]: Please Enter Key
+                        - article [ref=e1367]:
+                          - generic [ref=e1368]: Please Enter Key
+                    - generic [ref=e1376]:
+                      - article [ref=e1377]:
+                        - generic [ref=e1378]: Please Enter Key
+                      - article [ref=e1385]:
+                        - generic [ref=e1386]: Please Enter Key
+                      - article [ref=e1393]:
+                        - generic [ref=e1394]: Please Enter Key
+                      - article [ref=e1401]:
+                        - generic [ref=e1402]: Please Enter Key
+                      - article [ref=e1409]:
+                        - generic [ref=e1410]: Please Enter Key
+                      - article [ref=e1417]:
+                        - generic [ref=e1418]: Please Enter Key
+                - generic [ref=e1431]:
+                  - generic [ref=e1432]:
+                    - menubar [ref=e1433]:
+                      - menuitem [ref=e1434] [cursor=pointer]
+                    - paragraph [ref=e1436] [cursor=pointer]: __pw_callable__-1769188038505
+                    - generic [ref=e1437]:
+                      - button [ref=e1438] [cursor=pointer]
+                      - button [ref=e1440] [cursor=pointer]
+                      - button [ref=e1442] [cursor=pointer]
+                  - search [ref=e1444]:
+                    - generic [ref=e1446]: math.sqrt
+                  - generic [ref=e1447]:
+                    - article [ref=e1448]:
+                      - generic [ref=e1449]:
+                        - heading "Args" [level=3] [ref=e1450]
+                        - button "Remove arg" [ref=e1451] [cursor=pointer]
+                        - button "Add arg" [ref=e1453] [cursor=pointer]
+                        - button "Pin selected args" [ref=e1455] [cursor=pointer]
+                        - button "Convert to edge connectors" [ref=e1457] [cursor=pointer]
+                        - button "Delete selected args" [ref=e1459] [cursor=pointer]
+                    - search [ref=e1461]:
+                      - textbox "Filter" [ref=e1463]
+                  - generic [ref=e1464]:
+                    - generic [ref=e1466]:
+                      - generic [ref=e1467]:
+                        - generic [ref=e1468]: In
+                        - generic [ref=e1472]: b
+                      - generic [ref=e1474]: Out
+                    - generic [ref=e1477]:
+                      - paragraph [ref=e1480]: Pinned Params
+                      - generic [ref=e1481]:
+                        - article [ref=e1482]:
+                          - paragraph [ref=e1484] [cursor=pointer]: x
+                          - img [ref=e1490]
+                        - article [ref=e1493]:
+                          - generic [ref=e1494]: Please Enter Key
+                        - article [ref=e1501]:
+                          - generic [ref=e1502]: Please Enter Key
+                    - generic [ref=e1510]:
+                      - article [ref=e1511]:
+                        - generic [ref=e1512]: Please Enter Key
+                      - article [ref=e1519]:
+                        - generic [ref=e1520]: Please Enter Key
+                      - article [ref=e1527]:
+                        - generic [ref=e1528]: Please Enter Key
+                      - article [ref=e1535]:
+                        - generic [ref=e1536]: Please Enter Key
+                      - article [ref=e1543]:
+                        - generic [ref=e1544]: Please Enter Key
+                      - article [ref=e1551]:
+                        - generic [ref=e1552]: Please Enter Key
+          - img
+        - img [ref=e1563]
+        - status [ref=e1574]
+```

@@ -42,7 +42,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
-    PromptSectionImplArgs,
     RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
@@ -77,7 +76,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
@@ -104,7 +102,6 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SectionType,
     SocialSectionImpl,
     TerminalSectionImpl,
@@ -174,14 +171,6 @@ def create_section_impl(
     defaults: UserDefaultTextBlockSectionImpl,
     overrides: TextBlockSectionImplArgs | None = None,
 ) -> TextBlockSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.Prompt],
-    defaults: UserDefaultPromptSectionImpl,
-    overrides: PromptSectionImplArgs | None = None,
-) -> PromptSectionImpl: ...
 
 
 @overload
@@ -401,11 +390,6 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
             if overrides is None:
                 overrides = {}
             return TextBlockSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.Prompt:
-            if overrides is None:
-                overrides = {}
-            return PromptSectionImpl(**{**defaults.model_dump(), **overrides})
 
         case SectionType.MetaControl:
             if overrides is None:

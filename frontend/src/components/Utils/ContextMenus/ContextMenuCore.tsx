@@ -2,7 +2,14 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useEffect, useRef, useState } from "react";
 import { NAVBAR_HEIGHT } from "utils/constants";
 
-export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
+export function ContextMenuCore({
+  children,
+  x,
+  y,
+  isOpen,
+  closeContextMenu,
+  onKeyDownCapture,
+}) {
   const ref = useOutsideAlerter(isOpen, closeContextMenu);
   const [position, setPosition] = useState({
     top: -9999,
@@ -68,6 +75,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
           top: position.top,
           opacity: position.opacity,
         }}
+        onKeyDownCapture={onKeyDownCapture}
         ref={(element) => {
           // Combine refs
           ref.current = element;

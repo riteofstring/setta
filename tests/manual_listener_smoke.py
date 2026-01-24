@@ -7,8 +7,9 @@ listener receives snapshot refreshes when a control changes in the UI.
 
 import argparse
 import importlib
+import json
 import logging
-import os
+from pathlib import Path
 from typing import Any, Callable
 
 from setta.api import SettaListener
@@ -43,15 +44,15 @@ def _structured_dependency_map(
     return {}
 
 
-def resolve_project_name(arg_value: str | None) -> str:
-    if arg_value:
-        return arg_value
-    env_value = os.environ.get("SETTA_PROJECT_NAME")
-    if env_value:
-        return env_value
-    raise ValueError(
-        "Project name is required. Pass --project-name or set SETTA_PROJECT_NAME."
-    )
+def load_default_project_name() -> str:
+    """Read the project name that ships with the repository fixtures."""
+    data = json.loads(Path("setta_files/project.json").read_text())
+    project_config_id = data["defaultProjectConfigId"]
+    try:
+        project_config = data["projectConfigs"][project_config_id]
+    except KeyError as error:
+        raise ValueError("Default project config missing from project.json") from error
+    return project_config["name"]
 
 
 def build_listener(project_name: str) -> SettaListener:
@@ -122,7 +123,7 @@ def main() -> None:
 
     configure_listener_logging(level_override="INFO")
 
-    project_name = resolve_project_name(args.project_name)
+    project_name = args.project_name or load_default_project_name()
     listener = build_listener(project_name)
 
     if args.hot_reload:
