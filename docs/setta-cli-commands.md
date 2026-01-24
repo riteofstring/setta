@@ -54,7 +54,6 @@ Reserved for exporting the database. The handler is currently a placeholder
 Options:
 - `--readable` exports in a human-readable format.
 - `--readable-with-variants` includes variants in the readable export.
-- `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
 
 ## `setta status`
 

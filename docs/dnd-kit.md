@@ -1,7 +1,7 @@
 # dnd-kit Usage
 
 This document explains how the frontend uses dnd-kit to drag, reorder, and
-reparent both sections and params in the project UI.
+reparent sections in the project UI.
 
 ## Where the integration lives
 
@@ -10,8 +10,6 @@ reparent both sections and params in the project UI.
   from `@dnd-kit/*`.
 - `frontend/src/components/Pages/Project/UiPage.tsx` wraps the UI with
   `GlobalDndContext`.
-- Param dragging is hosted by `frontend/src/forks/dnd-kit/ParamDndContext.tsx`,
-  mounted in `frontend/src/components/Params/GroupContainer.tsx`.
 
 ## Global context and sensors
 
@@ -23,9 +21,6 @@ reparent both sections and params in the project UI.
   `useShareCapabilities().canEditLayout` is true.
 - Drag activation is gated by the current mode (`isSorting` or `isMovingFree`)
   so the UI does not start drags by accident.
-- Param dragging uses `useParamDndSensors`, which only activates when
-  `isSelectingParams` is true and `useShareCapabilities().canEditStructure` is
-  allowed, and only for draggables whose data type is `"param"`.
 
 ## State and temporary children
 
@@ -36,9 +31,6 @@ reparent both sections and params in the project UI.
   `frontend/src/state/subscriptions.ts`.
 - Temporary placeholder ids use `getDndSectionId` (suffix `-TempDND`) and are
   swapped into the tree during free-move drags.
-- Param drags keep their own state in `useParamDndState` and
-  `useParamDndChildren`. Param ids are namespaced with
-  `getParamDndItemId(paramId, listKey)` and placeholders use `::TempParamDND`.
 
 ## Drag modes
 
@@ -93,61 +85,6 @@ reparent both sections and params in the project UI.
 - `DragOperationShapeSync` keeps drag shapes stable during sorting.
 - `DeferredDndDeactivation` waits for dnd-kit to idle before resetting state.
 - `DummyDragOverlay` renders the free-move drag overlay.
-
-## Param dragging
-
-Param drag-and-drop is a separate dnd-kit provider layered inside the params
-panel. It only runs in param selection mode and targets the pinned/unpinned
-param lists.
-
-### Where it is wired
-
-- `frontend/src/forks/dnd-kit/ParamDndContext.tsx` creates a DragDropProvider
-  configured for param collisions (`mode: "param"`). It mounts:
-  - `ParamDndMonitor` to handle start/over/end logic.
-  - `ParamDragOverlay` for the blue drag overlay.
-  - `DragOperationShapeSync` for stable drag shapes.
-- `frontend/src/components/Params/ParamDndList.tsx` wraps each list
-  (pinned/unpinned) in `ParamDndProvider`, which provides a SortableContext
-  based on the current param tree.
-- Individual params (`ParamSwitch` / `ParamContainer`) use `useSortable` with
-  data `{ type: "param", sectionId, listKey, paramId }`.
-
-### When param drag is enabled
-
-- `useMisc().isSelectingParams` must be true.
-- `useShareCapabilities().canEditStructure` must be true (share mode disables
-  param drags).
-- The section must be a param-capable type (Callable, Dict, GlobalVariables).
-- Param filtering must be empty; active filters disable param drags and show a
-  notification.
-- Edge input params are filtered out of the draggable lists.
-
-### How params are dragged
-
-- **Select:** The active drag set is derived from the current param selection.
-  If multiple params are selected, the drag will move the root selections
-  (selected params without a selected ancestor). Selection that spans multiple
-  parents is collapsed to the active param with a notification.
-- **Reorder within a parent:** Drag vertically. The placeholder is inserted into
-  the local `useParamDndChildren` map and moved with `pastHalfway` +
-  `computeNewIndex` heuristics.
-- **Reparent (indent):** Drag horizontally to the right. When the horizontal
-  offset crosses the param trigger threshold (30px * zoom), collisions report
-  `triggerDistCondition` and `resolveParamDragParent` sets the new parent to the
-  hovered param. Without crossing the threshold, the drop stays within the
-  hovered param's parent.
-- **Drop:** `ParamDndMonitor` computes the visible placeholder index, resolves
-  the full index with `resolveFullIndexForVisibleInsertion` (so hidden params
-  keep their order), and calls `moveParamsWithBackend` to sync with the backend.
-
-### Param drag rules and safeguards
-
-- Collisions are filtered by `listKey`, so pinned and unpinned params never
-  intermix during drag.
-- Dropping into descendants of the dragged selection is blocked.
-- If param selection mode is toggled off mid-drag, the drag is canceled and the
-  param DnD state resets.
 
 ## Viewport and zoom
 
