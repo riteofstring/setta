@@ -152,7 +152,7 @@ class TextAreaParamCodeObjImpl(BaseChildlessCodeObjImpl):
 class DropzoneParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DropzoneParam] = CodeObjType.DropzoneParam
     mode: DropzoneMode = DropzoneMode.STATEFUL
-    maxAttachments: int | None = None
+    maxAttachments: int | None = Field(default=None, gt=0)
 
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):

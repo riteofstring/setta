@@ -151,7 +151,7 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
                     "attachments": [
                         {
                             "kind": "file",
-                            "id": "setta_files/artifacts/old.txt",
+                            "id": "artifacts/old.txt",
                             "name": "old.txt",
                             "mimeType": "text/plain",
                             "size": 10,
@@ -224,7 +224,7 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
         payload = parse_dropzone_value(updated_impl.value)
         self.assertIsNotNone(payload)
         self.assertEqual(
-            "rebased/setta_files/artifacts/old.txt",
+            "rebased/artifacts/old.txt",
             payload.attachments[0].id,
         )
 

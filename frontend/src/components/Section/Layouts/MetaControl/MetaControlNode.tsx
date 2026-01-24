@@ -170,9 +170,9 @@ export function MetaControlContent(props: MetaControlContentProps) {
           value={value}
           showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
-          mode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
-          maxAttachments={dropzoneMaxAttachments ?? null}
-          onStatelessDrop={onDropzoneStateless}
+          mode={props.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
+          maxAttachments={props.dropzoneMaxAttachments ?? null}
+          onStatelessDrop={props.onDropzoneStateless}
         />
       );
     default:

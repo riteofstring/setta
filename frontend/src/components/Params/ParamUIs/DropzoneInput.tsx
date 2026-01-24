@@ -102,10 +102,14 @@ function DropzoneInputConfig({
   isDisabled: boolean;
 }) {
   const mode = config.mode ?? DropzoneModeEnum.STATEFUL;
-  const maxAttachments =
-    config.maxAttachments === null || config.maxAttachments === undefined
-      ? ""
-      : config.maxAttachments;
+  let maxAttachments = "";
+  if (
+    config.maxAttachments !== null &&
+    config.maxAttachments !== undefined &&
+    config.maxAttachments > 0
+  ) {
+    maxAttachments = config.maxAttachments;
+  }
 
   function handleModeChange(event: ChangeEvent<HTMLSelectElement>) {
     onChange({ mode: event.target.value as DropzoneModeEnum });
@@ -118,7 +122,7 @@ function DropzoneInputConfig({
       return;
     }
     const parsed = Number.parseInt(raw, 10);
-    if (Number.isNaN(parsed) || parsed < 0) {
+    if (Number.isNaN(parsed) || parsed <= 0) {
       onChange({ maxAttachments: null });
       return;
     }
@@ -149,15 +153,25 @@ function DropzoneInputConfig({
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-400">
           Max attachments
         </span>
-        <input
-          type="number"
-          min={0}
-          className="h-8 rounded-lg border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-700 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200"
-          placeholder="No limit"
-          value={maxAttachments}
-          onChange={handleMaxAttachmentsChange}
-          disabled={isDisabled}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            className="h-8 flex-1 rounded-lg border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-700 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200"
+            placeholder="No limit"
+            value={maxAttachments}
+            onChange={handleMaxAttachmentsChange}
+            disabled={isDisabled}
+          />
+          <button
+            type="button"
+            className="h-8 rounded-lg border border-setta-200 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-400 dark:hover:bg-setta-850"
+            onClick={() => onChange({ maxAttachments: null })}
+            disabled={isDisabled}
+          >
+            No limit
+          </button>
+        </div>
       </label>
     </div>
   );
@@ -189,10 +203,14 @@ export function DropzoneInput({
     if (maxAttachments === null || maxAttachments === undefined) {
       return null;
     }
-    if (Number.isNaN(maxAttachments) || maxAttachments <= 0) {
-      return 0;
+    if (Number.isNaN(maxAttachments)) {
+      return null;
     }
-    return Math.floor(maxAttachments);
+    const limit = Math.floor(maxAttachments);
+    if (limit < 1) {
+      return null;
+    }
+    return limit;
   }, [maxAttachments]);
 
   const displayAttachments = useMemo(() => {
