@@ -178,6 +178,11 @@ class SessionRegistry:
         process = self._get_process(metadata.pid)
         if process is None:
             return True
+        is_setta = self._is_setta_process(process)
+        if is_setta is False:
+            if metadata.pid == os.getpid():
+                return False
+            return True
         return False
 
     def _is_session_suspicious(self, metadata: SessionMetadata) -> bool:

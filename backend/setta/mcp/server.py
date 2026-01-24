@@ -1,7 +1,6 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
 import inspect
-import logging
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -23,8 +22,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
-
-logger = logging.getLogger(__name__)
 
 _CATCH_ALL_PATH = "/{full_path:path}"
 

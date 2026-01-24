@@ -22,7 +22,6 @@ import yaml
 
 from setta import __version__
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
-from setta.auth.validation import consume_bootstrap_token
 from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -1323,10 +1322,6 @@ def auth(
     )
 
     secret = _load_session_secret(registry, session)
-    token_for_cookie = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
-    if consume_bootstrap_token(token_for_cookie, session.id, secret) is None:
-        raise click.ClickException("Failed to consume bootstrap token.")
-
     resolved_base_url = (
         _normalize_base_url(base_url) if base_url else _base_url_from_session(session)
     )
@@ -1395,6 +1390,13 @@ def tools() -> None:
     help="Auth JSON file from `setta auth --json`",
 )
 @click.option("--auth-stdin", is_flag=True, help="Read auth JSON from stdin")
+@click.option(
+    "--timeout",
+    type=float,
+    default=30.0,
+    show_default=True,
+    help="Request timeout in seconds (0 disables).",
+)
 @click.option("--base-url", default=None, help="Override backend base URL")
 def api(
     tool_name: str,
@@ -1406,6 +1408,7 @@ def api(
     cookie: str | None,
     auth_json: Path | None,
     auth_stdin: bool,
+    timeout: float,
     base_url: str | None,
 ) -> None:
     if auth_stdin and payload_stdin:
@@ -1477,6 +1480,8 @@ def api(
         "headers": headers,
         "json": {"tool": normalized_tool_name, "arguments": arguments},
     }
+    timeout_value: float | None = None if timeout <= 0 else timeout
+    request_kwargs["timeout"] = timeout_value
 
     response: requests.Response | None = None
     try:

@@ -2,6 +2,8 @@ import asyncio
 import json
 import os
 import socket
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,7 +35,24 @@ class AuthCommandTests(unittest.TestCase):
         self.workspace = Path(self.temp_dir.name) / "workspace"
         self.workspace.mkdir()
 
+        self.process = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import time; time.sleep(300)",
+                "setta.server:app",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(self.process.wait)
+        self.addCleanup(self._terminate_process)
+
         self.registry = SessionRegistry()
+
+    def _terminate_process(self) -> None:
+        if self.process.poll() is None:
+            self.process.terminate()
 
     def _restore_sessions_root(self) -> None:
         C.RUN_SESSIONS_FOLDER = self.original_sessions_root
@@ -43,7 +62,7 @@ class AuthCommandTests(unittest.TestCase):
             workspace_path=self.workspace,
             host="127.0.0.1",
             port=61234,
-            pid=os.getpid(),
+            pid=self.process.pid,
         )
         runner = CliRunner()
 
@@ -293,6 +312,15 @@ class ApiCommandIntegrationTests(unittest.TestCase):
             url,
             headers=headers,
             json={"tool": "getProjectConfigNamesAndIds", "arguments": "nope"},
+            timeout=5,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("arguments", response.json().get("detail", ""))
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"tool": "getProjectConfigNamesAndIds", "arguments": []},
             timeout=5,
         )
         self.assertEqual(response.status_code, 400)

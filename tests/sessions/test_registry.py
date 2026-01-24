@@ -188,6 +188,73 @@ class SessionRegistryTests(unittest.TestCase):
             registry.load_sessions(prune_stale=False, track_suspicious=True)
             self.assertEqual(registry.suspicious_session_ids(), {session.id})
 
+    def test_load_sessions_prunes_non_setta_process(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; time.sleep(60)",
+                    "unit-test",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(process.wait)
+            self.addCleanup(process.terminate)
+
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+            )
+            sessions = registry.load_sessions(prune_stale=True)
+
+            self.assertEqual(sessions, [])
+            self.assertFalse((sessions_root / session.id).exists())
+            self.assertIsNone(process.poll())
+
+    def test_load_session_prunes_non_setta_process(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; time.sleep(60)",
+                    "unit-test",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(process.wait)
+            self.addCleanup(process.terminate)
+
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+            )
+
+            loaded = registry.load_session(session.id, prune_stale=True)
+
+            self.assertIsNone(loaded)
+            self.assertFalse((sessions_root / session.id).exists())
+            self.assertIsNone(process.poll())
+
 
 if __name__ == "__main__":
     unittest.main()

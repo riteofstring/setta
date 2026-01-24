@@ -34,7 +34,7 @@ async def route_call_mcp_tool(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="tool must be a bare MCP tool name.",
         )
-    arguments = payload.arguments or {}
+    arguments = payload.arguments if payload.arguments is not None else {}
     if not isinstance(arguments, dict):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,14 +47,19 @@ async def route_call_mcp_tool(
             detail=f"Unknown tool: {tool_name}",
         )
     try:
-        tool.fn_metadata.arg_model.model_validate(arguments)
+        context = ctx.state.mcp_server.get_context()
+        result = await tool.fn_metadata.call_fn_with_arg_validation(
+            tool.fn,
+            tool.is_async,
+            arguments,
+            {tool.context_kwarg: context} if tool.context_kwarg is not None else None,
+        )
     except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=exc.errors(),
         ) from exc
-    context = ctx.state.mcp_server.get_context()
-    result = await tool.run(arguments, context=context, convert_result=True)
+    result = tool.fn_metadata.convert_result(result)
     call_result = _normalize_call_result(result)
     return call_result.model_dump(by_alias=True)
 
