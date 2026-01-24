@@ -14,6 +14,7 @@ from setta.mcp.client import MultiMCPClient
 from setta.types.agentic import AgentProfile
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    MessageThinkingContent,
     MessageTextContent,
     ToolChatMessage,
     UserChatMessage,
@@ -264,6 +265,50 @@ class CachePromptingTests(unittest.TestCase):
                 )
             else:
                 self.assertNotIn("cache_control_injection_points", payload)
+
+
+class AnthropicThinkingSummaryTests(unittest.TestCase):
+    def test_payload_strips_thinking_summary_for_anthropic(self) -> None:
+        with _build_runner_and_messages(
+            model="claude-sonnet-4-5-20250929",
+            provider="anthropic",
+        ) as (
+            runner,
+            llm_config,
+            system_prompt,
+            messages,
+            _active_project_config_id,
+        ):
+            messages.append(
+                AssistantChatMessage(
+                    content=[
+                        MessageThinkingContent(
+                            thinking="Reasoning details.",
+                            summary="Short summary.",
+                            signature="sig",
+                        ),
+                        MessageTextContent(text="Answer."),
+                    ],
+                )
+            )
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=messages,
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
+            )
+
+            assistant_payload = payload["messages"][2]
+            content = assistant_payload.get("content")
+            self.assertIsInstance(content, list)
+            if isinstance(content, list):
+                thinking_block = content[0] if content else None
+                self.assertIsInstance(thinking_block, dict)
+                if isinstance(thinking_block, dict):
+                    self.assertEqual(thinking_block.get("type"), "thinking")
+                    self.assertNotIn("summary", thinking_block)
+                    self.assertEqual(thinking_block.get("signature"), "sig")
 
 
 if __name__ == "__main__":

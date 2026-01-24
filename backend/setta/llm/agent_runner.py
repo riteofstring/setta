@@ -9,6 +9,7 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
+from pydantic import BaseModel
 
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
@@ -99,6 +100,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
+DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
 
 
 @dataclass(frozen=True)
@@ -767,6 +769,7 @@ class AgentRunner:
             message_payloads,
             allow_tool_reference=allow_tool_reference,
         )
+        self._strip_thinking_summaries(message_payloads, llm_config)
         request["messages"] = message_payloads
         self._maybe_apply_cache_prompting(request, message_payloads)
         self._apply_anthropic_tool_search_headers(
@@ -940,6 +943,41 @@ class AgentRunner:
                 ]
             message["content"] = filtered
 
+    def _strip_thinking_summaries(
+        self,
+        messages: list[dict[str, Any]],
+        llm_config: LLMConfig,
+    ) -> None:
+        if not self._should_strip_thinking_summary(llm_config):
+            return
+        for message in messages:
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            filtered: list[Any] = []
+            changed = False
+            for entry in content:
+                if not isinstance(entry, dict) or entry.get("type") != "thinking":
+                    filtered.append(entry)
+                    continue
+                normalized = dict(entry)
+                normalized.pop("summary", None)
+                signature = normalized.get("signature")
+                if not isinstance(signature, str) or not signature.strip():
+                    signature_delta = normalized.get("signature_delta")
+                    if isinstance(signature_delta, str) and signature_delta.strip():
+                        normalized["signature"] = signature_delta
+                        signature = signature_delta
+                        normalized.pop("signature_delta", None)
+                if not isinstance(signature, str) or not signature.strip():
+                    changed = True
+                    continue
+                filtered.append(normalized)
+                if normalized is not entry:
+                    changed = True
+            if changed:
+                message["content"] = filtered
+
     @staticmethod
     def _format_tool_reference_summary(tool_names: list[str]) -> str:
         if not tool_names:
@@ -1003,13 +1041,28 @@ class AgentRunner:
     ) -> None:
         if not thinking:
             return
-        if "reasoning_effort" in request:
-            return
 
         model_name = request.get("model")
         provider = request.get("custom_llm_provider")
         if not model_name:
             raise ValueError("Thinking requires a configured model")
+        if self._should_enable_anthropic_thinking(model_name, provider):
+            if "thinking" not in request:
+                request["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": DEFAULT_ANTHROPIC_THINKING_BUDGET,
+                }
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "[thinking] enabling anthropic thinking for model=%s provider=%s budget_tokens=%s",
+                        model_name,
+                        provider,
+                        DEFAULT_ANTHROPIC_THINKING_BUDGET,
+                    )
+            return
+
+        if "reasoning_effort" in request:
+            return
         if not self._should_enable_reasoning_override(model_name, provider):
             provider_display = provider or "default"
             raise ValueError(
@@ -1109,6 +1162,20 @@ class AgentRunner:
         provider = (llm_config.provider or "").strip().lower()
         if provider:
             return "anthropic" in provider
+        return self._is_claude_like_model(llm_config.model)
+
+    def _should_enable_anthropic_thinking(
+        self, model_name: str, provider: str | None
+    ) -> bool:
+        normalized_provider = (provider or "").strip().lower()
+        if normalized_provider:
+            return self._is_anthropic_provider(normalized_provider)
+        return self._is_claude_like_model(model_name)
+
+    def _should_strip_thinking_summary(self, llm_config: LLMConfig) -> bool:
+        provider = (llm_config.provider or "").strip().lower()
+        if provider:
+            return self._is_anthropic_provider(provider)
         return self._is_claude_like_model(llm_config.model)
 
     async def _iterate_stream(
@@ -1351,6 +1418,15 @@ class AgentRunner:
     def _coerce_stream_payload(self, entry: Any) -> dict[str, Any] | None:
         if isinstance(entry, dict):
             return entry
+        if isinstance(entry, BaseModel):
+            payload: dict[str, Any] = {}
+            raw_fields = getattr(entry, "__dict__", None)
+            if isinstance(raw_fields, dict):
+                payload.update(raw_fields)
+            extra = getattr(entry, "model_extra", None)
+            if isinstance(extra, dict):
+                payload.update(extra)
+            return payload or None
 
         model_dump = getattr(entry, "model_dump", None)
         if callable(model_dump):
