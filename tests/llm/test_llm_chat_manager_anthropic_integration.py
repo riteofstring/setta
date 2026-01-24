@@ -19,6 +19,7 @@ from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests import apply_warning_filters
 from tests.utils.mcp_runner_fixture import build_runner_with_local_mcp_session
 
 
@@ -131,6 +132,7 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 category=UserWarning,
                 module=r"pydantic.*",
             )
+            apply_warning_filters()
             self._suppress_llm_logs()
             api_key = self._require_anthropic_key()
 
@@ -332,6 +334,7 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 category=UserWarning,
                 module=r"pydantic.*",
             )
+            apply_warning_filters()
             self._suppress_llm_logs()
             api_key = self._require_anthropic_key()
 

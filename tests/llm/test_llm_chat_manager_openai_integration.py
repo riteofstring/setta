@@ -19,6 +19,7 @@ from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests import apply_warning_filters
 from tests.utils.mcp_runner_fixture import build_runner_with_local_mcp_session
 
 
@@ -136,6 +137,7 @@ class LLMChatManagerOpenAIIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 message=r"^Accessing the 'model_(computed_fields|fields)' attribute on the instance is deprecated\.",
                 category=DeprecationWarning,
             )
+            apply_warning_filters()
             self._suppress_llm_logs()
             api_key = self._require_openai_key()
 
@@ -322,6 +324,7 @@ class LLMChatManagerOpenAIIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 message=r"^Accessing the 'model_(computed_fields|fields)' attribute on the instance is deprecated\.",
                 category=DeprecationWarning,
             )
+            apply_warning_filters()
             self._suppress_llm_logs()
             api_key = self._require_openai_key()
 
