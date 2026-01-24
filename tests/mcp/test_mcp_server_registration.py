@@ -6,6 +6,7 @@ import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
+from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
@@ -300,7 +301,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 None,
                 user_message,
                 "default",
-                ID(project_config_id),
             )
 
             tool_call = ToolCall(
@@ -312,7 +312,20 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            tool_message = await chat_manager._dispatch_tool_call(chat, tool_call)
+            execute_action = build_execute_tool_calls_action(
+                project_config_id=ID(project_config_id),
+                chat_id=chat.id,
+                tool_calls=[tool_call],
+                allowed_server_ids=set(
+                    chat_manager._resolve_mcp_server_ids(chat.llmConfig)
+                ),
+                share_session_id=chat_manager.share_session_id,
+            )
+            if execute_action is None:
+                raise AssertionError("Expected tool execution action")
+            tool_results = await chat_manager._apply_actions([execute_action])
+            self.assertEqual(len(tool_results), 1)
+            tool_message = tool_results[0]
 
             search_result_names = [
                 entry.get("name")

@@ -27,9 +27,12 @@ from setta.project_state.project_manager_types import (
     ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
-    MoveSectionRequest,
+    IndentParamsRequest,
+    MoveParamGroupsRequest,
+    MoveParamsRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -47,6 +50,9 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetChatSectionChatIdRequest,
+    SetChatSectionSettingsRequest,
+    SetChatSectionStateRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -59,18 +65,16 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
-    SetSectionPinnedAreaHeightRequest,
-    SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
-    SetSectionWithParamsDisplayModeRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -80,6 +84,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
+    SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -94,6 +99,7 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
@@ -486,6 +492,15 @@ async def route_toggle_variant_json_source(
     await manager.toggle_variant_json_source(x)
 
 
+@router.post(Route.SET_VARIANT_JSON_SOURCE_KEYS)
+async def route_set_variant_json_source_keys(
+    x: SetVariantJsonSourceKeysRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_variant_json_source_keys(x)
+
+
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
 async def route_delete_json_source_file_and_variant(
     x: DeleteJSONSourceFileAndVariantRequest, ctx: RuntimeContextFromRequest
@@ -503,6 +518,15 @@ async def route_set_text_block_text(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_text_block_text(x)
+
+
+@router.post(Route.SET_PROJECT_CONFIG_CODEGEN_TARGETS)
+async def route_set_project_config_codegen_targets(
+    x: SetProjectConfigCodegenTargetsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_project_config_codegen_targets(x)
 
 
 @router.post(Route.SET_GEN_CODE_PREFIX)
@@ -810,15 +834,6 @@ async def route_set_text_block_meta_control_style(
     ).set_text_block_meta_control_style(x)
 
 
-@router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)
-async def route_set_section_with_params_display_mode(
-    x: SetSectionWithParamsDisplayModeRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_with_params_display_mode(x)
-
-
 @router.post(Route.SET_CALLABLE_HIDE_PARAMS)
 async def route_set_callable_hide_params(
     x: SetCallableHideParamsRequest, ctx: RuntimeContextFromRequest
@@ -835,24 +850,6 @@ async def route_set_section_hide_unpinned_params(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_hide_unpinned_params(x)
-
-
-@router.post(Route.SET_SECTION_PINNED_PARAMS)
-async def route_set_section_pinned_params(
-    x: SetSectionPinnedParamsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_pinned_params(x)
-
-
-@router.post(Route.SET_SECTION_PINNED_AREA_HEIGHT)
-async def route_set_section_pinned_area_height(
-    x: SetSectionPinnedAreaHeightRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_pinned_area_height(x)
 
 
 @router.post(Route.SET_SECTION_COLUMN_WIDTH)
@@ -900,6 +897,40 @@ async def route_set_text_block_format(
     await manager.set_text_block_format(x)
 
 
+@router.post(Route.SET_CHAT_SECTION_SETTINGS)
+async def route_set_chat_section_settings(
+    x: SetChatSectionSettingsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_chat_section_settings(x)
+
+
+@router.post(Route.SET_CHAT_SECTION_STATE)
+async def route_set_chat_section_state(
+    x: SetChatSectionStateRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_chat_section_state(x)
+
+
+@router.post(Route.GET_CHAT_SECTION_CHAT_ID)
+async def route_get_chat_section_chat_id(
+    x: GetChatSectionChatIdRequest, ctx: RuntimeContextFromRequest
+) -> str | None:
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.get_chat_section_chat_id(x)
+
+
+@router.post(Route.SET_CHAT_SECTION_CHAT_ID)
+async def route_set_chat_section_chat_id(
+    x: SetChatSectionChatIdRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_chat_section_chat_id(x)
+
+
 @router.post(Route.SET_SOCIAL_URL)
 async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRequest):
     await deny_in_share_mode(
@@ -912,11 +943,36 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
     await manager.set_social_url(x)
 
 
-@router.post(Route.MOVE_SECTION)
-async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromRequest):
+@router.post(Route.MOVE_PARAMS)
+async def route_move_params(x: MoveParamsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.move_section(x)
+    await manager.move_params(x)
+
+
+@router.post(Route.MOVE_PARAM_GROUPS)
+async def route_move_param_groups(
+    x: MoveParamGroupsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.move_param_groups(x)
+
+
+@router.post(Route.INDENT_PARAMS)
+async def route_indent_params(x: IndentParamsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.indent_params(x)
+
+
+@router.post(Route.UNINDENT_PARAMS)
+async def route_unindent_params(
+    x: UnindentParamsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.unindent_params(x)
 
 
 @router.post(Route.GROUP_SECTIONS)

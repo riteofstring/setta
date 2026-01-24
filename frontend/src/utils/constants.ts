@@ -17,6 +17,7 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
 export const OverviewTabNameEnum = {
   Overview: "Overview",
+  FileBrowser: "FileBrowser",
   RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
@@ -30,6 +31,7 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
+  [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
@@ -85,6 +87,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
   [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.GenPythonMetadata]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TextBlock]: [
     UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.InfoConfig,
@@ -98,7 +101,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
-  [SectionTypeEnum.Chat]: [],
+  [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Browser]: [],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
@@ -151,32 +154,6 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
-export const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
-export const KWARGS_CONTROLS_HEIGHT_KEY_PREFIX = "kwargs-controls-height";
-export const PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX = "pinned-params-min-height";
-export const UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX =
-  "unpinned-params-min-height";
-export const PARAM_GROUP_PADDING_KEY_PREFIX = "param-group-padding";
-
-export function getEdgesStripHeightKey(sectionId: string) {
-  return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getKwargsControlsHeightKey(sectionId: string) {
-  return `${KWARGS_CONTROLS_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getPinnedParamsMinHeightKey(sectionId: string) {
-  return `${PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getUnpinnedParamsMinHeightKey(sectionId: string) {
-  return `${UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getParamGroupPaddingKey(sectionId: string) {
-  return `${PARAM_GROUP_PADDING_KEY_PREFIX}-${sectionId}`;
-}
 
 const MODEL_GROUPS = [
   {
