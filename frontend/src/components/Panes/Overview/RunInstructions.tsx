@@ -167,9 +167,7 @@ export function RunInstructions() {
       return;
     }
     setCachedAllowlist((prev) =>
-      _.isEqual(prev, sectionPolicy.allowlist)
-        ? prev
-        : sectionPolicy.allowlist,
+      _.isEqual(prev, sectionPolicy.allowlist) ? prev : sectionPolicy.allowlist,
     );
   }, [sectionPolicy.allowlist]);
 

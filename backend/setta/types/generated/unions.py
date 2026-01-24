@@ -194,6 +194,7 @@ from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
     DrawAreaLayerItemTransformArtifact,
+    FileArtifact,
     ImageArtifact,
 )
 
@@ -202,6 +203,7 @@ BaseArtifactUnion = (
     | BrushStrokeArtifact
     | DrawAreaLayerItemTransformArtifact
     | ChartDataArtifact
+    | FileArtifact
 )
 
 BaseArtifactUnionWithDiscriminator = Annotated[

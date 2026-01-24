@@ -8,7 +8,6 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import colors from "tailwindcss/colors";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
 export function useHighlightDroppable({ sectionId, isGroup }) {

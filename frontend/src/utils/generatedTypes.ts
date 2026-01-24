@@ -82,6 +82,7 @@ export const ArtifactTypeEnum = {
   BrushStroke: "BrushStroke",
   DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
   ChartData: "ChartData",
+  File: "File",
 } as const;
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
@@ -156,6 +157,11 @@ export const CodeObjTypeEnum = {
 } as const;
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
 
 export const HttpRequestMethodEnum = {
   GET: "GET",
@@ -744,6 +750,19 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
+const FileArtifactSchema = z.object({
+  type: z.literal("File").default(ArtifactTypeEnum.File),
+  id: z
+    .string()
+    .default(
+      () =>
+        "setta_files/artifacts/b837c49b-a335-4cf2-a001-4f460558b960.bin" as const,
+    ),
+  value: z.string(),
+});
+
+export type FileArtifact = z.infer<typeof FileArtifactSchema>;
+
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
@@ -1245,6 +1264,7 @@ const SharedModifierSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).optional(),
   managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -1258,6 +1278,7 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1359,10 +1380,12 @@ const CoreSchema = z.object({
         "llmConfigId",
         "managed",
         "max",
+        "maxAttachments",
         "messages",
         "metaControlParamId",
         "metaControlStyle",
         "min",
+        "mode",
         "name",
         "overflowMode",
         "paramFilter",
@@ -2076,9 +2099,13 @@ const DropzoneParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
-type DropzoneParamCodeObjImpl = z.infer<typeof DropzoneParamCodeObjImplSchema>;
+export type DropzoneParamCodeObjImpl = z.infer<
+  typeof DropzoneParamCodeObjImplSchema
+>;
 
 const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
@@ -2553,6 +2580,8 @@ const DropzoneParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
 });
 
 type DropzoneParamCodeObjImplArgs = z.infer<
@@ -4383,6 +4412,8 @@ const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
 });
 
 type UserDefaultDropzoneParamCodeObjImpl = z.infer<
@@ -4661,6 +4692,7 @@ const UpdateArtifactMsgContentSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   updateType: z.literal(["update", "delete"]),
@@ -5552,6 +5584,7 @@ const UpdateArtifactsRequestSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   conflictStrategy: z
