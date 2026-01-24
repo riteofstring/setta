@@ -309,6 +309,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    CallableSectionImpl,
     ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
@@ -1006,7 +1007,11 @@ class BaseProjectManager(ABC):
 
         if python_codegen_enabled:
             dep_graph = DependencyGraph(projectState)
+            prev_undefined_callable_sections: set[ID] = set()
             if projectConfigId in self.gen_code:
+                prev_undefined_callable_sections = set(
+                    self.gen_code[projectConfigId].latest_undefined_callable_sections
+                )
                 await self.maybe_do_rename_refactor(
                     projectState, projectConfigId, dep_graph
                 )
@@ -1031,6 +1036,8 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
                 ignore_type_errors_by_section,
+                initial_undefined_callable_sections=prev_undefined_callable_sections,
+                on_callable_symbols_resolved=self.auto_refetch_callable_params,
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
@@ -1117,6 +1124,43 @@ class BaseProjectManager(ABC):
         async with self._project_state_lock.read_lock():
             gen_code = self._require_python_codegen(projectConfigId)
         await gen_code.type_check()
+
+    @enqueue_method
+    async def auto_refetch_callable_params(
+        self,
+        projectConfigId: ID,
+        sectionIds: set[ID],
+    ) -> None:
+        if not sectionIds:
+            return
+        project_state = self.get_single_config_state(projectConfigId)
+        gen_code = self._require_python_codegen(projectConfigId)
+        settings = self.settings_file.settings
+        did_update = False
+        for section_id in sorted(sectionIds):
+            if section_id not in project_state.sections:
+                raise KeyError(f"Missing section {section_id}.")
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CallableSectionImpl):
+                continue
+            if section_impl.callable is None:
+                continue
+            callable_id = section_impl.callable
+            if callable_id not in project_state.codeObjs:
+                raise KeyError(
+                    f"Missing callable {callable_id} for section {section_id}."
+                )
+            callable_name = project_state.codeObjs[callable_id].name
+            await gen_code.set_callable(
+                settings,
+                project_state,
+                section_id,
+                callable_name,
+                True,
+            )
+            did_update = True
+        if did_update:
+            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):

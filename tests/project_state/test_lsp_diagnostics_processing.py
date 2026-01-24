@@ -12,6 +12,7 @@ from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.value_mode import PythonValueMode
 from setta.project_state.lsp_response_handlers.diagnostics import (
     process_gen_code_diagnostics,
+    process_gen_code_diagnostics_with_undefined_symbols,
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -217,6 +218,62 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             errors[section_id].params[param_id],
             ["unknown_symbol is not defined"],
         )
+
+    def test_undefined_callable_symbol_tracked(self):
+        project_state, section_id, _ = build_project_state("value")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        dep_key = create_dep_key(sectionId=section_id)
+        line = code_generator.lines[dep_key]
+        value_start = line.pos + line.prefix_len
+        value_end = value_start + line.value_len
+        start = value_start
+        end = min(value_start + 4, value_end)
+        code = code_generator.code
+        diagnostic = build_diagnostic(
+            code,
+            start,
+            end,
+            "MissingFunc is not defined",
+            "reportUndefinedFunction",
+        )
+
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
+            [diagnostic],
+            code_generator,
+            dep_graph,
+        )
+        self.assertIn(section_id, errors)
+        self.assertEqual(errors[section_id].callable, ["MissingFunc is not defined"])
+        self.assertIn(section_id, undefined_sections)
+
+    def test_undefined_symbol_on_param_does_not_mark_callable(self):
+        project_state, section_id, param_id = build_project_state("unknown_symbol")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        line = code_generator.lines[dep_key]
+        value_start = line.pos + line.prefix_len
+        value_end = value_start + line.value_len
+        start = value_start
+        end = min(value_start + 4, value_end)
+        code = code_generator.code
+        diagnostic = build_diagnostic(
+            code,
+            start,
+            end,
+            "unknown_symbol is not defined",
+            "reportUndefinedVariable",
+        )
+
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
+            [diagnostic],
+            code_generator,
+            dep_graph,
+        )
+        self.assertIn(section_id, errors)
+        self.assertIn(param_id, errors[section_id].params)
+        self.assertNotIn(section_id, undefined_sections)
 
     def test_multiline_code_param_wraps_expression(self):
         param_value = "[\n1,\n2,\n]"
