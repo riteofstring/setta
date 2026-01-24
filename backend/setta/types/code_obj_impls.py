@@ -153,6 +153,7 @@ class DropzoneParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DropzoneParam] = CodeObjType.DropzoneParam
     mode: DropzoneMode = DropzoneMode.STATEFUL
     maxAttachments: int | None = Field(default=None, gt=0)
+    placeholder: str = "Drop a file here"
 
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):

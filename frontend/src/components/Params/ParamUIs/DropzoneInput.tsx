@@ -1,4 +1,10 @@
-import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
 import { FiUploadCloud } from "react-icons/fi";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -10,10 +16,7 @@ import {
   DropzoneConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import {
-  NO_DRAG_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import {
   createDropzoneFileArtifactId,
   createDropzoneTextAttachmentId,
@@ -102,6 +105,7 @@ function DropzoneInputConfig({
   isDisabled: boolean;
 }) {
   const mode = config.mode ?? DropzoneModeEnum.STATEFUL;
+  const placeholderValue = config.placeholder ?? "";
   let maxAttachments = "";
   if (
     config.maxAttachments !== null &&
@@ -129,8 +133,25 @@ function DropzoneInputConfig({
     onChange({ maxAttachments: parsed });
   }
 
+  function handlePlaceholderChange(event: ChangeEvent<HTMLInputElement>) {
+    onChange({ placeholder: event.target.value });
+  }
+
   return (
     <div className="flex flex-col gap-3 text-xs text-setta-600 dark:text-setta-300">
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-400">
+          Placeholder
+        </span>
+        <input
+          type="text"
+          className="h-8 rounded-lg border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-700 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200"
+          value={placeholderValue}
+          onChange={handlePlaceholderChange}
+          placeholder="Drop a file here"
+          disabled={isDisabled}
+        />
+      </label>
       <label className="flex flex-col gap-1">
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-400">
           Mode
@@ -191,6 +212,8 @@ export function DropzoneInput({
     DropzoneStatelessAttachment[]
   >([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const dragDepth = useRef(0);
 
   const parsedStatefulValue = useMemo(() => {
     return parseDropzoneValue(value);
@@ -270,6 +293,8 @@ export function DropzoneInput({
 
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    dragDepth.current = 0;
+    setIsDragActive(false);
     if (isDisabled || isUploading) {
       return;
     }
@@ -376,6 +401,32 @@ export function DropzoneInput({
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    if (isDisabled) {
+      return;
+    }
+    if (!isDragActive) {
+      setIsDragActive(true);
+    }
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (isDisabled) {
+      return;
+    }
+    dragDepth.current += 1;
+    setIsDragActive(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (isDisabled) {
+      return;
+    }
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) {
+      setIsDragActive(false);
+    }
   }
 
   let label = placeholder;
@@ -384,7 +435,10 @@ export function DropzoneInput({
     label = `${displayAttachments.length} attachment${suffix}`;
   }
   const disabledClassName = isDisabled ? "opacity-60" : "";
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500 ${disabledClassName} ${className ?? ""}`;
+  const dragActiveClassName = isDragActive
+    ? "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]"
+    : "";
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500 ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
@@ -394,6 +448,8 @@ export function DropzoneInput({
           void handleDrop(event);
         }}
         onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
         aria-disabled={isDisabled}
       >
         <FiUploadCloud className="text-base" />

@@ -68,6 +68,7 @@ AllImplFields = Literal[
     "passingStyle",
     "pinnedAreaHeight",
     "pinnedParams",
+    "placeholder",
     "positionAndSizeLocked",
     "renderedImagePath",
     "requestBody",

@@ -117,7 +117,7 @@ export type ColorPickerConfigForFrontend = Pick<
 
 export type DropzoneConfigForFrontend = Pick<
   DropzoneParamCodeObjImpl,
-  "mode" | "maxAttachments"
+  "mode" | "maxAttachments" | "placeholder"
 >;
 
 type ButtonConfigForFrontend = Pick<
@@ -172,6 +172,7 @@ const UI_CONFIG_EXTRACTORS = {
   ): DropzoneConfigForFrontend => ({
     mode: obj.mode,
     maxAttachments: obj.maxAttachments,
+    placeholder: obj.placeholder,
   }),
 } as const;
 

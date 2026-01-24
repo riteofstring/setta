@@ -114,6 +114,7 @@ export function ParamUI({
     disabledOrFrozen,
     dropzoneMode,
     dropzoneMaxAttachments,
+    dropzonePlaceholder,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -136,6 +137,7 @@ export function ParamUI({
       dropzoneMaxAttachments: isDropzone
         ? codeObjImpl.maxAttachments ?? null
         : null,
+      dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
     };
   }, _.isEqual);
 
@@ -262,6 +264,7 @@ export function ParamUI({
           isDisabled={isDisabled}
           mode={dropzoneMode}
           maxAttachments={dropzoneMaxAttachments}
+          placeholder={dropzonePlaceholder ?? undefined}
         />
       );
     default:
@@ -372,6 +375,7 @@ function DropzoneParamConfigured({
   isDisabled,
   mode,
   maxAttachments,
+  placeholder,
 }: {
   value: string;
   onChange: ParamValueChange;
@@ -379,6 +383,7 @@ function DropzoneParamConfigured({
   isDisabled: boolean;
   mode: DropzoneModeEnum | null;
   maxAttachments: number | null;
+  placeholder?: string;
 }) {
   return (
     <DropzoneInput
@@ -388,6 +393,7 @@ function DropzoneParamConfigured({
       isDisabled={isDisabled}
       mode={mode ?? DropzoneModeEnum.STATEFUL}
       maxAttachments={maxAttachments}
+      placeholder={placeholder}
     />
   );
 }

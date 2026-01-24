@@ -762,7 +762,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/6ccd9993-0997-4405-9b76-fad0f65fab3c.bin" as const,
+        "setta_files/artifacts/8c9093e2-bf1b-4942-a49f-beb13aa02d01.bin" as const,
     ),
   value: z.string(),
 });
@@ -1291,6 +1291,7 @@ const SharedModifierSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   renderedImagePath: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
@@ -1398,6 +1399,7 @@ const CoreSchema = z.object({
         "passingStyle",
         "pinnedAreaHeight",
         "pinnedParams",
+        "placeholder",
         "positionAndSizeLocked",
         "renderedImagePath",
         "requestBody",
@@ -2107,6 +2109,7 @@ const DropzoneParamCodeObjImplSchema = z.object({
   value: z.string().default("" as const),
   mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
   maxAttachments: z.union([z.int(), z.null()]).default(null),
+  placeholder: z.string().default("Drop a file here" as const),
 });
 
 export type DropzoneParamCodeObjImpl = z.infer<
@@ -2588,6 +2591,7 @@ const DropzoneParamCodeObjImplArgsSchema = z.object({
   value: z.string().optional(),
   mode: z.enum(DropzoneModeEnum).optional(),
   maxAttachments: z.union([z.int(), z.null()]).optional(),
+  placeholder: z.string().optional(),
 });
 
 type DropzoneParamCodeObjImplArgs = z.infer<
@@ -4538,6 +4542,7 @@ const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   value: z.string().default("" as const),
   mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
   maxAttachments: z.union([z.int(), z.null()]).default(null),
+  placeholder: z.string().default("Drop a file here" as const),
 });
 
 type UserDefaultDropzoneParamCodeObjImpl = z.infer<

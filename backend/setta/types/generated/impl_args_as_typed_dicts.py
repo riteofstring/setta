@@ -122,6 +122,7 @@ class CoreArgs(TypedDict):
                 "passingStyle",
                 "pinnedAreaHeight",
                 "pinnedParams",
+                "placeholder",
                 "positionAndSizeLocked",
                 "renderedImagePath",
                 "requestBody",
@@ -859,6 +860,7 @@ class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.DropzoneParam]]
     mode: NotRequired[DropzoneMode]
     maxAttachments: NotRequired[int | None]
+    placeholder: NotRequired[str]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -872,6 +874,7 @@ class DropzoneParamCodeObjImplArgsWithCallable(
     ]
     mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
     maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
+    placeholder: NotRequired[str | Callable[[str], str]]
 
 
 class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):

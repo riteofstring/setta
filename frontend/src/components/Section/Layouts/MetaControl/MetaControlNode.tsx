@@ -50,6 +50,7 @@ type MetaControlContentValueProps = {
   onValueChange: ParamValueChange;
   dropzoneMode?: DropzoneModeEnum;
   dropzoneMaxAttachments?: number | null;
+  dropzonePlaceholder?: string;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
 };
 
@@ -172,6 +173,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
           onValueChange={onValueChange}
           mode={props.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           maxAttachments={props.dropzoneMaxAttachments ?? null}
+          placeholder={props.dropzonePlaceholder}
           onStatelessDrop={props.onDropzoneStateless}
         />
       );
@@ -448,6 +450,7 @@ function DropzoneControl({
   onValueChange,
   mode,
   maxAttachments,
+  placeholder,
   onStatelessDrop,
 }: {
   sectionName: string;
@@ -456,6 +459,7 @@ function DropzoneControl({
   onValueChange: ParamValueChange;
   mode: DropzoneModeEnum;
   maxAttachments: number | null;
+  placeholder?: string;
   onStatelessDrop?: (attachments: DropzoneStatelessAttachment[]) => void;
 }) {
   return (
@@ -470,6 +474,7 @@ function DropzoneControl({
         onStatelessDrop={onStatelessDrop}
         mode={mode}
         maxAttachments={maxAttachments}
+        placeholder={placeholder}
       />
     </MetaControlTitleStack>
   );

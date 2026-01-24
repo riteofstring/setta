@@ -114,6 +114,7 @@ class SharedModifier(TypedDict):
     passingStyle: NotRequired[ParameterPassingStyle]
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
     pinnedParams: NotRequired[list[ID]]
+    placeholder: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]
     renderedImagePath: NotRequired[str | None]
     requestBody: NotRequired[str]

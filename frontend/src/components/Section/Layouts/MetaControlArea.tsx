@@ -90,6 +90,7 @@ function MetaControlValueArea({
     buttonConfig,
     dropzoneMode,
     dropzoneMaxAttachments,
+    dropzonePlaceholder,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -121,6 +122,7 @@ function MetaControlValueArea({
         },
         dropzoneMode: null,
         dropzoneMaxAttachments: null,
+        dropzonePlaceholder: null,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -141,6 +143,7 @@ function MetaControlValueArea({
       dropzoneMaxAttachments: isDropzone
         ? childlessImpl.maxAttachments ?? null
         : null,
+      dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
     };
   }, _.isEqual);
 
@@ -244,6 +247,7 @@ function MetaControlValueArea({
           onDropzoneStateless={handleDropzoneStateless}
           dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           dropzoneMaxAttachments={dropzoneMaxAttachments}
+          dropzonePlaceholder={dropzonePlaceholder ?? undefined}
           showSectionTitle={showSectionTitle}
         />
       )}

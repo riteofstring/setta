@@ -292,6 +292,7 @@ class UserDefaultDropzoneParamCodeObjImpl(
 ):
     mode: DropzoneMode = DropzoneMode.STATEFUL
     maxAttachments: int | None = Field(default=None, gt=0)
+    placeholder: str = "Drop a file here"
 
 
 class UserDefaultNestedParamCodeObjImpl(
