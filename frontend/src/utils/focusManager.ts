@@ -14,6 +14,8 @@ type TabScopeRegistration = {
 };
 
 const tabScopes = new Map<string, TabScopeRegistration>();
+const lastFocusedByScope = new Map<string, HTMLElement>();
+let focusTrackingInitialized = false;
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
@@ -50,9 +52,11 @@ export function useTabScope({
   behavior = "default",
 }: TabScopeRegistration) {
   useEffect(() => {
+    ensureFocusTracking();
     tabScopes.set(scopeId, { scopeId, order, rootRef, behavior });
     return () => {
       tabScopes.delete(scopeId);
+      lastFocusedByScope.delete(scopeId);
     };
   }, [scopeId, order, rootRef, behavior]);
 }
@@ -150,8 +154,9 @@ export function focusScope(scopeId: string): boolean {
   if (!scope || !scope.rootRef.current) {
     return false;
   }
-  const focusables = getFocusableElementsForScope(scope);
-  const element = focusables[0] ?? null;
+  const storedElement = getStoredFocusedElement(scope);
+  const focusables = storedElement ? null : getFocusableElementsForScope(scope);
+  const element = storedElement ?? focusables?.[0] ?? null;
   if (!element) {
     return false;
   }
@@ -257,6 +262,60 @@ function resolveNextFocusable({
   }
 
   return { element: fallbackElement, scope: scopedResult.scope };
+}
+
+function ensureFocusTracking() {
+  if (focusTrackingInitialized || typeof document === "undefined") {
+    return;
+  }
+  focusTrackingInitialized = true;
+  document.addEventListener("focusin", handleFocusIn, true);
+}
+
+function handleFocusIn(event: FocusEvent) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (!target) {
+    return;
+  }
+  const normalizedTarget = normalizeFocusableElement(target);
+  if (normalizedTarget.closest("[data-tab-native]")) {
+    return;
+  }
+  const scope = getScopeForElement(normalizedTarget);
+  if (!scope || !scope.rootRef.current) {
+    return;
+  }
+  if (isFocusableElement(normalizedTarget)) {
+    lastFocusedByScope.set(scope.scopeId, normalizedTarget);
+    return;
+  }
+  const nearest = normalizedTarget.closest(FOCUSABLE_SELECTOR);
+  if (!(nearest instanceof HTMLElement)) {
+    return;
+  }
+  if (!isFocusableElement(nearest)) {
+    return;
+  }
+  lastFocusedByScope.set(scope.scopeId, normalizeFocusableElement(nearest));
+}
+
+function getStoredFocusedElement(
+  scope: TabScopeRegistration,
+): HTMLElement | null {
+  const stored = lastFocusedByScope.get(scope.scopeId);
+  if (!stored) {
+    return null;
+  }
+  const root = scope.rootRef.current;
+  if (!stored.isConnected || !root || !root.contains(stored)) {
+    lastFocusedByScope.delete(scope.scopeId);
+    return null;
+  }
+  if (!isFocusableElement(stored)) {
+    lastFocusedByScope.delete(scope.scopeId);
+    return null;
+  }
+  return stored;
 }
 
 function findWrapScopeWithFocusable(

@@ -15,8 +15,9 @@
 ## Progress
 - Added a header tab scope to include the full navbar in the custom focus loop.
 - Removed the standalone SiteLogo scope so header navigation remains a single scope.
-- Added pane focus shortcuts: Mod+Shift+1/2/3/4 for Header, Overview, Canvas, UI Editor.
+- Added pane focus shortcuts: Ctrl+Shift+1/2/3/4 for Header, Overview, Canvas, UI Editor.
 - Added `data-tab-native` to modal content so Tab stays inside Radix dialogs.
+- Added last-focused element memory per scope so pane jumps return to where you left off.
 
 ## Plan
 1. Header scope and inclusion in tab order
@@ -26,8 +27,8 @@
    - Add a helper in `frontend/src/utils/focusManager.ts` to focus a scope by id.
    - Done: `focusScope` helper added and Mod+Shift+1/2/3/4 bound in `frontend/src/state/actions/keyActivations.ts`.
 3. Remember last focus per scope
-   - Track the last focused element per scope to improve pane cycling ergonomics.
-   - Store in `focusManager` and prefer it over first/last element when re-entering a scope.
+   - Done: tracked last focused element per scope and preferred it on scope focus.
+   - Implemented in `frontend/src/utils/focusManager.ts`.
 4. Section-level navigation on the canvas
    - Add shortcuts for next/previous top-level section and a drill-in action.
    - Use `focusOnSection` and the existing top-level layout ordering in `getCanvasFocusableElements`.
