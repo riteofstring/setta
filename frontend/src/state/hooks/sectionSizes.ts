@@ -210,11 +210,16 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    const maxHeight = getMaxSectionHeight({
+    const policyMaxHeight = getMaxSectionHeight({
       sectionType,
       isMinimized,
       sizingPolicy,
     });
+    const isAutoHeight = impl.size.height === "auto";
+    const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
+    const maxHeight = isAutoHeight
+      ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
+      : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
