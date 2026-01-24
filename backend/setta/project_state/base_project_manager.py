@@ -68,6 +68,7 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
+from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectBasicCode,
@@ -1134,7 +1135,7 @@ class BaseProjectManager(ABC):
         if not sectionIds:
             return
         project_state = self.get_single_config_state(projectConfigId)
-        refetch_sections: list[ID] = []
+        refetch_targets: list[tuple[ID, str]] = []
         for section_id in sorted(sectionIds):
             if section_id not in project_state.sections:
                 raise KeyError(f"Missing section {section_id}.")
@@ -1148,38 +1149,32 @@ class BaseProjectManager(ABC):
                 raise KeyError(
                     f"Missing callable {callable_id} for section {section_id}."
                 )
-            refetch_sections.append(section_id)
-        if not refetch_sections:
+            callable_name = project_state.codeObjs[callable_id].name
+            refetch_targets.append((section_id, callable_name))
+        if not refetch_targets:
             return
-        coalesce_key = f"autoRefetchCallable:{projectConfigId}:{','.join(map(str, refetch_sections))}"
+        refetch_section_ids = [section_id for section_id, _ in refetch_targets]
+        coalesce_key = (
+            f"autoRefetchCallable:{projectConfigId}:"
+            f"{','.join(map(str, refetch_section_ids))}"
+        )
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
         )
-        project_state = self.get_single_config_state(projectConfigId)
         gen_code = self._require_python_codegen(projectConfigId)
         settings = self.settings_file.settings
         did_update = False
-        for section_id in refetch_sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CallableSectionImpl):
-                continue
-            if section_impl.callable is None:
-                continue
-            callable_id = section_impl.callable
-            if callable_id not in project_state.codeObjs:
-                raise KeyError(
-                    f"Missing callable {callable_id} for section {section_id}."
-                )
-            callable_name = project_state.codeObjs[callable_id].name
-            await gen_code.set_callable(
+        for section_id, callable_name in refetch_targets:
+            response = await gen_code.set_callable(
                 settings,
                 project_state,
                 section_id,
                 callable_name,
                 True,
             )
-            did_update = True
+            if response.lspStatus != SignatureHelpStatus.SKIPPED:
+                did_update = True
         if did_update:
             await self.update_and_broadcast_project_state(project_state)
 

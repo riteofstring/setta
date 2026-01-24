@@ -368,6 +368,62 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(callback_calls, [])
 
+    async def test_resolved_callable_triggers_auto_refetch(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dbe = DBE(root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            specific_file_watcher = SpecificFileWatcher()
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            lsps = LSPServers({})
+            lsp_writers = LSPWriters(lsps)
+
+            project_state, section_id, _ = build_project_state("value")
+            dep_graph, code_generator = build_code_generator(project_state)
+
+            binding = CodeFileBinding(
+                canonical_path=root / "code" / "DiagnosticsProject" / "setta_gen.py",
+                access_mode=CodeFileAccessMode.write_only,
+            )
+
+            callback_calls: list[set[ID]] = []
+
+            async def on_callable_symbols_resolved(
+                _project_config_id: ID, section_ids: set[ID]
+            ) -> None:
+                callback_calls.append(set(section_ids))
+
+            gen_code = ProjectGenPythonCode(
+                dbe,
+                code_files,
+                binding,
+                lsp_writers,
+                frontend_sender,
+                project_state.projectConfig.id,
+                dep_graph,
+                code_generator,
+                {},
+                initial_undefined_callable_sections={section_id},
+                on_callable_symbols_resolved=on_callable_symbols_resolved,
+            )
+
+            uri = lsp_writers.full.get_uri(binding.canonical_path)
+            gen_code.uri = uri
+            lsp_writers.full.latest_version_numbers[uri] = 0
+
+            notification = LSPTypes.TextDocumentPublishDiagnosticsNotification(
+                params=LSPTypes.PublishDiagnosticsParams(
+                    uri=uri,
+                    diagnostics=[],
+                    version=0,
+                )
+            )
+
+            await gen_code.diagnostics_callback(notification)
+
+            self.assertEqual(callback_calls, [{section_id}])
+
 
 if __name__ == "__main__":
     unittest.main()
