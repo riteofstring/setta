@@ -2403,9 +2403,11 @@ def move_sections_to_parent_section(
         raise ValueError("Cannot reparent into a selected section.")
     ancestor = newParentId
     while ancestor is not None:
+        if ancestor not in p.parentSectionMap:
+            raise KeyError(f"Missing parentSectionMap entry for ancestor {ancestor}.")
         if ancestor in selected_set:
             raise ValueError("Cannot reparent into a descendant of selection.")
-        ancestor = p.parentSectionMap.get(ancestor)
+        ancestor = p.parentSectionMap[ancestor]
 
     ids_by_parent: dict[ID | None, list[ID]] = {}
     for section_id in sectionIds:

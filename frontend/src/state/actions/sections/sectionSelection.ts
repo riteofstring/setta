@@ -3,7 +3,6 @@ import { ZustandProjectState } from "state/definitions";
 
 type RootSectionSelection = {
   rootIds: string[];
-  droppedIds: string[];
 };
 
 export function getRootSelectedSectionIds(
@@ -12,7 +11,6 @@ export function getRootSelectedSectionIds(
 ): RootSectionSelection {
   const selectedSet = new Set(sectionIds);
   const rootIds: string[] = [];
-  const droppedIds: string[] = [];
 
   for (const sectionId of sectionIds) {
     let parentId = state.parentSectionMap[sectionId] ?? null;
@@ -25,14 +23,12 @@ export function getRootSelectedSectionIds(
       parentId = state.parentSectionMap[parentId] ?? null;
     }
 
-    if (hasSelectedAncestor) {
-      droppedIds.push(sectionId);
-    } else {
+    if (!hasSelectedAncestor) {
       rootIds.push(sectionId);
     }
   }
 
-  return { rootIds, droppedIds };
+  return { rootIds };
 }
 
 export function getSharedParentId(

@@ -148,6 +148,140 @@ class MoveSectionsTests(unittest.TestCase):
                 0,
             )
 
+    def test_move_sections_rejects_index_past_range(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-index-range")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        child_ids = create_child_sections(
+            settings,
+            project_state,
+            parent_id,
+            SectionType.TextBlock,
+            3,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        with self.assertRaisesRegex(
+            ValueError, "New index exceeds available sibling range."
+        ):
+            move_sections_to_parent_section(
+                project_state,
+                parent_id,
+                [child_ids[1]],
+                3,
+            )
+
+    def test_move_sections_from_multiple_parents_updates_map(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-multi-parent")
+        )
+        parent_a = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        parent_b = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=10, y=10),
+        )
+        parent_c = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=20, y=20),
+        )
+        child_a_ids = create_child_sections(
+            settings,
+            project_state,
+            parent_a,
+            SectionType.TextBlock,
+            2,
+            0,
+        )
+        child_b_ids = create_child_sections(
+            settings,
+            project_state,
+            parent_b,
+            SectionType.TextBlock,
+            2,
+            0,
+        )
+        [child_c] = create_child_sections(
+            settings,
+            project_state,
+            parent_c,
+            SectionType.TextBlock,
+            1,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        move_sections_to_parent_section(
+            project_state,
+            parent_c,
+            [child_a_ids[0], child_b_ids[1]],
+            0,
+        )
+
+        self.assertEqual(
+            get_curr_section_children_ids(project_state, parent_a),
+            [child_a_ids[1]],
+        )
+        self.assertEqual(
+            get_curr_section_children_ids(project_state, parent_b),
+            [child_b_ids[0]],
+        )
+        self.assertEqual(
+            get_curr_section_children_ids(project_state, parent_c),
+            [child_a_ids[0], child_b_ids[1], child_c],
+        )
+        project_state.validate_parent_section_map()
+        self.assertEqual(project_state.parentSectionMap[child_a_ids[0]], parent_c)
+        self.assertEqual(project_state.parentSectionMap[child_b_ids[1]], parent_c)
+
+    def test_move_sections_rejects_missing_parent_entry(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-missing-parent")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        [child_id] = create_child_sections(
+            settings,
+            project_state,
+            parent_id,
+            SectionType.TextBlock,
+            1,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        with self.assertRaisesRegex(
+            KeyError, "Missing parentSectionMap entry"
+        ):
+            move_sections_to_parent_section(
+                project_state,
+                "missing-parent",
+                [child_id],
+                0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,10 @@ type MoveSectionsInput = {
   positionsById: Record<string, Position> | null;
 };
 
+type MoveSectionsStateInput = MoveSectionsInput & {
+  state: ZustandProjectState;
+};
+
 export function moveSectionsWithBackend({
   sectionIds,
   newParentId,
@@ -57,11 +61,13 @@ function moveSectionsInState({
   newIndex,
   positionsById,
   state,
-}: MoveSectionsInput & { state: ZustandProjectState }) {
+}: MoveSectionsStateInput) {
+  const parentsById = resolveParentIds(state, sectionIds);
   if (newParentId === null) {
     moveSectionsToPane({
       sectionIds,
       positionsById,
+      parentsById,
       state,
     });
     return;
@@ -71,6 +77,7 @@ function moveSectionsInState({
   }
   removeSectionsFromParents({
     sectionIds,
+    parentsById,
     state,
     removeTopLevelNodes: true,
   });
@@ -79,15 +86,20 @@ function moveSectionsInState({
     const nextChildren = children.filter((id) => !movingSet.has(id));
     return insertIntoArray(nextChildren, newIndex, ...sectionIds);
   });
+  for (const sectionId of sectionIds) {
+    state.parentSectionMap[sectionId] = newParentId;
+  }
 }
 
 function moveSectionsToPane({
   sectionIds,
   positionsById,
+  parentsById,
   state,
 }: {
   sectionIds: string[];
   positionsById: Record<string, Position> | null;
+  parentsById: Record<string, string | null>;
   state: ZustandProjectState;
 }) {
   if (!positionsById) {
@@ -95,6 +107,7 @@ function moveSectionsToPane({
   }
   removeSectionsFromParents({
     sectionIds,
+    parentsById,
     state,
     removeTopLevelNodes: false,
   });
@@ -106,6 +119,12 @@ function moveSectionsToPane({
     }
     if (hasNode(sectionId)) {
       justMoveANode(sectionId, position);
+      updateTopLevelLayout(
+        state,
+        sectionId,
+        position,
+        getNodeZIndex(sectionId),
+      );
       continue;
     }
     maxZIndex += 1;
@@ -119,22 +138,28 @@ function moveSectionsToPane({
         height: null,
       },
     ]);
+    updateTopLevelLayout(state, sectionId, position, maxZIndex);
+  }
+  for (const sectionId of sectionIds) {
+    state.parentSectionMap[sectionId] = null;
   }
 }
 
 function removeSectionsFromParents({
   sectionIds,
+  parentsById,
   state,
   removeTopLevelNodes,
 }: {
   sectionIds: string[];
+  parentsById: Record<string, string | null>;
   state: ZustandProjectState;
   removeTopLevelNodes: boolean;
 }) {
   const idsByParent: Record<string, string[]> = {};
   const topLevelIds: string[] = [];
   for (const sectionId of sectionIds) {
-    const parentId = state.parentSectionMap[sectionId] ?? null;
+    const parentId = parentsById[sectionId] ?? null;
     if (!parentId) {
       topLevelIds.push(sectionId);
       continue;
@@ -154,11 +179,19 @@ function removeSectionsFromParents({
 
   if (removeTopLevelNodes && topLevelIds.length > 0) {
     deleteNodes(topLevelIds);
+    for (const sectionId of topLevelIds) {
+      delete state.projectConfig.topLevelSections[sectionId];
+    }
   }
 }
 
 function hasNode(sectionId: string): boolean {
   return useNodeInternals.getState().x.has(sectionId);
+}
+
+function getNodeZIndex(sectionId: string): number | null {
+  const node = useNodeInternals.getState().x.get(sectionId);
+  return node ? node.zIndex : null;
 }
 
 function getMaxZIndex(): number {
@@ -169,4 +202,31 @@ function getMaxZIndex(): number {
     }
   }
   return maxZIndex;
+}
+
+function updateTopLevelLayout(
+  state: ZustandProjectState,
+  sectionId: string,
+  position: Position,
+  zIndex: number | null,
+) {
+  const existing = state.projectConfig.topLevelSections[sectionId];
+  state.projectConfig.topLevelSections[sectionId] = {
+    x: position.x,
+    y: position.y,
+    zIndex: zIndex ?? existing?.zIndex ?? 0,
+    w: existing?.w ?? null,
+    h: existing?.h ?? null,
+  };
+}
+
+function resolveParentIds(
+  state: ZustandProjectState,
+  sectionIds: string[],
+): Record<string, string | null> {
+  const parentsById: Record<string, string | null> = {};
+  for (const sectionId of sectionIds) {
+    parentsById[sectionId] = state.parentSectionMap[sectionId] ?? null;
+  }
+  return parentsById;
 }
