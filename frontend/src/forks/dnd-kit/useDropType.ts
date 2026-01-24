@@ -17,6 +17,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrSectionVariant,
+  getCurrEffectiveSectionImpl,
   getSectionChildren,
   getSectionType,
   manualDndChildrenReset,
@@ -32,6 +33,7 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -87,10 +89,16 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   const rawHeight = activeRect?.height ?? 0;
   const zoom = useReactFlow.getState().transform[2];
   const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth = rawWidth / safeZoom;
-  const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
   const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
+  const placeholderSize = resolveSectionPlaceholderSize({
+    activeId,
+    activeRect: activeRect ?? null,
+    draggingIds: selection.draggingIds,
+    zoom: safeZoom,
+  });
+  const normalizedWidth = placeholderSize?.width ?? rawWidth / safeZoom;
+  const normalizedHeight = placeholderSize?.height ?? rawHeight / safeZoom;
   console.log("[dnd] section drag start", {
     activeId,
     draggingIds: selection.draggingIds,
@@ -518,6 +526,209 @@ type DragRect = {
   width: number;
   height: number;
 };
+
+type PlaceholderSize = {
+  width: number;
+  height: number;
+};
+
+type PlaceholderSizeInput = {
+  activeId: string;
+  activeRect: DragStartEvent["activeRect"] | null;
+  draggingIds: string[];
+  zoom: number;
+};
+
+type SectionOrientation = "horizontal" | "vertical";
+
+function resolveSectionPlaceholderSize({
+  activeId,
+  activeRect,
+  draggingIds,
+  zoom,
+}: PlaceholderSizeInput): PlaceholderSize | null {
+  if (draggingIds.length === 0) {
+    return null;
+  }
+
+  const state = useProjectState.getState();
+  const parentId =
+    getSharedParentId(state, draggingIds) ??
+    state.parentSectionMap[draggingIds[0]] ??
+    null;
+  const orientation = resolveParentOrientation(state, parentId);
+  const rectsById = collectSectionRects({
+    activeId,
+    activeRect,
+    draggingIds,
+  });
+
+  if (Object.keys(rectsById).length === 0) {
+    return null;
+  }
+
+  const children = parentId ? getSectionChildren(state, parentId) : null;
+  const indexById = children
+    ? new Map(children.map((childId, index) => [childId, index]))
+    : null;
+  const size = accumulateSectionSizes({
+    draggingIds,
+    rectsById,
+    orientation,
+    indexById,
+  });
+
+  if (size.width <= 0 || size.height <= 0) {
+    return null;
+  }
+
+  const safeZoom = zoom > 0 ? zoom : 1;
+  return {
+    width: size.width / safeZoom,
+    height: size.height / safeZoom,
+  };
+}
+
+function resolveParentOrientation(
+  state: ReturnType<typeof useProjectState.getState>,
+  parentId: string | null,
+): SectionOrientation {
+  if (!parentId) {
+    return "vertical";
+  }
+  const impl = getCurrEffectiveSectionImpl(state, parentId);
+  if (
+    impl.type === SectionTypeEnum.Group &&
+    impl.isHorizontalOrientation === true
+  ) {
+    return "horizontal";
+  }
+  return "vertical";
+}
+
+function collectSectionRects({
+  activeId,
+  activeRect,
+  draggingIds,
+}: {
+  activeId: string;
+  activeRect: DragStartEvent["activeRect"] | null;
+  draggingIds: string[];
+}): Record<string, DragRect> {
+  const refs = useSectionRefs.getState();
+  const rectsById: Record<string, DragRect> = {};
+
+  for (const sectionId of draggingIds) {
+    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
+      rectsById[sectionId] = {
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      };
+      continue;
+    }
+
+    if (sectionId === activeId && activeRect) {
+      rectsById[sectionId] = { ...activeRect };
+    }
+  }
+
+  return rectsById;
+}
+
+function accumulateSectionSizes({
+  draggingIds,
+  rectsById,
+  orientation,
+  indexById,
+}: {
+  draggingIds: string[];
+  rectsById: Record<string, DragRect>;
+  orientation: SectionOrientation;
+  indexById: Map<string, number> | null;
+}): PlaceholderSize {
+  let width = 0;
+  let height = 0;
+
+  for (const sectionId of draggingIds) {
+    const rect = rectsById[sectionId];
+    if (!rect) {
+      continue;
+    }
+    if (orientation === "horizontal") {
+      width += rect.width;
+      height = Math.max(height, rect.height);
+    } else {
+      width = Math.max(width, rect.width);
+      height += rect.height;
+    }
+  }
+
+  if (indexById) {
+    const gapTotal = resolveAdjacentGapTotal({
+      draggingIds,
+      rectsById,
+      orientation,
+      indexById,
+    });
+    if (orientation === "horizontal") {
+      width += gapTotal;
+    } else {
+      height += gapTotal;
+    }
+  }
+
+  return { width, height };
+}
+
+function resolveAdjacentGapTotal({
+  draggingIds,
+  rectsById,
+  orientation,
+  indexById,
+}: {
+  draggingIds: string[];
+  rectsById: Record<string, DragRect>;
+  orientation: SectionOrientation;
+  indexById: Map<string, number>;
+}): number {
+  let gapTotal = 0;
+
+  for (let i = 0; i < draggingIds.length - 1; i += 1) {
+    const currentId = draggingIds[i];
+    const nextId = draggingIds[i + 1];
+    const currentIndex = indexById.get(currentId);
+    const nextIndex = indexById.get(nextId);
+    if (
+      currentIndex === undefined ||
+      nextIndex === undefined ||
+      nextIndex !== currentIndex + 1
+    ) {
+      continue;
+    }
+
+    const currentRect = rectsById[currentId];
+    const nextRect = rectsById[nextId];
+    if (!currentRect || !nextRect) {
+      continue;
+    }
+
+    const gap =
+      orientation === "horizontal"
+        ? nextRect.left - (currentRect.left + currentRect.width)
+        : nextRect.top - (currentRect.top + currentRect.height);
+    if (gap > 0) {
+      gapTotal += gap;
+    }
+  }
+
+  return gapTotal;
+}
 
 function resolveSectionDragSelection(
   activeId: string,

@@ -28,6 +28,7 @@ function onSortEnd({
 }: Pick<DragEndEvent, "active" | "over" | "collisions">) {
   const parentId = active.data?.current?.sortable?.containerId;
   if (!parentId) {
+    manualDndChildrenReset();
     return;
   }
 
@@ -44,6 +45,7 @@ function onSortEnd({
     over,
   });
   if (!overId || draggingSet.has(overId)) {
+    manualDndChildrenReset();
     return;
   }
 
@@ -53,6 +55,7 @@ function onSortEnd({
   const overIndex = filteredChildren.indexOf(overId);
 
   if (overIndex < 0) {
+    manualDndChildrenReset();
     return;
   }
 
@@ -71,6 +74,7 @@ function onSortEnd({
     ...draggingIds,
   );
   if (arraysEqual(nextChildren, children)) {
+    manualDndChildrenReset();
     return;
   }
 
@@ -80,6 +84,7 @@ function onSortEnd({
     newIndex,
     positionsById: null,
   });
+  manualDndChildrenReset();
 }
 
 async function onFreeMoveEnd({
