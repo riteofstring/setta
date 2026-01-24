@@ -280,34 +280,35 @@ export function ProjectChat() {
               />
               {showPlanModeBadge ? <PlanModeBadge /> : null}
 
-              {engineType === EngineTypeEnum.setta_llm ? (
-                <>
-                  <button
-                    className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
-                    aria-label="Thinking"
-                    onClick={() => {
-                      setThinking(!thinking);
-                    }}
-                  >
-                    <BiSolidBrain size={15} />
-                    <span className="hidden @[33.5rem]:block">Thinking</span>
-                  </button>
+              {engineType === EngineTypeEnum.setta_llm ||
+              engineType === EngineTypeEnum.external_agent ? (
+                <button
+                  className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
+                  aria-label="Thinking"
+                  onClick={() => {
+                    setThinking(!thinking);
+                  }}
+                >
+                  <BiSolidBrain size={15} />
+                  <span className="hidden @[33.5rem]:block">Thinking</span>
+                </button>
+              ) : null}
 
-                  <IdNameCombobox
-                    allItems={availableConfigGroups}
-                    value={selectedLLMConfigId}
-                    small={false}
-                    onSelectedItemChange={handleLLMConfigChange}
-                    placeholder={
-                      noConfigsAvailable
-                        ? "Add an LLM config or API key"
-                        : "Select an LLM"
-                    }
-                    // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                    bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
-                    outerDivClasses="@[17.5rem]:max-w-64 justify-center"
-                  />
-                </>
+              {engineType === EngineTypeEnum.setta_llm ? (
+                <IdNameCombobox
+                  allItems={availableConfigGroups}
+                  value={selectedLLMConfigId}
+                  small={false}
+                  onSelectedItemChange={handleLLMConfigChange}
+                  placeholder={
+                    noConfigsAvailable
+                      ? "Add an LLM config or API key"
+                      : "Select an LLM"
+                  }
+                  // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                  bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                  outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+                />
               ) : null}
             </div>
           )}
