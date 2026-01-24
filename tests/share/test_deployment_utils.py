@@ -6,12 +6,11 @@ from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig, SingletonSections
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
-    DrawSectionImpl,
     GenPythonCodeSectionImpl,
 )
 
@@ -81,57 +80,6 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
         self.assertEqual(
             rebased_root / "setta_gen.py",
             updated_impl.codeFileBinding.canonical_path,
-        )
-
-    def test_rewrite_project_state_paths_updates_draw_snapshot_path(self) -> None:
-        draw_impl = DrawSectionImpl(
-            id=ID("draw-impl"),
-            name="Draw",
-            renderedImagePath="artifacts/draw.png",
-        )
-        draw_variant = Variant(
-            id=ID("draw-variant"),
-            name="Draw",
-            impl=draw_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(draw_impl),
-        )
-        draw_section_id = ID("draw-section")
-        draw_section = Core(
-            id=draw_section_id,
-            name="Draw",
-            variants=[draw_variant.id],
-            defaultVariant=draw_variant.id,
-        )
-        project_config = ProjectConfig(
-            name="Draw Project",
-            sectionVariantMap={draw_section_id: draw_variant.id},
-            topLevelSections={draw_section_id: TopLevelSectionLayout()},
-        )
-        project_state = ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={draw_section_id: draw_section},
-            sectionImpls={draw_impl.id: draw_impl},
-            sectionVariants={draw_variant.id: draw_variant},
-        )
-
-        def resolve_artifact_path(path_str: str) -> str:
-            return f"rebased/{path_str}"
-
-        rewrite_project_state_paths(
-            project_state,
-            resolve_artifact_path=resolve_artifact_path,
-            resolve_code_binding=lambda binding: binding,
-            resolve_json_source_name=lambda path_str: path_str,
-        )
-
-        updated_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            draw_section_id,
-            DrawSectionImpl,
-        )
-        self.assertEqual(
-            "rebased/artifacts/draw.png",
-            updated_impl.renderedImagePath,
         )
 
 

@@ -25,7 +25,7 @@ export function DeleteProjectWarningModal() {
   };
 
   return (
-    <div className="mx-auto flex w-full flex-1 min-h-0 flex-col items-center">
+    <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
         <div className="flex items-center gap-2">
           <BiErrorCircle className="h-6 w-6 rounded-full bg-red-100 p-0.5 text-red-600 dark:bg-red-700 dark:text-red-200" />
@@ -39,7 +39,7 @@ export function DeleteProjectWarningModal() {
         </Dialog.Description>
       </header>
       {/* Scrollable content section */}
-      <div className="mb-6 w-full flex-1 min-h-0 overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
+      <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
         <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
           Projects to be deleted:
         </h4>
