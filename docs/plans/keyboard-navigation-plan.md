@@ -16,6 +16,7 @@
 - Added a header tab scope to include the full navbar in the custom focus loop.
 - Removed the standalone SiteLogo scope so header navigation remains a single scope.
 - Added pane focus shortcuts: Mod+Shift+1/2/3/4 for Header, Overview, Canvas, UI Editor.
+- Added `data-tab-native` to modal content so Tab stays inside Radix dialogs.
 
 ## Plan
 1. Header scope and inclusion in tab order
@@ -41,8 +42,8 @@
    - Allow Up/Down/Home/End to move focus within Overview and UI Editor tab stacks.
    - Files: `frontend/src/components/Panes/Overview/Overview.tsx`, `frontend/src/components/Panes/UiEditor/UiEditor.tsx`.
 8. Modal focus isolation
-   - Mark dialog content with `data-tab-native` so global Tab handling does not escape modals.
-   - File: `frontend/src/components/Modals/ModalContainer.tsx`.
+   - Done: marked dialog content with `data-tab-native` so global Tab handling does not escape modals.
+   - Implemented in `frontend/src/components/Modals/ModalContainer.tsx`.
 9. Shortcut discoverability
    - Add a minimal shortcut reference (menu item or help overlay) listing pane cycling, search modes, and section navigation.
    - Consider reusing existing shortcut text from `frontend/src/components/AppHeader/FileMenu.tsx`.
