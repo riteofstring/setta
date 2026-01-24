@@ -14,6 +14,7 @@ from typing import (
     Coroutine,
     Iterable,
     ParamSpec,
+    TYPE_CHECKING,
     TypeVar,
     cast,
     overload,
@@ -168,6 +169,7 @@ from setta.project_state.project_manager_types import (
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
+    SetWatchCodeConfigRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -185,6 +187,7 @@ from setta.project_state.project_manager_types import (
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
+from setta.project_state.watch_code import WatchCodeManager
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -327,6 +330,9 @@ from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+if TYPE_CHECKING:
+    from setta.project_state.watch_code import TaggedCallable
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
@@ -434,6 +440,11 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
+        self.watch_code = WatchCodeManager(
+            project_manager=self,
+            dbe=self.dbe,
+            websocket_msg_handler=self.websocket_msg_handler,
+        )
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
@@ -472,6 +483,10 @@ class BaseProjectManager(ABC):
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
+        spawn_background_task(
+            self._bootstrap_watch_code(),
+            label=f"{type(self).__name__}-watch-code-bootstrap",
+        )
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -922,6 +937,44 @@ class BaseProjectManager(ABC):
             )
         return self.gen_code[project_config_id]
 
+    def _has_python_codegen(self, project_config: ProjectConfig) -> bool:
+        if not project_config_has_codegen_language(
+            project_config, ProjectCodegenLanguage.python
+        ):
+            return False
+        return project_config.id in self.gen_code
+
+    async def _bootstrap_watch_code(self) -> None:
+        backend = self.project_state_backend
+        for project_config_id in backend.projectConfigs:
+            project_state = convert_backend_to_single_config(backend, project_config_id)
+            await self.watch_code.configure_project(project_state)
+
+    async def notify_watch_code_external_path(
+        self, project_config_id: ID, path: Path
+    ) -> None:
+        notification = SettaNotification(
+            projectConfigId=project_config_id,
+            type=SettaNotificationType.warning,
+            message=(
+                f"Watch Code: {path} is outside the workspace root; imports may fail."
+            ),
+        )
+        await self.websocket_msg_handler.broadcast_notification(notification)
+
+    async def notify_watch_code_import_failure(
+        self, project_config_id: ID, callable_name: str
+    ) -> None:
+        notification = SettaNotification(
+            projectConfigId=project_config_id,
+            type=SettaNotificationType.warning,
+            message=(
+                "Watch Code: failed to resolve parameters for "
+                f"{callable_name}. Check imports and module paths."
+            ),
+        )
+        await self.websocket_msg_handler.broadcast_notification(notification)
+
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
@@ -934,6 +987,8 @@ class BaseProjectManager(ABC):
             needs_init = projectState.projectConfig.id not in self.gen_code
         if needs_init:
             await self.update(projectState)
+        if projectState.projectConfig.watchCodeEnabled:
+            await self.watch_code.configure_project(projectState)
         return projectState
 
     @enqueue_method
@@ -1380,6 +1435,30 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
+    async def set_watch_code_config(self, x: SetWatchCodeConfigRequest):
+        """Update watch code settings for the project."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.watchCodeEnabled = x.watchCodeEnabled
+        project_state.projectConfig.watchCodeFolders = x.watchCodeFolders
+        project_state.projectConfig.watchCodeFiles = x.watchCodeFiles
+        await self.update_and_broadcast_project_state(project_state)
+        await self.watch_code.configure_project(project_state)
+
+    @enqueue_method
+    async def apply_watch_code_update(
+        self,
+        project_config_id: ID,
+        source_path: Path,
+        tagged_callables: list["TaggedCallable"],
+    ) -> None:
+        await self.watch_code.apply_tagged_callables(
+            project_config_id,
+            source_path,
+            tagged_callables,
+        )
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -1560,6 +1639,16 @@ class BaseProjectManager(ABC):
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
+        if (
+            project_state.projectConfig.watchCodeEnabled
+            and isinstance(section_impl, CodeSectionImpl)
+            and section_impl.codeFileBinding is not None
+        ):
+            self.watch_code.queue_inline_update(
+                project_state.projectConfig.id,
+                section_impl.codeFileBinding.canonical_path,
+                x.code,
+            )
 
     @enqueue_method
     @project_state_tool(
@@ -3008,6 +3097,17 @@ class BaseProjectManager(ABC):
 
         for single_state in states_to_broadcast:
             await self._broadcast_project_state_snapshot(single_state)
+
+        if plan.raw_content is not None:
+            for project_config_id in plan.bindings_by_config:
+                project_config = self.project_state_backend.projectConfigs.get(
+                    project_config_id
+                )
+                if project_config is None or not project_config.watchCodeEnabled:
+                    continue
+                self.watch_code.queue_file_update(
+                    project_config_id, plan.path, plan.raw_content
+                )
 
     def _should_defer_json_source_reload(
         self,

@@ -56,6 +56,18 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
 
 
+class WatchCodeFolder(BaseModel, extra="forbid"):
+    path: str
+    recursive: bool = True
+
+
+class WatchCodeRegistryEntry(BaseModel, extra="forbid"):
+    sectionIds: list[ID] = Field(default_factory=list)
+    sectionsCount: int = 1
+    signatureHash: str = ""
+    sourcePath: str = ""
+
+
 class ProjectCodegenLanguage(str, Enum):
     python = "python"
 
@@ -249,6 +261,10 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
+    watchCodeEnabled: bool = False
+    watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
+    watchCodeFiles: list[str] = Field(default_factory=list)
+    watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_codegen_targets(self):
