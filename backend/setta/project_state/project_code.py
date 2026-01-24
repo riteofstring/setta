@@ -1,5 +1,6 @@
 import copy
 from pathlib import Path
+from typing import Awaitable, Callable
 
 from lsprotocol import types as LSPTypes
 
@@ -20,7 +21,7 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
-    process_gen_code_diagnostics,
+    process_gen_code_diagnostics_with_undefined_symbols,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     SignatureHelpStatus,
@@ -104,12 +105,22 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
         ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
+        *,
+        initial_undefined_callable_sections: set[ID] | None = None,
+        on_callable_symbols_resolved: Callable[[ID, set[ID]], Awaitable[None]]
+        | None = None,
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.ignored_type_errors_by_section = ignored_type_errors_by_section
+        self.latest_undefined_callable_sections = (
+            set(initial_undefined_callable_sections)
+            if initial_undefined_callable_sections
+            else set()
+        )
+        self._on_callable_symbols_resolved = on_callable_symbols_resolved
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -430,12 +441,26 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response.params
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
-        errors = process_gen_code_diagnostics(
-            params.diagnostics,
-            self.code_generator,
-            self.dep_graph,
-            self.ignored_type_errors_by_section,
+        errors, undefined_callable_sections = (
+            process_gen_code_diagnostics_with_undefined_symbols(
+                params.diagnostics,
+                self.code_generator,
+                self.dep_graph,
+                self.ignored_type_errors_by_section,
+            )
         )
+        resolved_sections: set[ID] = set()
+        if self.latest_undefined_callable_sections:
+            for section_id in self.latest_undefined_callable_sections:
+                dep_key = create_dep_key(sectionId=section_id)
+                if dep_key not in self.dep_graph.graph:
+                    continue
+                if section_id in undefined_callable_sections:
+                    continue
+                if section_id in errors and errors[section_id].callable:
+                    continue
+                resolved_sections.add(section_id)
+        self.latest_undefined_callable_sections = undefined_callable_sections
         content = SettaProjectConfigDiagnostics(
             projectConfigId=self.project_config_id,
             errors=errors,
@@ -444,6 +469,10 @@ class ProjectGenPythonCode(PythonCode):
 
         self.latest_diagnostics = content
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
+        if resolved_sections and self._on_callable_symbols_resolved:
+            await self._on_callable_symbols_resolved(
+                self.project_config_id, resolved_sections
+            )
 
     def get_gen_python_code_path(self):
         return self.binding.canonical_path
