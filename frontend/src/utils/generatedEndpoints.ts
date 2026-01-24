@@ -11,12 +11,6 @@ async function route_bootstrap_consume(
   return await post("/__setta__/bootstrap/consume", payload);
 }
 
-async function route_call_mcp_tool(
-  payload: gt.MCPToolCallRequestInput,
-): Promise<ResponseDataAndStatus<Record<string, any>>> {
-  return await post("/__setta__/tools/call", payload);
-}
-
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
@@ -119,24 +113,6 @@ export async function route_run_code(
   return await post("/runCode", x);
 }
 
-async function route_run_detached(
-  x: gt.RunDetachedRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
-  return await post("/runDetached", x);
-}
-
-async function route_get_run_status(
-  x: gt.GetRunStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/getRunStatus", x);
-}
-
-async function route_cancel_run(
-  x: gt.CancelRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.RunStatusResponse>> {
-  return await post("/cancelRun", x);
-}
-
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequestInput,
 ): Promise<ResponseDataAndStatus<string>> {
@@ -159,12 +135,6 @@ export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequestsInput,
 ): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/checkIfFileExists", x);
-}
-
-export async function route_get_file_browser_root(): Promise<
-  ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
-> {
-  return await post("/getFileBrowserRoot", null);
 }
 
 export async function route_get_folder_contents(
@@ -209,54 +179,6 @@ export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
   return await post("/getListenerCoverage", x);
-}
-
-async function route_create_chat(
-  x: gt.CreateChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/createChat", x);
-}
-
-async function route_get_chat(
-  x: gt.GetChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/getChat", x);
-}
-
-async function route_append_chat_messages(
-  x: gt.AppendChatMessagesRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/appendChatMessages", x);
-}
-
-async function route_delete_chat(
-  x: gt.DeleteChatRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteChat", x);
-}
-
-async function route_set_chat_system_prompt(
-  x: gt.SetChatSystemPromptRequestInput,
-): Promise<ResponseDataAndStatus<gt.Chat>> {
-  return await post("/setChatSystemPrompt", x);
-}
-
-async function route_get_all_chat_metadata(
-  x: gt.GetAllChatMetadataRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllChatMetadata", x);
-}
-
-async function route_run_mcp_tools(
-  x: gt.RunMcpToolsRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.ToolChatMessage>>> {
-  return await post("/runMcpTools", x);
-}
-
-async function route_emit_chat_stream_delta(
-  x: gt.EmitChatStreamDeltaRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/emitChatStreamDelta", x);
 }
 
 export async function route_restart_language_server(): Promise<
@@ -527,12 +449,6 @@ export async function route_toggle_variant_json_source(
   return await post("/toggleVariantJsonSource", x);
 }
 
-export async function route_set_variant_json_source_keys(
-  x: gt.SetVariantJsonSourceKeysRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setVariantJsonSourceKeys", x);
-}
-
 export async function route_delete_json_source_file_and_variant(
   x: gt.DeleteJSONSourceFileAndVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -543,12 +459,6 @@ export async function route_set_text_block_text(
   x: gt.SetTextBlockTextRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockText", x);
-}
-
-export async function route_set_project_config_codegen_targets(
-  x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setProjectConfigCodegenTargets", x);
 }
 
 export async function route_set_gen_code_prefix(
@@ -761,6 +671,12 @@ export async function route_set_text_block_meta_control_style(
   return await post("/setTextBlockMetaControlStyle", x);
 }
 
+export async function route_set_section_with_params_display_mode(
+  x: gt.SetSectionWithParamsDisplayModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionWithParamsDisplayMode", x);
+}
+
 export async function route_set_callable_hide_params(
   x: gt.SetCallableHideParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -771,6 +687,18 @@ export async function route_set_section_hide_unpinned_params(
   x: gt.SetSectionHideUnpinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionHideUnpinnedParams", x);
+}
+
+export async function route_set_section_pinned_params(
+  x: gt.SetSectionPinnedParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionPinnedParams", x);
+}
+
+export async function route_set_section_pinned_area_height(
+  x: gt.SetSectionPinnedAreaHeightRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionPinnedAreaHeight", x);
 }
 
 export async function route_set_section_column_width(
@@ -803,64 +731,16 @@ export async function route_set_text_block_format(
   return await post("/setTextBlockFormat", x);
 }
 
-export async function route_set_chat_section_settings(
-  x: gt.SetChatSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionSettings", x);
-}
-
-export async function route_set_chat_section_state(
-  x: gt.SetChatSectionStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionState", x);
-}
-
-async function route_get_chat_section_chat_id(
-  x: gt.GetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<string | null>> {
-  return await post("/getChatSectionChatId", x);
-}
-
-export async function route_set_chat_section_chat_id(
-  x: gt.SetChatSectionChatIdRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionChatId", x);
-}
-
 export async function route_set_social_url(
   x: gt.SetSocialUrlRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSocialUrl", x);
 }
 
-export async function route_move_sections(
-  x: gt.MoveSectionsRequestInput,
+export async function route_move_section(
+  x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveSections", x);
-}
-
-export async function route_move_params(
-  x: gt.MoveParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParams", x);
-}
-
-export async function route_move_param_groups(
-  x: gt.MoveParamGroupsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveParamGroups", x);
-}
-
-export async function route_indent_params(
-  x: gt.IndentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/indentParams", x);
-}
-
-export async function route_unindent_params(
-  x: gt.UnindentParamsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/unindentParams", x);
+  return await post("/moveSection", x);
 }
 
 export async function route_group_sections(
@@ -933,12 +813,6 @@ export async function route_get_backend_init_status(): Promise<
   ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
-}
-
-export async function route_get_auth_refresh_status(): Promise<
-  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
-> {
-  return await get("/authRefreshStatus");
 }
 
 export async function route_list_share_deployments(): Promise<

@@ -1,15 +1,3 @@
-import { useSortable } from "forks/dnd-kit/adapter";
-import {
-  applyZoomToTransform,
-  transformToString,
-} from "forks/dnd-kit/adapter/zoom";
-import {
-  getParamDndItemId,
-  isTempParam,
-  useParamDndState,
-  type ParamListKey,
-} from "forks/dnd-kit/paramDndState";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
@@ -30,100 +18,10 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { ParamContainer } from "./ParamContainer";
-import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
-type ParamSwitchProps = {
-  sectionId: string;
-  paramInfoId: string;
-  requiredParamIdsToPaths: Record<string, string[]>;
-  onResizeStart: React.MouseEventHandler;
-  isTopLevelWithPad?: boolean;
-  listKey: ParamListKey;
-};
-
-function _ParamSwitch(props: ParamSwitchProps) {
-  if (isTempParam(props.paramInfoId)) {
-    return <TempParamSwitch {...props} />;
-  }
-  return <RealParamSwitch {...props} />;
-}
-
-function TempParamSwitch({
-  sectionId,
-  paramInfoId,
-  listKey,
-}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
-  const dndContext = useParamDndContext();
-  const dndEnabled = Boolean(dndContext?.enabled);
-  const activeListKey = listKey ?? dndContext?.listKey ?? null;
-  const { placeholderWidth, placeholderHeight } = useParamDndState(
-    (state) => ({
-      placeholderWidth: state.placeholderWidth,
-      placeholderHeight: state.placeholderHeight,
-    }),
-    _.isEqual,
-  );
-  const zoom = useReactFlow((state) => state.transform[2]);
-  const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth =
-    placeholderWidth !== null ? placeholderWidth / safeZoom : null;
-  const normalizedHeight =
-    placeholderHeight !== null ? placeholderHeight / safeZoom : null;
-
-  if (!activeListKey) {
-    return null;
-  }
-  const dndId = isTempParam(paramInfoId)
-    ? paramInfoId
-    : getParamDndItemId(paramInfoId, activeListKey);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: dndId,
-    disabled: !dndEnabled,
-    data: {
-      type: "param",
-      paramId: null,
-      sectionId,
-      listKey: activeListKey,
-      isTopLevel: false,
-      hasNested: false,
-      onlyChildId: null,
-    },
-  });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDragging ? 1000 : undefined,
-    height: normalizedHeight ?? undefined,
-    width: normalizedWidth ?? undefined,
-  };
-  const columnWidth = "var(--param-column-width, 200px)";
-
-  return (
-    <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
-      ref={setNodeRef}
-      {...(restAttributes ?? {})}
-      {...(listeners ?? {})}
-    />
-  );
-}
-
-function RealParamSwitch(props: ParamSwitchProps) {
+function _ParamSwitch(props) {
   const { sectionId, paramInfoId } = props;
 
   const errorMessages = useTypeErrors(
@@ -165,78 +63,33 @@ function RealParamSwitch(props: ParamSwitchProps) {
       };
     }, _.isEqual);
 
-  const dndContext = useParamDndContext();
-  const dndEnabled = Boolean(dndContext?.enabled);
-  const listKey = props.listKey;
-  const dndId = getParamDndItemId(paramInfoId, listKey);
-  const hasNested = paramChildren.length > 0;
-  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: dndId,
-    disabled: !dndEnabled,
-    data: {
-      type: "param",
-      paramId: paramInfoId,
-      sectionId,
-      listKey,
-      isTopLevel: false,
-      hasNested,
-      onlyChildId,
-    },
-  });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDragging ? 1000 : undefined,
-  };
-
   const hasChildren = paramChildren.length > 0;
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const handleParamMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isSelectingParams) {
-        return;
+  const handleParamSelection = useCallback(
+    (e) => {
+      if (useMisc.getState().isSelectingParams) {
+        e.stopPropagation(); // to prevent text input from becoming active
+        toggleParamSelected(sectionId, paramInfoId);
       }
-      e.stopPropagation();
-      e.preventDefault();
     },
-    [isSelectingParams],
-  );
-  const handleParamClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isSelectingParams) {
-        return;
-      }
-      e.stopPropagation();
-      toggleParamSelected(sectionId, paramInfoId);
-    },
-    [isSelectingParams, sectionId, paramInfoId],
+    [sectionId, paramInfoId],
   );
 
-  const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
-  const onMouseDownAlways = handleParamMouseDown;
+  // No need for additional useCallback since this is just a simple conditional
+  const onMouseDownConditional = hasChildren ? handleParamSelection : undefined;
+  const onMouseDownAlways = handleParamSelection;
 
   const bg = paramIsSelected
     ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
     : "transition-colors rounded-sm";
 
-  let border = "";
-  if (hasError) {
-    border = "bg-red-200 dark:bg-red-800/30";
-  } else if (isFocusedSearchResult) {
-    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
-  } else if (isSearchResult) {
-    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
-  }
+  // warnings should be AMBER
+  const border = hasError
+    ? "bg-red-200 dark:bg-red-800/30"
+    : isFocusedSearchResult
+      ? "outline outline-4 outline-green-500 dark:outline-green-500/80"
+      : isSearchResult
+        ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
+        : "";
 
   return (
     <ParamContainer
@@ -245,15 +98,9 @@ function RealParamSwitch(props: ParamSwitchProps) {
       isNestedParam={isNestedParam}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
-      onClick={handleParamClick}
       maybeErrorMessage={maybeErrorMessage}
       border={border}
       bg={bg}
-      dndAttributes={restAttributes}
-      dndListeners={listeners}
-      dndRef={setNodeRef}
-      dndStyle={dndStyle}
-      dndClassName={isDragging ? "opacity-80" : ""}
     >
       {isKwarg ? (
         <ParamNameInput
