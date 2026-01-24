@@ -209,3 +209,40 @@ const firstFocusableElement = (container) => {
 export function focusOnSectionSearch(sectionId: string) {
   document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
 }
+
+const pendingSectionTextFocus = new Set<string>();
+const TERMINAL_INPUT_SELECTOR = ".xterm-helper-textarea, .xterm textarea";
+const SECTION_TEXT_INPUT_SELECTOR = `[contenteditable="true"], .cm-content, ${TERMINAL_INPUT_SELECTOR}`;
+
+export function isPendingSectionTextFocus(sectionId: string) {
+  return pendingSectionTextFocus.has(sectionId);
+}
+
+export function clearPendingSectionTextFocus(sectionId: string) {
+  pendingSectionTextFocus.delete(sectionId);
+}
+
+export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
+  if (attempt === 0) {
+    pendingSectionTextFocus.add(sectionId);
+  }
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
+  const focusTarget = ref?.querySelector?.(SECTION_TEXT_INPUT_SELECTOR);
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus({ preventScroll: true });
+    const active = document.activeElement;
+    if (ref && active instanceof HTMLElement && ref.contains(active)) {
+      if (!focusTarget.matches(TERMINAL_INPUT_SELECTOR)) {
+        clearPendingSectionTextFocus(sectionId);
+      }
+      return;
+    }
+  }
+  if (attempt < 240) {
+    requestAnimationFrame(() =>
+      focusOnSectionTextInput(sectionId, attempt + 1),
+    );
+  }
+}
