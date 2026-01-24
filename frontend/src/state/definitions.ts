@@ -429,6 +429,22 @@ export const useTypeErrors = withProjectState(
   ),
 );
 
+type ZustandNameValidationErrors = {
+  sectionErrors: Record<string, Array<string>>;
+  paramErrors: Record<string, Array<string>>;
+};
+
+export const useNameValidationErrors = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ZustandNameValidationErrors>(() => ({
+        sectionErrors: {},
+        paramErrors: {},
+      })),
+    ),
+  ),
+);
+
 type ZustandWebsocketConnectionList = {
   connections: Array<WebsocketConnectionInfo>;
 };

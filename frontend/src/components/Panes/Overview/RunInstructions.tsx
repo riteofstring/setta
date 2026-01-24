@@ -143,10 +143,8 @@ export function RunInstructions() {
     (target) => target.language !== ProjectCodegenLanguageEnum.python,
   );
   const defaultPolicy = React.useMemo(() => createSectionCodegenPolicy(), []);
-  const pythonTarget = React.useMemo(
-    () => currentPythonTarget ?? createProjectCodegenPythonTarget(),
-    [currentPythonTarget],
-  );
+  const pythonTarget =
+    currentPythonTarget ?? createProjectCodegenPythonTarget();
   const sectionPolicy = pythonTarget.sectionPolicy;
   const defaultAllowlist = defaultPolicy.allowlist ?? [];
   const [cachedAllowlist, setCachedAllowlist] = React.useState<SectionType[]>(
@@ -163,12 +161,9 @@ export function RunInstructions() {
   }, [sectionOptions]);
 
   React.useEffect(() => {
-    if (!sectionPolicy.allowlist) {
-      return;
+    if (sectionPolicy.allowlist) {
+      setCachedAllowlist(sectionPolicy.allowlist);
     }
-    setCachedAllowlist((prev) =>
-      _.isEqual(prev, sectionPolicy.allowlist) ? prev : sectionPolicy.allowlist,
-    );
   }, [sectionPolicy.allowlist]);
 
   const applyCodegenTargets = (

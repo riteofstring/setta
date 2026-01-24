@@ -6,6 +6,7 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_set_project_config_name } from "utils/generatedEndpoints";
+import { validateProjectNameInput } from "utils/nameValidation";
 
 const editing =
   "flex-1 box-border [border-width:0_0_1px_0] border-solid bg-transparent focus:border-blue-300 focus-visible:ring-0 focus-visible:outline-none w-full ";
@@ -35,19 +36,29 @@ function ProjectNameOnly() {
     onKeyDown,
     blurTriggeredByEscapeKey,
   } = useEditableProjectName();
+  const validationError = validateProjectNameInput(localName);
+  let errorClassName = "";
+  if (validationError) {
+    errorClassName = "border-red-400 text-red-600 dark:text-red-300";
+  }
 
   return (
-    <Editable
-      titleProps={{
-        editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
-        notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
-      }}
-      value={localName}
-      onChange={onChange}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
-    />
+    <>
+      <Editable
+        titleProps={{
+          editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
+          notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
+        }}
+        value={localName}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
+      />
+      {validationError && (
+        <p className="mt-1 text-xs text-red-500">{validationError}</p>
+      )}
+    </>
   );
 }
 
@@ -58,6 +69,10 @@ function useEditableProjectName() {
   }));
   const navigate = useNavigate();
   async function condition(v: string) {
+    const validationError = validateProjectNameInput(v);
+    if (validationError) {
+      return false;
+    }
     const res = await route_set_project_config_name({
       projectConfigId,
       newName: v,

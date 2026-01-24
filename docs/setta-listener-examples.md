@@ -250,46 +250,6 @@ async def sync_color(state, ctx) -> None:
 listener.start()
 ```
 
-## Dropzone events + attachment access
-Strings: `Uploads` is a dropzone section/param dependency; `report.pdf` is an uploaded filename; `payload=%s` is a log template.
-```python
-import base64
-import json
-
-from setta.api import SettaListener
-from setta.types.listener import ListenerDependencyMode
-
-listener = SettaListener(project_name="Demo Project")
-
-
-@listener.listen(
-    deps=["Uploads"],
-    dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
-)
-def on_dropzone_event(state, ctx) -> None:
-    for event in ctx.events:
-        payload = json.loads(event.payload) if event.payload else {}
-        for attachment in payload.get("attachments", []):
-            if attachment.get("kind") == "file":
-                raw = base64.b64decode(attachment["base64"])
-                ctx.log.info("received file %s (%d bytes)", attachment["name"], len(raw))
-            if attachment.get("kind") == "text":
-                ctx.log.info("received text: %s", attachment.get("text"))
-
-
-@listener.listen(deps=["uploads__files"], run_on_refresh=True)
-def on_dropzone_state(state, ctx) -> None:
-    for attachment in state.uploads__files or []:
-        if attachment.get("kind") == "file":
-            with open(attachment["id"], "rb") as handle:
-                ctx.log.info("read file %s", attachment["name"])
-        if attachment.get("kind") == "text":
-            ctx.log.info("stored text: %s", attachment.get("text"))
-
-
-listener.start()
-```
-
 ## Emit artifact updates (example: image)
 Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose realtime payload is base64 or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
 ```python

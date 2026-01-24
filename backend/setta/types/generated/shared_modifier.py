@@ -19,7 +19,6 @@ from setta.types.chat_messages import (
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
@@ -98,7 +97,6 @@ class SharedModifier(TypedDict):
     llmConfigId: NotRequired[str | None]
     managed: NotRequired[bool]
     max: NotRequired[float | int]
-    maxAttachments: NotRequired[int | None]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -107,7 +105,6 @@ class SharedModifier(TypedDict):
     metaControlParamId: NotRequired[ID | None]
     metaControlStyle: NotRequired[bool]
     min: NotRequired[float | int]
-    mode: NotRequired[DropzoneMode]
     name: NotRequired[str]
     overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]

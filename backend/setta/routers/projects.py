@@ -14,6 +14,7 @@ from setta.types.notifications import (
 )
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
+from setta.utils.errors import InvalidProjectName
 
 router = SettaProjectContextAPIRouter(dependencies=[Depends(require_ide_mode)])
 
@@ -110,7 +111,10 @@ async def route_save_as_new_project_config(
 ):
     project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()
-    await project_manager.save_as_new_project_config(x)
+    try:
+        await project_manager.save_as_new_project_config(x)
+    except (InvalidProjectName, ProjectNameTaken) as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)
@@ -118,9 +122,12 @@ async def route_create_project_config(
     x: CreateProjectConfigRequest, state: AppStateFromRequest
 ) -> str:
     project_manager = state.project_manager_switcher.main
-    newProjectConfigName = await project_manager.create_project_config(
-        x.previewImgColor
-    )
+    try:
+        newProjectConfigName = await project_manager.create_project_config(
+            x.previewImgColor
+        )
+    except InvalidProjectName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
     project_manager.perform_manual_save()
     return newProjectConfigName
 
@@ -144,8 +151,8 @@ async def route_set_project_config_name(
         project_manager = state.project_manager_switcher.main
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         project_manager.perform_manual_save()
-    except ProjectNameTaken as e:
-        raise HTTPException(status_code=422, detail=repr(e))
+    except (InvalidProjectName, ProjectNameTaken) as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)

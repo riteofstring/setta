@@ -16,12 +16,7 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import {
-  CodeObjType,
-  CodeObjTypeEnum,
-  DropzoneModeEnum,
-} from "utils/generatedTypes";
+import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
 
 type MetaControlContentButtonProps = {
   sectionId: string;
@@ -48,9 +43,6 @@ type MetaControlContentValueProps = {
   defaultVal: string;
   showSectionTitle: boolean;
   onValueChange: ParamValueChange;
-  dropzoneMode?: DropzoneModeEnum;
-  dropzoneMaxAttachments?: number | null;
-  onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
 };
 
 type MetaControlContentProps =
@@ -170,9 +162,6 @@ export function MetaControlContent(props: MetaControlContentProps) {
           value={value}
           showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
-          mode={props.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
-          maxAttachments={props.dropzoneMaxAttachments ?? null}
-          onStatelessDrop={props.onDropzoneStateless}
         />
       );
     default:
@@ -446,17 +435,11 @@ function DropzoneControl({
   value,
   showSectionTitle,
   onValueChange,
-  mode,
-  maxAttachments,
-  onStatelessDrop,
 }: {
   sectionName: string;
   value: string;
   showSectionTitle: boolean;
   onValueChange: ParamValueChange;
-  mode: DropzoneModeEnum;
-  maxAttachments: number | null;
-  onStatelessDrop?: (attachments: DropzoneStatelessAttachment[]) => void;
 }) {
   return (
     <MetaControlTitleStack
@@ -464,13 +447,7 @@ function DropzoneControl({
       sectionName={sectionName}
       contentClassName="items-stretch"
     >
-      <DropzoneInput
-        value={value}
-        onChange={onValueChange}
-        onStatelessDrop={onStatelessDrop}
-        mode={mode}
-        maxAttachments={maxAttachments}
-      />
+      <DropzoneInput value={value} onChange={onValueChange} />
     </MetaControlTitleStack>
   );
 }

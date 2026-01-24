@@ -17,7 +17,6 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
@@ -110,12 +109,10 @@ class CoreArgs(TypedDict):
                 "llmConfigId",
                 "managed",
                 "max",
-                "maxAttachments",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
-                "mode",
                 "name",
                 "overflowMode",
                 "paramFilter",
@@ -857,8 +854,6 @@ class TextAreaParamCodeObjImplArgsWithCallable(
 
 class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.DropzoneParam]]
-    mode: NotRequired[DropzoneMode]
-    maxAttachments: NotRequired[int | None]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -870,8 +865,6 @@ class DropzoneParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.DropzoneParam]], Literal[CodeObjType.DropzoneParam]
         ]
     ]
-    mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
-    maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
 
 
 class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):

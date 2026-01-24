@@ -37,8 +37,6 @@ def apply_fastmcp_preparse_patch() -> None:
     if _PATCH_APPLIED:
         return
 
-    original_pre_parse = FuncMetadata.pre_parse_json
-
     def pre_parse_json(self: FuncMetadata, data: dict[str, Any]) -> dict[str, Any]:
         new_data = data.copy()
         for field_name, field in self.arg_model.model_fields.items():
