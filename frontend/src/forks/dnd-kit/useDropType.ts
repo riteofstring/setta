@@ -2,7 +2,7 @@ import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addDndChild,
   removeDndChild,
-  replaceDndSectionsWithTemp,
+  replaceDndSectionWithTemp,
   useDndChildren,
 } from "forks/dnd-kit/dndChildren";
 import {
@@ -13,25 +13,15 @@ import {
   ZustandDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { addTemporaryNotification } from "state/actions/notifications";
+import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
   getSectionChildren,
   getSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
-import {
-  getRootSelectedSectionIds,
-  getSharedParentId,
-  orderSectionIdsByParent,
-} from "state/actions/sections/sectionSelection";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import {
-  useProjectState,
-  useSectionRefs,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -75,51 +65,19 @@ function resetLastResolvedOverState() {
   lastResolvedTriggerDistCondition = null;
 }
 
-export function onDragStart({ active, activeRect }: DragStartEvent) {
+export function onDragStart({ active }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
     return;
   }
-  const activeId = String(active.id);
-  const rawWidth = activeRect?.width ?? 0;
-  const rawHeight = activeRect?.height ?? 0;
-  const zoom = useReactFlow.getState().transform[2];
-  const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth = rawWidth / safeZoom;
-  const normalizedHeight = rawHeight / safeZoom;
+  const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
-  const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
-  console.log("[dnd] section drag start", {
-    activeId,
-    draggingIds: selection.draggingIds,
-    isSorting: dndState.isSorting,
-    isMovingFree: dndState.isMovingFree,
-  });
-  setActiveDnd(
-    activeId,
-    active.data.current.isTopLevel,
-    normalizedWidth,
-    normalizedHeight,
-    activeRect,
-  );
-  useDndState.setState({
-    draggingIds: selection.draggingIds,
-    draggingRectsById: selection.draggingRectsById,
-  });
-  if (dndState.isMovingFree || dndState.isSorting) {
+  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
+  if (dndState.isMovingFree) {
     manualDndChildrenReset();
-    requestAnimationFrame(() => {
-      const latestState = useDndState.getState();
-      if (
-        (!latestState.isMovingFree && !latestState.isSorting) ||
-        latestState.activeId !== activeId
-      ) {
-        return;
-      }
-      replaceDndSectionsWithTemp(activeId, selection.draggingIds);
-    });
+    replaceDndSectionWithTemp(active.id);
   }
 }
 
@@ -508,100 +466,4 @@ function getSectionIsGlobalVariables(sectionId: string) {
 
 function getSectionIsRoot(sectionId: string) {
   return getIsRoot(getSectionType(useProjectState.getState(), sectionId));
-}
-
-type DragRect = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
-
-function resolveSectionDragSelection(
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): {
-  draggingIds: string[];
-  draggingRectsById: Record<string, DragRect> | null;
-} {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const state = useProjectState.getState();
-  const activeIds = state.projectConfig.activeIds;
-  if (!activeIds.includes(activeId)) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const { rootIds } = getRootSelectedSectionIds(state, activeIds);
-  if (rootIds.length === 0) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const sharedParentId = getSharedParentId(state, rootIds);
-  if (rootIds.length > 1 && sharedParentId === undefined) {
-    addTemporaryNotification("Section selection spans multiple parents.");
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const orderedIds = orderSectionIdsByParent(
-    state,
-    sharedParentId ?? null,
-    rootIds,
-  );
-  return {
-    draggingIds: orderedIds,
-    draggingRectsById: resolveDraggingRects(orderedIds, activeId, activeRect),
-  };
-}
-
-function resolveDraggingRects(
-  sectionIds: string[],
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): Record<string, DragRect> | null {
-  const dndState = useDndState.getState();
-  if (!dndState.isMovingFree) {
-    return null;
-  }
-  const refs = useSectionRefs.getState();
-  const rectsById: Record<string, DragRect> = {};
-  for (const sectionId of sectionIds) {
-    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
-    if (ref) {
-      const rect = ref.getBoundingClientRect();
-      rectsById[sectionId] = {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-      continue;
-    }
-    if (sectionId === activeId && activeRect) {
-      rectsById[sectionId] = { ...activeRect };
-    }
-  }
-  if (Object.keys(rectsById).length === 0) {
-    return null;
-  }
-  return rectsById;
 }

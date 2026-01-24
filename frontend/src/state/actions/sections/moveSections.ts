@@ -1,10 +1,6 @@
-import {
-  addNodes,
-  deleteNodes,
-  justMoveANode,
-} from "state/actions/nodeInternals";
-import { useNodeInternals, ZustandProjectState } from "state/definitions";
-import { route_move_sections } from "utils/generatedEndpoints";
+import { addNodes, deleteNodes } from "state/actions/nodeInternals";
+import { ZustandProjectState } from "state/definitions";
+import { route_move_section } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
@@ -13,160 +9,143 @@ import {
   setSectionChildren,
 } from "../sectionInfos";
 
-type MoveSectionsInput = {
-  sectionIds: string[];
-  newParentId: string | null;
-  newIndex: number | null;
-  positionsById: Record<string, Position> | null;
-};
-
-export function moveSectionsWithBackend({
+function moveSections({
   sectionIds,
+  oldParentIds,
+  newParentIds,
+  positions,
+  oldParentId,
   newParentId,
-  newIndex,
-  positionsById,
-}: MoveSectionsInput) {
-  if (sectionIds.length === 0) {
-    return;
+  state,
+}) {
+  for (const [idx, sectionId] of sectionIds.entries()) {
+    moveSection({
+      oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
+      newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
+      oldSectionId: sectionId,
+      newSectionId: sectionId,
+      newIndex: idx,
+      position: positions ? positions[sectionId] : null,
+      state,
+    });
   }
+}
+
+function moveSection({
+  oldParentId,
+  newParentId,
+  oldSectionId,
+  newSectionId,
+  newIndex,
+  position,
+  state,
+}: {
+  oldParentId: string | null;
+  newParentId: string | null;
+  oldSectionId: string;
+  newSectionId: string;
+  newIndex: number | null;
+  position: Position | null;
+  state: ZustandProjectState;
+}) {
+  setChildrenAndParent({
+    oldParentId,
+    newParentId,
+    oldSectionId,
+    newSectionId,
+    newIndex,
+    position,
+    state,
+  });
+
+  // setSectionSizeAfterMove(newParentId, newSectionId, state);
+}
+
+export function moveSectionWithBackend({
+  oldParentId,
+  newParentId,
+  sectionId,
+  newIndex,
+  position,
+}: {
+  oldParentId: string | null;
+  newParentId: string | null;
+  sectionId: string;
+  newIndex: number | null;
+  position: Position | null;
+}) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      moveSectionsInState({
-        sectionIds,
+      moveSection({
+        oldParentId,
         newParentId,
+        oldSectionId: sectionId,
+        newSectionId: sectionId,
         newIndex,
-        positionsById,
+        position,
         state,
       });
     },
     send: (frontendOpId) =>
-      route_move_sections({
+      route_move_section({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds,
+        sectionId,
         newParentId,
         newIndex,
-        positionsById,
+        position,
         frontendOpId,
       }),
   });
 }
 
-function moveSectionsInState({
-  sectionIds,
+function setChildrenAndParent({
+  oldParentId,
   newParentId,
+  oldSectionId,
+  newSectionId,
   newIndex,
-  positionsById,
-  state,
-}: MoveSectionsInput & { state: ZustandProjectState }) {
-  if (newParentId === null) {
-    moveSectionsToPane({
-      sectionIds,
-      positionsById,
-      state,
-    });
-    return;
-  }
-  if (newIndex === null) {
-    throw new Error("Expected newIndex when moving sections into parent.");
-  }
-  removeSectionsFromParents({
-    sectionIds,
-    state,
-    removeTopLevelNodes: true,
-  });
-  const movingSet = new Set(sectionIds);
-  setSectionChildren(state, newParentId, (children) => {
-    const nextChildren = children.filter((id) => !movingSet.has(id));
-    return insertIntoArray(nextChildren, newIndex, ...sectionIds);
-  });
-}
-
-function moveSectionsToPane({
-  sectionIds,
-  positionsById,
+  position,
   state,
 }: {
-  sectionIds: string[];
-  positionsById: Record<string, Position> | null;
+  oldParentId: string | null;
+  newParentId: string | null;
+  oldSectionId: string;
+  newSectionId: string;
+  newIndex: number | null;
+  position: Position | null;
   state: ZustandProjectState;
 }) {
-  if (!positionsById) {
-    throw new Error("Expected positionsById when moving sections to pane.");
+  // Remove child from old parent's list
+  if (!oldParentId) {
+    // This means it was a top level section
+    deleteNodes([oldSectionId]);
+  } else {
+    setSectionChildren(state, oldParentId, (x) =>
+      x.filter((y) => y !== oldSectionId),
+    );
   }
-  removeSectionsFromParents({
-    sectionIds,
-    state,
-    removeTopLevelNodes: false,
-  });
-  let maxZIndex = getMaxZIndex();
-  for (const sectionId of sectionIds) {
-    const position = positionsById[sectionId];
-    if (!position) {
-      throw new Error(`Missing position for section ${sectionId}.`);
+  if (!newParentId) {
+    if (position === null) {
+      throw new Error();
     }
-    if (hasNode(sectionId)) {
-      justMoveANode(sectionId, position);
-      continue;
-    }
-    maxZIndex += 1;
+    // This means it's becoming a top level section
     addNodes([
       {
-        id: sectionId,
+        id: newSectionId,
         position,
-        zIndex: maxZIndex,
-        tempZIndex: maxZIndex,
+        zIndex: 0,
+        tempZIndex: 0,
         width: null,
         height: null,
       },
     ]);
-  }
-}
-
-function removeSectionsFromParents({
-  sectionIds,
-  state,
-  removeTopLevelNodes,
-}: {
-  sectionIds: string[];
-  state: ZustandProjectState;
-  removeTopLevelNodes: boolean;
-}) {
-  const idsByParent: Record<string, string[]> = {};
-  const topLevelIds: string[] = [];
-  for (const sectionId of sectionIds) {
-    const parentId = state.parentSectionMap[sectionId] ?? null;
-    if (!parentId) {
-      topLevelIds.push(sectionId);
-      continue;
+  } else {
+    if (newIndex === null) {
+      throw new Error();
     }
-    if (!idsByParent[parentId]) {
-      idsByParent[parentId] = [];
-    }
-    idsByParent[parentId].push(sectionId);
-  }
-
-  for (const [parentId, ids] of Object.entries(idsByParent)) {
-    const removalSet = new Set(ids);
-    setSectionChildren(state, parentId, (children) =>
-      children.filter((id) => !removalSet.has(id)),
+    // Add child to new parent's list
+    setSectionChildren(state, newParentId, (x) =>
+      insertIntoArray(x, newIndex, newSectionId),
     );
   }
-
-  if (removeTopLevelNodes && topLevelIds.length > 0) {
-    deleteNodes(topLevelIds);
-  }
-}
-
-function hasNode(sectionId: string): boolean {
-  return useNodeInternals.getState().x.has(sectionId);
-}
-
-function getMaxZIndex(): number {
-  let maxZIndex = -1;
-  for (const node of useNodeInternals.getState().x.values()) {
-    if (node.zIndex > maxZIndex) {
-      maxZIndex = node.zIndex;
-    }
-  }
-  return maxZIndex;
 }

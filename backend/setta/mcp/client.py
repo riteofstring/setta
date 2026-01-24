@@ -258,9 +258,6 @@ class MultiMCPClient:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         self._connection_tasks.clear()
-        server_ids = list(self._exit_stacks.keys())
-        for server_id in server_ids:
-            await self._cleanup_server(server_id, rebuild_tool_cache=False)
         self._exit_stacks.clear()
         self._sessions.clear()
         self._server_tool_cache.clear()
@@ -476,12 +473,7 @@ class MultiMCPClient:
             await asyncio.sleep(10)
             await session.send_ping()
 
-    async def _cleanup_server(
-        self,
-        server_id: str,
-        *,
-        rebuild_tool_cache: bool = True,
-    ) -> None:
+    async def _cleanup_server(self, server_id: str) -> None:
         exit_stack = self._exit_stacks.pop(server_id, None)
         if exit_stack is None:
             return
@@ -491,8 +483,7 @@ class MultiMCPClient:
             logger.debug("Ignoring MCP cleanup error for %s", server_id, exc_info=True)
         self._sessions.pop(server_id, None)
         self._server_tool_cache.pop(server_id, None)
-        if rebuild_tool_cache:
-            self._rebuild_tool_cache()
+        self._rebuild_tool_cache()
 
     def _update_tool_cache_for_server(self, server_id: str, tools: list[Tool]) -> None:
         init_tools: dict[str, ChatCompletionToolParam] = {}
