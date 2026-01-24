@@ -15,3 +15,11 @@
   ```bash
   PLAYWRIGHT_BROWSERS_PATH=setta_files/run/playwright-browsers agent-browser install
   ```
+
+- If the sandbox blocks launching Playwright locally, connect to a debug Chrome:
+
+  ```bash
+  DEBUG_PORT=9222 scripts/start-browser-mcp.sh --devtools
+  agent-browser --cdp 9222 open "$(scripts/bootstrap-url.sh)"
+  agent-browser --cdp 9222 open "http://127.0.0.1:3000"
+  ```

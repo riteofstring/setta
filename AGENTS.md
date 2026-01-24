@@ -31,6 +31,7 @@
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Always use the agent-browser CLI to verify any visual edits, even when Playwright/Vitest tests run.
+- Before using agent-browser, read `docs/guides/agent-browser-usage.md` for the current bootstrap/CDP workflow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
