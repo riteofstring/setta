@@ -41,13 +41,13 @@ def _manager_context() -> Iterator[LLMChatManager]:
 def _build_manager_and_chat(
     *,
     other_params: dict[str, object] | None = None,
-) -> Iterator[tuple[LLMChatManager, Chat, ID]]:
+) -> Iterator[tuple[LLMChatManager, Chat]]:
     with TemporaryDirectory() as temp_dir:
         dbe = DBE(Path(temp_dir))
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         mcp_client = MultiMCPClient({})
-        active_project_config_id = ID("project-uuid")
+        project_config_id = ID("project-uuid")
         manager = LLMChatManager(
             dbe,
             mcp_client,
@@ -67,7 +67,7 @@ def _build_manager_and_chat(
         chat = Chat(
             id=ID("chat-uuid"),
             name="Test Chat",
-            projectConfigId=None,
+            projectConfigId=project_config_id,
             llmConfig=manager.config.configs["provider-one"],
             messages=[
                 UserChatMessage(
@@ -75,7 +75,7 @@ def _build_manager_and_chat(
                 )
             ],
         )
-        yield manager, chat, active_project_config_id
+        yield manager, chat
 
 
 class StreamEntryFallbackTests(unittest.TestCase):
@@ -124,15 +124,11 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
 class SystemPromptInjectionTests(unittest.TestCase):
     def test_payload_includes_system_prompt_before_chat_history(self) -> None:
-        with _build_manager_and_chat() as (manager, chat, active_project_config_id):
+        with _build_manager_and_chat() as (manager, chat):
             prompt = manager.system_prompt
 
             payload = asyncio.run(
-                manager._build_llm_request_payload(
-                    chat,
-                    deep_think=False,
-                    active_project_config_id=active_project_config_id,
-                )
+                manager._build_llm_request_payload(chat, deep_think=False)
             )
 
             self.assertEqual(payload["messages"][0]["role"], "system")
@@ -140,9 +136,9 @@ class SystemPromptInjectionTests(unittest.TestCase):
             self.assertTrue(system_text.startswith(prompt))
             self.assertIn("## Active project config", system_text)
             _, canonical_to_temporary = manager.dbe.read_temporary_id_map()
-            if active_project_config_id not in canonical_to_temporary:
+            if chat.projectConfigId not in canonical_to_temporary:
                 raise AssertionError("Expected project config ID in temporary map")
-            temporary_project_id = canonical_to_temporary[active_project_config_id]
+            temporary_project_id = canonical_to_temporary[chat.projectConfigId]
             self.assertIn(str(temporary_project_id), system_text)
             self.assertNotIn("## Project summary", system_text)
             self.assertEqual(payload["messages"][1]["role"], "user")
@@ -154,17 +150,13 @@ class SystemPromptInjectionTests(unittest.TestCase):
 
 class CachePromptingTests(unittest.TestCase):
     def test_cache_prompting_enabled_when_supported(self) -> None:
-        with _build_manager_and_chat() as (manager, chat, active_project_config_id):
+        with _build_manager_and_chat() as (manager, chat):
             with patch(
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=True,
             ):
                 payload = asyncio.run(
-                    manager._build_llm_request_payload(
-                        chat,
-                        deep_think=False,
-                        active_project_config_id=active_project_config_id,
-                    )
+                    manager._build_llm_request_payload(chat, deep_think=False)
                 )
 
             self.assertEqual(
@@ -176,17 +168,13 @@ class CachePromptingTests(unittest.TestCase):
             )
 
     def test_cache_prompting_skipped_without_support(self) -> None:
-        with _build_manager_and_chat() as (manager, chat, active_project_config_id):
+        with _build_manager_and_chat() as (manager, chat):
             with patch(
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=False,
             ):
                 payload = asyncio.run(
-                    manager._build_llm_request_payload(
-                        chat,
-                        deep_think=False,
-                        active_project_config_id=active_project_config_id,
-                    )
+                    manager._build_llm_request_payload(chat, deep_think=False)
                 )
 
             self.assertNotIn("cache_control_injection_points", payload)
@@ -198,17 +186,13 @@ class CachePromptingTests(unittest.TestCase):
                     {"location": "message", "role": "user"}
                 ]
             }
-        ) as (manager, chat, active_project_config_id):
+        ) as (manager, chat):
             with patch(
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=True,
             ):
                 payload = asyncio.run(
-                    manager._build_llm_request_payload(
-                        chat,
-                        deep_think=False,
-                        active_project_config_id=active_project_config_id,
-                    )
+                    manager._build_llm_request_payload(chat, deep_think=False)
                 )
 
             self.assertEqual(
@@ -217,7 +201,7 @@ class CachePromptingTests(unittest.TestCase):
             )
 
     def test_cache_prompting_includes_all_prior_history(self) -> None:
-        with _build_manager_and_chat() as (manager, chat, active_project_config_id):
+        with _build_manager_and_chat() as (manager, chat):
             chat.messages = [
                 UserChatMessage(content=[MessageTextContent(text="First question")]),
                 AssistantChatMessage(content=[MessageTextContent(text="First reply")]),
@@ -230,11 +214,7 @@ class CachePromptingTests(unittest.TestCase):
                 return_value=True,
             ):
                 payload = asyncio.run(
-                    manager._build_llm_request_payload(
-                        chat,
-                        deep_think=False,
-                        active_project_config_id=active_project_config_id,
-                    )
+                    manager._build_llm_request_payload(chat, deep_think=False)
                 )
 
             self.assertEqual(
