@@ -54,7 +54,7 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
 
 
@@ -95,7 +95,7 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     dataPath: str = ""
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=400, height=400)
+        default_factory=lambda: SectionSize(width=250.0, height=150.0)
     )
 
 
@@ -114,9 +114,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
@@ -156,7 +154,7 @@ class UserDefaultGenPythonMetadataSectionImpl(
 
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=700, height=300)
+        default_factory=lambda: SectionSize(width=250.0, height=150.0)
     )
 
 
@@ -165,9 +163,7 @@ class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 
 class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=405, height=405)
-    )
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=250.0))
     managed: bool = False
     llmConfigId: str | None = None
     chatId: ID | None = None

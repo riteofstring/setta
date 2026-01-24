@@ -8,6 +8,7 @@ DEFAULT_MIN_WIDTH = 200
 ROOT_SECTION_HEIGHT = 50
 MINIMIZED_SECTION_HEIGHT = 32
 PINNED_PARAMS_AREA_MIN_HEIGHT = 64
+AUTO_SECTION_MAX_HEIGHT = 350.0
 
 
 class RenameRefactorMode(str, Enum):
@@ -158,6 +159,7 @@ class SectionSizingPolicyGlobals(BaseModel):
     minimizedHeight: float = MINIMIZED_SECTION_HEIGHT
     infiniteMaxHeight: float = INFINITE_MAX_HEIGHT
     infiniteMaxWidth: float = INFINITE_MAX_WIDTH
+    autoMaxHeight: float = AUTO_SECTION_MAX_HEIGHT
 
 
 class SectionSizingPolicyByType(BaseModel):

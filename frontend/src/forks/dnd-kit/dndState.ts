@@ -16,18 +16,6 @@ export type ZustandDndState = {
   isMovingFree: boolean;
   pendingDeactivation: boolean;
   disabled: Record<string, Disabled>;
-  draggingIds: string[];
-  draggingRectsById: Record<
-    string,
-    {
-      top: number;
-      left: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    }
-  > | null;
   activeRect: {
     top: number;
     left: number;
@@ -54,8 +42,6 @@ export const useDndState = withProjectState(
         isMovingFree: false,
         pendingDeactivation: false,
         disabled: {},
-        draggingIds: [],
-        draggingRectsById: null,
         activeRect: null,
         width: null,
         height: null,

@@ -439,7 +439,7 @@ export const RouteEnum = {
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
-  MOVE_SECTIONS: "/moveSections",
+  MOVE_SECTION: "/moveSection",
   MOVE_PARAMS: "/moveParams",
   MOVE_PARAM_GROUPS: "/moveParamGroups",
   INDENT_PARAMS: "/indentParams",
@@ -1169,9 +1169,7 @@ export function createDrawAreaLayer(
 }
 
 const SectionSizeSchema = z.object({
-  width: z
-    .union([z.number(), z.literal("auto")])
-    .default(SectionSizeModeEnum.auto),
+  width: z.union([z.number(), z.literal("auto")]).default(250.0),
   height: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
@@ -1535,9 +1533,7 @@ const ChartSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 400.0, height: 400.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1588,9 +1584,7 @@ const TextBlockSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1752,9 +1746,7 @@ const TerminalSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 700.0, height: 300.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1788,9 +1780,7 @@ const ChatSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 405.0, height: 405.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize()),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3834,6 +3824,7 @@ const SectionSizingPolicyGlobalsSchema = z.object({
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),
+  autoMaxHeight: z.number().default(350.0),
 });
 
 type SectionSizingPolicyGlobals = z.infer<
@@ -3918,9 +3909,7 @@ function createUserDefaultCallableSectionImpl(
 
 const UserDefaultChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 400.0, height: 400.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -3939,9 +3928,7 @@ function createUserDefaultChartSectionImpl(
 
 const UserDefaultChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 405.0, height: 405.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize()),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -4239,9 +4226,7 @@ function createUserDefaultSocialSectionImpl(
 
 const UserDefaultTerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 700.0, height: 300.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ height: 150.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -4259,9 +4244,7 @@ function createUserDefaultTerminalSectionImpl(
 
 const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
+  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -5963,18 +5946,16 @@ const MoveParamsRequestSchema = z.object({
 
 export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
 
-const MoveSectionsRequestSchema = z.object({
+const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionIds: z.array(IDSchema),
+  sectionId: IDSchema,
   newParentId: z.union([IDSchema, z.null()]),
   newIndex: z.union([z.int(), z.null()]),
-  positionsById: z.union([z.record(IDSchema, PositionSchema), z.null()]),
+  position: z.union([PositionSchema, z.null()]),
 });
 
-export type MoveSectionsRequestInput = z.input<
-  typeof MoveSectionsRequestSchema
->;
+export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
 
 const OutputAccessorCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
