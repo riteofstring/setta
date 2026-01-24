@@ -13,6 +13,7 @@ type ChatInputProps = {
   placeholderText: string | undefined;
   waitingForResponse: boolean;
   disabled?: boolean;
+  submitDisabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
   onSubmit: (message: string) => Promise<void> | void;
@@ -23,6 +24,7 @@ export const ChatInput = memo(function ChatInput({
   placeholderText,
   waitingForResponse,
   disabled = false,
+  submitDisabled = false,
   value,
   onChange,
   onSubmit,
@@ -32,6 +34,7 @@ export const ChatInput = memo(function ChatInput({
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const isDisabled = disabled;
+  const isSubmitDisabled = submitDisabled || isDisabled;
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -64,21 +67,37 @@ export const ChatInput = memo(function ChatInput({
         }
         return;
       }
+      if (isSubmitDisabled) {
+        return;
+      }
 
       const trimmedInput = inputValue.trim();
       if (trimmedInput.length === 0) {
         return;
       }
 
-      await onSubmit(inputValue);
+      const submittedValue = inputValue;
       clearInput();
+      await onSubmit(submittedValue);
     },
-    [clearInput, inputValue, onStop, onSubmit, waitingForResponse],
+    [
+      clearInput,
+      inputValue,
+      isSubmitDisabled,
+      onStop,
+      onSubmit,
+      waitingForResponse,
+    ],
   );
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key !== "Enter" || event.shiftKey || waitingForResponse) {
+      if (
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        waitingForResponse ||
+        isSubmitDisabled
+      ) {
         return;
       }
       event.preventDefault();
@@ -88,7 +107,7 @@ export const ChatInput = memo(function ChatInput({
       });
       event.currentTarget.form?.dispatchEvent(formEvent);
     },
-    [waitingForResponse],
+    [isSubmitDisabled, waitingForResponse],
   );
 
   const buttonIcon = useMemo(() => {
@@ -102,8 +121,11 @@ export const ChatInput = memo(function ChatInput({
     if (waitingForResponse) {
       return "text-setta-300 dark:text-setta-600";
     }
+    if (isSubmitDisabled) {
+      return "text-setta-300 dark:text-setta-600";
+    }
     return "text-setta-500 hover:text-blue-500 focus:text-blue-500";
-  }, [waitingForResponse]);
+  }, [isSubmitDisabled, waitingForResponse]);
 
   const textAreaClassName = useMemo(() => {
     const base =
@@ -128,8 +150,8 @@ export const ChatInput = memo(function ChatInput({
         />
         <button
           type="submit"
-          disabled={isDisabled}
-          className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${buttonClassName} focus:outline-none focus:ring-0 dark:hover:text-blue-700`}
+          disabled={isSubmitDisabled}
+          className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${buttonClassName} disabled:opacity-40 focus:outline-none focus:ring-0 dark:hover:text-blue-700`}
         >
           {buttonIcon}
         </button>

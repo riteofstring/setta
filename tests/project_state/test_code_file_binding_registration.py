@@ -281,7 +281,7 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         )
         settings_config = ProjectConfig(
             id=ID("settings-config"),
-            name="settings_project_test",
+            name="settings",
         )
         settings_backend = ProjectStateBackend(
             projectConfigs={settings_config.id: settings_config},
