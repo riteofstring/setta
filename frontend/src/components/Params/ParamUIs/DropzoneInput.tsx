@@ -384,10 +384,10 @@ export function DropzoneInput({
     label = `${displayAttachments.length} attachment${suffix}`;
   }
   const disabledClassName = isDisabled ? "opacity-60" : "";
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} section-value flex w-full items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500 ${disabledClassName} ${className ?? ""}`;
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} section-value flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500 ${disabledClassName} ${className ?? ""}`;
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex h-full min-h-0 w-full flex-col gap-2">
       <div
         className={wrapperClassName}
         onDrop={(event) => {
