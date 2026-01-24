@@ -1,3 +1,4 @@
+import logging
 import os
 import warnings
 import socket
@@ -5,20 +6,108 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.agentic.store import save_engine_configs
+from setta.agentic.store import load_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.types.agentic import AgentProfile, AgentRunStatus, EngineConfig, EngineType
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.mcp_runner_fixture import build_runner_with_local_mcp_session
+
+
+def _extract_last_assistant_text(messages_out: list[dict]) -> str | None:
+    for message in reversed(messages_out):
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    return text
+    return None
+
+
+def _extract_finalized_assistant_text(events) -> str | None:
+    for event in reversed(events):
+        if event.type != "stream_chunk":
+            continue
+        payload = event.payload
+        if not isinstance(payload, dict):
+            continue
+        chunk = payload.get("chunk")
+        if not isinstance(chunk, dict):
+            continue
+        if chunk.get("type") != "message_finalized":
+            continue
+        message = chunk.get("message")
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    return text
+    return None
+
+
+def _collect_stream_text_from_events(events) -> tuple[str, int]:
+    text_by_index: dict[int, list[str]] = {}
+    delta_count = 0
+    for event in events:
+        if event.type != "stream_chunk":
+            continue
+        payload = event.payload
+        if not isinstance(payload, dict):
+            continue
+        chunk = payload.get("chunk")
+        if not isinstance(chunk, dict):
+            continue
+        if chunk.get("type") != "delta":
+            continue
+        content = chunk.get("content")
+        if not isinstance(content, list):
+            continue
+        for entry in content:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("type") != "text_delta":
+                continue
+            index = entry.get("index")
+            text = entry.get("text")
+            if not isinstance(index, int) or not isinstance(text, str):
+                continue
+            text_by_index.setdefault(index, []).append(text)
+            delta_count += 1
+    combined = "".join(
+        "".join(text_by_index[index]) for index in sorted(text_by_index)
+    )
+    return combined, delta_count
+
 
 class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _suppress_llm_logs() -> None:
+        logging.getLogger("litellm").setLevel(logging.WARNING)
+        logging.getLogger("litellm.utils").setLevel(logging.WARNING)
+        logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
     def _require_anthropic_key(self) -> str:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
@@ -42,6 +131,7 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 category=UserWarning,
                 module=r"pydantic.*",
             )
+            self._suppress_llm_logs()
             api_key = self._require_anthropic_key()
 
             with TemporaryDirectory() as tmpdir:
@@ -146,6 +236,11 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(messages_out, list)
                 if not isinstance(messages_out, list):
                     raise AssertionError("Expected message history from initial run")
+                assistant_text = _extract_last_assistant_text(messages_out)
+                self.assertIsInstance(assistant_text, str)
+                if not isinstance(assistant_text, str):
+                    raise AssertionError("Expected assistant text from initial run")
+                self.assertEqual(assistant_text.strip(), final_text.strip())
 
                 thinking_blocks: list[dict] = []
                 for message in messages_out:
@@ -200,3 +295,154 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if not isinstance(second_final_text, str):
                     raise AssertionError("Expected finalText to be a string")
                 self.assertEqual(second_final_text.strip(), "OK")
+
+                loaded_first = load_agent_run(dbe, first_run.id)
+                self.assertIsNotNone(loaded_first)
+                if loaded_first is None:
+                    raise AssertionError("Expected persisted run for initial run")
+                self.assertEqual(loaded_first.status, AgentRunStatus.completed)
+                self.assertIsNotNone(loaded_first.finishedAt)
+                self.assertTrue(loaded_first.events)
+                self.assertEqual(loaded_first.events[-1].type, "run_completed")
+                self.assertFalse(
+                    any(event.type == "run_failed" for event in loaded_first.events)
+                )
+                persisted_outputs = loaded_first.outputs
+                self.assertIsInstance(persisted_outputs, dict)
+                if not isinstance(persisted_outputs, dict):
+                    raise AssertionError("Expected persisted outputs to be a dict")
+                self.assertEqual(persisted_outputs.get("finalText"), final_text)
+
+                stream_text, delta_count = _collect_stream_text_from_events(
+                    loaded_first.events
+                )
+                self.assertGreater(delta_count, 0)
+                self.assertTrue(stream_text.strip().endswith(final_text.strip()))
+                finalized_text = _extract_finalized_assistant_text(loaded_first.events)
+                self.assertIsInstance(finalized_text, str)
+                if not isinstance(finalized_text, str):
+                    raise AssertionError("Expected finalized assistant text in stream")
+                self.assertEqual(finalized_text.strip(), final_text.strip())
+
+    async def test_claude_sonnet_45_tool_call_integration(self) -> None:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"^Pydantic serializer warnings:",
+                category=UserWarning,
+                module=r"pydantic.*",
+            )
+            self._suppress_llm_logs()
+            api_key = self._require_anthropic_key()
+
+            async with build_runner_with_local_mcp_session() as (
+                runner,
+                _mcp_client,
+                fixture,
+            ):
+                llm_config = LLMConfig(
+                    id="claude-sonnet-tools",
+                    model="claude-sonnet-4-5-20250929",
+                    provider="anthropic",
+                    api_key_env="ANTHROPIC_API_KEY",
+                    other_params={"temperature": 1},
+                    mcpServerIds=[SETTA_MCP_SERVER_ID],
+                )
+                runner.update_config(
+                    AllLLMConfigs(
+                        configs={llm_config.id: llm_config},
+                        mcpServers={
+                            SETTA_MCP_SERVER_ID: MCPServerConfig(
+                                transport="stdio",
+                                command="noop",
+                            )
+                        },
+                        defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                )
+                runner.update_api_keys({"ANTHROPIC_API_KEY": api_key})
+
+                engine_config = EngineConfig(
+                    id="engine-claude-sonnet-tools",
+                    name="Claude Sonnet 4.5 Tools",
+                    engineType=EngineType.setta_llm,
+                    settaLlmConfigId=llm_config.id,
+                )
+                save_engine_configs(fixture.dbe, [engine_config])
+
+                tool_name = build_namespaced_tool_name(
+                    SETTA_MCP_SERVER_ID, "list_mcp_tools"
+                )
+                profile = AgentProfile(
+                    name="Claude Sonnet 4.5 Tools",
+                    engineConfigId=engine_config.id,
+                    toolAllowlist=[tool_name],
+                    systemPrompt=(
+                        "Always call the tool list_mcp_tools before responding."
+                    ),
+                )
+
+                messages = [
+                    UserChatMessage(
+                        content=[
+                            MessageTextContent(
+                                text=(
+                                    "Call the tool list_mcp_tools and then reply with "
+                                    "exactly: TOOL_OK"
+                                )
+                            )
+                        ]
+                    )
+                ]
+
+                run = runner.start_run(
+                    profile,
+                    {
+                        "messages": [message.model_dump(mode="json") for message in messages]
+                    },
+                    emit_stream=False,
+                    emit_ai_follow=False,
+                )
+                completed = await runner.wait_for_run(run.id, timeout=120)
+                if completed.status != AgentRunStatus.completed:
+                    error = None
+                    for event in reversed(completed.events):
+                        if event.type != "run_failed":
+                            continue
+                        payload = event.payload
+                        if isinstance(payload, dict):
+                            error = payload.get("error")
+                        break
+                    self.fail(f"Claude Sonnet 4.5 tool run failed: {error}")
+
+                outputs = completed.outputs
+                self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                final_text = outputs.get("finalText")
+                self.assertIsInstance(final_text, str)
+                if not isinstance(final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                self.assertEqual(final_text.strip(), "TOOL_OK")
+
+                tool_calls = completed.toolCalls
+                self.assertTrue(tool_calls)
+                self.assertTrue(
+                    any(
+                        isinstance(call, dict)
+                        and isinstance(call.get("function"), dict)
+                        and call["function"].get("name") == tool_name
+                        for call in tool_calls
+                    )
+                )
+                tool_messages = [
+                    message
+                    for message in outputs.get("messages", [])
+                    if isinstance(message, dict) and message.get("role") == "tool"
+                ]
+                self.assertTrue(
+                    any(
+                        message.get("tool_name") == tool_name
+                        for message in tool_messages
+                    )
+                )
