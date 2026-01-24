@@ -290,6 +290,7 @@ export const RouteEnum = {
   PREFIX: "/api",
   BOOTSTRAP_PAGE: "/__setta__/bootstrap",
   BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
+  TOOLS_CALL: "/__setta__/tools/call",
   SWAGGER_DOCS: "/docs",
   OPENAPI_DOCS: "/openapi.json",
   REDOC_DOCS: "/redoc",
@@ -5591,6 +5592,13 @@ const TypeCheckRequestSchema = z.object({
 });
 
 export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
+
+const MCPToolCallRequestSchema = z.object({
+  tool: z.string(),
+  arguments: z.union([z.any(), z.null()]).default(null),
+});
+
+export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;
 
 const AcceptRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

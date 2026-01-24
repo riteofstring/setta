@@ -5,6 +5,7 @@ class Route(str, Enum):
     PREFIX = "/api"
     BOOTSTRAP_PAGE = "/__setta__/bootstrap"
     BOOTSTRAP_CONSUME = "/__setta__/bootstrap/consume"
+    TOOLS_CALL = "/__setta__/tools/call"
     SWAGGER_DOCS = "/docs"
     OPENAPI_DOCS = "/openapi.json"
     REDOC_DOCS = "/redoc"

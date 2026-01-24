@@ -11,6 +11,12 @@ async function route_bootstrap_consume(
   return await post("/__setta__/bootstrap/consume", payload);
 }
 
+async function route_call_mcp_tool(
+  payload: gt.MCPToolCallRequestInput,
+): Promise<ResponseDataAndStatus<Record<string, any>>> {
+  return await post("/__setta__/tools/call", payload);
+}
+
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
