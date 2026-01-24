@@ -57,7 +57,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
             if cookie_payload is not None:
                 response = await call_next(request)
-                if _should_refresh_auth_cookie(cookie_payload.exp):
+                if request.url.path.startswith(
+                    Route.PREFIX.value
+                ) and _should_refresh_auth_cookie(cookie_payload.exp):
                     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
                     set_auth_cookie(response, auth_cookie, request=request)
                 return response

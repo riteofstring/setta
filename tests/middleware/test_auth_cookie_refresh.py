@@ -47,6 +47,10 @@ class AuthCookieRefreshTests(unittest.TestCase):
         async def secure_endpoint() -> dict[str, bool]:
             return {"ok": True}
 
+        @app.get("/secure")
+        async def secure_non_api_endpoint() -> dict[str, bool]:
+            return {"ok": True}
+
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
 
@@ -112,6 +116,21 @@ class AuthCookieRefreshTests(unittest.TestCase):
 
         self.client.cookies.set(C.AUTH_COOKIE_NAME, token)
         response = self.client.get("/api/secure")
+
+        self.assertEqual(response.status_code, 200)
+        cookie_header = response.headers.get("set-cookie")
+        if cookie_header is not None:
+            self.assertNotIn(f"{C.AUTH_COOKIE_NAME}=", cookie_header)
+
+    def test_auth_cookie_not_refreshed_on_non_api_route(self) -> None:
+        seconds_until_exp = max(1, C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS - 30)
+        issued_at = datetime.now(timezone.utc) - timedelta(
+            seconds=C.AUTH_COOKIE_MAX_AGE_SECONDS - seconds_until_exp
+        )
+        token = AUTH_COOKIE_MANAGER.mint(self.session.id, self.secret, now=issued_at)
+
+        self.client.cookies.set(C.AUTH_COOKIE_NAME, token)
+        response = self.client.get("/secure")
 
         self.assertEqual(response.status_code, 200)
         cookie_header = response.headers.get("set-cookie")
