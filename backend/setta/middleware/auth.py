@@ -21,15 +21,199 @@ UNAUTHORIZED_HTML = """<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Setta Unauthorized</title>
+    <script>
+      (function () {
+        try {
+          const stored = localStorage.getItem("setta_data");
+          if (!stored) {
+            return;
+          }
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.state && parsed.state.darkMode) {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    </script>
+    <style>
+      :root {
+        --app-shell-bg: linear-gradient(
+          135deg,
+          hsl(222, 28%, 95%),
+          hsl(219, 24%, 89%),
+          hsl(219, 25%, 77%)
+        );
+        --text-base: hsl(219, 25%, 34%);
+        --text-accent: hsl(220, 25%, 45%);
+        --text-muted: hsl(220, 25%, 57%);
+        --spinner-color: rgba(87, 110, 148, 0.7);
+        --panel-border: rgba(15, 23, 42, 0.08);
+        --panel-bg: rgba(255, 255, 255, 0.55);
+        --button-bg: rgba(255, 255, 255, 0.7);
+        --button-border: rgba(15, 23, 42, 0.12);
+        --button-text: hsl(219, 25%, 34%);
+        --button-hover: rgba(255, 255, 255, 0.9);
+      }
+
+      html.dark {
+        --app-shell-bg: linear-gradient(
+          135deg,
+          hsl(220, 27%, 6%),
+          hsl(220, 24%, 4.5%),
+          hsl(220, 25%, 3%)
+        );
+        --text-base: hsl(219, 24%, 89%);
+        --text-accent: hsl(219, 25%, 77%);
+        --text-muted: hsl(220, 25%, 57%);
+        --spinner-color: hsl(219, 25%, 34%);
+        --panel-border: rgba(148, 163, 184, 0.12);
+        --panel-bg: rgba(8, 12, 20, 0.65);
+        --button-bg: rgba(8, 12, 20, 0.7);
+        --button-border: rgba(148, 163, 184, 0.18);
+        --button-text: hsl(219, 24%, 89%);
+        --button-hover: rgba(8, 12, 20, 0.9);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --app-shell-bg: linear-gradient(
+            135deg,
+            hsl(220, 27%, 6%),
+            hsl(220, 24%, 4.5%),
+            hsl(220, 25%, 3%)
+          );
+          --text-base: hsl(219, 24%, 89%);
+          --text-accent: hsl(219, 25%, 77%);
+          --text-muted: hsl(220, 25%, 57%);
+          --spinner-color: hsl(219, 25%, 34%);
+          --panel-border: rgba(148, 163, 184, 0.12);
+          --panel-bg: rgba(8, 12, 20, 0.65);
+          --button-bg: rgba(8, 12, 20, 0.7);
+          --button-border: rgba(148, 163, 184, 0.18);
+          --button-text: hsl(219, 24%, 89%);
+          --button-hover: rgba(8, 12, 20, 0.9);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+          "Helvetica Neue", sans-serif;
+        color: var(--text-base);
+        background-image: var(--app-shell-bg);
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px;
+      }
+
+      main {
+        width: 100%;
+        max-width: 640px;
+      }
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+        padding: 28px 24px;
+        border-radius: 24px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-bg);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(10px);
+      }
+
+      .spinner {
+        height: 48px;
+        width: 48px;
+        border-radius: 999px;
+        border: 2px solid var(--spinner-color);
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--text-accent);
+      }
+
+      .status {
+        color: var(--text-accent);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .status p {
+        margin: 0;
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+        border-radius: 999px;
+        border: 1px solid var(--button-border);
+        background: var(--button-bg);
+        color: var(--button-text);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 600;
+        padding: 10px 16px;
+      }
+
+      .cta:hover {
+        background: var(--button-hover);
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 520px) {
+        .panel {
+          padding: 24px 18px;
+        }
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Unauthorized</h1>
-      <p>This Setta session requires a bootstrap token.</p>
-      <p>
-        Open <a href="/__setta__/bootstrap">/__setta__/bootstrap</a> and paste a
-        token to continue.
-      </p>
+      <section class="panel">
+        <div class="spinner"></div>
+        <div class="eyebrow">Preparing setta</div>
+        <div class="status">
+          <p>This Setta session requires a bootstrap token.</p>
+          <p>Open the bootstrap page and paste a token to continue.</p>
+        </div>
+        <a class="cta" href="/__setta__/bootstrap">Open bootstrap page</a>
+      </section>
     </main>
   </body>
 </html>
