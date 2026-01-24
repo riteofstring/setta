@@ -73,15 +73,12 @@ class AssistantMessageBuilder:
         thinking: str,
         *,
         index: int | None = None,
-        summary: str | None = None,
         signature: str | None = None,
     ) -> None:
         resolved = _normalize_index(index, len(self._message.content))
         block = _ensure_thinking_block(self._message.content, resolved)
         if thinking:
             block.thinking += thinking
-        if summary is not None:
-            block.summary = summary
         if signature is not None:
             block.signature = signature
 

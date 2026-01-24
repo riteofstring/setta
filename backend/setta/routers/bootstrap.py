@@ -21,61 +21,292 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Setta Bootstrap</title>
+    <script>
+      (function () {
+        try {
+          const stored = localStorage.getItem("setta_data");
+          if (!stored) {
+            return;
+          }
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.state && parsed.state.darkMode) {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    </script>
     <style>
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        background: #f6f4f1;
-        color: #151515;
-        margin: 0;
-        padding: 2rem;
+      :root {
+        --app-shell-bg: linear-gradient(
+          135deg,
+          hsl(222, 28%, 95%),
+          hsl(219, 24%, 89%),
+          hsl(219, 25%, 77%)
+        );
+        --text-base: hsl(219, 25%, 34%);
+        --text-accent: hsl(220, 25%, 45%);
+        --text-muted: hsl(220, 25%, 57%);
+        --spinner-color: rgba(87, 110, 148, 0.7);
+        --panel-border: rgba(15, 23, 42, 0.08);
+        --panel-bg: rgba(255, 255, 255, 0.55);
+        --input-bg: rgba(255, 255, 255, 0.75);
+        --input-border: hsl(219, 25%, 77%);
+        --input-focus: #3b82f6;
+        --button-bg: rgba(255, 255, 255, 0.7);
+        --button-border: rgba(15, 23, 42, 0.12);
+        --button-text: hsl(219, 25%, 34%);
+        --button-hover: rgba(255, 255, 255, 0.9);
+        --code-bg: rgba(255, 255, 255, 0.65);
+        --error: #ef4444;
       }
+
+      html.dark {
+        --app-shell-bg: linear-gradient(
+          135deg,
+          hsl(220, 27%, 6%),
+          hsl(220, 24%, 4.5%),
+          hsl(220, 25%, 3%)
+        );
+        --text-base: hsl(219, 24%, 89%);
+        --text-accent: hsl(219, 25%, 77%);
+        --text-muted: hsl(220, 25%, 57%);
+        --spinner-color: hsl(219, 25%, 34%);
+        --panel-border: rgba(148, 163, 184, 0.12);
+        --panel-bg: rgba(8, 12, 20, 0.65);
+        --input-bg: rgba(10, 15, 24, 0.8);
+        --input-border: rgba(148, 163, 184, 0.2);
+        --input-focus: #60a5fa;
+        --button-bg: rgba(8, 12, 20, 0.7);
+        --button-border: rgba(148, 163, 184, 0.18);
+        --button-text: hsl(219, 24%, 89%);
+        --button-hover: rgba(8, 12, 20, 0.9);
+        --code-bg: rgba(8, 12, 20, 0.7);
+        --error: #f87171;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --app-shell-bg: linear-gradient(
+            135deg,
+            hsl(220, 27%, 6%),
+            hsl(220, 24%, 4.5%),
+            hsl(220, 25%, 3%)
+          );
+          --text-base: hsl(219, 24%, 89%);
+          --text-accent: hsl(219, 25%, 77%);
+          --text-muted: hsl(220, 25%, 57%);
+          --spinner-color: hsl(219, 25%, 34%);
+          --panel-border: rgba(148, 163, 184, 0.12);
+          --panel-bg: rgba(8, 12, 20, 0.65);
+          --input-bg: rgba(10, 15, 24, 0.8);
+          --input-border: rgba(148, 163, 184, 0.2);
+          --input-focus: #60a5fa;
+          --button-bg: rgba(8, 12, 20, 0.7);
+          --button-border: rgba(148, 163, 184, 0.18);
+          --button-text: hsl(219, 24%, 89%);
+          --button-hover: rgba(8, 12, 20, 0.9);
+          --code-bg: rgba(8, 12, 20, 0.7);
+          --error: #f87171;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+          "Helvetica Neue", sans-serif;
+        color: var(--text-base);
+        background-image: var(--app-shell-bg);
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px;
+      }
+
       main {
+        width: 100%;
         max-width: 640px;
       }
-      label {
-        display: block;
-        font-weight: 600;
-        margin-top: 1rem;
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+        padding: 28px 24px;
+        border-radius: 24px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-bg);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(10px);
       }
-      input {
+
+      .spinner {
+        height: 48px;
+        width: 48px;
+        border-radius: 999px;
+        border: 2px solid var(--spinner-color);
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--text-accent);
+      }
+
+      .status {
+        color: var(--text-accent);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .status p {
+        margin: 0;
+      }
+
+      .error {
+        min-height: 16px;
+        font-size: 12px;
+        color: var(--error);
+      }
+
+      .form {
         width: 100%;
-        font-family: inherit;
-        font-size: 1rem;
-        padding: 0.6rem;
-        margin-top: 0.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
+
+      label {
+        text-align: left;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      input {
+        flex: 1 1 320px;
+        border-radius: 12px;
+        border: 1px solid var(--input-border);
+        background: var(--input-bg);
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        color: var(--text-base);
+      }
+
+      input:focus {
+        outline: 2px solid var(--input-focus);
+        border-color: transparent;
+      }
+
       button {
-        margin-top: 0.8rem;
-        padding: 0.6rem 1rem;
-        font-family: inherit;
-        font-size: 1rem;
+        border-radius: 999px;
+        border: 1px solid var(--button-border);
+        background: var(--button-bg);
+        color: var(--button-text);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 600;
+        padding: 10px 16px;
         cursor: pointer;
       }
-      .hint {
-        margin-top: 1rem;
-        color: #4f4f4f;
+
+      button:hover {
+        background: var(--button-hover);
       }
-      .error {
-        margin-top: 0.75rem;
-        color: #b42318;
+
+      .hint {
+        margin: 0;
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        background: var(--code-bg);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 520px) {
+        .panel {
+          padding: 24px 18px;
+        }
+
+        .input-row {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Setta Bootstrap</h1>
-      <p id="status">Paste a bootstrap token to continue.</p>
-      <div class="error" id="error"></div>
-      <form id="bootstrap-form">
-        <label for="token-input">Bootstrap token</label>
-        <input id="token-input" type="text" autocomplete="off" />
-        <button type="submit">Connect</button>
-      </form>
-      <p class="hint">
-        Tip: open <code>/__setta__/bootstrap#token=...</code> to skip manual
-        entry.
-      </p>
+      <section class="panel">
+        <div class="spinner"></div>
+        <div class="eyebrow">Preparing setta</div>
+        <div class="status">
+          <p id="status">Paste a bootstrap token to continue.</p>
+        </div>
+        <div class="error" id="error"></div>
+        <form id="bootstrap-form" class="form">
+          <label for="token-input">Bootstrap token</label>
+          <div class="input-row">
+            <input
+              id="token-input"
+              type="text"
+              autocomplete="off"
+              placeholder="Paste token"
+            />
+            <button type="submit">Connect</button>
+          </div>
+        </form>
+        <p class="hint">
+          Tip: open <code>/__setta__/bootstrap#token=...</code> to skip manual
+          entry.
+        </p>
+      </section>
     </main>
     <script>
       (function () {
