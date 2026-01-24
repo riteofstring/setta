@@ -2250,13 +2250,22 @@ def move_section_to_pane(
             ),
         )
         # add to pane
+        next_z_index = _get_next_top_level_z_index(p)
         p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
-            x=position.x, y=position.y
+            x=position.x, y=position.y, zIndex=next_z_index
         )
     else:
         # it's already on the pane, so just adjust its position
         p.projectConfig.topLevelSections[sectionId].x = position.x
         p.projectConfig.topLevelSections[sectionId].y = position.y
+
+
+def _get_next_top_level_z_index(p: "ProjectStateSingleConfig") -> int:
+    if not p.projectConfig.topLevelSections:
+        return 0
+    return (
+        max(layout.zIndex for layout in p.projectConfig.topLevelSections.values()) + 1
+    )
 
 
 def _resolve_layout_dimension(
@@ -2384,6 +2393,63 @@ def move_section_to_parent_section(
                 currChildren, idx, [sectionId]
             )
         ),
+    )
+
+
+def move_sections_to_parent_section(
+    p: "ProjectStateSingleConfig",
+    newParentId: ID,
+    sectionIds: list[ID],
+    newIndex: int,
+):
+    if newIndex < 0:
+        raise ValueError("Expected non-negative new index.")
+    if not sectionIds:
+        return
+
+    selected_set = set(sectionIds)
+    if newParentId in selected_set:
+        raise ValueError("Cannot reparent into a selected section.")
+    ancestor = newParentId
+    while ancestor is not None:
+        if ancestor not in p.parentSectionMap:
+            raise KeyError(f"Missing parentSectionMap entry for ancestor {ancestor}.")
+        if ancestor in selected_set:
+            raise ValueError("Cannot reparent into a descendant of selection.")
+        ancestor = p.parentSectionMap[ancestor]
+
+    ids_by_parent: dict[ID | None, list[ID]] = {}
+    for section_id in sectionIds:
+        parent_id = p.parentSectionMap[section_id]
+        ids_by_parent.setdefault(parent_id, []).append(section_id)
+
+    for parent_id, ids in ids_by_parent.items():
+        if parent_id is None:
+            for section_id in ids:
+                if section_id in p.projectConfig.topLevelSections:
+                    del p.projectConfig.topLevelSections[section_id]
+            continue
+        removal_set = set(ids)
+        set_curr_effective_section_impl_value(
+            p,
+            parent_id,
+            BaseParentSectionImplArgsWithCallable(
+                children=lambda currChildren: [
+                    c for c in currChildren if c not in removal_set
+                ]
+            ),
+        )
+
+    def insert_children(curr_children: list[ID]):
+        remaining = [c for c in curr_children if c not in selected_set]
+        if newIndex > len(remaining):
+            raise ValueError("New index exceeds available sibling range.")
+        return insert_into_array(remaining, newIndex, sectionIds)
+
+    set_curr_effective_section_impl_value(
+        p,
+        newParentId,
+        BaseParentSectionImplArgsWithCallable(children=insert_children),
     )
 
 

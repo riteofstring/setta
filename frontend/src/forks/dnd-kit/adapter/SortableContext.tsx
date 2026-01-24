@@ -131,8 +131,9 @@ export function SortableContext({
   > | null>(null);
 
   const isDragging = shouldTrackSorting && active != null;
+  const allowTemp = isMovingFree || isSorting;
   const activeIndex = shouldTrackSorting
-    ? getActiveIndex(active, items, isMovingFree)
+    ? getActiveIndex(active, items, allowTemp)
     : -1;
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
   const resolvedOverId = useMemo(() => {
