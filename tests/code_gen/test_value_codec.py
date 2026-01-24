@@ -16,6 +16,7 @@ from setta.types.dependency_value import (
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
+from setta.types.project_config import CodeObjValueRepresentationMode
 from setta.types.section_impls import SectionType
 
 
@@ -135,6 +136,51 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
         )
         self.assertEqual(codec.format_param_expression(param_node), "2+2")
+
+    def test_code_param_json_representation_parses_payload(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        param_node = ParamNode(
+            id=ID("param-code"),
+            name="code",
+            full_path_name="section.code",
+            type=CodeObjType.CodeParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("[1,2,3]"),
+            passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.json,
+        )
+        self.assertEqual(codec.format_param_expression(param_node), "[1, 2, 3]")
+
+    def test_code_param_raw_representation_quotes_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        param_node = ParamNode(
+            id=ID("param-code"),
+            name="code",
+            full_path_name="section.code",
+            type=CodeObjType.CodeParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("2+2"),
+            passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.raw,
+        )
+        self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
+
+    def test_json_representation_invalid_payload_falls_back_to_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        param_node = ParamNode(
+            id=ID("param-text"),
+            name="text",
+            full_path_name="section.text",
+            type=CodeObjType.TextParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("{invalid"),
+            passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.json,
+        )
+        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
 
     def test_format_text_block_without_value_returns_none(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)

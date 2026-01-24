@@ -270,6 +270,16 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
+export const CodeObjValueRepresentationModeEnum = {
+  literal: "literal",
+  json: "json",
+  raw: "raw",
+} as const;
+
+export type CodeObjValueRepresentationMode = ObjectValues<
+  typeof CodeObjValueRepresentationModeEnum
+>;
+
 export const ProjectCodegenLanguageEnum = { python: "python" } as const;
 
 const SectionCodegenModeEnum = {
@@ -762,7 +772,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/8c9093e2-bf1b-4942-a49f-beb13aa02d01.bin" as const,
+        "setta_files/artifacts/91afdd37-e882-4d15-88ae-211d8af115d2.bin" as const,
     ),
   value: z.string(),
 });
@@ -3338,12 +3348,64 @@ export function createSectionCodegenPolicy(
   return SectionCodegenPolicySchema.parse(options);
 }
 
+const CodeObjTypeValuePolicySchema = z.object({
+  representation: z
+    .enum(CodeObjValueRepresentationModeEnum)
+    .default(CodeObjValueRepresentationModeEnum.literal),
+});
+
+type CodeObjTypeValuePolicy = z.infer<typeof CodeObjTypeValuePolicySchema>;
+
+function createCodeObjTypeValuePolicy(
+  options: Partial<CodeObjTypeValuePolicy> = {},
+): CodeObjTypeValuePolicy {
+  return CodeObjTypeValuePolicySchema.parse(options);
+}
+
+const CodeObjValueOverrideSchema = z.object({
+  representation: z
+    .enum(CodeObjValueRepresentationModeEnum)
+    .default(CodeObjValueRepresentationModeEnum.literal),
+});
+
+const CodeObjValuePolicySchema = z.object({
+  typePolicies: z
+    .record(z.enum(CodeObjTypeEnum), CodeObjTypeValuePolicySchema)
+    .default(() => ({
+      CodeCallable: createCodeObjTypeValuePolicy(),
+      CodeParam: createCodeObjTypeValuePolicy(),
+      TextParam: createCodeObjTypeValuePolicy(),
+      ButtonParam: createCodeObjTypeValuePolicy(),
+      SliderParam: createCodeObjTypeValuePolicy(),
+      RotaryParam: createCodeObjTypeValuePolicy(),
+      SwitchParam: createCodeObjTypeValuePolicy(),
+      ColorPickerParam: createCodeObjTypeValuePolicy(),
+      DropdownParam: createCodeObjTypeValuePolicy(),
+      PasswordParam: createCodeObjTypeValuePolicy(),
+      TextAreaParam: createCodeObjTypeValuePolicy(),
+      DropzoneParam: createCodeObjTypeValuePolicy(),
+      NestedParam: createCodeObjTypeValuePolicy(),
+    })),
+  codeObjOverrides: z.record(IDSchema, CodeObjValueOverrideSchema).default({}),
+});
+
+type CodeObjValuePolicy = z.infer<typeof CodeObjValuePolicySchema>;
+
+export function createCodeObjValuePolicy(
+  options: Partial<CodeObjValuePolicy> = {},
+): CodeObjValuePolicy {
+  return CodeObjValuePolicySchema.parse(options);
+}
+
 const ProjectCodegenPythonTargetSchema = z.object({
   language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
   genCodePrefix: z.string().default("" as const),
   genCodeSuffix: z.string().default("state = SettaState()" as const),
   generateMetadata: z.boolean().default(false),
   sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
+  codeObjValuePolicy: CodeObjValuePolicySchema.default(
+    createCodeObjValuePolicy,
+  ),
 });
 
 export type ProjectCodegenPythonTarget = z.infer<

@@ -27,7 +27,6 @@ DropzoneAttachment = Annotated[
 
 
 class DropzoneStoredValue(BaseModel):
-    version: Literal[1] = 1
     attachments: list[DropzoneAttachment] = Field(default_factory=list)
 
 

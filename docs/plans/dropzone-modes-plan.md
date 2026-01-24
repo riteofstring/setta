@@ -20,10 +20,9 @@
 - Add fields to `DropzoneParamCodeObjImpl` (in `backend/setta/types/code_obj_impls.py`):
   - `mode: DropzoneMode = DropzoneMode.STATEFUL`
   - `maxAttachments: int | None = None`
-- Define a canonical, versioned JSON payload for stored stateful values:
+- Define a canonical JSON payload for stored stateful values:
   ```json
   {
-    "version": 1,
     "attachments": [
       {
         "id": "artifacts/<uuid>.<ext>",

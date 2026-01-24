@@ -21,7 +21,6 @@ export type DropzoneStoredAttachment =
   | DropzoneStoredTextAttachment;
 
 type DropzoneStoredValue = {
-  version: 1;
   attachments: DropzoneStoredAttachment[];
 };
 
@@ -115,9 +114,6 @@ export function parseDropzoneValue(value: string): DropzoneStoredValue | null {
   if (!isRecord(parsed)) {
     return null;
   }
-  if (parsed.version !== 1) {
-    return null;
-  }
   const attachments = parsed.attachments;
   if (!Array.isArray(attachments)) {
     return null;
@@ -133,7 +129,6 @@ export function parseDropzoneValue(value: string): DropzoneStoredValue | null {
     normalized.push(item);
   }
   return {
-    version: 1,
     attachments: normalized,
   };
 }
@@ -145,7 +140,6 @@ export function serializeDropzoneValue(
     return "";
   }
   const payload: DropzoneStoredValue = {
-    version: 1,
     attachments,
   };
   return JSON.stringify(payload);

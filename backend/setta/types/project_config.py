@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
@@ -129,6 +130,43 @@ class ResolvedSectionCodegenPolicy:
     representation: SectionRepresentationMode
 
 
+class CodeObjValueRepresentationMode(str, Enum):
+    literal = "literal"
+    json = "json"
+    raw = "raw"
+
+
+class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
+    representation: CodeObjValueRepresentationMode = (
+        CodeObjValueRepresentationMode.literal
+    )
+
+
+class CodeObjValueOverride(BaseModel, extra="forbid"):
+    representation: CodeObjValueRepresentationMode = (
+        CodeObjValueRepresentationMode.literal
+    )
+
+
+def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
+    policies: dict[CodeObjType, CodeObjTypeValuePolicy] = {}
+    for code_obj_type in CodeObjType:
+        policies[code_obj_type] = CodeObjTypeValuePolicy()
+    return policies
+
+
+class CodeObjValuePolicy(BaseModel, extra="forbid"):
+    typePolicies: dict[CodeObjType, CodeObjTypeValuePolicy] = Field(
+        default_factory=default_code_obj_type_value_policies
+    )
+    codeObjOverrides: dict[ID, CodeObjValueOverride] = Field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ResolvedCodeObjValuePolicy:
+    representation: CodeObjValueRepresentationMode
+
+
 def _apply_codegen_mode(include_in_codegen: bool, mode: SectionCodegenMode) -> bool:
     if mode is SectionCodegenMode.include:
         return True
@@ -182,11 +220,49 @@ def resolve_section_codegen_policy(
     )
 
 
+def _is_code_obj_value_representation_supported(
+    code_obj_type: CodeObjType, representation: CodeObjValueRepresentationMode
+) -> bool:
+    if code_obj_type in (
+        CodeObjType.ButtonParam,
+        CodeObjType.CodeCallable,
+        CodeObjType.NestedParam,
+    ):
+        return representation is CodeObjValueRepresentationMode.literal
+    return True
+
+
+def resolve_code_obj_value_policy(
+    value_policy: CodeObjValuePolicy,
+    code_obj_id: ID,
+    code_obj_type: CodeObjType,
+) -> ResolvedCodeObjValuePolicy:
+    type_policy = value_policy.typePolicies.get(code_obj_type)
+    if type_policy is None:
+        type_policy = CodeObjTypeValuePolicy()
+    representation = type_policy.representation
+    override = value_policy.codeObjOverrides.get(code_obj_id)
+    if override is not None:
+        representation = override.representation
+    if not _is_code_obj_value_representation_supported(code_obj_type, representation):
+        raise ValueError(
+            f"Unsupported representation {representation.value} for code obj type {code_obj_type.value}"
+        )
+    return ResolvedCodeObjValuePolicy(representation=representation)
+
+
 def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodegenPolicy:
     python_target = get_python_codegen_target(project_config)
     if python_target is None:
         return SectionCodegenPolicy()
     return python_target.sectionPolicy
+
+
+def get_code_obj_value_policy(project_config: "ProjectConfig") -> CodeObjValuePolicy:
+    python_target = get_python_codegen_target(project_config)
+    if python_target is None:
+        return CodeObjValuePolicy()
+    return python_target.codeObjValuePolicy
 
 
 class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
@@ -195,6 +271,7 @@ class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
     generateMetadata: bool = False
     sectionPolicy: SectionCodegenPolicy = Field(default_factory=SectionCodegenPolicy)
+    codeObjValuePolicy: CodeObjValuePolicy = Field(default_factory=CodeObjValuePolicy)
 
 
 ProjectCodegenTarget = ProjectCodegenPythonTarget
