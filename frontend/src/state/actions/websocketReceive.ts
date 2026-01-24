@@ -15,7 +15,7 @@ import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_get_backend_init_status,
+  route_get_auth_refresh_status,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
@@ -242,7 +242,7 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res = await route_get_backend_init_status();
+  const res = await route_get_auth_refresh_status();
   authRecoveryInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -315,7 +315,7 @@ async function runAuthRefresh() {
     return;
   }
   authRefreshInFlight = true;
-  const res = await route_get_backend_init_status();
+  const res = await route_get_auth_refresh_status();
   authRefreshInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);

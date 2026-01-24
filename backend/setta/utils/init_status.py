@@ -18,6 +18,10 @@ class BackendInitStatusResponse(BaseModel):
     authCookieRefreshWindowSeconds: int
 
 
+class AuthRefreshStatusResponse(BaseModel):
+    authCookieRefreshWindowSeconds: int
+
+
 class BackendInitializationStatus:
     def __init__(self) -> None:
         self._events: list[BackendInitEvent] = []
@@ -40,3 +44,9 @@ class BackendInitializationStatus:
             error=self._error,
             authCookieRefreshWindowSeconds=C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
         )
+
+
+def get_auth_refresh_status() -> AuthRefreshStatusResponse:
+    return AuthRefreshStatusResponse(
+        authCookieRefreshWindowSeconds=C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
+    )

@@ -303,6 +303,7 @@ export const RouteEnum = {
   SAVE_SETTINGS: "/saveSettings",
   LOAD_SETTINGS: "/loadSettings",
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
+  GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
   TERMINAL: "/{projectConfigId}/{sectionId}/{id}",
@@ -6924,6 +6925,14 @@ const PublishShareDeploymentRequestSchema = z.object({
 
 export type PublishShareDeploymentRequestInput = z.input<
   typeof PublishShareDeploymentRequestSchema
+>;
+
+const AuthRefreshStatusResponseSchema = z.object({
+  authCookieRefreshWindowSeconds: z.int(),
+});
+
+export type AuthRefreshStatusResponse = z.infer<
+  typeof AuthRefreshStatusResponseSchema
 >;
 
 const BackendInitEventSchema = z.object({
