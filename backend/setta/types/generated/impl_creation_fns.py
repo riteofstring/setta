@@ -34,6 +34,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DropdownParamCodeObjImplArgs,
     DropzoneParamCodeObjImplArgs,
     GenPythonCodeSectionImplArgs,
+    GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
@@ -42,7 +43,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
-    PromptSectionImplArgs,
     RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
@@ -69,6 +69,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultDropdownParamCodeObjImpl,
     UserDefaultDropzoneParamCodeObjImpl,
     UserDefaultGenPythonCodeSectionImpl,
+    UserDefaultGenPythonMetadataSectionImpl,
     UserDefaultGlobalVariablesSectionImpl,
     UserDefaultGroupSectionImpl,
     UserDefaultIFrameSectionImpl,
@@ -77,7 +78,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
@@ -98,13 +98,13 @@ from setta.types.section_impls import (
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
+    GenPythonMetadataSectionImpl,
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     IFrameSectionImpl,
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SectionType,
     SocialSectionImpl,
     TerminalSectionImpl,
@@ -178,14 +178,6 @@ def create_section_impl(
 
 @overload
 def create_section_impl(
-    type: Literal[SectionType.Prompt],
-    defaults: UserDefaultPromptSectionImpl,
-    overrides: PromptSectionImplArgs | None = None,
-) -> PromptSectionImpl: ...
-
-
-@overload
-def create_section_impl(
     type: Literal[SectionType.MetaControl],
     defaults: UserDefaultMetaControlSectionImpl,
     overrides: MetaControlSectionImplArgs | None = None,
@@ -222,6 +214,14 @@ def create_section_impl(
     defaults: UserDefaultGenPythonCodeSectionImpl,
     overrides: GenPythonCodeSectionImplArgs | None = None,
 ) -> GenPythonCodeSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.GenPythonMetadata],
+    defaults: UserDefaultGenPythonMetadataSectionImpl,
+    overrides: GenPythonMetadataSectionImplArgs | None = None,
+) -> GenPythonMetadataSectionImpl: ...
 
 
 @overload
@@ -402,11 +402,6 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
                 overrides = {}
             return TextBlockSectionImpl(**{**defaults.model_dump(), **overrides})
 
-        case SectionType.Prompt:
-            if overrides is None:
-                overrides = {}
-            return PromptSectionImpl(**{**defaults.model_dump(), **overrides})
-
         case SectionType.MetaControl:
             if overrides is None:
                 overrides = {}
@@ -431,6 +426,13 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
             if overrides is None:
                 overrides = {}
             return GenPythonCodeSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.GenPythonMetadata:
+            if overrides is None:
+                overrides = {}
+            return GenPythonMetadataSectionImpl(
+                **{**defaults.model_dump(), **overrides}
+            )
 
         case SectionType.Terminal:
             if overrides is None:
