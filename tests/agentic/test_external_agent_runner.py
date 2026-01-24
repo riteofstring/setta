@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import shutil
 import sys
 import unittest
@@ -46,6 +47,9 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.registry import SessionRegistry
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -1197,6 +1201,74 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(last_tool.get("result"), {"answers": answers})
             self.assertNotIn("question-1", runner._pending_questions)
 
+    async def test_respond_to_question_formats_multiple_answers(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": "engine-1",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID("chat-1"),
+            )
+            save_agent_run(dbe, run)
+
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "import sys; sys.stdin.read()",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+            runner._register_question_call(
+                run.id,
+                project_config.id,
+                ID("chat-1"),
+                "question-1",
+            )
+            answers = {"Language": "Python", "Framework": "FastAPI"}
+
+            try:
+                await runner.respond_to_question("question-1", answers)
+            finally:
+                process.terminate()
+                await process.wait()
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            messages = updated.outputs.get("messages") if updated.outputs else None
+            self.assertIsInstance(messages, list)
+            tool_messages = [
+                message for message in messages if message.get("role") == "tool"
+            ]
+            self.assertTrue(tool_messages)
+            last_tool = tool_messages[-1]
+            self.assertEqual(last_tool.get("result"), {"answers": answers})
+            content = last_tool.get("content")
+            self.assertIsInstance(content, list)
+            text_blocks = [
+                block.get("text")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ]
+            self.assertEqual(
+                text_blocks,
+                ["Language: Python\nFramework: FastAPI"],
+            )
+
     async def test_respond_to_question_uses_approval_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1518,6 +1590,107 @@ class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(tool_calls, list)
             self.assertEqual(len(tool_calls), 1)
             self.assertEqual(tool_calls[0].get("id"), "toolu-1")
+
+
+class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
+    def _set_env(self, key: str, value: str | None) -> None:
+        previous = os.environ.get(key)
+
+        def _restore() -> None:
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+
+        self.addCleanup(_restore)
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+    def _set_session_env(self, session_id: str, sessions_root: Path) -> None:
+        self._set_env(SESSION_ID_ENV_VAR, session_id)
+        self._set_env(SESSIONS_ROOT_ENV_VAR, str(sessions_root))
+
+    def _create_session(self, root: Path) -> tuple[str, Path]:
+        sessions_root = root / "sessions"
+        sessions_root.mkdir(parents=True, exist_ok=True)
+        registry = SessionRegistry(sessions_root=sessions_root)
+        session = registry.create_session(
+            workspace_path=root,
+            host="127.0.0.1",
+            port=8000,
+            pid=os.getpid(),
+        )
+        return session.id, sessions_root
+
+    def test_claude_mcp_config_includes_auth_cookie(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_id, sessions_root = self._create_session(root)
+            self._set_session_env(session_id, sessions_root)
+            runner = _build_runner(_build_dbe(tmpdir))
+            config_path = runner._write_claude_mcp_config(f"{C.BACKEND}/mcp")
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            server = payload.get("mcpServers", {}).get(SETTA_MCP_SERVER_ID)
+            self.assertIsInstance(server, dict)
+            headers = server.get("headers") if isinstance(server, dict) else None
+            self.assertIsInstance(headers, dict)
+            if isinstance(headers, dict):
+                cookie = headers.get("Cookie")
+            else:
+                cookie = None
+            self.assertIsInstance(cookie, str)
+            if isinstance(cookie, str):
+                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
+
+    def test_opencode_config_includes_auth_cookie(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_id, sessions_root = self._create_session(root)
+            self._set_session_env(session_id, sessions_root)
+            runner = _build_runner(_build_dbe(tmpdir))
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            config_path = runner._write_opencode_config(
+                f"{C.BACKEND}/mcp",
+                config,
+                allowlist=None,
+            )
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            server = payload.get("mcp", {}).get(SETTA_MCP_SERVER_ID)
+            self.assertIsInstance(server, dict)
+            headers = server.get("headers") if isinstance(server, dict) else None
+            self.assertIsInstance(headers, dict)
+            if isinstance(headers, dict):
+                cookie = headers.get("Cookie")
+            else:
+                cookie = None
+            self.assertIsInstance(cookie, str)
+            if isinstance(cookie, str):
+                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
+
+    def test_codex_config_includes_auth_cookie(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_id, sessions_root = self._create_session(root)
+            self._set_session_env(session_id, sessions_root)
+            runner = _build_runner(_build_dbe(tmpdir))
+            config = ExternalAgentConfig(
+                name="Codex SDK",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            config_dir = runner._write_codex_config(
+                f"{C.BACKEND}/mcp",
+                config,
+                allowlist=None,
+            )
+            content = (config_dir / "config.toml").read_text(encoding="utf-8")
+            self.assertIn(C.AUTH_COOKIE_NAME, content)
             function = tool_calls[0].get("function")
             self.assertIsInstance(function, dict)
             self.assertEqual(function.get("name"), "Bash")

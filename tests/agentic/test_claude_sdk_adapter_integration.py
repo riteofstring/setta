@@ -121,6 +121,17 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         raise AssertionError("Unreachable")
 
+    async def _await_pending_question(
+        self, runner: ExternalAgentRunner, run_id: ID
+    ) -> str:
+        for _ in range(200):
+            for tool_call_id, state in runner._pending_questions.items():
+                if state.run_id == run_id and state.approval_id:
+                    return tool_call_id
+            await asyncio.sleep(0.1)
+        self.fail("Claude SDK run did not request a user question in time.")
+        raise AssertionError("Unreachable")
+
     def _assert_python_sdk_handle(self, handle: ExternalAgentRunHandle) -> None:
         self.assertIsNone(handle.process)
         queue = handle.metadata.get("queue")
@@ -480,3 +491,141 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if isinstance(block.get("summary"), str)
             )
             self.assertTrue((thinking_text + summary_text).strip())
+
+    async def test_claude_sdk_ask_user_question_tool(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            question_payload = {
+                "questions": [
+                    {
+                        "header": "Language",
+                        "question": "Pick a language",
+                        "multiSelect": False,
+                        "options": [{"label": "Python"}, {"label": "TypeScript"}],
+                    }
+                ]
+            }
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "Before answering, call the AskUserQuestion tool with this "
+                        "JSON payload exactly:\n"
+                        f"{json.dumps(question_payload)}\n"
+                        "After I answer, reply with only OK."
+                    ),
+                    "allowedTools": ["AskUserQuestion"],
+                    "mcpConfig": mcp_config,
+                    "maxTurns": 2,
+                },
+            )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
+
+            tool_call_id = await self._await_pending_question(runner, run.id)
+            answers = {"Pick a language": "Python"}
+            await runner.respond_to_question(tool_call_id, answers)
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            tool_errors = []
+            for message in messages:
+                if (
+                    isinstance(message, dict)
+                    and message.get("role") == "tool"
+                    and message.get("is_error")
+                ):
+                    tool_errors.append(self._extract_tool_text(message))
+            if tool_errors:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
+                    )
+                )
+            all_text = self._collect_message_texts(messages)
+            if "Stream closed" in all_text:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        "Stream closed error leaked into messages.",
+                    )
+                )
+
+            tool_call = None
+            for message in messages:
+                if not isinstance(message, dict) or message.get("role") != "assistant":
+                    continue
+                calls = message.get("tool_calls")
+                if not isinstance(calls, list):
+                    continue
+                for call in calls:
+                    if not isinstance(call, dict):
+                        continue
+                    function = call.get("function")
+                    if (
+                        isinstance(function, dict)
+                        and function.get("name") == "AskUserQuestion"
+                    ):
+                        tool_call = call
+                        break
+                if tool_call:
+                    break
+            self.assertIsNotNone(tool_call)
+            if tool_call is None:
+                return
+            arguments = tool_call.get("function", {}).get("arguments")
+            self.assertIsInstance(arguments, dict)
+            questions = None
+            if isinstance(arguments, dict):
+                questions = arguments.get("questions")
+            self.assertIsInstance(questions, list)
+            if isinstance(questions, list):
+                self.assertEqual(len(questions), 1)
+
+            tool_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict)
+                and message.get("role") == "tool"
+                and message.get("tool_name") == "AskUserQuestion"
+            ]
+            self.assertTrue(tool_messages)
+            last_tool = tool_messages[-1]
+            self.assertEqual(last_tool.get("result"), {"answers": answers})
+            self.assertIn("OK", all_text)

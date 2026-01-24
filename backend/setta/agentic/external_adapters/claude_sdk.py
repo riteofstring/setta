@@ -104,9 +104,12 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         pending_approvals: dict[str, _PendingApproval] = {}
         tool_use_names: dict[str, str] = {}
         stderr_lines: list[str] = []
+        close_prompt_event = asyncio.Event()
         options = _build_options(context, pending_approvals, queue, stderr_lines)
         session_id = _extract_session_id(context.inputs) or str(context.run.id)
-        task = asyncio.create_task(_run_query(prompt, options, queue, session_id))
+        task = asyncio.create_task(
+            _run_query(prompt, options, queue, session_id, close_prompt_event)
+        )
         handle = ExternalAgentRunHandle(
             run_id=context.run.id,
             metadata={
@@ -115,6 +118,7 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 "pending_approvals": pending_approvals,
                 "tool_use_names": tool_use_names,
                 "stderr_lines": stderr_lines,
+                "close_prompt_event": close_prompt_event,
             },
         )
         handle.session_id = session_id
@@ -269,11 +273,12 @@ async def _run_query(
     options: ClaudeAgentOptions,
     queue: asyncio.Queue[tuple[str, Any]],
     session_id: str | None,
+    close_prompt_event: asyncio.Event,
 ) -> None:
     message_count = 0
     logger.info("Claude SDK query starting (session_id=%s)", session_id)
     try:
-        prompt_stream = _build_prompt_stream(prompt, session_id)
+        prompt_stream = _build_prompt_stream(prompt, session_id, close_prompt_event)
         async for message in query(prompt=prompt_stream, options=options):
             message_count += 1
             if message_count <= 3:
@@ -282,6 +287,8 @@ async def _run_query(
                     session_id,
                     _describe_sdk_message(message),
                 )
+            if isinstance(message, ResultMessage):
+                close_prompt_event.set()
             await queue.put((_QUEUE_KIND_MESSAGE, message))
     except asyncio.CancelledError:
         raise
@@ -300,7 +307,7 @@ async def _run_query(
 
 
 async def _build_prompt_stream(
-    prompt: str, session_id: str | None
+    prompt: str, session_id: str | None, close_prompt_event: asyncio.Event
 ) -> AsyncIterator[dict[str, Any]]:
     payload: dict[str, Any] = {
         "type": "user",
@@ -310,6 +317,7 @@ async def _build_prompt_stream(
     if session_id:
         payload["session_id"] = session_id
     yield payload
+    await close_prompt_event.wait()
 
 
 def _describe_sdk_message(message: Any) -> str:

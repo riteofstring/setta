@@ -36,6 +36,8 @@ from setta.agentic.store import (
     save_agent_run,
 )
 from setta.agentic.system_prompt import build_agent_system_prompt
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
@@ -633,7 +635,11 @@ class ExternalAgentRunner:
     def _write_claude_mcp_config(self, mcp_url: str) -> Path:
         config_dir = self._create_temp_dir("setta-claude-mcp-")
         path = config_dir / _CLAUDE_MCP_CONFIG_NAME
-        payload = {"mcpServers": {_MCP_SERVER_NAME: {"type": "sse", "url": mcp_url}}}
+        server_entry: dict[str, Any] = {"type": "sse", "url": mcp_url}
+        auth_headers = self._build_mcp_auth_headers()
+        if auth_headers:
+            server_entry["headers"] = auth_headers
+        payload = {"mcpServers": {_MCP_SERVER_NAME: server_entry}}
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
@@ -645,15 +651,15 @@ class ExternalAgentRunner:
     ) -> Path:
         config_dir = self._create_temp_dir("setta-opencode-mcp-")
         path = config_dir / _OPENCODE_CONFIG_NAME
-        payload = {
-            "mcp": {
-                _MCP_SERVER_NAME: {
-                    "type": "remote",
-                    "url": mcp_url,
-                    "enabled": True,
-                }
-            }
+        server_entry: dict[str, Any] = {
+            "type": "remote",
+            "url": mcp_url,
+            "enabled": True,
         }
+        auth_headers = self._build_mcp_auth_headers()
+        if auth_headers:
+            server_entry["headers"] = auth_headers
+        payload = {"mcp": {_MCP_SERVER_NAME: server_entry}}
         permission = self._parse_opencode_permissions(config.approvalPolicy)
         permission = self._merge_opencode_permissions(permission, allowlist)
         if permission is not None:
@@ -678,11 +684,25 @@ class ExternalAgentRunner:
             lines.append(f"sandbox_mode = {json.dumps(config.sandboxPolicy)}")
         lines.append(f"[mcp_servers.{_MCP_SERVER_NAME}]")
         lines.append(f'url = "{mcp_url}"')
+        auth_headers = self._build_mcp_auth_headers()
+        if auth_headers:
+            cookie_value = auth_headers.get("Cookie")
+            if cookie_value:
+                lines.append(f"headers = {{ Cookie = {json.dumps(cookie_value)} }}")
         enabled_tools = self._build_codex_enabled_tools(allowlist)
         if enabled_tools:
             lines.append(f"enabled_tools = {json.dumps(enabled_tools)}")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return config_dir
+
+    @staticmethod
+    def _build_mcp_auth_headers() -> dict[str, str] | None:
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return None
+        session_metadata, secret = session_info
+        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
     @staticmethod
     def _build_codex_enabled_tools(
