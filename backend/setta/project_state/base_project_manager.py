@@ -168,6 +168,8 @@ from setta.project_state.project_manager_types import (
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
+    SetWatchCodeEnabledRequest,
+    SetWatchCodeInputsRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -184,6 +186,12 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+)
+from setta.project_state.watch_code import (
+    WatchCodeManager,
+    build_watch_code_snapshot,
+    normalize_watch_code_files,
+    normalize_watch_code_folders,
 )
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -436,6 +444,12 @@ class BaseProjectManager(ABC):
         self.code_files = code_files
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
+        watch_loop = None
+        try:
+            watch_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            watch_loop = None
+        self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
@@ -469,6 +483,9 @@ class BaseProjectManager(ABC):
         self.pending_rename_results: dict[
             str, tuple[str, list[RenameReferenceChangedValue]]
         ] = {}
+        self._bootstrap_watch_code_baselines()
+        self.watch_code_manager.start()
+        self.watch_code_manager.sync_from_backend(self.project_state_backend)
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -1092,6 +1109,25 @@ class BaseProjectManager(ABC):
             self.watch_json_source_files()
             self.watch_artifact_files()
             self.watch_code_files()
+            self.watch_code_manager.sync_from_backend(self.project_state_backend)
+
+    def _bootstrap_watch_code_baselines(self) -> None:
+        base_backend = self.project_state_backend
+        updated_backend = base_backend
+        for project_config_id, config in base_backend.projectConfigs.items():
+            if not config.watchCodeEnabled:
+                continue
+            if config.watchCodeBaselineByPath:
+                continue
+            project_state = convert_backend_to_single_config(
+                updated_backend, project_config_id
+            )
+            self.watch_code_manager.baseline_on_enable(project_state)
+            updated_backend = merge_single_config_into_backend(
+                updated_backend, project_state
+            )
+        if updated_backend is not base_backend:
+            self.project_state_backend = updated_backend
 
     def shutdown(self) -> None:
         categories = (
@@ -1101,6 +1137,7 @@ class BaseProjectManager(ABC):
         )
         for category in categories:
             self.specific_file_watcher.update_callbacks({}, category, [])
+        self.watch_code_manager.shutdown()
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
 
@@ -1380,6 +1417,35 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
+    async def set_watch_code_enabled(self, x: SetWatchCodeEnabledRequest):
+        """Enable or disable watch code mode for the project."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        previous_enabled = project_state.projectConfig.watchCodeEnabled
+        project_state.projectConfig.watchCodeEnabled = x.enabled
+        if x.enabled and not previous_enabled:
+            self.watch_code_manager.baseline_on_enable(project_state)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool()
+    async def set_watch_code_inputs(self, x: SetWatchCodeInputsRequest):
+        """Update watched folders and files for watch code mode."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFolders = normalize_watch_code_folders(
+            x.watchCodeFolders
+        )
+        project_state.projectConfig.watchCodeFiles = normalize_watch_code_files(
+            x.watchCodeFiles
+        )
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -1559,6 +1625,9 @@ class BaseProjectManager(ABC):
             )
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
+        await self.watch_code_manager.handle_code_section_update(
+            project_state, x.sectionId, x.code
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -2968,6 +3037,9 @@ class BaseProjectManager(ABC):
                         )
                         continue
                     set_code(single_state, section_id, plan.raw_content)
+                    await self.watch_code_manager.handle_code_section_update(
+                        single_state, section_id, plan.raw_content
+                    )
                 if config_bindings:
                     updated_configs[project_config_id] = single_state
 

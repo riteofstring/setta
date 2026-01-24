@@ -88,6 +88,8 @@ from setta.project_state.project_manager_types import (
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
+    SetWatchCodeEnabledRequest,
+    SetWatchCodeInputsRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -555,6 +557,24 @@ async def route_set_show_param_display_names(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_show_param_display_names(x)
+
+
+@router.post(Route.SET_WATCH_CODE_ENABLED)
+async def route_set_watch_code_enabled(
+    x: SetWatchCodeEnabledRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_watch_code_enabled(x)
+
+
+@router.post(Route.SET_WATCH_CODE_INPUTS)
+async def route_set_watch_code_inputs(
+    x: SetWatchCodeInputsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_watch_code_inputs(x)
 
 
 @router.post(Route.SET_PARAM_ENTERED_VALUE)

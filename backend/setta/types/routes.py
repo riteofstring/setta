@@ -111,6 +111,8 @@ class Route(str, Enum):
     SET_GEN_CODE_PREFIX = "/setGenCodePrefix"
     SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"
     SET_SHOW_PARAM_DISPLAY_NAMES = "/setShowParamDisplayNames"
+    SET_WATCH_CODE_ENABLED = "/setWatchCodeEnabled"
+    SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
     SET_CODE_OBJ_NAME = "/setCodeObjName"

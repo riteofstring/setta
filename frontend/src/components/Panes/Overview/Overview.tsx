@@ -10,7 +10,7 @@ import {
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
-import { RiPlayList2Fill } from "react-icons/ri";
+import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder } from "react-icons/tb";
 import {
   useBackendLogEvents,
@@ -37,6 +37,7 @@ import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
+import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,7 @@ export function Overview() {
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
   const showFileBrowserTab = !isShareMode;
+  const showWatchCodeTab = !isShareMode;
   const showLLMTabs = !isShareMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
@@ -69,6 +71,9 @@ export function Overview() {
     !showFileBrowserTab &&
     selectedTabName === OverviewTabNameEnum.FileBrowser
   ) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
@@ -103,6 +108,14 @@ export function Overview() {
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Explorer" })}
             icon={<TbFolder size={18} />}
+          />
+        )}
+        {showWatchCodeTab && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.WatchCode}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "Watch Code" })}
+            icon={<RiRadarLine size={18} />}
           />
         )}
         <TabButton<OverviewTabName>
@@ -209,6 +222,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <FileBrowserPane />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
+    case OverviewTabNameEnum.WatchCode:
+      return <WatchCodePane />;
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:

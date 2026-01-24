@@ -82,6 +82,27 @@ class SectionCodegenOverride(BaseModel, extra="forbid"):
     representation: SectionRepresentationMode = SectionRepresentationMode.json
 
 
+class WatchCodeCallableKind(str, Enum):
+    function = "function"
+    async_function = "async_function"
+    class_init = "class_init"
+
+
+class WatchCodeFolder(BaseModel, extra="forbid"):
+    path: str
+    recursive: bool = True
+
+
+class WatchCodeRegistryEntry(BaseModel, extra="forbid"):
+    callableName: str
+    kind: WatchCodeCallableKind
+    signatureHash: str
+    bodyHash: str
+    sourcePath: str
+    sectionIds: list[ID] = Field(default_factory=list)
+    sectionsCount: int = 0
+
+
 def default_section_allowlist() -> list[SectionType]:
     return [
         SectionType.Callable,
@@ -249,6 +270,11 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
+    watchCodeEnabled: bool = False
+    watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
+    watchCodeFiles: list[str] = Field(default_factory=list)
+    watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
+    watchCodeBaselineByPath: dict[str, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_codegen_targets(self):
