@@ -7,15 +7,8 @@ import { useMemo } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useDndState } from "./dndState";
-import {
-  selectionDragHandle,
-  selectionDragPrimaryId,
-} from "./selectionDragHandle";
 
 type DndSource = {
-  id: string | number;
-  element?: Element;
-  handle?: Element;
   data?: {
     current?: {
       type?: string;
@@ -40,19 +33,6 @@ export function useSectionDndSensors() {
     }
 
     const pointerSensor = PointerSensor.configure({
-      activatorElements: (source: DndSource) => {
-        const baseTarget = source.handle ?? source.element;
-        const handleElement = selectionDragHandle.value;
-        const primaryId = selectionDragPrimaryId.value;
-        if (
-          handleElement &&
-          primaryId &&
-          String(source.id) === String(primaryId)
-        ) {
-          return [baseTarget, handleElement];
-        }
-        return [baseTarget];
-      },
       preventActivation: (_event, source: DndSource) => {
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = getIsTopLevel(source);
