@@ -19,7 +19,6 @@
 - Added `data-tab-native` to modal content so Tab stays inside Radix dialogs.
 - Added last-focused element memory per scope so pane jumps return to where you left off.
 - Added top-level section navigation shortcuts (Alt+J/K) that jump between sections on the canvas.
-- Added keyboard pan shortcuts on the canvas (Arrow keys for small steps, Shift+Arrow for larger steps).
 
 ## Plan
 1. Header scope and inclusion in tab order
@@ -39,7 +38,7 @@
 5. Keyboard panning and zooming when canvas is focused
    - Add arrow-key pan (small step) and Shift+Arrow (larger step).
    - Reuse `updateMapPosition` or `d3Zoom.translateBy` from the ReactFlow container.
-   - Done: pan shortcuts are configurable and only active in the canvas scope.
+   - Deferred: removed keyboard pan while evaluating focus/UX tradeoffs.
 6. Pane resize/toggle shortcuts
    - Add shortcuts to nudge left/right pane widths and toggle visibility.
    - Reuse `useLocalStorage` width setters + `onOverviewResizeStop` in `frontend/src/components/Panes/paneFns.tsx`.

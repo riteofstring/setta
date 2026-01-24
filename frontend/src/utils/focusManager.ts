@@ -343,14 +343,6 @@ function isElementInScope(
   return scopeRoot?.getAttribute("data-tab-scope") === scopeId;
 }
 
-export function isCanvasScopeActive(): boolean {
-  const activeElement =
-    document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  return isElementInScope(activeElement, "canvas");
-}
-
 function ensureFocusTracking() {
   if (focusTrackingInitialized || typeof document === "undefined") {
     return;
