@@ -7,7 +7,11 @@ import {
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import type { ComponentPropsWithRef, KeyboardEvent } from "react";
+import type {
+  ComponentPropsWithRef,
+  KeyboardEvent,
+  MutableRefObject,
+} from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
@@ -21,6 +25,8 @@ import { ContextMenuCore } from "./ContextMenuCore";
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
   const contextMenuItems = useCreateSectionsList();
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const didNavigateListRef = useRef(false);
 
   function handleCreateSection(menuItem: CreateSectionsContextMenuInfo) {
     createTopLevelSectionFromImplSpecs(
@@ -30,18 +36,136 @@ export function PaneContextMenu() {
     closeAllContextMenus();
   }
 
+  function isEditableTarget(target: EventTarget | null) {
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    );
+  }
+
+  function applyKeyToFilterInput(key: string, resetInput = false) {
+    const input = filterInputRef.current;
+    if (!input) {
+      return;
+    }
+    let value = input.value;
+    let start = input.selectionStart ?? value.length;
+    let end = input.selectionEnd ?? value.length;
+    if (resetInput) {
+      input.value = "";
+      value = "";
+      start = 0;
+      end = 0;
+    }
+
+    if (resetInput && (key === "Backspace" || key === "Delete")) {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(0, 0);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    if (key === "Backspace") {
+      if (start === end && start === 0) {
+        input.focus({ preventScroll: true });
+        return;
+      }
+      const deleteFrom = start === end ? start - 1 : start;
+      const nextValue = value.slice(0, deleteFrom) + value.slice(end);
+      input.value = nextValue;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(deleteFrom, deleteFrom);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    if (key === "Delete") {
+      if (start === end && start === value.length) {
+        input.focus({ preventScroll: true });
+        return;
+      }
+      const deleteTo = start === end ? end + 1 : end;
+      const nextValue = value.slice(0, start) + value.slice(deleteTo);
+      input.value = nextValue;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(start, start);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    const nextValue = value.slice(0, start) + key + value.slice(end);
+    const nextCursor = start + key.length;
+    input.value = nextValue;
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(nextCursor, nextCursor);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function onMenuKeyDownCapture(event: KeyboardEvent<HTMLDivElement>) {
+    const isEditable = isEditableTarget(event.target);
+    if (isEditable && !didNavigateListRef.current) {
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    const isPrintableKey = event.key.length === 1;
+    const isEditingKey =
+      isPrintableKey || event.key === "Backspace" || event.key === "Delete";
+    if (!isEditingKey) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        didNavigateListRef.current = true;
+      }
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    applyKeyToFilterInput(event.key, didNavigateListRef.current);
+    didNavigateListRef.current = false;
+  }
+
+  function onFilterKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeAllContextMenus();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      didNavigateListRef.current = true;
+      event.stopPropagation();
+      return;
+    }
+    const isPrintableKey = event.key.length === 1;
+    const isEditingKey =
+      isPrintableKey || event.key === "Backspace" || event.key === "Delete";
+    if (isEditingKey && didNavigateListRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      applyKeyToFilterInput(event.key, true);
+      didNavigateListRef.current = false;
+      return;
+    }
+    if (isEditingKey) {
+      didNavigateListRef.current = false;
+    }
+    event.stopPropagation();
+  }
+
   return (
     <ContextMenuCore
       x={x}
       y={y}
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
+      onKeyDownCapture={onMenuKeyDownCapture}
     >
       {isOpen ? (
         <PaneContextMenuContents
           contextMenuItems={contextMenuItems}
-          onClose={closeAllContextMenus}
           onCreateSection={handleCreateSection}
+          filterInputRef={filterInputRef}
+          onFilterKeyDown={onFilterKeyDown}
         />
       ) : null}
     </ContextMenuCore>
@@ -55,17 +179,17 @@ type CreateSectionsContextMenuGroup = {
 
 type PaneContextMenuContentsProps = {
   contextMenuItems: Array<CreateSectionsContextMenuGroup>;
-  onClose: () => void;
   onCreateSection: (menuItem: CreateSectionsContextMenuInfo) => void;
+  filterInputRef: MutableRefObject<HTMLInputElement | null>;
+  onFilterKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
 };
 
 function PaneContextMenuContents({
   contextMenuItems,
-  onClose,
   onCreateSection,
+  filterInputRef,
+  onFilterKeyDown,
 }: PaneContextMenuContentsProps) {
-  const filterInputRef = useRef<HTMLInputElement | null>(null);
-
   const allItems = useMemo<AllItemsType<CreateSectionsContextMenuInfo>>(() => {
     return contextMenuItems.map((group) => ({
       group: group.group,
@@ -105,15 +229,6 @@ function PaneContextMenuContents({
     });
   }, []);
 
-  function onFilterKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-    event.stopPropagation();
-  }
-
   const inputProps = getInputProps({
     ref: filterInputRef,
     onKeyDown: onFilterKeyDown,
@@ -122,7 +237,7 @@ function PaneContextMenuContents({
   let itemIndex = 0;
 
   return (
-    <>
+    <div>
       <ContextMenuFilter inputProps={inputProps} />
       <div {...getMenuProps()}>
         {filteredItems.map((group) => {
@@ -158,7 +273,7 @@ function PaneContextMenuContents({
           );
         })}
       </div>
-    </>
+    </div>
   );
 }
 
