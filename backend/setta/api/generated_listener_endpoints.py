@@ -360,13 +360,13 @@ class ListenerMoveParamsRequestPayload(TypedDict):
     newIndex: int
 
 
-class ListenerMoveSectionsRequestPayload(TypedDict):
+class ListenerMoveSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-    sectionIds: list[ID]
+    sectionId: ID
     newParentId: ID | None
     newIndex: int | None
-    positionsById: dict[ID, Position] | None
+    position: Position | None
 
 
 class ListenerOutputAccessorCompletionRequestPayload(TypedDict):
@@ -1040,8 +1040,8 @@ class RouterEndpointAPI:
     async def move_params(self, payload: ListenerMoveParamsRequestPayload) -> None:
         return await self._caller("route_move_params", payload)
 
-    async def move_sections(self, payload: ListenerMoveSectionsRequestPayload) -> None:
-        return await self._caller("route_move_sections", payload)
+    async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
+        return await self._caller("route_move_section", payload)
 
     async def output_accessor_completion(
         self, payload: ListenerOutputAccessorCompletionRequestPayload
