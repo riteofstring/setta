@@ -76,16 +76,18 @@ const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
-const AUTH_REFRESH_INTERVAL_MS = Math.max(
-  1000,
-  Math.floor(C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS * 1000 * 0.5),
-);
+const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
+  C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
 let authRefreshInFlight = false;
+let authRefreshWindowSeconds = DEFAULT_AUTH_REFRESH_WINDOW_SECONDS;
+let authRefreshIntervalMs = getAuthRefreshIntervalMs(
+  DEFAULT_AUTH_REFRESH_WINDOW_SECONDS,
+);
 let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
@@ -225,6 +227,7 @@ function scheduleAuthRecovery(pathname: string) {
   if (!authLost) {
     return;
   }
+  stopAuthRefresh();
   if (authRecoveryTimer !== null) {
     return;
   }
@@ -242,6 +245,7 @@ async function attemptAuthRecovery(pathname: string) {
   const res = await route_get_backend_init_status();
   authRecoveryInFlight = false;
   if (res200(res)) {
+    updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
     authLost = false;
     clearAuthRecoveryTimer();
     openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -287,12 +291,15 @@ function stopShareHeartbeat() {
 
 function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
   stopAuthRefresh();
+  if (authLost) {
+    return;
+  }
   if (runImmediately) {
     void runAuthRefresh();
   }
   authRefreshTimer = window.setInterval(() => {
     void runAuthRefresh();
-  }, AUTH_REFRESH_INTERVAL_MS);
+  }, authRefreshIntervalMs);
 }
 
 function stopAuthRefresh() {
@@ -311,6 +318,7 @@ async function runAuthRefresh() {
   const res = await route_get_backend_init_status();
   authRefreshInFlight = false;
   if (res200(res)) {
+    updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
     return;
   }
   if (!res.hasResponse) {
@@ -318,6 +326,33 @@ async function runAuthRefresh() {
   }
   if (res.status === 401 && wssReady(wss)) {
     wss.close(AUTH_CLOSE_CODE);
+  }
+}
+
+function getAuthRefreshIntervalMs(windowSeconds: number): number {
+  return Math.max(1000, Math.floor(windowSeconds * 1000 * 0.5));
+}
+
+function updateAuthRefreshWindowSeconds(
+  windowSeconds: number | null | undefined,
+) {
+  if (windowSeconds === null || windowSeconds === undefined) {
+    return;
+  }
+  if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
+    return;
+  }
+  if (windowSeconds === authRefreshWindowSeconds) {
+    return;
+  }
+  authRefreshWindowSeconds = windowSeconds;
+  const nextIntervalMs = getAuthRefreshIntervalMs(windowSeconds);
+  if (nextIntervalMs === authRefreshIntervalMs) {
+    return;
+  }
+  authRefreshIntervalMs = nextIntervalMs;
+  if (authRefreshTimer !== null && !authLost) {
+    startAuthRefresh({ runImmediately: false });
   }
 }
 

@@ -6935,6 +6935,7 @@ const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
+  authCookieRefreshWindowSeconds: z.int(),
 });
 
 export type BackendInitStatusResponse = z.infer<

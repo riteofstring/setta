@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
 
@@ -14,6 +15,7 @@ class BackendInitStatusResponse(BaseModel):
     events: list[BackendInitEvent]
     isReady: bool
     error: str | None
+    authCookieRefreshWindowSeconds: int
 
 
 class BackendInitializationStatus:
@@ -36,4 +38,5 @@ class BackendInitializationStatus:
             events=list(self._events),
             isReady=self._is_ready,
             error=self._error,
+            authCookieRefreshWindowSeconds=C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
         )
