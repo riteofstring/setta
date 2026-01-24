@@ -5,16 +5,16 @@ import {
 } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useRef } from "react";
-import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionChildren,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
-import { moveSectionWithBackend } from "state/actions/sections/moveSections";
+import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
+import { getSharedParentId } from "state/actions/sections/sectionSelection";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
+import { insertIntoArray } from "utils/utils";
 import type { DragEndEvent } from "./adapter";
-import { computeNewIndex } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 import { getSortingOverState } from "./sortingOverState";
@@ -30,8 +30,11 @@ function onSortEnd({
     return;
   }
 
-  const children = getSectionChildren(useProjectState.getState(), parentId);
+  const state = useProjectState.getState();
+  const children = getSectionChildren(state, parentId);
   const activeId = String(active.id);
+  const draggingIds = resolveDraggingIds(activeId);
+  const draggingSet = new Set(draggingIds);
   const sortingOverState = getSortingOverState(parentId);
   const overId = resolveSortingOverId({
     collisions,
@@ -39,14 +42,16 @@ function onSortEnd({
     fallbackOverId: sortingOverState?.overId ?? null,
     over,
   });
-  if (!overId || activeId === overId) {
+  if (!overId || draggingSet.has(overId)) {
     return;
   }
 
-  const activeIndex = children.indexOf(activeId);
-  const overIndex = children.indexOf(overId);
+  const filteredChildren = children.filter(
+    (childId) => !draggingSet.has(childId),
+  );
+  const overIndex = filteredChildren.indexOf(overId);
 
-  if (activeIndex < 0 || overIndex < 0) {
+  if (overIndex < 0) {
     return;
   }
 
@@ -56,24 +61,23 @@ function onSortEnd({
     sortingOverState?.pastHalfway ??
     null;
   if (pastHalfway !== null) {
-    newIndex = computeNewIndex(
-      activeIndex,
-      overIndex,
-      pastHalfway,
-      children.length,
-    );
+    newIndex = pastHalfway ? overIndex + 1 : overIndex;
   }
 
-  if (newIndex === activeIndex) {
+  const nextChildren = insertIntoArray(
+    filteredChildren,
+    newIndex,
+    ...draggingIds,
+  );
+  if (arraysEqual(nextChildren, children)) {
     return;
   }
 
-  moveSectionWithBackend({
-    oldParentId: parentId,
+  moveSectionsWithBackend({
+    sectionIds: draggingIds,
     newParentId: parentId,
-    sectionId: activeId,
     newIndex,
-    position: null,
+    positionsById: null,
   });
 }
 
@@ -81,21 +85,20 @@ async function onFreeMoveEnd({
   active,
   over,
   collisions,
-  dummyRef,
-}: Pick<DragEndEvent, "active" | "over" | "collisions"> & {
-  dummyRef: React.RefObject<HTMLDivElement>;
-}) {
+  delta,
+}: Pick<DragEndEvent, "active" | "over" | "collisions" | "delta">) {
   const dndChildrenState = useDndChildren.getState();
-  const sectionId = active.id;
-  const dndSectionId = getDndSectionId(sectionId);
+  const activeId = String(active.id);
+  const draggingIds = resolveDraggingIds(activeId);
+  const draggingSet = new Set(draggingIds);
+  const dndSectionId = getDndSectionId(activeId);
   const resolvedOverId = getOverId(over, collisions);
   const overId = resolvedOverId ? String(resolvedOverId) : null;
-  const oldParentId = useProjectState.getState().parentSectionMap[sectionId];
+  const state = useProjectState.getState();
+  const sharedParentId = getSharedParentId(state, draggingIds);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
-  let activeIdx: number | null = null;
   let newIndex: number | null = null;
-  let position: Position | null = null;
-  let pastHalfway: boolean | null = null;
+  let positionsById: Record<string, Position> | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
   const hasCollisions = Boolean(collisions && collisions.length > 0);
 
@@ -109,34 +112,29 @@ async function onFreeMoveEnd({
       manualDndChildrenReset();
       return;
     }
-    const overIdx = overId ? children.indexOf(overId) : -1;
-    activeIdx = children.indexOf(dndSectionId);
+    const activeIdx = children.indexOf(dndSectionId);
     if (activeIdx >= 0) {
       newIndex = activeIdx;
     } else {
+      const overIdx = overId ? children.indexOf(overId) : -1;
       const overCollision =
         collisions?.find((collision) => String(collision.id) === overId) ??
         null;
-      pastHalfway = Boolean(overCollision?.pastHalfway);
+      const pastHalfway = Boolean(overCollision?.pastHalfway);
       if (overIdx >= 0) {
         newIndex = pastHalfway ? overIdx + 1 : overIdx;
       } else {
         newIndex = 0;
       }
     }
-  }
-  // dropping nested section onto pane
-  else if (!overId) {
-    if (!dummyRef.current) {
-      manualDndChildrenReset();
-      return;
-    }
+  } else if (!overId) {
     newIndex = 0;
-    const { x, y } = dummyRef.current.getBoundingClientRect();
-    position = screenToFlowPosition({ x, y });
-
-    if (!oldParentId) {
-      justMoveANode(sectionId, position);
+    positionsById = resolvePaneDropPositions(
+      draggingIds,
+      useDndState.getState().draggingRectsById,
+      delta,
+    );
+    if (!positionsById) {
       manualDndChildrenReset();
       return;
     }
@@ -149,15 +147,20 @@ async function onFreeMoveEnd({
 
   // If dropping the section into where it already was,
   // then just do manualDndChildrenReset
-  if (
-    oldParentId === newParentId &&
-    (!oldParentId ||
-      getSectionChildren(useProjectState.getState(), oldParentId).indexOf(
-        sectionId,
-      ) === newIndex)
-  ) {
-    manualDndChildrenReset();
-    return;
+  if (newParentId && sharedParentId === newParentId && newIndex !== null) {
+    const children = getSectionChildren(state, newParentId);
+    const filteredChildren = children.filter(
+      (childId) => !draggingSet.has(childId),
+    );
+    const nextChildren = insertIntoArray(
+      filteredChildren,
+      newIndex,
+      ...draggingIds,
+    );
+    if (arraysEqual(nextChildren, children)) {
+      manualDndChildrenReset();
+      return;
+    }
   }
 
   // const maybeNewSectionData = await maybeMakeCopyOfSection({
@@ -166,19 +169,11 @@ async function onFreeMoveEnd({
   //   newParentId,
   // });
 
-  let newSectionId = sectionId;
-  // if (maybeNewSectionData.sections) {
-  //   updateProjectState({ ...maybeNewSectionData, state });
-  //   newSectionId = Object.keys(maybeNewSectionData.sections)[0];
-  // } else {
-  //   newSectionId = maybeNewSectionData;
-  // }
-  moveSectionWithBackend({
-    oldParentId,
+  moveSectionsWithBackend({
+    sectionIds: draggingIds,
     newParentId,
-    sectionId: newSectionId,
     newIndex,
-    position,
+    positionsById,
   });
   manualDndChildrenReset();
 }
@@ -186,7 +181,13 @@ async function onFreeMoveEnd({
 export function useOnDragEnd() {
   const dummyRef = useRef<HTMLDivElement>(null);
 
-  function onDragEnd({ active, over, collisions, canceled }: DragEndEvent) {
+  function onDragEnd({
+    active,
+    over,
+    collisions,
+    canceled,
+    delta,
+  }: DragEndEvent) {
     if (canceled) {
       forceDeactivateDnd();
       return;
@@ -199,7 +200,7 @@ export function useOnDragEnd() {
         active,
         over,
         collisions,
-        dummyRef,
+        delta,
       });
     } else {
       manualDndChildrenReset();
@@ -268,6 +269,57 @@ function resolveSortingOverId({
   }
 
   return null;
+}
+
+function resolveDraggingIds(activeId: string): string[] {
+  const draggingIds = useDndState.getState().draggingIds;
+  if (draggingIds.length > 0) {
+    return draggingIds;
+  }
+  return [activeId];
+}
+
+function resolvePaneDropPositions(
+  draggingIds: string[],
+  draggingRectsById: Record<
+    string,
+    {
+      top: number;
+      left: number;
+      right: number;
+      bottom: number;
+      width: number;
+      height: number;
+    }
+  > | null,
+  delta: DragEndEvent["delta"] | null,
+): Record<string, Position> | null {
+  if (!draggingRectsById) {
+    return null;
+  }
+  const positions: Record<string, Position> = {};
+  for (const sectionId of draggingIds) {
+    const rect = draggingRectsById[sectionId];
+    if (!rect) {
+      return null;
+    }
+    const x = rect.left + (delta?.x ?? 0);
+    const y = rect.top + (delta?.y ?? 0);
+    positions[sectionId] = screenToFlowPosition({ x, y });
+  }
+  return positions;
+}
+
+function arraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function getSortingOverIdFromCollisions(
