@@ -34,7 +34,6 @@ class MessageThinkingDelta(BaseModel):
     type: Literal["thinking_delta"] = "thinking_delta"
     index: int
     thinking: str
-    summary: str | None = None
     signature: str | None = None
 
 
