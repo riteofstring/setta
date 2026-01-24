@@ -5,8 +5,11 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  TextBlockFormatEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -14,6 +17,7 @@ import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
+import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 
 type SectionHeaderProps = {
@@ -34,9 +38,6 @@ function _SectionHeader({
   isRoot,
 }: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -68,8 +69,7 @@ function _SectionHeader({
           </StandardPopover>
         )}
         {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
           <>
             <RunButton sectionId={sectionId} />
             <ToggleEntryCodeBlockButton
@@ -77,6 +77,9 @@ function _SectionHeader({
               sectionTypeName={sectionTypeName}
             />
           </>
+        )}
+        {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
+          <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
@@ -119,17 +122,26 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const headingAsSectionName = useProjectState((x) => {
+  const { headingAsSectionName, format, text } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
-    return impl.headingAsSectionName;
+    return {
+      headingAsSectionName: impl.headingAsSectionName,
+      format: impl.format,
+      text: impl.text,
+    };
   }, _.isEqual);
+  const hasMarkdownHeading =
+    format === TextBlockFormatEnum.Markdown && hasMarkdownH1(text);
+  const useHeadingAsSectionName =
+    headingAsSectionName &&
+    (format !== TextBlockFormatEnum.Markdown || hasMarkdownHeading);
 
   return (
-    !headingAsSectionName && (
+    !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
         titleProps={getTitleStyles({
@@ -140,6 +152,17 @@ function TextBlockCardTitle({
       />
     )
   );
+}
+
+function hasMarkdownH1(markdown: string) {
+  const trimmed = markdown.trimStart();
+  const match = trimmed.match(
+    /(?:^|\n)\s{0,3}#(?!#)\s*(.*?)(?=\n|$)/,
+  );
+  if (!match) {
+    return false;
+  }
+  return match[1].trim().length > 0;
 }
 
 function getTitleStyles({
@@ -158,8 +181,7 @@ function getTitleStyles({
 
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     return { fixed: notEditing };
   }
@@ -200,8 +222,7 @@ function getNotEditingStyle({
   // Handle text case for global variables
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     fontClass = "uppercase font-bold";
   }

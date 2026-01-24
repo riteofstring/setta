@@ -6,8 +6,10 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getHighestAncestor,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
+import { setZIndices } from "./sections/sectionPositions";
 
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
@@ -33,6 +35,28 @@ export function setActiveSectionIds(ids: Array<string>) {
   });
 }
 
+export function addActiveSectionIds(ids: Array<string>) {
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = [...new Set([...currentActiveIds, ...ids])];
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
+  });
+}
+
+export function removeActiveSectionIds(ids: Array<string>) {
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = _.difference(currentActiveIds, ids);
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
+  });
+}
+
 export function clearActiveSectionIds() {
   if (useProjectState.getState().projectConfig.activeIds.length === 0) {
     return;
@@ -40,6 +64,12 @@ export function clearActiveSectionIds() {
   optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = [];
   });
+}
+
+export function setActiveSectionIdAndUpdateZIndex(id: string) {
+  setActiveSectionIds([id]);
+  const highestAncestor = getHighestAncestor(id);
+  setZIndices([highestAncestor], false);
 }
 
 export function selectAll() {

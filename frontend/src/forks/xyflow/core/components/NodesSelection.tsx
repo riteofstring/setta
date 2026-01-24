@@ -1,5 +1,4 @@
 import cc from "classcat";
-import { useDndMode } from "forks/dnd-kit/dndState";
 import useDrag from "forks/xyflow/core/hooks/useDrag";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -22,7 +21,6 @@ function _NodesSelection({ x, y, width, height }: Rect) {
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
-  const { isSorting, isMovingFree } = useDndMode();
   const nodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,7 +73,6 @@ function _NodesSelection({ x, y, width, height }: Rect) {
           height,
           top: y,
           left: x,
-          pointerEvents: isSorting || isMovingFree ? "none" : undefined,
         }}
       />
     </div>
