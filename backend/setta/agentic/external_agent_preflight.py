@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 import os
 import re
@@ -22,13 +23,11 @@ _SIDECAR_ROOT = Path(__file__).resolve().parent / "external_adapters" / "sidecar
 _SIDECAR_NODE_MODULES = _SIDECAR_ROOT / "node_modules"
 
 _SDK_PACKAGE_BY_TOOL = {
-    ExternalAgentToolType.claude_code: "@anthropic-ai/claude-agent-sdk",
     ExternalAgentToolType.codex: "@openai/codex-sdk",
     ExternalAgentToolType.opencode: "@opencode-ai/sdk",
 }
 
 _NODE_MIN_MAJOR = {
-    ExternalAgentToolType.claude_code: 18,
     ExternalAgentToolType.codex: 18,
 }
 
@@ -47,21 +46,23 @@ def build_external_agent_preflight_status(
     sdk_version = None
     cli_version = None
     if config.runMode == ExternalAgentRunMode.sdk:
-        node_path, node_version, node_issue = _check_node(config.commandPath)
-        if node_issue:
-            issues.append(node_issue)
-        node_version_issue = _check_node_version_requirement(
-            config.toolType, node_version
-        )
-        if node_version_issue:
-            issues.append(node_version_issue)
-
-        sdk_version, sdk_issue = _check_sdk_version(config.toolType)
-        if sdk_issue:
-            issues.append(sdk_issue)
-
         if config.toolType == ExternalAgentToolType.claude_code:
-            cli_version, _ = _check_claude_cli()
+            sdk_version, sdk_issue = _check_claude_python_sdk()
+            if sdk_issue:
+                issues.append(sdk_issue)
+        else:
+            node_path, node_version, node_issue = _check_node(config.commandPath)
+            if node_issue:
+                issues.append(node_issue)
+            node_version_issue = _check_node_version_requirement(
+                config.toolType, node_version
+            )
+            if node_version_issue:
+                issues.append(node_version_issue)
+
+            sdk_version, sdk_issue = _check_sdk_version(config.toolType)
+            if sdk_issue:
+                issues.append(sdk_issue)
 
     working_dir, working_dir_issue = _resolve_working_dir(config)
     if working_dir_issue:
@@ -178,20 +179,14 @@ def _check_sdk_version(
     return None, f"{package_name} did not report a version"
 
 
-def _check_claude_cli() -> tuple[str | None, str | None]:
-    claude_path = shutil.which("claude")
-    if not claude_path:
-        return None, "Claude Code CLI not found (claude)"
-    result = subprocess.run(
-        [claude_path, "--version"],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
-    raw = (result.stdout or result.stderr).strip()
-    if result.returncode != 0 or not raw:
-        return None, "Failed to read Claude Code CLI version"
-    return raw.splitlines()[0].strip(), None
+def _check_claude_python_sdk() -> tuple[str | None, str | None]:
+    try:
+        version = importlib.metadata.version("claude-agent-sdk")
+    except importlib.metadata.PackageNotFoundError:
+        return None, "claude-agent-sdk is not installed (pip install claude-agent-sdk)"
+    if isinstance(version, str) and version.strip():
+        return version.strip(), None
+    return None, "claude-agent-sdk did not report a version"
 
 
 def _resolve_working_dir(

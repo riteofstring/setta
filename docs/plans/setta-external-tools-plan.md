@@ -47,9 +47,9 @@ Note: Setta currently runs external tools via SDK-only adapters; MCP/server capa
 
 ### Claude Code
 - Claude Agent SDK (Python/TypeScript) exposes the same agent loop and built-in tools as Claude Code.
-- TypeScript SDK uses `query()` async iteration and supports options like `systemPrompt`, `allowedTools`,
+- Python SDK uses `query()` async iteration and supports options like `systemPrompt`, `allowedTools`,
   and session resume/continuation.
-- TypeScript SDK package: `@anthropic-ai/claude-agent-sdk`.
+- Python SDK package: `claude-agent-sdk`.
 - Agent SDK can load Claude Code filesystem config (skills, commands, memory) when enabled via settings.
 - Auth via ANTHROPIC_API_KEY; optional provider environment variables for Bedrock/Vertex/Foundry.
 
@@ -250,7 +250,7 @@ These were required so the frontend could select Codex/Claude Code/OpenCode and 
    - External agent health is surfaced in Project Chat and Chat sections.
 
 ## Packaging plan: full self-contained wheels (pip-only install)
-Goal: `pip install setta` includes everything needed to run Codex/Claude Code/OpenCode SDK sidecars.
+Goal: `pip install setta` includes everything needed to run Codex/OpenCode SDK sidecars (Claude uses the Python SDK).
 
 - **Bundle Node runtime per platform**
   - Ship a vendored Node binary under `backend/setta/vendor/node/<platform>/`.
@@ -324,7 +324,7 @@ Storage:
 
 ### Claude Code
 - Agent SDK adapter (primary):
-  - Node sidecar using `@anthropic-ai/claude-agent-sdk`.
+  - Python SDK using `claude-agent-sdk`.
   - Enable `setting_sources=["project"]` to read `.claude/` and `CLAUDE.md` when desired.
   - Map AgentProfile -> ClaudeAgentOptions (allowed_tools, model, permissions, etc).
   - Ensure Claude Code SKILL.md files are discovered and honored (project `.claude/skills`
@@ -373,7 +373,7 @@ Storage:
 
 ### Phase 1: SDK-first foundation (implemented)
 - Implement Codex SDK adapter (Node sidecar) and map structured events to RunEvents.
-- Implement Claude SDK adapter (Node sidecar).
+- Implement Claude SDK adapter (Python SDK).
 - Implement OpenCode SDK adapter (sidecar via SDK).
 - Add basic UI for tool selection + run (Project Chat + Chat sections).
 

@@ -634,6 +634,7 @@ function ManagedChatArea({
           message,
           deepThink,
           effectiveEngineConfigId,
+          isExternalEngine,
           messageId,
           agentProfileId,
         );

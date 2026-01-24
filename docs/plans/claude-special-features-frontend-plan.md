@@ -17,8 +17,8 @@ and AskUserQuestion flows in the Setta frontend.
 
 ## Current code snapshot (what exists today)
 - Claude SDK events are translated into `LLMStreamingResponseChunk` in
-  `backend/setta/agentic/external_adapters/claude_sdk.py`, driven by the Node
-  sidecar `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.mjs`.
+  `backend/setta/agentic/external_adapters/claude_sdk.py`, driven by the Python
+  SDK integration.
 - Stream chunks are sent to the frontend and handled by
   `frontend/src/state/actions/ai.ts`, then rendered in
   `frontend/src/components/Chat/ChatMessages.tsx`.
@@ -77,8 +77,8 @@ and AskUserQuestion flows in the Setta frontend.
 ## Backend changes
 1) Tool response plumbing
    - Extend `ExternalAgentAdapter` with a `send_tool_response(...)` method.
-   - Update `backend/setta/agentic/external_adapters/claude_sdk.py` and
-     `claude_sdk_runner.mjs` to accept stdin messages like
+   - Update `backend/setta/agentic/external_adapters/claude_sdk.py` to accept
+     responses that mirror the Claude SDK tool response API.
      `{ type: "tool_response", toolCallId, payload }` and forward them to the
      Claude SDK tool response API.
    - Track pending question tool calls in `ExternalAgentRunner` (mirror the
@@ -253,7 +253,6 @@ with a dedicated approval UI.
 - Backend:
   - `backend/setta/agentic/external_adapters/base.py`
   - `backend/setta/agentic/external_adapters/claude_sdk.py`
-  - `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.mjs`
   - `backend/setta/agentic/external_agent_runner.py`
   - `backend/setta/routers/agentic.py`
   - `backend/setta/types/agentic.py`

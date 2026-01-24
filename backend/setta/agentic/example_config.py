@@ -42,7 +42,7 @@ _DEFAULT_EXTERNAL_AGENT_CONFIGS: list[ExternalAgentConfig] = [
     ExternalAgentConfig(
         id="external-claude-code",
         name="Claude Code (SDK)",
-        description="Claude Code via SDK sidecar",
+        description="Claude Code via Python SDK",
         toolType=ExternalAgentToolType.claude_code,
         runMode=ExternalAgentRunMode.sdk,
         commandPath=None,

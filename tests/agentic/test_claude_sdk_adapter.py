@@ -397,32 +397,6 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertIsNone(events[0].stream_chunk)
 
-    def test_build_command_uses_node_path(self) -> None:
-        adapter = ClaudeSdkAdapter()
-        config = ExternalAgentConfig(
-            name="Claude SDK",
-            toolType=ExternalAgentToolType.claude_code,
-            runMode=ExternalAgentRunMode.sdk,
-            commandPath="/usr/local/bin/node",
-        )
-        context = ExternalAgentRunContext(
-            run=AgentRun(),
-            config=config,
-            profile=None,
-            project_config_id=ID("project-1"),
-            chat_id=ID("chat-1"),
-            section_id=None,
-            inputs=None,
-            system_prompt="",
-            working_dir=Path("."),
-            env={},
-        )
-
-        command = adapter._build_command(context)
-
-        self.assertEqual(command[0], "/usr/local/bin/node")
-        self.assertTrue(command[1].endswith("claude_sdk_runner.mjs"))
-
     def test_build_prompt_uses_latest_user_message(self) -> None:
         adapter = ClaudeSdkAdapter()
         config = ExternalAgentConfig(

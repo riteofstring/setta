@@ -573,6 +573,7 @@ export async function submitMessage(
   message: string,
   deepThink: boolean,
   engineConfigId: string,
+  isExternalEngine: boolean,
   messageId?: string,
   agentProfileId?: string | null,
 ): Promise<string | null> {
@@ -603,7 +604,11 @@ export async function submitMessage(
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
-        await getLLMChat(returnedChatId);
+        if (isExternalEngine) {
+          await getExternalAgentChat(returnedChatId, projectConfigId);
+        } else {
+          await getLLMChat(returnedChatId);
+        }
       }
       return returnedChatId;
     }

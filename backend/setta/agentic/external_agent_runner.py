@@ -294,6 +294,12 @@ class ExternalAgentRunner:
             self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
+            error_payload: dict[str, Any] = {"error": str(exc)}
+            stderr_lines = None
+            if handle is not None:
+                stderr_lines = handle.metadata.get("stderr_lines")
+            if isinstance(stderr_lines, list) and stderr_lines:
+                error_payload["cliStderr"] = stderr_lines[-50:]
             self._persist_external_session_metadata(run, handle)
             self._persist_outputs_from_state(run, context.config)
             await (
@@ -310,7 +316,7 @@ class ExternalAgentRunner:
             run.status = AgentRunStatus.failed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
-            self._record_event(run, "run_failed", {"error": str(exc)})
+            self._record_event(run, "run_failed", error_payload)
         finally:
             self._cleanup_context(context)
 
@@ -599,12 +605,13 @@ class ExternalAgentRunner:
         allowlist = self._resolve_external_tool_allowlist(profile)
         mcp_url = self._build_setta_mcp_url()
         if config.toolType == ExternalAgentToolType.claude_code:
-            config_path = self._write_claude_mcp_config(mcp_url)
-            payload_inputs["mcpConfig"] = str(config_path)
+            if "mcpConfig" not in payload_inputs:
+                config_path = self._write_claude_mcp_config(mcp_url)
+                payload_inputs["mcpConfig"] = str(config_path)
+                cleanup_paths.append(config_path.parent)
             allowed_tools = self._build_claude_allowed_tools(profile)
             if allowed_tools:
                 payload_inputs["allowedTools"] = allowed_tools
-            cleanup_paths.append(config_path.parent)
             return
         if config.toolType == ExternalAgentToolType.opencode:
             config_path = self._write_opencode_config(mcp_url, config, allowlist)
@@ -626,7 +633,9 @@ class ExternalAgentRunner:
     def _write_claude_mcp_config(self, mcp_url: str) -> Path:
         config_dir = self._create_temp_dir("setta-claude-mcp-")
         path = config_dir / _CLAUDE_MCP_CONFIG_NAME
-        payload = {"mcpServers": {_MCP_SERVER_NAME: {"url": mcp_url}}}
+        payload = {
+            "mcpServers": {_MCP_SERVER_NAME: {"type": "sse", "url": mcp_url}}
+        }
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 

@@ -125,6 +125,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           message,
           deepThink,
           engineConfigId,
+          isExternalEngine,
           undefined,
           null,
         );

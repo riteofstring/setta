@@ -1,10 +1,13 @@
 import asyncio
+import importlib.metadata
+import json
 import os
-import shutil
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from setta.agentic.external_adapters.base import ExternalAgentRunHandle
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -23,30 +26,46 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 
 class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    @contextmanager
+    def _temp_home(base_dir: Path):
+        home_dir = base_dir / "claude_home"
+        config_dir = home_dir / ".config"
+        state_dir = home_dir / ".local" / "state"
+        cache_dir = home_dir / ".cache"
+        home_dir.mkdir(parents=True, exist_ok=True)
+        config_dir.mkdir(parents=True, exist_ok=True)
+        state_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        keys = ("HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME")
+        original = {key: os.environ.get(key) for key in keys}
+        os.environ["HOME"] = str(home_dir)
+        os.environ["XDG_CONFIG_HOME"] = str(config_dir)
+        os.environ["XDG_STATE_HOME"] = str(state_dir)
+        os.environ["XDG_CACHE_HOME"] = str(cache_dir)
+        try:
+            yield
+        finally:
+            for key, value in original.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    @staticmethod
+    def _write_empty_mcp_config(base_dir: Path) -> str:
+        path = base_dir / "empty_mcp.json"
+        path.write_text(json.dumps({"mcpServers": {}}, indent=2), encoding="utf-8")
+        return str(path)
+
     def _require_claude_sdk(self) -> str:
-        node_path = shutil.which("node")
-        if node_path is None:
-            self.skipTest("node is not installed")
-        sidecar_root = (
-            Path(__file__).resolve().parents[2]
-            / "backend"
-            / "setta"
-            / "agentic"
-            / "external_adapters"
-            / "sidecars"
-        )
-        package_json = (
-            sidecar_root
-            / "node_modules"
-            / "@anthropic-ai"
-            / "claude-agent-sdk"
-            / "package.json"
-        )
-        if not package_json.exists():
-            self.skipTest("@anthropic-ai/claude-agent-sdk is not installed for sidecars")
+        try:
+            version = importlib.metadata.version("claude-agent-sdk")
+        except importlib.metadata.PackageNotFoundError:
+            self.skipTest("claude-agent-sdk is not installed")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             self.skipTest("ANTHROPIC_API_KEY not set")
-        return node_path
+        return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
         for _ in range(120):
@@ -85,6 +104,47 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
         return stored
+
+    async def _await_run_handle(
+        self, runner: ExternalAgentRunner, run_id: ID
+    ) -> ExternalAgentRunHandle:
+        for _ in range(50):
+            state = runner._run_state.get(run_id)
+            if state is not None:
+                return state.handle
+            task = runner._tasks.get(run_id)
+            if task is not None and task.done():
+                break
+            await asyncio.sleep(0.1)
+        self.fail(
+            "Claude SDK run did not register a Python SDK handle before completion."
+        )
+        raise AssertionError("Unreachable")
+
+    def _assert_python_sdk_handle(self, handle: ExternalAgentRunHandle) -> None:
+        self.assertIsNone(handle.process)
+        queue = handle.metadata.get("queue")
+        self.assertIsInstance(queue, asyncio.Queue)
+        task = handle.metadata.get("task")
+        self.assertIsInstance(task, asyncio.Task)
+        if isinstance(task, asyncio.Task):
+            coro = task.get_coro()
+            code = getattr(coro, "cr_code", None)
+            filename = getattr(code, "co_filename", "")
+            self.assertTrue(filename.endswith("claude_sdk.py"))
+
+    @staticmethod
+    def _debug_dump(
+        handle: ExternalAgentRunHandle, outputs: dict | None, label: str
+    ) -> str:
+        stderr_lines = handle.metadata.get("stderr_lines")
+        stderr_tail = []
+        if isinstance(stderr_lines, list):
+            stderr_tail = [str(line) for line in stderr_lines[-50:]]
+        return (
+            f"{label} outputs={outputs} "
+            f"cliStderrTail={stderr_tail if stderr_tail else '[]'}"
+        )
 
     @staticmethod
     def _extract_tool_text(message: dict) -> str:
@@ -133,9 +193,10 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return blocks
 
     async def test_claude_sdk_streams_message(self) -> None:
-        node_path = self._require_claude_sdk()
+        self._require_claude_sdk()
 
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
             dbe = DBE(Path(tmpdir) / "setta_files")
             project_config = ProjectConfig()
             dbe.write_project(
@@ -157,7 +218,6 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 name="Claude SDK",
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
                 approvalPolicy="allow",
                 envVarWhitelist=["ANTHROPIC_API_KEY"],
             )
@@ -166,15 +226,19 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config},
             )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
 
             await self._await_completed_run(dbe, run.id)
 
     async def test_claude_sdk_reads_file_with_tool(self) -> None:
-        node_path = self._require_claude_sdk()
+        self._require_claude_sdk()
 
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
             work_dir = Path(tmpdir) / "workspace"
             work_dir.mkdir(parents=True, exist_ok=True)
             token = "setta-tool-read-token"
@@ -201,7 +265,6 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 name="Claude SDK",
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
                 approvalPolicy="allow",
                 envVarWhitelist=["ANTHROPIC_API_KEY"],
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
@@ -220,9 +283,13 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "contents and nothing else."
                     ),
                     "allowedTools": ["Read"],
+                    "mcpConfig": mcp_config,
                     "maxTurns": 1,
                 },
             )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
@@ -230,7 +297,10 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             messages = outputs.get("messages")
             self.assertIsInstance(messages, list)
             all_text = self._collect_message_texts(messages)
-            self.assertIn(token, all_text)
+            if token not in all_text:
+                self.fail(
+                    self._debug_dump(handle, outputs, "Read tool token not found.")
+                )
             assistant_messages = [
                 message
                 for message in messages
@@ -253,9 +323,10 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Read", tool_names)
 
     async def test_claude_sdk_runs_bash_tool(self) -> None:
-        node_path = self._require_claude_sdk()
+        self._require_claude_sdk()
 
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
             work_dir = Path(tmpdir) / "workspace"
             work_dir.mkdir(parents=True, exist_ok=True)
             (work_dir / "alpha.txt").write_text("alpha", encoding="utf-8")
@@ -281,7 +352,6 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 name="Claude SDK",
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
                 approvalPolicy="allow",
                 envVarWhitelist=["ANTHROPIC_API_KEY"],
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
@@ -299,9 +369,13 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "Then reply with only the exact command output."
                     ),
                     "allowedTools": ["Bash"],
+                    "mcpConfig": mcp_config,
                     "maxTurns": 1,
                 },
             )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
@@ -309,7 +383,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             messages = outputs.get("messages")
             self.assertIsInstance(messages, list)
             all_text = self._collect_message_texts(messages)
-            self.assertIn("alpha.txt", all_text)
+            if "alpha.txt" not in all_text:
+                self.fail(
+                    self._debug_dump(
+                        handle, outputs, "Bash tool output missing alpha.txt."
+                    )
+                )
             assistant_messages = [
                 message
                 for message in messages
@@ -330,11 +409,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Bash", tool_names)
 
     async def test_claude_sdk_emits_thinking_blocks(self) -> None:
-        node_path = self._require_claude_sdk()
+        self._require_claude_sdk()
         model_override = os.environ.get("SETTA_CLAUDE_THINKING_MODEL")
         thinking_model = model_override or "claude-opus-4-5"
 
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
             dbe = DBE(Path(tmpdir) / "setta_files")
             project_config = ProjectConfig()
             dbe.write_project(
@@ -356,7 +436,6 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 name="Claude SDK",
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
-                commandPath=node_path,
                 defaultModel=thinking_model,
                 approvalPolicy="allow",
                 envVarWhitelist=["ANTHROPIC_API_KEY"],
@@ -374,9 +453,13 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "Respond with only the number."
                     ),
                     "thinking": {"type": "enabled", "budget_tokens": 1024},
+                    "mcpConfig": mcp_config,
                     "maxTurns": 1,
                 },
             )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")

@@ -1,11 +1,25 @@
 import asyncio
 import json
 import logging
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncIterator
 
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    PermissionResultAllow,
+    PermissionResultDeny,
+    ResultMessage,
+    SystemMessage,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+    query,
+)
+from claude_agent_sdk.types import StreamEvent
 from mcp.types import TextContent
 
 from setta.agentic.external_adapters.base import (
@@ -15,12 +29,6 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentStreamEvent,
 )
 from setta.agentic.external_adapters.prompt_utils import build_prompt_from_inputs
-from setta.agentic.external_adapters.stream_utils import (
-    collect_stream_lines,
-    iter_stream_lines,
-    parse_json_line,
-)
-from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -45,8 +53,43 @@ from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolT
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 logger = logging.getLogger(__name__)
-_SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "claude_sdk_runner.mjs"
-_FINAL_EVENT_TYPES = {"result", "final", "message_stop", "complete", "done"}
+
+_QUEUE_KIND_MESSAGE = "sdk_message"
+_QUEUE_KIND_RAW = "raw_event"
+_QUEUE_KIND_ERROR = "error"
+_QUEUE_KIND_DONE = "done"
+
+_MAX_CLI_STDERR_LINES = 200
+
+_PERMISSION_MODE_VALUES = {
+    "default",
+    "acceptEdits",
+    "bypassPermissions",
+    "plan",
+}
+_PERMISSION_MODE_ALIASES = {
+    "allow": "bypassPermissions",
+    "auto": "bypassPermissions",
+    "bypass": "bypassPermissions",
+    "ask": "default",
+    "deny": "default",
+    "block": "default",
+}
+
+_DEFAULT_THINKING_BUDGET = 1024
+
+
+@dataclass
+class _ApprovalDecision:
+    approved: bool
+    updated_input: dict[str, Any] | None
+
+
+@dataclass
+class _PendingApproval:
+    future: asyncio.Future[_ApprovalDecision]
+    tool_name: str | None
+    tool_input: dict[str, Any] | None
 
 
 class ClaudeSdkAdapter(ExternalAgentAdapter):
@@ -57,138 +100,161 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         self, context: ExternalAgentRunContext
     ) -> ExternalAgentRunHandle:
         prompt = self._build_prompt(context)
-        command = self._build_command(context)
-        logger.info("Starting Claude SDK run: %s", " ".join(command))
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(context.working_dir),
-            env=context.env,
+        queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+        pending_approvals: dict[str, _PendingApproval] = {}
+        tool_use_names: dict[str, str] = {}
+        stderr_lines: list[str] = []
+        options = _build_options(context, pending_approvals, queue, stderr_lines)
+        session_id = _extract_session_id(context.inputs) or str(context.run.id)
+        task = asyncio.create_task(_run_query(prompt, options, queue, session_id))
+        handle = ExternalAgentRunHandle(
+            run_id=context.run.id,
+            metadata={
+                "queue": queue,
+                "task": task,
+                "pending_approvals": pending_approvals,
+                "tool_use_names": tool_use_names,
+                "stderr_lines": stderr_lines,
+            },
         )
-        if process.stdin is not None:
-            payload = {
-                "prompt": prompt,
-                "runId": str(context.run.id),
-                "systemPrompt": _build_system_prompt_payload(context.system_prompt),
-            }
-            thinking_payload, thinking_budget = _extract_thinking_payload(
-                context.inputs
-            )
-            if thinking_payload is not None:
-                payload["thinking"] = thinking_payload
-            if thinking_budget is not None:
-                payload["thinkingBudgetTokens"] = thinking_budget
-            allowed_tools = _extract_allowed_tools(context)
-            if allowed_tools:
-                payload["allowedTools"] = allowed_tools
-            mcp_config = _extract_mcp_config(context.inputs)
-            if mcp_config is not None:
-                payload["mcpConfig"] = mcp_config
-            if context.config.defaultModel:
-                payload["defaultModel"] = context.config.defaultModel
-            if context.config.approvalPolicy:
-                payload["approvalPolicy"] = context.config.approvalPolicy
-            if context.config.sandboxPolicy:
-                payload["sandboxPolicy"] = context.config.sandboxPolicy
-            close_after_response = _extract_close_after_response(context.inputs)
-            if close_after_response is None:
-                payload["closeAfterResponse"] = True
-            else:
-                payload["closeAfterResponse"] = close_after_response
-            session_id = _extract_session_id(context.inputs)
-            if session_id is not None:
-                payload["sessionId"] = session_id
-            process.stdin.write(
-                (json.dumps({"type": "start", **payload}) + "\n").encode("utf-8")
-            )
-            await process.stdin.drain()
-        return ExternalAgentRunHandle(run_id=context.run.id, process=process)
+        handle.session_id = session_id
+        return handle
 
     async def stream_events(
         self, handle: ExternalAgentRunHandle, _context: ExternalAgentRunContext
     ) -> AsyncIterator[ExternalAgentStreamEvent]:
-        process = handle.process
-        if process is None or process.stdout is None:
+        queue = handle.metadata.get("queue")
+        if not isinstance(queue, asyncio.Queue):
             return
-        stderr_task: asyncio.Task[list[str]] | None = None
-        if process.stderr is not None:
-            stderr_task = asyncio.create_task(collect_stream_lines(process.stderr))
         parser = _ClaudeSdkEventParser()
-        async for line in iter_stream_lines(process.stdout):
-            if not line:
+        saw_partial = False
+        tool_use_names = handle.metadata.get("tool_use_names")
+        if not isinstance(tool_use_names, dict):
+            tool_use_names = {}
+            handle.metadata["tool_use_names"] = tool_use_names
+        seen_tool_results = handle.metadata.get("seen_tool_results")
+        if not isinstance(seen_tool_results, set):
+            seen_tool_results = set()
+            handle.metadata["seen_tool_results"] = seen_tool_results
+        log_budget = 5
+        total_events = 0
+        while True:
+            kind, payload = await queue.get()
+            total_events += 1
+            if log_budget > 0:
+                log_budget -= 1
+                logger.info(
+                    "Claude SDK queue event (run_id=%s) kind=%s payload=%s",
+                    handle.run_id,
+                    kind,
+                    _describe_sdk_message(payload),
+                )
+            if kind == _QUEUE_KIND_DONE:
+                logger.info(
+                    "Claude SDK queue done (run_id=%s, total_events=%s)",
+                    handle.run_id,
+                    total_events,
+                )
+                break
+            if kind == _QUEUE_KIND_ERROR:
+                logger.error(
+                    "Claude SDK queue error (run_id=%s): %s",
+                    handle.run_id,
+                    payload,
+                )
+                raise payload
+            if kind == _QUEUE_KIND_RAW:
+                if isinstance(payload, dict):
+                    yield ExternalAgentStreamEvent(raw=payload)
                 continue
-            raw = parse_json_line(line)
-            if raw is None:
-                yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
+            if kind != _QUEUE_KIND_MESSAGE:
                 continue
-            summary = _summarize_sdk_event(raw)
-            print(
-                f"[claude-sdk] event {summary}",
-                file=sys.stderr,
-                flush=True,
-            )
-            logger.warning("Claude SDK event: %s", summary)
-            session_id = _extract_session_id_from_event(raw)
-            if session_id:
-                handle.session_id = session_id
-            for event in parser.handle(raw):
-                yield event
-        if stderr_task is not None:
-            for line in await stderr_task:
-                if line:
-                    print(
-                        f"[claude-sdk] stderr {line}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                    logger.warning("Claude SDK stderr: %s", line)
-                    yield ExternalAgentStreamEvent(raw={"type": "stderr", "text": line})
-        handle.return_code = await process.wait()
+
+            message = payload
+            if isinstance(message, StreamEvent):
+                saw_partial = True
+                stream_payload = _build_stream_event_payload(message)
+                if stream_payload is None:
+                    continue
+                _maybe_set_session_id(handle, stream_payload)
+                for event in parser.handle(stream_payload):
+                    yield event
+                continue
+
+            _maybe_set_session_id_from_message(handle, message)
+
+            if isinstance(message, UserMessage):
+                for event in _build_tool_result_events(
+                    message, tool_use_names, seen_tool_results
+                ):
+                    yield event
+                continue
+
+            if isinstance(message, AssistantMessage):
+                if saw_partial:
+                    continue
+                assistant_payload = _build_assistant_payload(message, tool_use_names)
+                for event in parser.handle(
+                    {"type": "assistant", "message": assistant_payload}
+                ):
+                    yield event
+                continue
+
+            if saw_partial:
+                continue
+
+            if isinstance(message, (SystemMessage, ResultMessage)):
+                continue
+
+        handle.return_code = 0
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
-        process = handle.process
-        if process is None:
-            return
-        process.terminate()
-        try:
-            await asyncio.wait_for(process.wait(), timeout=5)
-        except asyncio.TimeoutError:
-            process.kill()
+        task = handle.metadata.get("task")
+        if isinstance(task, asyncio.Task) and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("Claude SDK background task failed during cancel")
+        pending = handle.metadata.get("pending_approvals")
+        if isinstance(pending, dict):
+            for state in pending.values():
+                if isinstance(state, _PendingApproval) and not state.future.done():
+                    state.future.cancel()
 
     async def send_approval_response(
         self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool
     ) -> None:
-        process = handle.process
-        if process is None or process.stdin is None:
-            raise RuntimeError("Claude SDK process stdin not available")
-        payload = {
-            "type": "approval_response",
-            "approvalId": approval_id,
-            "decision": "allow" if approved else "deny",
-        }
-        process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
-        await process.stdin.drain()
+        pending = _pop_pending_approval(handle, approval_id)
+        if pending is None:
+            raise KeyError(f"Claude SDK approval {approval_id} not found")
+        if pending.future.done():
+            return
+        pending.future.set_result(
+            _ApprovalDecision(approved=approved, updated_input=None)
+        )
 
     async def send_tool_response(
         self, handle: ExternalAgentRunHandle, tool_call_id: str, payload: dict[str, Any]
     ) -> None:
-        process = handle.process
-        if process is None or process.stdin is None:
-            raise RuntimeError("Claude SDK process stdin not available")
-        message = {
-            "type": "tool_response",
-            "toolCallId": tool_call_id,
-            "payload": payload,
-        }
-        process.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
-        await process.stdin.drain()
-
-    @staticmethod
-    def _build_command(context: ExternalAgentRunContext) -> list[str]:
-        node_path = resolve_node_command(context.config.commandPath)
-        return [node_path, str(_SIDECAR_PATH)]
+        pending = _pop_pending_approval(handle, tool_call_id)
+        if pending is None:
+            raise KeyError(f"Claude SDK tool response {tool_call_id} not found")
+        updated_input = _extract_updated_input(payload)
+        answers = _extract_answers(payload)
+        if updated_input is None and answers and pending.tool_name == "AskUserQuestion":
+            base_input = (
+                pending.tool_input if isinstance(pending.tool_input, dict) else {}
+            )
+            updated_input = {**base_input, "answers": answers}
+        approved = updated_input is not None
+        if pending.future.done():
+            return
+        pending.future.set_result(
+            _ApprovalDecision(approved=approved, updated_input=updated_input)
+        )
 
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
@@ -196,6 +262,399 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         if prompt:
             return f"{prompt}\n"
         return build_prompt_from_inputs("", context.inputs)
+
+
+async def _run_query(
+    prompt: str,
+    options: ClaudeAgentOptions,
+    queue: asyncio.Queue[tuple[str, Any]],
+    session_id: str | None,
+) -> None:
+    message_count = 0
+    logger.info("Claude SDK query starting (session_id=%s)", session_id)
+    try:
+        prompt_stream = _build_prompt_stream(prompt, session_id)
+        async for message in query(prompt=prompt_stream, options=options):
+            message_count += 1
+            if message_count <= 3:
+                logger.debug(
+                    "Claude SDK query message (session_id=%s): %s",
+                    session_id,
+                    _describe_sdk_message(message),
+                )
+            await queue.put((_QUEUE_KIND_MESSAGE, message))
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        await queue.put((_QUEUE_KIND_ERROR, exc))
+    finally:
+        logger.info(
+            "Claude SDK query finished (session_id=%s, message_count=%s)",
+            session_id,
+            message_count,
+        )
+        try:
+            queue.put_nowait((_QUEUE_KIND_DONE, None))
+        except Exception:
+            pass
+
+
+async def _build_prompt_stream(
+    prompt: str, session_id: str | None
+) -> AsyncIterator[dict[str, Any]]:
+    payload: dict[str, Any] = {
+        "type": "user",
+        "message": {"role": "user", "content": prompt},
+        "parent_tool_use_id": None,
+    }
+    if session_id:
+        payload["session_id"] = session_id
+    yield payload
+
+
+def _describe_sdk_message(message: Any) -> str:
+    if isinstance(message, dict):
+        message_type = message.get("type")
+        if isinstance(message_type, str) and message_type:
+            return f"dict({message_type})"
+        return "dict"
+    if isinstance(message, StreamEvent):
+        raw_event = getattr(message, "event", None) or getattr(
+            message, "stream_event", None
+        )
+        event_type: str | None = None
+        if isinstance(raw_event, dict):
+            event_type = raw_event.get("type")
+        else:
+            raw_type = getattr(raw_event, "type", None)
+            if isinstance(raw_type, str):
+                event_type = raw_type
+            elif raw_type is not None:
+                event_type = str(raw_type)
+        if event_type:
+            return f"StreamEvent({event_type})"
+        return "StreamEvent"
+    return type(message).__name__
+
+
+def _summarize_mcp_servers(mcp_servers: dict[str, Any] | None) -> str:
+    if not mcp_servers:
+        return "none"
+    names = [str(name) for name in mcp_servers.keys()]
+    names.sort()
+    return ",".join(names)
+
+
+def _build_options(
+    context: ExternalAgentRunContext,
+    pending_approvals: dict[str, _PendingApproval],
+    queue: asyncio.Queue[tuple[str, Any]],
+    stderr_lines: list[str] | None,
+) -> ClaudeAgentOptions:
+    inputs = context.inputs or {}
+    options: dict[str, Any] = {
+        "system_prompt": _build_system_prompt_payload(context.system_prompt),
+        "include_partial_messages": True,
+        "cwd": str(context.working_dir),
+        "env": dict(context.env),
+    }
+    if "ANTHROPIC_API_KEY" not in context.env:
+        logger.warning(
+            "Claude SDK env missing ANTHROPIC_API_KEY (run_id=%s)", context.run.id
+        )
+    if context.config.commandPath:
+        options["cli_path"] = context.config.commandPath
+    allowed_tools = _extract_allowed_tools(context)
+    if allowed_tools:
+        options["allowed_tools"] = allowed_tools
+    model = _extract_model(context)
+    if model:
+        options["model"] = model
+    max_turns = _normalize_max_turns(inputs.get("maxTurns") or inputs.get("max_turns"))
+    if max_turns is not None:
+        options["max_turns"] = max_turns
+    thinking_budget = _extract_thinking_budget(inputs)
+    if thinking_budget is not None:
+        options["max_thinking_tokens"] = thinking_budget
+    resume = _extract_session_id(inputs)
+    if resume:
+        options["resume"] = resume
+    sandbox = _build_sandbox_options(context.config.sandboxPolicy)
+    if sandbox is not None:
+        options["sandbox"] = sandbox
+    mcp_config = _extract_mcp_config(inputs)
+    mcp_servers = _load_mcp_servers(mcp_config) if mcp_config else None
+    if mcp_servers:
+        options["mcp_servers"] = mcp_servers
+    elif mcp_config:
+        logger.warning(
+            "Claude SDK mcpConfig did not load servers (run_id=%s, path=%s)",
+            context.run.id,
+            mcp_config,
+        )
+
+    permission_mode = _resolve_permission_mode(context.config.approvalPolicy)
+    if permission_mode:
+        options["permission_mode"] = permission_mode
+    decision_policy = _resolve_decision_policy(context.config.approvalPolicy)
+
+    def _log_cli_stderr(line: str) -> None:
+        logger.warning("Claude CLI stderr (run_id=%s): %s", context.run.id, line)
+        if stderr_lines is None:
+            return
+        stderr_lines.append(line)
+        if len(stderr_lines) > _MAX_CLI_STDERR_LINES:
+            del stderr_lines[: len(stderr_lines) - _MAX_CLI_STDERR_LINES]
+
+    async def can_use_tool(
+        tool_name: str,
+        tool_input: dict[str, Any],
+        tool_context: Any = None,
+    ) -> PermissionResultAllow | PermissionResultDeny:
+        normalized_tool_name = (
+            tool_name if isinstance(tool_name, str) else str(tool_name)
+        )
+        normalized_tool_input = tool_input if isinstance(tool_input, dict) else {}
+        if decision_policy == "allow":
+            return PermissionResultAllow(
+                behavior="allow",
+                updated_input=normalized_tool_input,
+            )
+        if decision_policy == "deny":
+            return PermissionResultDeny(
+                behavior="deny",
+                message="Denied by approval policy.",
+                interrupt=False,
+            )
+
+        approval_id = str(create_new_id())
+        tool_type = None
+        if tool_context is not None:
+            tool_type = getattr(tool_context, "tool_type", None) or getattr(
+                tool_context, "toolType", None
+            )
+        approval_payload = {
+            "type": "approval_request",
+            "approvalId": approval_id,
+            "runId": str(context.run.id),
+            "tool": normalized_tool_name,
+            "input": normalized_tool_input,
+            "toolName": normalized_tool_name,
+            "toolType": tool_type,
+        }
+        await queue.put((_QUEUE_KIND_RAW, approval_payload))
+        future = asyncio.get_running_loop().create_future()
+        pending_approvals[approval_id] = _PendingApproval(
+            future=future,
+            tool_name=normalized_tool_name,
+            tool_input=normalized_tool_input,
+        )
+        decision = await future
+        pending_approvals.pop(approval_id, None)
+        if decision.approved:
+            updated_input = decision.updated_input or normalized_tool_input
+            return PermissionResultAllow(
+                behavior="allow",
+                updated_input=updated_input,
+            )
+        return PermissionResultDeny(
+            behavior="deny",
+            message="User denied permission for this tool.",
+            interrupt=False,
+        )
+
+    options["can_use_tool"] = can_use_tool
+    options["stderr"] = _log_cli_stderr
+    options["extra_args"] = {"debug-to-stderr": None}
+    logger.info(
+        "Claude SDK options (run_id=%s) model=%s cli_path=%s cwd=%s "
+        "permission_mode=%s decision_policy=%s mcp_servers=%s "
+        "allowed_tools=%s max_turns=%s thinking_budget=%s env_has_api_key=%s",
+        context.run.id,
+        model,
+        options.get("cli_path"),
+        options.get("cwd"),
+        permission_mode,
+        decision_policy,
+        _summarize_mcp_servers(mcp_servers),
+        len(allowed_tools) if allowed_tools else 0,
+        max_turns,
+        thinking_budget,
+        "ANTHROPIC_API_KEY" in context.env,
+    )
+    logger.debug(
+        "Claude SDK env keys (run_id=%s): %s",
+        context.run.id,
+        sorted(context.env.keys()),
+    )
+    return ClaudeAgentOptions(**options)
+
+
+def _pop_pending_approval(
+    handle: ExternalAgentRunHandle, approval_id: str
+) -> _PendingApproval | None:
+    pending = handle.metadata.get("pending_approvals")
+    if not isinstance(pending, dict):
+        return None
+    entry = pending.get(approval_id)
+    if isinstance(entry, _PendingApproval):
+        return entry
+    return None
+
+
+def _build_stream_event_payload(message: StreamEvent) -> dict[str, Any] | None:
+    raw_event = getattr(message, "event", None)
+    if raw_event is None:
+        raw_event = getattr(message, "stream_event", None)
+    if raw_event is None:
+        return None
+    if isinstance(raw_event, dict):
+        event_payload = raw_event
+    elif hasattr(raw_event, "model_dump"):
+        event_payload = raw_event.model_dump()
+    elif hasattr(raw_event, "dict"):
+        event_payload = raw_event.dict()
+    elif hasattr(raw_event, "__dict__"):
+        event_payload = raw_event.__dict__
+    else:
+        return None
+    return {"type": "stream_event", "event": event_payload}
+
+
+def _maybe_set_session_id(
+    handle: ExternalAgentRunHandle, payload: dict[str, Any]
+) -> None:
+    session_id = _extract_session_id_from_event(payload)
+    if session_id:
+        handle.session_id = session_id
+
+
+def _maybe_set_session_id_from_message(
+    handle: ExternalAgentRunHandle, message: Any
+) -> None:
+    if message is None:
+        return
+    for key in ("session_id", "sessionId", "session", "resume"):
+        value = getattr(message, key, None)
+        if isinstance(value, str) and value:
+            handle.session_id = value
+            return
+    data = getattr(message, "data", None)
+    if isinstance(data, dict):
+        session = data.get("session_id") or data.get("sessionId")
+        if isinstance(session, str) and session:
+            handle.session_id = session
+
+
+def _build_assistant_payload(
+    message: AssistantMessage, tool_use_names: dict[str, str]
+) -> dict[str, Any]:
+    message_id = _extract_message_id_from_sdk(message)
+    content_entries: list[dict[str, Any]] = []
+    content = getattr(message, "content", None)
+    if isinstance(content, str):
+        content_entries.append({"type": "text", "text": content})
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, TextBlock):
+                content_entries.append({"type": "text", "text": block.text})
+            elif isinstance(block, ThinkingBlock):
+                thinking_value = (
+                    block.thinking if isinstance(block.thinking, str) else ""
+                )
+                entry: dict[str, Any] = {
+                    "type": "thinking",
+                    "thinking": thinking_value,
+                }
+                if getattr(block, "summary", None):
+                    entry["summary"] = block.summary
+                if getattr(block, "signature", None):
+                    entry["signature"] = block.signature
+                content_entries.append(entry)
+            elif isinstance(block, ToolUseBlock):
+                tool_use_id = getattr(block, "id", None) or getattr(
+                    block, "tool_use_id", None
+                )
+                tool_name = getattr(block, "name", None)
+                if isinstance(tool_use_id, str) and isinstance(tool_name, str):
+                    tool_use_names[tool_use_id] = tool_name
+                content_entries.append(
+                    {
+                        "type": "tool_use",
+                        "id": tool_use_id,
+                        "name": tool_name,
+                        "input": getattr(block, "input", None),
+                    }
+                )
+    return {"id": message_id, "content": content_entries}
+
+
+def _build_tool_result_events(
+    message: UserMessage,
+    tool_use_names: dict[str, str],
+    seen_tool_results: set[str],
+) -> list[ExternalAgentStreamEvent]:
+    events: list[ExternalAgentStreamEvent] = []
+    content = getattr(message, "content", None)
+    if not isinstance(content, list):
+        return events
+    for block in content:
+        if not isinstance(block, ToolResultBlock):
+            continue
+        tool_use_id = getattr(block, "tool_use_id", None) or getattr(
+            block, "toolUseId", None
+        )
+        if not isinstance(tool_use_id, str) or not tool_use_id:
+            continue
+        if tool_use_id in seen_tool_results:
+            continue
+        seen_tool_results.add(tool_use_id)
+        tool_name = tool_use_names.get(tool_use_id)
+        if tool_name is None:
+            tool_name = getattr(block, "tool_name", None) or getattr(
+                block, "name", None
+            )
+        text = _extract_tool_result_text(getattr(block, "content", None))
+        tool_message = ToolChatMessage(
+            tool_call_id=tool_use_id,
+            tool_name=tool_name if isinstance(tool_name, str) else None,
+            content=[TextContent(type="text", text=text)] if text else [],
+            result=text if text else None,
+            is_error=bool(getattr(block, "is_error", False)),
+        )
+        events.append(
+            ExternalAgentStreamEvent(
+                raw={"type": "tool_result", "toolCallId": tool_use_id},
+                stream_chunk=ToolResultEvent(result=tool_message),
+            )
+        )
+    return events
+
+
+def _extract_updated_input(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    updated_input = payload.get("updatedInput")
+    if isinstance(updated_input, dict):
+        return updated_input
+    inner = payload.get("payload")
+    if isinstance(inner, dict) and isinstance(inner.get("updatedInput"), dict):
+        return inner.get("updatedInput")
+    return None
+
+
+def _extract_answers(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    answers = payload.get("answers")
+    if isinstance(answers, dict):
+        return answers
+    inner = payload.get("payload")
+    if isinstance(inner, dict):
+        nested = inner.get("answers")
+        if isinstance(nested, dict):
+            return nested
+    return None
 
 
 @dataclass
@@ -797,6 +1256,14 @@ def _extract_message_id(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _extract_message_id_from_sdk(message: Any) -> str:
+    for key in ("uuid", "id", "message_id", "messageId"):
+        value = getattr(message, key, None)
+        if isinstance(value, str) and value:
+            return value
+    return str(create_new_id())
+
+
 def _extract_delta_text(payload: dict[str, Any]) -> str:
     return _extract_text_from_obj(payload)
 
@@ -804,6 +1271,8 @@ def _extract_delta_text(payload: dict[str, Any]) -> str:
 def _extract_text_from_obj(obj: Any) -> str:
     if isinstance(obj, str):
         return obj
+    if isinstance(obj, TextBlock):
+        return obj.text
     if isinstance(obj, dict):
         for key in ("delta", "text", "result", "message", "output"):
             raw = obj.get(key)
@@ -847,7 +1316,13 @@ def _get_message_text(message: AssistantChatMessage) -> str:
 
 
 def _is_final_event(event_type: Any, payload: dict[str, Any]) -> bool:
-    if isinstance(event_type, str) and event_type in _FINAL_EVENT_TYPES:
+    if isinstance(event_type, str) and event_type in {
+        "result",
+        "final",
+        "message_stop",
+        "complete",
+        "done",
+    }:
         return True
     if payload.get("final") is True:
         return True
@@ -857,7 +1332,7 @@ def _is_final_event(event_type: Any, payload: dict[str, Any]) -> bool:
 def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:
     if not inputs:
         return None
-    raw = inputs.get("sessionId")
+    raw = inputs.get("sessionId") or inputs.get("session_id") or inputs.get("resume")
     if isinstance(raw, str) and raw:
         return raw
     return None
@@ -879,42 +1354,6 @@ def _extract_session_id_from_event(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def _summarize_content_types(content: Any) -> list[str] | None:
-    if not isinstance(content, list):
-        return None
-    types: list[str] = []
-    for entry in content:
-        if isinstance(entry, dict):
-            entry_type = entry.get("type")
-            if isinstance(entry_type, str):
-                types.append(entry_type)
-    if types:
-        return types
-    return None
-
-
-def _summarize_sdk_event(payload: dict[str, Any]) -> dict[str, Any]:
-    summary: dict[str, Any] = {"type": payload.get("type")}
-    stream_event = payload.get("event") or payload.get("stream_event")
-    if isinstance(stream_event, dict):
-        summary["eventType"] = stream_event.get("type")
-        block = stream_event.get("content_block")
-        if isinstance(block, dict):
-            summary["contentBlockType"] = block.get("type")
-        delta = stream_event.get("delta")
-        if isinstance(delta, dict):
-            summary["deltaType"] = delta.get("type")
-    message = payload.get("message")
-    content_types = None
-    if isinstance(message, dict):
-        content_types = _summarize_content_types(message.get("content"))
-    if content_types is None:
-        content_types = _summarize_content_types(payload.get("content"))
-    if content_types:
-        summary["messageContentTypes"] = content_types
-    return summary
-
-
 def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None:
     inputs = context.inputs or {}
     raw = inputs.get("allowedTools")
@@ -927,26 +1366,27 @@ def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None
     return None
 
 
-def _extract_close_after_response(inputs: dict[str, Any] | None) -> bool | None:
-    if not inputs:
-        return None
-    raw = inputs.get("closeAfterResponse")
-    if isinstance(raw, bool):
-        return raw
-    raw = inputs.get("close_after_response")
-    if isinstance(raw, bool):
-        return raw
-    raw = inputs.get("singleTurn")
-    if isinstance(raw, bool):
-        return raw
-    return None
-
-
 def _extract_mcp_config(inputs: dict[str, Any] | None) -> str | None:
     if not inputs:
         return None
     raw = inputs.get("mcpConfig")
     if isinstance(raw, str) and raw:
+        return raw
+    return None
+
+
+def _load_mcp_servers(path_str: str | None) -> dict[str, Any] | None:
+    if not path_str:
+        return None
+    path = Path(path_str)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    raw = payload.get("mcpServers") or payload.get("mcp_servers")
+    if isinstance(raw, dict):
         return raw
     return None
 
@@ -978,32 +1418,39 @@ def _extract_latest_user_prompt(inputs: dict[str, Any] | None) -> str:
     return ""
 
 
-def _extract_thinking_payload(
-    inputs: dict[str, Any] | None,
-) -> tuple[Any | None, int | None]:
-    if not inputs:
-        return None, None
+def _extract_thinking_budget(inputs: dict[str, Any]) -> int | None:
     thinking_payload = inputs.get("thinking")
-    if thinking_payload is not None and not isinstance(thinking_payload, (bool, dict)):
-        thinking_payload = None
+    if thinking_payload is False or thinking_payload == "disabled":
+        return None
+    if thinking_payload is True:
+        return _DEFAULT_THINKING_BUDGET
+    if isinstance(thinking_payload, dict):
+        budget = thinking_payload.get("budget_tokens")
+        if budget is None:
+            budget = thinking_payload.get("budgetTokens")
+        parsed = _parse_optional_int(budget)
+        if parsed is not None:
+            return parsed
+        if thinking_payload.get("type") == "enabled":
+            return _DEFAULT_THINKING_BUDGET
     budget = inputs.get("thinkingBudgetTokens")
     if budget is None:
         budget = inputs.get("thinking_budget_tokens")
-    if isinstance(budget, bool):
-        budget = None
-    if isinstance(budget, str):
+    return _parse_optional_int(budget)
+
+
+def _parse_optional_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
         try:
-            parsed = int(budget)
+            parsed = int(value)
         except ValueError:
-            budget = None
-        else:
-            budget = parsed
-    if isinstance(budget, int):
-        if budget < 0:
-            budget = None
-    else:
-        budget = None
-    return thinking_payload, budget
+            return None
+        return parsed if parsed >= 0 else None
+    return None
 
 
 def _extract_message_text(message: Any) -> str:
@@ -1096,6 +1543,8 @@ def _safe_json_dump(payload: Any) -> str:
 def _extract_tool_result_text(payload: Any) -> str:
     if isinstance(payload, str):
         return payload
+    if isinstance(payload, TextBlock):
+        return payload.text
     if isinstance(payload, dict):
         text = payload.get("text")
         if isinstance(text, str):
@@ -1117,4 +1566,83 @@ def _extract_thinking_summary(payload: dict[str, Any]) -> str | None:
         value = payload.get(key)
         if isinstance(value, str) and value:
             return value
+    return None
+
+
+def _normalize_policy(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    return trimmed
+
+
+def _resolve_permission_mode(value: str | None) -> str | None:
+    normalized = _normalize_policy(value)
+    if not normalized:
+        return None
+    if normalized in _PERMISSION_MODE_VALUES:
+        return normalized
+    alias = _PERMISSION_MODE_ALIASES.get(normalized.lower())
+    return alias
+
+
+def _resolve_decision_policy(value: str | None) -> str:
+    if not value:
+        return "ask"
+    normalized = value.lower()
+    if "allow" in normalized or "auto" in normalized or "bypass" in normalized:
+        return "allow"
+    if "deny" in normalized or "block" in normalized:
+        return "deny"
+    return "ask"
+
+
+def _normalize_max_turns(value: Any) -> int | None:
+    parsed = _parse_optional_int(value)
+    if parsed is None:
+        return None
+    return max(1, parsed)
+
+
+def _build_sandbox_options(policy: str | None) -> dict[str, Any] | None:
+    normalized = _normalize_policy(policy)
+    if not normalized:
+        return None
+    if normalized.startswith("{") or normalized.startswith("["):
+        try:
+            parsed = json.loads(normalized)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return parsed
+    lowered = normalized.lower()
+    if lowered in {
+        "disabled",
+        "off",
+        "false",
+        "0",
+        "dangerously_disable",
+        "dangerously-disable",
+    }:
+        return {"enabled": False}
+    if lowered in {
+        "allow_unsandboxed_commands",
+        "allow-unsandboxed-commands",
+        "allow_unsandboxed",
+    }:
+        return {"enabled": True, "allowUnsandboxedCommands": True}
+    if lowered in {"enabled", "on", "true", "sandboxed"}:
+        return {"enabled": True}
+    return None
+
+
+def _extract_model(context: ExternalAgentRunContext) -> str | None:
+    if context.config.defaultModel:
+        return context.config.defaultModel
+    inputs = context.inputs or {}
+    raw = inputs.get("model")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
     return None
