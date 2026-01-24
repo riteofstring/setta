@@ -1,5 +1,6 @@
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { useEffect, type RefObject } from "react";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, useSectionRefs } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -14,6 +15,8 @@ type TabScopeRegistration = {
 };
 
 const tabScopes = new Map<string, TabScopeRegistration>();
+const lastFocusedByScope = new Map<string, HTMLElement>();
+let focusTrackingInitialized = false;
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
@@ -50,9 +53,11 @@ export function useTabScope({
   behavior = "default",
 }: TabScopeRegistration) {
   useEffect(() => {
+    ensureFocusTracking();
     tabScopes.set(scopeId, { scopeId, order, rootRef, behavior });
     return () => {
       tabScopes.delete(scopeId);
+      lastFocusedByScope.delete(scopeId);
     };
   }, [scopeId, order, rootRef, behavior]);
 }
@@ -143,6 +148,73 @@ export function moveFocus({
     direction,
     allowInputTarget: true,
   });
+}
+
+export function focusScope(scopeId: string): boolean {
+  const scope = tabScopes.get(scopeId);
+  if (!scope || !scope.rootRef.current) {
+    return false;
+  }
+  const storedElement = getStoredFocusedElement(scope);
+  const focusables = storedElement ? null : getFocusableElementsForScope(scope);
+  const element = storedElement ?? focusables?.[0] ?? null;
+  if (!element) {
+    return false;
+  }
+  element.focus({ preventScroll: true });
+  if (scope.behavior === "canvas") {
+    movePaneToIncludeElement(element);
+  }
+  return true;
+}
+
+export function focusAdjacentTopLevelSection({
+  direction,
+  focusOnFirstElement = true,
+  setActive = true,
+}: {
+  direction: 1 | -1;
+  focusOnFirstElement?: boolean;
+  setActive?: boolean;
+}): boolean {
+  const activeElement =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  if (!isElementInScope(activeElement, "canvas")) {
+    return false;
+  }
+  const orderedSectionIds = getOrderedTopLevelSectionIds();
+  if (orderedSectionIds.length === 0) {
+    return false;
+  }
+  const currentId = getCurrentTopLevelSectionId(
+    activeElement,
+    orderedSectionIds,
+  );
+  let nextIndex: number;
+  if (!currentId) {
+    nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
+  } else {
+    const currentIndex = orderedSectionIds.indexOf(currentId);
+    if (currentIndex === -1) {
+      nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
+    } else {
+      nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= orderedSectionIds.length) {
+        return false;
+      }
+    }
+  }
+  const targetId = orderedSectionIds[nextIndex];
+  if (!targetId) {
+    return false;
+  }
+  if (setActive) {
+    applyActiveSectionChange({ interaction: "go-to", sectionId: targetId });
+  }
+  focusOnSection(null, targetId, focusOnFirstElement);
+  return true;
 }
 
 export function focusOnSection(
@@ -242,6 +314,97 @@ function resolveNextFocusable({
   return { element: fallbackElement, scope: scopedResult.scope };
 }
 
+function getCurrentTopLevelSectionId(
+  activeElement: HTMLElement | null,
+  orderedSectionIds: string[],
+): string | null {
+  if (!activeElement) {
+    return null;
+  }
+  const sectionNode = activeElement.closest(".react-flow__node");
+  if (!(sectionNode instanceof HTMLElement)) {
+    return null;
+  }
+  const sectionId = sectionNode.getAttribute("data-id");
+  if (!sectionId || !orderedSectionIds.includes(sectionId)) {
+    return null;
+  }
+  return sectionId;
+}
+
+function isElementInScope(
+  element: HTMLElement | null,
+  scopeId: string,
+): boolean {
+  if (!element) {
+    return false;
+  }
+  const scopeRoot = element.closest("[data-tab-scope]");
+  return scopeRoot?.getAttribute("data-tab-scope") === scopeId;
+}
+
+export function isCanvasScopeActive(): boolean {
+  const activeElement =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  return isElementInScope(activeElement, "canvas");
+}
+
+function ensureFocusTracking() {
+  if (focusTrackingInitialized || typeof document === "undefined") {
+    return;
+  }
+  focusTrackingInitialized = true;
+  document.addEventListener("focusin", handleFocusIn, true);
+}
+
+function handleFocusIn(event: FocusEvent) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (!target) {
+    return;
+  }
+  const normalizedTarget = normalizeFocusableElement(target);
+  if (normalizedTarget.closest("[data-tab-native]")) {
+    return;
+  }
+  const scope = getScopeForElement(normalizedTarget);
+  if (!scope || !scope.rootRef.current) {
+    return;
+  }
+  if (isFocusableElement(normalizedTarget)) {
+    lastFocusedByScope.set(scope.scopeId, normalizedTarget);
+    return;
+  }
+  const nearest = normalizedTarget.closest(FOCUSABLE_SELECTOR);
+  if (!(nearest instanceof HTMLElement)) {
+    return;
+  }
+  if (!isFocusableElement(nearest)) {
+    return;
+  }
+  lastFocusedByScope.set(scope.scopeId, normalizeFocusableElement(nearest));
+}
+
+function getStoredFocusedElement(
+  scope: TabScopeRegistration,
+): HTMLElement | null {
+  const stored = lastFocusedByScope.get(scope.scopeId);
+  if (!stored) {
+    return null;
+  }
+  const root = scope.rootRef.current;
+  if (!stored.isConnected || !root || !root.contains(stored)) {
+    lastFocusedByScope.delete(scope.scopeId);
+    return null;
+  }
+  if (!isFocusableElement(stored)) {
+    lastFocusedByScope.delete(scope.scopeId);
+    return null;
+  }
+  return stored;
+}
+
 function findWrapScopeWithFocusable(
   orderedScopes: TabScopeRegistration[],
   currentScope: TabScopeRegistration,
@@ -321,8 +484,27 @@ function getFocusableElementsForScope(
 }
 
 function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
-  const state = useProjectState.getState();
   const sectionRefs = useSectionRefs.getState().withNested;
+  const orderedSectionIds = getOrderedTopLevelSectionIds();
+
+  if (orderedSectionIds.length === 0) {
+    return getFocusableElements(root);
+  }
+
+  const focusables: HTMLElement[] = [];
+  for (const sectionId of orderedSectionIds) {
+    const sectionRoot = sectionRefs[sectionId];
+    if (!sectionRoot) {
+      continue;
+    }
+    focusables.push(...getFocusableElements(sectionRoot));
+  }
+
+  return focusables.length > 0 ? focusables : getFocusableElements(root);
+}
+
+function getOrderedTopLevelSectionIds(): string[] {
+  const state = useProjectState.getState();
   const topLevelSections = Object.entries(
     state.projectConfig.topLevelSections,
   ).map(([sectionId, layout]) => ({
@@ -331,7 +513,7 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
   }));
 
   if (topLevelSections.length === 0) {
-    return getFocusableElements(root);
+    return [];
   }
 
   topLevelSections.sort((a, b) => {
@@ -349,16 +531,7 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
     return a.sectionId.localeCompare(b.sectionId);
   });
 
-  const focusables: HTMLElement[] = [];
-  for (const { sectionId } of topLevelSections) {
-    const sectionRoot = sectionRefs[sectionId];
-    if (!sectionRoot) {
-      continue;
-    }
-    focusables.push(...getFocusableElements(sectionRoot));
-  }
-
-  return focusables.length > 0 ? focusables : getFocusableElements(root);
+  return topLevelSections.map((entry) => entry.sectionId);
 }
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
