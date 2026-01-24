@@ -126,6 +126,13 @@ export function parseAskUserQuestionPayload(
     const options: AskUserQuestionOption[] = [];
     if (Array.isArray(optionsValue)) {
       for (const optionEntry of optionsValue) {
+        if (typeof optionEntry === "string") {
+          const label = optionEntry.trim();
+          if (label) {
+            options.push({ label });
+          }
+          continue;
+        }
         if (!isRecord(optionEntry)) {
           continue;
         }

@@ -1,10 +1,15 @@
+import asyncio
 import unittest
 from pathlib import Path
 
-from setta.agentic.external_adapters.base import ExternalAgentRunContext
+from setta.agentic.external_adapters.base import (
+    ExternalAgentRunContext,
+    ExternalAgentRunHandle,
+)
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
+    _PendingApproval,
     _build_system_prompt_payload,
 )
 from setta.types.agentic import AgentRun
@@ -434,3 +439,54 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
 
         self.assertEqual(payload.get("preset"), "claude_code")
         self.assertEqual(payload.get("append"), "Use Setta conventions.")
+
+
+class ClaudeSdkAdapterToolResponseTests(unittest.IsolatedAsyncioTestCase):
+    async def test_send_tool_response_merges_answers_into_updated_input(self) -> None:
+        adapter = ClaudeSdkAdapter()
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        tool_input = {
+            "questions": [
+                {
+                    "header": "Language",
+                    "question": "Pick a language",
+                    "multiSelect": False,
+                    "options": [{"label": "Python"}],
+                },
+                {
+                    "header": "Target",
+                    "question": "Pick a target",
+                    "multiSelect": False,
+                    "options": [{"label": "CLI"}],
+                },
+            ]
+        }
+        pending = _PendingApproval(
+            future=future,
+            tool_name="AskUserQuestion",
+            tool_input=tool_input,
+        )
+        handle = ExternalAgentRunHandle(
+            run_id=ID("run-1"),
+            metadata={"pending_approvals": {"tool-1": pending}},
+        )
+        answers = {
+            "Pick a language": "Python",
+            "Pick a target": "CLI",
+        }
+
+        await adapter.send_tool_response(handle, "tool-1", {"answers": answers})
+
+        self.assertTrue(future.done())
+        decision = future.result()
+        self.assertTrue(decision.approved)
+        self.assertIsInstance(decision.updated_input, dict)
+        self.assertEqual(decision.updated_input.get("answers"), answers)
+        self.assertEqual(
+            decision.updated_input.get("questions"),
+            tool_input["questions"],
+        )
+        pending_map = handle.metadata.get("pending_approvals")
+        if isinstance(pending_map, dict):
+            self.assertNotIn("tool-1", pending_map)

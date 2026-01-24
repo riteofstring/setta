@@ -618,6 +618,141 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if isinstance(questions, list):
                 self.assertEqual(len(questions), 1)
 
+    async def test_claude_sdk_ask_user_question_multiple_prompts(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            question_payload = {
+                "questions": [
+                    {
+                        "header": "Language",
+                        "question": "Choose a language",
+                        "multiSelect": False,
+                        "options": [{"label": "Python"}, {"label": "TypeScript"}],
+                    },
+                    {
+                        "header": "Target",
+                        "question": "Choose a target",
+                        "multiSelect": False,
+                        "options": [{"label": "CLI"}, {"label": "Web"}],
+                    },
+                ]
+            }
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="ask",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "Before answering, call the AskUserQuestion tool with this "
+                        "JSON payload exactly:\n"
+                        f"{json.dumps(question_payload)}\n"
+                        "After I answer, reply with only OK."
+                    ),
+                    "allowedTools": ["AskUserQuestion"],
+                    "mcpConfig": mcp_config,
+                    "maxTurns": 2,
+                },
+            )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
+
+            tool_call_id = await self._await_pending_question(runner, run.id)
+            answers = {
+                "Choose a language": "Python",
+                "Choose a target": "CLI",
+            }
+            await runner.respond_to_question(tool_call_id, answers)
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            tool_errors = []
+            for message in messages:
+                if (
+                    isinstance(message, dict)
+                    and message.get("role") == "tool"
+                    and message.get("is_error")
+                ):
+                    tool_errors.append(self._extract_tool_text(message))
+            if tool_errors:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
+                    )
+                )
+            all_text = self._collect_message_texts(messages)
+            if "Stream closed" in all_text:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        "Stream closed error leaked into messages.",
+                    )
+                )
+
+            tool_call = None
+            for message in messages:
+                if not isinstance(message, dict) or message.get("role") != "assistant":
+                    continue
+                calls = message.get("tool_calls")
+                if not isinstance(calls, list):
+                    continue
+                for call in calls:
+                    if not isinstance(call, dict):
+                        continue
+                    function = call.get("function")
+                    if (
+                        isinstance(function, dict)
+                        and function.get("name") == "AskUserQuestion"
+                    ):
+                        tool_call = call
+                        break
+                if tool_call:
+                    break
+            self.assertIsNotNone(tool_call)
+            if tool_call is None:
+                return
+            arguments = tool_call.get("function", {}).get("arguments")
+            self.assertIsInstance(arguments, dict)
+            questions = None
+            if isinstance(arguments, dict):
+                questions = arguments.get("questions")
+            self.assertIsInstance(questions, list)
+            if isinstance(questions, list):
+                self.assertEqual(len(questions), 2)
+
             tool_messages = [
                 message
                 for message in messages
