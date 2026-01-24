@@ -33,6 +33,7 @@ from setta.project_state.project_manager_types import (
     IndentParamsRequest,
     MoveParamGroupsRequest,
     MoveParamsRequest,
+    MoveSectionRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -941,6 +942,13 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
     )
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_social_url(x)
+
+
+@router.post(Route.MOVE_SECTION)
+async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromRequest):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.move_section(x)
 
 
 @router.post(Route.MOVE_PARAMS)

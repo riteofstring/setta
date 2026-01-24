@@ -95,12 +95,6 @@ async function route_get_json_source_path_to_be_deleted(
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
-export async function route_move_sections(
-  x: gt.MoveSectionsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveSections", x);
-}
-
 async function route_delete_terminals(
   x: gt.DeleteTerminalsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -831,6 +825,12 @@ export async function route_set_social_url(
   x: gt.SetSocialUrlRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSocialUrl", x);
+}
+
+export async function route_move_section(
+  x: gt.MoveSectionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveSection", x);
 }
 
 export async function route_move_params(

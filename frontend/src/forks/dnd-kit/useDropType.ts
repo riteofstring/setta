@@ -2,7 +2,7 @@ import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import {
   addDndChild,
   removeDndChild,
-  replaceDndSectionsWithTemp,
+  replaceDndSectionWithTemp,
   useDndChildren,
 } from "forks/dnd-kit/dndChildren";
 import {
@@ -14,27 +14,14 @@ import {
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrEffectiveSectionImpl,
   getCurrSectionVariant,
   getSectionChildren,
   getSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
-import {
-  getRootSelectedSectionIds,
-  getSharedParentId,
-  isDescendantOfSectionSelection,
-  orderSectionIdsByParent,
-} from "state/actions/sections/sectionSelection";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import {
-  useProjectState,
-  useSectionRefs,
-  useShareSession,
-} from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { useProjectState } from "state/definitions";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -85,49 +72,28 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   if (!active.data || !active.data.current) {
     return;
   }
-  const activeId = String(active.id);
   const rawWidth = activeRect?.width ?? 0;
   const rawHeight = activeRect?.height ?? 0;
   const zoom = useReactFlow.getState().transform[2];
   const safeZoom = zoom > 0 ? zoom : 1;
+  const normalizedWidth = rawWidth / safeZoom;
+  const normalizedHeight = rawHeight / safeZoom;
   const dndState = useDndState.getState();
-  const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
-  const placeholderSize = resolveSectionPlaceholderSize({
-    activeId,
-    activeRect: activeRect ?? null,
-    draggingIds: selection.draggingIds,
-    zoom: safeZoom,
-  });
-  const normalizedWidth = placeholderSize?.width ?? rawWidth / safeZoom;
-  const normalizedHeight = placeholderSize?.height ?? rawHeight / safeZoom;
-  console.log("[dnd] section drag start", {
-    activeId,
-    draggingIds: selection.draggingIds,
-    isSorting: dndState.isSorting,
-    isMovingFree: dndState.isMovingFree,
-  });
   setActiveDnd(
-    activeId,
+    active.id,
     active.data.current.isTopLevel,
     normalizedWidth,
     normalizedHeight,
     activeRect,
   );
-  useDndState.setState({
-    draggingIds: selection.draggingIds,
-    draggingRectsById: selection.draggingRectsById,
-  });
-  if (dndState.isMovingFree || dndState.isSorting) {
+  if (dndState.isMovingFree) {
     manualDndChildrenReset();
     requestAnimationFrame(() => {
       const latestState = useDndState.getState();
-      if (
-        (!latestState.isMovingFree && !latestState.isSorting) ||
-        latestState.activeId !== activeId
-      ) {
+      if (!latestState.isMovingFree || latestState.activeId !== active.id) {
         return;
       }
-      replaceDndSectionsWithTemp(activeId, selection.draggingIds);
+      replaceDndSectionWithTemp(active.id);
     });
   }
 }
@@ -465,15 +431,6 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
     return BehaviorDropTypeEnum.INVALID;
   }
 
-  const draggingIds = useDndState.getState().draggingIds;
-  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
-  const state = useProjectState.getState();
-  if (
-    isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
-  ) {
-    return BehaviorDropTypeEnum.INVALID;
-  }
-
   return null;
 }
 
@@ -526,303 +483,4 @@ function getSectionIsGlobalVariables(sectionId: string) {
 
 function getSectionIsRoot(sectionId: string) {
   return getIsRoot(getSectionType(useProjectState.getState(), sectionId));
-}
-
-type DragRect = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
-
-type PlaceholderSize = {
-  width: number;
-  height: number;
-};
-
-type PlaceholderSizeInput = {
-  activeId: string;
-  activeRect: DragStartEvent["activeRect"] | null;
-  draggingIds: string[];
-  zoom: number;
-};
-
-type SectionOrientation = "horizontal" | "vertical";
-
-function resolveSectionPlaceholderSize({
-  activeId,
-  activeRect,
-  draggingIds,
-  zoom,
-}: PlaceholderSizeInput): PlaceholderSize | null {
-  if (draggingIds.length === 0) {
-    return null;
-  }
-
-  const state = useProjectState.getState();
-  const parentId =
-    getSharedParentId(state, draggingIds) ??
-    state.parentSectionMap[draggingIds[0]] ??
-    null;
-  const orientation = resolveParentOrientation(state, parentId);
-  const rectsById = collectSectionRects({
-    activeId,
-    activeRect,
-    draggingIds,
-  });
-
-  if (Object.keys(rectsById).length === 0) {
-    return null;
-  }
-
-  const children = parentId ? getSectionChildren(state, parentId) : null;
-  const indexById = children
-    ? new Map(children.map((childId, index) => [childId, index]))
-    : null;
-  const size = accumulateSectionSizes({
-    draggingIds,
-    rectsById,
-    orientation,
-    indexById,
-  });
-
-  if (size.width <= 0 || size.height <= 0) {
-    return null;
-  }
-
-  const safeZoom = zoom > 0 ? zoom : 1;
-  return {
-    width: size.width / safeZoom,
-    height: size.height / safeZoom,
-  };
-}
-
-function resolveParentOrientation(
-  state: ReturnType<typeof useProjectState.getState>,
-  parentId: string | null,
-): SectionOrientation {
-  if (!parentId) {
-    return "vertical";
-  }
-  const impl = getCurrEffectiveSectionImpl(state, parentId);
-  if (
-    impl.type === SectionTypeEnum.Group &&
-    impl.isHorizontalOrientation === true
-  ) {
-    return "horizontal";
-  }
-  return "vertical";
-}
-
-function collectSectionRects({
-  activeId,
-  activeRect,
-  draggingIds,
-}: {
-  activeId: string;
-  activeRect: DragStartEvent["activeRect"] | null;
-  draggingIds: string[];
-}): Record<string, DragRect> {
-  const refs = useSectionRefs.getState();
-  const rectsById: Record<string, DragRect> = {};
-
-  for (const sectionId of draggingIds) {
-    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
-    if (ref) {
-      const rect = ref.getBoundingClientRect();
-      rectsById[sectionId] = {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-      continue;
-    }
-
-    if (sectionId === activeId && activeRect) {
-      rectsById[sectionId] = { ...activeRect };
-    }
-  }
-
-  return rectsById;
-}
-
-function accumulateSectionSizes({
-  draggingIds,
-  rectsById,
-  orientation,
-  indexById,
-}: {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect>;
-  orientation: SectionOrientation;
-  indexById: Map<string, number> | null;
-}): PlaceholderSize {
-  let width = 0;
-  let height = 0;
-
-  for (const sectionId of draggingIds) {
-    const rect = rectsById[sectionId];
-    if (!rect) {
-      continue;
-    }
-    if (orientation === "horizontal") {
-      width += rect.width;
-      height = Math.max(height, rect.height);
-    } else {
-      width = Math.max(width, rect.width);
-      height += rect.height;
-    }
-  }
-
-  if (indexById) {
-    const gapTotal = resolveAdjacentGapTotal({
-      draggingIds,
-      rectsById,
-      orientation,
-      indexById,
-    });
-    if (orientation === "horizontal") {
-      width += gapTotal;
-    } else {
-      height += gapTotal;
-    }
-  }
-
-  return { width, height };
-}
-
-function resolveAdjacentGapTotal({
-  draggingIds,
-  rectsById,
-  orientation,
-  indexById,
-}: {
-  draggingIds: string[];
-  rectsById: Record<string, DragRect>;
-  orientation: SectionOrientation;
-  indexById: Map<string, number>;
-}): number {
-  let gapTotal = 0;
-
-  for (let i = 0; i < draggingIds.length - 1; i += 1) {
-    const currentId = draggingIds[i];
-    const nextId = draggingIds[i + 1];
-    const currentIndex = indexById.get(currentId);
-    const nextIndex = indexById.get(nextId);
-    if (
-      currentIndex === undefined ||
-      nextIndex === undefined ||
-      nextIndex !== currentIndex + 1
-    ) {
-      continue;
-    }
-
-    const currentRect = rectsById[currentId];
-    const nextRect = rectsById[nextId];
-    if (!currentRect || !nextRect) {
-      continue;
-    }
-
-    const gap =
-      orientation === "horizontal"
-        ? nextRect.left - (currentRect.left + currentRect.width)
-        : nextRect.top - (currentRect.top + currentRect.height);
-    if (gap > 0) {
-      gapTotal += gap;
-    }
-  }
-
-  return gapTotal;
-}
-
-function resolveSectionDragSelection(
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): {
-  draggingIds: string[];
-  draggingRectsById: Record<string, DragRect> | null;
-} {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const state = useProjectState.getState();
-  const activeIds = state.projectConfig.activeIds;
-  if (!activeIds.includes(activeId)) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const { rootIds } = getRootSelectedSectionIds(state, activeIds);
-  if (rootIds.length === 0) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const sharedParentId = getSharedParentId(state, rootIds);
-  if (rootIds.length > 1 && sharedParentId === undefined) {
-    addTemporaryNotification("Section selection spans multiple parents.");
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
-  }
-
-  const orderedIds = orderSectionIdsByParent(
-    state,
-    sharedParentId ?? null,
-    rootIds,
-  );
-  return {
-    draggingIds: orderedIds,
-    draggingRectsById: resolveDraggingRects(orderedIds, activeId, activeRect),
-  };
-}
-
-function resolveDraggingRects(
-  sectionIds: string[],
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
-): Record<string, DragRect> | null {
-  const dndState = useDndState.getState();
-  if (!dndState.isMovingFree) {
-    return null;
-  }
-  const refs = useSectionRefs.getState();
-  const rectsById: Record<string, DragRect> = {};
-  for (const sectionId of sectionIds) {
-    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
-    if (ref) {
-      const rect = ref.getBoundingClientRect();
-      rectsById[sectionId] = {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-      continue;
-    }
-    if (sectionId === activeId && activeRect) {
-      rectsById[sectionId] = { ...activeRect };
-    }
-  }
-  if (Object.keys(rectsById).length === 0) {
-    return null;
-  }
-  return rectsById;
 }
