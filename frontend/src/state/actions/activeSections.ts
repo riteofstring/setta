@@ -33,6 +33,34 @@ export function setActiveSectionIds(ids: Array<string>) {
   });
 }
 
+export function pruneActiveSectionIdsForViewMode(
+  viewModeId: string | null | undefined,
+  isEditingViewMode: boolean,
+) {
+  if (isEditingViewMode) {
+    return;
+  }
+  const state = useProjectState.getState();
+  const resolvedViewModeId = viewModeId ?? state.projectConfig.activeViewModeId;
+  if (!resolvedViewModeId) {
+    return;
+  }
+  const viewMode = state.projectConfig.viewModes[resolvedViewModeId];
+  if (!viewMode) {
+    throw new Error(`Active view mode ${resolvedViewModeId} not found`);
+  }
+  const nextIds = state.projectConfig.activeIds.filter((sectionId) => {
+    const visibility = viewMode.visibilityBySectionId[sectionId];
+    if (visibility === undefined) {
+      throw new Error(
+        `Missing visibility for section ${sectionId} in view mode ${viewMode.id}`,
+      );
+    }
+    return visibility;
+  });
+  setActiveSectionIds(nextIds);
+}
+
 export function clearActiveSectionIds() {
   if (useProjectState.getState().projectConfig.activeIds.length === 0) {
     return;

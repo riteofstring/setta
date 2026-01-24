@@ -827,10 +827,10 @@ export async function route_set_social_url(
   return await post("/setSocialUrl", x);
 }
 
-export async function route_move_section(
-  x: gt.MoveSectionRequestInput,
+export async function route_move_sections(
+  x: gt.MoveSectionsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveSection", x);
+  return await post("/moveSections", x);
 }
 
 export async function route_move_params(

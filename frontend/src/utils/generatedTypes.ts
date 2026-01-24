@@ -440,7 +440,7 @@ export const RouteEnum = {
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
-  MOVE_SECTION: "/moveSection",
+  MOVE_SECTIONS: "/moveSections",
   MOVE_PARAMS: "/moveParams",
   MOVE_PARAM_GROUPS: "/moveParamGroups",
   INDENT_PARAMS: "/indentParams",
@@ -5965,16 +5965,18 @@ const MoveParamsRequestSchema = z.object({
 
 export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
 
-const MoveSectionRequestSchema = z.object({
+const MoveSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionId: IDSchema,
+  sectionIds: z.array(IDSchema),
   newParentId: z.union([IDSchema, z.null()]),
   newIndex: z.union([z.int(), z.null()]),
-  position: z.union([PositionSchema, z.null()]),
+  positionsById: z.union([z.record(IDSchema, PositionSchema), z.null()]),
 });
 
-export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
+export type MoveSectionsRequestInput = z.input<
+  typeof MoveSectionsRequestSchema
+>;
 
 const OutputAccessorCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
