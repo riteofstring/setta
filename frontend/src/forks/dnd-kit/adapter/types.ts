@@ -48,7 +48,9 @@ type DragEvent = {
   over: Droppable | null;
 };
 
-export type DragStartEvent = Pick<DragEvent, "active">;
+export type DragStartEvent = Pick<DragEvent, "active"> & {
+  activeRect: ClientRect | null;
+};
 
 export type DragMoveEvent = DragEvent;
 

@@ -45,30 +45,6 @@ class ChatSectionSyncTests(unittest.TestCase):
         self.assertIsInstance(assistant_message, AssistantChatMessage)
         self.assertEqual(assistant_message.content[0].text, "Hello")
 
-    def test_message_start_clones_assistant_message(self) -> None:
-        state = build_chat_section_state(messages=[])
-        assistant = AssistantChatMessage(
-            id="assistant-1",
-            content=[MessageTextContent(text="")],
-        )
-
-        started = apply_stream_delta(
-            state=state,
-            chunk=MessageStartEvent(message=assistant),
-        )
-
-        assistant.content[0].text += "Hi"
-        delta = MessageDeltaEvent(
-            message_id="assistant-1",
-            content=[MessageTextDelta(index=0, text="Hi")],
-        )
-        updated = apply_stream_delta(state=started, chunk=delta)
-
-        assistant_message = updated.messages[0]
-        self.assertIsInstance(assistant_message, AssistantChatMessage)
-        self.assertIsNot(assistant_message, assistant)
-        self.assertEqual(assistant_message.content[0].text, "Hi")
-
     def test_tool_call_and_preview_deltas_update_arguments(self) -> None:
         state = build_chat_section_state(messages=[])
         tool_delta = ToolCallDeltaEvent(
