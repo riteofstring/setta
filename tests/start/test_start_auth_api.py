@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import socket
@@ -5,10 +6,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import requests
 from click.testing import CliRunner
+from mcp import ClientSession
+from mcp.client.sse import sse_client
 
 from setta.sessions import SessionRegistry
-from setta.start import api, auth
+from setta.start import api, auth, tools
+from setta.types.routes import Route
 from setta.utils.constants import C
 from tests.utils.manager_fixture import _seed_minimal_setta_files
 
@@ -181,51 +186,26 @@ class ApiCommandIntegrationTests(unittest.TestCase):
         auth_path.write_text(result.output, encoding="utf-8")
         return auth_path
 
-    def _project_config_id(self) -> str:
-        payload = json.loads((self.setta_root / "project.json").read_text())
-        default_id = payload.get("defaultProjectConfigId")
-        if default_id:
-            return default_id
-        configs = payload.get("projectConfigs", {})
-        return next(iter(configs.keys()))
-
-    def test_setta_api_route_key_and_raw_path(self) -> None:
+    def test_setta_api_tool_call(self) -> None:
         auth_path = self._write_auth_json()
-        project_config_id = self._project_config_id()
-        payload = json.dumps({"projectConfigId": project_config_id})
         runner = CliRunner()
 
         result = runner.invoke(
             api,
             [
-                "GET_LATEST_PROJECT_STATE",
+                "getProjectConfigNamesAndIds",
                 "--auth-json",
                 str(auth_path),
-                "--json",
-                payload,
                 "--json-output",
             ],
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
         data = json.loads(result.output)
-        self.assertIn("projectState", data)
-
-        result = runner.invoke(
-            api,
-            [
-                "/getLatestProjectState",
-                "--auth-json",
-                str(auth_path),
-                "--json",
-                payload,
-                "--json-output",
-            ],
-        )
-
-        self.assertEqual(result.exit_code, 0, result.output)
-        data = json.loads(result.output)
-        self.assertIn("projectState", data)
+        self.assertFalse(data.get("isError", True))
+        content = data.get("content")
+        self.assertIsInstance(content, list)
+        self.assertTrue(content)
 
     def test_setta_api_error_contract(self) -> None:
         auth_path = self._write_auth_json()
@@ -234,7 +214,27 @@ class ApiCommandIntegrationTests(unittest.TestCase):
         result = runner.invoke(
             api,
             [
-                "GET_LATEST_PROJECT_STATE",
+                "unknown_tool_name",
+                "--auth-json",
+                str(auth_path),
+                "--json-output",
+            ],
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        payload = json.loads(result.output)
+        self.assertEqual(payload["error"], "HTTPError")
+        self.assertEqual(payload["status"], 404)
+        self.assertEqual(payload["tool"], "unknown_tool_name")
+
+    def test_setta_api_validation_error_contract(self) -> None:
+        auth_path = self._write_auth_json()
+        runner = CliRunner()
+
+        result = runner.invoke(
+            api,
+            [
+                "get_latest_project_state_summary",
                 "--auth-json",
                 str(auth_path),
                 "--json",
@@ -247,7 +247,120 @@ class ApiCommandIntegrationTests(unittest.TestCase):
         payload = json.loads(result.output)
         self.assertEqual(payload["error"], "HTTPError")
         self.assertEqual(payload["status"], 422)
-        self.assertIn("url", payload)
+        self.assertEqual(payload["tool"], "get_latest_project_state_summary")
+
+    def test_setta_tools_matches_mcp_list(self) -> None:
+        auth_payload = json.loads(self._write_auth_json().read_text())
+        cookie = auth_payload["cookie"]
+        base_url = auth_payload["baseUrl"]
+        mcp_url = f"{base_url}/mcp"
+
+        async def _fetch_mcp_tool_names() -> list[str]:
+            async with sse_client(mcp_url, headers={"Cookie": cookie}) as streams:
+                read_stream, write_stream = streams
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    response = await session.list_tools()
+                await read_stream.aclose()
+                await write_stream.aclose()
+                return sorted(tool.name for tool in response.tools)
+
+        mcp_names = asyncio.run(_fetch_mcp_tool_names())
+        runner = CliRunner()
+        result = runner.invoke(tools, [])
+        self.assertEqual(result.exit_code, 0, result.output)
+        payload = json.loads(result.stdout)
+        cli_names = sorted(tool["name"] for tool in payload)
+        self.assertEqual(cli_names, mcp_names)
+
+    def test_tools_call_endpoint_contract(self) -> None:
+        auth_payload = json.loads(self._write_auth_json().read_text())
+        cookie = auth_payload["cookie"]
+        base_url = auth_payload["baseUrl"]
+        url = f"{base_url}{Route.TOOLS_CALL.value}"
+        headers = {"Cookie": cookie}
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"tool": "unknown_tool_name", "arguments": {}},
+            timeout=5,
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Unknown tool", response.json().get("detail", ""))
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"tool": "getProjectConfigNamesAndIds", "arguments": "nope"},
+            timeout=5,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("arguments", response.json().get("detail", ""))
+
+
+class ApiCommandInputTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+
+        self.original_sessions_root = C.RUN_SESSIONS_FOLDER
+        self.addCleanup(self._restore_sessions_root)
+        self.sessions_root = (
+            Path(self.temp_dir.name) / "setta_files" / "run" / "sessions"
+        )
+        C.RUN_SESSIONS_FOLDER = self.sessions_root
+
+        self.original_cwd = Path.cwd()
+        self.addCleanup(self._restore_cwd)
+        self.workspace = Path(self.temp_dir.name) / "workspace"
+        self.workspace.mkdir()
+        os.chdir(self.workspace)
+
+    def _restore_sessions_root(self) -> None:
+        C.RUN_SESSIONS_FOLDER = self.original_sessions_root
+
+    def _restore_cwd(self) -> None:
+        os.chdir(self.original_cwd)
+
+    def test_api_rejects_namespaced_tool(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(api, ["setta__foo", "--json-output"])
+        self.assertNotEqual(result.exit_code, 0)
+        payload = json.loads(result.output)
+        self.assertEqual(payload["error"], "InputError")
+        self.assertIn("bare MCP tool name", payload["message"])
+
+    def test_api_rejects_path_tool(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(api, ["/getLatestProjectState", "--json-output"])
+        self.assertNotEqual(result.exit_code, 0)
+        payload = json.loads(result.output)
+        self.assertEqual(payload["error"], "InputError")
+        self.assertIn("bare MCP tool name", payload["message"])
+
+    def test_api_rejects_non_object_arguments(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            api,
+            ["getProjectConfigNamesAndIds", "--json", "[]", "--json-output"],
+        )
+        self.assertNotEqual(result.exit_code, 0)
+        payload = json.loads(result.output)
+        self.assertEqual(payload["error"], "InputError")
+        self.assertEqual(payload["tool"], "getProjectConfigNamesAndIds")
+        self.assertIn("JSON object", payload["message"])
+
+    def test_api_auto_auth_missing_sessions(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            api,
+            ["getProjectConfigNamesAndIds", "--json-output"],
+        )
+        self.assertNotEqual(result.exit_code, 0)
+        payload = json.loads(result.output)
+        self.assertEqual(payload["error"], "InputError")
+        self.assertIn("No matching Setta sessions found", payload["message"])
 
 
 if __name__ == "__main__":

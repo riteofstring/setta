@@ -25,6 +25,8 @@ from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.auth.validation import consume_bootstrap_token
 from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
+from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
+from setta.mcp.tool_registry import build_setta_tool_payloads
 from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
@@ -948,31 +950,26 @@ def _base_url_from_auth_payload(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def _resolve_route_path(route_or_path: str) -> str:
-    if route_or_path.startswith("/"):
-        return route_or_path
-    if route_or_path in Route.__members__:
-        return Route[route_or_path].value
-    for route in Route:
-        if route.value.lstrip("/") == route_or_path:
-            return route.value
-    raise click.ClickException(
-        f"Unknown route {route_or_path!r}. Use a Route key or raw /path."
-    )
+def _normalize_tool_name(raw: str) -> str:
+    name = raw.strip()
+    if not name:
+        raise click.ClickException("Tool name must be a non-empty string.")
+    if name.startswith("/"):
+        raise click.ClickException(
+            "Tool name must be a bare MCP tool name, not a path."
+        )
+    if MCP_TOOL_NAME_SEPARATOR in name:
+        raise click.ClickException("Tool name must be a bare MCP tool name.")
+    return name
 
 
-def _build_api_url(base_url: str, route_path: str) -> str:
+def _build_tool_call_url(base_url: str) -> str:
     normalized_base = _normalize_base_url(base_url)
-    path = route_path
-    if not path.startswith("/"):
-        path = f"/{path}"
-    if path.startswith(Route.PREFIX.value):
-        return f"{normalized_base}{path}"
-    return f"{normalized_base}{Route.PREFIX.value}{path}"
+    return f"{normalized_base}{Route.TOOLS_CALL.value}"
 
 
 def _build_http_error_payload(
-    response: requests.Response | None, url: str
+    response: requests.Response | None, tool_name: str
 ) -> dict[str, Any]:
     body: Any = None
     status = None
@@ -985,15 +982,17 @@ def _build_http_error_payload(
     return {
         "error": "HTTPError",
         "status": status,
-        "url": url,
+        "tool": tool_name,
         "body": body,
     }
 
 
-def _build_request_error_payload(exc: Exception, url: str | None) -> dict[str, Any]:
+def _build_request_error_payload(
+    exc: Exception, tool_name: str | None
+) -> dict[str, Any]:
     payload: dict[str, Any] = {"error": "RequestError", "message": str(exc)}
-    if url is not None:
-        payload["url"] = url
+    if tool_name is not None:
+        payload["tool"] = tool_name
     return payload
 
 
@@ -1364,15 +1363,23 @@ def auth(
 
 
 @click.command()
-@click.argument("route_or_path")
-@click.option("--json", "json_payload", default=None, help="Inline JSON payload")
-@click.option("--stdin", "payload_stdin", is_flag=True, help="Read JSON payload from stdin")
+def tools() -> None:
+    payload = build_setta_tool_payloads()
+    _emit_json_output(payload)
+
+
+@click.command()
+@click.argument("tool_name")
+@click.option("--json", "json_payload", default=None, help="Inline JSON arguments")
+@click.option(
+    "--stdin", "payload_stdin", is_flag=True, help="Read JSON arguments from stdin"
+)
 @click.option(
     "--file",
     "payload_file",
     type=click.Path(path_type=Path),
     default=None,
-    help="Read JSON payload from a file",
+    help="Read JSON arguments from a file",
 )
 @click.option(
     "--json-output",
@@ -1389,13 +1396,8 @@ def auth(
 )
 @click.option("--auth-stdin", is_flag=True, help="Read auth JSON from stdin")
 @click.option("--base-url", default=None, help="Override backend base URL")
-@click.option(
-    "--method",
-    type=click.Choice(["GET", "POST", "PUT", "PATCH", "DELETE"], case_sensitive=False),
-    default="POST",
-)
 def api(
-    route_or_path: str,
+    tool_name: str,
     json_payload: str | None,
     payload_stdin: bool,
     payload_file: Path | None,
@@ -1405,13 +1407,20 @@ def api(
     auth_json: Path | None,
     auth_stdin: bool,
     base_url: str | None,
-    method: str,
 ) -> None:
     if auth_stdin and payload_stdin:
         raise click.ClickException("Use --auth-stdin or --stdin, not both.")
 
+    normalized_tool_name: str | None = None
     try:
+        normalized_tool_name = _normalize_tool_name(tool_name)
         payload = _load_json_payload(json_payload, payload_stdin, payload_file)
+        if payload is None:
+            arguments: dict[str, Any] = {}
+        elif isinstance(payload, dict):
+            arguments = payload
+        else:
+            raise click.ClickException("Tool arguments must be a JSON object.")
         auth_payload = _load_auth_payload(auth_json, auth_stdin)
         resolved_base_url = _normalize_base_url(base_url) if base_url else None
         cookie_value: str | None = None
@@ -1434,46 +1443,61 @@ def api(
                 session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
                 resolved_base_url = _base_url_from_session(session)
         else:
-            session, secret = _resolve_latest_session_for_workspace(Path.cwd().resolve())
+            session, secret = _resolve_latest_session_for_workspace(
+                Path.cwd().resolve()
+            )
             resolved_base_url = (
                 _normalize_base_url(base_url)
                 if base_url
                 else _base_url_from_session(session)
             )
-            cookie_value = f"{C.AUTH_COOKIE_NAME}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
+            cookie_value = (
+                f"{C.AUTH_COOKIE_NAME}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
+            )
 
         if resolved_base_url is None:
-            raise click.ClickException("Missing base URL. Use --base-url or --auth-json.")
+            raise click.ClickException(
+                "Missing base URL. Use --base-url or --auth-json."
+            )
         if cookie_value is None:
             raise click.ClickException("Missing auth cookie.")
 
-        route_path = _resolve_route_path(route_or_path)
-        url = _build_api_url(resolved_base_url, route_path)
+        url = _build_tool_call_url(resolved_base_url)
     except click.ClickException as exc:
         if json_output:
-            _emit_json_output({"error": "InputError", "message": str(exc)})
+            payload = {"error": "InputError", "message": str(exc)}
+            if normalized_tool_name:
+                payload["tool"] = normalized_tool_name
+            _emit_json_output(payload)
             raise SystemExit(1) from exc
         raise
 
     headers = {"Cookie": cookie_value}
-    request_kwargs: dict[str, Any] = {"headers": headers}
-    if payload is not None:
-        request_kwargs["json"] = payload
+    request_kwargs: dict[str, Any] = {
+        "headers": headers,
+        "json": {"tool": normalized_tool_name, "arguments": arguments},
+    }
 
     response: requests.Response | None = None
     try:
-        response = requests.request(method.upper(), url, **request_kwargs)
+        response = requests.post(url, **request_kwargs)
         response.raise_for_status()
     except requests.HTTPError as exc:
         if json_output:
-            _emit_json_output(_build_http_error_payload(exc.response, url))
+            _emit_json_output(
+                _build_http_error_payload(
+                    exc.response, normalized_tool_name or tool_name
+                )
+            )
             raise SystemExit(1) from exc
         raise click.ClickException(
             f"{response.status_code} {response.text if response else ''}".strip()
         ) from exc
     except requests.RequestException as exc:
         if json_output:
-            _emit_json_output(_build_request_error_payload(exc, url))
+            _emit_json_output(
+                _build_request_error_payload(exc, normalized_tool_name or tool_name)
+            )
             raise SystemExit(1) from exc
         raise click.ClickException(str(exc)) from exc
 
@@ -1844,6 +1868,7 @@ cli.add_command(export_db)
 cli.add_command(share)
 cli.add_command(status)
 cli.add_command(auth)
+cli.add_command(tools)
 cli.add_command(api)
 cli.add_command(stop)
 cli.add_command(connect)

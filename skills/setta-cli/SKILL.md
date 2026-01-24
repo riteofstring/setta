@@ -1,22 +1,23 @@
 ---
 name: setta-cli
-description: Use the Setta CLI to authenticate and call Setta APIs without MCP.
+description: Use the Setta CLI to authenticate and call Setta MCP tools without MCP.
 compatibility: Requires the Setta CLI on PATH and access to a running Setta backend session.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Setta CLI (no MCP)
 
 Use this skill whenever you need a CLI-first, machine-readable way to call
-Setta APIs. Prefer a single `setta api` command when possible.
+Setta MCP tools. Prefer a single `setta api` command when possible.
 
 ## Quickstart
 
-Run commands from the workspace that owns the Setta session:
+Run commands from the workspace that owns the Setta session. Use `setta tools`
+to list available tool names and schemas (bare names, no `setta__` prefix):
 
 ```sh
-setta api GET_LATEST_PROJECT_STATE --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
 ```
 
 ## Auth fallback
@@ -26,14 +27,14 @@ generate auth JSON and reuse it:
 
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
-setta api GET_LATEST_PROJECT_STATE --auth-json /tmp/setta_auth.json \
+setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 
 You can also pass auth JSON via stdin:
 
 ```sh
-setta auth --json --latest | setta api GET_LATEST_PROJECT_STATE --auth-stdin \
+setta auth --json --latest | setta api get_latest_project_state_summary --auth-stdin \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 
@@ -41,6 +42,7 @@ setta auth --json --latest | setta api GET_LATEST_PROJECT_STATE --auth-stdin \
 
 - Only parse stdout when `--json` (for `setta auth`) or `--json-output`
   (for `setta api`) is used.
+- `setta tools` always emits strict JSON on stdout.
 - When `--json-output` is set, errors are emitted as JSON objects.
 
 ## References

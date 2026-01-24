@@ -17,7 +17,8 @@ another host.
 | `setta export-db` | yes | no | Placeholder export command. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
-| `setta api` | yes | no | Call Setta HTTP endpoints with auto-auth. |
+| `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
+| `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -121,16 +122,25 @@ Example:
 setta auth --json --latest > /tmp/setta_auth.json
 ```
 
+## `setta tools`
+
+Emit the MCP tool list (JSON only). Use this to discover tool names, schemas,
+and descriptions. Tool names are bare (no `setta__` prefix).
+
+Example:
+```sh
+setta tools > /tmp/setta_tools.json
+```
+
 ## `setta api`
 
-Call Setta HTTP endpoints with auto-auth for the current workspace. Use either a
-route key (from `Route`) or a raw path.
+Call Setta MCP tools with auto-auth for the current workspace.
 
 Inputs:
-- `ROUTE_OR_PATH` (e.g., `GET_LATEST_PROJECT_STATE` or `/getLatestProjectState`)
-- `--json` inline JSON payload
-- `--stdin` read JSON payload from stdin
-- `--file PATH` read JSON payload from a file
+- `TOOL_NAME` (bare MCP tool name; see `setta tools`)
+- `--json` inline JSON arguments
+- `--stdin` read JSON arguments from stdin
+- `--file PATH` read JSON arguments from a file
 
 Auth sources (highest priority first):
 - `--cookie-header` / `--cookie`
@@ -140,14 +150,17 @@ Auth sources (highest priority first):
 
 Other options:
 - `--base-url` override backend base URL
-- `--method` override HTTP verb (default: `POST`)
 - `--json-output` emit raw JSON only on stdout
+
+Output:
+- MCP `CallToolResult` JSON (includes `content`, `structuredContent`, `isError`).
 
 Examples:
 ```sh
-setta api GET_LATEST_PROJECT_STATE --json '{"projectConfigId":"..."}' --json-output
-setta api /getLatestProjectState --stdin --json-output
-setta api GET_LATEST_PROJECT_STATE --auth-json /tmp/setta_auth.json --json '{"projectConfigId":"..."}'
+setta api getProjectConfigNamesAndIds --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
+  --json '{"projectConfigId":"..."}' --json-output
 ```
 
 Error contract (for `--json-output`):
@@ -155,7 +168,7 @@ Error contract (for `--json-output`):
 {
   "error": "HTTPError",
   "status": 403,
-  "url": "http://127.0.0.1:8000/api/getLatestProjectState",
+  "tool": "get_latest_project_state_summary",
   "body": { "detail": "Unauthorized" }
 }
 ```

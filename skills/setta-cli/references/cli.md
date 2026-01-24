@@ -35,18 +35,24 @@ JSON output:
 }
 ```
 
+## `setta tools`
+
+Emit the MCP tool list (JSON only). Tool names are bare (no `setta__` prefix).
+
+Output shape:
+- JSON array of MCP `Tool` objects (`name`, `description`, `inputSchema`, etc).
+
 ## `setta api`
 
-Call Setta HTTP endpoints with auto-auth.
+Call Setta MCP tools with auto-auth.
 
 Arguments:
-- `ROUTE_OR_PATH` (Route enum key like `GET_LATEST_PROJECT_STATE` or raw path like
-  `/getLatestProjectState`).
+- `TOOL_NAME` (bare MCP tool name; see `setta tools`).
 
-Payload options:
-- `--json` inline JSON payload
-- `--stdin` read JSON payload from stdin
-- `--file PATH` read JSON payload from a file
+Argument options:
+- `--json` inline JSON arguments
+- `--stdin` read JSON arguments from stdin
+- `--file PATH` read JSON arguments from a file
 
 Auth options (priority order):
 - `--cookie-header` / `--cookie`
@@ -56,15 +62,17 @@ Auth options (priority order):
 
 Other options:
 - `--base-url` override backend base URL
-- `--method` override HTTP verb (default: `POST`)
 - `--json-output` emit strict JSON only
+
+Output:
+- MCP `CallToolResult` JSON with `content`, `structuredContent`, `isError`.
 
 Error contract (for `--json-output`):
 ```json
 {
   "error": "HTTPError",
   "status": 403,
-  "url": "http://127.0.0.1:8000/api/getLatestProjectState",
+  "tool": "get_latest_project_state_summary",
   "body": { "detail": "Unauthorized" }
 }
 ```

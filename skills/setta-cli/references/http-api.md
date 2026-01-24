@@ -17,4 +17,9 @@ Bootstrap endpoints:
 - `/__setta__/bootstrap`
 - `/__setta__/bootstrap/consume`
 
-Use the OpenAPI schema to confirm request payloads and response shapes.
+MCP tool-call endpoint (CLI uses this):
+- `/__setta__/tools/call`
+  - POST body: `{ "tool": "<bare_name>", "arguments": { ... } }`
+
+Use the OpenAPI schema to confirm legacy REST payloads and response shapes. For
+MCP tool schemas, use `setta tools`.

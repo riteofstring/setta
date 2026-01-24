@@ -9,10 +9,11 @@ without MCP.
 Run commands from the workspace that owns the Setta session:
 
 ```sh
-setta api GET_LATEST_PROJECT_STATE --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
 ```
 
 `setta api` auto-auths using the newest local session in the current workspace.
+Use `setta tools` to list available tool names and schemas.
 
 ## Auth fallback
 
@@ -21,14 +22,14 @@ produce an auth JSON file and reuse it:
 
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
-setta api GET_LATEST_PROJECT_STATE --auth-json /tmp/setta_auth.json \
+setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 
 You can also pass auth JSON via stdin:
 
 ```sh
-setta auth --json --latest | setta api GET_LATEST_PROJECT_STATE --auth-stdin \
+setta auth --json --latest | setta api get_latest_project_state_summary --auth-stdin \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 
@@ -36,9 +37,10 @@ setta auth --json --latest | setta api GET_LATEST_PROJECT_STATE --auth-stdin \
 
 - Only parse stdout when `--json` (for `setta auth`) or `--json-output` (for
   `setta api`) is used.
+- `setta tools` always emits strict JSON on stdout.
 - When `--json-output` is set, errors are emitted as JSON objects.
 
-## Useful endpoints
+## Useful references
 
-See `docs/setta-cli-commands.md` and `/api/openapi.json` for payloads and
-endpoint definitions.
+See `docs/setta-cli-commands.md` for CLI contracts. Use `setta tools` output
+for MCP tool schemas. `/api/openapi.json` is only needed for legacy REST calls.
