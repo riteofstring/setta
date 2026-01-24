@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import shutil
 import sys
 import unittest
 from pathlib import Path
@@ -41,6 +40,7 @@ from setta.types.chat_stream_events import (
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
+    ExternalAgentSettingsMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -337,7 +337,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                     },
                 )
 
-    def test_opencode_config_writes_permission_key(self) -> None:
+    def test_opencode_config_read_only_skips_permission(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
@@ -349,16 +349,12 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 approvalPolicy="ask",
             )
 
-            config_path = runner._write_opencode_config(
-                "http://localhost:8000/mcp",
-                config,
-                allowlist=None,
-            )
-            payload = json.loads(config_path.read_text(encoding="utf-8"))
-            self.assertIn("permission", payload)
-            self.assertNotIn("permissions", payload)
+            context = _build_context_for_test(runner, config)
 
-            shutil.rmtree(config_path.parent, ignore_errors=True)
+            config_path = context.env.get("OPENCODE_CONFIG")
+            self.assertIsInstance(config_path, str)
+            payload = json.loads(Path(str(config_path)).read_text(encoding="utf-8"))
+            self.assertNotIn("permission", payload)
 
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -523,6 +519,18 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertEqual(metadata.get("model"), "gpt-4o-mini")
             self.assertEqual(metadata.get("approvalPolicy"), "never")
             self.assertEqual(metadata.get("sandboxPolicy"), "restricted")
+            self.assertEqual(metadata.get("settingsMode"), "read_only")
+            self.assertEqual(metadata.get("settingsAllowSettaEdits"), False)
+            settings_paths = metadata.get("settingsPaths")
+            self.assertIsInstance(settings_paths, dict)
+            expected_codex_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / str(config.id)
+                / "config.toml"
+            )
+            self.assertEqual(settings_paths.get("codex"), str(expected_codex_path))
 
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -648,6 +656,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
+                id="opencode-config",
                 name="OpenCode SDK",
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
@@ -664,9 +673,17 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 payload["mcp"]["setta"]["url"],
                 f"{C.BACKEND}/mcp",
             )
+            expected_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "opencode"
+                / "opencode-config"
+                / "opencode.json"
+            )
+            self.assertEqual(path, expected_path)
 
             runner._cleanup_context(context)
-            self.assertFalse(path.exists())
+            self.assertTrue(path.exists())
 
     def test_codex_home_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -674,6 +691,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
+                id="codex-config",
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
@@ -688,9 +706,13 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             content = config_path.read_text(encoding="utf-8")
             self.assertIn("[mcp_servers.setta]", content)
             self.assertIn(f"url = \"{C.BACKEND}/mcp\"", content)
+            expected_dir = (
+                dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            )
+            self.assertEqual(Path(str(codex_home)), expected_dir)
 
             runner._cleanup_context(context)
-            self.assertFalse(config_path.exists())
+            self.assertTrue(config_path.exists())
 
     def test_codex_config_writes_policy_fields(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -704,6 +726,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 defaultModel="gpt-5-codex",
                 sandboxPolicy="workspace-write",
                 approvalPolicy="on-failure",
+                settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
             context = _build_context_for_test(runner, config)
@@ -717,7 +740,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertIn('approval_policy = "on-failure"', content)
 
             runner._cleanup_context(context)
-            self.assertFalse(config_path.exists())
+            self.assertTrue(config_path.exists())
 
     def test_codex_config_writes_tool_allowlist(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -733,6 +756,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
+                settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
             context = _build_context_for_test(
@@ -749,7 +773,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertIn('enabled_tools = ["getProjectState", "runTool"]', content)
 
             runner._cleanup_context(context)
-            self.assertFalse(config_path.exists())
+            self.assertTrue(config_path.exists())
 
     def test_opencode_config_writes_permissions(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -761,6 +785,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
                 approvalPolicy="ask",
+                settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
             context = _build_context_for_test(runner, config)
@@ -787,6 +812,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 name="OpenCode SDK",
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
+                settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
             context = _build_context_for_test(
@@ -817,6 +843,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
                 approvalPolicy='{"run": "ask"}',
+                settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
             context = _build_context_for_test(runner, config)
@@ -1649,17 +1676,17 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
             root = Path(tmpdir)
             session_id, sessions_root = self._create_session(root)
             self._set_session_env(session_id, sessions_root)
-            runner = _build_runner(_build_dbe(tmpdir))
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
             config = ExternalAgentConfig(
+                id="opencode-auth",
                 name="OpenCode SDK",
                 toolType=ExternalAgentToolType.opencode,
                 runMode=ExternalAgentRunMode.sdk,
             )
-            config_path = runner._write_opencode_config(
-                f"{C.BACKEND}/mcp",
-                config,
-                allowlist=None,
-            )
+            context = _build_context_for_test(runner, config)
+            config_path = Path(str(context.env.get("OPENCODE_CONFIG")))
             payload = json.loads(config_path.read_text(encoding="utf-8"))
             server = payload.get("mcp", {}).get(SETTA_MCP_SERVER_ID)
             self.assertIsInstance(server, dict)
@@ -1678,18 +1705,18 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
             root = Path(tmpdir)
             session_id, sessions_root = self._create_session(root)
             self._set_session_env(session_id, sessions_root)
-            runner = _build_runner(_build_dbe(tmpdir))
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
             config = ExternalAgentConfig(
+                id="codex-auth",
                 name="Codex SDK",
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
             )
-            config_dir = runner._write_codex_config(
-                f"{C.BACKEND}/mcp",
-                config,
-                allowlist=None,
-            )
-            content = (config_dir / "config.toml").read_text(encoding="utf-8")
+            context = _build_context_for_test(runner, config)
+            codex_home = Path(str(context.env.get("CODEX_HOME")))
+            content = (codex_home / "config.toml").read_text(encoding="utf-8")
             self.assertIn(C.AUTH_COOKIE_NAME, content)
             function = tool_calls[0].get("function")
             self.assertIsInstance(function, dict)

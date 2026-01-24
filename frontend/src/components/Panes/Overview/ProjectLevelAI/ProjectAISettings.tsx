@@ -20,8 +20,10 @@ import {
 import { useAIStore, useShareSession } from "state/definitions";
 import {
   AgentProfile,
+  ClaudeSettingsSourceEnum,
   ExternalAgentConfig,
   ExternalAgentRunModeEnum,
+  ExternalAgentSettingsModeEnum,
   ExternalAgentToolTypeEnum,
   ExternalAgentWorkingDirStrategyEnum,
   PromptFormatEnum,
@@ -71,9 +73,16 @@ type ExternalAgentConfigDraft = {
   defaultModel: string;
   sandboxPolicy: string;
   approvalPolicy: string;
+  settingsMode: ExternalAgentSettingsModeValue;
+  settingsSources: Array<ClaudeSettingsSourceValue>;
+  settingsFilePath: string;
+  settingsAllowSettaEdits: boolean;
   envVarWhitelistText: string;
   workingDirStrategy: ExternalAgentWorkingDirStrategyValue;
   workingDir: string;
+  claudeAllowText: string;
+  claudeAskText: string;
+  claudeDenyText: string;
 };
 
 type PromptFormatValue =
@@ -82,8 +91,12 @@ type ExternalAgentToolTypeValue =
   (typeof ExternalAgentToolTypeEnum)[keyof typeof ExternalAgentToolTypeEnum];
 type ExternalAgentRunModeValue =
   (typeof ExternalAgentRunModeEnum)[keyof typeof ExternalAgentRunModeEnum];
+type ExternalAgentSettingsModeValue =
+  (typeof ExternalAgentSettingsModeEnum)[keyof typeof ExternalAgentSettingsModeEnum];
 type ExternalAgentWorkingDirStrategyValue =
   (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
+type ClaudeSettingsSourceValue =
+  (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 
 const INPUT_CLASS_NAME =
   "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
@@ -844,6 +857,14 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     () => Object.values(ExternalAgentWorkingDirStrategyEnum),
     [],
   );
+  const settingsModeOptions = useMemo(
+    () => Object.values(ExternalAgentSettingsModeEnum),
+    [],
+  );
+  const settingsSourceOptions = useMemo(
+    () => Object.values(ClaudeSettingsSourceEnum),
+    [],
+  );
 
   const defaultToolType = toolTypeOptions.length
     ? toolTypeOptions[0]
@@ -890,9 +911,16 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         defaultModel: "",
         sandboxPolicy: "",
         approvalPolicy: "",
+        settingsMode: ExternalAgentSettingsModeEnum.read_only,
+        settingsSources: [],
+        settingsFilePath: "",
+        settingsAllowSettaEdits: false,
         envVarWhitelistText: "",
         workingDirStrategy: ExternalAgentWorkingDirStrategyEnum.project_root,
         workingDir: "",
+        claudeAllowText: "",
+        claudeAskText: "",
+        claudeDenyText: "",
       });
       return;
     }
@@ -922,6 +950,12 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       return;
     }
     const envVarWhitelist = parseListInput(draft.envVarWhitelistText);
+    const settingsSources =
+      draft.toolType === ExternalAgentToolTypeEnum.claude_code &&
+      draft.settingsSources.length > 0
+        ? draft.settingsSources
+        : null;
+    const settingsManagedBlock = buildSettingsManagedBlock(draft, activeConfig);
     const payloadBase = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -932,6 +966,11 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       defaultModel: normalizeOptionalText(draft.defaultModel),
       sandboxPolicy: normalizeOptionalText(draft.sandboxPolicy),
       approvalPolicy: normalizeOptionalText(draft.approvalPolicy),
+      settingsMode: draft.settingsMode,
+      settingsSources,
+      settingsFilePath: normalizeOptionalText(draft.settingsFilePath),
+      settingsAllowSettaEdits: draft.settingsAllowSettaEdits,
+      settingsManagedBlock,
       envVarWhitelist,
       workingDirStrategy: draft.workingDirStrategy,
       workingDir: normalizeOptionalText(draft.workingDir),
@@ -980,25 +1019,25 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const handleFieldChange = (
-    key: keyof ExternalAgentConfigDraft,
-    value:
-      | string
-      | ExternalAgentToolTypeValue
-      | ExternalAgentRunModeValue
-      | ExternalAgentWorkingDirStrategyValue,
+  const handleFieldChange = <K extends keyof ExternalAgentConfigDraft>(
+    key: K,
+    value: ExternalAgentConfigDraft[K],
   ) => {
     setDraft((prev) => {
       if (!prev) {
         return prev;
       }
-      return { ...prev, [key]: value } as ExternalAgentConfigDraft;
+      return { ...prev, [key]: value };
     });
   };
 
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
+  const isClaudeTool =
+    draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
+  const isExplicitSettingsPath =
+    draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
 
   return (
     <div className="flex flex-col gap-3">
@@ -1181,6 +1220,144 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   />
                 </Field>
               </div>
+              <div className="grid gap-3 @[40rem]:grid-cols-2">
+                <Field label="Settings Mode">
+                  <select
+                    value={draft.settingsMode}
+                    onChange={(event) =>
+                      handleFieldChange(
+                        "settingsMode",
+                        event.target.value as ExternalAgentSettingsModeValue,
+                      )
+                    }
+                    className={SELECT_CLASS_NAME}
+                    disabled={!canEdit}
+                  >
+                    {settingsModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Settings File Path"
+                  hint={
+                    isExplicitSettingsPath
+                      ? "Used when settings mode is explicit_path."
+                      : "Available when settings mode is explicit_path."
+                  }
+                >
+                  <input
+                    value={draft.settingsFilePath}
+                    onChange={(event) =>
+                      handleFieldChange("settingsFilePath", event.target.value)
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit || !isExplicitSettingsPath}
+                    placeholder="/path/to/settings"
+                  />
+                </Field>
+              </div>
+              <Field label="Allow Setta Edits">
+                <label className="flex items-center gap-2 text-xs text-setta-600 dark:text-setta-300">
+                  <input
+                    type="checkbox"
+                    checked={draft.settingsAllowSettaEdits}
+                    onChange={(event) =>
+                      handleFieldChange(
+                        "settingsAllowSettaEdits",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-4 w-4 accent-blue-600"
+                    disabled={!canEdit}
+                  />
+                  Allow Setta to merge managed settings into existing files.
+                </label>
+              </Field>
+              {isClaudeTool ? (
+                <>
+                  <Field
+                    label="Claude Settings Sources"
+                    hint="Select where Claude Code should read settings from."
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {settingsSourceOptions.map((source) => (
+                        <label
+                          key={source}
+                          className="flex items-center gap-2 rounded-md border border-setta-200/70 px-2 py-1 text-[11px] text-setta-600 dark:border-setta-800 dark:text-setta-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={draft.settingsSources.includes(source)}
+                            onChange={() => {
+                              if (!draft) {
+                                return;
+                              }
+                              const hasSource =
+                                draft.settingsSources.includes(source);
+                              const nextSources = hasSource
+                                ? draft.settingsSources.filter(
+                                    (entry) => entry !== source,
+                                  )
+                                : [...draft.settingsSources, source];
+                              handleFieldChange("settingsSources", nextSources);
+                            }}
+                            className="h-4 w-4 accent-blue-600"
+                            disabled={!canEdit}
+                          />
+                          {source}
+                        </label>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field
+                    label="Claude Allow Rules"
+                    hint="Names only, one per line."
+                  >
+                    <textarea
+                      value={draft.claudeAllowText}
+                      onChange={(event) =>
+                        handleFieldChange("claudeAllowText", event.target.value)
+                      }
+                      className={TEXTAREA_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  </Field>
+                  <Field
+                    label="Claude Ask Rules"
+                    hint="Names only, one per line."
+                  >
+                    <textarea
+                      value={draft.claudeAskText}
+                      onChange={(event) =>
+                        handleFieldChange("claudeAskText", event.target.value)
+                      }
+                      className={TEXTAREA_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  </Field>
+                  <Field
+                    label="Claude Deny Rules"
+                    hint="Names only, one per line."
+                  >
+                    <textarea
+                      value={draft.claudeDenyText}
+                      onChange={(event) =>
+                        handleFieldChange("claudeDenyText", event.target.value)
+                      }
+                      className={TEXTAREA_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  </Field>
+                  <div className="rounded-md border border-setta-200/70 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-300">
+                    Setta will only edit{" "}
+                    <code>.claude/settings.local.json</code> or{" "}
+                    <code>.claude/settings.json</code> if you opt in.
+                  </div>
+                </>
+              ) : null}
               <Field label="Env Var Whitelist" hint="Names only, one per line.">
                 <textarea
                   value={draft.envVarWhitelistText}
@@ -1295,10 +1472,41 @@ function buildExternalAgentConfigDraft(
     defaultModel: config.defaultModel ?? "",
     sandboxPolicy: config.sandboxPolicy ?? "",
     approvalPolicy: config.approvalPolicy ?? "",
+    settingsMode:
+      config.settingsMode ?? ExternalAgentSettingsModeEnum.read_only,
+    settingsSources: config.settingsSources ?? [],
+    settingsFilePath: config.settingsFilePath ?? "",
+    settingsAllowSettaEdits: config.settingsAllowSettaEdits ?? false,
     envVarWhitelistText: (config.envVarWhitelist ?? []).join("\n"),
     workingDirStrategy: config.workingDirStrategy,
     workingDir: config.workingDir ?? "",
+    claudeAllowText:
+      config.settingsManagedBlock?.claude?.permissions?.allow?.join("\n") ?? "",
+    claudeAskText:
+      config.settingsManagedBlock?.claude?.permissions?.ask?.join("\n") ?? "",
+    claudeDenyText:
+      config.settingsManagedBlock?.claude?.permissions?.deny?.join("\n") ?? "",
   };
+}
+
+function buildSettingsManagedBlock(
+  draft: ExternalAgentConfigDraft,
+  existing: ExternalAgentConfig | null,
+): ExternalAgentConfig["settingsManagedBlock"] | null {
+  const existingBlock = existing?.settingsManagedBlock ?? null;
+  if (draft.toolType !== ExternalAgentToolTypeEnum.claude_code) {
+    return existingBlock;
+  }
+  const claudePermissions = {
+    allow: parseListInput(draft.claudeAllowText),
+    ask: parseListInput(draft.claudeAskText),
+    deny: parseListInput(draft.claudeDenyText),
+  };
+  const claudeBlock = { permissions: claudePermissions };
+  if (existingBlock && typeof existingBlock === "object") {
+    return { ...existingBlock, claude: claudeBlock };
+  }
+  return { claude: claudeBlock };
 }
 
 function parseListInput(value: string): Array<string> {

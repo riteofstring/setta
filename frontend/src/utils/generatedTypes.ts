@@ -226,10 +226,23 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+
 export const ExternalAgentRunModeEnum = {
   mcp: "mcp",
   server: "server",
   sdk: "sdk",
+} as const;
+
+export const ExternalAgentSettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
 } as const;
 
 export const ExternalAgentToolTypeEnum = {
@@ -4783,6 +4796,41 @@ const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated),
 });
 
+const ClaudeSettingsPermissionsSchema = z.object({
+  allow: z.array(z.string()).default([]),
+  ask: z.array(z.string()).default([]),
+  deny: z.array(z.string()).default([]),
+});
+
+const ClaudeSettingsManagedSchema = z.object({
+  permissions: z
+    .union([ClaudeSettingsPermissionsSchema, z.null()])
+    .default(null),
+  defaultMode: z.union([z.string(), z.null()]).default(null),
+  mcp: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+const CodexSettingsManagedSchema = z.object({
+  approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  sandboxMode: z.union([z.string(), z.null()]).default(null),
+  enabledTools: z.union([z.array(z.string()), z.null()]).default(null),
+  model: z.union([z.string(), z.null()]).default(null),
+});
+
+const OpenCodeSettingsManagedSchema = z.object({
+  permission: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
+  mcp: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  model: z.union([z.string(), z.null()]).default(null),
+});
+
+const ExternalAgentSettingsManagedBlockSchema = z.object({
+  claude: z.union([ClaudeSettingsManagedSchema, z.null()]).default(null),
+  codex: z.union([CodexSettingsManagedSchema, z.null()]).default(null),
+  opencode: z.union([OpenCodeSettingsManagedSchema, z.null()]).default(null),
+});
+
 const ExternalAgentConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -4794,6 +4842,17 @@ const ExternalAgentConfigSchema = z.object({
   defaultModel: z.union([z.string(), z.null()]).default(null),
   sandboxPolicy: z.union([z.string(), z.null()]).default(null),
   approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  settingsMode: z
+    .enum(ExternalAgentSettingsModeEnum)
+    .default(ExternalAgentSettingsModeEnum.read_only),
+  settingsSources: z
+    .union([z.array(z.enum(ClaudeSettingsSourceEnum)), z.null()])
+    .default(null),
+  settingsFilePath: z.union([z.string(), z.null()]).default(null),
+  settingsAllowSettaEdits: z.boolean().default(false),
+  settingsManagedBlock: z
+    .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
+    .default(null),
   envVarWhitelist: z.array(z.string()).default([]),
   workingDirStrategy: z
     .enum(ExternalAgentWorkingDirStrategyEnum)
@@ -5655,6 +5714,17 @@ const CreateExternalAgentConfigRequestSchema = z.object({
   defaultModel: z.union([z.string(), z.null()]).default(null),
   sandboxPolicy: z.union([z.string(), z.null()]).default(null),
   approvalPolicy: z.union([z.string(), z.null()]).default(null),
+  settingsMode: z
+    .enum(ExternalAgentSettingsModeEnum)
+    .default(ExternalAgentSettingsModeEnum.read_only),
+  settingsSources: z
+    .union([z.array(z.enum(ClaudeSettingsSourceEnum)), z.null()])
+    .default(null),
+  settingsFilePath: z.union([z.string(), z.null()]).default(null),
+  settingsAllowSettaEdits: z.boolean().default(false),
+  settingsManagedBlock: z
+    .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
+    .default(null),
   envVarWhitelist: z.array(z.string()).default([]),
   workingDirStrategy: z
     .enum(ExternalAgentWorkingDirStrategyEnum)

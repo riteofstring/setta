@@ -1201,7 +1201,8 @@ function promotePendingChatDetailsIfNeeded(chatId: string) {
     if (!state.pendingChatDetails) {
       return {};
     }
-    const existingDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const existingDetails =
+      state.chatDetails[chatId] ?? getDefaultChatDetails();
     const pendingDetails = state.pendingChatDetails;
     const mergedDetails: ChatDetails = {
       ...existingDetails,
@@ -1440,7 +1441,6 @@ function applyStreamDeltaToChatSectionState(
     }
   }
 }
-
 
 function applyMessageDeltaToChatMessages(
   messages: Array<BaseChatMessageUnion>,

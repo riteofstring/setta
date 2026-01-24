@@ -35,9 +35,12 @@ from setta.types.agentic import (
     RunChainSpec,
 )
 from setta.types.external_agents import (
+    ClaudeSettingsSource,
     ExternalAgentConfig,
     ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
+    ExternalAgentSettingsManagedBlock,
+    ExternalAgentSettingsMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -136,6 +139,11 @@ class CreateExternalAgentConfigRequest(BaseModel):
     defaultModel: str | None = None
     sandboxPolicy: str | None = None
     approvalPolicy: str | None = None
+    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.read_only
+    settingsSources: list[ClaudeSettingsSource] | None = None
+    settingsFilePath: str | None = None
+    settingsAllowSettaEdits: bool = False
+    settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
     envVarWhitelist: list[str] = Field(default_factory=list)
     workingDirStrategy: ExternalAgentWorkingDirStrategy = (
         ExternalAgentWorkingDirStrategy.project_root
@@ -546,6 +554,11 @@ async def route_create_external_agent_config(
         defaultModel=x.defaultModel,
         sandboxPolicy=x.sandboxPolicy,
         approvalPolicy=x.approvalPolicy,
+        settingsMode=x.settingsMode,
+        settingsSources=x.settingsSources,
+        settingsFilePath=x.settingsFilePath,
+        settingsAllowSettaEdits=x.settingsAllowSettaEdits,
+        settingsManagedBlock=x.settingsManagedBlock,
         envVarWhitelist=x.envVarWhitelist,
         workingDirStrategy=x.workingDirStrategy,
         workingDir=x.workingDir,

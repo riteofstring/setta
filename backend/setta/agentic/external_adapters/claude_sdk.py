@@ -29,6 +29,7 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentStreamEvent,
 )
 from setta.agentic.external_adapters.prompt_utils import build_prompt_from_inputs
+from setta.agentic.external_agent_settings import resolve_claude_setting_sources
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -400,6 +401,9 @@ def _build_options(
             context.run.id,
             mcp_config,
         )
+    setting_sources = resolve_claude_setting_sources(context.config)
+    if setting_sources:
+        options["setting_sources"] = setting_sources
 
     permission_mode = _resolve_permission_mode(context.config.approvalPolicy)
     if permission_mode:

@@ -34,9 +34,10 @@ export function QuestionCard({
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [otherValues, setOtherValues] = useState<Record<string, string>>({});
   const [activeIndex, setActiveIndex] = useState(0);
-  const [submittedAnswers, setSubmittedAnswers] = useState<
-    Record<string, string> | null
-  >(null);
+  const [submittedAnswers, setSubmittedAnswers] = useState<Record<
+    string,
+    string
+  > | null>(null);
 
   const displayedAnswers = resolvedAnswers ?? submittedAnswers;
   const answered = Boolean(

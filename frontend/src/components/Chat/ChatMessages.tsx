@@ -1,6 +1,14 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { ReactNode, Ref, memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ReactNode,
+  Ref,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -447,7 +455,9 @@ const ChatMessage = memo(function ChatMessage({
   toolCallContext: ToolCallContext;
 }) {
   const isAssistant = message.role === ChatRoleEnum.assistant;
-  const assistantContent = isAssistant ? message.content : EMPTY_ASSISTANT_CONTENT;
+  const assistantContent = isAssistant
+    ? message.content
+    : EMPTY_ASSISTANT_CONTENT;
   const activityKey = useMemo(
     () => getStreamActivityKey(assistantContent),
     [assistantContent],

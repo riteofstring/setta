@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,50 @@ class ExternalAgentWorkingDirStrategy(str, Enum):
     custom = "custom"
 
 
+class ExternalAgentSettingsMode(str, Enum):
+    read_only = "read_only"
+    managed_local = "managed_local"
+    managed_project = "managed_project"
+    explicit_path = "explicit_path"
+
+
+class ClaudeSettingsSource(str, Enum):
+    user = "user"
+    project = "project"
+    local = "local"
+
+
+class ClaudeSettingsPermissions(BaseModel, extra="forbid"):
+    allow: list[str] = Field(default_factory=list)
+    ask: list[str] = Field(default_factory=list)
+    deny: list[str] = Field(default_factory=list)
+
+
+class ClaudeSettingsManaged(BaseModel, extra="forbid"):
+    permissions: ClaudeSettingsPermissions | None = None
+    defaultMode: str | None = None
+    mcp: dict[str, Any] | None = None
+
+
+class CodexSettingsManaged(BaseModel, extra="forbid"):
+    approvalPolicy: str | None = None
+    sandboxMode: str | None = None
+    enabledTools: list[str] | None = None
+    model: str | None = None
+
+
+class OpenCodeSettingsManaged(BaseModel, extra="forbid"):
+    permission: dict[str, str] | None = None
+    mcp: dict[str, Any] | None = None
+    model: str | None = None
+
+
+class ExternalAgentSettingsManagedBlock(BaseModel, extra="forbid"):
+    claude: ClaudeSettingsManaged | None = None
+    codex: CodexSettingsManaged | None = None
+    opencode: OpenCodeSettingsManaged | None = None
+
+
 class ExternalAgentConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str
@@ -35,6 +80,11 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
     defaultModel: str | None = None
     sandboxPolicy: str | None = None
     approvalPolicy: str | None = None
+    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.read_only
+    settingsSources: list[ClaudeSettingsSource] | None = None
+    settingsFilePath: str | None = None
+    settingsAllowSettaEdits: bool = False
+    settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
     envVarWhitelist: list[str] = Field(default_factory=list)
     workingDirStrategy: ExternalAgentWorkingDirStrategy = (
         ExternalAgentWorkingDirStrategy.project_root
