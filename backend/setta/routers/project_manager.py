@@ -122,6 +122,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
+from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 router = SettaProjectContextAPIRouter(
     require_project_context_by_default=True,
@@ -518,7 +519,10 @@ async def route_set_text_block_text(
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
-    await manager.set_text_block_text(x)
+    try:
+        await manager.set_text_block_text(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_PROJECT_CONFIG_CODEGEN_TARGETS)
@@ -590,7 +594,10 @@ async def route_set_code_obj_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_code_obj_name(x)
+    try:
+        await manager.set_code_obj_name(x)
+    except InvalidParamName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
@@ -778,7 +785,10 @@ async def route_set_section_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_section_name(x)
+    try:
+        await manager.set_section_name(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)
@@ -821,9 +831,12 @@ async def route_set_text_block_display_mode(
 async def route_set_text_block_heading_as_section_name(
     x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_text_block_heading_as_section_name(x)
+    try:
+        await state.project_manager_switcher.get(
+            x.projectConfigId
+        ).set_text_block_heading_as_section_name(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)

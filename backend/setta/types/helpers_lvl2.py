@@ -122,6 +122,10 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.name_validation import (
+    validate_project_name,
+    validate_section_name,
+)
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 if TYPE_CHECKING:
@@ -429,10 +433,11 @@ def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
 def set_project_config_name(
     p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
+    normalized = validate_project_name(p, projectConfigId, newName)
     for k, v in p.projectConfigs.items():
-        if k != projectConfigId and v.name == newName:
-            raise ProjectNameTaken(f"{newName} is already taken")
-    p.projectConfigs[projectConfigId].name = newName
+        if k != projectConfigId and v.name == normalized:
+            raise ProjectNameTaken(f"{normalized} is already taken")
+    p.projectConfigs[projectConfigId].name = normalized
 
 
 def create_section(
@@ -1634,7 +1639,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
     if impl.headingAsSectionName:
         first_heading = get_first_heading_or_text(text)
         if first_heading:
-            p.sections[sectionId].name = first_heading
+            set_section_name(p, sectionId, first_heading)
 
 
 def set_text_block_heading_as_section_name(
@@ -1653,7 +1658,7 @@ def set_text_block_heading_as_section_name(
     if headingAsSectionName:
         first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
-            p.sections[sectionId].name = first_heading
+            set_section_name(p, sectionId, first_heading)
 
 
 def get_first_heading_or_text(markdown: str):
@@ -2011,8 +2016,8 @@ def set_section_sizes(
 
 
 def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
-    if name:
-        p.sections[sectionId].name = name
+    normalized = validate_section_name(p, sectionId, name)
+    p.sections[sectionId].name = normalized
 
 
 def set_meta_control_show_section_title(

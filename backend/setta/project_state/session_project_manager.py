@@ -28,6 +28,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
+from setta.utils.name_validation import validate_project_name
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
@@ -137,16 +138,19 @@ class SessionProjectManager(BaseProjectManager):
         project_state = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )
+        normalized_name = validate_project_name(
+            self.project_state_backend, None, x.newConfigName
+        )
         if x.withRefs:
             new_project_config = copy_project_config(
-                project_state.projectConfig, x.newConfigName, do_create_new_id=True
+                project_state.projectConfig, normalized_name, do_create_new_id=True
             )
             self.project_state_backend.projectConfigs[new_project_config.id] = (
                 new_project_config
             )
         else:
             new_project_config = copy_project(
-                project_state, x.newConfigName, do_create_new_id=True
+                project_state, normalized_name, do_create_new_id=True
             )
             self.project_state_backend = merge_single_config_into_backend(
                 self.project_state_backend, new_project_config
@@ -165,11 +169,17 @@ class SessionProjectManager(BaseProjectManager):
                 projectState,
                 updateFileWatcher=updateFileWatcher,
                 validate_code_file_bindings=validate_code_file_bindings,
+                allow_reserved_project_name=(
+                    self.persistence_mode == SessionPersistenceMode.ide_settings
+                ),
             )
             return
         async with self._project_state_lock.write_lock():
             self.share_runtime_state.normalize_project_state_paths(projectState)
-            projectState.validate_for_update(validate_code_file_bindings=False)
+            projectState.validate_for_update(
+                validate_code_file_bindings=False,
+                allow_reserved_project_name=False,
+            )
             if self.share_runtime_state.should_refresh_codegen():
                 await self._refresh_codegen_state(projectState)
             self._merge_project_state_backend(

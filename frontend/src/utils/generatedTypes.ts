@@ -518,6 +518,7 @@ export const WebsocketMsgTypeForBackendEnum = {
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
   TerminalMetadata: "TerminalMetadata",
   Notification: "Notification",
   BackendLogEvent: "BackendLogEvent",
@@ -3170,6 +3171,24 @@ const WebsocketMsgLSPDiagnosticsSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
 });
 
+const SettaProjectNameValidationErrorsSchema = z.object({
+  projectConfigId: IDSchema,
+  sectionErrors: z.record(IDSchema, z.array(z.string())).default({}),
+  paramErrors: z.record(IDSchema, z.array(z.string())).default({}),
+});
+
+export type SettaProjectNameValidationErrors = z.infer<
+  typeof SettaProjectNameValidationErrorsSchema
+>;
+
+const WebsocketMsgNameValidationErrorsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettaProjectNameValidationErrorsSchema,
+  messageType: z
+    .literal("NameValidationErrors")
+    .default(WebsocketMsgTypeForFrontendEnum.NameValidationErrors),
+});
+
 const RenameReferenceChangedValueSchema = z.object({
   depKey: z.union([
     SectionDependencyKeySchema,
@@ -4798,6 +4817,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgBackendLogEventSchema,
   WebsocketMsgLLMStreamingResponseSchema,
   WebsocketMsgLSPDiagnosticsSchema,
+  WebsocketMsgNameValidationErrorsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
   WebsocketMsgTerminalMetadataSchema,
