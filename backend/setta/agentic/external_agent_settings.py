@@ -96,9 +96,7 @@ def write_claude_settings_file(
         payload = _load_json(path)
     managed_payload = _build_claude_managed_payload(config)
     if managed_payload:
-        managed_block = managed_payload.get("setta")
-        if managed_block is not None:
-            payload["setta"] = managed_block
+        payload.update(managed_payload)
     if not path.parent.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -186,7 +184,7 @@ def _build_claude_managed_payload(config: ExternalAgentConfig) -> dict[str, Any]
         block = config.settingsManagedBlock.claude
     if block is None:
         return {}
-    setta_payload: dict[str, Any] = {}
+    managed_payload: dict[str, Any] = {}
     if block.permissions is not None:
         permissions_payload = {
             "allow": list(block.permissions.allow),
@@ -195,12 +193,12 @@ def _build_claude_managed_payload(config: ExternalAgentConfig) -> dict[str, Any]
         }
         if block.defaultMode:
             permissions_payload["defaultMode"] = block.defaultMode
-        setta_payload["permissions"] = permissions_payload
+        managed_payload["permissions"] = permissions_payload
     if block.mcp is not None:
-        setta_payload["mcp"] = block.mcp
-    if not setta_payload:
+        managed_payload["mcp"] = block.mcp
+    if not managed_payload:
         return {}
-    return {"setta": setta_payload}
+    return managed_payload
 
 
 def _apply_codex_managed_settings(

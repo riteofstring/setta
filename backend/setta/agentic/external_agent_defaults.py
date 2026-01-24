@@ -5,6 +5,10 @@ from setta.types.external_agents import (
     OpenCodeSettingsManaged,
 )
 
+DEFAULT_CLAUDE_ALLOW_RULES = [
+    "mcp__setta__*",
+]
+
 DEFAULT_CLAUDE_ASK_RULES = [
     "Bash(rm:*)",
     "Bash(sudo:*)",
@@ -48,7 +52,10 @@ DEFAULT_OPENCODE_PERMISSION = {
 def build_default_claude_settings_block() -> ExternalAgentSettingsManagedBlock:
     return ExternalAgentSettingsManagedBlock(
         claude=ClaudeSettingsManaged(
-            permissions=ClaudeSettingsPermissions(ask=list(DEFAULT_CLAUDE_ASK_RULES))
+            permissions=ClaudeSettingsPermissions(
+                allow=list(DEFAULT_CLAUDE_ALLOW_RULES),
+                ask=list(DEFAULT_CLAUDE_ASK_RULES),
+            )
         )
     )
 
