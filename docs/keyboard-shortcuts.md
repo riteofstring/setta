@@ -53,8 +53,6 @@ is configurable.
 - Mod + Shift + G: ungroup active groups.
 - Alt (hold): moving-free drag mode for sections (reposition/reparent).
 - Mod + Alt (hold): sorting drag mode for sections (reorder within a parent).
-- While holding Alt (moving-free), drag the selection box to move all selected
-  sections together.
 
 ## Section creation and clipboard
 

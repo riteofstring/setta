@@ -827,10 +827,10 @@ export async function route_set_social_url(
   return await post("/setSocialUrl", x);
 }
 
-export async function route_move_sections(
-  x: gt.MoveSectionsRequestInput,
+export async function route_move_section(
+  x: gt.MoveSectionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/moveSections", x);
+  return await post("/moveSection", x);
 }
 
 export async function route_move_params(
@@ -927,6 +927,12 @@ export async function route_get_backend_init_status(): Promise<
   ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
+}
+
+export async function route_get_auth_refresh_status(): Promise<
+  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
+> {
+  return await get("/authRefreshStatus");
 }
 
 export async function route_list_share_deployments(): Promise<

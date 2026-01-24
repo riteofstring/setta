@@ -13,7 +13,7 @@ Read docs/mcp-multi-server-plan.md. Read the code base. Is the plan fully implem
 
 
 
-Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after.
+Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
 
 
 
