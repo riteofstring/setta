@@ -150,7 +150,7 @@ function EditableTitle({
   };
 
   return (
-    <>
+    <div className="relative flex min-w-0 flex-1 flex-col">
       <Editable
         value={inputValue}
         onChange={onChange}
@@ -163,9 +163,12 @@ function EditableTitle({
         blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
       />
       {validationError && (
-        <p className="mt-0.5 text-[10px] text-red-500">{validationError}</p>
+        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200">
+          <span className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]" />
+          {validationError}
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
