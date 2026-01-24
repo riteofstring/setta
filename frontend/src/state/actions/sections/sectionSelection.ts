@@ -53,6 +53,21 @@ export function getSharedParentId(
   return firstParentId;
 }
 
+export function isDescendantOfSectionSelection(
+  state: ZustandProjectState,
+  candidateId: string,
+  selectedSet: Set<string>,
+): boolean {
+  let currentId: string | null = candidateId;
+  while (currentId) {
+    if (selectedSet.has(currentId)) {
+      return true;
+    }
+    currentId = state.parentSectionMap[currentId] ?? null;
+  }
+  return false;
+}
+
 export function orderSectionIdsByParent(
   state: ZustandProjectState,
   parentId: string | null,

@@ -3,15 +3,18 @@ import {
   getDndSectionId,
   useDndState,
 } from "forks/dnd-kit/dndState";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useRef } from "react";
 import {
   getSectionChildren,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
-import { getSharedParentId } from "state/actions/sections/sectionSelection";
+import {
+  getSharedParentId,
+  isDescendantOfSectionSelection,
+} from "state/actions/sections/sectionSelection";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
@@ -37,6 +40,10 @@ function onSortEnd({
   const activeId = String(active.id);
   const draggingIds = resolveDraggingIds(activeId);
   const draggingSet = new Set(draggingIds);
+  if (isDescendantOfSectionSelection(state, parentId, draggingSet)) {
+    manualDndChildrenReset();
+    return;
+  }
   const sortingOverState = getSortingOverState(parentId);
   const overId = resolveSortingOverId({
     collisions,
@@ -144,6 +151,14 @@ async function onFreeMoveEnd({
       manualDndChildrenReset();
       return;
     }
+  }
+
+  if (
+    newParentId &&
+    isDescendantOfSectionSelection(state, newParentId, draggingSet)
+  ) {
+    manualDndChildrenReset();
+    return;
   }
 
   if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {

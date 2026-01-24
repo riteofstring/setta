@@ -25,11 +25,10 @@ export function TopLevelContainer({
     ...dndProps,
     disabled: activeIsSelf,
   });
-  const { listeners: dragListeners, setNodeRef: draggableRef } =
-    useDraggable({
-      ...dndProps,
-      feedback: isMovingFree ? "none" : undefined,
-    });
+  const { listeners: dragListeners, setNodeRef: draggableRef } = useDraggable({
+    ...dndProps,
+    feedback: isMovingFree ? "none" : undefined,
+  });
 
   return (
     <DndSlotAndDndWatcher

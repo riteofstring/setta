@@ -16,8 +16,8 @@ import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrSectionVariant,
   getCurrEffectiveSectionImpl,
+  getCurrSectionVariant,
   getSectionChildren,
   getSectionType,
   manualDndChildrenReset,
@@ -25,6 +25,7 @@ import {
 import {
   getRootSelectedSectionIds,
   getSharedParentId,
+  isDescendantOfSectionSelection,
   orderSectionIdsByParent,
 } from "state/actions/sections/sectionSelection";
 import { getIsRoot } from "state/actions/uiTypes/utils";
@@ -460,6 +461,15 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
     !getSectionIsRoot(newParentId) ||
     getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
     getSectionIsGlobalVariables(activeId)
+  ) {
+    return BehaviorDropTypeEnum.INVALID;
+  }
+
+  const draggingIds = useDndState.getState().draggingIds;
+  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
+  const state = useProjectState.getState();
+  if (
+    isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }

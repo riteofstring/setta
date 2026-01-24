@@ -16,12 +16,15 @@ export function DragOperationShapeSync({
 }: DragOperationShapeSyncProps = {}) {
   const manager = useDragDropManager();
   const { isSorting, isMovingFree } = useDndProviderContext();
-  const { activeRect: sectionActiveRect, draggingIds, draggingRectsById } =
-    useDndState((x) => ({
-      activeRect: x.activeRect,
-      draggingIds: x.draggingIds,
-      draggingRectsById: x.draggingRectsById,
-    }));
+  const {
+    activeRect: sectionActiveRect,
+    draggingIds,
+    draggingRectsById,
+  } = useDndState((x) => ({
+    activeRect: x.activeRect,
+    draggingIds: x.draggingIds,
+    draggingRectsById: x.draggingRectsById,
+  }));
   const paramActiveRect = useParamDndState((x) => x.activeRect);
   const activeDragType = useComputed(() => {
     const sourceData = manager?.dragOperation.source?.data as

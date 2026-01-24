@@ -94,6 +94,60 @@ class MoveSectionsTests(unittest.TestCase):
             parent_id,
         )
 
+    def test_move_sections_rejects_selected_parent(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-selected-parent")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        project_state.validate_parent_section_map()
+
+        with self.assertRaisesRegex(
+            ValueError, "Cannot reparent into a selected section."
+        ):
+            move_sections_to_parent_section(
+                project_state,
+                parent_id,
+                [parent_id],
+                0,
+            )
+
+    def test_move_sections_rejects_descendant_parent(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-descendant-parent")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        [child_group_id] = create_child_sections(
+            settings,
+            project_state,
+            parent_id,
+            SectionType.Group,
+            1,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        with self.assertRaisesRegex(
+            ValueError, "Cannot reparent into a descendant of selection."
+        ):
+            move_sections_to_parent_section(
+                project_state,
+                child_group_id,
+                [parent_id],
+                0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
