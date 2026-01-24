@@ -220,6 +220,7 @@ export function KwargsControls({
               className="focus-visible:ring-2 flex h-[18px] w-[18px] nodrag cursor-pointer bg-transparent text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full items-center justify-center"
               onClick={onClickConvertToEdgeInputs}
               tabIndex={0}
+              disabled={convertToEdgeDisabled}
               aria-disabled={convertToEdgeDisabled}
               aria-label="Convert to edge connectors"
               {...getFloatingBoxHandlers({

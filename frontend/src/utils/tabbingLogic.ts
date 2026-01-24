@@ -212,7 +212,22 @@ export function focusOnSectionSearch(sectionId: string) {
 
 const pendingSectionTextFocus = new Set<string>();
 const TERMINAL_INPUT_SELECTOR = ".xterm-helper-textarea, .xterm textarea";
-const SECTION_TEXT_INPUT_SELECTOR = `[contenteditable="true"], .cm-content, ${TERMINAL_INPUT_SELECTOR}`;
+const TERMINAL_INPUT_SELECTORS = [".xterm-helper-textarea", ".xterm textarea"];
+const SECTION_TEXT_INPUT_SELECTORS = [
+  `[data-section-main-editor] .cm-content`,
+  `[data-section-main-editor] [contenteditable="true"]`,
+  ...TERMINAL_INPUT_SELECTORS.map(
+    (selector) => `[data-section-main-editor] ${selector}`,
+  ),
+  ".section-full-no-title .cm-content",
+  ".section-full-no-title [contenteditable=\"true\"]",
+  ".section-main .cm-content",
+  ".section-main [contenteditable=\"true\"]",
+  ...TERMINAL_INPUT_SELECTORS,
+  `[contenteditable="true"]`,
+  ".cm-content",
+];
+const MAX_SECTION_TEXT_FOCUS_ATTEMPTS = 240;
 
 export function isPendingSectionTextFocus(sectionId: string) {
   return pendingSectionTextFocus.has(sectionId);
@@ -229,7 +244,7 @@ export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
-  const focusTarget = ref?.querySelector?.(SECTION_TEXT_INPUT_SELECTOR);
+  const focusTarget = getSectionTextInputTarget(ref);
   if (focusTarget instanceof HTMLElement) {
     focusTarget.focus({ preventScroll: true });
     const active = document.activeElement;
@@ -240,9 +255,26 @@ export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
       return;
     }
   }
-  if (attempt < 240) {
+  if (attempt < MAX_SECTION_TEXT_FOCUS_ATTEMPTS) {
     requestAnimationFrame(() =>
       focusOnSectionTextInput(sectionId, attempt + 1),
     );
+  } else {
+    clearPendingSectionTextFocus(sectionId);
   }
+}
+
+function getSectionTextInputTarget(
+  ref: HTMLElement | null,
+): HTMLElement | null {
+  if (!ref) {
+    return null;
+  }
+  for (const selector of SECTION_TEXT_INPUT_SELECTORS) {
+    const target = ref.querySelector(selector);
+    if (target instanceof HTMLElement) {
+      return target;
+    }
+  }
+  return null;
 }

@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from setta.mcp.tool_setup import setta_init_tool
 
 _DOC_SOURCES = {
-    "examples": "guides/setta-listener-examples.md",
+    "examples": "reference/setta-listener-examples.md",
     "emit_to_frontend": "reference/emit_to_frontend.md",
-    "hot_reload": "guides/setta-listener-hot-reload.md",
+    "hot_reload": "reference/setta-listener-hot-reload.md",
     "realtime_behavior": "reference/setta-realtime-behavior.md",
     "listener_flows": "reference/listener-flows.md",
     "logging_and_error_handling": "reference/logging-and-error-handling.md",

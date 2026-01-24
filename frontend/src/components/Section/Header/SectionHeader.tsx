@@ -122,7 +122,7 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const { headingAsSectionName, format, text } = useProjectState((x) => {
+  const { headingAsSectionName, format } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -131,11 +131,44 @@ function TextBlockCardTitle({
     return {
       headingAsSectionName: impl.headingAsSectionName,
       format: impl.format,
-      text: impl.text,
     };
   }, _.isEqual);
-  const hasMarkdownHeading =
-    format === TextBlockFormatEnum.Markdown && hasMarkdownH1(text);
+  const [hasMarkdownHeading, setHasMarkdownHeading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!headingAsSectionName || format !== TextBlockFormatEnum.Markdown) {
+      setHasMarkdownHeading(false);
+      return;
+    }
+    let isFirst = true;
+    const debouncedCompute = _.debounce((text: string) => {
+      setHasMarkdownHeading(hasMarkdownH1(text));
+    }, 150);
+    const unsubscribe = useProjectState.subscribe(
+      (state) => {
+        const impl = getCurrEffectiveSectionImplOfType(
+          state,
+          sectionId,
+          SectionTypeEnum.TextBlock,
+        );
+        return impl.text;
+      },
+      (text) => {
+        if (isFirst) {
+          isFirst = false;
+          setHasMarkdownHeading(hasMarkdownH1(text));
+          return;
+        }
+        debouncedCompute(text);
+      },
+      { fireImmediately: true },
+    );
+    return () => {
+      debouncedCompute.cancel();
+      unsubscribe();
+    };
+  }, [format, headingAsSectionName, sectionId]);
+
   const useHeadingAsSectionName =
     headingAsSectionName &&
     (format !== TextBlockFormatEnum.Markdown || hasMarkdownHeading);

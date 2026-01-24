@@ -72,7 +72,6 @@ export async function createTopLevelSection({
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
   }
-  setActiveSectionIdAndUpdateZIndex(sectionId);
   ensureSectionOnTop(sectionId);
   if (
     implType === SectionTypeEnum.TextBlock ||

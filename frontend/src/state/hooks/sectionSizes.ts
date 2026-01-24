@@ -41,6 +41,8 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+
 function getMetaControlSizeMode({
   projectState,
   sectionId,
@@ -290,10 +292,15 @@ export function useSectionMinMaxDims(sectionId: string) {
         pinnedParamsMinHeight > 0
           ? pinnedParamsMinHeight
           : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const baseUnpinnedMinHeight = Number.isFinite(
+        sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+      )
+        ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+        : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
       const resolvedUnpinnedMinHeight =
         unpinnedParamsMinHeight > 0
           ? unpinnedParamsMinHeight
-          : sizingPolicy.globals.unpinnedParamsAreaMinHeight;
+          : baseUnpinnedMinHeight;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
         if (typeof impl.pinnedAreaHeight === "number") {

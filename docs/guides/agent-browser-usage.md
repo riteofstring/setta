@@ -10,6 +10,20 @@ pnpm add -g agent-browser
 agent-browser install
 ```
 
+## Recommended (CDP) flow — use this
+
+This is the preferred way to access the browser in this repo. It uses a
+CDP-enabled Chrome, applies the bootstrap token, and takes a snapshot.
+
+```bash
+pnpm -C frontend abcdp
+```
+
+Options:
+```bash
+pnpm -C frontend abcdp -- --port 9223 --url "http://127.0.0.1:3000"
+```
+
 ## Open the app (default URL)
 
 ```bash

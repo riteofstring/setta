@@ -42,6 +42,42 @@ default_playwriter_profile_dir() {
   echo "/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
 }
 
+resolve_playwright_browsers_path() {
+  if [[ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ]]; then
+    return
+  fi
+
+  local os arch binary_suffix
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  case "${os}" in
+    darwin) os="mac" ;;
+    linux) os="linux" ;;
+  esac
+  arch="$(uname -m)"
+  case "${arch}" in
+    x86_64|amd64) arch="x64" ;;
+    arm64|aarch64) arch="arm64" ;;
+  esac
+  binary_suffix="${os}-${arch}"
+
+  local candidates=(
+    "${ROOT_DIR}/setta_files/run/playwright-browsers"
+    "${HOME}/Library/Caches/ms-playwright"
+    "${HOME}/.cache/ms-playwright"
+  )
+  local candidate pattern
+  for candidate in "${candidates[@]}"; do
+    if [[ ! -d "${candidate}" ]]; then
+      continue
+    fi
+    pattern="${candidate}/chromium_headless_shell-"*"/chrome-headless-shell-${binary_suffix}/chrome-headless-shell"
+    if compgen -G "${pattern}" >/dev/null 2>&1; then
+      export PLAYWRIGHT_BROWSERS_PATH="${candidate}"
+      return
+    fi
+  done
+}
+
 resolve_playwriter_profile_dir() {
   if [[ -n "${PLAYWRITER_PROFILE_DIR+x}" ]]; then
     PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-$(default_playwriter_profile_dir)}"
@@ -72,6 +108,12 @@ ensure_short_socket_path() {
 }
 
 ensure_short_socket_path
+resolve_playwright_browsers_path
+if [[ -z "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
+  if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="mac-arm64"
+  fi
+fi
 
 write_pid() {
   mkdir -p "$MCP_RUN_DIR"

@@ -38,7 +38,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { SectionSizeModeEnum, isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { route_set_section_pinned_area_height } from "utils/generatedEndpoints";
 import { GetParamSwitch } from "./GetParamSwitch";
 import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
@@ -73,6 +73,7 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   const [unpinnedMinHeight, setUnpinnedMinHeight] = useState<number | null>(
     null,
   );
+  const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -81,6 +82,33 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   });
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
+
+  useLayoutEffect(() => {
+    const node = outerRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
+      return;
+    }
+    const update = () => {
+      const style = window.getComputedStyle(node);
+      const nextPadding = Math.ceil(
+        (Number.parseFloat(style.paddingTop) || 0) +
+          (Number.parseFloat(style.paddingBottom) || 0),
+      );
+      useTemporaryMiscState.setState({
+        [paramGroupPaddingKey]: nextPadding > 0 ? nextPadding : 0,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
+    };
+  }, [paramGroupPaddingKey]);
 
   return (
     <div
@@ -194,21 +222,14 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       lastPortsKeyRef.current = portsKey;
       lastHeightRef.current = 0;
     }
-    let allowDecrease = shouldReset;
 
     const updateHeight = (height: number) => {
       const nextHeight = Math.ceil(height);
-      if (!allowDecrease && nextHeight <= lastHeightRef.current) {
-        return;
-      }
       if (lastHeightRef.current === nextHeight) {
         return;
       }
       lastHeightRef.current = nextHeight;
       useTemporaryMiscState.setState({ [heightKey]: nextHeight });
-      if (allowDecrease) {
-        allowDecrease = false;
-      }
     };
 
     const measureHeight = () => {
@@ -361,17 +382,21 @@ function GetPinnedParams({
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const filtered = filterEdgeInputs(
+    const filteredPinned = filterEdgeInputs(
       requiredParamIdsToPaths,
       topLevelParamIds,
       impl.edgeInputParams,
     );
-    let shouldRoundBottom = false;
-    if (impl.hideUnpinnedParams || unpinned.topLevelParamIds.length === 0) {
-      shouldRoundBottom = true;
-    }
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasUnpinnedParams =
+      !impl.hideUnpinnedParams && filteredUnpinned.topLevelParamIds.length > 0;
+    const shouldRoundBottom = !hasUnpinnedParams;
     return {
-      ...filtered,
+      ...filteredPinned,
       shouldRoundBottom,
       positionAndSizeLocked: impl.positionAndSizeLocked,
     };
@@ -436,6 +461,8 @@ function ResizablePinnedArea({
     }),
     _.isEqual,
   );
+  const { canEditLayout } = useShareCapabilities();
+  const canResize = canEditLayout && !positionAndSizeLocked;
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
   const [measuredContainerHeight, setMeasuredContainerHeight] = useState<
     number | null
@@ -455,7 +482,6 @@ function ResizablePinnedArea({
   );
   const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
   const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
-  const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
   const cachedUnpinnedMinHeight = useTemporaryMiscState(
     (x) => x[unpinnedMinHeightKey] ?? 0,
   );
@@ -473,7 +499,10 @@ function ResizablePinnedArea({
     : 0;
 
   const persistPinnedAreaHeight = useCallback(
-    (nextHeight: number) => {
+    (nextHeight: number | "auto") => {
+      if (!canResize) {
+        return;
+      }
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -493,10 +522,33 @@ function ResizablePinnedArea({
           }),
       });
     },
-    [sectionId],
+    [canResize, sectionId],
+  );
+
+  const onResizeHandleDoubleClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (!canResize) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".pinned-resize-handle")) {
+        return;
+      }
+      if (height === SectionSizeModeEnum.auto) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      lastMaxHeightRef.current = null;
+      persistPinnedAreaHeight(SectionSizeModeEnum.auto);
+    },
+    [canResize, height, persistPinnedAreaHeight],
   );
 
   function onResizeStart(...props: ResizeStartArgs) {
+    if (!canResize) {
+      return;
+    }
     const [, , ref] = props;
     didResizeRef.current = false;
     const parsedHeight = Number.parseFloat(ref.style.height);
@@ -506,6 +558,9 @@ function ResizablePinnedArea({
   }
 
   function onResize(...props: ResizeArgs) {
+    if (!canResize) {
+      return;
+    }
     const [, , , delta] = props;
     if (delta.height === 0 && delta.width === 0) {
       return;
@@ -514,6 +569,9 @@ function ResizablePinnedArea({
   }
 
   function onResizeStop(...props: ResizeArgs) {
+    if (!canResize) {
+      return;
+    }
     const [, , ref, delta] = props;
     const didResize = didResizeRef.current;
     didResizeRef.current = false;
@@ -570,7 +628,6 @@ function ResizablePinnedArea({
     if (!node) {
       setMeasuredContainerHeight(null);
       setContainerPadding(0);
-      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
       return;
     }
     const update = () => {
@@ -585,9 +642,6 @@ function ResizablePinnedArea({
           (Number.parseFloat(style.paddingBottom) || 0),
       );
       setContainerPadding(nextPadding > 0 ? nextPadding : 0);
-      useTemporaryMiscState.setState({
-        [paramGroupPaddingKey]: nextPadding > 0 ? nextPadding : 0,
-      });
     };
     update();
     const observer = new ResizeObserver(() => {
@@ -727,12 +781,13 @@ function ResizablePinnedArea({
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
+      onDoubleClick={onResizeHandleDoubleClick}
       minHeight={resolvedMinHeight}
       maxHeight={maxHeight}
       enable={{
         top: false,
         left: false,
-        bottom: true,
+        bottom: canResize,
         right: false,
         topRight: false,
         bottomRight: false,
@@ -741,7 +796,11 @@ function ResizablePinnedArea({
       }}
       handleClasses={{
         // used in ZoomPane to allow resizing of sections that are inside a position-locked section
-        bottom: `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} pinned-resize-handle cursor-row-resize`,
+        bottom: `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} pinned-resize-handle ${
+          canResize
+            ? "cursor-row-resize"
+            : "cursor-not-allowed pointer-events-none opacity-40"
+        }`,
       }}
       handleStyles={{
         bottom: {
