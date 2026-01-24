@@ -3,7 +3,7 @@ import contextvars
 import copy
 import logging
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
 from typing import (
@@ -433,9 +433,6 @@ class BaseProjectManager(ABC):
         self.code_files = code_files
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
-        self.history_transaction_depth = 0
-        self.history_transaction_key: str | None = None
-        self.history_entry_added_in_transaction = False
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
@@ -585,15 +582,7 @@ class BaseProjectManager(ABC):
                 self: "BaseProjectManager", *args: _P.args, **kwargs: _P.kwargs
             ) -> _R:
                 frontend_op_id = self._extract_frontend_op_id(args, kwargs)
-                history_group_id = self._extract_history_group_id(args, kwargs)
-
-                async def run_with_history_group() -> _R:
-                    if history_group_id:
-                        with self.history_transaction(history_group_id):
-                            return await actual_func(self, *args, **kwargs)
-                    return await actual_func(self, *args, **kwargs)
-
-                coroutine = run_with_history_group()
+                coroutine = actual_func(self, *args, **kwargs)
                 if require_serialization:
                     return await self._enqueue(
                         cast("Coroutine[Any, Any, _R]", coroutine),
@@ -631,37 +620,6 @@ class BaseProjectManager(ABC):
             if frontend_op_id:
                 return frontend_op_id
         return None
-
-    @staticmethod
-    def _extract_history_group_id(args, kwargs) -> str | None:
-        for arg in args:
-            history_group_id = getattr(arg, "historyGroupId", None)
-            if history_group_id:
-                return history_group_id
-        for value in kwargs.values():
-            history_group_id = getattr(value, "historyGroupId", None)
-            if history_group_id:
-                return history_group_id
-        return None
-
-    @contextmanager
-    def history_transaction(self, key: str):
-        if not key:
-            raise ValueError("History transaction key is required.")
-        if self.history_transaction_depth and self.history_transaction_key != key:
-            raise ValueError("History transaction already active with different key.")
-        is_outermost = self.history_transaction_depth == 0
-        self.history_transaction_depth += 1
-        if is_outermost:
-            self.history_transaction_key = key
-            self.history_entry_added_in_transaction = False
-        try:
-            yield
-        finally:
-            self.history_transaction_depth -= 1
-            if self.history_transaction_depth == 0:
-                self.history_transaction_key = None
-                self.history_entry_added_in_transaction = False
 
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
         # Runs after handler finishes; drop from pending and mark completed only on success
@@ -2717,10 +2675,6 @@ class BaseProjectManager(ABC):
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
     ):
-        if self.history_transaction_depth:
-            if self.history_entry_added_in_transaction:
-                return
-            self.history_entry_added_in_transaction = True
         self.history.add_current_copy(
             coalesce_key=coalesce_key, coalesce_window_s=coalesce_window_s
         )

@@ -5586,7 +5586,6 @@ export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 
 const AcceptRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -5596,7 +5595,6 @@ export type AcceptRenameRefactorRequestInput = z.input<
 
 const AddKwargRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -5605,7 +5603,6 @@ export type AddKwargRequestInput = z.input<typeof AddKwargRequestSchema>;
 
 const AppendDrawAreaLayerItemRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   layerIdx: z.int(),
@@ -5618,7 +5615,6 @@ export type AppendDrawAreaLayerItemRequestInput = z.input<
 
 const AutoLayoutTopLevelSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   margin: z.int().default(50),
 });
@@ -5629,7 +5625,6 @@ export type AutoLayoutTopLevelSectionsRequestInput = z.input<
 
 const ChangeParamImplRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: IDSchema,
@@ -5642,7 +5637,6 @@ export type ChangeParamImplRequestInput = z.input<
 
 const ClearTextFieldCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: z.union([IDSchema, z.null()]),
@@ -5654,7 +5648,6 @@ export type ClearTextFieldCompletionRequestInput = z.input<
 
 const CodeAreaCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   fullText: z.string(),
@@ -5667,7 +5660,6 @@ export type CodeAreaCompletionRequestInput = z.input<
 
 const CreateChildSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   parentId: IDSchema,
   implType: z.enum(SectionTypeEnum),
@@ -5681,7 +5673,6 @@ export type CreateChildSectionsRequestInput = z.input<
 
 const CreateChildSectionsViaIncrementerRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   calledBy: IDSchema,
   numChildren: z.int(),
@@ -5694,7 +5685,6 @@ export type CreateChildSectionsViaIncrementerRequestInput = z.input<
 
 const CreateEdgeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sourceSectionId: IDSchema,
   sourceVariantId: IDSchema,
@@ -5720,7 +5710,6 @@ export type CreateEdgeRequestInput = z.input<typeof CreateEdgeRequestSchema>;
 
 const CreateNewSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -5731,7 +5720,6 @@ export type CreateNewSectionVariantRequestInput = z.input<
 
 const CreateTopLevelSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   implType: z.enum(SectionTypeEnum),
   controlCodeObjType: z
@@ -5784,7 +5772,6 @@ export type CreateTopLevelSectionResponse = z.infer<
 
 const CreateViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -5794,7 +5781,6 @@ export type CreateViewModeRequestInput = z.input<
 
 const DeclineRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -5804,7 +5790,6 @@ export type DeclineRenameRefactorRequestInput = z.input<
 
 const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   calledBy: IDSchema,
   numChildren: z.int(),
@@ -5816,7 +5801,6 @@ export type DeleteChildSectionsViaDecrementerRequestInput = z.input<
 
 const DeleteEdgesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   edgeIds: z.array(IDSchema),
 });
@@ -5825,7 +5809,6 @@ export type DeleteEdgesRequestInput = z.input<typeof DeleteEdgesRequestSchema>;
 
 const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -5838,7 +5821,6 @@ export type DeleteJSONSourceFileAndVariantRequestInput = z.input<
 
 const DeleteKwargRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -5847,7 +5829,6 @@ export type DeleteKwargRequestInput = z.input<typeof DeleteKwargRequestSchema>;
 
 const DeleteSectionVariantOrAskRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -5859,7 +5840,6 @@ export type DeleteSectionVariantOrAskRequestInput = z.input<
 
 const DeleteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionIds: z.array(IDSchema),
 });
@@ -5870,7 +5850,6 @@ export type DeleteSectionsRequestInput = z.input<
 
 const DeleteViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   viewModeId: IDSchema,
 });
@@ -5881,7 +5860,6 @@ export type DeleteViewModeRequestInput = z.input<
 
 const ForceRefreshProjectRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -5891,7 +5869,6 @@ export type ForceRefreshProjectRequestInput = z.input<
 
 const GenCodePrefixCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   fullText: z.string(),
   position: z.int(),
@@ -5903,7 +5880,6 @@ export type GenCodePrefixCompletionRequestInput = z.input<
 
 const GenCodeSuffixCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   fullText: z.string(),
   position: z.int(),
@@ -5915,7 +5891,6 @@ export type GenCodeSuffixCompletionRequestInput = z.input<
 
 const GetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -5926,7 +5901,6 @@ export type GetChatSectionChatIdRequestInput = z.input<
 
 const GetLatestProjectStateRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -5936,7 +5910,6 @@ export type GetLatestProjectStateRequestInput = z.input<
 
 const GroupSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionIds: z.array(IDSchema),
 });
@@ -5947,7 +5920,6 @@ export type GroupSectionsRequestInput = z.input<
 
 const IndentParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramIds: z.array(IDSchema),
@@ -5965,7 +5937,6 @@ const MoveParamGroupSchema = z.object({
 
 const MoveParamGroupsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   moves: z.array(MoveParamGroupSchema),
@@ -5977,7 +5948,6 @@ export type MoveParamGroupsRequestInput = z.input<
 
 const MoveParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramIds: z.array(IDSchema),
@@ -5989,7 +5959,6 @@ export type MoveParamsRequestInput = z.input<typeof MoveParamsRequestSchema>;
 
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   newParentId: z.union([IDSchema, z.null()]),
@@ -6001,7 +5970,6 @@ export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
 
 const OutputAccessorCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   fullText: z.string(),
@@ -6014,7 +5982,6 @@ export type OutputAccessorCompletionRequestInput = z.input<
 
 const PasteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   data: ProjectStateCoreWithSectionVariantMapSchema,
   position: PositionSchema,
@@ -6027,7 +5994,6 @@ export type PasteSectionsRequestInput = z.input<
 
 const PrepareSectionsForCopyRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionIds: z.array(IDSchema),
 });
@@ -6038,7 +6004,6 @@ export type PrepareSectionsForCopyRequestInput = z.input<
 
 const ReconnectEdgeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   edgeId: IDSchema,
   sourceSectionId: IDSchema,
@@ -6055,7 +6020,6 @@ export type ReconnectEdgeRequestInput = z.input<
 
 const RedoRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   steps: z.int(),
 });
@@ -6064,7 +6028,6 @@ export type RedoRequestInput = z.input<typeof RedoRequestSchema>;
 
 const SetActiveIdsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   activeIds: z.array(IDSchema),
 });
@@ -6075,7 +6038,6 @@ export type SetActiveIdsRequestInput = z.input<
 
 const SetActiveViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   activeViewModeId: IDSchema,
 });
@@ -6086,7 +6048,6 @@ export type SetActiveViewModeRequestInput = z.input<
 
 const SetBrowserAreaViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   viewMode: z.enum(BrowserAreaViewModeEnum),
@@ -6098,7 +6059,6 @@ export type SetBrowserAreaViewModeRequestInput = z.input<
 
 const SetBrowserColumnWidthsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   columnWidth: z.union([z.number(), z.null()]),
@@ -6111,7 +6071,6 @@ export type SetBrowserColumnWidthsRequestInput = z.input<
 
 const SetBrowserHideColumnRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   hideColumn: z.boolean(),
@@ -6123,7 +6082,6 @@ export type SetBrowserHideColumnRequestInput = z.input<
 
 const SetCallableHideParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   hideParams: z.boolean(),
@@ -6135,7 +6093,6 @@ export type SetCallableHideParamsRequestInput = z.input<
 
 const SetCallableRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   callableName: z.string(),
@@ -6165,7 +6122,6 @@ export type SetCallableResponse = z.infer<typeof SetCallableResponseSchema>;
 
 const SetChartAreaDataPathRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   dataPath: z.string(),
@@ -6177,7 +6133,6 @@ export type SetChartAreaDataPathRequestInput = z.input<
 
 const SetChartSettingsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   chartSettings: z.union([LineChartSettingsSchema, ScatterChartSettingsSchema]),
@@ -6190,7 +6145,6 @@ export type SetChartSettingsRequestInput = z.input<
 
 const SetChartTypeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   chartType: z.enum(ChartTypeEnum),
@@ -6202,7 +6156,6 @@ export type SetChartTypeRequestInput = z.input<
 
 const SetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   chatId: z.union([IDSchema, z.null()]),
@@ -6214,7 +6167,6 @@ export type SetChatSectionChatIdRequestInput = z.input<
 
 const SetChatSectionSettingsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   managed: z.boolean(),
@@ -6228,7 +6180,6 @@ export type SetChatSectionSettingsRequestInput = z.input<
 
 const SetChatSectionStateRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   state: ChatSectionStateSchema,
@@ -6245,7 +6196,6 @@ const CodeFileBindingUpdateSchema = z.object({
 
 const SetCodeFileBindingRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   binding: CodeFileBindingUpdateSchema,
@@ -6257,7 +6207,6 @@ export type SetCodeFileBindingRequestInput = z.input<
 
 const SetCodeObjDisplayNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   codeObjId: IDSchema,
   displayName: z.string(),
@@ -6269,7 +6218,6 @@ export type SetCodeObjDisplayNameRequestInput = z.input<
 
 const SetCodeObjNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   codeObjId: IDSchema,
   name: z.string(),
@@ -6281,7 +6229,6 @@ export type SetCodeObjNameRequestInput = z.input<
 
 const SetCodeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   code: z.string(),
@@ -6291,7 +6238,6 @@ export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
 
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -6303,7 +6249,6 @@ export type SetDefaultSectionVariantRequestInput = z.input<
 
 const SetEdgesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   edges: z.array(EdgeSchema),
 });
@@ -6312,7 +6257,6 @@ export type SetEdgesRequestInput = z.input<typeof SetEdgesRequestSchema>;
 
 const SetGenCodePrefixRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   genCodePrefix: z.string(),
 });
@@ -6323,7 +6267,6 @@ export type SetGenCodePrefixRequestInput = z.input<
 
 const SetGenCodeSuffixRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   genCodeSuffix: z.string(),
 });
@@ -6334,7 +6277,6 @@ export type SetGenCodeSuffixRequestInput = z.input<
 
 const SetGroupOverflowModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   overflowMode: z.boolean(),
@@ -6346,7 +6288,6 @@ export type SetGroupOverflowModeRequestInput = z.input<
 
 const SetImageAreaImagePathRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   imagePath: z.string(),
@@ -6358,7 +6299,6 @@ export type SetImageAreaImagePathRequestInput = z.input<
 
 const SetMetaControlShowSectionTitleRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   showSectionTitle: z.boolean(),
@@ -6370,7 +6310,6 @@ export type SetMetaControlShowSectionTitleRequestInput = z.input<
 
 const SetParamEnteredValueRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: IDSchema,
@@ -6383,7 +6322,6 @@ export type SetParamEnteredValueRequestInput = z.input<
 
 const SetProjectConfigCodegenTargetsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
 });
@@ -6394,7 +6332,6 @@ export type SetProjectConfigCodegenTargetsRequestInput = z.input<
 
 const SetSectionColumnWidthRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   columnWidth: z.union([z.number(), z.null()]),
@@ -6406,7 +6343,6 @@ export type SetSectionColumnWidthRequestInput = z.input<
 
 const SetSectionEdgeInputsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   edgeInputParams: z.array(IDSchema),
@@ -6418,7 +6354,6 @@ export type SetSectionEdgeInputsRequestInput = z.input<
 
 const SetSectionEdgeOutputsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   edgeOutputPorts: z.array(EdgePortSchema),
@@ -6430,7 +6365,6 @@ export type SetSectionEdgeOutputsRequestInput = z.input<
 
 const SetSectionHideUnpinnedParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   hideUnpinnedParams: z.boolean(),
@@ -6442,7 +6376,6 @@ export type SetSectionHideUnpinnedParamsRequestInput = z.input<
 
 const SetSectionNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   name: z.string(),
@@ -6454,7 +6387,6 @@ export type SetSectionNameRequestInput = z.input<
 
 const SetSectionParamFilterRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   value: z.string(),
@@ -6466,7 +6398,6 @@ export type SetSectionParamFilterRequestInput = z.input<
 
 const SetSectionSizesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionSizes: z.record(IDSchema, SectionSizeSchema),
 });
@@ -6477,7 +6408,6 @@ export type SetSectionSizesRequestInput = z.input<
 
 const SetSectionVariantNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   variantId: IDSchema,
   name: z.string(),
@@ -6489,7 +6419,6 @@ export type SetSectionVariantNameRequestInput = z.input<
 
 const SetSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -6501,7 +6430,6 @@ export type SetSectionVariantRequestInput = z.input<
 
 const SetShowParamDisplayNamesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   showParamDisplayNames: z.boolean(),
 });
@@ -6512,7 +6440,6 @@ export type SetShowParamDisplayNamesRequestInput = z.input<
 
 const SetSocialUrlRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   url: z.string(),
@@ -6524,7 +6451,6 @@ export type SetSocialUrlRequestInput = z.input<
 
 const SetTextBlockDisplayModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   textDisplayMode: z.enum(TextBlockDisplayModeEnum),
@@ -6536,7 +6462,6 @@ export type SetTextBlockDisplayModeRequestInput = z.input<
 
 const SetTextBlockFormatRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   format: z.enum(TextBlockFormatEnum),
@@ -6548,7 +6473,6 @@ export type SetTextBlockFormatRequestInput = z.input<
 
 const SetTextBlockHeadingAsSectionNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   headingAsSectionName: z.boolean(),
@@ -6560,7 +6484,6 @@ export type SetTextBlockHeadingAsSectionNameRequestInput = z.input<
 
 const SetTextBlockMetaControlStyleRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   metaControlStyle: z.boolean(),
@@ -6572,7 +6495,6 @@ export type SetTextBlockMetaControlStyleRequestInput = z.input<
 
 const SetTextBlockTextRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   text: z.string(),
@@ -6584,7 +6506,6 @@ export type SetTextBlockTextRequestInput = z.input<
 
 const SetTopLevelSectionLayoutRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema),
 });
@@ -6595,7 +6516,6 @@ export type SetTopLevelSectionLayoutRequestInput = z.input<
 
 const SetTypeErrorIgnoreRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: z.union([IDSchema, z.null()]),
@@ -6608,7 +6528,6 @@ export type SetTypeErrorIgnoreRequestInput = z.input<
 
 const SetVariantJsonSourceKeysRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -6621,7 +6540,6 @@ export type SetVariantJsonSourceKeysRequestInput = z.input<
 
 const SetViewModeNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   viewModeId: IDSchema,
   name: z.string(),
@@ -6633,7 +6551,6 @@ export type SetViewModeNameRequestInput = z.input<
 
 const SetViewportRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   viewport: z.union([ViewportSchema, z.null()]),
 });
@@ -6642,7 +6559,6 @@ export type SetViewportRequestInput = z.input<typeof SetViewportRequestSchema>;
 
 const TextFieldCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: z.union([IDSchema, z.null()]),
@@ -6656,7 +6572,6 @@ export type TextFieldCompletionRequestInput = z.input<
 
 const ToggleGroupOrientationRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -6667,7 +6582,6 @@ export type ToggleGroupOrientationRequestInput = z.input<
 
 const ToggleIsEditingViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -6677,7 +6591,6 @@ export type ToggleIsEditingViewModeRequestInput = z.input<
 
 const ToggleMinimizedRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
 });
@@ -6688,7 +6601,6 @@ export type ToggleMinimizedRequestInput = z.input<
 
 const ToggleParamSelectedRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: IDSchema,
@@ -6700,7 +6612,6 @@ export type ToggleParamSelectedRequestInput = z.input<
 
 const TogglePositionLocksRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionIds: z.array(IDSchema),
 });
@@ -6711,7 +6622,6 @@ export type TogglePositionLocksRequestInput = z.input<
 
 const ToggleSectionVisibilityRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionIds: z.array(IDSchema),
 });
@@ -6722,7 +6632,6 @@ export type ToggleSectionVisibilityRequestInput = z.input<
 
 const ToggleVariantFrozenRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   variantId: IDSchema,
 });
@@ -6733,7 +6642,6 @@ export type ToggleVariantFrozenRequestInput = z.input<
 
 const ToggleVariantJSONSourceRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   variantId: IDSchema,
@@ -6745,7 +6653,6 @@ export type ToggleVariantJSONSourceRequestInput = z.input<
 
 const ToggleViewModeUserFacingRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   viewModeId: IDSchema,
 });
@@ -6756,7 +6663,6 @@ export type ToggleViewModeUserFacingRequestInput = z.input<
 
 const UndoRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   steps: z.int(),
 });
@@ -6765,7 +6671,6 @@ export type UndoRequestInput = z.input<typeof UndoRequestSchema>;
 
 const UngroupGroupsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   groupIds: z.array(IDSchema),
 });
@@ -6776,7 +6681,6 @@ export type UngroupGroupsRequestInput = z.input<
 
 const UnindentParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramIds: z.array(IDSchema),
@@ -6788,7 +6692,6 @@ export type UnindentParamsRequestInput = z.input<
 
 const UnselectAllParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
@@ -6798,7 +6701,6 @@ export type UnselectAllParamsRequestInput = z.input<
 
 const UpdateEdgeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   edge: EdgeSchema,
 });
@@ -6807,7 +6709,6 @@ export type UpdateEdgeRequestInput = z.input<typeof UpdateEdgeRequestSchema>;
 
 const UpdateParamImplConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: IDSchema,
@@ -6864,7 +6765,6 @@ export type ProjectLoadRequestInput = z.input<typeof ProjectLoadRequestSchema>;
 
 const SaveAsNewProjectConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   newConfigName: z.string(),
   withRefs: z.boolean(),
@@ -6907,7 +6807,6 @@ export type GetRunStatusRequestInput = z.input<
 
 const RunDetachedRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  historyGroupId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   entrySectionId: z.union([IDSchema, z.null()]).default(null),
   runSnapshotMode: z

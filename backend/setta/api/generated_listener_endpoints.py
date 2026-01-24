@@ -79,13 +79,11 @@ from setta.types.settings_state import RunSnapshotMode
 
 class ListenerAcceptRenameRefactorRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerAddKwargRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
@@ -99,7 +97,6 @@ class ListenerAppendChatMessagesRequestPayload(TypedDict):
 
 class ListenerAppendDrawAreaLayerItemRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     layerIdx: int
@@ -108,14 +105,12 @@ class ListenerAppendDrawAreaLayerItemRequestPayload(TypedDict):
 
 class ListenerAutoLayoutTopLevelSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     margin: NotRequired[int]
 
 
 class ListenerChangeParamImplRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID
@@ -124,7 +119,6 @@ class ListenerChangeParamImplRequestPayload(TypedDict):
 
 class ListenerClearTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID | None
@@ -132,7 +126,6 @@ class ListenerClearTextFieldCompletionRequestPayload(TypedDict):
 
 class ListenerCodeAreaCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     fullText: str
@@ -148,7 +141,6 @@ class ListenerCreateChatRequestPayload(TypedDict):
 
 class ListenerCreateChildSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     parentId: ID
     implType: SectionType
@@ -158,7 +150,6 @@ class ListenerCreateChildSectionsRequestPayload(TypedDict):
 
 class ListenerCreateChildSectionsViaIncrementerRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     calledBy: ID
     numChildren: int
@@ -167,7 +158,6 @@ class ListenerCreateChildSectionsViaIncrementerRequestPayload(TypedDict):
 
 class ListenerCreateEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sourceSectionId: ID
     sourceVariantId: ID
@@ -186,14 +176,12 @@ class ListenerCreateEdgeRequestPayload(TypedDict):
 
 class ListenerCreateNewSectionVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
 
 class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     implType: SectionType
     controlCodeObjType: NotRequired[CodeObjType | None]
@@ -225,13 +213,11 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
 
 class ListenerCreateViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
@@ -241,7 +227,6 @@ class ListenerDeleteChatRequestPayload(TypedDict):
 
 class ListenerDeleteChildSectionsViaDecrementerRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     calledBy: ID
     numChildren: int
@@ -249,14 +234,12 @@ class ListenerDeleteChildSectionsViaDecrementerRequestPayload(TypedDict):
 
 class ListenerDeleteEdgesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     edgeIds: list[ID]
 
 
 class ListenerDeleteJSONSourceFileAndVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -265,14 +248,12 @@ class ListenerDeleteJSONSourceFileAndVariantRequestPayload(TypedDict):
 
 class ListenerDeleteKwargRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
 
 class ListenerDeleteSectionVariantOrAskRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -280,14 +261,12 @@ class ListenerDeleteSectionVariantOrAskRequestPayload(TypedDict):
 
 class ListenerDeleteSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
 
 
 class ListenerDeleteViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewModeId: ID
 
@@ -308,13 +287,11 @@ class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
 
 class ListenerForceRefreshProjectRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerGenCodePrefixCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     fullText: str
     position: int
@@ -322,7 +299,6 @@ class ListenerGenCodePrefixCompletionRequestPayload(TypedDict):
 
 class ListenerGenCodeSuffixCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     fullText: str
     position: int
@@ -338,27 +314,23 @@ class ListenerGetChatRequestPayload(TypedDict):
 
 class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
 
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerGroupSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
 
 
 class ListenerIndentParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramIds: list[ID]
@@ -374,7 +346,6 @@ class ListenerListenerCoverageRequestPayload(TypedDict):
 
 class ListenerMoveParamGroupsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     moves: list[MoveParamGroup]
@@ -382,7 +353,6 @@ class ListenerMoveParamGroupsRequestPayload(TypedDict):
 
 class ListenerMoveParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramIds: list[ID]
@@ -392,7 +362,6 @@ class ListenerMoveParamsRequestPayload(TypedDict):
 
 class ListenerMoveSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     newParentId: ID | None
@@ -402,7 +371,6 @@ class ListenerMoveSectionRequestPayload(TypedDict):
 
 class ListenerOutputAccessorCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     fullText: str
@@ -411,7 +379,6 @@ class ListenerOutputAccessorCompletionRequestPayload(TypedDict):
 
 class ListenerPasteSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     data: ProjectStateCoreWithSectionVariantMap
     position: Position
@@ -420,14 +387,12 @@ class ListenerPasteSectionsRequestPayload(TypedDict):
 
 class ListenerPrepareSectionsForCopyRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
 
 
 class ListenerReconnectEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     edgeId: ID
     sourceSectionId: ID
@@ -440,7 +405,6 @@ class ListenerReconnectEdgeRequestPayload(TypedDict):
 
 class ListenerRedoRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     steps: int
 
@@ -460,21 +424,18 @@ class ListenerRunMcpToolsRequestPayload(TypedDict):
 
 class ListenerSetActiveIdsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     activeIds: list[ID]
 
 
 class ListenerSetActiveViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     activeViewModeId: ID
 
 
 class ListenerSetBrowserAreaViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     viewMode: BrowserAreaViewMode
@@ -482,7 +443,6 @@ class ListenerSetBrowserAreaViewModeRequestPayload(TypedDict):
 
 class ListenerSetBrowserColumnWidthsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     columnWidth: float | None
@@ -491,7 +451,6 @@ class ListenerSetBrowserColumnWidthsRequestPayload(TypedDict):
 
 class ListenerSetBrowserHideColumnRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     hideColumn: bool
@@ -499,7 +458,6 @@ class ListenerSetBrowserHideColumnRequestPayload(TypedDict):
 
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     hideParams: bool
@@ -507,7 +465,6 @@ class ListenerSetCallableHideParamsRequestPayload(TypedDict):
 
 class ListenerSetCallableRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     callableName: str
@@ -516,7 +473,6 @@ class ListenerSetCallableRequestPayload(TypedDict):
 
 class ListenerSetChartAreaDataPathRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     dataPath: str
@@ -524,7 +480,6 @@ class ListenerSetChartAreaDataPathRequestPayload(TypedDict):
 
 class ListenerSetChartSettingsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chartSettings: LineChartSettings | ScatterChartSettings
@@ -533,7 +488,6 @@ class ListenerSetChartSettingsRequestPayload(TypedDict):
 
 class ListenerSetChartTypeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chartType: ChartType
@@ -541,7 +495,6 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
 
 class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chatId: ID | None
@@ -549,7 +502,6 @@ class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
 
 class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     managed: bool
@@ -559,7 +511,6 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     state: ChatSectionState
@@ -572,7 +523,6 @@ class ListenerSetChatSystemPromptRequestPayload(TypedDict):
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     binding: CodeFileBindingUpdate
@@ -580,7 +530,6 @@ class ListenerSetCodeFileBindingRequestPayload(TypedDict):
 
 class ListenerSetCodeObjDisplayNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     codeObjId: ID
     displayName: str
@@ -588,7 +537,6 @@ class ListenerSetCodeObjDisplayNameRequestPayload(TypedDict):
 
 class ListenerSetCodeObjNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     codeObjId: ID
     name: str
@@ -596,7 +544,6 @@ class ListenerSetCodeObjNameRequestPayload(TypedDict):
 
 class ListenerSetCodeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     code: str
@@ -604,7 +551,6 @@ class ListenerSetCodeRequestPayload(TypedDict):
 
 class ListenerSetDefaultSectionVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -612,28 +558,24 @@ class ListenerSetDefaultSectionVariantRequestPayload(TypedDict):
 
 class ListenerSetEdgesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     edges: list[Edge]
 
 
 class ListenerSetGenCodePrefixRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     genCodePrefix: str
 
 
 class ListenerSetGenCodeSuffixRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     genCodeSuffix: str
 
 
 class ListenerSetGroupOverflowModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     overflowMode: bool
@@ -641,7 +583,6 @@ class ListenerSetGroupOverflowModeRequestPayload(TypedDict):
 
 class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     imagePath: str
@@ -649,7 +590,6 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
 
 class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     showSectionTitle: bool
@@ -657,7 +597,6 @@ class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
 
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID
@@ -666,14 +605,12 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
 
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     codegenTargets: list[ProjectCodegenPythonTarget]
 
 
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     columnWidth: float | None
@@ -681,7 +618,6 @@ class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
 
 class ListenerSetSectionEdgeInputsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     edgeInputParams: list[ID]
@@ -689,7 +625,6 @@ class ListenerSetSectionEdgeInputsRequestPayload(TypedDict):
 
 class ListenerSetSectionEdgeOutputsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     edgeOutputPorts: list[EdgePort]
@@ -697,7 +632,6 @@ class ListenerSetSectionEdgeOutputsRequestPayload(TypedDict):
 
 class ListenerSetSectionHideUnpinnedParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     hideUnpinnedParams: bool
@@ -705,7 +639,6 @@ class ListenerSetSectionHideUnpinnedParamsRequestPayload(TypedDict):
 
 class ListenerSetSectionNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     name: str
@@ -713,7 +646,6 @@ class ListenerSetSectionNameRequestPayload(TypedDict):
 
 class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     value: str
@@ -721,14 +653,12 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
 
 class ListenerSetSectionSizesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionSizes: dict[ID, SectionSize]
 
 
 class ListenerSetSectionVariantNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     variantId: ID
     name: str
@@ -736,7 +666,6 @@ class ListenerSetSectionVariantNameRequestPayload(TypedDict):
 
 class ListenerSetSectionVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -744,14 +673,12 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
 
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     showParamDisplayNames: bool
 
 
 class ListenerSetSocialUrlRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     url: str
@@ -759,7 +686,6 @@ class ListenerSetSocialUrlRequestPayload(TypedDict):
 
 class ListenerSetTextBlockDisplayModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     textDisplayMode: TextBlockDisplayMode
@@ -767,7 +693,6 @@ class ListenerSetTextBlockDisplayModeRequestPayload(TypedDict):
 
 class ListenerSetTextBlockFormatRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     format: TextBlockFormat
@@ -775,7 +700,6 @@ class ListenerSetTextBlockFormatRequestPayload(TypedDict):
 
 class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     headingAsSectionName: bool
@@ -783,7 +707,6 @@ class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
 
 class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     metaControlStyle: bool
@@ -791,7 +714,6 @@ class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
 
 class ListenerSetTextBlockTextRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     text: str
@@ -799,14 +721,12 @@ class ListenerSetTextBlockTextRequestPayload(TypedDict):
 
 class ListenerSetTopLevelSectionLayoutRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     topLevelSections: dict[ID, TopLevelSectionLayout]
 
 
 class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID | None
@@ -815,7 +735,6 @@ class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
 
 class ListenerSetVariantJsonSourceKeysRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -824,7 +743,6 @@ class ListenerSetVariantJsonSourceKeysRequestPayload(TypedDict):
 
 class ListenerSetViewModeNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewModeId: ID
     name: str
@@ -832,14 +750,12 @@ class ListenerSetViewModeNameRequestPayload(TypedDict):
 
 class ListenerSetViewportRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewport: Viewport | None
 
 
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID | None
@@ -849,27 +765,23 @@ class ListenerTextFieldCompletionRequestPayload(TypedDict):
 
 class ListenerToggleGroupOrientationRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
 
 class ListenerToggleIsEditingViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerToggleMinimizedRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
 
 
 class ListenerToggleParamSelectedRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID
@@ -877,28 +789,24 @@ class ListenerToggleParamSelectedRequestPayload(TypedDict):
 
 class ListenerTogglePositionLocksRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
 
 
 class ListenerToggleSectionVisibilityRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
 
 
 class ListenerToggleVariantFrozenRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     variantId: ID
 
 
 class ListenerToggleVariantJSONSourceRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
@@ -906,7 +814,6 @@ class ListenerToggleVariantJSONSourceRequestPayload(TypedDict):
 
 class ListenerToggleViewModeUserFacingRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewModeId: ID
 
@@ -917,21 +824,18 @@ class ListenerTypeCheckRequestPayload(TypedDict):
 
 class ListenerUndoRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     steps: int
 
 
 class ListenerUngroupGroupsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     groupIds: list[ID]
 
 
 class ListenerUnindentParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramIds: list[ID]
@@ -939,20 +843,17 @@ class ListenerUnindentParamsRequestPayload(TypedDict):
 
 class ListenerUnselectAllParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
 
 
 class ListenerUpdateEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     edge: Edge
 
 
 class ListenerUpdateParamImplConfigRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
-    historyGroupId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoId: ID
