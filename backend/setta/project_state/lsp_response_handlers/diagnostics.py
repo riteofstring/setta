@@ -50,7 +50,12 @@ def process_gen_code_diagnostics_with_undefined_symbols(
     for i, d in enumerate(diagnostics):
         is_undefined_symbol = is_undefined_symbol_diagnostic(d)
         for section_id, param_id, message in process_gen_code_diagnostic(
-            d, positions[i], code_generator, dep_graph, range_index
+            d,
+            positions[i],
+            code_generator,
+            dep_graph,
+            range_index,
+            is_undefined_symbol,
         ):
             if should_ignore_type_error(
                 section_id,
@@ -87,6 +92,7 @@ def process_gen_code_diagnostic(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
     range_index: RangeIndex,
+    is_undefined_symbol: bool,
 ):
     message = d.message
     if d.code == "reportArgumentType":
@@ -97,7 +103,7 @@ def process_gen_code_diagnostic(
         return process_report_call_issue(
             position.start, message, code_generator, dep_graph, range_index
         )
-    elif is_undefined_symbol_diagnostic(d):
+    elif is_undefined_symbol:
         return process_undefined_symbol(position, message, code_generator, range_index)
     return []
 

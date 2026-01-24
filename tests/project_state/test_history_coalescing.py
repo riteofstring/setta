@@ -18,7 +18,7 @@ class HistoryCoalescingTests(unittest.TestCase):
         history.add_current_copy(coalesce_key="param:2", coalesce_window_s=0.05)
         self.assertEqual(len(history._history), 3)
 
-        time.sleep(0.06)
+        time.sleep(0.15)
         history.add_current_copy(coalesce_key="param:2", coalesce_window_s=0.05)
         self.assertEqual(len(history._history), 4)
 

@@ -452,6 +452,9 @@ class ProjectGenPythonCode(PythonCode):
         resolved_sections: set[ID] = set()
         if self.latest_undefined_callable_sections:
             for section_id in self.latest_undefined_callable_sections:
+                dep_key = create_dep_key(sectionId=section_id)
+                if dep_key not in self.dep_graph.graph:
+                    continue
                 if section_id in undefined_callable_sections:
                     continue
                 if section_id in errors and errors[section_id].callable:

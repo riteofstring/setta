@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from lsprotocol import types as LSPTypes
 
@@ -14,6 +16,11 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     process_gen_code_diagnostics,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
+from setta.project_state.project_code import ProjectGenPythonCode
+from setta.project_state.code_files import CodeFiles
+from setta.database.db_objs import DBE
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.lsp.managers import LSPServers, LSPWriters
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -24,7 +31,14 @@ from setta.types.project_config import (
     get_python_codegen_target_with_type_guard,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import CallableSectionImpl, TypeErrorIgnoreState
+from setta.types.section_impls import (
+    CallableSectionImpl,
+    CodeFileAccessMode,
+    CodeFileBinding,
+    TypeErrorIgnoreState,
+)
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 def build_project_state(param_value: str):
@@ -291,6 +305,68 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
         self.assertEqual(lines[3], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}2,")
         self.assertEqual(lines[4], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}]")
         self.assertEqual(lines[5], f"{GEN_CODE_BODY_INDENT})")
+
+
+class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_removed_section_does_not_trigger_auto_refetch(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dbe = DBE(root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            specific_file_watcher = SpecificFileWatcher()
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            lsps = LSPServers({})
+            lsp_writers = LSPWriters(lsps)
+
+            project_config = ProjectConfig(
+                id=ID("project-1"),
+                name="DiagnosticsProject",
+            )
+            project_state = ProjectStateSingleConfig(projectConfig=project_config)
+            dep_graph, code_generator = build_code_generator(project_state)
+
+            binding = CodeFileBinding(
+                canonical_path=root / "code" / "DiagnosticsProject" / "setta_gen.py",
+                access_mode=CodeFileAccessMode.write_only,
+            )
+
+            callback_calls: list[set[ID]] = []
+
+            async def on_callable_symbols_resolved(
+                _project_config_id: ID, section_ids: set[ID]
+            ) -> None:
+                callback_calls.append(set(section_ids))
+
+            gen_code = ProjectGenPythonCode(
+                dbe,
+                code_files,
+                binding,
+                lsp_writers,
+                frontend_sender,
+                project_config.id,
+                dep_graph,
+                code_generator,
+                {},
+                initial_undefined_callable_sections={ID("removed-section")},
+                on_callable_symbols_resolved=on_callable_symbols_resolved,
+            )
+
+            uri = lsp_writers.full.get_uri(binding.canonical_path)
+            gen_code.uri = uri
+            lsp_writers.full.latest_version_numbers[uri] = 0
+
+            notification = LSPTypes.TextDocumentPublishDiagnosticsNotification(
+                params=LSPTypes.PublishDiagnosticsParams(
+                    uri=uri,
+                    diagnostics=[],
+                    version=0,
+                )
+            )
+
+            await gen_code.diagnostics_callback(notification)
+
+            self.assertEqual(callback_calls, [])
 
 
 if __name__ == "__main__":
