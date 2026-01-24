@@ -1285,12 +1285,14 @@ class AgentRunner:
 
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
+            reasoning_summary = self._extract_reasoning_summary(delta)
             entries.append(
                 StreamContentEntry(
                     kind="thinking",
                     text=reasoning_content,
                     index=None,
                     signature=None,
+                    summary=reasoning_summary,
                 )
             )
         return entries
@@ -1330,11 +1332,13 @@ class AgentRunner:
         if entry_type == "thinking":
             thinking_value = payload.get("thinking")
             signature = payload.get("signature")
+            summary = self._extract_thinking_summary(payload)
             return StreamContentEntry(
                 kind="thinking",
                 text=thinking_value if isinstance(thinking_value, str) else "",
                 index=index,
                 signature=signature if isinstance(signature, str) else None,
+                summary=summary,
             )
         if entry_type != "text":
             return None
@@ -1367,6 +1371,43 @@ class AgentRunner:
         payload = getattr(entry, "__dict__", None)
         if isinstance(payload, dict):
             return payload
+        return None
+
+    def _extract_thinking_summary(self, payload: dict[str, Any]) -> str | None:
+        for key in ("summary", "thinking_summary", "summary_text", "reasoning_summary"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return None
+
+    def _extract_reasoning_summary(self, delta: Delta) -> str | None:
+        direct_summary = getattr(delta, "reasoning_summary", None)
+        if isinstance(direct_summary, str) and direct_summary:
+            return direct_summary
+        summary = getattr(delta, "summary", None)
+        if isinstance(summary, str) and summary:
+            return summary
+        provider_specific_fields = getattr(delta, "provider_specific_fields", None)
+        if isinstance(provider_specific_fields, dict):
+            for key in (
+                "reasoning_summary",
+                "summary",
+                "thinking_summary",
+                "summary_text",
+            ):
+                value = provider_specific_fields.get(key)
+                if isinstance(value, str) and value:
+                    return value
+        elif provider_specific_fields is not None:
+            for key in (
+                "reasoning_summary",
+                "summary",
+                "thinking_summary",
+                "summary_text",
+            ):
+                value = getattr(provider_specific_fields, key, None)
+                if isinstance(value, str) and value:
+                    return value
         return None
 
     def _iter_thinking_payloads(self, delta: Delta) -> Iterator[Any]:

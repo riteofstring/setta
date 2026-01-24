@@ -105,6 +105,40 @@ class StreamEntryFallbackTests(unittest.TestCase):
                 entries, [StreamContentEntry("thinking", "details", None)]
             )
 
+    def test_thinking_summary_is_collected(self) -> None:
+        with _runner_context() as runner:
+            delta = Delta(
+                content=[{"type": "thinking", "thinking": "primary", "summary": "Short"}],
+                reasoning_content=None,
+            )
+
+            entries = runner._collect_stream_entries(delta)
+
+            self.assertEqual(
+                entries,
+                [
+                    StreamContentEntry(
+                        kind="thinking",
+                        text="primary",
+                        index=None,
+                        summary="Short",
+                    )
+                ],
+            )
+
+    def test_reasoning_summary_is_collected_from_provider_fields(self) -> None:
+        with _runner_context() as runner:
+            delta = Delta(
+                content=None,
+                reasoning_content="fallback",
+                provider_specific_fields={"reasoning_summary": "Fallback summary"},
+            )
+
+            entries = runner._collect_stream_entries(delta)
+
+            self.assertGreaterEqual(len(entries), 1)
+            self.assertEqual(entries[0].summary, "Fallback summary")
+
 
 class SystemPromptInjectionTests(unittest.TestCase):
     def test_payload_includes_system_prompt_before_chat_history(self) -> None:

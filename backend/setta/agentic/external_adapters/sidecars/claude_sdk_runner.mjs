@@ -6,11 +6,73 @@ const PERMISSION_MODE_VALUES = new Set([
   "default",
   "acceptEdits",
   "bypassPermissions",
+  "delegate",
+  "dontAsk",
   "plan",
 ]);
+const PERMISSION_MODE_ALIASES = new Map([
+  ["allow", "dontAsk"],
+  ["auto", "dontAsk"],
+  ["bypass", "bypassPermissions"],
+  ["ask", "default"],
+  ["deny", "default"],
+  ["block", "default"],
+]);
+const DEFAULT_THINKING_BUDGET = 1024;
 
 function writeEvent(event) {
   process.stdout.write(`${JSON.stringify(event)}\n`);
+}
+
+function summarizeContentTypes(content) {
+  if (!Array.isArray(content)) {
+    return null;
+  }
+  const types = [];
+  for (const entry of content) {
+    if (entry && typeof entry === "object" && typeof entry.type === "string") {
+      types.push(entry.type);
+    }
+  }
+  return types.length ? types : null;
+}
+
+function logMessageSummary(message) {
+  if (!message || typeof message !== "object") {
+    console.error("[claude-sdk-runner] message: null");
+    return;
+  }
+  const summary = {
+    type: typeof message.type === "string" ? message.type : null,
+  };
+  const streamEvent =
+    (message.event && typeof message.event === "object" && message.event) ||
+    (message.stream_event &&
+      typeof message.stream_event === "object" &&
+      message.stream_event) ||
+    null;
+  if (streamEvent) {
+    summary.eventType =
+      typeof streamEvent.type === "string" ? streamEvent.type : null;
+    const block = streamEvent.content_block;
+    if (block && typeof block === "object") {
+      summary.contentBlockType =
+        typeof block.type === "string" ? block.type : null;
+    }
+    const delta = streamEvent.delta;
+    if (delta && typeof delta === "object") {
+      summary.deltaType = typeof delta.type === "string" ? delta.type : null;
+    }
+  }
+  const messagePayload =
+    message.message && typeof message.message === "object" ? message.message : null;
+  const contentTypes = summarizeContentTypes(
+    (messagePayload && messagePayload.content) || message.content,
+  );
+  if (contentTypes) {
+    summary.contentTypes = contentTypes;
+  }
+  console.error("[claude-sdk-runner] message", JSON.stringify(summary));
 }
 
 function parseJsonLine(raw) {
@@ -44,6 +106,80 @@ function normalizePolicy(value) {
     return null;
   }
   return trimmed;
+}
+
+function normalizeThinkingBudget(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, Math.floor(parsed));
+    }
+  }
+  return null;
+}
+
+function resolvePermissionMode(value) {
+  const normalized = normalizePolicy(value);
+  if (!normalized) {
+    return null;
+  }
+  if (PERMISSION_MODE_VALUES.has(normalized)) {
+    return normalized;
+  }
+  const alias = PERMISSION_MODE_ALIASES.get(normalized.toLowerCase());
+  return alias ?? null;
+}
+
+function resolveThinkingConfig(input) {
+  if (!input || typeof input !== "object") {
+    return { type: "enabled", budget_tokens: DEFAULT_THINKING_BUDGET };
+  }
+  if (input.thinking === false || input.thinking === "disabled") {
+    return null;
+  }
+  if (input.thinking && typeof input.thinking === "object") {
+    return input.thinking;
+  }
+  const budget = normalizeThinkingBudget(
+    input.thinkingBudgetTokens ?? input.thinking_budget_tokens,
+  );
+  const resolvedBudget = budget ?? DEFAULT_THINKING_BUDGET;
+  return { type: "enabled", budget_tokens: resolvedBudget };
+}
+
+function normalizeMaxTurns(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(1, Math.floor(value));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.max(1, Math.floor(parsed));
+    }
+  }
+  return null;
+}
+
+function resolveCloseAfterResponse(input, maxTurns) {
+  if (!input || typeof input !== "object") {
+    return true;
+  }
+  if (typeof input.closeAfterResponse === "boolean") {
+    return input.closeAfterResponse;
+  }
+  if (typeof input.close_after_response === "boolean") {
+    return input.close_after_response;
+  }
+  if (typeof input.singleTurn === "boolean") {
+    return input.singleTurn;
+  }
+  if (maxTurns === 1) {
+    return true;
+  }
+  return true;
 }
 
 function resolveDecisionPolicy(rawPolicy) {
@@ -240,6 +376,16 @@ if (model) {
   options.model = model;
 }
 
+const maxTurns = normalizeMaxTurns(input.maxTurns ?? input.max_turns);
+if (maxTurns !== null) {
+  options.maxTurns = maxTurns;
+}
+
+const thinkingConfig = resolveThinkingConfig(input);
+if (thinkingConfig) {
+  options.thinking = thinkingConfig;
+}
+
 const resume =
   normalizePolicy(input.resume) ??
   normalizePolicy(input.sessionId) ??
@@ -249,10 +395,9 @@ if (resume) {
 }
 
 const approvalPolicy = normalizePolicy(input.approvalPolicy);
-if (approvalPolicy && PERMISSION_MODE_VALUES.has(approvalPolicy)) {
-  options.permissionMode = approvalPolicy;
-} else if (approvalPolicy) {
-  options.permissionMode = approvalPolicy;
+const permissionMode = resolvePermissionMode(approvalPolicy);
+if (permissionMode) {
+  options.permissionMode = permissionMode;
 }
 
 Object.assign(options, buildSandboxOptions(input.sandboxPolicy));
@@ -307,6 +452,105 @@ if (!request.prompt) {
   process.exit(1);
 }
 
+const closeAfterResponse = resolveCloseAfterResponse(input, maxTurns);
+
+const promptPreview =
+  prompt.length > 200 ? `${prompt.slice(0, 200)}...` : prompt;
+console.error(
+  "[claude-sdk-runner] start",
+  JSON.stringify({
+    model: options.model ?? null,
+    thinking: options.thinking ?? null,
+    maxTurns: options.maxTurns ?? null,
+    allowedTools: options.allowedTools ?? null,
+    permissionMode: options.permissionMode ?? null,
+    systemPrompt:
+      typeof options.systemPrompt === "string"
+        ? "string"
+        : options.systemPrompt
+          ? "object"
+          : null,
+    resume: options.resume ?? null,
+    promptPreview,
+  }),
+);
+
+const TERMINAL_MESSAGE_TYPES = new Set([
+  "result",
+  "final",
+  "message_stop",
+  "complete",
+  "done",
+]);
+
+function isTerminalMessage(message, sawToolUse, sawToolResult) {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+  if (typeof message.type === "string" && TERMINAL_MESSAGE_TYPES.has(message.type)) {
+    if (message.type === "message_stop") {
+      return !sawToolUse || sawToolResult;
+    }
+    return true;
+  }
+  const streamEvent =
+    (message.event && typeof message.event === "object" && message.event) ||
+    (message.stream_event &&
+      typeof message.stream_event === "object" &&
+      message.stream_event) ||
+    null;
+  if (
+    streamEvent &&
+    typeof streamEvent.type === "string" &&
+    TERMINAL_MESSAGE_TYPES.has(streamEvent.type)
+  ) {
+    if (streamEvent.type === "message_stop") {
+      return !sawToolUse || sawToolResult;
+    }
+    return true;
+  }
+  return false;
+}
+
+function updateToolFlags(message, state) {
+  if (!message || typeof message !== "object") {
+    return;
+  }
+  const streamEvent =
+    (message.event && typeof message.event === "object" && message.event) ||
+    (message.stream_event &&
+      typeof message.stream_event === "object" &&
+      message.stream_event) ||
+    null;
+  if (streamEvent && streamEvent.type === "content_block_start") {
+    const block = streamEvent.content_block;
+    if (block && typeof block === "object") {
+      if (block.type === "tool_use") {
+        state.sawToolUse = true;
+      } else if (block.type === "tool_result") {
+        state.sawToolResult = true;
+      }
+    }
+    return;
+  }
+  if (message.type === "assistant") {
+    const content = message.message?.content;
+    if (Array.isArray(content)) {
+      for (const entry of content) {
+        if (entry && typeof entry === "object" && entry.type === "tool_use") {
+          state.sawToolUse = true;
+        }
+      }
+    }
+  }
+}
+
+const toolState = { sawToolUse: false, sawToolResult: false };
 for await (const message of query(request)) {
   writeEvent(message);
+  logMessageSummary(message);
+  updateToolFlags(message, toolState);
+  if (closeAfterResponse && isTerminalMessage(message, toolState.sawToolUse, toolState.sawToolResult)) {
+    process.exit(0);
+  }
 }

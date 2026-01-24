@@ -64,9 +64,15 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 toolType=ExternalAgentToolType.codex,
                 runMode=ExternalAgentRunMode.sdk,
                 commandPath=node_path,
+                approvalPolicy="allow",
             )
 
-            run = runner.start_run(config, None, {"prompt": "Say hello."})
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello."},
+            )
             # Let the runner task work; poll until run completes or timeout.
             for _ in range(120):
                 await asyncio.sleep(0.5)

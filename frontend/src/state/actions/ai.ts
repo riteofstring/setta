@@ -836,10 +836,15 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
             case "thinking_delta": {
               const block = ensureThinkingContentBlock(newContent, delta.index);
               const thinkingUpdate = delta.thinking ?? "";
+              const summaryUpdate = delta.summary;
               const signatureUpdate = delta.signature;
               let blockMutated = false;
               if (thinkingUpdate) {
                 block.thinking += thinkingUpdate;
+                blockMutated = true;
+              }
+              if (summaryUpdate !== undefined && summaryUpdate !== null) {
+                block.summary = summaryUpdate;
                 blockMutated = true;
               }
               if (signatureUpdate !== undefined) {
@@ -1449,10 +1454,15 @@ function applyMessageDeltaToChatMessages(
       const index = normalizeChatContentIndex(delta.index, content.length);
       const block = ensureThinkingContentBlock(content, index);
       const thinkingUpdate = delta.thinking ?? "";
+      const summaryUpdate = delta.summary;
       const signatureUpdate = delta.signature;
       let blockMutated = false;
       if (thinkingUpdate) {
         block.thinking += thinkingUpdate;
+        blockMutated = true;
+      }
+      if (summaryUpdate !== undefined && summaryUpdate !== null) {
+        block.summary = summaryUpdate;
         blockMutated = true;
       }
       if (signatureUpdate !== undefined) {

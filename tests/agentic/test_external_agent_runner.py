@@ -7,8 +7,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from setta.agentic.external_adapters.base import ExternalAgentRunHandle
-from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
+from setta.agentic.external_adapters.base import (
+    ExternalAgentRunContext,
+    ExternalAgentRunHandle,
+)
+from setta.agentic.external_adapters.claude_sdk import (
+    ClaudeSdkAdapter,
+    _ClaudeSdkEventParser,
+)
 from setta.agentic.external_agent_runner import (
     ExternalAgentApprovalState,
     ExternalAgentRunState,
@@ -83,6 +89,20 @@ def _build_context_for_test(
         inputs,
     )
     return context
+
+
+async def _apply_claude_payloads(
+    runner: ExternalAgentRunner,
+    context: ExternalAgentRunContext,
+    run,
+    payloads: list[dict[str, object]],
+) -> None:
+    parser = _ClaudeSdkEventParser()
+    for payload in payloads:
+        for event in parser.handle(payload):
+            if event.stream_chunk is None:
+                continue
+            await runner._handle_stream_chunk(context, run, event.stream_chunk)
 
 
 class ExternalAgentRunnerTests(unittest.TestCase):
@@ -1066,6 +1086,7 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(state.approval_id, "approval-1")
             self.assertIsNone(runner._pending_question_approvals.get(run.id))
 
+
     async def test_question_approval_attaches_before_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1230,3 +1251,347 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             payload = json.loads(payload_lines[-1])
             self.assertEqual(payload.get("type"), "tool_response")
             self.assertEqual(payload.get("toolCallId"), "approval-1")
+
+
+class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_streamed_text_persists_outputs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            await _apply_claude_payloads(
+                runner,
+                context,
+                run,
+                [
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "message_start",
+                            "message": {"id": "msg-text-1", "content": []},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 0,
+                            "content_block": {"type": "text", "text": "Hello"},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {"type": "text_delta", "text": " world"},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {"type": "message_stop"},
+                    },
+                ],
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            if updated is None:
+                return
+            outputs = updated.outputs
+            self.assertIsInstance(outputs, dict)
+            self.assertEqual(outputs.get("finalText"), "Hello world")
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            assistant = next(
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            )
+            content = assistant.get("content")
+            self.assertIsInstance(content, list)
+            text_blocks = [
+                block.get("text")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ]
+            self.assertEqual(text_blocks, ["Hello world"])
+
+    async def test_streamed_thinking_persists_outputs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            await _apply_claude_payloads(
+                runner,
+                context,
+                run,
+                [
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "message_start",
+                            "message": {"id": "msg-think-1", "content": []},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 0,
+                            "content_block": {
+                                "type": "thinking",
+                                "thinking": "Plan",
+                                "summary": "Plan summary",
+                                "signature": "sig-1",
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {
+                                "type": "thinking_delta",
+                                "thinking": " next",
+                                "summary": "Next summary",
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {
+                                "type": "signature_delta",
+                                "signature": "sig-2",
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {"type": "message_stop"},
+                    },
+                ],
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            if updated is None:
+                return
+            outputs = updated.outputs
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            assistant = next(
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            )
+            content = assistant.get("content")
+            self.assertIsInstance(content, list)
+            thinking_blocks = [
+                block
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "thinking"
+            ]
+            self.assertEqual(len(thinking_blocks), 1)
+            block = thinking_blocks[0]
+            self.assertEqual(block.get("thinking"), "Plan next")
+            self.assertEqual(block.get("summary"), "Next summary")
+            self.assertEqual(block.get("signature"), "sig-2")
+
+    async def test_streamed_tool_use_and_result_persist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            await _apply_claude_payloads(
+                runner,
+                context,
+                run,
+                [
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "message_start",
+                            "message": {"id": "msg-tool-1", "content": []},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 0,
+                            "content_block": {
+                                "type": "tool_use",
+                                "id": "toolu-1",
+                                "name": "Bash",
+                                "input": {"command": "ls"},
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {
+                                "type": "input_json_delta",
+                                "partial_json": "{\"command\": \"ls\"}",
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_stop",
+                            "index": 0,
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 1,
+                            "content_block": {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu-1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_stop",
+                            "index": 1,
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {"type": "message_stop"},
+                    },
+                ],
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            if updated is None:
+                return
+            outputs = updated.outputs
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            assistant = next(
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            )
+            tool_calls = assistant.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(len(tool_calls), 1)
+            self.assertEqual(tool_calls[0].get("id"), "toolu-1")
+            function = tool_calls[0].get("function")
+            self.assertIsInstance(function, dict)
+            self.assertEqual(function.get("name"), "Bash")
+            self.assertEqual(function.get("arguments"), {"command": "ls"})
+            tool_message = next(
+                message
+                for message in messages
+                if isinstance(message, dict)
+                and message.get("role") == "tool"
+                and message.get("tool_call_id") == "toolu-1"
+            )
+            self.assertEqual(tool_message.get("tool_name"), "Bash")
+            self.assertEqual(tool_message.get("result"), "ok")
+
+    async def test_assistant_payload_persists_tool_calls(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            await _apply_claude_payloads(
+                runner,
+                context,
+                run,
+                [
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "id": "msg-full-1",
+                            "content": [
+                                {"type": "text", "text": "Hi"},
+                                {
+                                    "type": "thinking",
+                                    "thinking": "Plan",
+                                    "summary": "Plan summary",
+                                },
+                                {
+                                    "type": "tool_use",
+                                    "id": "toolu-2",
+                                    "name": "Read",
+                                    "input": {"path": "README.md"},
+                                },
+                            ],
+                        },
+                    }
+                ],
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            self.assertIsNotNone(updated)
+            if updated is None:
+                return
+            outputs = updated.outputs
+            self.assertIsInstance(outputs, dict)
+            self.assertEqual(outputs.get("finalText"), "Hi")
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            assistant = next(
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            )
+            tool_calls = assistant.get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertEqual(len(tool_calls), 1)
+            self.assertEqual(tool_calls[0].get("id"), "toolu-2")
+            function = tool_calls[0].get("function")
+            self.assertIsInstance(function, dict)
+            self.assertEqual(function.get("name"), "Read")
+            self.assertEqual(function.get("arguments"), {"path": "README.md"})

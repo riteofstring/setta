@@ -16,6 +16,7 @@ from setta.types.chat_stream_events import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
+    MessageThinkingDelta,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -63,6 +64,32 @@ class CodexSdkAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertIsInstance(events[0].stream_chunk, MessageStopEvent)
         self.assertIsInstance(events[1].stream_chunk, MessageFinalizedEvent)
+
+    def test_reasoning_summary_delta_emits_thinking_delta(self) -> None:
+        parser = _CodexSdkEventParser()
+        events = parser.handle(
+            {
+                "type": "item/started",
+                "item": {"id": "reason-1", "type": "reasoning", "summary": []},
+            }
+        )
+        self.assertEqual(len(events), 1)
+        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
+
+        events = parser.handle(
+            {
+                "type": "item/reasoning/summaryTextDelta",
+                "itemId": "reason-1",
+                "delta": "Planning steps",
+            }
+        )
+        self.assertEqual(len(events), 1)
+        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[0].stream_chunk, MessageDeltaEvent):
+            delta = events[0].stream_chunk.content[0]
+            self.assertIsInstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                self.assertEqual(delta.summary, "Planning steps")
 
     def test_build_command_uses_node_path(self) -> None:
         adapter = CodexSdkAdapter()

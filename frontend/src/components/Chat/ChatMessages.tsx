@@ -117,16 +117,20 @@ function ChatImage({ url, className }: { url: string; className?: string }) {
 
 const ThinkingBox = memo(function ThinkingBox({
   content,
+  summary,
   signature,
   isStreaming,
 }: {
   content: string;
+  summary: string | null | undefined;
   signature: string | null | undefined;
   isStreaming: boolean;
 }) {
   const streaming = !signature && isStreaming;
   const displayText = useTypewriterEffect(content, streaming, 5);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const summaryText = summary?.trim() ?? "";
+  const title = summaryText || (streaming ? "Thinking..." : "Reasoning");
 
   useEffect(() => {
     if (streaming && previewRef.current) {
@@ -155,16 +159,21 @@ const ThinkingBox = memo(function ThinkingBox({
             )}
           </div>
 
-          <div className="relative my-3 mr-3 w-full overflow-clip rounded-xl border border-solid border-white shadow-[inset_0px_2px_4px_2px_rgb(0_0_0_/_0.15)] dark:border-setta-800/30 dark:bg-setta-860 ">
-            <div
-              ref={previewRef}
-              className="top-bottom-fade h-20 overflow-y-auto px-3 py-2 text-xs text-setta-300 dark:text-setta-500"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
-              {displayText}
+          <div className="relative my-3 mr-3 flex w-full flex-col gap-1">
+            <div className="px-1 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
+              <div className="truncate">{title}</div>
+            </div>
+            <div className="relative w-full overflow-clip rounded-xl border border-solid border-white shadow-[inset_0px_2px_4px_2px_rgb(0_0_0_/_0.15)] dark:border-setta-800/30 dark:bg-setta-860 ">
+              <div
+                ref={previewRef}
+                className="top-bottom-fade h-20 overflow-y-auto px-3 py-2 text-xs text-setta-300 dark:text-setta-500"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                {displayText}
+              </div>
             </div>
           </div>
         </Accordion.Trigger>
@@ -313,6 +322,7 @@ function StreamItem({
       return (
         <ThinkingBox
           content={item.thinking}
+          summary={item.summary}
           signature={item.signature}
           isStreaming={isStreaming}
         />
@@ -327,7 +337,7 @@ function StreamItem({
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink flex-col gap-2 cursor-text rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
         {children}
       </div>
     </div>

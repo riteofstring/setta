@@ -138,6 +138,7 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                     "content_block": {
                         "type": "thinking",
                         "thinking": "Plan",
+                        "summary": "Plan summary",
                         "signature": "sig-1",
                     },
                 },
@@ -150,6 +151,7 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertIsInstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
                 self.assertEqual(delta.thinking, "Plan")
+                self.assertEqual(delta.summary, "Plan summary")
                 self.assertEqual(delta.signature, "sig-1")
 
         events = parser.handle(
@@ -158,7 +160,11 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 "stream_event": {
                     "type": "content_block_delta",
                     "index": 0,
-                    "delta": {"type": "thinking_delta", "thinking": " next"},
+                    "delta": {
+                        "type": "thinking_delta",
+                        "thinking": " next",
+                        "summary": "Next summary",
+                    },
                 },
             }
         )
@@ -169,6 +175,7 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertIsInstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
                 self.assertEqual(delta.thinking, " next")
+                self.assertEqual(delta.summary, "Next summary")
 
         events = parser.handle(
             {
@@ -187,6 +194,24 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertIsInstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
                 self.assertEqual(delta.signature, "sig-2")
+
+        events = parser.handle(
+            {
+                "type": "raw_message_stream_event",
+                "stream_event": {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "summary_delta", "summary": "Final summary"},
+                },
+            }
+        )
+        self.assertEqual(len(events), 1)
+        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[0].stream_chunk, MessageDeltaEvent):
+            delta = events[0].stream_chunk.content[0]
+            self.assertIsInstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                self.assertEqual(delta.summary, "Final summary")
 
     def test_tool_result_emits_tool_result_event(self) -> None:
         parser = _ClaudeSdkEventParser()

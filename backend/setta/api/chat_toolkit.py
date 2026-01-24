@@ -184,6 +184,7 @@ class ChatStreamEmitterClient:
         thinking: str,
         section_id: ID | None = None,
         index: int = 0,
+        summary: str | None = None,
         signature: str | None = None,
     ) -> None:
         await self._emit(
@@ -195,6 +196,7 @@ class ChatStreamEmitterClient:
                     MessageThinkingDelta(
                         index=index,
                         thinking=thinking,
+                        summary=summary,
                         signature=signature,
                     )
                 ],

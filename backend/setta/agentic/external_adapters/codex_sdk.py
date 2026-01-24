@@ -23,6 +23,7 @@ from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
+    MessageThinkingContent,
     ToolChatMessage,
 )
 from setta.types.chat_stream_events import (
@@ -31,6 +32,7 @@ from setta.types.chat_stream_events import (
     MessageStartEvent,
     MessageStopEvent,
     MessageTextDelta,
+    MessageThinkingDelta,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -40,6 +42,7 @@ from setta.utils.timestamps import get_now_timestamp
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "codex_sdk_runner.mjs"
 _MESSAGE_ITEM_TYPES = {"agent_message", "assistant_message", "message"}
+_REASONING_ITEM_TYPES = {"reasoning"}
 
 
 class CodexSdkAdapter(ExternalAgentAdapter):
@@ -151,14 +154,28 @@ class _CodexSdkEventParser:
         event_type = payload.get("type")
         if not isinstance(event_type, str):
             return [ExternalAgentStreamEvent(raw=payload)]
+        normalized_type = _normalize_event_type(event_type)
 
         events: list[ExternalAgentStreamEvent] = []
-        if event_type in {"item.started", "item.start"}:
-            events.extend(self._handle_item_start(payload))
-        elif event_type in {"item.delta", "item.update"}:
-            events.extend(self._handle_item_delta(payload))
-        elif event_type in {"item.completed", "item.complete"}:
-            events.extend(self._handle_item_complete(payload))
+        if normalized_type in {"item.started", "item.start"}:
+            if _is_reasoning_item(payload):
+                events.extend(self._handle_reasoning_item_start(payload))
+            else:
+                events.extend(self._handle_item_start(payload))
+        elif normalized_type in {"item.delta", "item.update"}:
+            if _is_reasoning_item(payload):
+                events.extend(self._handle_reasoning_item_update(payload))
+            else:
+                events.extend(self._handle_item_delta(payload))
+        elif normalized_type in {"item.completed", "item.complete"}:
+            if _is_reasoning_item(payload):
+                events.extend(self._handle_reasoning_item_update(payload))
+            else:
+                events.extend(self._handle_item_complete(payload))
+        elif normalized_type.startswith("item.reasoning."):
+            events.extend(
+                self._handle_reasoning_delta(payload, normalized_type=normalized_type)
+            )
 
         tool_events = self._handle_tool_events(payload)
         if tool_events:
@@ -215,6 +232,51 @@ class _CodexSdkEventParser:
             )
         ]
 
+    def _handle_reasoning_item_start(
+        self, payload: dict[str, Any]
+    ) -> list[ExternalAgentStreamEvent]:
+        item = _extract_item_payload(payload)
+        if item is None:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message_id = _extract_item_id(payload)
+        if not message_id:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message, is_new = self._get_or_create_reasoning_message(message_id)
+        summary = _extract_reasoning_summary(item)
+        thinking = _extract_reasoning_content(item)
+        events: list[ExternalAgentStreamEvent] = []
+        if is_new:
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageStartEvent(message=message),
+                )
+            )
+        if summary or thinking:
+            _append_message_thinking(
+                message,
+                thinking,
+                summary,
+                append_summary=False,
+            )
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageDeltaEvent(
+                        message_id=message.id,
+                        content=[
+                            MessageThinkingDelta(
+                                index=0,
+                                thinking=thinking,
+                                summary=summary,
+                                signature=None,
+                            )
+                        ],
+                    ),
+                )
+            )
+        return events or [ExternalAgentStreamEvent(raw=payload)]
+
     def _handle_item_delta(
         self, payload: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
@@ -239,6 +301,52 @@ class _CodexSdkEventParser:
                 stream_chunk=MessageDeltaEvent(
                     message_id=message.id,
                     content=[MessageTextDelta(index=0, text=delta_text)],
+                ),
+            )
+        )
+        return events
+
+    def _handle_reasoning_item_update(
+        self, payload: dict[str, Any]
+    ) -> list[ExternalAgentStreamEvent]:
+        item = _extract_item_payload(payload)
+        if item is None:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message_id = _extract_item_id(payload)
+        if not message_id:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message, is_new = self._get_or_create_reasoning_message(message_id)
+        summary = _extract_reasoning_summary(item)
+        thinking = _extract_reasoning_content(item)
+        if not summary and not thinking:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        _append_message_thinking(
+            message,
+            thinking,
+            summary,
+            append_summary=False,
+        )
+        events: list[ExternalAgentStreamEvent] = []
+        if is_new:
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageStartEvent(message=message),
+                )
+            )
+        events.append(
+            ExternalAgentStreamEvent(
+                raw=payload,
+                stream_chunk=MessageDeltaEvent(
+                    message_id=message.id,
+                    content=[
+                        MessageThinkingDelta(
+                            index=0,
+                            thinking=thinking,
+                            summary=summary,
+                            signature=None,
+                        )
+                    ],
                 ),
             )
         )
@@ -284,6 +392,58 @@ class _CodexSdkEventParser:
         )
         return events
 
+    def _handle_reasoning_delta(
+        self,
+        payload: dict[str, Any],
+        *,
+        normalized_type: str,
+    ) -> list[ExternalAgentStreamEvent]:
+        message_id = _extract_item_id(payload)
+        if not message_id:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        summary = None
+        thinking = None
+        if normalized_type.endswith("summaryTextDelta"):
+            summary = _extract_reasoning_delta_text(payload)
+        elif normalized_type.endswith("textDelta"):
+            thinking = _extract_reasoning_delta_text(payload)
+        elif normalized_type.endswith("summaryPartAdded"):
+            summary = "\n"
+        if not summary and not thinking:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message, is_new = self._get_or_create_reasoning_message(message_id)
+        _append_message_thinking(
+            message,
+            thinking or "",
+            summary,
+            append_summary=True,
+        )
+        events: list[ExternalAgentStreamEvent] = []
+        if is_new:
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageStartEvent(message=message),
+                )
+            )
+        events.append(
+            ExternalAgentStreamEvent(
+                raw=payload,
+                stream_chunk=MessageDeltaEvent(
+                    message_id=message.id,
+                    content=[
+                        MessageThinkingDelta(
+                            index=0,
+                            thinking=thinking or "",
+                            summary=summary,
+                            signature=None,
+                        )
+                    ],
+                ),
+            )
+        )
+        return events
+
     def _get_or_create_message(
         self, payload: dict[str, Any]
     ) -> tuple[AssistantChatMessage, bool]:
@@ -303,10 +463,25 @@ class _CodexSdkEventParser:
         self._last_message_id = message.id
         return message, True
 
+    def _get_or_create_reasoning_message(
+        self, message_id: str
+    ) -> tuple[AssistantChatMessage, bool]:
+        if message_id in self._messages:
+            self._last_message_id = message_id
+            return self._messages[message_id], False
+        message = AssistantChatMessage(id=message_id, content=[])
+        self._messages[message.id] = message
+        self._last_message_id = message.id
+        return message, True
+
+
+def _normalize_event_type(value: str) -> str:
+    return value.replace("/", ".")
+
 
 def _extract_message_id(payload: dict[str, Any]) -> str | None:
-    item = payload.get("item")
-    if isinstance(item, dict):
+    item = _extract_item_payload(payload)
+    if item is not None:
         raw = item.get("id")
         if isinstance(raw, str) and raw:
             return raw
@@ -321,8 +496,8 @@ def _extract_delta_text(payload: dict[str, Any]) -> str:
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
             return raw
-    item = payload.get("item")
-    if isinstance(item, dict):
+    item = _extract_item_payload(payload)
+    if item is not None:
         for key in ("delta", "text"):
             raw = item.get(key)
             if isinstance(raw, str) and raw:
@@ -358,8 +533,8 @@ def _extract_thread_id(inputs: dict[str, Any] | None) -> str | None:
 
 
 def _is_message_item(payload: dict[str, Any]) -> bool:
-    item = payload.get("item")
-    if isinstance(item, dict):
+    item = _extract_item_payload(payload)
+    if item is not None:
         raw_type = item.get("type")
         if isinstance(raw_type, str) and raw_type:
             return raw_type in _MESSAGE_ITEM_TYPES
@@ -526,6 +701,107 @@ def _extract_tool_arguments_value(payload: dict[str, Any]) -> Any | None:
         if raw is not None:
             return raw
     return None
+
+
+def _extract_item_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    item = payload.get("item")
+    if isinstance(item, dict):
+        return item
+    params = payload.get("params")
+    if isinstance(params, dict):
+        nested = params.get("item")
+        if isinstance(nested, dict):
+            return nested
+    return None
+
+
+def _extract_item_id(payload: dict[str, Any]) -> str | None:
+    for key in ("itemId", "item_id", "id"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    item = _extract_item_payload(payload)
+    if item is not None:
+        raw = item.get("id")
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
+def _is_reasoning_item(payload: dict[str, Any]) -> bool:
+    item = _extract_item_payload(payload)
+    if item is None:
+        return False
+    item_type = item.get("type")
+    return isinstance(item_type, str) and item_type in _REASONING_ITEM_TYPES
+
+
+def _stringify_reasoning_parts(parts: Any) -> str:
+    if isinstance(parts, str):
+        return parts
+    if isinstance(parts, dict):
+        for key in ("text", "delta", "summaryText", "summary_text"):
+            value = parts.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return ""
+    if isinstance(parts, list):
+        chunks: list[str] = []
+        for entry in parts:
+            text = _stringify_reasoning_parts(entry)
+            if text:
+                chunks.append(text)
+        return "".join(chunks)
+    return ""
+
+
+def _extract_reasoning_summary(item: dict[str, Any]) -> str:
+    summary = item.get("summary")
+    return _stringify_reasoning_parts(summary)
+
+
+def _extract_reasoning_content(item: dict[str, Any]) -> str:
+    content = item.get("content")
+    return _stringify_reasoning_parts(content)
+
+
+def _extract_reasoning_delta_text(payload: dict[str, Any]) -> str:
+    for key in ("delta", "text", "summaryText", "summary_text"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    params = payload.get("params")
+    if isinstance(params, dict):
+        return _stringify_reasoning_parts(params.get("delta") or params.get("text"))
+    item = _extract_item_payload(payload)
+    if item is not None:
+        return _stringify_reasoning_parts(item.get("delta") or item.get("text"))
+    return ""
+
+
+def _ensure_thinking_block(message: AssistantChatMessage) -> MessageThinkingContent:
+    if message.content and isinstance(message.content[0], MessageThinkingContent):
+        return message.content[0]
+    block = MessageThinkingContent()
+    message.content.insert(0, block)
+    return block
+
+
+def _append_message_thinking(
+    message: AssistantChatMessage,
+    thinking: str,
+    summary: str | None,
+    *,
+    append_summary: bool = True,
+) -> None:
+    block = _ensure_thinking_block(message)
+    if thinking:
+        block.thinking += thinking
+    if summary is not None:
+        if append_summary and block.summary:
+            block.summary += summary
+        else:
+            block.summary = summary
 
 
 def _extract_tool_arguments_dict(payload: dict[str, Any]) -> dict[str, Any]:

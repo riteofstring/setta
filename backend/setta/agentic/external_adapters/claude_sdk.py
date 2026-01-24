@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -72,6 +73,13 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 "runId": str(context.run.id),
                 "systemPrompt": _build_system_prompt_payload(context.system_prompt),
             }
+            thinking_payload, thinking_budget = _extract_thinking_payload(
+                context.inputs
+            )
+            if thinking_payload is not None:
+                payload["thinking"] = thinking_payload
+            if thinking_budget is not None:
+                payload["thinkingBudgetTokens"] = thinking_budget
             allowed_tools = _extract_allowed_tools(context)
             if allowed_tools:
                 payload["allowedTools"] = allowed_tools
@@ -84,6 +92,11 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 payload["approvalPolicy"] = context.config.approvalPolicy
             if context.config.sandboxPolicy:
                 payload["sandboxPolicy"] = context.config.sandboxPolicy
+            close_after_response = _extract_close_after_response(context.inputs)
+            if close_after_response is None:
+                payload["closeAfterResponse"] = True
+            else:
+                payload["closeAfterResponse"] = close_after_response
             session_id = _extract_session_id(context.inputs)
             if session_id is not None:
                 payload["sessionId"] = session_id
@@ -110,6 +123,13 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
             if raw is None:
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
+            summary = _summarize_sdk_event(raw)
+            print(
+                f"[claude-sdk] event {summary}",
+                file=sys.stderr,
+                flush=True,
+            )
+            logger.warning("Claude SDK event: %s", summary)
             session_id = _extract_session_id_from_event(raw)
             if session_id:
                 handle.session_id = session_id
@@ -118,6 +138,12 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         if stderr_task is not None:
             for line in await stderr_task:
                 if line:
+                    print(
+                        f"[claude-sdk] stderr {line}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    logger.warning("Claude SDK stderr: %s", line)
                     yield ExternalAgentStreamEvent(raw={"type": "stderr", "text": line})
         handle.return_code = await process.wait()
 
@@ -316,8 +342,22 @@ class _ClaudeSdkEventParser:
         elif block_type == "thinking":
             thinking = content_block.get("thinking")
             signature = content_block.get("signature")
+            summary = _extract_thinking_summary(content_block)
+            has_payload = False
             if isinstance(thinking, str) and thinking:
-                self._append_thinking(message, index, thinking, signature)
+                has_payload = True
+            if summary is not None:
+                has_payload = True
+            if isinstance(signature, str):
+                has_payload = True
+            if has_payload:
+                self._append_thinking(
+                    message,
+                    index,
+                    thinking if isinstance(thinking, str) else "",
+                    summary,
+                    signature if isinstance(signature, str) else None,
+                )
                 events.append(
                     ExternalAgentStreamEvent(
                         raw=raw_payload,
@@ -326,7 +366,10 @@ class _ClaudeSdkEventParser:
                             content=[
                                 MessageThinkingDelta(
                                     index=index,
-                                    thinking=thinking,
+                                    thinking=thinking
+                                    if isinstance(thinking, str)
+                                    else "",
+                                    summary=summary,
                                     signature=signature
                                     if isinstance(signature, str)
                                     else None,
@@ -404,8 +447,15 @@ class _ClaudeSdkEventParser:
         elif block_type == "thinking":
             if delta_type == "thinking_delta":
                 thinking = delta.get("thinking")
-                if isinstance(thinking, str) and thinking:
-                    self._append_thinking(message, index, thinking, None)
+                summary = _extract_thinking_summary(delta)
+                if (isinstance(thinking, str) and thinking) or summary is not None:
+                    self._append_thinking(
+                        message,
+                        index,
+                        thinking if isinstance(thinking, str) else "",
+                        summary,
+                        None,
+                    )
                     events.append(
                         ExternalAgentStreamEvent(
                             raw=raw_payload,
@@ -413,7 +463,12 @@ class _ClaudeSdkEventParser:
                                 message_id=message.id,
                                 content=[
                                     MessageThinkingDelta(
-                                        index=index, thinking=thinking, signature=None
+                                        index=index,
+                                        thinking=thinking
+                                        if isinstance(thinking, str)
+                                        else "",
+                                        summary=summary,
+                                        signature=None,
                                     )
                                 ],
                             ),
@@ -422,7 +477,7 @@ class _ClaudeSdkEventParser:
             elif delta_type == "signature_delta":
                 signature = delta.get("signature")
                 if isinstance(signature, str):
-                    self._append_thinking(message, index, "", signature)
+                    self._append_thinking(message, index, "", None, signature)
                     events.append(
                         ExternalAgentStreamEvent(
                             raw=raw_payload,
@@ -430,7 +485,30 @@ class _ClaudeSdkEventParser:
                                 message_id=message.id,
                                 content=[
                                     MessageThinkingDelta(
-                                        index=index, thinking="", signature=signature
+                                        index=index,
+                                        thinking="",
+                                        summary=None,
+                                        signature=signature,
+                                    )
+                                ],
+                            ),
+                        )
+                    )
+            elif delta_type in ("summary_delta", "thinking_summary_delta"):
+                summary = _extract_thinking_summary(delta)
+                if summary is not None:
+                    self._append_thinking(message, index, "", summary, None)
+                    events.append(
+                        ExternalAgentStreamEvent(
+                            raw=raw_payload,
+                            stream_chunk=MessageDeltaEvent(
+                                message_id=message.id,
+                                content=[
+                                    MessageThinkingDelta(
+                                        index=index,
+                                        thinking="",
+                                        summary=summary,
+                                        signature=None,
                                     )
                                 ],
                             ),
@@ -561,6 +639,7 @@ class _ClaudeSdkEventParser:
                                 MessageThinkingDelta(
                                     index=index,
                                     thinking=content.thinking,
+                                    summary=content.summary,
                                     signature=content.signature,
                                 )
                             ],
@@ -654,11 +733,14 @@ class _ClaudeSdkEventParser:
         message: AssistantChatMessage,
         index: int,
         thinking: str,
-        signature: str | None,
+        summary: str | None = None,
+        signature: str | None = None,
     ) -> None:
         block = _ensure_thinking_block(message.content, index)
         if thinking:
             block.thinking += thinking
+        if summary is not None:
+            block.summary = summary
         if signature is not None:
             block.signature = signature
 
@@ -797,6 +879,42 @@ def _extract_session_id_from_event(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _summarize_content_types(content: Any) -> list[str] | None:
+    if not isinstance(content, list):
+        return None
+    types: list[str] = []
+    for entry in content:
+        if isinstance(entry, dict):
+            entry_type = entry.get("type")
+            if isinstance(entry_type, str):
+                types.append(entry_type)
+    if types:
+        return types
+    return None
+
+
+def _summarize_sdk_event(payload: dict[str, Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {"type": payload.get("type")}
+    stream_event = payload.get("event") or payload.get("stream_event")
+    if isinstance(stream_event, dict):
+        summary["eventType"] = stream_event.get("type")
+        block = stream_event.get("content_block")
+        if isinstance(block, dict):
+            summary["contentBlockType"] = block.get("type")
+        delta = stream_event.get("delta")
+        if isinstance(delta, dict):
+            summary["deltaType"] = delta.get("type")
+    message = payload.get("message")
+    content_types = None
+    if isinstance(message, dict):
+        content_types = _summarize_content_types(message.get("content"))
+    if content_types is None:
+        content_types = _summarize_content_types(payload.get("content"))
+    if content_types:
+        summary["messageContentTypes"] = content_types
+    return summary
+
+
 def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None:
     inputs = context.inputs or {}
     raw = inputs.get("allowedTools")
@@ -806,6 +924,21 @@ def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None
             return tools
     if context.profile and context.profile.toolAllowlist:
         return list(context.profile.toolAllowlist)
+    return None
+
+
+def _extract_close_after_response(inputs: dict[str, Any] | None) -> bool | None:
+    if not inputs:
+        return None
+    raw = inputs.get("closeAfterResponse")
+    if isinstance(raw, bool):
+        return raw
+    raw = inputs.get("close_after_response")
+    if isinstance(raw, bool):
+        return raw
+    raw = inputs.get("singleTurn")
+    if isinstance(raw, bool):
+        return raw
     return None
 
 
@@ -845,6 +978,34 @@ def _extract_latest_user_prompt(inputs: dict[str, Any] | None) -> str:
     return ""
 
 
+def _extract_thinking_payload(
+    inputs: dict[str, Any] | None,
+) -> tuple[Any | None, int | None]:
+    if not inputs:
+        return None, None
+    thinking_payload = inputs.get("thinking")
+    if thinking_payload is not None and not isinstance(thinking_payload, (bool, dict)):
+        thinking_payload = None
+    budget = inputs.get("thinkingBudgetTokens")
+    if budget is None:
+        budget = inputs.get("thinking_budget_tokens")
+    if isinstance(budget, bool):
+        budget = None
+    if isinstance(budget, str):
+        try:
+            parsed = int(budget)
+        except ValueError:
+            budget = None
+        else:
+            budget = parsed
+    if isinstance(budget, int):
+        if budget < 0:
+            budget = None
+    else:
+        budget = None
+    return thinking_payload, budget
+
+
 def _extract_message_text(message: Any) -> str:
     content = getattr(message, "content", None)
     if not isinstance(content, list):
@@ -875,10 +1036,12 @@ def _build_assistant_message(payload: dict[str, Any]) -> AssistantChatMessage:
             elif entry_type == "thinking":
                 thinking = entry.get("thinking")
                 signature = entry.get("signature")
+                summary = _extract_thinking_summary(entry)
                 if isinstance(thinking, str):
                     content_entries.append(
                         MessageThinkingContent(
                             thinking=thinking,
+                            summary=summary,
                             signature=signature if isinstance(signature, str) else None,
                         )
                     )
@@ -947,3 +1110,11 @@ def _extract_tool_result_text(payload: Any) -> str:
                 parts.append(part)
         return "".join(parts)
     return ""
+
+
+def _extract_thinking_summary(payload: dict[str, Any]) -> str | None:
+    for key in ("summary", "thinking_summary", "summary_text", "reasoning_summary"):
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None

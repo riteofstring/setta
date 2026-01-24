@@ -833,6 +833,7 @@ export type MessageImageUrlContent = z.infer<
 const MessageThinkingContentSchema = z.object({
   type: z.literal("thinking").default("thinking" as const),
   thinking: z.string().default("" as const),
+  summary: z.union([z.string(), z.null()]).default("" as const),
   signature: z.union([z.string(), z.null()]).default("" as const),
 });
 
@@ -1029,6 +1030,7 @@ const MessageThinkingDeltaSchema = z.object({
   type: z.literal("thinking_delta").default("thinking_delta" as const),
   index: z.int(),
   thinking: z.string(),
+  summary: z.union([z.string(), z.null()]).default(null),
   signature: z.union([z.string(), z.null()]).default(null),
 });
 

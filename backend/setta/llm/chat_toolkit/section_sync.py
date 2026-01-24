@@ -164,6 +164,8 @@ def _apply_message_delta(
             block = _ensure_thinking_block(content, index)
             if delta.thinking:
                 block.thinking += delta.thinking
+            if delta.summary is not None:
+                block.summary = delta.summary
             if delta.signature is not None:
                 block.signature = delta.signature
     assistant.content = content
