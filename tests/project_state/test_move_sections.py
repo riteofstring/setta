@@ -5,6 +5,7 @@ from setta.types.helpers_lvl2 import (
     create_child_sections,
     create_top_level_section,
     get_curr_section_children_ids,
+    move_section_to_pane,
     move_sections_to_parent_section,
 )
 from setta.types.project_config import Position, ProjectConfig
@@ -281,6 +282,82 @@ class MoveSectionsTests(unittest.TestCase):
                 [child_id],
                 0,
             )
+
+    def test_move_section_to_pane_sets_z_index_after_existing(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-pane-z-index")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        top_level_a = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(x=10, y=10),
+        )
+        top_level_b = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(x=20, y=20),
+        )
+        project_state.projectConfig.topLevelSections[top_level_a].zIndex = 3
+        project_state.projectConfig.topLevelSections[top_level_b].zIndex = 7
+        [child_id] = create_child_sections(
+            settings,
+            project_state,
+            parent_id,
+            SectionType.TextBlock,
+            1,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        move_section_to_pane(project_state, child_id, Position(x=5, y=5))
+
+        layout = project_state.projectConfig.topLevelSections[child_id]
+        self.assertEqual(layout.zIndex, 8)
+
+    def test_move_section_to_pane_increments_z_index_for_multiple_moves(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="move-sections-pane-z-index-multi")
+        )
+        parent_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Group,
+            Position(x=0, y=0),
+        )
+        top_level = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(x=10, y=10),
+        )
+        project_state.projectConfig.topLevelSections[top_level].zIndex = 10
+        child_ids = create_child_sections(
+            settings,
+            project_state,
+            parent_id,
+            SectionType.TextBlock,
+            2,
+            0,
+        )
+        project_state.validate_parent_section_map()
+
+        move_section_to_pane(project_state, child_ids[0], Position(x=5, y=5))
+        move_section_to_pane(project_state, child_ids[1], Position(x=15, y=15))
+
+        layout_first = project_state.projectConfig.topLevelSections[child_ids[0]]
+        layout_second = project_state.projectConfig.topLevelSections[child_ids[1]]
+        self.assertEqual(layout_first.zIndex, 11)
+        self.assertEqual(layout_second.zIndex, 12)
 
 
 if __name__ == "__main__":

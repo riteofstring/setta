@@ -93,9 +93,8 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   const dndState = useDndState.getState();
   const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
   const placeholderSize = resolveSectionPlaceholderSize({
-    activeId,
-    activeRect: activeRect ?? null,
     draggingIds: selection.draggingIds,
+    rectsById: selection.rectsById,
     zoom: safeZoom,
   });
   const normalizedWidth = placeholderSize?.width ?? rawWidth / safeZoom;
@@ -537,21 +536,19 @@ type PlaceholderSize = {
 };
 
 type PlaceholderSizeInput = {
-  activeId: string;
-  activeRect: DragStartEvent["activeRect"] | null;
   draggingIds: string[];
+  rectsById: Record<string, DragRect> | null;
   zoom: number;
 };
 
 type SectionOrientation = "horizontal" | "vertical";
 
 function resolveSectionPlaceholderSize({
-  activeId,
-  activeRect,
   draggingIds,
+  rectsById,
   zoom,
 }: PlaceholderSizeInput): PlaceholderSize | null {
-  if (draggingIds.length === 0) {
+  if (draggingIds.length === 0 || !rectsById) {
     return null;
   }
 
@@ -561,15 +558,6 @@ function resolveSectionPlaceholderSize({
     state.parentSectionMap[draggingIds[0]] ??
     null;
   const orientation = resolveParentOrientation(state, parentId);
-  const rectsById = collectSectionRects({
-    activeId,
-    activeRect,
-    draggingIds,
-  });
-
-  if (Object.keys(rectsById).length === 0) {
-    return null;
-  }
 
   const children = parentId ? getSectionChildren(state, parentId) : null;
   const indexById = children
@@ -618,7 +606,7 @@ function collectSectionRects({
   activeId: string;
   activeRect: DragStartEvent["activeRect"] | null;
   draggingIds: string[];
-}): Record<string, DragRect> {
+}): Record<string, DragRect> | null {
   const refs = useSectionRefs.getState();
   const rectsById: Record<string, DragRect> = {};
 
@@ -642,6 +630,9 @@ function collectSectionRects({
     }
   }
 
+  if (Object.keys(rectsById).length === 0) {
+    return null;
+  }
   return rectsById;
 }
 
@@ -739,40 +730,29 @@ function resolveSectionDragSelection(
   activeRect: DragStartEvent["activeRect"] | null,
 ): {
   draggingIds: string[];
+  rectsById: Record<string, DragRect> | null;
   draggingRectsById: Record<string, DragRect> | null;
 } {
   const shareSession = useShareSession.getState();
   if (shareSession.isShareMode) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
+    return buildSectionSelection([activeId], activeId, activeRect);
   }
 
   const state = useProjectState.getState();
   const activeIds = state.projectConfig.activeIds;
   if (!activeIds.includes(activeId)) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
+    return buildSectionSelection([activeId], activeId, activeRect);
   }
 
   const { rootIds } = getRootSelectedSectionIds(state, activeIds);
   if (rootIds.length === 0) {
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
+    return buildSectionSelection([activeId], activeId, activeRect);
   }
 
   const sharedParentId = getSharedParentId(state, rootIds);
   if (rootIds.length > 1 && sharedParentId === undefined) {
     addTemporaryNotification("Section selection spans multiple parents.");
-    return {
-      draggingIds: [activeId],
-      draggingRectsById: resolveDraggingRects([activeId], activeId, activeRect),
-    };
+    return buildSectionSelection([activeId], activeId, activeRect);
   }
 
   const orderedIds = orderSectionIdsByParent(
@@ -780,42 +760,35 @@ function resolveSectionDragSelection(
     sharedParentId ?? null,
     rootIds,
   );
+  return buildSectionSelection(orderedIds, activeId, activeRect);
+}
+
+function buildSectionSelection(
+  draggingIds: string[],
+  activeId: string,
+  activeRect: DragStartEvent["activeRect"] | null,
+): {
+  draggingIds: string[];
+  rectsById: Record<string, DragRect> | null;
+  draggingRectsById: Record<string, DragRect> | null;
+} {
+  const rectsById = collectSectionRects({
+    activeId,
+    activeRect,
+    draggingIds,
+  });
   return {
-    draggingIds: orderedIds,
-    draggingRectsById: resolveDraggingRects(orderedIds, activeId, activeRect),
+    draggingIds,
+    rectsById,
+    draggingRectsById: resolveDraggingRectsForSelection(rectsById),
   };
 }
 
-function resolveDraggingRects(
-  sectionIds: string[],
-  activeId: string,
-  activeRect: DragStartEvent["activeRect"] | null,
+function resolveDraggingRectsForSelection(
+  rectsById: Record<string, DragRect> | null,
 ): Record<string, DragRect> | null {
   const dndState = useDndState.getState();
-  if (!dndState.isMovingFree) {
-    return null;
-  }
-  const refs = useSectionRefs.getState();
-  const rectsById: Record<string, DragRect> = {};
-  for (const sectionId of sectionIds) {
-    const ref = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
-    if (ref) {
-      const rect = ref.getBoundingClientRect();
-      rectsById[sectionId] = {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-      continue;
-    }
-    if (sectionId === activeId && activeRect) {
-      rectsById[sectionId] = { ...activeRect };
-    }
-  }
-  if (Object.keys(rectsById).length === 0) {
+  if (!dndState.isMovingFree || !rectsById) {
     return null;
   }
   return rectsById;

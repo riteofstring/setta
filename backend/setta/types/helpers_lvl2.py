@@ -2250,13 +2250,22 @@ def move_section_to_pane(
             ),
         )
         # add to pane
+        next_z_index = _get_next_top_level_z_index(p)
         p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
-            x=position.x, y=position.y
+            x=position.x, y=position.y, zIndex=next_z_index
         )
     else:
         # it's already on the pane, so just adjust its position
         p.projectConfig.topLevelSections[sectionId].x = position.x
         p.projectConfig.topLevelSections[sectionId].y = position.y
+
+
+def _get_next_top_level_z_index(p: "ProjectStateSingleConfig") -> int:
+    if not p.projectConfig.topLevelSections:
+        return 0
+    return (
+        max(layout.zIndex for layout in p.projectConfig.topLevelSections.values()) + 1
+    )
 
 
 def _resolve_layout_dimension(
