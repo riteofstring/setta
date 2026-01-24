@@ -106,6 +106,7 @@ class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             {
                 "frontendOpId": None,
+                "historyGroupId": None,
                 "projectConfigId": project_state.projectConfig.id,
             },
             parsed_message.content.payload,

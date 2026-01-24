@@ -39,6 +39,7 @@ from setta.utils.constants import C
 
 class ProjectManagerRequestWithFrontendOp(BaseModel):
     frontendOpId: str | None = None
+    historyGroupId: str | None = None
 
 
 class ProjectManagerRequestWithProjectConfig(ProjectManagerRequestWithFrontendOp):
