@@ -12,7 +12,8 @@ Provide a CLI-first, non-MCP integration surface that yields the best results fo
 - Add CLI commands that expose auth + API calls as pure JSON.
 - Publish a skill document that instructs agents to use these CLI commands.
 - Update docs to formalize the contract and examples.
- - Optimize the LLM experience so one command is enough for most API calls.
+- Optimize the LLM experience so one command is enough for most API calls.
+- Follow the skills specification at https://agentskills.io/ for packaging and metadata.
 
 ## Non-goals
 - Replace MCP or SettaRunner for existing users.
