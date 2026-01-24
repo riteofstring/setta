@@ -832,8 +832,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             websocket_id
         )
         payload_data = dict(payload)
-        has_project_context = "projectConfigId" in spec.request_model.model_fields
-        if "projectConfigId" not in payload_data and has_project_context:
+        if "projectConfigId" not in payload_data and (
+            "projectConfigId" in spec.request_model.model_fields
+        ):
             if use_temporary_ids:
                 if temporary_project_config_id is None:
                     raise ValueError("project_config_mismatch")
@@ -845,7 +846,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         if use_temporary_ids:
             request_model = self._convert_incoming_payload(request_model)
 
-        if has_project_context and request_model.projectConfigId != project_config_id:
+        if request_model.projectConfigId != project_config_id:
             raise ValueError("project_config_mismatch")
 
         kwargs: dict[str, object] = {spec.request_param_name: request_model}
