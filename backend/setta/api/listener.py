@@ -37,7 +37,6 @@ from setta.listeners.router_endpoint_local_updates import (
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
-from setta.project_state.project_code import build_python_code_generator
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -65,10 +64,6 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
-)
-from setta.types.project_config import (
-    ProjectCodegenLanguage,
-    project_config_has_codegen_language,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
@@ -981,18 +976,6 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
-        if not project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        ):
-            logger.error(
-                "Listener %s requires python codegen; disabled for project %s",
-                self._log_identifier,
-                incoming_project_id,
-            )
-            self.stop()
-            raise RuntimeError("Listener requires python codegen to be enabled.")
-
         try:
             runtime_state = self._build_runtime_state(project_state)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
@@ -1081,9 +1064,11 @@ class SettaListener:
         self, project_state: ProjectStateSingleConfig
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
-        code_generator = build_python_code_generator(
-            project_state,
+        project_config = project_state.projectConfig
+        code_generator = PythonCodeGenerator(
             dep_graph,
+            project_config.genCodePrefix,
+            project_config.genCodeSuffix,
             value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:
@@ -1500,16 +1485,9 @@ class SettaListener:
             result = await future
         finally:
             self._pending_router_endpoint_calls.pop(call_id, None)
-        runtime_state = self._runtime_state
-        updates = (
-            build_local_router_endpoint_updates(
-                endpoint_name=endpoint_name,
-                payload=serialized_payload,
-                dependency_graph=runtime_state.dependency_graph,
-                project_state=runtime_state.project_state,
-            )
-            if runtime_state is not None
-            else []
+        updates = build_local_router_endpoint_updates(
+            endpoint_name=endpoint_name,
+            payload=serialized_payload,
         )
         self._apply_local_dependency_updates(updates=updates)
         return result

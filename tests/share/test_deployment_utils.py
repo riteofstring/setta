@@ -1,24 +1,16 @@
-import json
 import unittest
 from pathlib import Path
 
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_name
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.dropzone import parse_dropzone_value
-from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl_with_type_guard,
-    get_curr_effective_section_impl_with_type_guard,
-)
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig, SingletonSections
-from setta.types.code_obj_impls import DropzoneParamCodeObjImpl
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
-    DictSectionImpl,
-    DrawSectionImpl,
     GenPythonCodeSectionImpl,
 )
 
@@ -26,7 +18,7 @@ from setta.types.section_impls import (
 class ShareDeploymentUtilsTests(unittest.TestCase):
     def test_rewrite_project_state_paths_updates_gen_code_binding(self) -> None:
         project_config = ProjectConfig(name="Share Project")
-        project_slug = sanitize_slug(project_config.name)
+        project_slug = sanitize_name(project_config.name)
         code_root = Path("code") / "sections" / project_slug
         gen_binding = CodeFileBinding(
             canonical_path=code_root / "setta_gen.py",
@@ -88,144 +80,6 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
         self.assertEqual(
             rebased_root / "setta_gen.py",
             updated_impl.codeFileBinding.canonical_path,
-        )
-
-    def test_rewrite_project_state_paths_updates_draw_snapshot_path(self) -> None:
-        draw_impl = DrawSectionImpl(
-            id=ID("draw-impl"),
-            name="Draw",
-            renderedImagePath="artifacts/draw.png",
-        )
-        draw_variant = Variant(
-            id=ID("draw-variant"),
-            name="Draw",
-            impl=draw_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(draw_impl),
-        )
-        draw_section_id = ID("draw-section")
-        draw_section = Core(
-            id=draw_section_id,
-            name="Draw",
-            variants=[draw_variant.id],
-            defaultVariant=draw_variant.id,
-        )
-        project_config = ProjectConfig(
-            name="Draw Project",
-            sectionVariantMap={draw_section_id: draw_variant.id},
-            topLevelSections={draw_section_id: TopLevelSectionLayout()},
-        )
-        project_state = ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={draw_section_id: draw_section},
-            sectionImpls={draw_impl.id: draw_impl},
-            sectionVariants={draw_variant.id: draw_variant},
-        )
-
-        def resolve_artifact_path(path_str: str) -> str:
-            return f"rebased/{path_str}"
-
-        rewrite_project_state_paths(
-            project_state,
-            resolve_artifact_path=resolve_artifact_path,
-            resolve_code_binding=lambda binding: binding,
-            resolve_json_source_name=lambda path_str: path_str,
-        )
-
-        updated_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            draw_section_id,
-            DrawSectionImpl,
-        )
-        self.assertEqual(
-            "rebased/artifacts/draw.png",
-            updated_impl.renderedImagePath,
-        )
-
-    def test_rewrite_project_state_paths_updates_dropzone_attachment_paths(self) -> None:
-        dropzone_impl = DropzoneParamCodeObjImpl(
-            id=ID("dropzone-impl"),
-            name="Dropzone",
-            value=json.dumps(
-                {
-                    "version": 1,
-                    "attachments": [
-                        {
-                            "kind": "file",
-                            "id": "artifacts/old.txt",
-                            "name": "old.txt",
-                            "mimeType": "text/plain",
-                            "size": 10,
-                        }
-                    ],
-                }
-            ),
-        )
-        dropzone_variant = Variant(
-            id=ID("dropzone-variant"),
-            name="Dropzone",
-            impl=dropzone_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(dropzone_impl),
-        )
-        dropzone_core_id = ID("dropzone-core")
-        dropzone_core = Core(
-            id=dropzone_core_id,
-            name="Dropzone",
-            variants=[dropzone_variant.id],
-            defaultVariant=dropzone_variant.id,
-        )
-
-        section_impl = DictSectionImpl(
-            id=ID("dict-impl"),
-            name="Dict",
-            codeObjVariantMap={dropzone_core_id: dropzone_variant.id},
-        )
-        section_variant = Variant(
-            id=ID("dict-variant"),
-            name="Dict",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_id = ID("dict-section")
-        section_core = Core(
-            id=section_id,
-            name="Dict",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-
-        project_config = ProjectConfig(
-            name="Dropzone Project",
-            sectionVariantMap={section_id: section_variant.id},
-            topLevelSections={section_id: TopLevelSectionLayout()},
-        )
-        project_state = ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
-            codeObjs={dropzone_core_id: dropzone_core},
-            codeObjImpls={dropzone_impl.id: dropzone_impl},
-            codeObjVariants={dropzone_variant.id: dropzone_variant},
-        )
-
-        rewrite_project_state_paths(
-            project_state,
-            resolve_artifact_path=lambda path_str: f"rebased/{path_str}",
-            resolve_code_binding=lambda binding: binding,
-            resolve_json_source_name=lambda path_str: path_str,
-        )
-
-        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            project_state,
-            section_id,
-            dropzone_core_id,
-            DropzoneParamCodeObjImpl,
-        )
-        payload = parse_dropzone_value(updated_impl.value)
-        self.assertIsNotNone(payload)
-        self.assertEqual(
-            "rebased/artifacts/old.txt",
-            payload.attachments[0].id,
         )
 
 
