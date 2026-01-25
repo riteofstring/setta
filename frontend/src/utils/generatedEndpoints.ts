@@ -242,9 +242,9 @@ async function route_set_chat_system_prompt(
 }
 
 async function route_get_all_chat_metadata(
-  x: gt.GetAllChatMetadataRequestInput,
+  _request: gt.GetAllChatMetadataRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllChatMetadata", x);
+  return await post("/getAllChatMetadata", _request);
 }
 
 async function route_run_mcp_tools(
@@ -567,18 +567,6 @@ export async function route_set_show_param_display_names(
   x: gt.SetShowParamDisplayNamesRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setShowParamDisplayNames", x);
-}
-
-export async function route_set_watch_code_enabled(
-  x: gt.SetWatchCodeEnabledRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setWatchCodeEnabled", x);
-}
-
-export async function route_set_watch_code_inputs(
-  x: gt.SetWatchCodeInputsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setWatchCodeInputs", x);
 }
 
 export async function route_set_param_entered_value(
