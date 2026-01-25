@@ -1,3 +1,4 @@
+import logging
 import unittest
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -6,20 +7,23 @@ import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
 
+from setta.llm.agent_runner import AgentRunner
+from setta.llm.chat_store import AgentRunChatStore
+from setta.llm.chat_toolkit.history import ChatHistory
+from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
+from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
 from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
 from setta.llm.chat_toolkit.managed.tool_search import (
     build_search_tool_chat_message,
     parse_search_tool_results,
     run_local_search_tool,
 )
-from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.server import SettaFastMCP
-from setta.project_state.project_manager_types import CreateTopLevelSectionRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.terminals.terminals import Terminals
-from setta.types.chat import Chat
+from setta.types.agentic import AgentProfile
 from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
@@ -30,7 +34,6 @@ from setta.types.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
-from setta.types.section_impls import SectionType
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -45,7 +48,7 @@ _MCP_CONFIG = MCPServerConfig(
 
 
 @asynccontextmanager
-async def _build_manager_with_mcp():
+async def _build_runner_with_mcp():
     async with real_project_manager() as project_fixture:
         async with real_settings_manager() as settings_fixture:
             websocket_manager = WebsocketManager()
@@ -75,101 +78,72 @@ async def _build_manager_with_mcp():
                 SETTA_MCP_SERVER_ID,
                 list(tools),
             )
-            manager = LLMChatManager(
-                project_fixture.dbe,
-                mcp_client,
-                frontend_sender,
-            )
-            yield manager, mcp_client
+            runner = AgentRunner(project_fixture.dbe, mcp_client, frontend_sender)
+            yield runner, mcp_client, project_fixture
 
 
-@asynccontextmanager
-async def _build_manager_with_project_summary():
-    async with real_project_manager() as project_fixture:
-        async with real_settings_manager() as settings_fixture:
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager)
-            manager = LLMChatManager(
-                project_fixture.dbe,
-                MultiMCPClient({}),
-                frontend_sender,
-            )
-            yield manager, project_fixture
-
-
-def _configure_manager(manager: LLMChatManager, llm_config: LLMConfig) -> None:
-    manager.config = AllLLMConfigs(
-        configs={llm_config.id: llm_config},
-        mcpServers={SETTA_MCP_SERVER_ID: _MCP_CONFIG},
-        defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
+def _configure_runner(runner: AgentRunner, llm_config: LLMConfig) -> None:
+    runner.update_config(
+        AllLLMConfigs(
+            configs={llm_config.id: llm_config},
+            mcpServers={SETTA_MCP_SERVER_ID: _MCP_CONFIG},
+            defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
+        )
     )
 
 
-def _build_chat(llm_config: LLMConfig) -> Chat:
-    return Chat(
-        id=ID("chat-uuid"),
-        name="Tool payload chat",
-        projectConfigId=None,
-        llmConfig=llm_config,
-        messages=[
-            UserChatMessage(content=[MessageTextContent(text="Hello tools")])
-        ],
-    )
+def _build_messages() -> list[UserChatMessage]:
+    return [UserChatMessage(content=[MessageTextContent(text="Hello tools")])]
 
 
-def _build_chat_with_tool_reference(
-    llm_config: LLMConfig,
+def _build_messages_with_tool_reference(
     *,
     search_tool_name: str,
     referenced_tool_name: str,
-) -> Chat:
-    return Chat(
-        id=ID("chat-uuid"),
-        name="Tool reference chat",
-        projectConfigId=None,
-        llmConfig=llm_config,
-        messages=[
-            UserChatMessage(content=[MessageTextContent(text="Search for tools")]),
-            ToolChatMessage(
-                tool_call_id="tool-call-1",
-                tool_name=search_tool_name,
-                content=[ToolReferenceContent(tool_name=referenced_tool_name)],
-            ),
-        ],
-    )
+) -> list[UserChatMessage | ToolChatMessage]:
+    return [
+        UserChatMessage(content=[MessageTextContent(text="Search for tools")]),
+        ToolChatMessage(
+            tool_call_id="tool-call-1",
+            tool_name=search_tool_name,
+            content=[ToolReferenceContent(tool_name=referenced_tool_name)],
+        ),
+    ]
 
 
-_ACTIVE_PROJECT_CONFIG_ID = ID("project-uuid")
+def _build_system_prompt(runner: AgentRunner, project_config_id: ID) -> str:
+    profile = AgentProfile(name="Managed chat", description="", systemPrompt="")
+    return runner._build_system_prompt(profile, project_config_id)
 
 
 class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_non_anthropic_payload_includes_all_tools_without_defer_loading(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="provider-one",
                 model="gpt-4o",
                 provider="openai",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             tools = payload["tools"]
-            tool_names = sorted(
-                tool["function"]["name"] for tool in tools
-            )
+            tool_names = sorted(tool["function"]["name"] for tool in tools)
             expected = {}
             expected.update(
-                mcp_client.init_tool_definitions_for_servers(
-                    {SETTA_MCP_SERVER_ID}
-                )
+                mcp_client.init_tool_definitions_for_servers({SETTA_MCP_SERVER_ID})
             )
             expected.update(
                 mcp_client.discoverable_tool_definitions_for_servers(
@@ -177,58 +151,52 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             expected_names = sorted(
-                name
-                for name in expected.keys()
-                if name != manager._search_tool_name
+                name for name in expected.keys() if name != runner._search_tool_name
             )
 
             self.assertEqual(tool_names, expected_names)
-            self.assertTrue(
-                all("defer_loading" not in tool for tool in tools)
-            )
+            self.assertTrue(all("defer_loading" not in tool for tool in tools))
 
     async def test_anthropic_payload_includes_search_tool_with_defer_loading(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="claude-sonnet",
                 model="claude-sonnet-4-5-20250929",
                 provider="anthropic",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             tools = payload["tools"]
-            tool_names = sorted(
-                tool["function"]["name"] for tool in tools
-            )
+            tool_names = sorted(tool["function"]["name"] for tool in tools)
             expected = {}
             init_tools = mcp_client.init_tool_definitions_for_servers(
                 {SETTA_MCP_SERVER_ID}
             )
-            discoverable_tools = (
-                mcp_client.discoverable_tool_definitions_for_servers(
-                    {SETTA_MCP_SERVER_ID}
-                )
+            discoverable_tools = mcp_client.discoverable_tool_definitions_for_servers(
+                {SETTA_MCP_SERVER_ID}
             )
             expected.update(init_tools)
             expected.update(discoverable_tools)
             expected_names = sorted(expected.keys())
 
             self.assertEqual(tool_names, expected_names)
-            self.assertIn(manager._search_tool_name, tool_names)
+            self.assertIn(runner._search_tool_name, tool_names)
             self.assertTrue(init_tools)
             init_payload = [
-                tool
-                for tool in tools
-                if tool["function"]["name"] in init_tools
+                tool for tool in tools if tool["function"]["name"] in init_tools
             ]
             self.assertTrue(init_payload)
             self.assertTrue(
@@ -244,19 +212,23 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_anthropic_payload_adds_tool_search_beta_header(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, _mcp_client):
+        async with _build_runner_with_mcp() as (runner, _mcp_client, fixture):
             llm_config = LLMConfig(
                 id="claude-sonnet",
                 model="claude-sonnet-4-5-20250929",
                 provider="anthropic",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             extra_headers = payload.get("extra_headers")
@@ -268,7 +240,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_anthropic_payload_merges_existing_beta_header(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, _mcp_client):
+        async with _build_runner_with_mcp() as (runner, _mcp_client, fixture):
             llm_config = LLMConfig(
                 id="claude-sonnet",
                 model="claude-sonnet-4-5-20250929",
@@ -279,13 +251,17 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                     }
                 },
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             extra_headers = payload.get("extra_headers")
@@ -298,30 +274,32 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_non_anthropic_payload_strips_tool_reference_content(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="provider-openai",
                 model="gpt-4o",
                 provider="openai",
             )
-            _configure_manager(manager, llm_config)
-            discoverable_tools = (
-                mcp_client.discoverable_tool_definitions_for_servers(
-                    {SETTA_MCP_SERVER_ID}
-                )
+            _configure_runner(runner, llm_config)
+            discoverable_tools = mcp_client.discoverable_tool_definitions_for_servers(
+                {SETTA_MCP_SERVER_ID}
             )
             self.assertTrue(discoverable_tools)
             referenced_tool = sorted(discoverable_tools.keys())[0]
-            chat = _build_chat_with_tool_reference(
-                llm_config,
-                search_tool_name=manager._search_tool_name,
+            messages = _build_messages_with_tool_reference(
+                search_tool_name=runner._search_tool_name,
                 referenced_tool_name=referenced_tool,
             )
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=messages,
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             tool_messages = [
@@ -341,30 +319,32 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_anthropic_payload_preserves_tool_reference_content(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="claude-sonnet",
                 model="claude-sonnet-4-5-20250929",
                 provider="anthropic",
             )
-            _configure_manager(manager, llm_config)
-            discoverable_tools = (
-                mcp_client.discoverable_tool_definitions_for_servers(
-                    {SETTA_MCP_SERVER_ID}
-                )
+            _configure_runner(runner, llm_config)
+            discoverable_tools = mcp_client.discoverable_tool_definitions_for_servers(
+                {SETTA_MCP_SERVER_ID}
             )
             self.assertTrue(discoverable_tools)
             referenced_tool = sorted(discoverable_tools.keys())[0]
-            chat = _build_chat_with_tool_reference(
-                llm_config,
-                search_tool_name=manager._search_tool_name,
+            messages = _build_messages_with_tool_reference(
+                search_tool_name=runner._search_tool_name,
                 referenced_tool_name=referenced_tool,
             )
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=messages,
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             tool_messages = [
@@ -384,30 +364,30 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_bedrock_payload_excludes_search_tool_and_defer_loading(
         self,
     ) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="bedrock-claude",
                 model="claude-sonnet-4-5-20250929",
                 provider="bedrock",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
 
             tools = payload["tools"]
-            tool_names = sorted(
-                tool["function"]["name"] for tool in tools
-            )
+            tool_names = sorted(tool["function"]["name"] for tool in tools)
             expected = {}
             expected.update(
-                mcp_client.init_tool_definitions_for_servers(
-                    {SETTA_MCP_SERVER_ID}
-                )
+                mcp_client.init_tool_definitions_for_servers({SETTA_MCP_SERVER_ID})
             )
             expected.update(
                 mcp_client.discoverable_tool_definitions_for_servers(
@@ -415,20 +395,16 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             expected_names = sorted(
-                name
-                for name in expected.keys()
-                if name != manager._search_tool_name
+                name for name in expected.keys() if name != runner._search_tool_name
             )
 
             self.assertEqual(tool_names, expected_names)
-            self.assertTrue(
-                all("defer_loading" not in tool for tool in tools)
-            )
+            self.assertTrue(all("defer_loading" not in tool for tool in tools))
 
 
 class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
     async def test_anthropic_search_returns_tool_reference_blocks(self) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, _fixture):
             server_ids = [SETTA_MCP_SERVER_ID]
             available = mcp_client.discoverable_tool_definitions_for_servers(
                 set(server_ids)
@@ -448,13 +424,13 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
 
             tool_call = ToolCall(
                 function=ToolCallFunction(
-                    name=manager._search_tool_name,
+                    name=runner._search_tool_name,
                     arguments={"query": query, "limit": 1},
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
-                tool_name=manager._search_tool_name,
+                tool_name=runner._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
                 arguments={"query": query, "limit": 1},
@@ -469,7 +445,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(entry.tool_name, available)
 
     async def test_anthropic_search_no_results_returns_text_summary(self) -> None:
-        async with _build_manager_with_mcp() as (manager, _mcp_client):
+        async with _build_runner_with_mcp() as (runner, _mcp_client, _fixture):
             call_result = CallToolResult(
                 content=[TextContent(type="text", text='{"results": []}')],
                 structuredContent={"results": []},
@@ -477,13 +453,13 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             )
             tool_call = ToolCall(
                 function=ToolCallFunction(
-                    name=manager._search_tool_name,
+                    name=runner._search_tool_name,
                     arguments={"query": "missing tool", "limit": 1},
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
-                tool_name=manager._search_tool_name,
+                tool_name=runner._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
                 arguments={"query": "missing tool", "limit": 1},
@@ -499,19 +475,23 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Search did not return any MCP tools.", entry.text)
 
     async def test_tool_references_exist_in_payload_tools(self) -> None:
-        async with _build_manager_with_mcp() as (manager, mcp_client):
+        async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
             llm_config = LLMConfig(
                 id="claude-sonnet",
                 model="claude-sonnet-4-5-20250929",
                 provider="anthropic",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            system_prompt = _build_system_prompt(runner, project_config_id)
+            payload = runner._build_llm_request_payload(
+                llm_config=llm_config,
+                messages=_build_messages(),
+                thinking=False,
+                system_prompt=system_prompt,
+                allowlist=None,
             )
             payload_tool_names = {
                 tool["function"]["name"] for tool in payload["tools"]
@@ -535,13 +515,13 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
 
             tool_call = ToolCall(
                 function=ToolCallFunction(
-                    name=manager._search_tool_name,
+                    name=runner._search_tool_name,
                     arguments={"query": query, "limit": 1},
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
                 chat_id=ID("chat-uuid"),
-                tool_name=manager._search_tool_name,
+                tool_name=runner._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
                 arguments={"query": query, "limit": 1},
@@ -556,20 +536,22 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 if isinstance(entry, ToolReferenceContent)
             ]
             self.assertTrue(reference_names)
-        for name in reference_names:
-            self.assertIn(name, payload_tool_names)
+            for name in reference_names:
+                self.assertIn(name, payload_tool_names)
 
 
 class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_tool_returns_error_result(self) -> None:
-        async with _build_manager_with_mcp() as (manager, _mcp_client):
+        async with _build_runner_with_mcp() as (runner, _mcp_client, fixture):
             llm_config = LLMConfig(
                 id="provider-openai",
                 model="gpt-4o",
                 provider="openai",
             )
-            _configure_manager(manager, llm_config)
-            chat = _build_chat(llm_config)
+            _configure_runner(runner, llm_config)
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
             tool_name = "setta__change_section_impl"
             tool_call = ToolCall(
                 function=ToolCallFunction(
@@ -577,21 +559,30 @@ class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
                     arguments={},
                 )
             )
-
             execute_action = build_execute_tool_calls_action(
-                project_config_id=_ACTIVE_PROJECT_CONFIG_ID,
-                chat_id=chat.id,
+                project_config_id=project_config_id,
+                chat_id=ID("chat-uuid"),
                 tool_calls=[tool_call],
-                allowed_server_ids=set(
-                    manager._resolve_mcp_server_ids(chat.llmConfig)
-                ),
-                share_session_id=manager.share_session_id,
+                allowed_server_ids={SETTA_MCP_SERVER_ID},
+                share_session_id=None,
             )
             if execute_action is None:
                 raise AssertionError("Expected tool execution action")
-            tool_results = await manager._apply_actions([execute_action])
-            self.assertEqual(len(tool_results), 1)
-            tool_message = tool_results[0]
+
+            history = ChatHistory(AgentRunChatStore(fixture.dbe))
+            executor = ManagedActionExecutor(
+                chat_history=history,
+                websocket_msg_handler=runner.websocket_msg_handler,
+                mcp_client=runner.mcp_client,
+                dbe=fixture.dbe,
+                search_tool_name=runner._search_tool_name,
+                logger=logging.getLogger(__name__),
+            )
+
+            actions = await executor.apply(execute_action)
+            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
+            self.assertEqual(len(emit_actions), 1)
+            tool_message = emit_actions[0].chunk.result
 
             self.assertTrue(tool_message.is_error)
             self.assertEqual(tool_message.tool_name, tool_name)
@@ -599,60 +590,7 @@ class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
             entry = tool_message.content[0]
             self.assertIsInstance(entry, TextContent)
             self.assertIn("not registered", entry.text)
-            self.assertIn(manager._search_tool_name, entry.text)
-
-
-class PromptCacheTests(unittest.IsolatedAsyncioTestCase):
-    async def test_prompt_is_cached_per_chat(self) -> None:
-        async with _build_manager_with_project_summary() as (manager, fixture):
-            llm_config = LLMConfig(
-                id="default",
-                model="gpt-4o",
-            )
-            manager.config = AllLLMConfigs(configs={llm_config.id: llm_config})
-            project_config_id = (
-                fixture.manager.project_state_backend.defaultProjectConfigId
-            )
-            self.assertIsNotNone(project_config_id)
-            chat = Chat(
-                id=ID("chat-uuid"),
-                name="Prompt cache chat",
-                projectConfigId=None,
-                llmConfig=llm_config,
-                messages=[
-                    UserChatMessage(content=[MessageTextContent(text="Hello prompt")])
-                ],
-            )
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=ID(project_config_id),
-            )
-            first_prompt = payload["messages"][0]["content"][0]["text"]
-            self.assertIn("## Active project config", first_prompt)
-            self.assertNotIn("## Project summary", first_prompt)
-            _, canonical_to_temporary = manager.dbe.read_temporary_id_map()
-            project_config_id = ID(project_config_id)
-            if project_config_id not in canonical_to_temporary:
-                raise AssertionError("Expected project config ID in temporary map")
-            temporary_project_id = canonical_to_temporary[project_config_id]
-            self.assertIn(str(temporary_project_id), first_prompt)
-
-            await fixture.manager.create_top_level_section(
-                CreateTopLevelSectionRequest(
-                    projectConfigId=project_config_id,
-                    implType=SectionType.Code,
-                )
-            )
-
-            payload = await manager._build_llm_request_payload(
-                chat,
-                deep_think=False,
-                active_project_config_id=ID(project_config_id),
-            )
-            second_prompt = payload["messages"][0]["content"][0]["text"]
-            self.assertEqual(first_prompt, second_prompt)
+            self.assertIn(runner._search_tool_name, entry.text)
 
 
 if __name__ == "__main__":

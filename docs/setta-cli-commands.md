@@ -16,9 +16,6 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
-| `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
-| `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
-| `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -57,7 +54,6 @@ Reserved for exporting the database. The handler is currently a placeholder
 Options:
 - `--readable` exports in a human-readable format.
 - `--readable-with-variants` includes variants in the readable export.
-- `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
 
 ## `setta status`
 
@@ -81,96 +77,6 @@ Examples:
 setta status --connect-info --workspace /path/to/project --latest
 setta status --connect-info --json -w /path/to/project
 setta status --list-sessions --json
-```
-
-## `setta auth`
-
-Emit machine-readable auth metadata for the selected session. This is meant for
-agents or scripts that need a stable JSON contract.
-
-Options:
-- `--workspace PATH` (`-w` works too) filters sessions by workspace (default: current).
-- `--session ID` selects a specific session.
-- `--latest` selects the newest session.
-- `--base-url` overrides the backend base URL for the output.
-- `--json` emits strict JSON only (no extra stdout).
-
-JSON output schema:
-```json
-{
-  "baseUrl": "http://127.0.0.1:8000",
-  "apiBaseUrl": "http://127.0.0.1:8000/api",
-  "cookieHeader": "Cookie: setta_auth=....",
-  "cookie": "setta_auth=....",
-  "cookieName": "setta_auth",
-  "session": {
-    "id": "...",
-    "workspacePath": "...",
-    "host": "127.0.0.1",
-    "port": 8000,
-    "pid": 12345,
-    "startedAt": "2025-01-01T12:00:00.000000"
-  },
-  "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
-  "bootstrapUrlPlain": "http://127.0.0.1:8000/__setta__/bootstrap",
-  "source": "bootstrap"
-}
-```
-
-Example:
-```sh
-setta auth --json --latest > /tmp/setta_auth.json
-```
-
-## `setta tools`
-
-Emit the MCP tool list (JSON only). Use this to discover tool names, schemas,
-and descriptions. Tool names are bare (no `setta__` prefix).
-
-Example:
-```sh
-setta tools > /tmp/setta_tools.json
-```
-
-## `setta api`
-
-Call Setta MCP tools with auto-auth for the current workspace.
-
-Inputs:
-- `TOOL_NAME` (bare MCP tool name; see `setta tools`)
-- `--json` inline JSON arguments
-- `--stdin` read JSON arguments from stdin
-- `--file PATH` read JSON arguments from a file
-
-Auth sources (highest priority first):
-- `--cookie-header` / `--cookie`
-- `--auth-json PATH` (from `setta auth --json`)
-- `--auth-stdin`
-- Auto-auth from the newest session in the current workspace
-
-Other options:
-- `--base-url` override backend base URL
-- `--json-output` emit raw JSON only on stdout
-
-Output:
-- MCP `CallToolResult` JSON (includes `content`, `structuredContent`, `isError`).
-
-Examples:
-```sh
-setta api getProjectConfigNamesAndIds --json-output
-setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
-setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
-  --json '{"projectConfigId":"..."}' --json-output
-```
-
-Error contract (for `--json-output`):
-```json
-{
-  "error": "HTTPError",
-  "status": 403,
-  "tool": "get_latest_project_state_summary",
-  "body": { "detail": "Unauthorized" }
-}
 ```
 
 ## `setta stop`
