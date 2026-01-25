@@ -12,7 +12,6 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParamNameType,
 )
@@ -290,9 +289,7 @@ class UserDefaultTextAreaParamCodeObjImpl(
 class UserDefaultDropzoneParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    mode: DropzoneMode = DropzoneMode.STATEFUL
-    maxAttachments: int | None = Field(default=None, gt=0)
-    placeholder: str = "Drop a file here"
+    pass
 
 
 class UserDefaultNestedParamCodeObjImpl(

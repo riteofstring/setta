@@ -173,14 +173,6 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
-export async function route_import_files_to_artifacts(
-  x: gt.ImportFilesToArtifactsRequestInput,
-): Promise<
-  ResponseDataAndStatus<Array<gt.ImportFilesToArtifactsResponseItem>>
-> {
-  return await post("/importFilesToArtifacts", x);
-}
-
 export async function route_load_cached_image_artifacts(
   x: gt.LoadCachedPathsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ImageArtifact | null>>> {
@@ -211,12 +203,6 @@ export async function route_update_artifacts(
   x: gt.UpdateArtifactsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ArtifactSaveResult>>> {
   return await post("/updateArtifacts", x);
-}
-
-export async function route_delete_artifacts(
-  x: gt.DeleteArtifactsRequestInput,
-): Promise<ResponseDataAndStatus<Array<string>>> {
-  return await post("/deleteArtifacts", x);
 }
 
 export async function route_get_listener_coverage(
@@ -581,6 +567,18 @@ export async function route_set_show_param_display_names(
   x: gt.SetShowParamDisplayNamesRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setShowParamDisplayNames", x);
+}
+
+export async function route_set_watch_code_enabled(
+  x: gt.SetWatchCodeEnabledRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setWatchCodeEnabled", x);
+}
+
+export async function route_set_watch_code_inputs(
+  x: gt.SetWatchCodeInputsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setWatchCodeInputs", x);
 }
 
 export async function route_set_param_entered_value(
