@@ -118,15 +118,28 @@ async def websocket_route_loop(
             await websocket_msg_handler.on_connect(fromWebsocketId)
             while True:
                 try:
-                    json_str = await websocket.receive_text()
+                    message = await websocket.receive()
                     if share_session_id is not None and share_session_store is not None:
                         if not share_session_store.has_session(share_session_id):
                             await _close_not_found(websocket)
                             break
                         share_session_store.touch_session(share_session_id)
-                    await websocket_msg_handler.process_json_str(
-                        json_str, fromWebsocketId
-                    )
+                    message_type = message.get("type")
+                    if message_type == "websocket.disconnect":
+                        break
+                    if message_type != "websocket.receive":
+                        continue
+                    text_payload = message.get("text")
+                    if text_payload is not None:
+                        await websocket_msg_handler.process_json_str(
+                            text_payload, fromWebsocketId
+                        )
+                        continue
+                    binary_payload = message.get("bytes")
+                    if binary_payload is not None:
+                        await websocket_msg_handler.process_bytes(
+                            binary_payload, fromWebsocketId
+                        )
                 except WebSocketDisconnect:
                     logger.debug("WebSocketDisconnect!")
                     break

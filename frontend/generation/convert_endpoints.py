@@ -18,7 +18,7 @@ from typing import (
     is_typeddict,
 )
 
-from fastapi import BackgroundTasks, Request, Response
+from fastapi import BackgroundTasks, Request, Response, UploadFile
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
@@ -132,6 +132,9 @@ def python_type_to_ts(
     # Handle None type
     if python_type is type(None):
         return "null"
+
+    if python_type is UploadFile:
+        return "FormData"
 
     # Get the origin for generic types
     origin = get_origin(python_type)

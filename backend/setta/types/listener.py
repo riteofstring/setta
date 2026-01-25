@@ -42,8 +42,10 @@ class ListenerRealtimeEventContent(BaseModel):
 
 
 class DependencyEvent(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: str | None = None
+    payload: BaseDependencyValueUnionWithDiscriminator | None = None
+    binaryPayload: bytes | None = Field(default=None, exclude=True)
     timestampMs: int
 
 
@@ -118,6 +120,7 @@ class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dependency: BaseDependencyKeyUnionWithDiscriminator
     value: BaseDependencyValueUnionWithDiscriminator
+    binaryPayload: bytes | None = Field(default=None, exclude=True)
 
 
 class ListenerRegisterCallback(BaseModel):

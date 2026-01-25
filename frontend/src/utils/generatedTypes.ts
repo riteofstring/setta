@@ -232,7 +232,7 @@ export const DependencyKeyTypeEnum = {
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
-  Base64: "Base64",
+  Binary: "Binary",
   FileRead: "FileRead",
 } as const;
 
@@ -395,7 +395,8 @@ export const RouteEnum = {
   LOAD_ARTIFACTS: "/loadArtifacts",
   LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
   UPDATE_ARTIFACTS: "/updateArtifacts",
-  READ_CSV_BASE64: "/readCSVBase64",
+  BINARY_UPLOAD: "/binary/upload",
+  BINARY_DOWNLOAD: "/binary/{contentId}",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
@@ -871,10 +872,19 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
+const BinaryContentRefSchema = z.object({
+  contentId: z.string(),
+  byteLength: z.int(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  sha256: z.union([z.string(), z.null()]).default(null),
+});
+
+export type BinaryContentRef = z.infer<typeof BinaryContentRefSchema>;
+
 const FileArtifactSchema = z.object({
   type: z.literal("File").default(ArtifactTypeEnum.File),
   id: z.string().default(create_file_artifact_id),
-  value: z.string(),
+  value: BinaryContentRefSchema,
 });
 
 export type FileArtifact = z.infer<typeof FileArtifactSchema>;
@@ -882,7 +892,7 @@ export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
-  value: z.string(),
+  value: BinaryContentRefSchema,
 });
 
 export type ImageArtifact = z.infer<typeof ImageArtifactSchema>;
@@ -2392,22 +2402,22 @@ export type LiteralDependencyValue = z.infer<
   typeof LiteralDependencyValueSchema
 >;
 
-const Base64DependencyValueSchema = z.object({
-  payload: z.string(),
-  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
-});
-
-export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
-
 const FileReadDependencyValueSchema = z.object({
   payload: z.string(),
   type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
 });
 
+const BinaryDependencyValueSchema = z.object({
+  payload: BinaryContentRefSchema,
+  type: z.literal("Binary").default(DependencyValueTypeEnum.Binary),
+});
+
+export type BinaryDependencyValue = z.infer<typeof BinaryDependencyValueSchema>;
+
 const BaseDependencyValueUnionSchema = z.union([
   LiteralDependencyValueSchema,
-  Base64DependencyValueSchema,
   FileReadDependencyValueSchema,
+  BinaryDependencyValueSchema,
 ]);
 
 export type BaseDependencyValueUnion = z.infer<
@@ -3202,8 +3212,8 @@ const RealtimeUIChangeContentSchema = z.object({
   ]),
   value: z.union([
     LiteralDependencyValueSchema,
-    Base64DependencyValueSchema,
     FileReadDependencyValueSchema,
+    BinaryDependencyValueSchema,
   ]),
 });
 
@@ -3224,7 +3234,17 @@ const DependencyEventSchema = z.object({
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  payload: z.union([z.string(), z.null()]).default(null),
+  payload: z
+    .union([
+      z.discriminatedUnion("type", [
+        LiteralDependencyValueSchema,
+        FileReadDependencyValueSchema,
+        BinaryDependencyValueSchema,
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  binaryPayload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 
@@ -3380,43 +3400,9 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
-const SettaLspDiagnosticPositionSchema = z.object({
-  line: z.int(),
-  character: z.int(),
-});
-
-const SettaLspDiagnosticRangeSchema = z.object({
-  start: SettaLspDiagnosticPositionSchema,
-  end: SettaLspDiagnosticPositionSchema,
-});
-
-const SettaLspDiagnosticSchema = z.object({
-  message: z.string(),
-  severity: z.union([z.int(), z.null()]).default(null),
-  code: z.union([z.string(), z.int(), z.null()]).default(null),
-  source: z.union([z.string(), z.null()]).default(null),
-  range: SettaLspDiagnosticRangeSchema,
-  uri: z.union([z.string(), z.null()]).default(null),
-});
-
-export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
-
-const SettaLspDiagnosticsPayloadSchema = z.object({
-  projectConfigId: IDSchema,
-  genCode: SettaProjectConfigDiagnosticsSchema,
-  codeSections: z
-    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
-    .default({}),
-  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
-});
-
-export type SettaLspDiagnosticsPayload = z.infer<
-  typeof SettaLspDiagnosticsPayloadSchema
->;
-
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaLspDiagnosticsPayloadSchema,
+  content: SettaProjectConfigDiagnosticsSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -8142,7 +8128,7 @@ const RunCodeRequestSchema = z.object({
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
   drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, z.string()), z.null()])
+    .union([z.record(IDSchema, BinaryContentRefSchema), z.null()])
     .default(null),
 });
 

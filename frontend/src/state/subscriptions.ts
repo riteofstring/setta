@@ -113,11 +113,11 @@ export function subscribe() {
       const decodedImages = useDecodedImages.getState().x;
       const needToDecode: Array<string> = [];
       for (const [path, img] of Object.entries(x)) {
-        if (
-          img &&
-          requiredDecodedImages.includes(path) &&
-          (!decodedImages[path] || decodedImages[path].src !== img.value)
-        ) {
+        if (!img || !requiredDecodedImages.includes(path)) {
+          continue;
+        }
+        const decoded = decodedImages[path];
+        if (!decoded || decoded.dataset.contentId !== img.value.contentId) {
           needToDecode.push(path);
         }
       }

@@ -10,6 +10,7 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
 from setta.types.artifact import ArtifactType, ImageArtifact
+from setta.types.binary_content import BinaryContentRef
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -902,7 +903,12 @@ class TestPythonScriptReceiver:
         websocket_manager.broadcasts.clear()
 
         artifact = ImageArtifact(
-            id=ID("/tmp/image.png"), value="data:image/png;base64,AAA"
+            id=ID("/tmp/image.png"),
+            value=BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            ),
         )
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
@@ -929,7 +935,14 @@ class TestPythonScriptReceiver:
         artifact_update = artifact_updates[0]
         assert artifact_update.id == str(normalize_path("/tmp/image.png"))
         assert artifact_update.type == ArtifactType.Image
-        assert artifact_update.value == "data:image/png;base64,AAA"
+        assert (
+            artifact_update.value
+            == BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            )
+        )
 
     async def test_listener_frontend_emit_reports_artifact_errors_from_manager(
         self,
@@ -963,7 +976,12 @@ class TestPythonScriptReceiver:
         websocket_manager.broadcasts.clear()
 
         artifact = ImageArtifact(
-            id=ID("/tmp/image.png"), value="data:image/png;base64,AAA"
+            id=ID("/tmp/image.png"),
+            value=BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            ),
         )
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
@@ -1015,7 +1033,14 @@ class TestPythonScriptReceiver:
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
-        artifact = ImageArtifact(id=ID("   "), value="data:image/png;base64,AAA")
+        artifact = ImageArtifact(
+            id=ID("   "),
+            value=BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            ),
+        )
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId=PROJECT_ID,
@@ -1073,7 +1098,12 @@ class TestPythonScriptReceiver:
         websocket_manager.broadcasts.clear()
 
         artifact = ImageArtifact(
-            id=ID("/tmp/image.png"), value="data:image/png;base64,AAA"
+            id=ID("/tmp/image.png"),
+            value=BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            ),
         )
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
