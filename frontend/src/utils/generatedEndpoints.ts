@@ -242,9 +242,9 @@ async function route_set_chat_system_prompt(
 }
 
 async function route_get_all_chat_metadata(
-  _request: gt.GetAllChatMetadataRequestInput,
+  x: gt.GetAllChatMetadataRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllChatMetadata", _request);
+  return await post("/getAllChatMetadata", x);
 }
 
 async function route_run_mcp_tools(

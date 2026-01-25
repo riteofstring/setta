@@ -1,7 +1,7 @@
 import base64
 import importlib
-from io import BytesIO
 import os
+from io import BytesIO
 
 from setta.api import SettaListener
 from setta.logging.config import configure_listener_logging
@@ -14,11 +14,13 @@ def _load_pillow_modules():
     return image_module, image_ops_module
 
 
-DEFAULT_PROJECT_NAME = "sample_project"
-
-
 def _default_project_name() -> str:
-    return os.environ.get("SETTA_PROJECT_NAME", DEFAULT_PROJECT_NAME)
+    project_name = os.environ.get("SETTA_PROJECT_NAME")
+    if not project_name:
+        raise ValueError(
+            "Project name required. Set SETTA_PROJECT_NAME before running."
+        )
+    return project_name
 
 
 def _reverse_image_data(value: str) -> str:

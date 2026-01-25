@@ -13,6 +13,7 @@ import {
 } from "state/actions/customRuns";
 import {
   getActiveViewModeConfig,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getSectionCore,
   getSectionShouldRender,
@@ -34,12 +35,18 @@ import {
 } from "utils/codegenTargets";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
+  CodeObjTypeEnum,
+  CodeObjValueRepresentationModeEnum,
+  createCodeObjValuePolicy,
   createProjectCodegenPythonTarget,
   createSectionCodegenPolicy,
   isBaseParentSectionImpl,
+  isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
+  type CodeObjType,
+  type CodeObjValueRepresentationMode,
   type Core,
   type ProjectCodegenPythonTarget,
   type SectionType,
@@ -51,8 +58,15 @@ type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 type RunSnapshotModeChoice = RunSnapshotMode | "default";
 type SectionCodegenMode = "inherit" | "include" | "exclude";
-type SectionRepresentationMode = "json" | "file" | "base64";
+type SectionRepresentationMode = "expression" | "file_path" | "file_read";
 type SectionOption = { id: string; name: string; type: SectionType };
+type CodeObjOption = {
+  id: string;
+  name: string;
+  type: CodeObjType;
+  sectionName: string;
+  label: string;
+};
 
 const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
@@ -70,6 +84,47 @@ const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.Image,
   SectionTypeEnum.MetaControl,
   SectionTypeEnum.Chat,
+];
+const META_CONTROL_CODE_OBJ_TYPES: CodeObjType[] = [
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.DropzoneParam,
+];
+type MetaControlCodeObjType = (typeof META_CONTROL_CODE_OBJ_TYPES)[number];
+const META_CONTROL_CODE_OBJ_LABELS: Record<MetaControlCodeObjType, string> = {
+  [CodeObjTypeEnum.DropdownParam]: "Dropdown",
+  [CodeObjTypeEnum.SliderParam]: "Slider",
+  [CodeObjTypeEnum.RotaryParam]: "Rotary",
+  [CodeObjTypeEnum.SwitchParam]: "Switch",
+  [CodeObjTypeEnum.TextParam]: "Text Input",
+  [CodeObjTypeEnum.TextAreaParam]: "Text Area",
+  [CodeObjTypeEnum.CodeParam]: "Code Input",
+  [CodeObjTypeEnum.PasswordParam]: "Password Field",
+  [CodeObjTypeEnum.ColorPickerParam]: "Color Picker",
+  [CodeObjTypeEnum.ButtonParam]: "Button",
+  [CodeObjTypeEnum.DropzoneParam]: "Dropzone",
+};
+const CODEGEN_CODE_OBJ_TYPES: CodeObjType[] = [
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
 ];
 const SECTION_CODEGEN_MODE_OPTIONS: Array<{
   value: SectionCodegenMode;
@@ -142,16 +197,31 @@ export function RunInstructions() {
   const nonPythonTargets = projectConfig.codegenTargets.filter(
     (target) => target.language !== ProjectCodegenLanguageEnum.python,
   );
-  const defaultPolicy = React.useMemo(() => createSectionCodegenPolicy(), []);
-  const pythonTarget =
-    currentPythonTarget ?? createProjectCodegenPythonTarget();
+  const defaultSectionPolicy = React.useMemo(
+    () => createSectionCodegenPolicy(),
+    [],
+  );
+  const defaultCodeObjValuePolicy = React.useMemo(
+    () => createCodeObjValuePolicy(),
+    [],
+  );
+  const pythonTarget = React.useMemo(
+    () => currentPythonTarget ?? createProjectCodegenPythonTarget(),
+    [currentPythonTarget],
+  );
   const sectionPolicy = pythonTarget.sectionPolicy;
-  const defaultAllowlist = defaultPolicy.allowlist ?? [];
+  const codeObjValuePolicy = pythonTarget.codeObjValuePolicy;
+  const defaultAllowlist = defaultSectionPolicy.allowlist ?? [];
+  const defaultMetaControlAllowlist =
+    defaultSectionPolicy.metaControlAllowlist ?? META_CONTROL_CODE_OBJ_TYPES;
   const [cachedAllowlist, setCachedAllowlist] = React.useState<SectionType[]>(
     sectionPolicy.allowlist ?? defaultAllowlist,
   );
   const [pendingOverrideId, setPendingOverrideId] = React.useState("");
+  const [pendingCodeObjOverrideId, setPendingCodeObjOverrideId] =
+    React.useState("");
   const sectionOptions = useSectionOptions();
+  const codeObjOptions = useCodeObjOptions();
   const sectionOptionsById = React.useMemo(() => {
     const entries = new Map<string, SectionOption>();
     for (const option of sectionOptions) {
@@ -159,11 +229,21 @@ export function RunInstructions() {
     }
     return entries;
   }, [sectionOptions]);
+  const codeObjOptionsById = React.useMemo(() => {
+    const entries = new Map<string, CodeObjOption>();
+    for (const option of codeObjOptions) {
+      entries.set(option.id, option);
+    }
+    return entries;
+  }, [codeObjOptions]);
 
   React.useEffect(() => {
-    if (sectionPolicy.allowlist) {
-      setCachedAllowlist(sectionPolicy.allowlist);
+    if (!sectionPolicy.allowlist) {
+      return;
     }
+    setCachedAllowlist((prev) =>
+      _.isEqual(prev, sectionPolicy.allowlist) ? prev : sectionPolicy.allowlist,
+    );
   }, [sectionPolicy.allowlist]);
 
   const applyCodegenTargets = (
@@ -219,6 +299,15 @@ export function RunInstructions() {
     }));
   };
 
+  const updateCodeObjValuePolicy = (
+    nextPolicy: ProjectCodegenPythonTarget["codeObjValuePolicy"],
+  ): void => {
+    updatePythonTarget((target) => ({
+      ...target,
+      codeObjValuePolicy: nextPolicy,
+    }));
+  };
+
   React.useEffect(() => {
     if (!canRun) {
       return;
@@ -262,6 +351,8 @@ export function RunInstructions() {
 
   const allowlistEnabled = sectionPolicy.allowlist !== null;
   const allowlist = sectionPolicy.allowlist ?? cachedAllowlist;
+  const metaControlAllowlist =
+    sectionPolicy.metaControlAllowlist ?? defaultMetaControlAllowlist;
   const availableOverrideSections = sectionOptions
     .filter((option) => !sectionPolicy.sectionOverrides[option.id])
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -276,6 +367,22 @@ export function RunInstructions() {
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  const availableCodeObjOverrides = codeObjOptions
+    .filter((option) => !codeObjValuePolicy.codeObjOverrides[option.id])
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const codeObjOverrideEntries = Object.entries(
+    codeObjValuePolicy.codeObjOverrides,
+  )
+    .map(([codeObjId, override]) => {
+      const codeObj = codeObjOptionsById.get(codeObjId) ?? null;
+      return {
+        codeObjId,
+        override,
+        label: codeObj?.label ?? codeObjId,
+        type: codeObj?.type ?? null,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   React.useEffect(() => {
     if (!pendingOverrideId) {
@@ -288,6 +395,18 @@ export function RunInstructions() {
       setPendingOverrideId("");
     }
   }, [availableOverrideSections, pendingOverrideId]);
+
+  React.useEffect(() => {
+    if (!pendingCodeObjOverrideId) {
+      return;
+    }
+    const stillAvailable = availableCodeObjOverrides.some(
+      (option) => option.id === pendingCodeObjOverrideId,
+    );
+    if (!stillAvailable) {
+      setPendingCodeObjOverrideId("");
+    }
+  }, [availableCodeObjOverrides, pendingCodeObjOverrideId]);
 
   if (!canRun) {
     return (
@@ -423,30 +542,110 @@ export function RunInstructions() {
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
                   {CODEGEN_SECTION_TYPES.map((sectionType) => {
                     const isChecked = allowlist.includes(sectionType);
+                    if (sectionType !== SectionTypeEnum.MetaControl) {
+                      return (
+                        <label
+                          key={sectionType}
+                          className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isShareMode}
+                            onChange={(event) => {
+                              const nextAllowlist = event.target.checked
+                                ? Array.from(
+                                    new Set([...allowlist, sectionType]),
+                                  )
+                                : allowlist.filter(
+                                    (item) => item !== sectionType,
+                                  );
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                allowlist: nextAllowlist,
+                              });
+                            }}
+                            className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                          />
+                          <span>{sectionType}</span>
+                        </label>
+                      );
+                    }
+
                     return (
-                      <label
+                      <div
                         key={sectionType}
-                        className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300"
+                        className="col-span-2 flex flex-col gap-1"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={isShareMode}
-                          onChange={(event) => {
-                            const nextAllowlist = event.target.checked
-                              ? Array.from(new Set([...allowlist, sectionType]))
-                              : allowlist.filter(
-                                  (item) => item !== sectionType,
-                                );
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              allowlist: nextAllowlist,
-                            });
-                          }}
-                          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-                        />
-                        <span>{sectionType}</span>
-                      </label>
+                        <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isShareMode}
+                            onChange={(event) => {
+                              const nextAllowlist = event.target.checked
+                                ? Array.from(
+                                    new Set([...allowlist, sectionType]),
+                                  )
+                                : allowlist.filter(
+                                    (item) => item !== sectionType,
+                                  );
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                allowlist: nextAllowlist,
+                              });
+                            }}
+                            className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                          />
+                          <span>{sectionType}</span>
+                        </label>
+                        {isChecked ? (
+                          <div className="ml-6 grid grid-cols-2 gap-x-3 gap-y-1">
+                            {META_CONTROL_CODE_OBJ_TYPES.map((codeObjType) => {
+                              const isTypeChecked =
+                                metaControlAllowlist.includes(codeObjType);
+                              const label =
+                                META_CONTROL_CODE_OBJ_LABELS[codeObjType];
+                              return (
+                                <label
+                                  key={codeObjType}
+                                  className="flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isTypeChecked}
+                                    disabled={isShareMode}
+                                    onChange={(event) => {
+                                      let nextMetaControlAllowlist =
+                                        metaControlAllowlist;
+                                      if (event.target.checked) {
+                                        nextMetaControlAllowlist = Array.from(
+                                          new Set([
+                                            ...metaControlAllowlist,
+                                            codeObjType,
+                                          ]),
+                                        );
+                                      } else {
+                                        nextMetaControlAllowlist =
+                                          metaControlAllowlist.filter(
+                                            (item) => item !== codeObjType,
+                                          );
+                                      }
+                                      updateSectionPolicy({
+                                        ...sectionPolicy,
+                                        metaControlAllowlist:
+                                          nextMetaControlAllowlist,
+                                      });
+                                    }}
+                                    className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                                  />
+                                  <span>{label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>
@@ -579,7 +778,8 @@ export function RunInstructions() {
                       ...sectionPolicy.sectionOverrides,
                       [pendingOverrideId]: {
                         mode: "inherit",
-                        representation: basePolicy?.representation ?? "json",
+                        representation:
+                          basePolicy?.representation ?? "expression",
                       },
                     };
                     updateSectionPolicy({
@@ -687,6 +887,208 @@ export function RunInstructions() {
                             updateSectionPolicy({
                               ...sectionPolicy,
                               sectionOverrides: nextOverrides,
+                            });
+                          }}
+                          type="button"
+                          {...getFloatingBoxHandlers({
+                            content: "Remove override",
+                          })}
+                        >
+                          <i className="gg-trash" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+              <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
+                Code Obj Type Defaults
+              </div>
+              <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
+                Choose how param values are formatted by default.
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
+                <div className="flex-1">Type</div>
+                <div className="w-24 text-right">Representation</div>
+              </div>
+              <div className="mt-1 space-y-1">
+                {CODEGEN_CODE_OBJ_TYPES.map((codeObjType) => {
+                  const typePolicy =
+                    codeObjValuePolicy.typePolicies[codeObjType] ??
+                    defaultCodeObjValuePolicy.typePolicies[codeObjType];
+                  if (!typePolicy) {
+                    return null;
+                  }
+                  const representationOptions =
+                    getCodeObjRepresentationOptions(codeObjType);
+                  const representationOptionsWithFallback =
+                    representationOptions.includes(typePolicy.representation)
+                      ? representationOptions
+                      : [typePolicy.representation, ...representationOptions];
+                  const representationDisabled =
+                    representationOptionsWithFallback.length === 1;
+                  return (
+                    <div key={codeObjType} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                        {codeObjType}
+                      </div>
+                      <select
+                        className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                        disabled={isShareMode || representationDisabled}
+                        value={typePolicy.representation}
+                        onChange={(event) => {
+                          const nextRepresentation = event.target
+                            .value as CodeObjValueRepresentationMode;
+                          updateCodeObjValuePolicy({
+                            ...codeObjValuePolicy,
+                            typePolicies: {
+                              ...codeObjValuePolicy.typePolicies,
+                              [codeObjType]: {
+                                ...typePolicy,
+                                representation: nextRepresentation,
+                              },
+                            },
+                          });
+                        }}
+                      >
+                        {representationOptionsWithFallback.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+              <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
+                Code Obj Overrides
+              </div>
+              <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
+                Override representation for individual params.
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+                  disabled={
+                    isShareMode || availableCodeObjOverrides.length === 0
+                  }
+                  value={pendingCodeObjOverrideId}
+                  onChange={(event) => {
+                    setPendingCodeObjOverrideId(event.target.value);
+                  }}
+                >
+                  <option value="">Select a param</option>
+                  {availableCodeObjOverrides.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+                  disabled={isShareMode || !pendingCodeObjOverrideId}
+                  onClick={() => {
+                    const selected =
+                      codeObjOptionsById.get(pendingCodeObjOverrideId) ?? null;
+                    if (!selected) {
+                      return;
+                    }
+                    const basePolicy =
+                      codeObjValuePolicy.typePolicies[selected.type] ??
+                      defaultCodeObjValuePolicy.typePolicies[selected.type];
+                    const nextOverrides = {
+                      ...codeObjValuePolicy.codeObjOverrides,
+                      [pendingCodeObjOverrideId]: {
+                        representation:
+                          basePolicy?.representation ??
+                          CodeObjValueRepresentationModeEnum.expression,
+                      },
+                    };
+                    updateCodeObjValuePolicy({
+                      ...codeObjValuePolicy,
+                      codeObjOverrides: nextOverrides,
+                    });
+                    setPendingCodeObjOverrideId("");
+                  }}
+                  type="button"
+                  {...getFloatingBoxHandlers({ content: "Add override" })}
+                >
+                  <i className="gg-add" />
+                </button>
+              </div>
+              {codeObjOverrideEntries.length === 0 ? (
+                <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
+                  No overrides yet.
+                </div>
+              ) : (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
+                    <div className="flex-1">Param</div>
+                    <div className="w-24 text-right">Representation</div>
+                    <div className="w-6" />
+                  </div>
+                  {codeObjOverrideEntries.map((entry) => {
+                    const representationOptions =
+                      getCodeObjRepresentationOptions(entry.type);
+                    const overrideRepresentationOptions =
+                      representationOptions.includes(
+                        entry.override.representation,
+                      )
+                        ? representationOptions
+                        : [entry.override.representation];
+                    const representationDisabled =
+                      overrideRepresentationOptions.length === 1;
+                    return (
+                      <div
+                        key={entry.codeObjId}
+                        className="flex items-center gap-2"
+                      >
+                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                          {entry.label}
+                        </div>
+                        <select
+                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                          disabled={isShareMode || representationDisabled}
+                          value={entry.override.representation}
+                          onChange={(event) => {
+                            const nextRepresentation = event.target
+                              .value as CodeObjValueRepresentationMode;
+                            updateCodeObjValuePolicy({
+                              ...codeObjValuePolicy,
+                              codeObjOverrides: {
+                                ...codeObjValuePolicy.codeObjOverrides,
+                                [entry.codeObjId]: {
+                                  ...entry.override,
+                                  representation: nextRepresentation,
+                                },
+                              },
+                            });
+                          }}
+                        >
+                          {overrideRepresentationOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
+                          disabled={isShareMode}
+                          onClick={() => {
+                            const nextOverrides = {
+                              ...codeObjValuePolicy.codeObjOverrides,
+                            };
+                            delete nextOverrides[entry.codeObjId];
+                            updateCodeObjValuePolicy({
+                              ...codeObjValuePolicy,
+                              codeObjOverrides: nextOverrides,
                             });
                           }}
                           type="button"
@@ -894,19 +1296,87 @@ function useSectionOptions(): SectionOption[] {
   }, _.isEqual);
 }
 
+function useCodeObjOptions(): CodeObjOption[] {
+  return useProjectState((x) => {
+    const outputList: Array<CodeObjOption> = [];
+    const seen = new Set<string>();
+    for (const [sectionId, section] of Object.entries(x.sections)) {
+      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
+      const sectionName = section.name;
+      let codeObjIds: string[] = [];
+      if (isBaseSectionWithParamsImpl(sectionImpl)) {
+        codeObjIds = Object.keys(sectionImpl.codeObjVariantMap);
+      } else if (
+        sectionImpl.type === SectionTypeEnum.MetaControl &&
+        sectionImpl.metaControlParamId
+      ) {
+        codeObjIds = [sectionImpl.metaControlParamId];
+      }
+      for (const codeObjId of codeObjIds) {
+        if (seen.has(codeObjId)) {
+          continue;
+        }
+        const codeObjCore = x.codeObjs[codeObjId];
+        if (!codeObjCore) {
+          continue;
+        }
+        const impl = getCurrEffectiveCodeObjImpl(x, sectionId, codeObjId);
+        if (impl.type === CodeObjTypeEnum.CodeCallable) {
+          continue;
+        }
+        const name = codeObjCore.name;
+        const label = `${sectionName} / ${name}`;
+        outputList.push({
+          id: codeObjId,
+          name,
+          type: impl.type,
+          sectionName,
+          label,
+        });
+        seen.add(codeObjId);
+      }
+    }
+    outputList.sort((a, b) => a.label.localeCompare(b.label));
+    return outputList;
+  }, _.isEqual);
+}
+
 function getRepresentationOptions(
   sectionType: SectionType | null,
 ): SectionRepresentationMode[] {
   if (sectionType === SectionTypeEnum.Chat) {
-    return ["json", "file"];
+    return ["expression", "file_path", "file_read"];
   }
   if (sectionType === SectionTypeEnum.Draw) {
-    return ["file"];
+    return ["file_path", "file_read"];
   }
   if (sectionType === SectionTypeEnum.Image) {
-    return ["file"];
+    return ["file_path", "file_read"];
   }
-  return ["json"];
+  if (sectionType === SectionTypeEnum.Chart) {
+    return ["expression", "file_path"];
+  }
+  return ["expression"];
+}
+
+function getCodeObjRepresentationOptions(
+  codeObjType: CodeObjType | null,
+): CodeObjValueRepresentationMode[] {
+  if (!codeObjType) {
+    return [CodeObjValueRepresentationModeEnum.expression];
+  }
+  if (
+    codeObjType === CodeObjTypeEnum.ButtonParam ||
+    codeObjType === CodeObjTypeEnum.CodeCallable ||
+    codeObjType === CodeObjTypeEnum.NestedParam
+  ) {
+    return [CodeObjValueRepresentationModeEnum.expression];
+  }
+  return [
+    CodeObjValueRepresentationModeEnum.expression,
+    CodeObjValueRepresentationModeEnum.json_parsed,
+    CodeObjValueRepresentationModeEnum.string,
+  ];
 }
 
 function getRunnableCodeBlockListingHelper(

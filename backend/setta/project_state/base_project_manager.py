@@ -290,7 +290,6 @@ from setta.types.helpers_lvl3 import (
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.lsp import SettaProjectConfigDiagnostics
-from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
     SettaNotification,
@@ -312,7 +311,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
     CodeFileAccessMode,
@@ -327,13 +325,6 @@ from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
-from setta.utils.name_validation import (
-    collect_param_name_conflicts,
-    collect_section_name_conflicts,
-    validate_param_name,
-    validate_param_name_format,
-    validate_project_name,
-)
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -936,9 +927,7 @@ class BaseProjectManager(ABC):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
-        project_state = await self.maybe_init_project_config(projectState)
-        await self._broadcast_name_validation_errors(project_state)
-        return project_state
+        return await self.maybe_init_project_config(projectState)
 
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
         async with self._project_state_lock.read_lock():
@@ -1120,14 +1109,10 @@ class BaseProjectManager(ABC):
         projectState: ProjectStateSingleConfig,
         updateFileWatcher: bool = True,
         validate_code_file_bindings: bool = True,
-        allow_reserved_project_name: bool = False,
-        validate_name_rules: bool = True,
     ):
         async with self._project_state_lock.write_lock():
             projectState.validate_for_update(
                 validate_code_file_bindings=validate_code_file_bindings,
-                allow_reserved_project_name=allow_reserved_project_name,
-                validate_name_rules=validate_name_rules,
             )
             if self.lsp_writers.full is not None:
                 await self._refresh_codegen_state(projectState)
@@ -1418,11 +1403,7 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(
-            project_state,
-            broadcast_name_validation_errors=False,
-            validate_name_rules=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1457,10 +1438,7 @@ class BaseProjectManager(ABC):
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        normalized_name = validate_param_name(
-            project_state, x.sectionId, x.codeObjId, x.name
-        )
-        project_state.codeObjs[x.codeObjId].name = normalized_name
+        project_state.codeObjs[x.codeObjId].name = x.name
         set_param_entered_value(
             project_state,
             x.sectionId,
@@ -1478,19 +1456,7 @@ class BaseProjectManager(ABC):
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        section_id = self._find_section_id_for_code_obj(project_state, x.codeObjId)
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if isinstance(section_impl, BaseSectionWithParamsImpl):
-            normalized_name = validate_param_name(
-                project_state, section_id, x.codeObjId, x.name
-            )
-        elif section_impl.type == SectionType.MetaControl:
-            normalized_name = validate_param_name_format(
-                project_state, section_id, x.codeObjId, x.name
-            )
-        else:
-            raise TypeError(f"Section {section_id} does not support code obj renames.")
-        project_state.codeObjs[x.codeObjId].name = normalized_name
+        project_state.codeObjs[x.codeObjId].name = x.name
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -2084,10 +2050,6 @@ class BaseProjectManager(ABC):
         new_project_config = ProjectConfig(
             previewImgColor=previewImgColor, viewport=None
         )
-        normalized_name = validate_project_name(
-            self.project_state_backend, None, new_project_config.name
-        )
-        new_project_config.name = normalized_name
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         if project_config_has_codegen_language(
             new_project_config,
@@ -2750,48 +2712,14 @@ class BaseProjectManager(ABC):
             self.project_state_backend, projectConfigId
         )
 
-    def _find_section_id_for_code_obj(
-        self,
-        project_state: ProjectStateSingleConfig,
-        code_obj_id: ID,
-    ) -> ID:
-        matches: list[ID] = []
-        for section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                if section_impl.type != SectionType.MetaControl:
-                    continue
-                if code_obj_id in section_impl.codeObjVariantMap:
-                    matches.append(section_id)
-                continue
-            if code_obj_id in section_impl.codeObjVariantMap:
-                matches.append(section_id)
-        if not matches:
-            raise KeyError(f"Code obj {code_obj_id} not found in any section.")
-        if len(matches) > 1:
-            raise ValueError(
-                f"Code obj {code_obj_id} appears in multiple sections: {matches}."
-            )
-        return matches[0]
-
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
     async def update_and_broadcast_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-        updateFileWatcher: bool = True,
-        broadcast_name_validation_errors: bool = True,
-        validate_name_rules: bool = True,
+        self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
     ):
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=validate_name_rules,
-        )
+        await self.update(project_state, updateFileWatcher=updateFileWatcher)
         await self._broadcast_project_state_snapshot(project_state)
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
 
     async def _broadcast_project_state_snapshot(
         self,
@@ -2806,19 +2734,6 @@ class BaseProjectManager(ABC):
             pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_name_validation_errors(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        section_errors = collect_section_name_conflicts(project_state)
-        param_errors = collect_param_name_conflicts(project_state)
-        content = SettaProjectNameValidationErrors(
-            projectConfigId=project_state.projectConfig.id,
-            sectionErrors=section_errors,
-            paramErrors=param_errors,
-        )
-        await self.websocket_msg_handler.broadcast_name_validation_errors(content)
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
