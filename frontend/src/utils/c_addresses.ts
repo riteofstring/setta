@@ -4,12 +4,30 @@ import { RouteEnum } from "utils/generatedTypes";
 export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
 
+  static get DEV_BACKEND_ORIGIN_OVERRIDE() {
+    const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
+    if (!override) {
+      return undefined;
+    }
+    return this.normalizeOrigin(override);
+  }
+
+  static normalizeOrigin(origin: string) {
+    let normalizedOrigin = origin.trim();
+    if (!normalizedOrigin) {
+      return normalizedOrigin;
+    }
+    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
+    if (!hasProtocol) {
+      normalizedOrigin = `http://${normalizedOrigin}`;
+    }
+    return new URL(normalizedOrigin).origin;
+  }
+
   // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
-      const override = import.meta.env?.VITE_BACKEND_ORIGIN as
-        | string
-        | undefined;
+      const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
       if (override) {
         return override;
       }
@@ -23,9 +41,11 @@ export class C_ADDRESSES {
   }
 
   static get WEBSOCKET() {
-    const origin = this.BACKEND_ORIGIN;
-    const originUrl = new URL(origin);
-    const protocol = originUrl.protocol === "https:" ? "wss:" : "ws:";
+    const originUrl = new URL(this.BACKEND_ORIGIN);
+    const protocol =
+      originUrl.protocol === "https:" || originUrl.protocol === "wss:"
+        ? "wss:"
+        : "ws:";
     return `${protocol}//${originUrl.host}${RouteEnum.PREFIX}`;
   }
 }

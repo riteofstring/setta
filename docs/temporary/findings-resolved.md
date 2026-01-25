@@ -80,3 +80,19 @@
 - Fix: remove immediate set or guard until node exists.
 - Touch: `frontend/src/state/actions/sections/createSections.ts`
 - Tests: store test asserts single active-section update.
+
+## Resolved (2026-01-25)
+### R1) Cleanup: Playwright/Vitest artifact committed
+- Fix: removed `frontend/test-results/.last-run.json` and ignored `frontend/test-results/`.
+- Touch: `.gitignore`
+- Tests: not required.
+
+### R2) Cleanup: personal VS Code theme settings committed
+- Fix: removed `workbench.colorCustomizations` from workspace settings.
+- Touch: `.vscode/settings.json`
+- Tests: not required.
+
+### R3) Performance risk: DOM scanning on every param list mutation
+- Fix: observe a single representative row with `ResizeObserver`, throttle updates with `requestAnimationFrame`, and drop subtree scans.
+- Touch: `frontend/src/components/Params/GroupContainer.tsx`
+- Tests: `pnpm exec vitest run src/components/Params/pinnedResize.test.tsx`

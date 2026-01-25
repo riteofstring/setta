@@ -891,11 +891,12 @@ function GetUnpinnedParams({
       return;
     }
     let observedRow: HTMLElement | null = null;
+    let rafId = 0;
     const observer = new ResizeObserver(() => {
-      update();
+      scheduleUpdate();
     });
     const mutationObserver = new MutationObserver(() => {
-      update();
+      scheduleUpdate();
     });
     const updateObservedRow = () => {
       const nextRow = (node.querySelector(
@@ -917,43 +918,24 @@ function GetUnpinnedParams({
       return observedRow;
     };
     const underlineBuffer = 2;
+    const getHeaderHeight = (row: HTMLElement) => {
+      let height = row.offsetHeight;
+      const nestedContainer = row.querySelector<HTMLElement>(
+        ":scope > div.section-args-nested.section-key-value",
+      );
+      if (!nestedContainer) {
+        return height;
+      }
+      const rowStyle = window.getComputedStyle(row);
+      const rowGapValue = Number.parseFloat(rowStyle.rowGap);
+      const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
+      const nestedHeight = nestedContainer.offsetHeight;
+      const headerHeight = Math.ceil(height - nestedHeight - rowGap);
+      return headerHeight > 0 ? headerHeight : height;
+    };
     const update = () => {
       const observedRow = updateObservedRow();
-      const getHeaderHeight = (row: HTMLElement) => {
-        let height = row.offsetHeight;
-        const nestedContainer = row.querySelector<HTMLElement>(
-          ":scope > div.section-args-nested.section-key-value",
-        );
-        if (!nestedContainer) {
-          return height;
-        }
-        const rowStyle = window.getComputedStyle(row);
-        const rowGapValue = Number.parseFloat(rowStyle.rowGap);
-        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
-        const nestedHeight = nestedContainer.offsetHeight;
-        const headerHeight = Math.ceil(height - nestedHeight - rowGap);
-        return headerHeight > 0 ? headerHeight : height;
-      };
-      const rows = Array.from(
-        node.querySelectorAll<HTMLElement>(
-          ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value",
-        ),
-      );
-      let rowHeight = 0;
-      if (rows.length > 0) {
-        let minHeight = Number.POSITIVE_INFINITY;
-        for (const row of rows) {
-          const height = getHeaderHeight(row);
-          if (height > 0 && height < minHeight) {
-            minHeight = height;
-          }
-        }
-        rowHeight = Number.isFinite(minHeight) ? minHeight : 0;
-      } else if (observedRow) {
-        rowHeight = getHeaderHeight(observedRow);
-      } else {
-        rowHeight = getMinParamRowHeight(node, true);
-      }
+      const rowHeight = observedRow ? getHeaderHeight(observedRow) : 0;
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
@@ -979,12 +961,24 @@ function GetUnpinnedParams({
         [unpinnedMinHeightKey]: resolvedMinHeight ?? 0,
       });
     };
+    const scheduleUpdate = () => {
+      if (rafId !== 0) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        update();
+      });
+    };
     update();
     observer.observe(node);
-    mutationObserver.observe(node, { childList: true, subtree: true });
+    mutationObserver.observe(node, { childList: true });
     return () => {
       observer.disconnect();
       mutationObserver.disconnect();
+      if (rafId !== 0) {
+        window.cancelAnimationFrame(rafId);
+      }
     };
   }, [
     hasUnpinnedParams,
