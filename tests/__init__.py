@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 import os
 import sys
+import warnings
 
 _ROOT_DIR = Path(__file__).resolve().parents[1]
 _BACKEND_PATH = str(_ROOT_DIR / "backend")
@@ -43,6 +44,22 @@ def _silence_logger(name: str) -> None:
 _silence_logger("bm25s")
 _silence_logger("setta")
 _silence_logger("tests.logging.errors")
+_silence_logger("claude_agent_sdk")
+_silence_logger("claude_agent_sdk.subprocess_cli")
+_silence_logger("websockets")
+_silence_logger("websockets.client")
+_silence_logger("websockets.server")
+_silence_logger("uvicorn")
+_silence_logger("uvicorn.error")
+_silence_logger("uvicorn.access")
+_silence_logger("uvicorn.asgi")
+_silence_logger("mcp")
+_silence_logger("mcp.server")
+_silence_logger("mcp.server.fastmcp")
+_silence_logger("mcp.server.streamable_http")
+_silence_logger("mcp.server.streamable_http_manager")
+_silence_logger("sse_starlette")
+_silence_logger("anyio")
 
 logging.getLogger().setLevel(_test_log_level)
 logging.getLogger("asyncio").addFilter(_IgnoreAsyncioSlowCallback())
@@ -50,3 +67,25 @@ logging.getLogger("asyncio").setLevel(_test_log_level)
 
 if _suppress_output and logging.lastResort is not None:
     logging.lastResort.setLevel(_test_log_level)
+
+def apply_warning_filters() -> None:
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            r"^enable_cleanup_closed ignored because https://github.com/python/cpython/pull/118960 is fixed"
+        ),
+        category=DeprecationWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=r"^This process .* use of forkpty\\(\\) may lead to deadlocks in the child\\.$",
+        category=DeprecationWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=r"^unclosed transport ",
+        category=ResourceWarning,
+    )
+
+
+apply_warning_filters()

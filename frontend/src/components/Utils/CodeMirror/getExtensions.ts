@@ -28,38 +28,21 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   },
 });
 
-type ExtensionsOptions = {
-  parentDivId?: string | null;
-  language?: string;
-  completionsFn?: CompletionSource;
-  singleLine?: boolean;
-  wrapLines?: boolean;
-  tabToAutocomplete?: boolean;
-  indentWithTab?: boolean;
-  onTab?: (text: string, completionResult: boolean) => void;
-  onEscape?: (status: ReturnType<typeof completionStatus>) => void;
-  keyComboActions?: Record<string, (text: string) => boolean | void>;
-  isDisabled?: boolean;
-};
-
 export function getExtensions({
   parentDivId,
   language,
   completionsFn,
   singleLine,
-  wrapLines,
   tabToAutocomplete,
   indentWithTab,
   onTab,
   onEscape,
   keyComboActions,
   isDisabled,
-}: ExtensionsOptions) {
-  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
-  const shouldWrap = wrapLines ?? !singleLine;
-  if (shouldWrap) {
-    extensions.push(EditorView.lineWrapping);
-  }
+}: {
+  completionsFn?: CompletionSource;
+}) {
+  const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
 
   if (parentDivId) {
     extensions.push(

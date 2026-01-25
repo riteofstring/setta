@@ -7,7 +7,6 @@ node_modules
 
 # testing
 /coverage
-frontend/test-results/
 
 # production
 */dist
@@ -45,4 +44,5 @@ backend/setta/frontend
 setta_files/
 auth.json
 mcp-tools.json
-docs/temporary/
+backend/setta/vendor/node/
+.claude

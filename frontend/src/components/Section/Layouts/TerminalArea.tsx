@@ -54,7 +54,6 @@ function TerminalAreaCore({ width, height, hasScrollbar, terminalRef }) {
     <div
       ref={terminalRef}
       className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag section-row-search-gutter section-key-value`}
-      data-section-main-editor
       style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
     />
   );
