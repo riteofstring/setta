@@ -6,7 +6,7 @@ from setta.code_gen.python.ast_utils import find_undefined_special_var_expressio
 from setta.code_gen.utils import (
     GEN_CODE_INSTANCE_NAME,
     create_unique_name,
-    sanitize_python_identifier,
+    sanitize_name,
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
@@ -504,7 +504,7 @@ class DependencyGraph:
         self, parent_node: Node | None, idx: int | None, name: str
     ):
         if not parent_node:
-            return sanitize_python_identifier(name)
+            return sanitize_name(name)
         if parent_node.type == SectionType.ListRoot:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
@@ -514,11 +514,11 @@ class DependencyGraph:
             or parent_node.type == CodeObjType.NestedParam
         ):
             return create_unique_name(
-                f"{parent_node.full_path_name}__{sanitize_python_identifier(name)}",
+                f"{parent_node.full_path_name}__{sanitize_name(name)}",
                 self.full_path_name_to_dep_key,
             )
 
-        return sanitize_python_identifier(name)
+        return sanitize_name(name)
 
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""

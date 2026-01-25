@@ -168,6 +168,8 @@ from setta.project_state.project_manager_types import (
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
+    SetWatchCodeEnabledRequest,
+    SetWatchCodeInputsRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -184,6 +186,12 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+)
+from setta.project_state.watch_code import (
+    WatchCodeManager,
+    build_watch_code_snapshot,
+    normalize_watch_code_files,
+    normalize_watch_code_folders,
 )
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -290,7 +298,6 @@ from setta.types.helpers_lvl3 import (
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.lsp import SettaProjectConfigDiagnostics
-from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
     SettaNotification,
@@ -312,7 +319,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
     CodeFileAccessMode,
@@ -327,12 +333,6 @@ from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
-from setta.utils.name_validation import (
-    collect_param_name_conflicts,
-    collect_section_name_conflicts,
-    validate_param_name,
-    validate_project_name,
-)
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -444,6 +444,12 @@ class BaseProjectManager(ABC):
         self.code_files = code_files
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
+        watch_loop = None
+        try:
+            watch_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            watch_loop = None
+        self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
@@ -477,6 +483,9 @@ class BaseProjectManager(ABC):
         self.pending_rename_results: dict[
             str, tuple[str, list[RenameReferenceChangedValue]]
         ] = {}
+        self._bootstrap_watch_code_baselines()
+        self.watch_code_manager.start()
+        self.watch_code_manager.sync_from_backend(self.project_state_backend)
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -935,9 +944,7 @@ class BaseProjectManager(ABC):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
-        project_state = await self.maybe_init_project_config(projectState)
-        await self._broadcast_name_validation_errors(project_state)
-        return project_state
+        return await self.maybe_init_project_config(projectState)
 
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
         async with self._project_state_lock.read_lock():
@@ -1102,6 +1109,25 @@ class BaseProjectManager(ABC):
             self.watch_json_source_files()
             self.watch_artifact_files()
             self.watch_code_files()
+            self.watch_code_manager.sync_from_backend(self.project_state_backend)
+
+    def _bootstrap_watch_code_baselines(self) -> None:
+        base_backend = self.project_state_backend
+        updated_backend = base_backend
+        for project_config_id, config in base_backend.projectConfigs.items():
+            if not config.watchCodeEnabled:
+                continue
+            if config.watchCodeBaselineByPath:
+                continue
+            project_state = convert_backend_to_single_config(
+                updated_backend, project_config_id
+            )
+            self.watch_code_manager.baseline_on_enable(project_state)
+            updated_backend = merge_single_config_into_backend(
+                updated_backend, project_state
+            )
+        if updated_backend is not base_backend:
+            self.project_state_backend = updated_backend
 
     def shutdown(self) -> None:
         categories = (
@@ -1111,6 +1137,7 @@ class BaseProjectManager(ABC):
         )
         for category in categories:
             self.specific_file_watcher.update_callbacks({}, category, [])
+        self.watch_code_manager.shutdown()
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
 
@@ -1119,12 +1146,10 @@ class BaseProjectManager(ABC):
         projectState: ProjectStateSingleConfig,
         updateFileWatcher: bool = True,
         validate_code_file_bindings: bool = True,
-        allow_reserved_project_name: bool = False,
     ):
         async with self._project_state_lock.write_lock():
             projectState.validate_for_update(
                 validate_code_file_bindings=validate_code_file_bindings,
-                allow_reserved_project_name=allow_reserved_project_name,
             )
             if self.lsp_writers.full is not None:
                 await self._refresh_codegen_state(projectState)
@@ -1392,6 +1417,35 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
+    async def set_watch_code_enabled(self, x: SetWatchCodeEnabledRequest):
+        """Enable or disable watch code mode for the project."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        previous_enabled = project_state.projectConfig.watchCodeEnabled
+        project_state.projectConfig.watchCodeEnabled = x.enabled
+        if x.enabled and not previous_enabled:
+            self.watch_code_manager.baseline_on_enable(project_state)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool()
+    async def set_watch_code_inputs(self, x: SetWatchCodeInputsRequest):
+        """Update watched folders and files for watch code mode."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFolders = normalize_watch_code_folders(
+            x.watchCodeFolders
+        )
+        project_state.projectConfig.watchCodeFiles = normalize_watch_code_files(
+            x.watchCodeFiles
+        )
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -1450,10 +1504,7 @@ class BaseProjectManager(ABC):
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        normalized_name = validate_param_name(
-            project_state, x.sectionId, x.codeObjId, x.name
-        )
-        project_state.codeObjs[x.codeObjId].name = normalized_name
+        project_state.codeObjs[x.codeObjId].name = x.name
         set_param_entered_value(
             project_state,
             x.sectionId,
@@ -1471,11 +1522,7 @@ class BaseProjectManager(ABC):
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        section_id = self._find_section_id_for_code_obj(project_state, x.codeObjId)
-        normalized_name = validate_param_name(
-            project_state, section_id, x.codeObjId, x.name
-        )
-        project_state.codeObjs[x.codeObjId].name = normalized_name
+        project_state.codeObjs[x.codeObjId].name = x.name
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1578,6 +1625,9 @@ class BaseProjectManager(ABC):
             )
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
+        await self.watch_code_manager.handle_code_section_update(
+            project_state, x.sectionId, x.code
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -2069,10 +2119,6 @@ class BaseProjectManager(ABC):
         new_project_config = ProjectConfig(
             previewImgColor=previewImgColor, viewport=None
         )
-        normalized_name = validate_project_name(
-            self.project_state_backend, None, new_project_config.name
-        )
-        new_project_config.name = normalized_name
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         if project_config_has_codegen_language(
             new_project_config,
@@ -2735,26 +2781,6 @@ class BaseProjectManager(ABC):
             self.project_state_backend, projectConfigId
         )
 
-    def _find_section_id_for_code_obj(
-        self,
-        project_state: ProjectStateSingleConfig,
-        code_obj_id: ID,
-    ) -> ID:
-        matches: list[ID] = []
-        for section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                continue
-            if code_obj_id in section_impl.codeObjVariantMap:
-                matches.append(section_id)
-        if not matches:
-            raise KeyError(f"Code obj {code_obj_id} not found in any section.")
-        if len(matches) > 1:
-            raise ValueError(
-                f"Code obj {code_obj_id} appears in multiple sections: {matches}."
-            )
-        return matches[0]
-
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
@@ -2763,7 +2789,6 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         await self._broadcast_project_state_snapshot(project_state)
-        await self._broadcast_name_validation_errors(project_state)
 
     async def _broadcast_project_state_snapshot(
         self,
@@ -2778,19 +2803,6 @@ class BaseProjectManager(ABC):
             pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_name_validation_errors(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        section_errors = collect_section_name_conflicts(project_state)
-        param_errors = collect_param_name_conflicts(project_state)
-        content = SettaProjectNameValidationErrors(
-            projectConfigId=project_state.projectConfig.id,
-            sectionErrors=section_errors,
-            paramErrors=param_errors,
-        )
-        await self.websocket_msg_handler.broadcast_name_validation_errors(content)
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
@@ -3025,6 +3037,9 @@ class BaseProjectManager(ABC):
                         )
                         continue
                     set_code(single_state, section_id, plan.raw_content)
+                    await self.watch_code_manager.handle_code_section_update(
+                        single_state, section_id, plan.raw_content
+                    )
                 if config_bindings:
                     updated_configs[project_config_id] = single_state
 

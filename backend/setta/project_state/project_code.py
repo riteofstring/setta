@@ -316,18 +316,24 @@ class ProjectGenPythonCode(PythonCode):
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
-        request_id = create_new_id()
-        response = await self.lsp_writer.send_and_wait(
-            self.lsp_writer.send_signature_help_request(
-                filepath=self.binding.canonical_path,
-                line=line,
-                character=col,
-                request_id=request_id,
-            ),
-            request_id,
-        )
+        response = None
+        if self.lsp_writer is not None:
+            request_id = create_new_id()
+            response = await self.lsp_writer.send_and_wait(
+                self.lsp_writer.send_signature_help_request(
+                    filepath=self.binding.canonical_path,
+                    line=line,
+                    character=col,
+                    request_id=request_id,
+                ),
+                request_id,
+            )
 
-        result = process_signature_help_response(settings, response)
+        result = (
+            process_signature_help_response(settings, response)
+            if response is not None
+            else None
+        )
         documentation = None
         codeObjs: list[Core] = []
         codeObjImplMap = {}
@@ -662,9 +668,7 @@ class ProjectBasicCode(Code):
         return CODE_LANGUAGE_EXTENSIONS[self.code_language]
 
     def get_run_command(self, path: Path):
-        raise ValueError(
-            f"Run is not supported for language {self.code_language} (path={path})"
-        )
+        raise ValueError(f"Run is not supported for language {self.code_language}")
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)
