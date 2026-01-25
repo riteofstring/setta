@@ -743,6 +743,8 @@ export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setProjectConfigCodegenTargets", x);
+}
+
 export async function route_set_prompt_template(
   x: gt.SetPromptTemplateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

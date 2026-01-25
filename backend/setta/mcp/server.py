@@ -5,7 +5,6 @@ import contextlib
 import inspect
 import json
 import logging
-import re
 from functools import wraps
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
@@ -13,7 +12,6 @@ from urllib.parse import quote
 from uuid import uuid4
 
 import anyio
-import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Context
@@ -39,7 +37,6 @@ from mcp.types import (
     JSONRPCMessage,
     JSONRPCRequest,
     JSONRPCResponse,
-    ToolAnnotations,
 )
 from pydantic import ValidationError
 from sse_starlette import EventSourceResponse

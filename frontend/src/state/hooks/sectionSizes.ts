@@ -278,11 +278,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       minWidth *= 0.5;
     }
 
-    if (
-      !isMinimized &&
-      isBaseSectionWithParamsImpl(impl) &&
-      !hideParams
-    ) {
+    if (!isMinimized && isBaseSectionWithParamsImpl(impl) && !hideParams) {
       let baseMinHeight = minHeight;
       if (sectionType === SectionTypeEnum.Callable) {
         baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;

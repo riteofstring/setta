@@ -620,6 +620,8 @@ class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     codegenTargets: list[ProjectCodegenPythonTarget]
+
+
 class ListenerSetPromptFormatRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1264,6 +1266,7 @@ class RouterEndpointAPI:
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
     ) -> None:
         return await self._caller("route_set_project_config_codegen_targets", payload)
+
     async def set_prompt_format(
         self, payload: ListenerSetPromptFormatRequestPayload
     ) -> None:

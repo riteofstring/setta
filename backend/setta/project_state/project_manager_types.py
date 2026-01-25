@@ -528,6 +528,8 @@ class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConf
     codegenTargets: list[ProjectCodegenTarget] = Field(
         description="Ordered list of enabled codegen targets.",
     )
+
+
 class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
     template: str
 

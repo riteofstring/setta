@@ -560,6 +560,8 @@ async def route_set_project_config_codegen_targets(
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_project_config_codegen_targets(x)
+
+
 @router.post(Route.SET_PROMPT_TEMPLATE)
 async def route_set_prompt_template(
     x: SetPromptTemplateRequest, ctx: RuntimeContextFromRequest

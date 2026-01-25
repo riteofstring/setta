@@ -293,11 +293,6 @@ export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 export const SectionSizeModeEnum = { auto: "auto" } as const;
 
-export const SectionWithParamsDisplayModeEnum = {
-  Gui: "Gui",
-  Yaml: "Yaml",
-} as const;
-
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
@@ -1405,8 +1400,8 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
-  mode: z.enum(DropzoneModeEnum).optional(),
   missingVariables: z.array(z.string()).optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
@@ -1415,10 +1410,9 @@ const SharedModifierSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   renderError: z.union([z.string(), z.null()]).optional(),
+  renderedImagePath: z.union([z.string(), z.null()]).optional(),
   renderedText: z.string().optional(),
-  renderedValue: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
   requestHeaderKey: z.string().optional(),
   requestHeaderValue: z.string().optional(),
@@ -1520,8 +1514,8 @@ const CoreSchema = z.object({
         "metaControlParamId",
         "metaControlStyle",
         "min",
-        "mode",
         "missingVariables",
+        "mode",
         "name",
         "overflowMode",
         "paramFilter",
@@ -1530,10 +1524,9 @@ const CoreSchema = z.object({
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
-        "renderedImagePath",
         "renderError",
+        "renderedImagePath",
         "renderedText",
-        "renderedValue",
         "requestBody",
         "requestHeaderKey",
         "requestHeaderValue",
@@ -3532,6 +3525,7 @@ const SectionCodegenPolicySchema = z.object({
         representation: SectionRepresentationModeEnum.file_read,
       }),
       TextBlock: createSectionTypeCodegenPolicy(),
+      Prompt: createSectionTypeCodegenPolicy(),
       MetaControl: createSectionTypeCodegenPolicy(),
       Social: createSectionTypeCodegenPolicy(),
       GlobalVariables: createSectionTypeCodegenPolicy(),
