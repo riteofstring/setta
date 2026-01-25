@@ -760,9 +760,20 @@ class WatchCodeManager:
                 )
                 entry.sectionIds = self._prune_section_ids(project_state, entry)
                 entry.sectionsCount = len(entry.sectionIds)
+                old_reference_name = entry.callableName
+                old_module_path, old_symbol_name = self._split_canonical_identity(
+                    identity
+                )
                 reference_name = self._resolve_reference_name(
                     registry, new_info, exclude_identity=new_info.identity
                 )
+                if old_reference_name != reference_name:
+                    self._remove_gen_code_import(
+                        project_state,
+                        old_module_path,
+                        old_symbol_name,
+                        old_reference_name,
+                    )
                 self._ensure_gen_code_import(
                     project_state,
                     new_info.module_path,
@@ -770,7 +781,7 @@ class WatchCodeManager:
                     reference_name,
                 )
                 entry.callableName = reference_name
-                await self._update_sections_for_callable(
+                self._rename_sections_for_callable(
                     project_state,
                     entry.sectionIds,
                     reference_name,
@@ -841,13 +852,20 @@ class WatchCodeManager:
         callable_name: str,
     ) -> None:
         project_config_id = project_state.projectConfig.id
-        if project_config_id not in self._project_manager.gen_code:
-            await self._project_manager._refresh_codegen_state(project_state)
-        gen_code = self._project_manager._require_python_codegen(project_config_id)
-        if any(
-            create_dep_key(section_id) not in gen_code.dep_graph.graph
-            for section_id in section_ids
-        ):
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        gen_code = self._project_manager.gen_code.get(project_config_id)
+        needs_refresh = gen_code is None
+        if gen_code is not None:
+            if gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix:
+                needs_refresh = True
+            elif any(
+                create_dep_key(section_id) not in gen_code.dep_graph.graph
+                for section_id in section_ids
+            ):
+                needs_refresh = True
+        if needs_refresh:
             await self._project_manager._refresh_codegen_state(project_state)
             gen_code = self._project_manager._require_python_codegen(project_config_id)
         settings = self._project_manager.settings_file.settings
@@ -871,6 +889,27 @@ class WatchCodeManager:
                 await self._notify_import_failure(
                     project_config_id, callable_name, source=callable_name
                 )
+
+    def _rename_sections_for_callable(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_ids: list[ID],
+        callable_name: str,
+    ) -> None:
+        for section_id in section_ids:
+            if section_id not in project_state.sections:
+                continue
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CallableSectionImpl):
+                continue
+            if section_impl.callable is None:
+                continue
+            callable_id = section_impl.callable
+            if callable_id not in project_state.codeObjs:
+                continue
+            callable_obj = project_state.codeObjs[callable_id]
+            if callable_obj.name != callable_name:
+                callable_obj.name = callable_name
 
     def _create_callable_section(self, project_state: ProjectStateSingleConfig) -> ID:
         settings = self._project_manager.settings_file.settings
@@ -947,6 +986,48 @@ class WatchCodeManager:
         prefix = f"{prefix}{import_line}\n"
         python_target.genCodePrefix = prefix
 
+    def _remove_gen_code_import(
+        self,
+        project_state: ProjectStateSingleConfig,
+        module_path: str,
+        symbol_name: str,
+        reference_name: str,
+    ) -> None:
+        if not module_path:
+            return
+        if module_path.startswith("."):
+            return
+        if not symbol_name.isidentifier():
+            return
+        alias = None
+        if reference_name != symbol_name:
+            alias = reference_name
+        import_line = (
+            f"from {module_path} import {symbol_name}"
+            if alias is None
+            else f"from {module_path} import {symbol_name} as {alias}"
+        )
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        prefix = python_target.genCodePrefix
+        if not prefix:
+            return
+        lines = prefix.splitlines()
+        kept: list[str] = []
+        removed = False
+        for line in lines:
+            if line.strip() == import_line:
+                removed = True
+                continue
+            kept.append(line)
+        if not removed:
+            return
+        new_prefix = "\n".join(kept)
+        if prefix.endswith("\n") and new_prefix:
+            new_prefix = f"{new_prefix}\n"
+        python_target.genCodePrefix = new_prefix
+
     def _prune_section_ids(
         self,
         project_state: ProjectStateSingleConfig,
@@ -1003,3 +1084,14 @@ class WatchCodeManager:
             if candidate not in reserved:
                 return candidate
             suffix += 1
+
+    def _split_canonical_identity(self, identity: str) -> tuple[str, str]:
+        if ":" not in identity:
+            raise ValueError(f"Invalid watch code identity: {identity}")
+        canonical_name = identity.rsplit(":", 1)[0]
+        if "." in canonical_name:
+            module_path, symbol_name = canonical_name.rsplit(".", 1)
+        else:
+            module_path = ""
+            symbol_name = canonical_name
+        return module_path, symbol_name

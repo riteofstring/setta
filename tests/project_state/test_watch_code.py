@@ -12,6 +12,7 @@ from setta.project_state.code_files import CodeFileReloadPlan, RegisteredCodeFil
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
+    AddKwargRequest,
     SetCodeRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -23,6 +24,7 @@ from setta.project_state.session_project_manager import (
 from setta.project_state.utils import convert_path_to_module_path
 from setta.project_state.watch_code import build_callable_identity
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl2 import get_curr_top_level_param_ids
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -375,6 +377,63 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(renamed_identity, updated_state.projectConfig.watchCodeRegistry)
         updated_entry = updated_state.projectConfig.watchCodeRegistry[renamed_identity]
         self.assertEqual(updated_entry.sectionIds, original_section_ids)
+
+    async def test_rename_preserves_existing_params(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        first_code = (
+            "def existing(a):\n    return a\n\n"
+            "def original(value):\n    return value + 1\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=first_code,
+            )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        original_name = f"{module_path}.original"
+        original_identity = build_callable_identity(
+            original_name, WatchCodeCallableKind.function
+        )
+        entry = state.projectConfig.watchCodeRegistry[original_identity]
+        section_id = entry.sectionIds[0]
+
+        await self.manager.add_kwarg(
+            AddKwargRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=section_id,
+            )
+        )
+        state_with_param = self.manager.get_single_config_state(self.project_config_id)
+        param_ids_before = get_curr_top_level_param_ids(state_with_param, section_id)
+        self.assertEqual(len(param_ids_before), 1)
+
+        second_code = (
+            "def existing(a):\n    return a\n\n"
+            "def renamed(value):\n    return value + 1\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=second_code,
+            )
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        renamed_name = f"{module_path}.renamed"
+        renamed_identity = build_callable_identity(
+            renamed_name, WatchCodeCallableKind.function
+        )
+        self.assertIn(renamed_identity, updated_state.projectConfig.watchCodeRegistry)
+        param_ids_after = get_curr_top_level_param_ids(updated_state, section_id)
+        self.assertEqual(param_ids_after, param_ids_before)
 
     async def test_class_callable_is_registered(self) -> None:
         await self.manager.set_watch_code_enabled(
