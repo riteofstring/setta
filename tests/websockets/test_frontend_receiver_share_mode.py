@@ -1,7 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -72,9 +72,7 @@ def _build_share_runtime_state(
     project_config_id: ID,
     project_config_name: str,
 ) -> ShareRuntimeState:
-    root = (
-        Path(tmpdir) / "share_deployments" / project_config_name / "v1"
-    )
+    root = Path(tmpdir) / "share_deployments" / project_config_name / "v1"
     root.mkdir(parents=True, exist_ok=True)
     dbe = DBE(root)
     project_config = ProjectConfig(
@@ -98,121 +96,119 @@ def _build_share_runtime_state(
     return ShareRuntimeState(dbe, root, frontend_sender)
 
 
-class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_share_receiver_requires_session_id(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            websocket_manager = WebsocketManager()
-            listener_registry = ListenerRegistry()
-            sender = WMHPythonScriptSender(websocket_manager, listener_registry)
-            event_hub = RealtimeEventHub(sender)
-            share_runtime_state = _build_share_runtime_state(
-                tmpdir,
-                websocket_manager,
-                ID("share-project"),
-                "Share Project",
-            )
-            receiver = WMHFrontendReceiver(
-                websocket_manager,
-                project_manager=None,
-                realtime_event_hub=event_hub,
-                share_mode=True,
-                share_runtime_state=share_runtime_state,
-            )
+@pytest.mark.asyncio
+async def test_share_receiver_requires_session_id() -> None:
+    with TemporaryDirectory() as tmpdir:
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        event_hub = RealtimeEventHub(sender)
+        share_runtime_state = _build_share_runtime_state(
+            tmpdir,
+            websocket_manager,
+            ID("share-project"),
+            "Share Project",
+        )
+        receiver = WMHFrontendReceiver(
+            websocket_manager,
+            project_manager=None,
+            realtime_event_hub=event_hub,
+            share_mode=True,
+            share_runtime_state=share_runtime_state,
+        )
 
-            messages: list[Message] = []
-            websocket = await _build_websocket(messages)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-missing",
-                shareSessionId=None,
-            )
+        messages: list[Message] = []
+        websocket = await _build_websocket(messages)
+        websocket_id = await websocket_manager.on_connect(
+            websocket,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-missing",
+            shareSessionId=None,
+        )
 
-            with self.assertRaises(KeyError):
-                await receiver.on_connect(websocket_id)
+        with pytest.raises(KeyError):
+            await receiver.on_connect(websocket_id)
 
-            await websocket.close()
+        await websocket.close()
 
-    async def test_share_receiver_emits_realtime_delta(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            websocket_manager = WebsocketManager()
-            listener_registry = ListenerRegistry()
-            sender = WMHPythonScriptSender(websocket_manager, listener_registry)
-            event_hub = RealtimeEventHub(sender)
-            project_config_id = ID("share-project")
-            share_runtime_state = _build_share_runtime_state(
-                tmpdir,
-                websocket_manager,
-                project_config_id,
-                "Share Project",
-            )
-            share_runtime_state.create_session_backend("session-a")
-            receiver = WMHFrontendReceiver(
-                websocket_manager,
-                project_manager=None,
-                realtime_event_hub=event_hub,
-                share_mode=True,
-                share_runtime_state=share_runtime_state,
-            )
 
-            listener_messages: list[Message] = []
-            listener_socket = await _build_websocket(listener_messages)
-            listener_id = await websocket_manager.on_connect(
-                listener_socket,
-                WebsocketConnectionType.PYTHON_SCRIPT,
-                id="python-listener",
-                shareSessionId="session-a",
-            )
+@pytest.mark.asyncio
+async def test_share_receiver_emits_realtime_delta() -> None:
+    with TemporaryDirectory() as tmpdir:
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        event_hub = RealtimeEventHub(sender)
+        project_config_id = ID("share-project")
+        share_runtime_state = _build_share_runtime_state(
+            tmpdir,
+            websocket_manager,
+            project_config_id,
+            "Share Project",
+        )
+        share_runtime_state.create_session_backend("session-a")
+        receiver = WMHFrontendReceiver(
+            websocket_manager,
+            project_manager=None,
+            realtime_event_hub=event_hub,
+            share_mode=True,
+            share_runtime_state=share_runtime_state,
+        )
 
-            dependency = create_dep_key(
-                sectionId=ID("section-a"),
-                codeObjId=ID("param-a"),
-            )
-            listener_registry.upsert_registration(
-                websocket_id=listener_id,
-                project_config_id=project_config_id,
-                callbacks={
-                    "cb": ListenerRegisterCallback(
-                        dependencies=[dependency],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
-                    )
-                },
-                share_session_id="session-a",
-            )
+        listener_messages: list[Message] = []
+        listener_socket = await _build_websocket(listener_messages)
+        listener_id = await websocket_manager.on_connect(
+            listener_socket,
+            WebsocketConnectionType.PYTHON_SCRIPT,
+            id="python-listener",
+            shareSessionId="session-a",
+        )
 
-            frontend_messages: list[Message] = []
-            frontend_socket = await _build_websocket(frontend_messages)
-            frontend_id = await websocket_manager.on_connect(
-                frontend_socket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-share",
-                shareSessionId="session-a",
-            )
-            try:
-                await receiver.on_connect(frontend_id)
-
-                content = RealtimeUIChangeContent(
-                    projectConfigId=project_config_id,
-                    dependencyKey=dependency,
-                    value=LiteralDependencyValue("hello"),
+        dependency = create_dep_key(
+            sectionId=ID("section-a"),
+            codeObjId=ID("param-a"),
+        )
+        listener_registry.upsert_registration(
+            websocket_id=listener_id,
+            project_config_id=project_config_id,
+            callbacks={
+                "cb": ListenerRegisterCallback(
+                    dependencies=[dependency],
+                    dependencyMode=ListenerDependencyMode.ALWAYS,
                 )
-                message = WebsocketMsgRealtimeUIChange(content=content)
+            },
+            share_session_id="session-a",
+        )
 
-                await receiver.process_json_str(
-                    message.model_dump_json(),
-                    frontend_id,
-                )
+        frontend_messages: list[Message] = []
+        frontend_socket = await _build_websocket(frontend_messages)
+        frontend_id = await websocket_manager.on_connect(
+            frontend_socket,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-share",
+            shareSessionId="session-a",
+        )
+        try:
+            await receiver.on_connect(frontend_id)
 
-                sent = _sent_text_messages(listener_messages)
-                self.assertEqual(1, len(sent))
-                parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
-                self.assertIsInstance(parsed, WebsocketMsgListenerRealtimeEvent)
-                self.assertEqual(1, parsed.content.sequence)
-                self.assertEqual(dependency, parsed.content.deltas[0].dependency)
-            finally:
-                await frontend_socket.close()
-                await listener_socket.close()
+            content = RealtimeUIChangeContent(
+                projectConfigId=project_config_id,
+                dependencyKey=dependency,
+                value=LiteralDependencyValue("hello"),
+            )
+            message = WebsocketMsgRealtimeUIChange(content=content)
 
+            await receiver.process_json_str(
+                message.model_dump_json(),
+                frontend_id,
+            )
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+            sent = _sent_text_messages(listener_messages)
+            assert len(sent) == 1
+            parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
+            assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
+            assert parsed.content.sequence == 1
+            assert parsed.content.deltas[0].dependency == dependency
+        finally:
+            await frontend_socket.close()
+            await listener_socket.close()

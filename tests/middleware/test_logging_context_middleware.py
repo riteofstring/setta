@@ -1,7 +1,6 @@
-import unittest
-
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
+import pytest
 from setta.logging.context import get_logging_context
 from setta.logging.context_sources import ensure_request_context
 from setta.middleware import LoggingContextMiddleware, bind_request_logging_context
@@ -21,32 +20,35 @@ def _build_test_app() -> FastAPI:
     return app
 
 
-class LoggingContextMiddlewareTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.client = TestClient(_build_test_app())
+@pytest.fixture
+def client() -> TestClient:
+    client = TestClient(_build_test_app())
+    try:
+        yield client
+    finally:
+        client.close()
 
-    def tearDown(self) -> None:
-        self.client.close()
 
-    def test_middleware_populates_request_metadata(self) -> None:
-        response = self.client.get("/projects/sample/status")
-        response.raise_for_status()
-        payload = response.json()
+def test_middleware_populates_request_metadata(client: TestClient) -> None:
+    response = client.get("/projects/sample/status")
+    response.raise_for_status()
+    payload = response.json()
 
-        context = payload["context"]
-        self.assertEqual(context["path"], "/projects/sample/status")
-        self.assertEqual(context["method"], "GET")
-        self.assertEqual(context["endpoint"], "get_project_status")
-        self.assertTrue(context["request_id"].startswith("req-"))
-        self.assertEqual(payload["state_request_id"], context["request_id"])
+    context = payload["context"]
+    assert context["path"] == "/projects/sample/status"
+    assert context["method"] == "GET"
+    assert context["endpoint"] == "get_project_status"
+    assert context["request_id"].startswith("req-")
+    assert payload["state_request_id"] == context["request_id"]
 
-    def test_requests_receive_distinct_context(self) -> None:
-        first = self.client.get("/projects/alpha/status").json()
-        second = self.client.get("/projects/beta/status").json()
 
-        first_context = first["context"]
-        second_context = second["context"]
+def test_requests_receive_distinct_context(client: TestClient) -> None:
+    first = client.get("/projects/alpha/status").json()
+    second = client.get("/projects/beta/status").json()
 
-        self.assertNotEqual(first_context["request_id"], second_context["request_id"])
-        self.assertEqual(first_context["path"], "/projects/alpha/status")
-        self.assertEqual(second_context["path"], "/projects/beta/status")
+    first_context = first["context"]
+    second_context = second["context"]
+
+    assert first_context["request_id"] != second_context["request_id"]
+    assert first_context["path"] == "/projects/alpha/status"
+    assert second_context["path"] == "/projects/beta/status"

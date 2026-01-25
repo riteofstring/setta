@@ -1,5 +1,4 @@
-import unittest
-
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -53,77 +52,65 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
     ]
 
 
-class RealtimeEventHubShareSessionTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
-        self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
-        self.sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
-        self.event_hub = RealtimeEventHub(self.sender)
-        self.project_config_id = ID("share-project")
-        self.dependency = create_dep_key(
-            sectionId=ID("section-a"), codeObjId=ID("param-a")
-        )
-        self.messages: list[Message] = []
-        websocket = await _build_websocket(self.messages)
-        self.websocket_id = await self.websocket_manager.on_connect(
-            websocket,
-            WebsocketConnectionType.PYTHON_SCRIPT,
-            id="python-1",
-        )
-        self.websocket = websocket
-        self.listener_registry.upsert_registration(
-            websocket_id=self.websocket_id,
-            project_config_id=self.project_config_id,
-            callbacks={
-                "cb": ListenerRegisterCallback(
-                    dependencies=[self.dependency],
-                    dependencyMode=ListenerDependencyMode.ALWAYS,
-                )
-            },
-        )
+@pytest.mark.asyncio
+async def test_sequences_reset_per_share_session() -> None:
+    websocket_manager = WebsocketManager()
+    listener_registry = ListenerRegistry()
+    sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+    event_hub = RealtimeEventHub(sender)
+    project_config_id = ID("share-project")
+    dependency = create_dep_key(sectionId=ID("section-a"), codeObjId=ID("param-a"))
+    messages: list[Message] = []
+    websocket = await _build_websocket(messages)
+    websocket_id = await websocket_manager.on_connect(
+        websocket,
+        WebsocketConnectionType.PYTHON_SCRIPT,
+        id="python-1",
+    )
+    listener_registry.upsert_registration(
+        websocket_id=websocket_id,
+        project_config_id=project_config_id,
+        callbacks={
+            "cb": ListenerRegisterCallback(
+                dependencies=[dependency],
+                dependencyMode=ListenerDependencyMode.ALWAYS,
+            )
+        },
+    )
 
-    async def asyncTearDown(self) -> None:
-        await self.websocket.close()
-
-    async def test_sequences_reset_per_share_session(self) -> None:
+    try:
         delta = ListenerRealtimeDelta(
-            dependency=self.dependency,
+            dependency=dependency,
             value=LiteralDependencyValue("value"),
         )
 
-        await self.event_hub.emit_realtime_delta(
-            project_config_id=self.project_config_id,
+        await event_hub.emit_realtime_delta(
+            project_config_id=project_config_id,
             deltas=[delta],
             share_session_id="session-a",
         )
-        await self.event_hub.emit_realtime_delta(
-            project_config_id=self.project_config_id,
+        await event_hub.emit_realtime_delta(
+            project_config_id=project_config_id,
             deltas=[delta],
             share_session_id="session-a",
         )
-        await self.event_hub.emit_realtime_delta(
-            project_config_id=self.project_config_id,
+        await event_hub.emit_realtime_delta(
+            project_config_id=project_config_id,
             deltas=[delta],
             share_session_id="session-b",
         )
 
-        messages = _sent_text_messages(self.messages)
-        self.assertEqual(3, len(messages))
+        sent_messages = _sent_text_messages(messages)
+        assert len(sent_messages) == 3
         parsed = [
             PythonScriptWebsocketMsgTypeAdapter.validate_json(text)
-            for text in messages
+            for text in sent_messages
         ]
         for message in parsed:
-            self.assertIsInstance(message, WebsocketMsgListenerRealtimeEvent)
-            self.assertEqual(
-                self.project_config_id, message.content.projectConfigId
-            )
+            assert isinstance(message, WebsocketMsgListenerRealtimeEvent)
+            assert message.content.projectConfigId == project_config_id
 
         sequences = [message.content.sequence for message in parsed]
-        self.assertEqual([1, 2, 1], sequences)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert sequences == [1, 2, 1]
+    finally:
+        await websocket.close()

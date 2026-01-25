@@ -3,12 +3,12 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
-import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 from click.testing import CliRunner
 
 from setta.sessions import SessionMetadata, SessionRegistry
@@ -16,186 +16,236 @@ from setta.start import status, stop
 from setta.utils.constants import C
 
 
-class StartStatusTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp_dir.cleanup)
+def _decode_connect_info(output: str) -> dict:
+    line = output.strip()
+    assert line.startswith("__SETTA_JSON_B64__")
+    encoded = line.removeprefix("__SETTA_JSON_B64__")
+    decoded = base64.b64decode(encoded).decode("utf-8")
+    return json.loads(decoded)
 
-        self.original_sessions_root = C.RUN_SESSIONS_FOLDER
-        self.addCleanup(self._restore_sessions_root)
-        self.sessions_root = (
-            Path(self.temp_dir.name) / "setta_files" / "run" / "sessions"
-        )
-        C.RUN_SESSIONS_FOLDER = self.sessions_root
 
-        self.workspace = Path(self.temp_dir.name) / "workspace"
-        self.workspace.mkdir()
+@pytest.fixture
+def status_env(tmp_path):
+    sessions_root = tmp_path / "setta_files" / "run" / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+    original_sessions_root = C.RUN_SESSIONS_FOLDER
+    C.RUN_SESSIONS_FOLDER = sessions_root
 
-        self.process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "import time; time.sleep(60)",
-                "setta.server:app",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        self.addCleanup(self.process.wait)
-        self.addCleanup(self._terminate_process)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
 
-        self.registry = SessionRegistry()
-
-    def _restore_sessions_root(self) -> None:
-        C.RUN_SESSIONS_FOLDER = self.original_sessions_root
-
-    def _terminate_process(self) -> None:
-        if self.process.poll() is None:
-            self.process.terminate()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    registry = SessionRegistry()
 
     def _create_session(
-        self, port: int, started_at: datetime | None = None
+        port: int, started_at: datetime | None = None
     ) -> SessionMetadata:
-        return self.registry.create_session(
-            workspace_path=self.workspace,
+        return registry.create_session(
+            workspace_path=workspace,
             host="127.0.0.1",
             port=port,
-            pid=self.process.pid,
+            pid=process.pid,
             started_at=started_at,
         )
 
-    def _decode_connect_info(self, output: str) -> dict:
-        line = output.strip()
-        self.assertTrue(line.startswith("__SETTA_JSON_B64__"))
-        encoded = line.removeprefix("__SETTA_JSON_B64__")
-        decoded = base64.b64decode(encoded).decode("utf-8")
-        return json.loads(decoded)
+    env = SimpleNamespace(
+        sessions_root=sessions_root,
+        workspace=workspace,
+        process=process,
+        registry=registry,
+        create_session=_create_session,
+    )
+    try:
+        yield env
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        process.wait()
+        C.RUN_SESSIONS_FOLDER = original_sessions_root
 
-    def test_status_connect_info_json_emits_payload(self) -> None:
-        self._create_session(port=61234)
-        runner = CliRunner()
 
-        result = runner.invoke(status, ["--connect-info", "--json"])
+@pytest.fixture
+def status_workspace_env(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
 
-        self.assertEqual(result.exit_code, 0, result.output)
-        payload = self._decode_connect_info(result.output)
+    original_sessions_root = C.RUN_SESSIONS_FOLDER
+    C.RUN_SESSIONS_FOLDER = Path("setta_files") / "run" / "sessions"
 
-        session = payload["session"]
-        self.assertEqual(session["port"], 61234)
-        self.assertEqual(session["workspacePath"], str(self.workspace.resolve()))
-        self.assertEqual(
-            payload["bootstrapUrlPlain"],
-            "http://127.0.0.1:61234/__setta__/bootstrap",
-        )
-        self.assertTrue(
-            payload["bootstrapUrlFragment"].startswith(
-                "http://127.0.0.1:61234/__setta__/bootstrap#token="
-            )
-        )
-        self.assertEqual(
-            payload["sshTunnelCommand"],
-            "ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 <user@host> -o ExitOnForwardFailure=yes",
-        )
+    original_cwd = Path.cwd()
 
-    def test_status_requires_session_or_latest_for_multiple_sessions_json(self) -> None:
-        self._create_session(port=61234)
-        self._create_session(port=61235)
-        runner = CliRunner()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
-        result = runner.invoke(status, ["--connect-info", "--json"])
-
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Multiple sessions found", result.output)
-
-    def test_status_rejects_missing_session(self) -> None:
-        self._create_session(port=61234)
-        runner = CliRunner()
-
-        result = runner.invoke(
-            status, ["--connect-info", "--json", "--session", "missing"]
+    def _create_session(port: int) -> SessionMetadata:
+        registry = SessionRegistry()
+        return registry.create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=port,
+            pid=process.pid,
         )
 
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Session missing not found", result.output)
+    env = SimpleNamespace(
+        workspace=workspace,
+        outside=outside,
+        process=process,
+        create_session=_create_session,
+        original_cwd=original_cwd,
+        original_sessions_root=original_sessions_root,
+    )
+    try:
+        yield env
+    finally:
+        os.chdir(original_cwd)
+        if process.poll() is None:
+            process.terminate()
+        process.wait()
+        C.RUN_SESSIONS_FOLDER = original_sessions_root
 
-    def test_status_latest_selects_newest(self) -> None:
-        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        later = now + timedelta(minutes=5)
-        self._create_session(port=61234, started_at=now)
-        self._create_session(port=61235, started_at=later)
-        runner = CliRunner()
 
-        result = runner.invoke(status, ["--connect-info", "--json", "--latest"])
+def test_status_connect_info_json_emits_payload(status_env) -> None:
+    status_env.create_session(port=61234)
+    runner = CliRunner()
 
-        self.assertEqual(result.exit_code, 0, result.output)
-        payload = self._decode_connect_info(result.output)
-        session = payload["session"]
-        self.assertEqual(session["port"], 61235)
-        self.assertEqual(session["startedAt"], later.isoformat())
+    result = runner.invoke(status, ["--connect-info", "--json"])
 
-    def test_status_list_sessions_json_emits_payload(self) -> None:
-        first = self._create_session(port=61234)
-        second = self._create_session(port=61235)
-        runner = CliRunner()
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
 
-        result = runner.invoke(status, ["--list-sessions", "--json"])
+    session = payload["session"]
+    assert session["port"] == 61234
+    assert session["workspacePath"] == str(status_env.workspace.resolve())
+    assert (
+        payload["bootstrapUrlPlain"]
+        == "http://127.0.0.1:61234/__setta__/bootstrap"
+    )
+    assert payload["bootstrapUrlFragment"].startswith(
+        "http://127.0.0.1:61234/__setta__/bootstrap#token="
+    )
+    assert (
+        payload["sshTunnelCommand"]
+        == "ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 <user@host> -o ExitOnForwardFailure=yes"
+    )
 
-        self.assertEqual(result.exit_code, 0, result.output)
-        payload = self._decode_connect_info(result.output)
-        sessions = payload["sessions"]
-        self.assertEqual(len(sessions), 2)
-        ports = {session["port"] for session in sessions}
-        self.assertEqual(ports, {first.port, second.port})
-        for session in sessions:
-            self.assertEqual(
-                session["workspacePath"], str(self.workspace.resolve())
-            )
 
-    def test_status_list_sessions_requires_json(self) -> None:
-        self._create_session(port=61234)
-        runner = CliRunner()
+def test_status_requires_session_or_latest_for_multiple_sessions_json(
+    status_env,
+) -> None:
+    status_env.create_session(port=61234)
+    status_env.create_session(port=61235)
+    runner = CliRunner()
 
-        result = runner.invoke(status, ["--list-sessions"])
+    result = runner.invoke(status, ["--connect-info", "--json"])
 
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Use --json with --list-sessions", result.output)
+    assert result.exit_code != 0
+    assert "Multiple sessions found" in result.output
 
-    def test_status_delete_session_removes_metadata_and_stops_process(self) -> None:
-        session = self._create_session(port=61234)
-        runner = CliRunner()
 
-        result = runner.invoke(status, ["--delete-session", session.id])
+def test_status_rejects_missing_session(status_env) -> None:
+    status_env.create_session(port=61234)
+    runner = CliRunner()
 
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(f"Deleted session {session.id}.", result.output)
-        session_dir = self.sessions_root / session.id
-        self.assertFalse(session_dir.exists())
-        deadline = time.monotonic() + 2.0
-        while self.process.poll() is None and time.monotonic() < deadline:
-            time.sleep(0.05)
-        self.assertIsNotNone(self.process.poll())
+    result = runner.invoke(
+        status, ["--connect-info", "--json", "--session", "missing"]
+    )
 
-    def test_status_delete_session_does_not_kill_non_setta_process(self) -> None:
-        other_process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "import time; time.sleep(60)",
-                "unit-test",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    assert result.exit_code != 0
+    assert "Session missing not found" in result.output
 
-        def terminate_other_process() -> None:
-            if other_process.poll() is None:
-                other_process.terminate()
 
-        self.addCleanup(other_process.wait)
-        self.addCleanup(terminate_other_process)
+def test_status_latest_selects_newest(status_env) -> None:
+    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    later = now + timedelta(minutes=5)
+    status_env.create_session(port=61234, started_at=now)
+    status_env.create_session(port=61235, started_at=later)
+    runner = CliRunner()
 
-        session = self.registry.create_session(
-            workspace_path=self.workspace,
+    result = runner.invoke(status, ["--connect-info", "--json", "--latest"])
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    session = payload["session"]
+    assert session["port"] == 61235
+    assert session["startedAt"] == later.isoformat()
+
+
+def test_status_list_sessions_json_emits_payload(status_env) -> None:
+    first = status_env.create_session(port=61234)
+    second = status_env.create_session(port=61235)
+    runner = CliRunner()
+
+    result = runner.invoke(status, ["--list-sessions", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    sessions = payload["sessions"]
+    assert len(sessions) == 2
+    ports = {session["port"] for session in sessions}
+    assert ports == {first.port, second.port}
+    for session in sessions:
+        assert session["workspacePath"] == str(status_env.workspace.resolve())
+
+
+def test_status_list_sessions_requires_json(status_env) -> None:
+    status_env.create_session(port=61234)
+    runner = CliRunner()
+
+    result = runner.invoke(status, ["--list-sessions"])
+
+    assert result.exit_code != 0
+    assert "Use --json with --list-sessions" in result.output
+
+
+def test_status_delete_session_removes_metadata_and_stops_process(status_env) -> None:
+    session = status_env.create_session(port=61234)
+    runner = CliRunner()
+
+    result = runner.invoke(status, ["--delete-session", session.id])
+
+    assert result.exit_code == 0, result.output
+    assert f"Deleted session {session.id}." in result.output
+    session_dir = status_env.sessions_root / session.id
+    assert not session_dir.exists()
+    deadline = time.monotonic() + 2.0
+    while status_env.process.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert status_env.process.poll() is not None
+
+
+def test_status_delete_session_does_not_kill_non_setta_process(status_env) -> None:
+    other_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "unit-test",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        session = status_env.registry.create_session(
+            workspace_path=status_env.workspace,
             host="127.0.0.1",
             port=61236,
             pid=other_process.pid,
@@ -204,106 +254,59 @@ class StartStatusTests(unittest.TestCase):
 
         result = runner.invoke(status, ["--delete-session", session.id])
 
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(f"Deleted session {session.id}.", result.output)
-        session_dir = self.sessions_root / session.id
-        self.assertFalse(session_dir.exists())
-        self.assertIsNone(other_process.poll())
-
-    def test_status_delete_session_missing_reports_error(self) -> None:
-        runner = CliRunner()
-
-        result = runner.invoke(status, ["--delete-session", "missing"])
-
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Session missing not found", result.output)
+        assert result.exit_code == 0, result.output
+        assert f"Deleted session {session.id}." in result.output
+        session_dir = status_env.sessions_root / session.id
+        assert not session_dir.exists()
+        assert other_process.poll() is None
+    finally:
+        if other_process.poll() is None:
+            other_process.terminate()
+        other_process.wait()
 
 
-class StartStatusWorkspaceTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp_dir.cleanup)
+def test_status_delete_session_missing_reports_error(status_env) -> None:
+    runner = CliRunner()
 
-        self.workspace = Path(self.temp_dir.name) / "workspace"
-        self.workspace.mkdir()
-        self.outside = Path(self.temp_dir.name) / "outside"
-        self.outside.mkdir()
+    result = runner.invoke(status, ["--delete-session", "missing"])
 
-        self.original_sessions_root = C.RUN_SESSIONS_FOLDER
-        self.addCleanup(self._restore_sessions_root)
-        C.RUN_SESSIONS_FOLDER = Path("setta_files") / "run" / "sessions"
-
-        self.original_cwd = Path.cwd()
-        self.addCleanup(self._restore_cwd)
-
-        self.process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "import time; time.sleep(60)",
-                "setta.server:app",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        self.addCleanup(self.process.wait)
-        self.addCleanup(self._terminate_process)
-
-    def _restore_sessions_root(self) -> None:
-        C.RUN_SESSIONS_FOLDER = self.original_sessions_root
-
-    def _restore_cwd(self) -> None:
-        os.chdir(self.original_cwd)
-
-    def _terminate_process(self) -> None:
-        if self.process.poll() is None:
-            self.process.terminate()
-
-    def _create_session(self, port: int) -> SessionMetadata:
-        registry = SessionRegistry()
-        return registry.create_session(
-            workspace_path=self.workspace,
-            host="127.0.0.1",
-            port=port,
-            pid=self.process.pid,
-        )
-
-    def _decode_connect_info(self, output: str) -> dict:
-        line = output.strip()
-        self.assertTrue(line.startswith("__SETTA_JSON_B64__"))
-        encoded = line.removeprefix("__SETTA_JSON_B64__")
-        decoded = base64.b64decode(encoded).decode("utf-8")
-        return json.loads(decoded)
-
-    def test_status_connect_info_uses_workspace_from_other_cwd(self) -> None:
-        os.chdir(self.workspace)
-        self._create_session(port=61234)
-        os.chdir(self.outside)
-
-        runner = CliRunner()
-        result = runner.invoke(
-            status,
-            ["--connect-info", "--json", "--workspace", str(self.workspace)],
-        )
-
-        self.assertEqual(result.exit_code, 0, result.output)
-        payload = self._decode_connect_info(result.output)
-        self.assertEqual(payload["session"]["port"], 61234)
-
-    def test_stop_uses_workspace_from_other_cwd(self) -> None:
-        os.chdir(self.workspace)
-        session = self._create_session(port=61235)
-        session_dir = self.workspace / C.RUN_SESSIONS_FOLDER / session.id
-        self.assertTrue(session_dir.exists())
-        os.chdir(self.outside)
-
-        runner = CliRunner()
-        result = runner.invoke(stop, ["--workspace", str(self.workspace)])
-
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(f"Stopped session {session.id}.", result.output)
-        self.assertFalse(session_dir.exists())
+    assert result.exit_code != 0
+    assert "Session missing not found" in result.output
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_status_connect_info_uses_workspace_from_other_cwd(
+    status_workspace_env,
+) -> None:
+    os.chdir(status_workspace_env.workspace)
+    status_workspace_env.create_session(port=61234)
+    os.chdir(status_workspace_env.outside)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        status,
+        [
+            "--connect-info",
+            "--json",
+            "--workspace",
+            str(status_workspace_env.workspace),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    assert payload["session"]["port"] == 61234
+
+
+def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
+    os.chdir(status_workspace_env.workspace)
+    session = status_workspace_env.create_session(port=61235)
+    session_dir = status_workspace_env.workspace / C.RUN_SESSIONS_FOLDER / session.id
+    assert session_dir.exists()
+    os.chdir(status_workspace_env.outside)
+
+    runner = CliRunner()
+    result = runner.invoke(stop, ["--workspace", str(status_workspace_env.workspace)])
+
+    assert result.exit_code == 0, result.output
+    assert f"Stopped session {session.id}." in result.output
+    assert not session_dir.exists()

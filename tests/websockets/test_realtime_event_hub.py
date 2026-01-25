@@ -1,5 +1,6 @@
-import unittest
 from typing import TYPE_CHECKING, cast
+
+import pytest
 
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -11,6 +12,14 @@ from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 if TYPE_CHECKING:
     from setta.websockets.websocket_manager import WebsocketManager
+
+
+pytestmark = pytest.mark.asyncio
+
+
+PROJECT_ID = ID("proj-1")
+SECTION_A_ID = ID("section-a")
+SECTION_B_ID = ID("section-b")
 
 
 class _StubPythonScriptSender:
@@ -39,74 +48,74 @@ class _StubPythonScriptSender:
         )
 
 
-class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
-    PROJECT_ID = ID("proj-1")
-    SECTION_A_ID = ID("section-a")
-    SECTION_B_ID = ID("section-b")
+def _build_sender_and_hub() -> tuple[_StubPythonScriptSender, RealtimeEventHub]:
+    sender = _StubPythonScriptSender()
+    hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
+    return sender, hub
 
-    async def test_emit_realtime_delta_increments_sequence(self) -> None:
-        sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
 
-        delta_a = ListenerRealtimeDelta(
-            dependency=create_dep_key(sectionId=self.SECTION_A_ID),
-            value=LiteralDependencyValue("1"),
-        )
-        delta_b = ListenerRealtimeDelta(
-            dependency=create_dep_key(sectionId=self.SECTION_B_ID),
-            value=LiteralDependencyValue("2"),
-        )
+async def test_emit_realtime_delta_increments_sequence() -> None:
+    sender, hub = _build_sender_and_hub()
 
+    delta_a = ListenerRealtimeDelta(
+        dependency=create_dep_key(sectionId=SECTION_A_ID),
+        value=LiteralDependencyValue("1"),
+    )
+    delta_b = ListenerRealtimeDelta(
+        dependency=create_dep_key(sectionId=SECTION_B_ID),
+        value=LiteralDependencyValue("2"),
+    )
+
+    await hub.emit_realtime_delta(
+        project_config_id=PROJECT_ID,
+        deltas=[delta_a],
+    )
+    await hub.emit_realtime_delta(
+        project_config_id=PROJECT_ID,
+        deltas=[delta_b],
+    )
+
+    assert len(sender.calls) == 2
+    first = sender.calls[0]
+    second = sender.calls[1]
+
+    assert first["sequence"] == 1
+    assert first["deltas"] == [delta_a]
+
+    assert second["sequence"] == 2
+    assert second["deltas"] == [delta_b]
+
+
+async def test_reset_sequence_starts_from_one() -> None:
+    sender, hub = _build_sender_and_hub()
+
+    delta = ListenerRealtimeDelta(
+        dependency=create_dep_key(sectionId=SECTION_A_ID),
+        value=LiteralDependencyValue("1"),
+    )
+
+    await hub.emit_realtime_delta(
+        project_config_id=PROJECT_ID,
+        deltas=[delta],
+    )
+    hub.reset_sequence(PROJECT_ID)
+    await hub.emit_realtime_delta(
+        project_config_id=PROJECT_ID,
+        deltas=[delta],
+    )
+
+    assert len(sender.calls) == 2
+    assert sender.calls[1]["sequence"] == 1
+
+
+async def test_emit_realtime_delta_requires_dependency_ids() -> None:
+    _, hub = _build_sender_and_hub()
+
+    with pytest.raises(ValueError):
         await hub.emit_realtime_delta(
-            project_config_id=self.PROJECT_ID,
-            deltas=[delta_a],
+            project_config_id=PROJECT_ID,
+            deltas=[],
         )
-        await hub.emit_realtime_delta(
-            project_config_id=self.PROJECT_ID,
-            deltas=[delta_b],
-        )
-
-        self.assertEqual(2, len(sender.calls))
-        first = sender.calls[0]
-        second = sender.calls[1]
-
-        self.assertEqual(1, first["sequence"])
-        self.assertEqual([delta_a], first["deltas"])
-
-        self.assertEqual(2, second["sequence"])
-        self.assertEqual([delta_b], second["deltas"])
-
-    async def test_reset_sequence_starts_from_one(self) -> None:
-        sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
-
-        delta = ListenerRealtimeDelta(
-            dependency=create_dep_key(sectionId=self.SECTION_A_ID),
-            value=LiteralDependencyValue("1"),
-        )
-
-        await hub.emit_realtime_delta(
-            project_config_id=self.PROJECT_ID,
-            deltas=[delta],
-        )
-        hub.reset_sequence(self.PROJECT_ID)
-        await hub.emit_realtime_delta(
-            project_config_id=self.PROJECT_ID,
-            deltas=[delta],
-        )
-
-        self.assertEqual(2, len(sender.calls))
-        self.assertEqual(1, sender.calls[1]["sequence"])
-
-    async def test_emit_realtime_delta_requires_dependency_ids(self) -> None:
-        sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
-
-        with self.assertRaises(ValueError):
-            await hub.emit_realtime_delta(
-                project_config_id=self.PROJECT_ID,
-                deltas=[],
-            )
 
 
 class _StubWebsocketManager:
@@ -120,39 +129,31 @@ class _StubWebsocketManager:
         raise AssertionError("broadcast should not be used in tests")
 
 
-class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
-    async def test_force_refresh_resets_sequence_tracking(self) -> None:
-        websocket_manager = _StubWebsocketManager()
-        listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(
-            cast("WebsocketManager", websocket_manager), listener_registry
-        )
-        hub = RealtimeEventHub(sender)
-
-        delta = ListenerRealtimeDelta(
-            dependency=create_dep_key(sectionId=RealtimeEventHubTests.SECTION_A_ID),
-            value=LiteralDependencyValue("1"),
-        )
-
-        await hub.emit_realtime_delta(
-            project_config_id=RealtimeEventHubTests.PROJECT_ID,
-            deltas=[delta],
-        )
-        self.assertIn(
-            (RealtimeEventHubTests.PROJECT_ID, None),
-            hub._sequence_by_project,
-        )
-
-        await sender.send_force_refresh(
-            projectConfigId=RealtimeEventHubTests.PROJECT_ID
-        )
-
-        self.assertNotIn(
-            (RealtimeEventHubTests.PROJECT_ID, None),
-            hub._sequence_by_project,
-        )
-        self.assertEqual([], websocket_manager.sent_messages)
+def _build_force_refresh_sender() -> tuple[_StubWebsocketManager, WMHPythonScriptSender]:
+    websocket_manager = _StubWebsocketManager()
+    listener_registry = ListenerRegistry()
+    sender = WMHPythonScriptSender(
+        cast("WebsocketManager", websocket_manager), listener_registry
+    )
+    return websocket_manager, sender
 
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+async def test_force_refresh_resets_sequence_tracking() -> None:
+    websocket_manager, sender = _build_force_refresh_sender()
+    hub = RealtimeEventHub(sender)
+
+    delta = ListenerRealtimeDelta(
+        dependency=create_dep_key(sectionId=SECTION_A_ID),
+        value=LiteralDependencyValue("1"),
+    )
+
+    await hub.emit_realtime_delta(
+        project_config_id=PROJECT_ID,
+        deltas=[delta],
+    )
+    assert (PROJECT_ID, None) in hub._sequence_by_project
+
+    await sender.send_force_refresh(projectConfigId=PROJECT_ID)
+
+    assert (PROJECT_ID, None) not in hub._sequence_by_project
+    assert websocket_manager.sent_messages == []

@@ -429,6 +429,7 @@ class ExternalAgentRunner:
             env=env,
             cleanup_paths=cleanup_paths,
             system_prompt=system_prompt,
+            working_dir=working_dir,
         )
         return ExternalAgentRunContext(
             run=run,
@@ -685,6 +686,7 @@ class ExternalAgentRunner:
         env: dict[str, str],
         cleanup_paths: list[Path],
         system_prompt: str,
+        working_dir: Path | None = None,
     ) -> None:
         allowlist = self._resolve_external_tool_allowlist(profile)
         if config.toolType == ExternalAgentToolType.claude_code:
@@ -738,6 +740,7 @@ class ExternalAgentRunner:
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
                 system_prompt=codex_prompt,
+                project_root=working_dir or CWD,
             )
             env["CODEX_HOME"] = str(codex_home)
 

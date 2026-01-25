@@ -1,9 +1,9 @@
 import json
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -38,6 +38,9 @@ from setta.websockets.msg_handlers.python_script_receiver import (
 )
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
+
+
+pytestmark = pytest.mark.asyncio
 
 
 PROJECT_CONFIG_ID = ID("share-project")
@@ -125,6 +128,7 @@ def _build_project_state() -> ProjectStateSingleConfig:
         sectionVariants={variant.id: variant},
     )
 
+
 def _build_share_deployment_root(
     tmpdir: str,
     project_config_name: str,
@@ -157,190 +161,186 @@ def _write_project(root: Path) -> DBE:
     return dbe
 
 
-class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_frontend_emit_without_share_session_reports_error(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            root = _build_share_deployment_root(tmpdir, "Share Project")
-            dbe = _write_project(root)
-            websocket_manager = WebsocketManager()
-            listener_registry = ListenerRegistry()
-            frontend_sender = WMHFrontendSender(
-                websocket_manager,
-                share_mode=True,
-            )
-            python_sender = WMHPythonScriptSender(
-                websocket_manager, listener_registry
-            )
-            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
-            settings_file = SettingsFile(
-                dbe,
-                frontend_sender,
-                allow_write=False,
-            )
-            share_manager.initialize_share_state(settings_file)
-            switcher = ProjectManagerSwitcher(
-                share_runtime_state=share_manager,
-                settings_file=settings_file,
-                python_script_sender=python_sender,
-                lsp_writers=None,
-                frontend_sender=frontend_sender,
-                specific_file_watcher=SpecificFileWatcher(),
-            )
-            receiver = WMHPythonScriptReceiver(
-                websocket_manager,
-                listener_registry,
-                frontend_sender,
-                python_sender,
-                switcher,
-                dbe,
-            )
+async def test_frontend_emit_without_share_session_reports_error() -> None:
+    with TemporaryDirectory() as tmpdir:
+        root = _build_share_deployment_root(tmpdir, "Share Project")
+        dbe = _write_project(root)
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        frontend_sender = WMHFrontendSender(
+            websocket_manager,
+            share_mode=True,
+        )
+        python_sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        share_manager = ShareRuntimeState(dbe, root, frontend_sender)
+        settings_file = SettingsFile(
+            dbe,
+            frontend_sender,
+            allow_write=False,
+        )
+        share_manager.initialize_share_state(settings_file)
+        switcher = ProjectManagerSwitcher(
+            share_runtime_state=share_manager,
+            settings_file=settings_file,
+            python_script_sender=python_sender,
+            lsp_writers=None,
+            frontend_sender=frontend_sender,
+            specific_file_watcher=SpecificFileWatcher(),
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_sender,
+            switcher,
+            dbe,
+        )
 
-            messages: list[Message] = []
-            share_state = _build_share_state()
-            websocket = await _build_websocket(messages, state=share_state)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.PYTHON_SCRIPT,
-                id="listener-missing-session",
-                shareSessionId=None,
-            )
+        messages: list[Message] = []
+        share_state = _build_share_state()
+        websocket = await _build_websocket(messages, state=share_state)
+        websocket_id = await websocket_manager.on_connect(
+            websocket,
+            WebsocketConnectionType.PYTHON_SCRIPT,
+            id="listener-missing-session",
+            shareSessionId=None,
+        )
 
-            listener_registry.upsert_registration(
-                websocket_id=websocket_id,
-                project_config_id=share_manager.default_project_config_id,
-                callbacks={
-                    "cb": ListenerRegisterCallback(
-                        dependencies=[],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
-                    )
-                },
-                share_session_id=None,
-            )
-
-            emit_message = WebsocketMsgListenerFrontendEmit(
-                content=ListenerFrontendEmitRawContent(
-                    projectConfigId=share_manager.default_project_config_id,
-                    dependencyValues={},
-                    artifactUpdates=[],
+        listener_registry.upsert_registration(
+            websocket_id=websocket_id,
+            project_config_id=share_manager.default_project_config_id,
+            callbacks={
+                "cb": ListenerRegisterCallback(
+                    dependencies=[],
+                    dependencyMode=ListenerDependencyMode.ALWAYS,
                 )
-            )
-            await receiver.process_json_str(
-                emit_message.model_dump_json(),
-                websocket_id,
-            )
+            },
+            share_session_id=None,
+        )
 
-            sent = _sent_text_messages(messages)
-            self.assertEqual(1, len(sent))
-            parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
-            self.assertIsInstance(parsed, WebsocketMsgListenerError)
-            self.assertEqual("share_session_missing", parsed.content.error)
+        emit_message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId=share_manager.default_project_config_id,
+                dependencyValues={},
+                artifactUpdates=[],
+            )
+        )
+        await receiver.process_json_str(
+            emit_message.model_dump_json(),
+            websocket_id,
+        )
 
-            await websocket.close()
+        sent = _sent_text_messages(messages)
+        assert len(sent) == 1
+        parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
+        assert isinstance(parsed, WebsocketMsgListenerError)
+        assert parsed.content.error == "share_session_missing"
 
-    async def test_listener_coverage_broadcasts_to_session(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            root = _build_share_deployment_root(tmpdir, "Share Project")
-            dbe = _write_project(root)
-            websocket_manager = WebsocketManager()
-            listener_registry = ListenerRegistry()
-            frontend_sender = WMHFrontendSender(
-                websocket_manager,
-                share_mode=True,
-            )
-            python_sender = WMHPythonScriptSender(
-                websocket_manager, listener_registry
-            )
-            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
-            settings_file = SettingsFile(
-                dbe,
-                frontend_sender,
-                allow_write=False,
-            )
-            share_manager.initialize_share_state(settings_file)
-            switcher = ProjectManagerSwitcher(
-                share_runtime_state=share_manager,
-                settings_file=settings_file,
-                python_script_sender=python_sender,
-                lsp_writers=None,
-                frontend_sender=frontend_sender,
-                specific_file_watcher=SpecificFileWatcher(),
-            )
-            receiver = WMHPythonScriptReceiver(
-                websocket_manager,
-                listener_registry,
-                frontend_sender,
-                python_sender,
-                switcher,
-                dbe,
-            )
+        await websocket.close()
 
-            frontend_messages_a: list[Message] = []
-            frontend_messages_b: list[Message] = []
-            share_state = _build_share_state()
-            websocket_a = await _build_websocket(
-                frontend_messages_a,
-                state=share_state,
-            )
-            websocket_b = await _build_websocket(
-                frontend_messages_b,
-                state=share_state,
-            )
-            await websocket_manager.on_connect(
-                websocket_a,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-a",
-                shareSessionId="session-a",
-            )
-            await websocket_manager.on_connect(
-                websocket_b,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-b",
-                shareSessionId="session-b",
-            )
 
-            share_manager.create_session_backend("session-a")
-            share_manager.create_session_backend("session-b")
+async def test_listener_coverage_broadcasts_to_session() -> None:
+    with TemporaryDirectory() as tmpdir:
+        root = _build_share_deployment_root(tmpdir, "Share Project")
+        dbe = _write_project(root)
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        frontend_sender = WMHFrontendSender(
+            websocket_manager,
+            share_mode=True,
+        )
+        python_sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        share_manager = ShareRuntimeState(dbe, root, frontend_sender)
+        settings_file = SettingsFile(
+            dbe,
+            frontend_sender,
+            allow_write=False,
+        )
+        share_manager.initialize_share_state(settings_file)
+        switcher = ProjectManagerSwitcher(
+            share_runtime_state=share_manager,
+            settings_file=settings_file,
+            python_script_sender=python_sender,
+            lsp_writers=None,
+            frontend_sender=frontend_sender,
+            specific_file_watcher=SpecificFileWatcher(),
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_sender,
+            switcher,
+            dbe,
+        )
 
-            listener_messages: list[Message] = []
-            listener_socket = await _build_websocket(
-                listener_messages,
-                state=share_state,
-            )
-            listener_id = await websocket_manager.on_connect(
-                listener_socket,
-                WebsocketConnectionType.PYTHON_SCRIPT,
-                id="listener-shared",
-                shareSessionId="session-a",
-            )
-            listener_registry.upsert_registration(
-                websocket_id=listener_id,
-                project_config_id=share_manager.default_project_config_id,
-                callbacks={
-                    "cb": ListenerRegisterCallback(
-                        dependencies=[create_dep_key(sectionId=SECTION_ID)],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
-                    )
-                },
-                share_session_id="session-a",
-            )
+        frontend_messages_a: list[Message] = []
+        frontend_messages_b: list[Message] = []
+        share_state = _build_share_state()
+        websocket_a = await _build_websocket(
+            frontend_messages_a,
+            state=share_state,
+        )
+        websocket_b = await _build_websocket(
+            frontend_messages_b,
+            state=share_state,
+        )
+        await websocket_manager.on_connect(
+            websocket_a,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-a",
+            shareSessionId="session-a",
+        )
+        await websocket_manager.on_connect(
+            websocket_b,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-b",
+            shareSessionId="session-b",
+        )
 
-            await receiver._sync_listener_coverage(
-                share_manager.default_project_config_id,
-                share_session_id="session-a",
-            )
+        share_manager.create_session_backend("session-a")
+        share_manager.create_session_backend("session-b")
 
-            types_a = [
-                json.loads(text)["messageType"]
-                for text in _sent_text_messages(frontend_messages_a)
-            ]
-            types_b = [
-                json.loads(text)["messageType"]
-                for text in _sent_text_messages(frontend_messages_b)
-            ]
+        listener_messages: list[Message] = []
+        listener_socket = await _build_websocket(
+            listener_messages,
+            state=share_state,
+        )
+        listener_id = await websocket_manager.on_connect(
+            listener_socket,
+            WebsocketConnectionType.PYTHON_SCRIPT,
+            id="listener-shared",
+            shareSessionId="session-a",
+        )
+        listener_registry.upsert_registration(
+            websocket_id=listener_id,
+            project_config_id=share_manager.default_project_config_id,
+            callbacks={
+                "cb": ListenerRegisterCallback(
+                    dependencies=[create_dep_key(sectionId=SECTION_ID)],
+                    dependencyMode=ListenerDependencyMode.ALWAYS,
+                )
+            },
+            share_session_id="session-a",
+        )
 
-            self.assertIn("ListenerCoverageSnapshot", types_a)
-            self.assertNotIn("ListenerCoverageSnapshot", types_b)
+        await receiver._sync_listener_coverage(
+            share_manager.default_project_config_id,
+            share_session_id="session-a",
+        )
 
-            await websocket_a.close()
-            await websocket_b.close()
-            await listener_socket.close()
+        types_a = [
+            json.loads(text)["messageType"]
+            for text in _sent_text_messages(frontend_messages_a)
+        ]
+        types_b = [
+            json.loads(text)["messageType"]
+            for text in _sent_text_messages(frontend_messages_b)
+        ]
+
+        assert "ListenerCoverageSnapshot" in types_a
+        assert "ListenerCoverageSnapshot" not in types_b
+
+        await websocket_a.close()
+        await websocket_b.close()
+        await listener_socket.close()

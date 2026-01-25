@@ -1,5 +1,5 @@
-import unittest
-
+import pytest
+import pytest_asyncio
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -56,8 +56,11 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
     ]
 
 
-class PythonScriptSenderShareSessionTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+class TestPythonScriptSenderShareSession:
+    pytestmark = pytest.mark.asyncio
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.sender = WMHPythonScriptSender(
@@ -102,7 +105,8 @@ class PythonScriptSenderShareSessionTests(unittest.IsolatedAsyncioTestCase):
                 share_session_id=share_session_id,
             )
 
-    async def asyncTearDown(self) -> None:
+        yield
+
         for websocket in self.websockets:
             await websocket.close()
 
@@ -123,12 +127,12 @@ class PythonScriptSenderShareSessionTests(unittest.IsolatedAsyncioTestCase):
         sent_b = _sent_text_messages(self.messages_by_label["session-b"])
         sent_shared = _sent_text_messages(self.messages_by_label["shared"])
 
-        self.assertEqual(1, len(sent_a))
-        self.assertEqual(0, len(sent_b))
-        self.assertEqual(1, len(sent_shared))
+        assert len(sent_a) == 1
+        assert len(sent_b) == 0
+        assert len(sent_shared) == 1
 
         parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_a[0])
-        self.assertIsInstance(parsed, WebsocketMsgListenerRealtimeEvent)
+        assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
 
     async def test_force_refresh_filters_by_share_session(self) -> None:
         await self.sender.send_force_refresh(
@@ -140,9 +144,9 @@ class PythonScriptSenderShareSessionTests(unittest.IsolatedAsyncioTestCase):
         sent_b = _sent_text_messages(self.messages_by_label["session-b"])
         sent_shared = _sent_text_messages(self.messages_by_label["shared"])
 
-        self.assertEqual(0, len(sent_a))
-        self.assertEqual(1, len(sent_b))
-        self.assertEqual(1, len(sent_shared))
+        assert len(sent_a) == 0
+        assert len(sent_b) == 1
+        assert len(sent_shared) == 1
 
         parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_b[0])
-        self.assertIsInstance(parsed, WebsocketMsgListenerForceRefresh)
+        assert isinstance(parsed, WebsocketMsgListenerForceRefresh)

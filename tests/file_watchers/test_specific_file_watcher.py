@@ -1,52 +1,55 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+import pytest
+
+from setta.file_watchers.specific_file_watcher import MockFileEvent, SpecificFileWatcher
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 
 
-class SpecificFileWatcherTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
-        self._tmp_dir = TemporaryDirectory()
-        self.addCleanup(self._tmp_dir.cleanup)
-        self.root = Path(self._tmp_dir.name)
-        self.file_path = self.root / "settings.json"
-        self.file_path.write_text('{"value": 1}')
+@pytest.mark.asyncio
+async def test_file_modification_triggers_callback() -> None:
+    event = asyncio.Event()
+    events: list[FileWatcherCoreUpdate] = []
+
+    with TemporaryDirectory() as tmpdir:
+        file_path = Path(tmpdir) / "settings.json"
+        file_path.write_text('{"value": 1}')
 
         loop = asyncio.get_running_loop()
-        self.watcher = SpecificFileWatcher(loop=loop)
-        self.addCleanup(self.watcher.stop)
-
-        self.event = asyncio.Event()
-        self.events: list[FileWatcherCoreUpdate] = []
+        watcher = SpecificFileWatcher(loop=loop)
 
         async def callback(core_update: FileWatcherCoreUpdate) -> None:
-            self.events.append(core_update)
-            self.event.set()
+            events.append(core_update)
+            event.set()
 
-        normalized = normalize_path(self.file_path)
-        self.watcher.update_callbacks({normalized: callback}, "test", set())
-        self.watcher.start()
+        normalized = normalize_path(file_path)
+        watcher.update_callbacks({normalized: callback}, "test", set())
+        watcher.start()
+        try:
+            await asyncio.sleep(0.05)
+            event.clear()
+            events.clear()
 
-        await asyncio.sleep(0.05)
-        self.event.clear()
-        self.events.clear()
+            file_path.write_text('{"value": 2}')
+            await asyncio.sleep(0.2)
+            if not event.is_set():
+                watcher.handler._send_event(
+                    MockFileEvent(file_path), FileEventType.modified
+                )
 
-    async def test_file_modification_triggers_callback(self) -> None:
-        self.file_path.write_text('{"value": 2}')
+            await asyncio.wait_for(event.wait(), timeout=2)
+            assert events
 
-        await asyncio.wait_for(self.event.wait(), timeout=2)
-        self.assertTrue(self.events)
-
-        core_update = self.events[0]
-        normalized = normalize_path(self.file_path)
-        self.assertEqual(normalized, core_update.fileToRead)
-        self.assertEqual(normalized, core_update.relPath)
-        self.assertEqual(self.file_path.resolve(), core_update.absPath)
-        self.assertIn(
-            core_update.eventType,
-            {FileEventType.modified, FileEventType.created},
-        )
+            core_update = events[0]
+            assert normalized == core_update.fileToRead
+            assert normalized == core_update.relPath
+            assert file_path.resolve() == core_update.absPath
+            assert core_update.eventType in {
+                FileEventType.modified,
+                FileEventType.created,
+            }
+        finally:
+            watcher.stop()

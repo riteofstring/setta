@@ -1,5 +1,5 @@
-import unittest
-
+import pytest
+import pytest_asyncio
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -46,8 +46,11 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
     ]
 
 
-class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+class TestWebsocketManagerSession:
+    pytestmark = pytest.mark.asyncio
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self.websocket_manager = WebsocketManager()
         self.messages_by_socket: dict[str, list[Message]] = {}
         self.websockets: dict[str, WebSocket] = {}
@@ -66,7 +69,8 @@ class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
         for messages in self.messages_by_socket.values():
             messages.clear()
 
-    async def asyncTearDown(self) -> None:
+        yield
+
         for websocket in self.websockets.values():
             await websocket.close()
 
@@ -83,11 +87,11 @@ class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
         messages_a = _sent_text_messages(self.messages_by_socket["frontend-a"])
         messages_b = _sent_text_messages(self.messages_by_socket["frontend-b"])
 
-        self.assertEqual(1, len(messages_a))
-        self.assertEqual(0, len(messages_b))
+        assert len(messages_a) == 1
+        assert len(messages_b) == 0
 
         parsed = WebsocketMsgNotification.model_validate_json(messages_a[0])
-        self.assertEqual("Hello share", parsed.content.message)
+        assert parsed.content.message == "Hello share"
 
     async def test_broadcast_connections_includes_session_ids(self) -> None:
         for messages in self.messages_by_socket.values():
@@ -96,13 +100,13 @@ class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
         await self.websocket_manager.broadcast_connections()
 
         messages = _sent_text_messages(self.messages_by_socket["frontend-a"])
-        self.assertEqual(1, len(messages))
+        assert len(messages) == 1
 
         parsed = WebsocketMsgAllConnections.model_validate_json(messages[0])
         connections = {conn.id: conn for conn in parsed.content}
 
-        self.assertEqual("session-a", connections["frontend-a"].shareSessionId)
-        self.assertEqual("session-b", connections["frontend-b"].shareSessionId)
+        assert connections["frontend-a"].shareSessionId == "session-a"
+        assert connections["frontend-b"].shareSessionId == "session-b"
 
     async def test_on_connect_can_skip_connection_broadcast(self) -> None:
         messages_c: list[Message] = []
@@ -119,16 +123,12 @@ class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
         messages_b = _sent_text_messages(self.messages_by_socket["frontend-b"])
         messages_c_text = _sent_text_messages(messages_c)
 
-        self.assertEqual(0, len(messages_a))
-        self.assertEqual(0, len(messages_b))
-        self.assertEqual(0, len(messages_c_text))
+        assert len(messages_a) == 0
+        assert len(messages_b) == 0
+        assert len(messages_c_text) == 0
 
         await self.websocket_manager.on_disconnect(
             "frontend-c",
             broadcast_connections=False,
         )
         await websocket_c.close()
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

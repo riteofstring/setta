@@ -12,6 +12,7 @@ import time
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path, PurePath
 from typing import Any
 
@@ -44,6 +45,12 @@ from setta.utils.network import (
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
 _TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
+_ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
+_MISSING_AUTH_MESSAGE = (
+    "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
+    "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
+    "workspace)."
+)
 
 
 @dataclass
@@ -958,7 +965,18 @@ def _normalize_tool_name(raw: str) -> str:
         )
     if MCP_TOOL_NAME_SEPARATOR in name:
         raise click.ClickException("Tool name must be a bare MCP tool name.")
+    if _is_route_name(name):
+        raise click.ClickException("Tool name must be a bare MCP tool name.")
     return name
+
+
+def _is_route_name(name: str) -> bool:
+    return name in _ROUTE_NAMES
+
+
+@lru_cache(maxsize=1)
+def _get_setta_tool_names() -> set[str]:
+    return {tool["name"] for tool in build_setta_tool_payloads()}
 
 
 def _build_tool_call_url(base_url: str) -> str:
@@ -1419,9 +1437,16 @@ def api(
     if auth_stdin and payload_stdin:
         raise click.ClickException("Use --auth-stdin or --stdin, not both.")
 
-    normalized_tool_name: str | None = None
+    normalized_tool_name: str | None = tool_name.strip() if tool_name else None
     try:
         normalized_tool_name = _normalize_tool_name(tool_name)
+        has_explicit_auth = bool(
+            auth_json
+            or auth_stdin
+            or cookie_header
+            or cookie
+            or (base_url and (cookie_header or cookie))
+        )
         payload = _load_json_payload(json_payload, payload_stdin, payload_file)
         if payload is None:
             arguments: dict[str, Any] = {}
@@ -1430,6 +1455,15 @@ def api(
         else:
             raise click.ClickException("Tool arguments must be a JSON object.")
         auth_payload = _load_auth_payload(auth_json, auth_stdin)
+        if normalized_tool_name not in _get_setta_tool_names():
+            if not has_explicit_auth:
+                raise click.ClickException(_MISSING_AUTH_MESSAGE)
+            if json_output:
+                _emit_json_output(
+                    {"error": "UnknownTool", "tool": normalized_tool_name}
+                )
+                raise SystemExit(1)
+            raise click.ClickException(f"Unknown tool: {normalized_tool_name}")
         resolved_base_url = _normalize_base_url(base_url) if base_url else None
         cookie_value: str | None = None
 

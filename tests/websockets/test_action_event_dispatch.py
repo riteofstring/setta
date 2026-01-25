@@ -1,5 +1,5 @@
-import unittest
-
+import pytest
+import pytest_asyncio
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -63,8 +63,11 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
     ]
 
 
-class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+class TestActionEventDispatch:
+    pytestmark = pytest.mark.asyncio
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.sender = WMHPythonScriptSender(
@@ -83,7 +86,8 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         ):
             await self._register_socket(socket_id)
 
-    async def asyncTearDown(self) -> None:
+        yield
+
         for socket_id, websocket in self._websockets.items():
             self.websocket_manager.sockets.pop(socket_id, None)
             await websocket.close()
@@ -164,28 +168,29 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         none_messages = _sent_text_messages(self._messages_by_socket["socket-none"])
         other_messages = _sent_text_messages(self._messages_by_socket["socket-other"])
 
-        self.assertEqual(1, len(specific_messages))
-        self.assertEqual(1, len(wildcard_messages))
-        self.assertEqual(0, len(none_messages))
-        self.assertEqual(0, len(other_messages))
+        assert len(specific_messages) == 1
+        assert len(wildcard_messages) == 1
+        assert len(none_messages) == 0
+        assert len(other_messages) == 0
 
         parsed_specific = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             specific_messages[0]
         )
-        self.assertIsInstance(parsed_specific, WebsocketMsgListenerDependencyEvent)
-        self.assertEqual(self.project_config_id, parsed_specific.content.projectConfigId)
-        self.assertEqual(3, parsed_specific.content.sequence)
-        self.assertEqual(1, len(parsed_specific.content.dependencyEvents))
-        self.assertEqual(
-            action_dependency, parsed_specific.content.dependencyEvents[0].dependencyKey
+        assert isinstance(parsed_specific, WebsocketMsgListenerDependencyEvent)
+        assert self.project_config_id == parsed_specific.content.projectConfigId
+        assert parsed_specific.content.sequence == 3
+        assert len(parsed_specific.content.dependencyEvents) == 1
+        assert (
+            action_dependency
+            == parsed_specific.content.dependencyEvents[0].dependencyKey
         )
 
         parsed_wildcard = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             wildcard_messages[0]
         )
-        self.assertIsInstance(parsed_wildcard, WebsocketMsgListenerDependencyEvent)
-        self.assertEqual(self.project_config_id, parsed_wildcard.content.projectConfigId)
-        self.assertEqual(3, parsed_wildcard.content.sequence)
+        assert isinstance(parsed_wildcard, WebsocketMsgListenerDependencyEvent)
+        assert self.project_config_id == parsed_wildcard.content.projectConfigId
+        assert parsed_wildcard.content.sequence == 3
 
     async def test_emit_action_event_increments_sequence(self) -> None:
         action_dependency = create_dep_key(sectionId=ID("section-action"))
@@ -218,7 +223,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         wildcard_messages = _sent_text_messages(
             self._messages_by_socket["socket-wildcard"]
         )
-        self.assertEqual(2, len(wildcard_messages))
+        assert len(wildcard_messages) == 2
 
         parsed_first = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             wildcard_messages[0]
@@ -226,10 +231,10 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         parsed_second = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             wildcard_messages[1]
         )
-        self.assertIsInstance(parsed_first, WebsocketMsgListenerDependencyEvent)
-        self.assertIsInstance(parsed_second, WebsocketMsgListenerDependencyEvent)
-        self.assertEqual(1, parsed_first.content.sequence)
-        self.assertEqual(2, parsed_second.content.sequence)
+        assert isinstance(parsed_first, WebsocketMsgListenerDependencyEvent)
+        assert isinstance(parsed_second, WebsocketMsgListenerDependencyEvent)
+        assert parsed_first.content.sequence == 1
+        assert parsed_second.content.sequence == 2
 
     async def test_emit_action_event_shares_sequence_with_realtime_delta(self) -> None:
         dependency = create_dep_key(
@@ -270,7 +275,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         specific_messages = _sent_text_messages(
             self._messages_by_socket["socket-specific"]
         )
-        self.assertEqual(2, len(specific_messages))
+        assert len(specific_messages) == 2
 
         parsed_delta = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             specific_messages[0]
@@ -278,18 +283,14 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         parsed_action = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             specific_messages[1]
         )
-        self.assertIsInstance(parsed_delta, WebsocketMsgListenerRealtimeEvent)
-        self.assertIsInstance(parsed_action, WebsocketMsgListenerDependencyEvent)
-        self.assertEqual(1, parsed_delta.content.sequence)
-        self.assertEqual(2, parsed_action.content.sequence)
+        assert isinstance(parsed_delta, WebsocketMsgListenerRealtimeEvent)
+        assert isinstance(parsed_action, WebsocketMsgListenerDependencyEvent)
+        assert parsed_delta.content.sequence == 1
+        assert parsed_action.content.sequence == 2
 
     async def test_emit_action_event_rejects_empty_payload(self) -> None:
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await self.event_hub.emit_dependency_event(
                 project_config_id=self.project_config_id,
                 dependency_events=[],
             )
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

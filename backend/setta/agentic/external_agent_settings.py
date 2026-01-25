@@ -111,6 +111,7 @@ def build_codex_settings_file(
     mcp_url: str,
     auth_headers: dict[str, str] | None,
     system_prompt: str | None,
+    project_root: Path | None = None,
 ) -> Path:
     settings_path = resolve_codex_settings_path(dbe, config)
     if settings_path is None:
@@ -126,6 +127,7 @@ def build_codex_settings_file(
         _apply_codex_auth_settings(payload, config)
         _apply_codex_reasoning_settings(payload)
     _apply_codex_system_prompt(payload, system_prompt)
+    _apply_codex_trusted_project(payload, project_root)
     settings_path.write_text(_dump_toml(payload), encoding="utf-8")
     return settings_path.parent
 
@@ -293,6 +295,43 @@ def _apply_codex_reasoning_settings(payload: dict[str, Any]) -> None:
     if isinstance(summary, str) and summary.strip():
         return
     payload["model_reasoning_summary"] = "none"
+
+
+def _apply_codex_trusted_project(
+    payload: dict[str, Any], project_root: Path | None
+) -> None:
+    if project_root is None:
+        return
+    projects = payload.get("projects")
+    if not isinstance(projects, dict):
+        projects = {}
+    projects = _normalize_codex_project_keys(projects)
+    project_key = _quote_codex_project_key(str(project_root))
+    entry = projects.get(project_key)
+    if not isinstance(entry, dict):
+        entry = {}
+    entry["trust_level"] = "trusted"
+    projects[project_key] = entry
+    payload["projects"] = projects
+
+
+def _normalize_codex_project_keys(
+    projects: dict[str, Any],
+) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    for key, value in projects.items():
+        key_str = str(key)
+        normalized[_quote_codex_project_key(key_str)] = value
+    return normalized
+
+
+def _quote_codex_project_key(key: str) -> str:
+    stripped = key.strip()
+    if stripped.startswith('"') and stripped.endswith('"'):
+        return stripped
+    if "/" in stripped or "\\" in stripped:
+        return f'"{stripped}"'
+    return stripped
 
 
 def _apply_opencode_managed_settings(
