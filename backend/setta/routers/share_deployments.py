@@ -9,10 +9,10 @@ from pydantic import BaseModel
 from setta.database.db_objs import DBE
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.jsonSource.save import build_json_source_dicts
-from setta.project_state.secret_values import strip_password_values
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
+from setta.project_state.secret_values import strip_password_values
 from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
 )

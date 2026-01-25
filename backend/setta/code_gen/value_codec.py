@@ -64,7 +64,9 @@ class PythonValueCodec:
 
     def format_param_expression(self, node: ParamNode) -> str:
         if node.type is CodeObjType.PasswordParam:
-            return self._format_password_value(node.id)
+            if node.code_obj_impl_id is None:
+                raise ValueError(f"Missing code obj impl id for {node.full_path_name}")
+            return self._format_password_value(node.code_obj_impl_id)
         param_type = node.type
         literal_value = self._expect_literal(node)
         return self.format_param_value(
@@ -252,11 +254,11 @@ class PythonValueCodec:
         if control_type is None:
             raise ValueError(f"Missing control code obj type for {node.full_path_name}")
         if control_type is CodeObjType.PasswordParam:
-            if node.control_code_obj_id is None:
+            if node.control_code_obj_impl_id is None:
                 raise ValueError(
-                    f"Missing control code obj id for {node.full_path_name}"
+                    f"Missing control code obj impl id for {node.full_path_name}"
                 )
-            return self._format_password_value(node.control_code_obj_id)
+            return self._format_password_value(node.control_code_obj_impl_id)
         literal_value = node.value.payload
         representation = (
             node.control_value_representation

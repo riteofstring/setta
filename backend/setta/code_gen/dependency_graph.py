@@ -10,6 +10,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_python_identifier,
 )
+from setta.secrets.password_store import get_password_secret
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParamCodeObjImpl,
@@ -89,6 +90,7 @@ class Node(ABC):
 class SectionNode(Node):
     control_code_obj_type: CodeObjType | None = None
     control_code_obj_id: ID | None = None
+    control_code_obj_impl_id: ID | None = None
     control_value_representation: CodeObjValueRepresentationMode | None = None
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
     include_in_codegen: bool = True
@@ -101,6 +103,7 @@ class SectionNode(Node):
 @dataclass
 class ParamNode(Node):
     passing_style: ParameterPassingStyle
+    code_obj_impl_id: ID | None = None
     value_representation: CodeObjValueRepresentationMode = (
         CodeObjValueRepresentationMode.expression
     )
@@ -110,6 +113,10 @@ class ParamNode(Node):
     def has_name_and_value(self):
         if not self.name:
             return False
+        if self.type is CodeObjType.PasswordParam:
+            if self.code_obj_impl_id is None:
+                return False
+            return get_password_secret(str(self.code_obj_impl_id)) != ""
         if self.value is None:
             return False
         return self.value.payload != ""
@@ -489,6 +496,7 @@ class DependencyGraph:
             value=control_value,
             control_code_obj_type=control_impl.type,
             control_code_obj_id=control_param_id,
+            control_code_obj_impl_id=control_impl.id,
             control_value_representation=control_value_representation,
             deps={},
             representation=ctx.codegen_policy.representation,
@@ -565,6 +573,7 @@ class DependencyGraph:
                     if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
                     else None,
                     passing_style=code_obj_impl.passingStyle,
+                    code_obj_impl_id=code_obj_impl.id,
                     value_representation=value_representation,
                     include_in_codegen=include_in_codegen,
                     deps={},

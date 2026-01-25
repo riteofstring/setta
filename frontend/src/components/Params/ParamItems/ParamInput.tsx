@@ -15,10 +15,11 @@ import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import {
-  DependencyKeyTypeEnum,
   CodeObjTypeEnum,
+  DependencyKeyTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import { shouldEmitRealtimeValue } from "utils/paramValue";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -73,7 +74,13 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   function onChange(v, options?: ParamValueChangeOptions) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
-    if (value !== vStr) {
+    if (
+      shouldEmitRealtimeValue({
+        previousValue: value,
+        nextValue: vStr,
+        codeObjType,
+      })
+    ) {
       sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
     }
     if (!options?.skipBackendUpdate) {

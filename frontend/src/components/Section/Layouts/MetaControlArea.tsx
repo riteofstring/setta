@@ -37,6 +37,7 @@ import {
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import { shouldEmitRealtimeValue } from "utils/paramValue";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
@@ -184,7 +185,13 @@ function MetaControlValueArea({
     }
     const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
-    if (value !== valueStr) {
+    if (
+      shouldEmitRealtimeValue({
+        previousValue: value,
+        nextValue: valueStr,
+        codeObjType,
+      })
+    ) {
       sendRealtimeSectionLiteral(sectionId, valueStr);
     }
     if (!options?.skipBackendUpdate) {

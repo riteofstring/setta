@@ -21,6 +21,6 @@ def read_file_value(path: str) -> str | bytes:
         return file_path.read_bytes()
 
 
-def read_password_value(code_obj_id: str) -> str:
+def read_password_value(code_obj_impl_id: str) -> str:
     """Fetch a PasswordParam value from the runtime secret store."""
-    return get_password_secret(code_obj_id)
+    return get_password_secret(code_obj_impl_id)

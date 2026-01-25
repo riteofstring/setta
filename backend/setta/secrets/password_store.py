@@ -72,18 +72,18 @@ def write_password_store(payload: dict[str, str]) -> None:
         _write_password_store_unlocked(path, payload)
 
 
-def set_password_secret(code_obj_id: str, value: str) -> None:
+def set_password_secret(code_obj_impl_id: str, value: str) -> None:
     path = _password_store_path()
     lock = _lock_for_path(path)
     with lock:
         payload = _read_password_store_unlocked(path)
         if value == "":
-            payload.pop(code_obj_id, None)
+            payload.pop(code_obj_impl_id, None)
         else:
-            payload[code_obj_id] = value
+            payload[code_obj_impl_id] = value
         _write_password_store_unlocked(path, payload)
 
 
-def get_password_secret(code_obj_id: str) -> str:
+def get_password_secret(code_obj_impl_id: str) -> str:
     payload = read_password_store()
-    return payload.get(code_obj_id, "")
+    return payload.get(code_obj_impl_id, "")

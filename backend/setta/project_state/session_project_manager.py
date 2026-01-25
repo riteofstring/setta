@@ -12,13 +12,13 @@ from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
-from setta.project_state.secret_values import strip_password_values
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
     RunDetachedRequest,
     SaveAsNewProjectConfigRequest,
 )
 from setta.project_state.readable_export import build_readable_project_export
+from setta.project_state.secret_values import strip_password_values
 from setta.project_state.settings_project import apply_settings_display_names
 from setta.share.policy import ensure_share_listener_emit_updates_allowed
 from setta.types.helpers_lvl3 import (

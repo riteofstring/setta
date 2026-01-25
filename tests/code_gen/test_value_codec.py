@@ -126,10 +126,11 @@ class TestPythonValueCodec:
             deps={},
             value=LiteralDependencyValue("ignore-me"),
             passing_style=ParameterPassingStyle.DEFAULT,
+            code_obj_impl_id=ID("impl-secret"),
         )
         assert (
             codec.format_param_expression(param_node)
-            == "_helpers.read_password_value('param-secret')"
+            == "_helpers.read_password_value('impl-secret')"
         )
         assert codec.required_imports == (
             "from setta.code_gen.python import value_helpers as _helpers",
@@ -147,11 +148,12 @@ class TestPythonValueCodec:
             value=LiteralDependencyValue("ignored"),
             control_code_obj_type=CodeObjType.PasswordParam,
             control_code_obj_id=ID("meta-secret"),
+            control_code_obj_impl_id=ID("meta-secret-impl"),
             control_value_representation=CodeObjValueRepresentationMode.string,
         )
         assert (
             codec.format_section(section_node)
-            == "_helpers.read_password_value('meta-secret')"
+            == "_helpers.read_password_value('meta-secret-impl')"
         )
         assert codec.required_imports == (
             "from setta.code_gen.python import value_helpers as _helpers",
