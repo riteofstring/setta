@@ -12,6 +12,7 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
@@ -20,9 +21,9 @@ import {
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
-  Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  BinaryDependencyValue,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -40,6 +41,7 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
@@ -168,6 +170,9 @@ export const openWebSocket = _.debounce(
       });
 
       wss.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") {
+          return;
+        }
         receiveMessage(event.data);
       });
 
@@ -444,6 +449,7 @@ function sendCurrentAddress(currentAddress: string) {
 function emitRealtimeDependencyValue(
   dependencyKey: BaseDependencyKeyUnion,
   value: BaseDependencyValueUnion,
+  binaryPayload?: ArrayBuffer,
 ) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -463,12 +469,17 @@ function emitRealtimeDependencyValue(
       value,
     },
   };
+  if (value.type === DependencyValueTypeEnum.Binary && binaryPayload) {
+    sendBinaryMessage(message, binaryPayload);
+    return;
+  }
   sendMessage(message);
 }
 
 type DependencyEventInput = {
   dependencyKey: BaseDependencyKeyUnion;
-  payload?: string | null;
+  payload?: BaseDependencyValueUnion | null;
+  binaryPayload?: ArrayBuffer;
   timestampMs?: number;
 };
 
@@ -481,6 +492,7 @@ export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
   const dependencyEvent: DependencyEvent = {
     dependencyKey: event.dependencyKey,
     payload: event.payload ?? null,
+    binaryPayload: null,
     timestampMs: event.timestampMs ?? Date.now(),
   };
   const message: WebsocketMsgRealtimeDependencyEvent = {
@@ -491,6 +503,13 @@ export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
       dependencyEvent,
     },
   };
+  if (
+    dependencyEvent.payload?.type === DependencyValueTypeEnum.Binary &&
+    event.binaryPayload
+  ) {
+    sendBinaryMessage(message, event.binaryPayload);
+    return;
+  }
   sendMessage(message);
 }
 
@@ -523,23 +542,35 @@ export function sendRealtimeSectionLiteral(sectionId: string, value: string) {
   emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
-export function sendRealtimeSectionBase64(
+export function sendRealtimeSectionBinary(
   sectionId: string,
-  base64Payload: string,
+  payload: ArrayBuffer,
+  mimeType = "image/png",
 ) {
   const dependencyKey: SectionDependencyKey = {
     type: DependencyKeyTypeEnum.Section,
     sectionId,
   };
-  const dependencyValue: Base64DependencyValue = {
-    payload: base64Payload,
-    type: DependencyValueTypeEnum.Base64,
+  const dependencyValue: BinaryDependencyValue = {
+    payload: {
+      contentId: createNewId(),
+      byteLength: payload.byteLength,
+      mimeType,
+    },
+    type: DependencyValueTypeEnum.Binary,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue, payload);
 }
 
 function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
+  }
+}
+
+function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
+  if (wssReady(wss)) {
+    const frame = encodeBinaryFrame(message, payload);
+    wss.send(frame);
   }
 }

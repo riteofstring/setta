@@ -1,7 +1,7 @@
-import base64
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.project_state.draw_snapshots import (
     apply_draw_snapshot_updates,
@@ -45,21 +45,18 @@ class TestDrawSnapshot:
         return project_state, section_id
 
     def test_apply_draw_snapshot_updates_writes_png_and_sets_path(self) -> None:
-        base64_payload = (
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-            "AAAADUlEQVQImWNgYGD4DwABBAEAQkX2WQAAAABJRU5ErkJggg=="
-        )
-        payload = f"data:image/png;base64,{base64_payload}"
-        expected_bytes = base64.b64decode(base64_payload)
+        expected_bytes = b"snapshot-bytes"
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             artifacts_root = root / "artifacts"
             dbe = DBE(root)
+            binary_store = BinaryStore.from_dbe(dbe)
+            ref = binary_store.store_bytes(expected_bytes, mime_type="image/png")
             project_state, section_id = self._build_project_state()
             did_update = apply_draw_snapshot_updates(
                 dbe=dbe,
                 project_state=project_state,
-                snapshots_by_section_id={section_id: payload},
+                snapshots_by_section_id={section_id: ref},
                 artifact_root=artifacts_root,
             )
             assert did_update
