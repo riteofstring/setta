@@ -25,6 +25,8 @@ from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
     MessageThinkingContent,
+    ToolCall,
+    ToolCallFunction,
     ToolChatMessage,
 )
 from setta.types.chat_stream_events import (
@@ -44,6 +46,7 @@ logger = logging.getLogger(__name__)
 _MESSAGE_ITEM_TYPES = {
     "agentMessage",
     "assistantMessage",
+    "message",
     "assistant_message",
     "agent_message",
 }
@@ -85,6 +88,21 @@ class _CodexAppServerState:
     thread_id: str | None = None
     approval_id_map: dict[str, int | str] = field(default_factory=dict)
     buffered_notifications: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class _PendingToolCall:
+    tool_call_id: str
+    tool_name: str | None
+    arguments_delta: str
+    raw_payload: dict[str, Any]
+
+
+@dataclass
+class _MessageToolCallState:
+    tool_calls: dict[str, ToolCall] = field(default_factory=dict)
+    argument_buffers: dict[str, str] = field(default_factory=dict)
+    order: list[str] = field(default_factory=list)
 
 
 class CodexAppServerAdapter(ExternalAgentAdapter):
@@ -563,16 +581,30 @@ class _CodexAppServerEventParser:
     def __init__(self) -> None:
         self._messages: dict[str, AssistantChatMessage] = {}
         self._last_message_id: str | None = None
+        self._last_assistant_message_id: str | None = None
+        self._assistant_message_open = False
         self._emitted_tool_calls: set[str] = set()
         self._command_output: dict[str, list[str]] = {}
         self._file_change_output: dict[str, list[str]] = {}
+        self._function_call_args: dict[str, Any] = {}
+        self._function_call_names: dict[str, str] = {}
         self._completed_items: set[str] = set()
         self._message_with_deltas: set[str] = set()
+        self._pending_tool_calls: dict[str, _PendingToolCall] = {}
+        self._pending_tool_call_order: list[str] = []
+        self._message_tool_calls: dict[str, _MessageToolCallState] = {}
 
     def handle(self, payload: dict[str, Any]) -> list[ExternalAgentStreamEvent]:
+        response_item_type = payload.get("type")
+        if response_item_type == "response_item":
+            events = self._handle_response_item(payload)
+            if events:
+                return events
         method = payload.get("method")
         if not isinstance(method, str):
             return [ExternalAgentStreamEvent(raw=payload)]
+        if method == "turn/started":
+            self._reset_turn_state()
         normalized_type = _normalize_event_type(method)
         events: list[ExternalAgentStreamEvent] = []
 
@@ -610,6 +642,103 @@ class _CodexAppServerEventParser:
             return events
         return [ExternalAgentStreamEvent(raw=payload)]
 
+    def _handle_response_item(
+        self, payload: dict[str, Any]
+    ) -> list[ExternalAgentStreamEvent]:
+        item = payload.get("payload")
+        if not isinstance(item, dict):
+            return []
+        item_type = _extract_item_type(item)
+        if item_type == "function_call":
+            return self._handle_function_call_item(payload, item)
+        if item_type == "function_call_output":
+            return self._handle_function_call_output_item(payload, item)
+        if _is_message_item_type(item_type, item):
+            return self._handle_raw_response_item({"item": item})
+        return []
+
+    def _handle_function_call_item(
+        self,
+        payload: dict[str, Any],
+        item: dict[str, Any],
+    ) -> list[ExternalAgentStreamEvent]:
+        call_id = _extract_function_call_id(item)
+        if not call_id:
+            return []
+        tool_name = _extract_function_call_name(item)
+        arguments = _extract_function_call_arguments(item)
+        if tool_name:
+            self._function_call_names[call_id] = tool_name
+        if arguments is not None:
+            self._function_call_args[call_id] = arguments
+        arguments_delta = _stringify_function_call_arguments(arguments)
+        message_id = self._resolve_tool_message_id()
+        if call_id in self._emitted_tool_calls and not arguments_delta:
+            return []
+        if call_id not in self._emitted_tool_calls:
+            self._emitted_tool_calls.add(call_id)
+        events: list[ExternalAgentStreamEvent] = []
+        if not message_id:
+            message_id, message_events = self._ensure_assistant_message_for_tool(payload)
+            events.extend(message_events)
+        self._store_message_tool_call(
+            message_id,
+            call_id,
+            tool_name,
+            arguments_delta,
+        )
+        tool_event = ToolCallDeltaEvent(
+            message_id=message_id,
+            tool_call_id=call_id,
+            arguments_delta=arguments_delta,
+            tool_name=tool_name,
+        )
+        events.append(
+            ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+        )
+        return events
+
+    def _handle_function_call_output_item(
+        self,
+        payload: dict[str, Any],
+        item: dict[str, Any],
+    ) -> list[ExternalAgentStreamEvent]:
+        call_id = _extract_function_call_id(item)
+        if not call_id:
+            return []
+        if call_id in self._completed_items:
+            return []
+        raw_output = _extract_function_call_output(item)
+        if raw_output is None:
+            return []
+        tool_name = self._function_call_names.get(call_id) or _extract_function_call_name(
+            item
+        )
+        arguments = self._function_call_args.get(call_id)
+        arguments_dict = _normalize_function_call_arguments(arguments)
+        output = _maybe_parse_json(raw_output)
+        content_text = _stringify_tool_result(output)
+        content = [TextContent(type="text", text=content_text)] if content_text else []
+        is_error = _extract_function_call_error(item)
+        tool_result = ToolChatMessage(
+            tool_call_id=call_id,
+            tool_name=tool_name,
+            arguments=arguments_dict,
+            result=output,
+            content=content,
+            is_error=is_error,
+            completed_at=get_now_timestamp(),
+        )
+        self._function_call_args.pop(call_id, None)
+        self._function_call_names.pop(call_id, None)
+        self._completed_items.add(call_id)
+        return [
+            ExternalAgentStreamEvent(
+                raw=payload,
+                stream_chunk=ToolResultEvent(result=tool_result),
+            )
+        ]
+
     def _handle_message_start(
         self, payload: dict[str, Any], _item: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
@@ -617,14 +746,17 @@ class _CodexAppServerEventParser:
         if _is_response_message_id(message_id):
             return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
-        if not is_new:
-            return [ExternalAgentStreamEvent(raw=payload)]
-        return [
-            ExternalAgentStreamEvent(
-                raw=payload,
-                stream_chunk=MessageStartEvent(message=message),
+        self._assistant_message_open = True
+        events: list[ExternalAgentStreamEvent] = []
+        if is_new:
+            events.append(
+                ExternalAgentStreamEvent(
+                    raw=payload,
+                    stream_chunk=MessageStartEvent(message=message),
+                )
             )
-        ]
+        events.extend(self._flush_pending_tool_calls(message.id))
+        return events or [ExternalAgentStreamEvent(raw=payload)]
 
     def _handle_message_delta(
         self, payload: dict[str, Any]
@@ -640,6 +772,7 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
         self._message_with_deltas.add(message.id)
+        self._assistant_message_open = True
         _append_message_text(message, delta_text)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
@@ -649,6 +782,7 @@ class _CodexAppServerEventParser:
                     stream_chunk=MessageStartEvent(message=message),
                 )
             )
+        events.extend(self._flush_pending_tool_calls(message.id))
         events.append(
             ExternalAgentStreamEvent(
                 raw=payload,
@@ -675,6 +809,8 @@ class _CodexAppServerEventParser:
                     stream_chunk=MessageStartEvent(message=message),
                 )
             )
+        self._assistant_message_open = True
+        events.extend(self._flush_pending_tool_calls(message.id))
         delta_text = _extract_delta_text(payload)
         resolved_delta = _resolve_completion_delta(message, delta_text, self)
         if resolved_delta:
@@ -694,6 +830,7 @@ class _CodexAppServerEventParser:
                 stream_chunk=MessageStopEvent(message_id=message.id),
             )
         )
+        self._attach_tool_calls_to_message(message)
         events.append(
             ExternalAgentStreamEvent(
                 raw=payload,
@@ -701,6 +838,8 @@ class _CodexAppServerEventParser:
             )
         )
         self._completed_items.add(message.id)
+        self._assistant_message_open = False
+        self._clear_message_tool_calls(message.id)
         return events
 
     def _handle_reasoning_item_start(
@@ -857,8 +996,21 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
 
         item_id = _extract_item_id(payload) or _extract_item_id_from_item(item)
-        message_id = self._resolve_tool_message_id(item_id)
+        message_id = self._resolve_tool_message_id()
         events: list[ExternalAgentStreamEvent] = []
+        if message_id is None:
+            should_open_message = method.endswith("/started")
+            if (
+                not should_open_message
+                and item_id
+                and item_id not in self._emitted_tool_calls
+            ):
+                should_open_message = True
+            if should_open_message:
+                message_id, message_events = self._ensure_assistant_message_for_tool(
+                    payload
+                )
+                events.extend(message_events)
         if item_type == _COMMAND_EXECUTION_ITEM_TYPE:
             events.extend(
                 self._handle_command_execution_item(
@@ -905,7 +1057,7 @@ class _CodexAppServerEventParser:
     def _handle_command_execution_item(
         self,
         payload: dict[str, Any],
-        message_id: str,
+        message_id: str | None,
         item_id: str | None,
         item: dict[str, Any],
         *,
@@ -915,12 +1067,30 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         events: list[ExternalAgentStreamEvent] = []
         if item_id not in self._emitted_tool_calls:
-            tool_event = _build_command_execution_tool_call(message_id, item_id, item)
+            tool_event = _build_command_execution_tool_call(
+                message_id or "pending",
+                item_id,
+                item,
+            )
             if tool_event is not None:
                 self._emitted_tool_calls.add(item_id)
-                events.append(
-                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
-                )
+                if message_id:
+                    self._store_message_tool_call(
+                        message_id,
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                    )
+                    events.append(
+                        ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                    )
+                else:
+                    self._buffer_tool_call(
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                        payload,
+                    )
         if method.endswith("/completed") or _command_execution_is_terminal(item):
             if (
                 item.get("aggregatedOutput") is None
@@ -945,7 +1115,7 @@ class _CodexAppServerEventParser:
     def _handle_file_change_item(
         self,
         payload: dict[str, Any],
-        message_id: str,
+        message_id: str | None,
         item_id: str | None,
         item: dict[str, Any],
         *,
@@ -955,12 +1125,30 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         events: list[ExternalAgentStreamEvent] = []
         if item_id not in self._emitted_tool_calls:
-            tool_event = _build_file_change_tool_call(message_id, item_id, item)
+            tool_event = _build_file_change_tool_call(
+                message_id or "pending",
+                item_id,
+                item,
+            )
             if tool_event is not None:
                 self._emitted_tool_calls.add(item_id)
-                events.append(
-                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
-                )
+                if message_id:
+                    self._store_message_tool_call(
+                        message_id,
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                    )
+                    events.append(
+                        ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                    )
+                else:
+                    self._buffer_tool_call(
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                        payload,
+                    )
         if method.endswith("/completed") or _file_change_is_terminal(item):
             buffered = self._file_change_output.get(item_id)
             if buffered and item.get("diff") is None:
@@ -981,7 +1169,7 @@ class _CodexAppServerEventParser:
     def _handle_mcp_tool_call_item(
         self,
         payload: dict[str, Any],
-        message_id: str,
+        message_id: str | None,
         item_id: str | None,
         item: dict[str, Any],
         *,
@@ -991,12 +1179,30 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         events: list[ExternalAgentStreamEvent] = []
         if item_id not in self._emitted_tool_calls:
-            tool_event = _build_mcp_tool_call(message_id, item_id, item)
+            tool_event = _build_mcp_tool_call(
+                message_id or "pending",
+                item_id,
+                item,
+            )
             if tool_event is not None:
                 self._emitted_tool_calls.add(item_id)
-                events.append(
-                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
-                )
+                if message_id:
+                    self._store_message_tool_call(
+                        message_id,
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                    )
+                    events.append(
+                        ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                    )
+                else:
+                    self._buffer_tool_call(
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                        payload,
+                    )
         if method.endswith("/completed") or _mcp_tool_call_is_terminal(item):
             tool_result = _build_mcp_tool_result(item_id, item)
             if tool_result is not None:
@@ -1012,7 +1218,7 @@ class _CodexAppServerEventParser:
     def _handle_generic_tool_item(
         self,
         payload: dict[str, Any],
-        message_id: str,
+        message_id: str | None,
         item_id: str | None,
         item: dict[str, Any],
         *,
@@ -1023,12 +1229,31 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         events: list[ExternalAgentStreamEvent] = []
         if item_id not in self._emitted_tool_calls:
-            tool_event = _build_generic_tool_call(message_id, item_id, item, item_type)
+            tool_event = _build_generic_tool_call(
+                message_id or "pending",
+                item_id,
+                item,
+                item_type,
+            )
             if tool_event is not None:
                 self._emitted_tool_calls.add(item_id)
-                events.append(
-                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
-                )
+                if message_id:
+                    self._store_message_tool_call(
+                        message_id,
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                    )
+                    events.append(
+                        ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                    )
+                else:
+                    self._buffer_tool_call(
+                        item_id,
+                        tool_event.tool_name,
+                        tool_event.arguments_delta,
+                        payload,
+                    )
         if method.endswith("/completed") or _generic_tool_item_is_terminal(item):
             tool_result = _build_generic_tool_result(item_id, item, item_type)
             if tool_result is not None:
@@ -1077,7 +1302,12 @@ class _CodexAppServerEventParser:
             return [ExternalAgentStreamEvent(raw=payload)]
         if isinstance(role, str) and role.lower() not in {"assistant", "agent"}:
             return [ExternalAgentStreamEvent(raw=payload)]
-        message_id = _extract_item_id(payload) or create_new_id()
+        payload_message_id = _extract_item_id(payload)
+        message_id = payload_message_id
+        if self._assistant_message_open and self._last_assistant_message_id:
+            message_id = self._last_assistant_message_id
+        if not message_id:
+            message_id = create_new_id()
         if _is_response_message_id(message_id):
             return [ExternalAgentStreamEvent(raw=payload)]
         content = item.get("content")
@@ -1097,12 +1327,14 @@ class _CodexAppServerEventParser:
         _append_message_text(message, delta_text)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
+            self._assistant_message_open = True
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
                     stream_chunk=MessageStartEvent(message=message),
                 )
             )
+        events.extend(self._flush_pending_tool_calls(message.id))
         events.append(
             ExternalAgentStreamEvent(
                 raw=payload,
@@ -1118,6 +1350,7 @@ class _CodexAppServerEventParser:
                 stream_chunk=MessageStopEvent(message_id=message.id),
             )
         )
+        self._attach_tool_calls_to_message(message)
         events.append(
             ExternalAgentStreamEvent(
                 raw=payload,
@@ -1125,6 +1358,10 @@ class _CodexAppServerEventParser:
             )
         )
         self._completed_items.add(message_id)
+        if payload_message_id and payload_message_id != message_id:
+            self._completed_items.add(payload_message_id)
+        self._assistant_message_open = False
+        self._clear_message_tool_calls(message.id)
         return events
 
     def should_process_turn_item(self, item: dict[str, Any]) -> bool:
@@ -1141,11 +1378,134 @@ class _CodexAppServerEventParser:
             return False
         return True
 
-    def _resolve_tool_message_id(self, item_id: str | None) -> str:
-        message_id = self._last_message_id or item_id
+    def _resolve_tool_message_id(self) -> str | None:
+        if not self._assistant_message_open:
+            return None
+        return self._last_assistant_message_id
+
+    def _ensure_assistant_message_for_tool(
+        self, payload: dict[str, Any]
+    ) -> tuple[str, list[ExternalAgentStreamEvent]]:
+        message_id = self._resolve_tool_message_id()
         if message_id:
-            return message_id
-        return create_new_id()
+            return message_id, []
+        message = AssistantChatMessage(id=create_new_id(), content=[])
+        self._messages[message.id] = message
+        self._last_message_id = message.id
+        self._last_assistant_message_id = message.id
+        self._assistant_message_open = True
+        return message.id, [
+            ExternalAgentStreamEvent(
+                raw=payload,
+                stream_chunk=MessageStartEvent(message=message),
+            )
+        ]
+
+    def _reset_turn_state(self) -> None:
+        self._last_message_id = None
+        self._last_assistant_message_id = None
+        self._assistant_message_open = False
+        self._pending_tool_calls.clear()
+        self._pending_tool_call_order.clear()
+        self._message_tool_calls.clear()
+
+    def _buffer_tool_call(
+        self,
+        tool_call_id: str,
+        tool_name: str | None,
+        arguments_delta: str,
+        payload: dict[str, Any],
+    ) -> None:
+        existing = self._pending_tool_calls.get(tool_call_id)
+        if existing is None:
+            self._pending_tool_calls[tool_call_id] = _PendingToolCall(
+                tool_call_id=tool_call_id,
+                tool_name=tool_name,
+                arguments_delta=arguments_delta,
+                raw_payload=payload,
+            )
+            self._pending_tool_call_order.append(tool_call_id)
+            return
+        if tool_name:
+            existing.tool_name = tool_name
+        if arguments_delta:
+            existing.arguments_delta = arguments_delta
+        existing.raw_payload = payload
+
+    def _flush_pending_tool_calls(
+        self, message_id: str
+    ) -> list[ExternalAgentStreamEvent]:
+        if not self._pending_tool_calls:
+            return []
+        events: list[ExternalAgentStreamEvent] = []
+        for tool_call_id in self._pending_tool_call_order:
+            pending = self._pending_tool_calls.get(tool_call_id)
+            if pending is None:
+                continue
+            self._store_message_tool_call(
+                message_id,
+                pending.tool_call_id,
+                pending.tool_name,
+                pending.arguments_delta,
+            )
+            tool_event = ToolCallDeltaEvent(
+                message_id=message_id,
+                tool_call_id=pending.tool_call_id,
+                arguments_delta=pending.arguments_delta,
+                tool_name=pending.tool_name,
+            )
+            events.append(
+                ExternalAgentStreamEvent(raw=pending.raw_payload, stream_chunk=tool_event)
+            )
+        self._pending_tool_calls.clear()
+        self._pending_tool_call_order.clear()
+        return events
+
+    def _store_message_tool_call(
+        self,
+        message_id: str,
+        tool_call_id: str,
+        tool_name: str | None,
+        arguments_delta: str,
+    ) -> None:
+        if not message_id:
+            return
+        state = self._message_tool_calls.get(message_id)
+        if state is None:
+            state = _MessageToolCallState()
+            self._message_tool_calls[message_id] = state
+        if tool_call_id not in state.tool_calls:
+            state.order.append(tool_call_id)
+            state.tool_calls[tool_call_id] = ToolCall(
+                id=tool_call_id,
+                function=ToolCallFunction(name=tool_name or "", arguments={}),
+            )
+        elif tool_name:
+            state.tool_calls[tool_call_id].function.name = tool_name
+        if arguments_delta:
+            buffer = state.argument_buffers.get(tool_call_id, "")
+            state.argument_buffers[tool_call_id] = buffer + arguments_delta
+
+    def _attach_tool_calls_to_message(self, message: AssistantChatMessage) -> None:
+        state = self._message_tool_calls.get(message.id)
+        if state is None or not state.order:
+            return
+        tool_calls: list[ToolCall] = []
+        for tool_call_id in state.order:
+            call = state.tool_calls.get(tool_call_id)
+            if call is None:
+                continue
+            buffer = state.argument_buffers.get(tool_call_id, "")
+            if buffer:
+                parsed = _maybe_parse_json(buffer)
+                if isinstance(parsed, dict):
+                    call.function.arguments = parsed
+            tool_calls.append(call)
+        if tool_calls:
+            message.tool_calls = tool_calls
+
+    def _clear_message_tool_calls(self, message_id: str) -> None:
+        self._message_tool_calls.pop(message_id, None)
 
     def _get_or_create_message(
         self, payload: dict[str, Any]
@@ -1153,6 +1513,7 @@ class _CodexAppServerEventParser:
         message_id = _extract_message_id(payload)
         if message_id and message_id in self._messages:
             self._last_message_id = message_id
+            self._last_assistant_message_id = message_id
             return self._messages[message_id], False
 
         if not message_id and self._last_message_id:
@@ -1164,6 +1525,7 @@ class _CodexAppServerEventParser:
         )
         self._messages[message.id] = message
         self._last_message_id = message.id
+        self._last_assistant_message_id = message.id
         return message, True
 
     def _get_or_create_reasoning_message(
@@ -1757,7 +2119,16 @@ def _build_mcp_tool_call(
     item_id: str,
     item: dict[str, Any],
 ) -> ToolCallDeltaEvent | None:
-    tool_name = item.get("toolName") or item.get("tool_name") or item.get("name")
+    tool_name = (
+        item.get("toolName")
+        or item.get("tool_name")
+        or item.get("name")
+        or item.get("tool")
+    )
+    server_name = item.get("server")
+    if isinstance(server_name, str) and server_name and isinstance(tool_name, str):
+        if not tool_name.startswith("mcp__"):
+            tool_name = f"mcp__{server_name}__{tool_name}"
     if not isinstance(tool_name, str) or not tool_name:
         return None
     arguments = item.get("input") or item.get("arguments")
@@ -1790,7 +2161,16 @@ def _build_mcp_tool_result(
     item_id: str,
     item: dict[str, Any],
 ) -> ToolChatMessage | None:
-    tool_name = item.get("toolName") or item.get("tool_name") or item.get("name")
+    tool_name = (
+        item.get("toolName")
+        or item.get("tool_name")
+        or item.get("name")
+        or item.get("tool")
+    )
+    server_name = item.get("server")
+    if isinstance(server_name, str) and server_name and isinstance(tool_name, str):
+        if not tool_name.startswith("mcp__"):
+            tool_name = f"mcp__{server_name}__{tool_name}"
     if not isinstance(tool_name, str) or not tool_name:
         return None
     output = item.get("output")
@@ -1893,6 +2273,71 @@ def _extract_generic_tool_output(item: dict[str, Any]) -> Any:
     if item.get("text") is not None:
         return item.get("text")
     return item
+
+
+def _extract_function_call_id(item: dict[str, Any]) -> str | None:
+    for key in ("call_id", "callId", "id"):
+        raw = item.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
+def _extract_function_call_name(item: dict[str, Any]) -> str | None:
+    for key in ("name", "tool_name", "toolName"):
+        raw = item.get(key)
+        if isinstance(raw, str) and raw:
+            return raw
+    return None
+
+
+def _extract_function_call_arguments(item: dict[str, Any]) -> Any | None:
+    for key in ("arguments", "args", "input"):
+        if key in item:
+            return item.get(key)
+    return None
+
+
+def _extract_function_call_output(item: dict[str, Any]) -> Any | None:
+    if "output" in item:
+        return item.get("output")
+    if "result" in item:
+        return item.get("result")
+    return None
+
+
+def _extract_function_call_error(item: dict[str, Any]) -> bool:
+    raw = item.get("error")
+    if isinstance(raw, bool):
+        return raw
+    return False
+
+
+def _stringify_function_call_arguments(arguments: Any) -> str:
+    if arguments is None:
+        return ""
+    if isinstance(arguments, str):
+        return arguments
+    try:
+        return json.dumps(arguments)
+    except TypeError:
+        return ""
+
+
+def _normalize_function_call_arguments(arguments: Any) -> dict[str, Any]:
+    parsed = _maybe_parse_json(arguments)
+    if isinstance(parsed, dict):
+        return parsed
+    return {}
+
+
+def _maybe_parse_json(value: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
 
 
 def _stringify_tool_result(value: Any) -> str:
