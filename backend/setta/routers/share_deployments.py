@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from setta.database.db_objs import DBE
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.jsonSource.save import build_json_source_dicts
+from setta.project_state.secret_values import strip_password_values
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -669,6 +670,7 @@ async def route_publish_share_deployment(
     snapshot.defaultProjectConfigId = x.projectConfigId
     snapshot = _ensure_snapshot_view_modes(snapshot)
     _rebase_project_state_paths(snapshot, deployment_root)
+    strip_password_values(snapshot)
     json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():
         target_path = _resolve_deployment_relative_path(filename, deployment_root)

@@ -21,6 +21,7 @@ export class C {
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
+  static DETACHED_RUNS_FOLDER = "setta_files/runtime/detached_runs";
   static DEV_MODE_FRONTEND_PORT = 3000;
   static EDGE_OUTPUT_BASE_LABEL = "value";
   static GEN_CODE_SEPARATOR_NEWLINES = 2;
@@ -32,9 +33,11 @@ export class C {
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static OPEN_BROWSER_ON_START = null;
   static PORT = 8000;
-  static RUN_FOLDER = "setta_files/run";
-  static RUN_LOGS_FOLDER = "setta_files/run/logs";
-  static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
+  static RUNTIME_FOLDER = "setta_files/runtime";
+  static RUNTIME_LOGS_FOLDER = "setta_files/runtime/logs";
+  static RUNTIME_MCP_FOLDER = "setta_files/runtime/mcp";
+  static RUNTIME_SECRETS_FOLDER = "setta_files/runtime/secrets";
+  static RUNTIME_SESSIONS_FOLDER = "setta_files/runtime/sessions";
   static SEARCH_MCP_TOOLS_NAME = "search_mcp_tools";
   static SESSION_SECRET_BYTES = 32;
   static SETTA_FILES_FOLDER = "setta_files";
