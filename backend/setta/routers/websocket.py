@@ -124,7 +124,10 @@ async def websocket_route_loop(
                             await _close_not_found(websocket)
                             break
                         share_session_store.touch_session(share_session_id)
-                    if message.get("type") != "websocket.receive":
+                    message_type = message.get("type")
+                    if message_type == "websocket.disconnect":
+                        break
+                    if message_type != "websocket.receive":
                         continue
                     text_payload = message.get("text")
                     if text_payload is not None:

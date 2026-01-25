@@ -486,7 +486,6 @@ class TestFileBrowserRoutes:
         upload = UploadFile(
             filename="payload.bin",
             file=BytesIO(payload),
-            content_type="application/octet-stream",
         )
         with runtime_context(state) as runtime_ctx:
             ref = await route_binary_upload(runtime_ctx, upload)
