@@ -45,11 +45,11 @@ export const useParamDndState = withProjectState(
   ),
 );
 
-function setParamDndState(nextState: Partial<ParamDndState>) {
+export function setParamDndState(nextState: Partial<ParamDndState>) {
   useParamDndState.setState(nextState);
 }
 
-function resetParamDndState() {
+export function resetParamDndState() {
   useParamDndState.getState().reset();
 }
 
@@ -60,7 +60,7 @@ export function getParamDndItemId(paramId: string, listKey: ParamListKey) {
   return `${paramId}${PARAM_DND_LIST_KEY_SEPARATOR}${listKey}`;
 }
 
-function getParamIdFromDndItemId(dndId: string): string {
+export function getParamIdFromDndItemId(dndId: string): string {
   const base = stripTempSuffix(dndId);
   const separatorIndex = base.lastIndexOf(PARAM_DND_LIST_KEY_SEPARATOR);
   if (separatorIndex === -1) {

@@ -1,4 +1,5 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
+import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
@@ -44,7 +45,6 @@ import {
   isBaseSectionWithParamsImpl,
   SectionSizeModeEnum,
 } from "utils/generatedTypes";
-import { GetParamSwitch } from "./GetParamSwitch";
 import { ParamDndList } from "./ParamDndList";
 import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
 
@@ -116,32 +116,34 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   }, [paramGroupPaddingKey]);
 
   return (
-    <div
-      className="section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-hidden pt-2"
-      ref={outerRef}
-    >
-      {waitingForResult ? (
-        <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-      ) : (
-        <>
-          <EdgesStrip sectionId={sectionId} />
-          <GetPinnedParams
-            sectionId={sectionId}
-            outerRef={outerRef}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-            unpinnedMinHeight={unpinnedMinHeight}
-          />
-          <GetUnpinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-            setUnpinnedMinHeight={setUnpinnedMinHeight}
-            unpinnedMinHeight={unpinnedMinHeight}
-          />
-        </>
-      )}
-    </div>
+    <ParamDndContext>
+      <div
+        className="section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-hidden pt-2"
+        ref={outerRef}
+      >
+        {waitingForResult ? (
+          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        ) : (
+          <>
+            <EdgesStrip sectionId={sectionId} />
+            <GetPinnedParams
+              sectionId={sectionId}
+              outerRef={outerRef}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              unpinnedMinHeight={unpinnedMinHeight}
+            />
+            <GetUnpinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              setUnpinnedMinHeight={setUnpinnedMinHeight}
+              unpinnedMinHeight={unpinnedMinHeight}
+            />
+          </>
+        )}
+      </div>
+    </ParamDndContext>
   );
 }
 
@@ -863,7 +865,7 @@ function ResizablePinnedArea({
           className={`${isScrollable ? "nowheel" : ""} section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 overflow-y-auto pr-1.5`}
           ref={listRef}
         >
-          <GetParamSwitch
+          <ParamDndList
             sectionId={sectionId}
             paramIds={topLevelParamIds}
             requiredParamIdsToPaths={requiredParamIdsToPaths}

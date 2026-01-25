@@ -25,7 +25,7 @@ export const useParamDndChildren = withProjectState(
   ),
 );
 
-function addParamChild(
+export function addParamChild(
   oldParentId: string | null,
   newParentId: string,
   childId: string,
@@ -45,7 +45,7 @@ function addParamChild(
   });
 }
 
-function replaceParamsWithTemp(
+export function replaceParamsWithTemp(
   activeId: string,
   listKey: ParamListKey | null,
   paramIds: string[],
@@ -92,7 +92,7 @@ function replaceParamsWithTemp(
   });
 }
 
-function updateParamChildren(
+export function updateParamChildren(
   paramIdsToChildren: Record<string, Array<string>>,
 ) {
   useParamDndChildren.setState((state) => {
@@ -106,11 +106,11 @@ function updateParamChildren(
   });
 }
 
-function resetParamDndChildren() {
+export function resetParamDndChildren() {
   useParamDndChildren.getState().reset();
 }
 
-function getParamDndParentId(paramId: string) {
+export function getParamDndParentId(paramId: string) {
   return useParamDndChildren.getState().y[paramId];
 }
 

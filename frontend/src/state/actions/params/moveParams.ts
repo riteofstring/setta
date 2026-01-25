@@ -148,7 +148,7 @@ function ensureParentParamImpl(
   return nextImpl;
 }
 
-function selectOnlyParam(sectionId: string, paramId: string) {
+export function selectOnlyParam(sectionId: string, paramId: string) {
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImplWithTypeGuard(
     state,
@@ -162,7 +162,7 @@ function selectOnlyParam(sectionId: string, paramId: string) {
   toggleParamSelected(sectionId, paramId);
 }
 
-function orderParamIdsByParent(
+export function orderParamIdsByParent(
   state: ZustandProjectState,
   sectionId: string,
   parentId: string,
@@ -212,7 +212,7 @@ function filterTopLevelIds(
   return rootChildren.filter((id) => included.has(id));
 }
 
-function moveParamsWithBackend({
+export function moveParamsWithBackend({
   sectionId,
   paramIds,
   newParentId,
