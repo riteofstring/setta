@@ -1,9 +1,11 @@
+import base64
 import fnmatch
+import mimetypes
 import os
 import stat
 from collections.abc import Callable
 from pathlib import Path
-from typing import NotRequired, TypedDict, TypeVar
+from typing import Literal, NotRequired, TypedDict, TypeVar
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
@@ -20,11 +22,13 @@ from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
     DrawAreaLayerItemTransformArtifact,
+    FileArtifact,
     ImageArtifact,
+    create_file_artifact_id,
 )
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
-from setta.utils.constants import CWD
+from setta.utils.constants import CWD, C
 from setta.utils.utils import normalize_path
 
 router = SettaAPIRouter()
@@ -40,6 +44,8 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
+DROPZONE_MAX_FILE_BYTES = 25 * 1024 * 1024
+DROPZONE_MAX_FILE_LABEL = f"{DROPZONE_MAX_FILE_BYTES // (1024 * 1024)} MB"
 
 
 class CheckIfFileExistsRequests(BaseModel):
@@ -76,6 +82,22 @@ class LoadCachedPathsRequest(BaseModel):
 class UpdateArtifactsRequest(BaseModel):
     artifacts: list[BaseArtifactUnion]
     conflictStrategy: SaveConflictStrategy | None = None
+
+
+class ImportFilesToArtifactsRequest(BaseModel):
+    paths: list[str]
+
+
+class ImportFilesToArtifactsResponseItem(BaseModel):
+    kind: Literal["file"] = "file"
+    id: str
+    name: str
+    mimeType: str
+    size: int
+
+
+class DeleteArtifactsRequest(BaseModel):
+    artifactIds: list[str]
 
 
 def _get_share_session_artifacts(
@@ -171,6 +193,21 @@ def _resolve_folder_path(
     return resolved
 
 
+def _resolve_file_path(path_str: str) -> Path:
+    root = CWD.resolve()
+    path = Path(path_str)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File path must be within the project root.",
+        )
+    return resolved
+
+
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
@@ -228,9 +265,15 @@ def route_get_folder_contents(
 
     # Check if path exists and is a directory
     if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {x.folderPath}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Path does not exist: {x.folderPath}",
+        )
     if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {x.folderPath}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path is not a directory: {x.folderPath}",
+        )
 
     ignore_patterns = (
         x.ignorePatterns
@@ -280,6 +323,74 @@ def route_get_folder_contents(
     )
 
     return contents
+
+
+@router.post(Route.IMPORT_FILES_TO_ARTIFACTS)
+async def route_import_files_to_artifacts(
+    x: ImportFilesToArtifactsRequest,
+    ctx: RuntimeContextFromRequest,
+) -> list[ImportFilesToArtifactsResponseItem]:
+    if ctx.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in share mode.",
+        )
+    if not x.paths:
+        return []
+    artifacts = _get_artifacts(ctx)
+    updates: list[FileArtifact] = []
+    results: list[ImportFilesToArtifactsResponseItem] = []
+    for raw_path in x.paths:
+        resolved = _resolve_file_path(raw_path)
+        if not resolved.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File does not exist: {raw_path}",
+            )
+        if not resolved.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path is not a file: {raw_path}",
+            )
+        try:
+            size = resolved.stat().st_size
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to stat file: {raw_path}",
+            ) from exc
+        if size > DROPZONE_MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {raw_path}"),
+            )
+        try:
+            content = resolved.read_bytes()
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to read file: {raw_path}",
+            ) from exc
+        extension = "".join(resolved.suffixes) or ".bin"
+        artifact_id = create_file_artifact_id(extension)
+        updates.append(
+            FileArtifact(
+                id=artifact_id,
+                value=base64.b64encode(content).decode("utf-8"),
+            )
+        )
+        mime_type, _ = mimetypes.guess_type(resolved.name)
+        results.append(
+            ImportFilesToArtifactsResponseItem(
+                id=artifact_id,
+                name=resolved.name,
+                mimeType=mime_type or "application/octet-stream",
+                size=len(content),
+            )
+        )
+    if updates:
+        await artifacts.apply_updates(updates, SaveConflictStrategy.overwrite)
+    return results
 
 
 @router.post(Route.LOAD_CACHED_IMAGE_ARTIFACTS)
@@ -379,3 +490,57 @@ async def route_update_artifacts(
     conflict_strategy = x.conflictStrategy or SaveConflictStrategy.backup
     results = await artifacts.apply_updates(x.artifacts, conflict_strategy)
     return results
+
+
+@router.post(Route.DELETE_ARTIFACTS)
+async def route_delete_artifacts(
+    x: DeleteArtifactsRequest,
+    ctx: RuntimeContextFromRequest,
+) -> list[str]:
+    if not x.artifactIds:
+        return []
+    if ctx.share_mode:
+        await ctx.enforce_policy(
+            policy_flag="allowParamChanges",
+            denied_message="Share policy disallows parameter changes.",
+        )
+        if ctx.deployment_root is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Share deployment root is not available.",
+            )
+        artifacts_root = (ctx.deployment_root / "artifacts").resolve()
+        artifacts = ctx.state.share_runtime_state.get_session_artifacts(ctx.session_id)
+    else:
+        artifacts_root = (CWD / C.ARTIFACTS_FOLDER).resolve()
+        artifacts = _get_artifacts(ctx)
+    try:
+        deleted_ids = artifacts.delete_file_artifacts(
+            x.artifactIds, artifacts_root=artifacts_root
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete artifact: {exc}",
+        ) from exc
+
+    if deleted_ids:
+        payloads = [
+            FileArtifact(id=artifact_id, value="") for artifact_id in deleted_ids
+        ]
+        await ctx.state.wmh_frontend_sender.broadcast_artifacts_update(
+            artifacts=payloads,
+            updateType="delete",
+            share_session_id=ctx.session_id if ctx.share_mode else None,
+        )
+    return deleted_ids

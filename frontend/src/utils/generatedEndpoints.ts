@@ -173,6 +173,14 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
+export async function route_import_files_to_artifacts(
+  x: gt.ImportFilesToArtifactsRequestInput,
+): Promise<
+  ResponseDataAndStatus<Array<gt.ImportFilesToArtifactsResponseItem>>
+> {
+  return await post("/importFilesToArtifacts", x);
+}
+
 export async function route_load_cached_image_artifacts(
   x: gt.LoadCachedPathsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ImageArtifact | null>>> {
@@ -203,6 +211,12 @@ export async function route_update_artifacts(
   x: gt.UpdateArtifactsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ArtifactSaveResult>>> {
   return await post("/updateArtifacts", x);
+}
+
+export async function route_delete_artifacts(
+  x: gt.DeleteArtifactsRequestInput,
+): Promise<ResponseDataAndStatus<Array<string>>> {
+  return await post("/deleteArtifacts", x);
 }
 
 export async function route_get_listener_coverage(
@@ -242,9 +256,9 @@ async function route_set_chat_system_prompt(
 }
 
 async function route_get_all_chat_metadata(
-  _request: gt.GetAllChatMetadataRequestInput,
+  x: gt.GetAllChatMetadataRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllChatMetadata", _request);
+  return await post("/getAllChatMetadata", x);
 }
 
 async function route_run_mcp_tools(

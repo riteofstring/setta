@@ -1,13 +1,11 @@
 from pydantic import (
     BaseModel,
     Field,
-    PrivateAttr,
     model_validator,
 )
 
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_name
 from setta.types.artifact import ArtifactType
-from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.generated.unions import (
@@ -15,7 +13,6 @@ from setta.types.generated.unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
@@ -48,12 +45,6 @@ from setta.types.shown_params import (
     get_param_ids_to_show,
 )
 from setta.utils.constants import C
-from setta.utils.name_validation import (
-    get_section_slug_conflict_ids,
-    validate_param_name_format,
-    validate_project_name_format,
-    validate_section_name_format,
-)
 from setta.utils.utils import (
     GEN_CODE_META_FILENAME,
     build_gen_code_path,
@@ -134,9 +125,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
-    _section_slug_cache: tuple[dict[ID, str], dict[str, list[ID]]] | None = PrivateAttr(
-        default=None
-    )
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
@@ -170,15 +158,9 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self,
         *,
         validate_code_file_bindings: bool,
-        allow_reserved_project_name: bool = False,
-        validate_name_rules: bool = True,
     ):
         self.validate_singleton_sections()
         self.validate_parent_section_map()
-        if validate_name_rules:
-            self.validate_name_rules(
-                allow_reserved_project_name=allow_reserved_project_name
-            )
         self.validate_view_modes()
         self.validate_shown_param_ids()
         self.validate_required_decoded_images()
@@ -221,7 +203,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId
-        self._section_slug_cache = None
         return self
 
     def validate_shown_param_ids(self):
@@ -249,34 +230,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.requiredDecodedImages = list(output)
         return self
 
-    def validate_name_rules(self, *, allow_reserved_project_name: bool = False):
-        validate_project_name_format(
-            self.projectConfig.name,
-            allow_reserved=allow_reserved_project_name,
-        )
-        for section_id, section in self.sections.items():
-            validate_section_name_format(section.name)
-            section_impl = get_curr_effective_section_impl(self, section_id)
-            if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                continue
-            for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id not in self.codeObjs:
-                    raise KeyError(f"Missing code obj {code_obj_id} in project state.")
-                code_obj_impl = get_curr_effective_code_obj_impl(
-                    self,
-                    section_id,
-                    code_obj_id,
-                )
-                if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
-                    continue
-                validate_param_name_format(
-                    self,
-                    section_id,
-                    code_obj_id,
-                    self.codeObjs[code_obj_id].name,
-                )
-        return self
-
     def validate_code_file_bindings(self):
         code_root = normalize_path(C.CODE_FOLDER)
         canonical_sections_dir = build_project_sections_dir(
@@ -291,7 +244,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             ProjectCodegenLanguage.python,
         )
         metadata_enabled = bool(python_target and python_target.generateMetadata)
-        conflicting_section_ids = get_section_slug_conflict_ids(self)
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
             core = self.sections[section_id]
@@ -303,19 +255,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if not isinstance(base_impl, BaseCodeSectionImpl) or not isinstance(
                 effective_impl, BaseCodeSectionImpl
             ):
-                continue
-            is_gen_section = isinstance(
-                effective_impl,
-                (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
-            )
-            if section_id in conflicting_section_ids and not is_gen_section:
-                if effective_impl.codeFileBinding is not None:
-                    set_effective_impl_value(
-                        base_impl,
-                        core,
-                        variant,
-                        BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
-                    )
                 continue
             if effective_impl.codeFileBinding is not None:
                 if isinstance(effective_impl, GenPythonCodeSectionImpl):
@@ -350,7 +289,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 access_mode = CodeFileAccessMode.write_only
             else:
                 section_full_name = get_section_path_full_name(self, section_id)
-                section_slug = sanitize_slug(section_full_name)
+                section_slug = sanitize_name(section_full_name)
                 language = effective_impl.codeLanguage
                 extension = CODE_LANGUAGE_EXTENSIONS[language]
                 canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_name
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -192,7 +192,7 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
             activeIds=[section.id],
         )
 
-        slug = sanitize_slug(project_config.name)
+        slug = sanitize_name(project_config.name)
         (self.code_folder / "sections" / slug).mkdir(parents=True, exist_ok=True)
         (self.artifacts_folder / slug).mkdir(parents=True, exist_ok=True)
 

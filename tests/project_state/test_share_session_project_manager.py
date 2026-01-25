@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_name
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -62,7 +62,7 @@ def _build_project_state(
         name=resolved_name,
         entryCodeBlockId=code_section_id,
     )
-    project_slug = sanitize_slug(project_config.name)
+    project_slug = sanitize_name(project_config.name)
     code_root = Path("code") / "sections" / project_slug
 
     gen_binding = CodeFileBinding(
