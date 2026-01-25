@@ -95,7 +95,10 @@ class CodexSdkAdapter(ExternalAgentAdapter):
                 thread_id = _extract_thread_id(context.inputs)
                 if thread_id is not None:
                     payload["threadId"] = thread_id
-                thread_options = _build_thread_options(context.config)
+                thread_options = _merge_thread_options(
+                    _build_thread_options(context.config),
+                    _extract_thread_options(context.inputs),
+                )
                 if thread_options is not None:
                     payload["threadOptions"] = thread_options
                 output_schema = _extract_output_schema(context.inputs)
@@ -747,10 +750,53 @@ def _extract_output_schema(inputs: dict[str, Any] | None) -> dict[str, Any] | No
     return raw
 
 
-def _build_thread_options(config: ExternalAgentConfig) -> dict[str, bool] | None:
-    if config.codexSkipGitRepoCheck is None:
+def _build_thread_options(config: ExternalAgentConfig) -> dict[str, Any] | None:
+    options: dict[str, Any] = {}
+    if config.codexSkipGitRepoCheck is not None:
+        options["skipGitRepoCheck"] = config.codexSkipGitRepoCheck
+    if config.defaultModel:
+        options["model"] = config.defaultModel
+    if config.sandboxPolicy:
+        options["sandboxMode"] = config.sandboxPolicy
+    if not options:
         return None
-    return {"skipGitRepoCheck": config.codexSkipGitRepoCheck}
+    return options
+
+
+def _extract_thread_options(inputs: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not inputs:
+        return None
+    raw = inputs.get("threadOptions")
+    if not isinstance(raw, dict):
+        return None
+    allowed_keys = {
+        "model",
+        "sandboxMode",
+        "workingDirectory",
+        "skipGitRepoCheck",
+        "modelReasoningEffort",
+        "networkAccessEnabled",
+        "webSearchMode",
+        "webSearchEnabled",
+        "approvalPolicy",
+        "additionalDirectories",
+    }
+    filtered = {key: value for key, value in raw.items() if key in allowed_keys}
+    if not filtered:
+        return None
+    return filtered
+
+
+def _merge_thread_options(
+    base: dict[str, Any] | None, overrides: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    if base is None:
+        return overrides
+    if overrides is None:
+        return base
+    merged = dict(base)
+    merged.update(overrides)
+    return merged
 
 
 def _is_message_item(payload: dict[str, Any]) -> bool:
@@ -1053,6 +1099,8 @@ def _stringify_reasoning_parts(parts: Any) -> str:
 
 def _extract_reasoning_summary(item: dict[str, Any]) -> str:
     summary = item.get("summary")
+    if summary is None:
+        summary = item.get("text")
     return _stringify_reasoning_parts(summary)
 
 

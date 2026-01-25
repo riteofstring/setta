@@ -29,8 +29,37 @@ function normalizeThreadOptions(value) {
     return null;
   }
   const options = {};
+  if (typeof value.model === "string") {
+    options.model = value.model;
+  }
+  if (typeof value.sandboxMode === "string") {
+    options.sandboxMode = value.sandboxMode;
+  }
+  if (typeof value.workingDirectory === "string") {
+    options.workingDirectory = value.workingDirectory;
+  }
   if (typeof value.skipGitRepoCheck === "boolean") {
     options.skipGitRepoCheck = value.skipGitRepoCheck;
+  }
+  if (typeof value.modelReasoningEffort === "string") {
+    options.modelReasoningEffort = value.modelReasoningEffort;
+  }
+  if (typeof value.networkAccessEnabled === "boolean") {
+    options.networkAccessEnabled = value.networkAccessEnabled;
+  }
+  if (typeof value.webSearchMode === "string") {
+    options.webSearchMode = value.webSearchMode;
+  }
+  if (typeof value.webSearchEnabled === "boolean") {
+    options.webSearchEnabled = value.webSearchEnabled;
+  }
+  if (typeof value.approvalPolicy === "string") {
+    options.approvalPolicy = value.approvalPolicy;
+  }
+  if (Array.isArray(value.additionalDirectories)) {
+    options.additionalDirectories = value.additionalDirectories.filter(
+      (entry) => typeof entry === "string" && entry.trim(),
+    );
   }
   if (Object.keys(options).length === 0) {
     return null;
@@ -359,7 +388,9 @@ async function runTurn(input) {
   const threadOptions = normalizeThreadOptions(input.threadOptions);
   if (!thread || (desiredThreadId && desiredThreadId !== activeThreadId)) {
     if (desiredThreadId) {
-      thread = codex.resumeThread(desiredThreadId);
+      thread = threadOptions
+        ? codex.resumeThread(desiredThreadId, threadOptions)
+        : codex.resumeThread(desiredThreadId);
     } else if (threadOptions) {
       thread = codex.startThread(threadOptions);
     } else {

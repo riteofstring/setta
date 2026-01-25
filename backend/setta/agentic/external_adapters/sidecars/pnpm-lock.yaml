@@ -9,10 +9,10 @@ importers:
   .:
     dependencies:
       '@openai/codex-sdk':
-        specifier: '*'
+        specifier: 0.87.0
         version: 0.87.0
       '@opencode-ai/sdk':
-        specifier: '*'
+        specifier: 1.1.28
         version: 1.1.28
 
 packages:

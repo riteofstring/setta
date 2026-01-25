@@ -14,8 +14,10 @@ from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import (
+    CodexSettingsManaged,
     ExternalAgentConfig,
     ExternalAgentRunMode,
+    ExternalAgentSettingsManagedBlock,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -24,6 +26,8 @@ from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+
+_CODEX_MODEL = "gpt-5.2-codex"
 
 
 class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
@@ -97,7 +101,8 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             toolType=ExternalAgentToolType.codex,
             runMode=ExternalAgentRunMode.sdk,
             commandPath=node_path,
-            approvalPolicy="on-failure",
+            approvalPolicy="never",
+            defaultModel=_CODEX_MODEL,
             envVarWhitelist=["CODEX_API_KEY"],
             codexSkipGitRepoCheck=True,
         )
@@ -137,6 +142,20 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(text, str) and text:
                         parts.append(text)
         return "\n".join(parts)
+
+    @staticmethod
+    def _collect_thinking_blocks(messages: list[dict]) -> list[dict]:
+        blocks: list[dict] = []
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                continue
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "thinking":
+                    blocks.append(block)
+        return blocks
 
     @staticmethod
     def _debug_dump(outputs: dict | None, stderr_lines: list[str] | None, label: str) -> str:
@@ -501,6 +520,134 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     event_types = [
                         event.get("type")
                         for event in events
-                        if isinstance(event, dict) and event.get("type")
-                    ]
-                    self.assertIn("run_completed", event_types)
+                    if isinstance(event, dict) and event.get("type")
+                ]
+                self.assertIn("run_completed", event_types)
+
+    async def test_codex_sdk_accepts_approval_policy_setting(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            config.approvalPolicy = "on-request"
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello."},
+            )
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            final_text = outputs.get("finalText")
+            self.assertIsInstance(final_text, str)
+            if not isinstance(final_text, str):
+                raise AssertionError("Expected finalText to be a string")
+            self.assertTrue(final_text.strip())
+            config_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / str(config.id)
+                / "config.toml"
+            )
+            self.assertTrue(config_path.exists())
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('approval_policy = "on-request"', content)
+
+    async def test_codex_sdk_writes_managed_config(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            config.id = ID("codex-managed-config")
+            config.settingsManagedBlock = ExternalAgentSettingsManagedBlock(
+                codex=CodexSettingsManaged(
+                    model=_CODEX_MODEL,
+                    approvalPolicy="on-request",
+                    sandboxMode="workspace-write",
+                    enabledTools=["command_execution"],
+                )
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello."},
+            )
+
+            await self._await_completed_run(dbe, run.id)
+
+            config_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / str(config.id)
+                / "config.toml"
+            )
+            self.assertTrue(config_path.exists())
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn(f'model = "{_CODEX_MODEL}"', content)
+            self.assertIn('approval_policy = "on-request"', content)
+            self.assertIn('sandbox_mode = "workspace-write"', content)
+            self.assertIn('enabled_tools = ["command_execution"]', content)
+            self.assertIn("[mcp_servers.setta]", content)
+
+    async def test_codex_sdk_emits_thinking_blocks(self) -> None:
+        node_path = self._require_codex_sdk()
+        reasoning_effort = "xhigh"
+
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "Solve this without tools: find the smallest positive "
+                        "integer N such that N ≡ 3 (mod 4), N ≡ 4 (mod 5), "
+                        "N ≡ 6 (mod 7), and N ≡ 8 (mod 9). "
+                        "Respond with only the number."
+                    ),
+                    "threadOptions": {
+                        "modelReasoningEffort": reasoning_effort,
+                    },
+                },
+            )
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+            if not isinstance(messages, list):
+                raise AssertionError("Expected messages to be a list")
+            thinking_blocks = self._collect_thinking_blocks(messages)
+            if not thinking_blocks:
+                stderr_lines = None
+                if run.id in runner._run_state:
+                    stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                self.fail(
+                    self._debug_dump(outputs, stderr_lines, "Expected thinking blocks.")
+                )
+            thinking_text = "".join(
+                block.get("thinking", "")
+                for block in thinking_blocks
+                if isinstance(block.get("thinking"), str)
+            )
+            summary_text = "".join(
+                block.get("summary", "")
+                for block in thinking_blocks
+                if isinstance(block.get("summary"), str)
+            )
+            self.assertTrue((thinking_text + summary_text).strip())

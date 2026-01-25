@@ -6,7 +6,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@openai/codex-sdk": "*",
-    "@opencode-ai/sdk": "*"
+    "@openai/codex-sdk": "0.87.0",
+    "@opencode-ai/sdk": "1.1.28"
   }
 }
