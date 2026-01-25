@@ -24,6 +24,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     TextBlockDisplayMode,
@@ -126,6 +127,18 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     text: str = ""
 
 
+class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
+    template: str = ""
+    format: PromptFormat = PromptFormat.Jinja
+    inputs: dict[str, str] = Field(default_factory=dict)
+    renderedText: str = ""
+    missingVariables: list[str] = Field(default_factory=list)
+    renderError: str | None = None
+
+
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     showSectionTitle: bool = False
 
@@ -171,9 +184,10 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
         default_factory=lambda: SectionSize(width=400.0, height=200.0)
     )
     managed: bool = False
-    llmConfigId: str | None = None
+    engineConfigId: ID | None = None
+    agentProfileId: ID | None = None
     chatId: ID | None = None
-    deepThink: bool = False
+    thinking: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

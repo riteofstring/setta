@@ -41,9 +41,13 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import {
+  receiveAgentProfilesUpdate,
+  receiveEngineConfigsUpdate,
+  receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
+  receivePromptTemplatesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
@@ -382,7 +386,6 @@ async function handleShareSessionRecovery() {
 
 function receiveMessage(message: string) {
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
-  console.log(m);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
@@ -419,6 +422,14 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
+      return receiveAgentProfilesUpdate(m.content.profiles);
+    case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
+      return receivePromptTemplatesUpdate(m.content.templates);
+    case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
+      return receiveExternalAgentConfigsUpdate(m.content.configs);
+    case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
+      return receiveEngineConfigsUpdate(m.content.configs);
     default:
       return m satisfies never;
   }

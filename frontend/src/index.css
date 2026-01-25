@@ -3,3 +3,60 @@
     outline: 2px solid red;
     background-color: yellow;
   } */
+
+.chat-typing[data-typing="true"] :is(p, li, blockquote, pre):last-child::after,
+.chat-typing-inline[data-typing="true"]::after {
+  content: "";
+  display: inline-block;
+  margin-left: 0.5rem;
+  width: 1.8em;
+  height: 0.8em;
+  vertical-align: baseline;
+  color: rgb(59 130 246);
+  background:
+    radial-gradient(circle, currentColor 48%, transparent 49%) 0 50%/0.45em
+      0.45em no-repeat,
+    radial-gradient(circle, currentColor 48%, transparent 49%) 0.7em 50%/0.45em
+      0.45em no-repeat,
+    radial-gradient(circle, currentColor 48%, transparent 49%) 1.4em 50%/0.45em
+      0.45em no-repeat;
+  filter: drop-shadow(0 0 6px rgb(59 130 246 / 0.35));
+  animation: chat-typing-bounce 0.9s ease-in-out infinite;
+}
+
+@keyframes chat-typing-bounce {
+  0%,
+  100% {
+    background-position:
+      0 50%,
+      0.7em 50%,
+      1.4em 50%;
+    opacity: 0.8;
+  }
+  20% {
+    background-position:
+      0 10%,
+      0.7em 50%,
+      1.4em 50%;
+    opacity: 1;
+  }
+  40% {
+    background-position:
+      0 50%,
+      0.7em 10%,
+      1.4em 50%;
+  }
+  60% {
+    background-position:
+      0 50%,
+      0.7em 50%,
+      1.4em 10%;
+  }
+  80% {
+    background-position:
+      0 50%,
+      0.7em 50%,
+      1.4em 50%;
+    opacity: 0.9;
+  }
+}

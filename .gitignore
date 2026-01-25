@@ -46,3 +46,5 @@ setta_files/
 auth.json
 mcp-tools.json
 docs/temporary/
+backend/setta/vendor/node/
+.claude

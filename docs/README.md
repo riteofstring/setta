@@ -26,15 +26,6 @@
 - `reference/share-policy-flags.md` – share policy flag coverage for route families and behavior.
 - `reference/sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
 
-## Notes
-- `notes/setta-assessment.md` – product/market assessment and positioning notes.
-
-## Plans
-- `plans/ai-gen-standalone-app-plan.md` – standalone app planning notes.
-- `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
-- `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
-- `plans/setta-agentic-plan.md` – agentic workflow planning notes.
-
 ## Other Docs
 - `agent-cli-integration.md` – CLI integration notes for agent workflows.
 - `auth-and-sessions.md` – auth tokens, cookies, share sessions, and refresh behavior.
@@ -44,6 +35,7 @@
 - `codegen-targets.md` – describes `codegenTargets`, supported languages, and behavior when disabled.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
 - `draw-image-representation.md` – how Draw and Image sections are represented in realtime and packaged runtime.
+- `external-agents.md` – how external agent adapters work and how Codex uses app-server.
 - `file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
 - `json_source_formats.md` – JSON source schema formats and validation.
 - `json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
@@ -52,3 +44,13 @@
 - `param-sweeps.md` – how to run parameter sweeps via the Python runner API.
 - `section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `watch-code.md` – watch-mode notes for code sections.
+
+## Notes
+- `notes/setta-assessment.md` – product/market assessment and positioning notes.
+
+## Plans
+- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
+- `plans/ai-gen-standalone-app-plan.md` – standalone app planning notes.
+- `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
+- `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
+- `plans/setta-agentic-plan.md` – agentic workflow planning notes.

@@ -70,6 +70,9 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetProjectConfigCodegenTargetsRequest,
+    SetPromptFormatRequest,
+    SetPromptInputsRequest,
+    SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -557,6 +560,31 @@ async def route_set_project_config_codegen_targets(
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_project_config_codegen_targets(x)
+@router.post(Route.SET_PROMPT_TEMPLATE)
+async def route_set_prompt_template(
+    x: SetPromptTemplateRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_prompt_template(x)
+
+
+@router.post(Route.SET_PROMPT_INPUTS)
+async def route_set_prompt_inputs(
+    x: SetPromptInputsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_prompt_inputs(x)
+
+
+@router.post(Route.SET_PROMPT_FORMAT)
+async def route_set_prompt_format(
+    x: SetPromptFormatRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_prompt_format(x)
 
 
 @router.post(Route.SET_GEN_CODE_PREFIX)

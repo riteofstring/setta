@@ -38,6 +38,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -59,6 +60,7 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
+                "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -82,12 +84,12 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
-                "deepThink",
                 "defaultVal",
                 "description",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
+                "engineConfigId",
                 "eraserBrushSize",
                 "folder",
                 "format",
@@ -99,6 +101,7 @@ class CoreArgs(TypedDict):
                 "ignoreTypeErrors",
                 "imagePath",
                 "inputText",
+                "inputs",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -109,7 +112,6 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
-                "llmConfigId",
                 "managed",
                 "max",
                 "maxAttachments",
@@ -117,6 +119,7 @@ class CoreArgs(TypedDict):
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
+                "missingVariables",
                 "mode",
                 "name",
                 "overflowMode",
@@ -126,7 +129,9 @@ class CoreArgs(TypedDict):
                 "pinnedParams",
                 "placeholder",
                 "positionAndSizeLocked",
+                "renderError",
                 "renderedImagePath",
+                "renderedText",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -136,8 +141,10 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
+                "template",
                 "text",
                 "textDisplayMode",
+                "thinking",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -449,6 +456,29 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     text: NotRequired[str | Callable[[str], str]]
 
 
+class PromptSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Prompt]]
+    template: NotRequired[str]
+    format: NotRequired[PromptFormat]
+    inputs: NotRequired[dict[str, str]]
+    renderedText: NotRequired[str]
+    missingVariables: NotRequired[list[str]]
+    renderError: NotRequired[str | None]
+
+
+class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Prompt]
+        | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
+    ]
+    template: NotRequired[str | Callable[[str], str]]
+    format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
+    inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]
+    renderedText: NotRequired[str | Callable[[str], str]]
+    missingVariables: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    renderError: NotRequired[str | None | Callable[[str | None], str | None]]
+
+
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
     metaControlParamId: NotRequired[ID | None]
@@ -559,9 +589,10 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
-    llmConfigId: NotRequired[str | None]
+    engineConfigId: NotRequired[ID | None]
+    agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
-    deepThink: NotRequired[bool]
+    thinking: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -578,9 +609,10 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
-    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    deepThink: NotRequired[bool | Callable[[bool], bool]]
+    thinking: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

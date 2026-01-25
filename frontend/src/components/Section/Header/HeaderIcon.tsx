@@ -76,6 +76,8 @@ export function HeaderIcon({
       );
     case SectionTypeEnum.TextBlock:
       return <TextBlockIcon sectionId={sectionId} />;
+    case SectionTypeEnum.Prompt:
+      return <TextBlockIcon sectionId={sectionId} />;
     case SectionTypeEnum.MetaControl:
       return (
         <TbAdjustmentsHorizontal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]" />

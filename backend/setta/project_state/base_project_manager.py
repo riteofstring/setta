@@ -21,6 +21,12 @@ from typing import (
 
 from fastapi import HTTPException, status
 
+from setta.agentic.chat_view import (
+    EXTERNAL_AGENT_RUN_TYPE,
+    LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
+)
+from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -42,7 +48,6 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.chats.load import load_chat
 from setta.project_state.code import (
     build_bash_run_command,
     build_python_module_run_command,
@@ -148,6 +153,9 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetProjectConfigCodegenTargetsRequest,
+    SetPromptFormatRequest,
+    SetPromptInputsRequest,
+    SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -263,6 +271,9 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
+    set_prompt_section_format,
+    set_prompt_section_inputs,
+    set_prompt_section_template,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -2510,6 +2521,24 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method
+    async def set_prompt_template(self, x: SetPromptTemplateRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_template(project_state, x.sectionId, x.template)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_inputs(self, x: SetPromptInputsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_format(self, x: SetPromptFormatRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_prompt_section_format(project_state, x.sectionId, x.format)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
@@ -2766,8 +2795,9 @@ class BaseProjectManager(ABC):
             project_state,
             x.sectionId,
             x.managed,
-            x.llmConfigId,
-            x.deepThink,
+            x.engineConfigId,
+            x.agentProfileId,
+            x.thinking,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -2802,8 +2832,16 @@ class BaseProjectManager(ABC):
         chat_id = section_impl.chatId
         if chat_id is None:
             return None
-        if load_chat(self.dbe, chat_id) is not None:
-            return chat_id
+        for run_type in (
+            LLM_CHAT_RUN_TYPE,
+            SCRIPTABLE_CHAT_RUN_TYPE,
+            EXTERNAL_AGENT_RUN_TYPE,
+        ):
+            run_ids = list_agent_run_ids_by_metadata(
+                self.dbe, run_type=run_type, chat_id=chat_id
+            )
+            if run_ids:
+                return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return None

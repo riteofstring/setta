@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
-from setta.llm.chat_store import DBEChatStore
+from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit import assistant_message, message_text, user_message
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.tool_calls import ToolCallBuilder
@@ -18,8 +18,9 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_history_client_coerces_chat_payloads(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(DBEChatStore(dbe))
+            history = ChatHistory(AgentRunChatStore(dbe))
             llm_config = LLMConfig(id="test-llm", model="gpt-test")
+            engine_config_id = None
             section_id = ID("section-1")
             section_chat_ids: dict[ID, ID] = {}
 
@@ -63,14 +64,14 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
 
             chat_id, created = await client.ensure_section_chat_id(
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
             self.assertTrue(created)
 
             chat_id_repeat, created_repeat = await client.ensure_section_chat_id(
                 section_id=section_id,
-                llm_config_id=llm_config.id,
+                engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
             self.assertEqual(chat_id_repeat, chat_id)

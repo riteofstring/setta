@@ -25,6 +25,7 @@ from setta.types.project_config import (
     WatchCodeFolder,
 )
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
@@ -527,6 +528,16 @@ class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConf
     codegenTargets: list[ProjectCodegenTarget] = Field(
         description="Ordered list of enabled codegen targets.",
     )
+class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
+    template: str
+
+
+class SetPromptInputsRequest(ProjectManagerRequestWithSection):
+    inputs: dict[str, str]
+
+
+class SetPromptFormatRequest(ProjectManagerRequestWithSection):
+    format: PromptFormat
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
@@ -842,8 +853,9 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
-    llmConfigId: str | None
-    deepThink: bool
+    engineConfigId: ID | None
+    agentProfileId: ID | None
+    thinking: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

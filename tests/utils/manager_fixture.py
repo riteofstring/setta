@@ -84,7 +84,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
     SettingsProjectManager can bootstrap a blank temp workspace via SettingsFile.
     For project manager coverage, use ``real_project_manager`` which seeds a
-    canonical project bundle.
+    minimal project bundle.
     """
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -174,7 +174,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a SessionProjectManager (main) backed by a seeded temp workspace."""
+    """Provision a SessionProjectManager (main) backed by a minimal project bundle."""
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         setta_root = root / "setta_files"
@@ -337,11 +337,8 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
-
 def _populate_project_fixture_files(setta_root: Path) -> None:
     _seed_minimal_setta_files(setta_root)
-
-
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")

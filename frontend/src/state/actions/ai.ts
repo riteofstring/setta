@@ -13,22 +13,51 @@ import {
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_delete_llm_chat,
-  route_get_all_llm_chat_metadata,
+  route_create_agent_profile,
+  route_create_external_agent_config,
+  route_create_prompt_template,
+  route_delete_agent_profile,
+  route_delete_external_agent_config,
+  route_delete_prompt_template,
+  route_get_agent_profiles,
+  route_get_agent_runs,
+  route_get_engine_configs,
+  route_get_external_agent_chat,
+  route_get_external_agent_configs,
+  route_get_external_agent_health,
   route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
+  route_get_prompt_templates,
+  route_respond_external_agent_approval,
+  route_respond_external_agent_question,
+  route_update_agent_profile,
+  route_update_engine_config,
+  route_update_external_agent_config,
+  route_update_prompt_template,
 } from "utils/generatedEndpoints";
 import {
+  AgentProfile,
+  AgentRun,
+  AgentRunStatusEnum,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatRoleEnum,
   ChatSectionState,
+  CreateAgentProfileRequestInput,
+  CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
   createMessageThinkingContent,
+  CreatePromptTemplateRequestInput,
+  DeleteAgentProfileRequestInput,
+  DeleteExternalAgentConfigRequestInput,
+  DeletePromptTemplateRequestInput,
+  EngineConfig,
+  ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -36,12 +65,18 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  PromptTemplate,
   SectionTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
+  ToolChatMessage,
   ToolResultEvent,
+  UpdateAgentProfileRequestInput,
+  UpdateEngineConfigRequestInput,
+  UpdateExternalAgentConfigRequestInput,
+  UpdatePromptTemplateRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
@@ -85,6 +120,387 @@ export function receiveLLMApiKeysUpdate(payload: APIKeys) {
   });
 }
 
+export async function loadAgentProfiles(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.agentProfilesLoading) {
+    return;
+  }
+  if (!force && state.agentProfilesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ agentProfilesLoading: true });
+  const res = await route_get_agent_profiles();
+  if (res200(res)) {
+    receiveAgentProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentProfilesInitialLoadComplete: true,
+      agentProfilesLoadError: "Failed to load agent profiles",
+      agentProfilesLoading: false,
+    });
+  }
+}
+
+export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
+  useAIStore.setState({
+    agentProfiles: payload,
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+    agentProfilesLoading: false,
+  });
+}
+
+export async function loadAgentRuns() {
+  const res = await route_get_agent_runs();
+  if (res200(res)) {
+    receiveAgentRunsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentRunsInitialLoadComplete: true,
+      agentRunsLoadError: "Failed to load agent runs",
+    });
+  }
+}
+
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  useAIStore.setState({
+    agentRuns: payload,
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
+  });
+}
+
+export async function loadPromptTemplates(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.promptTemplatesLoading) {
+    return;
+  }
+  if (!force && state.promptTemplatesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ promptTemplatesLoading: true });
+  const res = await route_get_prompt_templates();
+  if (res200(res)) {
+    receivePromptTemplatesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      promptTemplatesInitialLoadComplete: true,
+      promptTemplatesLoadError: "Failed to load prompt templates",
+      promptTemplatesLoading: false,
+    });
+  }
+}
+
+export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+  useAIStore.setState({
+    promptTemplates: payload,
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+    promptTemplatesLoading: false,
+  });
+}
+
+export async function loadExternalAgentConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentConfigsLoading) {
+    return;
+  }
+  if (!force && state.externalAgentConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentConfigsLoading: true });
+  const res = await route_get_external_agent_configs();
+  if (res200(res)) {
+    receiveExternalAgentConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentConfigsInitialLoadComplete: true,
+      externalAgentConfigsLoadError: "Failed to load external agent configs",
+      externalAgentConfigsLoading: false,
+    });
+  }
+}
+
+export async function loadExternalAgentHealth(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentHealthLoading) {
+    return;
+  }
+  if (!force && state.externalAgentHealthInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentHealthLoading: true });
+  const res = await route_get_external_agent_health();
+  if (res200(res)) {
+    receiveExternalAgentHealthUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentHealthInitialLoadComplete: true,
+      externalAgentHealthLoadError: "Failed to load external agent health",
+      externalAgentHealthLoading: false,
+    });
+  }
+}
+
+export function receiveExternalAgentConfigsUpdate(
+  payload: Array<ExternalAgentConfig>,
+) {
+  useAIStore.setState({
+    externalAgentConfigs: payload,
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+    externalAgentConfigsLoading: false,
+  });
+  void loadExternalAgentHealth(true);
+}
+
+function receiveExternalAgentHealthUpdate(
+  payload: Array<ExternalAgentPreflightStatus>,
+) {
+  useAIStore.setState({
+    externalAgentHealth: payload,
+    externalAgentHealthInitialLoadComplete: true,
+    externalAgentHealthLoadError: null,
+    externalAgentHealthLoading: false,
+  });
+}
+
+export async function loadEngineConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.engineConfigsLoading) {
+    return;
+  }
+  if (!force && state.engineConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ engineConfigsLoading: true });
+  const res = await route_get_engine_configs();
+  if (res200(res)) {
+    receiveEngineConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigsLoadError: "Failed to load engine configs",
+      engineConfigsLoading: false,
+    });
+  }
+}
+
+export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
+  useAIStore.setState({
+    engineConfigs: payload,
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+    engineConfigsLoading: false,
+  });
+}
+
+type HasId = { id: string };
+
+function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
+  const index = items.findIndex((item) => item.id === entry.id);
+  if (index === -1) {
+    return [...items, entry];
+  }
+  const next = [...items];
+  next[index] = entry;
+  return next;
+}
+
+function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
+  return items.filter((item) => item.id !== id);
+}
+
+export async function createAgentProfile(
+  payload: CreateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_create_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to create agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function updateAgentProfile(
+  payload: UpdateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_update_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to update agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function deleteAgentProfile(
+  payload: DeleteAgentProfileRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to delete agent profile",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    agentProfiles: removeById(state.agentProfiles, payload.profileId),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return true;
+}
+
+export async function updateEngineConfig(
+  payload: UpdateEngineConfigRequestInput,
+): Promise<EngineConfig | null> {
+  const res = await route_update_engine_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      engineConfigsLoadError: "Failed to update engine config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    engineConfigs: upsertById(state.engineConfigs, config),
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function createPromptTemplate(
+  payload: CreatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_create_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to create prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function updatePromptTemplate(
+  payload: UpdatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_update_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to update prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function deletePromptTemplate(
+  payload: DeletePromptTemplateRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to delete prompt template",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    promptTemplates: removeById(state.promptTemplates, payload.templateId),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return true;
+}
+
+export async function createExternalAgentConfig(
+  payload: CreateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_create_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to create external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function updateExternalAgentConfig(
+  payload: UpdateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_update_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to update external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function deleteExternalAgentConfig(
+  payload: DeleteExternalAgentConfigRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to delete external agent config",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: removeById(
+      state.externalAgentConfigs,
+      payload.configId,
+    ),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return true;
+}
+
 export function getDefaultChatDetails(): ChatDetails {
   return {
     messages: [],
@@ -114,13 +530,17 @@ export async function getLLMChat(chatId: string) {
       const nextWaitingForResponse = waitingForResponse
         ? existingDetails?.waitingForResponse ?? true
         : false; // keep false once streaming finishes to avoid stale flips
+      const nextMessages = mergeChatMessages(
+        existingDetails?.messages ?? [],
+        messages,
+      );
       return {
         chatDetails: {
           ...state.chatDetails,
           [chatId]: {
             ...getDefaultChatDetails(),
             ...(existingDetails ?? {}),
-            messages,
+            messages: nextMessages,
             waitingForResponse: nextWaitingForResponse,
             llmConfig: llmConfig,
           },
@@ -130,26 +550,52 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
-export async function getAllLLMChatMetadata() {
-  const res = await route_get_all_llm_chat_metadata();
+export async function getExternalAgentChat(
+  chatId: string,
+  projectConfigId: string | null,
+) {
+  const res = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
   if (res200(res)) {
-    useAIStore.setState({ allChatMetadata: res.data });
+    const { messages, waitingForResponse, toolCallArguments } = res.data;
+    useAIStore.setState((state) => {
+      const existingDetails = state.chatDetails[chatId];
+      const nextWaitingForResponse = waitingForResponse
+        ? existingDetails?.waitingForResponse ?? true
+        : false;
+      const nextMessages = mergeChatMessages(
+        existingDetails?.messages ?? [],
+        messages,
+      );
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(existingDetails ?? {}),
+            messages: nextMessages,
+            waitingForResponse: nextWaitingForResponse,
+            toolCallArguments,
+            llmConfig: null,
+          },
+        },
+      };
+    });
   }
-}
-
-export async function deleteLLMChat(chatId: string) {
-  await route_delete_llm_chat({ chatId });
-  await getAllLLMChatMetadata();
 }
 
 export async function submitMessage(
   chatId: string | null,
   message: string,
-  deepThink: boolean,
-  llmConfigId: string,
+  thinking: boolean,
+  engineConfigId: string,
+  isExternalEngine: boolean,
   messageId?: string,
+  agentProfileId?: string | null,
 ): Promise<string | null> {
-  if (!message.trim()) {
+  if (!message.trim() || !engineConfigId) {
     return null;
   }
 
@@ -167,15 +613,20 @@ export async function submitMessage(
     const projectConfigId = getCurrProjectConfigId();
     const res = await route_get_llm_response({
       message: userMessage,
-      deepThink,
+      thinking,
       chatId,
-      llmConfigId,
+      engineConfigId,
+      agentProfileId: agentProfileId ?? null,
       projectConfigId,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
-        await getLLMChat(returnedChatId);
+        if (isExternalEngine) {
+          await getExternalAgentChat(returnedChatId, projectConfigId);
+        } else {
+          await getLLMChat(returnedChatId);
+        }
       }
       return returnedChatId;
     }
@@ -187,9 +638,75 @@ export async function submitMessage(
   }
 }
 
+export async function respondExternalAgentApproval(
+  approvalId: string,
+  approved: boolean,
+): Promise<boolean> {
+  const res = await route_respond_external_agent_approval({
+    approvalId,
+    approved,
+  });
+  return res200(res);
+}
+
+export async function respondExternalAgentQuestion(
+  toolCallId: string,
+  answers: Record<string, string>,
+): Promise<boolean> {
+  const res = await route_respond_external_agent_question({
+    toolCallId,
+    answers,
+  });
+  return res200(res);
+}
+
+export async function findLatestRunningExternalRunId(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<string | null> {
+  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (!agentRunsInitialLoadComplete) {
+    await loadAgentRuns();
+    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
+  }
+  if (!agentRunsInitialLoadComplete) {
+    return null;
+  }
+  const runs = agentRuns.filter((run) => {
+    if (run.status !== AgentRunStatusEnum.running) {
+      return false;
+    }
+    const inputs = run.inputs ?? {};
+    const runType = typeof inputs.runType === "string" ? inputs.runType : null;
+    if (runType !== "external_agent") {
+      return false;
+    }
+    const runChatId = typeof inputs.chatId === "string" ? inputs.chatId : null;
+    if (runChatId !== chatId) {
+      return false;
+    }
+    const runProjectConfigId =
+      typeof inputs.projectConfigId === "string"
+        ? inputs.projectConfigId
+        : null;
+    if (projectConfigId && runProjectConfigId !== projectConfigId) {
+      return false;
+    }
+    return true;
+  });
+  if (runs.length === 0) {
+    return null;
+  }
+  runs.sort((a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a));
+  return runs[0]?.id ?? null;
+}
+
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const sectionId = msg.sectionId;
+  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
+    return;
+  }
   if (sectionId) {
     applyChatSectionStreamDelta(sectionId, chunk);
     if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
@@ -216,6 +733,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     }
     return;
   }
+  promotePendingChatDetailsIfNeeded(chatId);
   switch (chunk.type) {
     case StreamingEventTypeEnum.MESSAGE_START:
       handleMessageStart(chatId, chunk);
@@ -243,7 +761,95 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
 }
 
+function isResponsePlaceholderId(
+  messageId: string | null | undefined,
+): boolean {
+  if (!messageId) {
+    return false;
+  }
+  return messageId.startsWith("rs_") || messageId.startsWith("resp_");
+}
+
+function shouldIgnoreResponsePlaceholderChunk(
+  chunk: LLMStreamingResponse["chunk"],
+): boolean {
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
+    return isResponsePlaceholderId(chunk.message.id);
+  }
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+    return isResponsePlaceholderId(chunk.message.id);
+  }
+  if (
+    chunk.type === StreamingEventTypeEnum.DELTA ||
+    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP
+  ) {
+    return isResponsePlaceholderId(chunk.message_id);
+  }
+  return false;
+}
+
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+
+type RunPayload = Record<string, unknown>;
+
+function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+  const outputMessages = extractRunMessages(run.outputs);
+  if (outputMessages) {
+    return buildChatSectionState(
+      outputMessages,
+      run.status === AgentRunStatusEnum.running,
+    );
+  }
+
+  const inputMessages = extractRunMessages(run.inputs) ?? [];
+  return buildChatSectionState(
+    inputMessages,
+    run.status === AgentRunStatusEnum.running,
+  );
+}
+
+function buildChatSectionState(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+): ChatSectionState {
+  return {
+    messages: [...messages],
+    inputText: "",
+    waitingForResponse,
+    toolCallArguments: {},
+  };
+}
+
+function extractRunMessages(
+  payload: RunPayload | null,
+): Array<BaseChatMessageUnion> | null {
+  if (!payload) {
+    return null;
+  }
+  const raw = payload.messages;
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as Array<BaseChatMessageUnion>;
+}
+
+function getRunLastUpdatedMs(run: AgentRun): number {
+  const eventTimestamps = (run.events ?? [])
+    .map((event) => Date.parse(event.timestamp))
+    .filter((value) => !Number.isNaN(value));
+  if (eventTimestamps.length > 0) {
+    return Math.max(...eventTimestamps);
+  }
+  const finishedAt = Date.parse(run.finishedAt ?? "");
+  if (!Number.isNaN(finishedAt)) {
+    return finishedAt;
+  }
+  const startedAt = Date.parse(run.startedAt ?? "");
+  if (!Number.isNaN(startedAt)) {
+    return startedAt;
+  }
+  return 0;
+}
 
 function applyChatSectionStreamDelta(
   sectionId: string,
@@ -267,7 +873,7 @@ function applyChatSectionStreamDelta(
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   updateChatDetails(chatId, (details) => ({
     ...details,
-    messages: [...details.messages, chunk.message],
+    messages: upsertMessage(details.messages, chunk.message),
     waitingForResponse: true,
   }));
 }
@@ -277,56 +883,10 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
     return;
   }
   updateChatDetails(chatId, (details) => {
-    const { messages, changed } = updateMessageById(
-      details.messages,
-      chunk.message_id,
-      (message) => {
-        let mutated = false;
-        const newContent = [...message.content];
-        for (const delta of chunk.content ?? []) {
-          switch (delta.type) {
-            case "thinking_delta": {
-              const block = ensureThinkingContentBlock(newContent, delta.index);
-              const thinkingUpdate = delta.thinking ?? "";
-              const signatureUpdate = delta.signature;
-              let blockMutated = false;
-              if (thinkingUpdate) {
-                block.thinking += thinkingUpdate;
-                blockMutated = true;
-              }
-              if (signatureUpdate !== undefined) {
-                block.signature = signatureUpdate ?? "";
-                blockMutated = true;
-              }
-              if (blockMutated) {
-                mutated = true;
-              }
-              break;
-            }
-            case "text_delta": {
-              const block = ensureTextContentBlock(newContent, delta.index);
-              block.text += delta.text;
-              mutated = true;
-              break;
-            }
-            default: {
-              delta satisfies never;
-              break;
-            }
-          }
-        }
-        if (!mutated) {
-          return null;
-        }
-        return { ...message, content: newContent };
-      },
-    );
-    if (!changed) {
-      return null;
-    }
     return {
       ...details,
-      messages,
+      messages: applyMessageDeltaToChatMessages(details.messages, chunk),
+      waitingForResponse: true,
     };
   });
 }
@@ -661,6 +1221,222 @@ function updatePendingChatDetails(
   });
 }
 
+function mergeChatMessages(
+  existing: Array<BaseChatMessageUnion>,
+  incoming: Array<BaseChatMessageUnion>,
+): Array<BaseChatMessageUnion> {
+  if (incoming.length === 0) {
+    return [...existing];
+  }
+  if (existing.length === 0) {
+    return [...incoming];
+  }
+  const merged = [...existing];
+  const indexById = new Map<string, number>();
+  merged.forEach((message, index) => {
+    indexById.set(message.id, index);
+  });
+  for (const message of incoming) {
+    const existingIndex = indexById.get(message.id);
+    if (existingIndex === undefined) {
+      indexById.set(message.id, merged.length);
+      merged.push(message);
+      continue;
+    }
+    merged[existingIndex] = pickMoreCompleteMessage(
+      merged[existingIndex],
+      message,
+    );
+  }
+  return merged;
+}
+
+function pickMoreCompleteMessage(
+  existing: BaseChatMessageUnion,
+  incoming: BaseChatMessageUnion,
+): BaseChatMessageUnion {
+  if (existing.role !== incoming.role) {
+    return incoming;
+  }
+  const existingScore = getMessageCompletenessScore(existing);
+  const incomingScore = getMessageCompletenessScore(incoming);
+  if (incomingScore > existingScore) {
+    return incoming;
+  }
+  if (existingScore > incomingScore) {
+    return existing;
+  }
+  return incoming;
+}
+
+function getMessageCompletenessScore(message: BaseChatMessageUnion): number {
+  if (message.role === ChatRoleEnum.assistant) {
+    return getAssistantMessageScore(message);
+  }
+  if (message.role === ChatRoleEnum.tool) {
+    return getToolMessageScore(message);
+  }
+  return getContentScore(message.content);
+}
+
+function getAssistantMessageScore(message: AssistantChatMessage): number {
+  let score = getContentScore(message.content);
+  const toolCalls = message.tool_calls ?? [];
+  score += toolCalls.length * 5;
+  for (const toolCall of toolCalls) {
+    if (toolCall.function?.name) {
+      score += toolCall.function.name.length;
+    }
+    if (toolCall.function?.arguments) {
+      score += getPayloadSize(toolCall.function.arguments);
+    }
+  }
+  return score;
+}
+
+function getToolMessageScore(message: ToolChatMessage): number {
+  let score = 0;
+  score += getPayloadSize(message.arguments);
+  score += getPayloadSize(message.result);
+  if (message.completed_at) {
+    score += 5;
+  }
+  if (Array.isArray(message.content)) {
+    score += message.content.length * 4;
+    for (const entry of message.content) {
+      if (entry.type === "text") {
+        score += entry.text.length;
+        continue;
+      }
+      if (entry.type === "resource") {
+        if ("text" in entry.resource) {
+          score += entry.resource.text.length;
+        } else {
+          score += 4;
+        }
+        continue;
+      }
+      score += 2;
+    }
+  }
+  return score;
+}
+
+function getContentScore(
+  content: Array<
+    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+  >,
+): number {
+  let score = 0;
+  for (const item of content) {
+    if (item.type === "text") {
+      score += item.text.length;
+      continue;
+    }
+    if (item.type === "thinking") {
+      score += item.thinking.length;
+      score += item.summary?.length ?? 0;
+      score += item.signature?.length ?? 0;
+      continue;
+    }
+    if (item.type === "image_url") {
+      score += 8;
+    }
+  }
+  return score;
+}
+
+function getPayloadSize(payload: unknown): number {
+  if (payload === null || payload === undefined) {
+    return 0;
+  }
+  if (typeof payload === "string") {
+    return payload.length;
+  }
+  if (typeof payload === "number" || typeof payload === "boolean") {
+    return 4;
+  }
+  if (Array.isArray(payload)) {
+    return payload.length * 4;
+  }
+  try {
+    return JSON.stringify(payload).length;
+  } catch {
+    return 0;
+  }
+}
+
+function mergeChatDetails(
+  existingDetails: ChatDetails,
+  pendingDetails: ChatDetails,
+): ChatDetails {
+  return {
+    ...existingDetails,
+    ...pendingDetails,
+    messages: mergeChatMessages(
+      existingDetails.messages,
+      pendingDetails.messages,
+    ),
+    toolCallArguments: {
+      ...existingDetails.toolCallArguments,
+      ...pendingDetails.toolCallArguments,
+    },
+    waitingForResponse:
+      pendingDetails.waitingForResponse || existingDetails.waitingForResponse,
+  };
+}
+
+function promotePendingChatDetailsIfNeeded(chatId: string) {
+  useAIStore.setState((state) => {
+    if (state.activeChatId !== null) {
+      return {};
+    }
+    if (!state.pendingChatDetails) {
+      return {};
+    }
+    const existingDetails =
+      state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingDetails = state.pendingChatDetails;
+    const mergedDetails = mergeChatDetails(existingDetails, pendingDetails);
+    return {
+      activeChatId: chatId,
+      pendingChatDetails: null,
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: mergedDetails,
+      },
+    };
+  });
+}
+
+export function finalizePendingChatDetails(chatId: string) {
+  useAIStore.setState((state) => {
+    const pendingDetails = state.pendingChatDetails;
+    const shouldSetActive =
+      state.activeChatId === null ||
+      state.activeChatId === undefined ||
+      state.activeChatId === chatId;
+    const needsActiveUpdate = shouldSetActive && state.activeChatId !== chatId;
+    if (!pendingDetails && !needsActiveUpdate) {
+      return {};
+    }
+    const nextState: Partial<ReturnType<typeof useAIStore.getState>> = {};
+    if (pendingDetails) {
+      const existingDetails =
+        state.chatDetails[chatId] ?? getDefaultChatDetails();
+      nextState.chatDetails = {
+        ...state.chatDetails,
+        [chatId]: mergeChatDetails(existingDetails, pendingDetails),
+      };
+      nextState.pendingChatDetails = null;
+    }
+    if (shouldSetActive) {
+      nextState.activeChatId = chatId;
+    }
+    return nextState;
+  });
+}
+
 function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
@@ -901,10 +1677,15 @@ function applyMessageDeltaToChatMessages(
       const index = normalizeChatContentIndex(delta.index, content.length);
       const block = ensureThinkingContentBlock(content, index);
       const thinkingUpdate = delta.thinking ?? "";
+      const summaryUpdate = delta.summary;
       const signatureUpdate = delta.signature;
       let blockMutated = false;
       if (thinkingUpdate) {
         block.thinking += thinkingUpdate;
+        blockMutated = true;
+      }
+      if (summaryUpdate !== undefined && summaryUpdate !== null) {
+        block.summary = summaryUpdate;
         blockMutated = true;
       }
       if (signatureUpdate !== undefined) {

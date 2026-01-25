@@ -20,6 +20,7 @@ import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { MetaControlArea } from "../Layouts/MetaControlArea";
+import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -167,6 +168,8 @@ function AreaSwitch({
       return <SocialArea sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
+    case SectionTypeEnum.Prompt:
+      return <PromptArea sectionId={sectionId} />;
     case SectionTypeEnum.MetaControl:
       return <MetaControlArea sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:
