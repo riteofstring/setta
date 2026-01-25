@@ -22,7 +22,6 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
-    WatchCodeFolder,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -541,25 +540,6 @@ class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
 
     showParamDisplayNames: bool = Field(
         description="True to show display names for parameters, false to show canonical names.",
-    )
-
-
-class SetWatchCodeEnabledRequest(ProjectManagerRequestWithProjectConfig):
-    """Enable or disable watch code mode for the project."""
-
-    enabled: bool = Field(
-        description="Whether watch code mode is enabled for this project.",
-    )
-
-
-class SetWatchCodeInputsRequest(ProjectManagerRequestWithProjectConfig):
-    """Update watched file and folder inputs for watch code mode."""
-
-    watchCodeFolders: list[WatchCodeFolder] = Field(
-        description="Folders to watch for new callables.",
-    )
-    watchCodeFiles: list[str] = Field(
-        description="Specific files to watch for new callables.",
     )
 
 

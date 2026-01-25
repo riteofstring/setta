@@ -367,16 +367,26 @@ def get_creation_fns(
     implementation_callback: Callable[[T, str], str] | None = None,
 ):
     if additional_args_types_callback is None:
-        additional_args_types_callback = lambda x: ""
+
+        def additional_args_types_callback(_cls: T) -> str:
+            return ""
+
     if additional_args_inputs_callback is None:
-        additional_args_inputs_callback = lambda x: ""
+
+        def additional_args_inputs_callback(_cls: T) -> str:
+            return ""
+
     if additional_args_generic_type_callback is None:
-        additional_args_generic_type_callback = lambda: ""
+
+        def additional_args_generic_type_callback() -> str:
+            return ""
+
     if implementation_callback is None:
-        implementation_callback = (
-            lambda c, additional_args: f"""
+
+        def implementation_callback(c: T, additional_args: str) -> str:
+            return f"""
                 return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
-        )
+
     cases: dict[str, list[T]] = defaultdict(list)
     code = ""
     for c in classes.values():
