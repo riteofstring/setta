@@ -225,6 +225,9 @@ class DetachedRunManager:
     def _watch_process(self, run_id: str, proc: subprocess.Popen) -> None:
         exit_code = proc.wait()
         with self._lock:
+            if run_id not in self._processes:
+                self._canceled.discard(run_id)
+                return
             canceled = run_id in self._canceled
             if canceled:
                 self._canceled.remove(run_id)

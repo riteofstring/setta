@@ -29,6 +29,8 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -161,6 +163,11 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
+    watchCodeEnabled: NotRequired[bool]
+    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
+    watchCodeFiles: NotRequired[list[str]]
+    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
+    watchCodeBaselineByPath: NotRequired[dict[str, list[str]]]
 
 
 class BaseSectionImplArgs(TypedDict):

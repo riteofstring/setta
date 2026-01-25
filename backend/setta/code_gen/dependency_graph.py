@@ -1,12 +1,14 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from itertools import islice
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     GEN_CODE_INSTANCE_NAME,
     create_unique_name,
-    sanitize_python_identifier,
+    sanitize_name,
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
@@ -16,6 +18,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.dependency_key import (
+    DependencyKeyType,
     create_dep_key,
 )
 from setta.types.dependency_value import (
@@ -58,6 +61,8 @@ from setta.types.section_impls import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -490,6 +495,24 @@ class DependencyGraph:
         self.full_path_name_to_dep_key[node.full_path_name] = dep_key
 
     def change_value(self, dep_key: BaseDependencyKeyUnion, value):
+        if dep_key not in self.graph:
+            sample_sections = list(
+                islice(
+                    (
+                        key.sectionId
+                        for key in self.graph
+                        if key.type is DependencyKeyType.Section
+                    ),
+                    5,
+                )
+            )
+            logger.error(
+                "DependencyGraph change_value missing dep_key=%s graph_size=%s sample_section_ids=%s",
+                dep_key,
+                len(self.graph),
+                sample_sections,
+            )
+            raise KeyError(dep_key)
         node = self.graph[dep_key]
         node.value = self._coerce_dependency_value(value)
         is_used = node.has_name_and_value
@@ -504,7 +527,7 @@ class DependencyGraph:
         self, parent_node: Node | None, idx: int | None, name: str
     ):
         if not parent_node:
-            return sanitize_python_identifier(name)
+            return sanitize_name(name)
         if parent_node.type == SectionType.ListRoot:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
@@ -514,11 +537,11 @@ class DependencyGraph:
             or parent_node.type == CodeObjType.NestedParam
         ):
             return create_unique_name(
-                f"{parent_node.full_path_name}__{sanitize_python_identifier(name)}",
+                f"{parent_node.full_path_name}__{sanitize_name(name)}",
                 self.full_path_name_to_dep_key,
             )
 
-        return sanitize_python_identifier(name)
+        return sanitize_name(name)
 
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""

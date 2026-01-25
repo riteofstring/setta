@@ -80,7 +80,12 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            logger.debug("send_document_open_request %s", uri)
+            logger.debug(
+                "send_document_open_request uri=%s version=%s text_len=%s",
+                uri,
+                version,
+                len(code),
+            )
             await self.send_request("textDocument/didOpen", params=params)
         else:
             logger.debug("document already open, updating it %s", uri)
@@ -108,6 +113,12 @@ class LanguageServerWriter(LanguageServerInteractor):
             },
             "contentChanges": [{"text": code}],
         }
+        logger.debug(
+            "send_document_update uri=%s version=%s text_len=%s",
+            uri,
+            version,
+            len(code),
+        )
         await self.send_request("textDocument/didChange", params=params)
 
     async def send_autocomplete_request(
@@ -135,6 +146,13 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
+        logger.debug(
+            "send_signature_help_request uri=%s line=%s character=%s request_id=%s",
+            uri,
+            line,
+            character,
+            request_id,
+        )
         await self.send_request(
             "textDocument/signatureHelp",
             params=params,
@@ -154,6 +172,11 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_did_change_watched_files(self, changes):
         params = {"changes": changes}
+        logger.debug(
+            "send_did_change_watched_files change_count=%s changes=%s",
+            len(changes),
+            changes,
+        )
         await self.send_request("workspace/didChangeWatchedFiles", params=params)
 
     async def send_and_wait(self, fn_call, request_id):

@@ -1,7 +1,6 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import React, { useMemo } from "react";
-import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
+import React from "react";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
@@ -10,13 +9,11 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { GetParamSwitch } from "./GetParamSwitch";
 import {
   ParamDndProvider,
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
-import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
 
 type ParamDndListProps = {
   sectionId: string;
@@ -35,27 +32,6 @@ export function ParamDndList({
   isTopLevel,
   listKey,
 }: ParamDndListProps) {
-  const duplicateIndexDeps = useProjectState(
-    (state) => ({
-      codeObjs: state.codeObjs,
-      codeObjImpls: state.codeObjImpls,
-      codeObjVariants: state.codeObjVariants,
-      sectionImpls: state.sectionImpls,
-      sectionVariants: state.sectionVariants,
-    }),
-    shallow,
-  );
-  const duplicateIndex = useMemo(
-    () => buildParamDuplicateIndex(useProjectState.getState(), sectionId),
-    [
-      duplicateIndexDeps.codeObjs,
-      duplicateIndexDeps.codeObjImpls,
-      duplicateIndexDeps.codeObjVariants,
-      duplicateIndexDeps.sectionImpls,
-      duplicateIndexDeps.sectionVariants,
-      sectionId,
-    ],
-  );
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -100,38 +76,34 @@ export function ParamDndList({
 
   if (!tree) {
     return (
-      <ParamDuplicateIndexProvider value={duplicateIndex}>
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={paramIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevel={isTopLevel}
-          listKey={listKey}
-        />
-      </ParamDuplicateIndexProvider>
+      <GetParamSwitch
+        sectionId={sectionId}
+        paramIds={paramIds}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isTopLevel={isTopLevel}
+        listKey={listKey}
+      />
     );
   }
 
   return (
-    <ParamDuplicateIndexProvider value={duplicateIndex}>
-      <ParamDndProvider
+    <ParamDndProvider
+      sectionId={sectionId}
+      listKey={listKey}
+      tree={tree}
+      enabled={enabled}
+    >
+      <ParamDndListBody
         sectionId={sectionId}
+        rootId={tree.rootId}
+        paramIds={paramIds}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isTopLevel={isTopLevel}
         listKey={listKey}
-        tree={tree}
-        enabled={enabled}
-      >
-        <ParamDndListBody
-          sectionId={sectionId}
-          rootId={tree.rootId}
-          paramIds={paramIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevel={isTopLevel}
-          listKey={listKey}
-        />
-      </ParamDndProvider>
-    </ParamDuplicateIndexProvider>
+      />
+    </ParamDndProvider>
   );
 }
 

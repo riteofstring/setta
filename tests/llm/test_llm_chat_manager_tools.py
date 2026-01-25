@@ -453,6 +453,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
+                chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
@@ -481,6 +482,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
+                chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
@@ -538,6 +540,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             tool_message, _ = build_search_tool_chat_message(
+                chat_id=ID("chat-uuid"),
                 tool_name=manager._search_tool_name,
                 tool_call=tool_call,
                 call_result=call_result,
