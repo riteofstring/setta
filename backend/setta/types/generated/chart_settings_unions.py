@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
@@ -14,3 +13,5 @@ BaseChartSettingsUnionWithDiscriminator = Annotated[
 ]
 
 BaseChartSettingsTypeAdapter = TypeAdapter(BaseChartSettingsUnionWithDiscriminator)
+
+BaseChartSettingsTypeSet = set(["line", "scatter"])

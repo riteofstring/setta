@@ -63,8 +63,6 @@ class PythonValueCodec:
         return tuple(sorted(self._required_imports))
 
     def format_param_expression(self, node: ParamNode) -> str:
-        if node.type is CodeObjType.PasswordParam:
-            return self._format_password_value(node.id)
         param_type = node.type
         literal_value = self._expect_literal(node)
         return self.format_param_value(
@@ -251,12 +249,6 @@ class PythonValueCodec:
         control_type = node.control_code_obj_type
         if control_type is None:
             raise ValueError(f"Missing control code obj type for {node.full_path_name}")
-        if control_type is CodeObjType.PasswordParam:
-            if node.control_code_obj_id is None:
-                raise ValueError(
-                    f"Missing control code obj id for {node.full_path_name}"
-                )
-            return self._format_password_value(node.control_code_obj_id)
         literal_value = node.value.payload
         representation = (
             node.control_value_representation
@@ -416,10 +408,6 @@ class PythonValueCodec:
             return repr(payload)
         helper_alias = self._require_value_helpers()
         return f"{helper_alias}.read_file_value({repr(payload)})"
-
-    def _format_password_value(self, code_obj_id: str) -> str:
-        helper_alias = self._require_value_helpers()
-        return f"{helper_alias}.read_password_value({repr(str(code_obj_id))})"
 
     def _node_in_codegen(self, node: Node) -> bool:
         return getattr(node, "include_in_codegen", True)
