@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
-from setta.types.binary_content import BinaryContentRef
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
@@ -108,9 +107,9 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional run snapshot mode override for this run.",
     )
-    drawSnapshotsBySectionId: dict[ID, BinaryContentRef] | None = Field(
+    drawSnapshotsBySectionId: dict[ID, str] | None = Field(
         default=None,
-        description="Optional binary PNG payloads for draw sections keyed by section id.",
+        description="Optional base64 PNG payloads for draw sections keyed by section id.",
     )
 
 

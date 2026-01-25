@@ -41,8 +41,6 @@ class C:
     CODE_FOLDER = SETTA_FILES_FOLDER / "code"
     DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
     ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
-    BINARY_FOLDER_NAME = "binary"
-    BINARY_FOLDER = SETTA_FILES_FOLDER / BINARY_FOLDER_NAME
     RUN_FOLDER = SETTA_FILES_FOLDER / "run"
     RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
     RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
@@ -62,11 +60,6 @@ class C:
     WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
-
-    BINARY_TTL_SECONDS = int(os.environ.get("SETTA_BINARY_TTL_SECONDS", "21600") or 0)
-    REALTIME_BINARY_MAX_BYTES = int(
-        os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
-    )
 
     # Allowed artifact types
     ALLOWED_ARTIFACT_TYPES = {

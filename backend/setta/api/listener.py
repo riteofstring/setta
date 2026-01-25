@@ -43,7 +43,6 @@ from setta.types.dependency_key import (
     SectionParamDependencyKey,
     create_dep_key,
 )
-from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -86,7 +85,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.utils.constants import C
-from setta.websockets.binary_frames import decode_binary_frame
 
 from .scheduling import ListenerCallbackScheduler
 
@@ -561,40 +559,8 @@ class SettaListener:
                                 )
                             )
 
-    def _parse_websocket_payload(self, payload: str | bytes) -> Any | None:
+    def _parse_websocket_payload(self, payload: str) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
-        if isinstance(payload, (bytes, bytearray)):
-            try:
-                header, binary_payload = decode_binary_frame(bytes(payload))
-            except ValueError as exc:
-                logger.warning("Received malformed binary listener payload: %s", exc)
-                return None
-            try:
-                message = PythonScriptWebsocketMsgTypeAdapter.validate_python(header)
-            except ValidationError:
-                logger.warning("Received malformed listener payload: %s", header)
-                return None
-            if isinstance(message, WebsocketMsgListenerRealtimeEvent):
-                if len(message.content.deltas) != 1:
-                    logger.warning(
-                        "Binary realtime event must contain exactly one delta."
-                    )
-                    return None
-                message.content.deltas[0].binaryPayload = binary_payload
-                return message
-            if isinstance(message, WebsocketMsgListenerDependencyEvent):
-                if len(message.content.dependencyEvents) != 1:
-                    logger.warning(
-                        "Binary dependency event must contain exactly one event."
-                    )
-                    return None
-                message.content.dependencyEvents[0].binaryPayload = binary_payload
-                return message
-            logger.warning(
-                "Binary websocket payload uses unsupported message type: %s",
-                getattr(message, "messageType", type(message)),
-            )
-            return None
         try:
             message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
         except ValidationError:
@@ -1280,11 +1246,6 @@ class SettaListener:
                 continue
             value = delta.value
             dependency = node.full_path_name
-            binary_payload = (
-                delta.binaryPayload
-                if value.type is DependencyValueType.Binary
-                else None
-            )
             try:
                 hydrated_value = self._set_dependency_value(
                     runtime_state,
@@ -1292,7 +1253,6 @@ class SettaListener:
                     dependency,
                     value,
                     node,
-                    binary_payload=binary_payload,
                 )
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
@@ -1626,14 +1586,9 @@ class SettaListener:
         dependency: str,
         value: BaseDependencyValueUnion,
         node: Node,
-        *,
-        binary_payload: bytes | None = None,
     ) -> Any:
         """Set a dependency value on the cached state instance."""
         node.value = value
-        if value.type is DependencyValueType.Binary and binary_payload is not None:
-            setattr(current, dependency, binary_payload)
-            return binary_payload
         expression = runtime_state.code_generator.get_value(node)
         hydrated = self._evaluate_expression(
             dependency=dependency,

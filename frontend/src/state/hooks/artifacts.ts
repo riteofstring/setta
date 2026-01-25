@@ -1,4 +1,4 @@
-import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
+import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -9,12 +9,10 @@ import {
   useDrawAreaLayerItemTransform,
   useImages,
   useProjectState,
-  useShareSession,
   ZustandDecodedImages,
   ZustandProjectState,
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_load_cached_brush_strokes,
@@ -22,11 +20,7 @@ import {
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import {
-  ArtifactTypeEnum,
-  RouteEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
@@ -62,26 +56,6 @@ async function loadCachedImages(paths: Array<string>) {
       };
     });
   }
-}
-
-async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
-  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
-    "{contentId}",
-    encodeURIComponent(contentId),
-  );
-  const shareSession = useShareSession.getState();
-  const headers: HeadersInit = {};
-  if (shareSession.isShareMode && shareSession.shareSessionId) {
-    headers["X-Share-Session-Id"] = shareSession.shareSessionId;
-  }
-  const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {
-    credentials: "include",
-    headers,
-  });
-  if (!res.ok) {
-    return null;
-  }
-  return await res.blob();
 }
 
 export function useImageArtifact(sectionId: string) {
@@ -243,13 +217,7 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
   for (const path of needToDecode) {
     const rawImage = rawImages[path];
     if (rawImage) {
-      const blob = await fetchBinaryBlob(rawImage.value.contentId);
-      if (!blob) {
-        continue;
-      }
-      const image = await blobToImageObj(blob);
-      image.dataset.contentId = rawImage.value.contentId;
-      decoded[path] = image;
+      decoded[path] = await base64ToImageObj(rawImage.value);
     }
   }
   const decodedIds = Object.keys(decoded);
@@ -405,17 +373,9 @@ export function useDrawAreaArtifactLoader(sectionId: string) {
     const missingTransforms = transformIds.filter(
       (id) => !transformState.x[id],
     );
-    const pendingDecode = imagePaths.filter((path) => {
-      const rawImage = imagesState.x[path];
-      if (!rawImage) {
-        return false;
-      }
-      const decodedImage = decodedState.x[path];
-      if (!decodedImage) {
-        return true;
-      }
-      return decodedImage.dataset.contentId !== rawImage.value.contentId;
-    });
+    const pendingDecode = imagePaths.filter(
+      (path) => imagesState.x[path] && !decodedState.x[path],
+    );
 
     void loadCachedImages(missingImages);
     void loadCachedBrushStrokes(missingBrushStrokes);
