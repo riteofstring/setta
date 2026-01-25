@@ -5,7 +5,7 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { processLspDiagnostics } from "state/actions/lspDiagnostics";
+import { processTypeErrors } from "state/actions/typeCheck";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -392,7 +392,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
-      return processLspDiagnostics(m.content);
+      return processTypeErrors(m.content);
     case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
       return processNameValidationErrors(m.content);
     case WebsocketMsgTypeForFrontendEnum.Notification:

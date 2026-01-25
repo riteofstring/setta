@@ -3,12 +3,11 @@ import _ from "lodash";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useLspDiagnostics, useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   SectionTypeEnum,
-  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
@@ -43,12 +42,6 @@ function _SectionHeader({
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const codeSectionDiagnostics = useLspDiagnostics((x) => {
-    const diagnostics = x.codeSections[sectionId];
-    return diagnostics ?? [];
-  });
-  const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -66,24 +59,6 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
       />
       <div className="z-10 ml-auto flex items-center">
-        {!isShareMode &&
-          sectionTypeName === SectionTypeEnum.Code &&
-          codeSectionDiagnostics.length > 0 && (
-            <DiagnosticsPopover
-              diagnostics={codeSectionDiagnostics}
-              label={`${codeSectionDiagnostics.length}`}
-              title="Problems"
-            />
-          )}
-        {!isShareMode &&
-          sectionTypeName === SectionTypeEnum.GenPythonCode &&
-          genCodeDiagnostics.length > 0 && (
-            <DiagnosticsPopover
-              diagnostics={genCodeDiagnostics}
-              label={`Gen issues ${genCodeDiagnostics.length}`}
-              title="Generated code issues"
-            />
-          )}
         {isSeriesElement && (
           <StandardPopover
             arrowClasses="fill-white dark:fill-setta-800"
@@ -120,107 +95,6 @@ function _SectionHeader({
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
-
-function DiagnosticsPopover({
-  diagnostics,
-  label,
-  title,
-}: {
-  diagnostics: Array<SettaLspDiagnostic>;
-  label: string;
-  title: string;
-}) {
-  const badgeClassName = getBadgeClassName(diagnostics);
-  return (
-    <StandardPopover
-      arrowClasses="fill-white dark:fill-setta-800"
-      contentClasses="z-20"
-      trigger={
-        <button
-          className={`nodrag ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeClassName}`}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-    >
-      <div className="flex w-80 flex-col gap-2 p-2 text-xs text-slate-700 dark:text-slate-100">
-        <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          <span>{title}</span>
-          <span>{diagnostics.length}</span>
-        </div>
-        <div className="max-h-64 overflow-auto">
-          <ul className="flex flex-col gap-2">
-            {diagnostics.map((diagnostic, idx) => {
-              const { line, character } = diagnostic.range.start;
-              const { label: severityLabel, className: severityClassName } =
-                getSeverityMeta(diagnostic.severity);
-              return (
-                <li
-                  className="rounded-md border border-slate-200 bg-white/80 p-2 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
-                  key={`${diagnostic.message}-${idx}`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${severityClassName}`}
-                    >
-                      {severityLabel}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Line {line + 1}, Col {character + 1}
-                    </span>
-                    {diagnostic.source && (
-                      <span className="text-[10px] text-slate-400">
-                        {diagnostic.source}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-700 dark:text-slate-100">
-                    {diagnostic.message}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-    </StandardPopover>
-  );
-}
-
-function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
-  let hasError = false;
-  let hasWarning = false;
-  for (const diagnostic of diagnostics) {
-    if (diagnostic.severity === 1) {
-      hasError = true;
-      break;
-    }
-    if (diagnostic.severity === 2) {
-      hasWarning = true;
-    }
-  }
-  if (hasError) {
-    return "bg-red-500 text-white";
-  }
-  if (hasWarning) {
-    return "bg-amber-400 text-slate-900";
-  }
-  return "bg-sky-500 text-white";
-}
-
-function getSeverityMeta(severity: number | null | undefined) {
-  if (severity === 1) {
-    return { label: "Error", className: "bg-red-500 text-white" };
-  }
-  if (severity === 2) {
-    return { label: "Warning", className: "bg-amber-400 text-slate-900" };
-  }
-  if (severity === 3) {
-    return { label: "Info", className: "bg-sky-500 text-white" };
-  }
-  return { label: "Hint", className: "bg-slate-300 text-slate-900" };
-}
 
 function MaybeCardTitle({
   sectionId,
