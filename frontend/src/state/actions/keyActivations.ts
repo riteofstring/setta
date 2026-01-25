@@ -34,8 +34,20 @@ import {
   activateParamSelect,
   deactivateParamSelect,
 } from "state/actions/paramSelect";
-import { useSettings } from "state/definitions";
-import { tabFromDocumentBody } from "utils/tabbingLogic";
+import {
+  indentSelectedParams,
+  moveSelectedParamsDown,
+  moveSelectedParamsUp,
+  unindentSelectedParams,
+} from "state/actions/params/moveParams";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { useProjectState, useSettings } from "state/definitions";
+import {
+  focusAdjacentTopLevelSection,
+  focusScope,
+  handleTabNavigation,
+} from "utils/focusManager";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
   selectAll,
@@ -181,6 +193,31 @@ function parseShortcut(shortcutString) {
   };
 }
 
+function getTabShortcutInfo(shortcut) {
+  if (!shortcut) {
+    return null;
+  }
+  const parsed = parseShortcut(shortcut.toLowerCase());
+  if (!isParsedTabShortcut(parsed)) {
+    return null;
+  }
+  return { shift: parsed.shift };
+}
+
+function isTabLikeShortcut(shortcut) {
+  return getTabShortcutInfo(shortcut) !== null;
+}
+
+function isParsedTabShortcut(parsedShortcut) {
+  return (
+    parsedShortcut.keys.size === 1 &&
+    parsedShortcut.keys.has("Tab") &&
+    !parsedShortcut.mod &&
+    !parsedShortcut.ctrl &&
+    !parsedShortcut.alt
+  );
+}
+
 function isShortcutPressed(e, parsedShortcut, _isMacOs) {
   const { mod, ctrl, shift, alt, keys } = parsedShortcut;
   if (_isMacOs) {
@@ -258,6 +295,10 @@ function getShouldPreventDefault(parsedShortcut) {
     return false;
   }
 
+  if (isParsedTabShortcut(parsedShortcut)) {
+    return false;
+  }
+
   // case for "mod", "ctrl", "alt", "shift"
   if (keys.size === 0) {
     return false;
@@ -266,8 +307,7 @@ function getShouldPreventDefault(parsedShortcut) {
   // special shortcuts
   if (
     isModOrCtrlPlus(parsedShortcut, ["KeyC"]) ||
-    isModOrCtrlPlus(parsedShortcut, "KeyV") ||
-    isShiftPlus(parsedShortcut, ["Tab"])
+    isModOrCtrlPlus(parsedShortcut, "KeyV")
   ) {
     return false;
   }
@@ -282,6 +322,16 @@ function getIsInput(event) {
     event.target instanceof HTMLSelectElement ||
     event.target.isContentEditable
   );
+}
+
+function runParamShortcut(action, event) {
+  if (getIsInput(event)) {
+    return;
+  }
+  const didRun = action();
+  if (didRun) {
+    event.preventDefault();
+  }
 }
 
 function getMacosIgnoreWhenInInputField(parsedShortcut) {
@@ -375,6 +425,9 @@ function getWindowsIgnoreWhenInInputField(parsedShortcut) {
 }
 
 function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
+  if (isParsedTabShortcut(parsedShortcut)) {
+    return false;
+  }
   return _isMacOs
     ? getMacosIgnoreWhenInInputField(parsedShortcut)
     : getWindowsIgnoreWhenInInputField(parsedShortcut);
@@ -413,6 +466,10 @@ function addKeepKeyDownConditions(sInfo, _isMacOs) {
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
   const shortcutsNeededForExtraProcessing = {};
+  const indentShortcutIsTab = isTabLikeShortcut(shortcuts.paramIndentShortcut);
+  const unindentShortcutIsTab = isTabLikeShortcut(
+    shortcuts.paramUnindentShortcut,
+  );
 
   function addToShortcutsNeededForExtraProcessing(
     name,
@@ -432,8 +489,20 @@ export function attachKeyEventListeners() {
   }
 
   const conditionAndAction = [
-    ["tab", tabFromDocumentBody],
-    ["shift + tab", tabFromDocumentBody],
+    ["tab", handleTabKeyDown],
+    ["shift + tab", handleTabKeyDown],
+    [shortcuts.focusHeaderShortcut, () => focusScope("header")],
+    [shortcuts.focusOverviewShortcut, () => focusScope("overview")],
+    [shortcuts.focusCanvasShortcut, () => focusScope("canvas")],
+    [shortcuts.focusUiEditorShortcut, () => focusScope("ui-editor")],
+    [
+      shortcuts.nextTopLevelSectionShortcut,
+      () => focusAdjacentTopLevelSection({ direction: 1 }),
+    ],
+    [
+      shortcuts.prevTopLevelSectionShortcut,
+      () => focusAdjacentTopLevelSection({ direction: -1 }),
+    ],
     [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
@@ -491,6 +560,34 @@ export function attachKeyEventListeners() {
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
     // [shortcuts.formatCode, formatCode],
+    ...(indentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramIndentShortcut,
+            (e) => runParamShortcut(indentSelectedParams, e),
+          ],
+        ]),
+    ...(unindentShortcutIsTab
+      ? []
+      : [
+          [
+            shortcuts.paramUnindentShortcut,
+            (e) => runParamShortcut(unindentSelectedParams, e),
+          ],
+        ]),
+    [
+      shortcuts.paramMoveUpShortcut,
+      (e) => runParamShortcut(moveSelectedParamsUp, e),
+      null,
+      true,
+    ],
+    [
+      shortcuts.paramMoveDownShortcut,
+      (e) => runParamShortcut(moveSelectedParamsDown, e),
+      null,
+      true,
+    ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
@@ -664,6 +761,63 @@ function onEscapeKey() {
   //   clearActiveSectionIds();
   // }
   removeFrozenFloatingBox();
+}
+
+function handleTabKeyDown(event: KeyboardEvent) {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (target?.closest("[data-tab-native]")) {
+    return;
+  }
+  if (activeSectionHasSelectedParams()) {
+    const action = resolveTabParamAction(event);
+    if (action === "indent") {
+      indentSelectedParams();
+      event.preventDefault();
+      return;
+    }
+    if (action === "unindent") {
+      unindentSelectedParams();
+      event.preventDefault();
+      return;
+    }
+  }
+
+  const didHandle = handleTabNavigation(event);
+  if (didHandle) {
+    event.preventDefault();
+  }
+}
+
+function resolveTabParamAction(event: KeyboardEvent) {
+  const shortcuts = useSettings.getState().shortcuts;
+  const indentTab = getTabShortcutInfo(shortcuts.paramIndentShortcut);
+  const unindentTab = getTabShortcutInfo(shortcuts.paramUnindentShortcut);
+  if (event.shiftKey) {
+    if (unindentTab?.shift) {
+      return "unindent";
+    }
+    if (indentTab?.shift) {
+      return "indent";
+    }
+    return null;
+  }
+  if (indentTab && !indentTab.shift) {
+    return "indent";
+  }
+  if (unindentTab && !unindentTab.shift) {
+    return "unindent";
+  }
+  return null;
+}
+
+function activeSectionHasSelectedParams(): boolean {
+  const state = useProjectState.getState();
+  const activeId = state.projectConfig.activeIds[0];
+  if (!activeId) {
+    return false;
+  }
+  const impl = getCurrEffectiveSectionImpl(state, activeId);
+  return isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
 }
 
 function activateSelectionKeyPressed() {

@@ -19,11 +19,14 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_sections,
     get_curr_top_level_param_ids,
+    indent_params,
+    move_params_to_parent,
+    move_params_within_parent,
+    set_text_block_heading_as_section_name,
+    set_text_block_text,
     set_chat_section_chat_id,
-    set_chat_section_settings,
-    set_prompt_section_format,
-    set_prompt_section_inputs,
-    set_prompt_section_template,
+    set_section_param_filter,
+    unindent_params,
 )
 from setta.types.project_config import (
     Position,
@@ -33,13 +36,12 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.id import ID
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     ChatSectionImpl,
-    PromptSectionImpl,
     SectionSize,
     SectionType,
+    TextBlockSectionImpl,
 )
 
 
@@ -142,133 +144,6 @@ class ChatSectionChatIdTests(unittest.TestCase):
         )
         self.assertEqual(section_impl.chatId, chat_id)
 
-    def test_set_chat_section_settings_updates_agent_profile(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        agent_profile_id = ID("agent-1")
-        engine_config_id = ID("engine-1")
-
-        set_chat_section_settings(
-            self.project_state,
-            section_id,
-            managed=True,
-            engineConfigId=engine_config_id,
-            agentProfileId=agent_profile_id,
-            thinking=True,
-        )
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            ChatSectionImpl,
-        )
-        self.assertTrue(section_impl.managed)
-        self.assertEqual(section_impl.engineConfigId, engine_config_id)
-        self.assertEqual(section_impl.agentProfileId, agent_profile_id)
-        self.assertTrue(section_impl.thinking)
-
-
-class PromptSectionTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_prompt_section_renders_inputs(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name }}",
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, ["name"])
-        self.assertEqual(impl.renderError, "Missing variables: name")
-
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
-
-    def test_prompt_section_reports_syntax_errors(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name ",
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNotNone(impl.renderError)
-
-    def test_prompt_section_format_updates_rendering(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name }}",
-        )
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
-        set_prompt_section_format(
-            self.project_state,
-            section_id,
-            PromptFormat.Jinja,
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
-
 
 class ChangeParamImplTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -331,6 +206,210 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertTrue(updated_impl.coreNameEditable)
         self.assertEqual(updated_impl.coreNameType, old_core_name_type)
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
+
+
+class ParamMoveTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        self.section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.param_ids = [
+            add_kwarg(self.settings, self.project_state, self.section_id)
+            for _ in range(3)
+        ]
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            BaseDictSectionImpl,
+        )
+        self.root_id = section_impl.topLevelParamId
+        assert self.root_id is not None
+
+    def _get_root_impl(self) -> NestedParamCodeObjImpl:
+        return get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.root_id,
+            NestedParamCodeObjImpl,
+        )
+
+    def test_move_params_within_parent_reorders(self) -> None:
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
+        )
+
+    def test_param_filter_whitespace_allows_reorder(self) -> None:
+        set_section_param_filter(self.project_state, self.section_id, "   ")
+
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
+        )
+
+    def test_indent_converts_previous_sibling(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [self.param_ids[0], self.param_ids[2]])
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.children, [self.param_ids[1]])
+
+    def test_indent_non_contiguous_groups(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [param_ids[0], param_ids[2]])
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.children, [param_ids[1]])
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.children, [param_ids[3]])
+
+    def test_unindent_converts_empty_nested(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(
+            root_impl.children,
+            [self.param_ids[0], self.param_ids[1], self.param_ids[2]],
+        )
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.value, "{}")
+
+    def test_unindent_multi_parent_selection(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, param_ids)
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(first_parent_impl.value, "{}")
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(second_parent_impl.value, "{}")
+
+    def test_move_params_to_parent_reparents(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        move_params_to_parent(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[2]],
+            self.param_ids[0],
+            new_index=1,
+        )
+
+        root_impl = self._get_root_impl()
+        self.assertEqual(root_impl.children, [self.param_ids[0]])
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        self.assertEqual(parent_impl.children, [self.param_ids[1], self.param_ids[2]])
 
 
 class SmartLayoutTests(unittest.TestCase):
@@ -409,6 +488,38 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
+
+
+class TextBlockHeadingAsNameTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_invalid_heading_does_not_block_text_update(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        original_name = self.project_state.sections[section_id].name
+        set_text_block_heading_as_section_name(
+            self.project_state,
+            section_id,
+            True,
+        )
+        text = "# Intro @ 2026\n\nBody content."
+        set_text_block_text(self.project_state, section_id, text)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertEqual(text, section_impl.text)
+        self.assertEqual(original_name, self.project_state.sections[section_id].name)
 
 
 if __name__ == "__main__":  # pragma: no cover

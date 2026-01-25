@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -9,6 +11,7 @@ from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
 from setta.types.routes import Route
+from setta.utils.constants import C
 
 AUTH_EXEMPT_PATHS = {Route.BOOTSTRAP_PAGE.value, Route.BOOTSTRAP_CONSUME.value}
 
@@ -53,7 +56,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 cookie_value, session_metadata.id, secret
             )
             if cookie_payload is not None:
-                return await call_next(request)
+                response = await call_next(request)
+                if request.url.path.startswith(
+                    Route.PREFIX.value
+                ) and _should_refresh_auth_cookie(cookie_payload.exp):
+                    auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                    set_auth_cookie(response, auth_cookie, request=request)
+                return response
 
         bearer_token = extract_bearer_token(request.headers)
         if bearer_token:
@@ -70,9 +79,28 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 def _unauthorized_response(request: Request) -> Response:
-    if request.url.path.startswith(Route.PREFIX.value):
+    if _is_json_unauthorized_path(request.url.path):
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return HTMLResponse(UNAUTHORIZED_HTML, status_code=401)
+
+
+def _should_refresh_auth_cookie(exp: int) -> bool:
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    return exp - timestamp <= C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS
+
+
+def _is_json_unauthorized_path(path: str) -> bool:
+    if path.startswith(Route.PREFIX.value):
+        return True
+    return _path_matches_route(path, Route.TOOLS_CALL.value)
+
+
+def _path_matches_route(path: str, route: str) -> bool:
+    if path == route:
+        return True
+    if path.endswith("/"):
+        return path.rstrip("/") == route
+    return False
 
 
 def _is_auth_exempt_path(path: str) -> bool:
