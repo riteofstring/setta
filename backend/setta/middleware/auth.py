@@ -1,7 +1,7 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from setta.auth.cookies import read_auth_cookie, set_auth_cookie
 from setta.auth.headers import extract_bearer_token
@@ -33,27 +33,18 @@ UNAUTHORIZED_HTML = """<!DOCTYPE html>
 """
 
 
-class AuthMiddleware:
-    """Auth gate implemented as pure ASGI middleware to support streaming responses."""
-
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope, receive=receive)
-        if request.method == "OPTIONS" or _is_auth_exempt_path(request.url.path):
-            await self.app(scope, receive, send)
-            return
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        if _is_auth_exempt_path(request.url.path):
+            return await call_next(request)
 
         session_info = load_current_session_secret()
         if session_info is None:
-            response = _unauthorized_response(request)
-            await response(scope, receive, send)
-            return
+            return _unauthorized_response(request)
 
         session_metadata, secret = session_info
         cookie_value = read_auth_cookie(request)
@@ -62,8 +53,7 @@ class AuthMiddleware:
                 cookie_value, session_metadata.id, secret
             )
             if cookie_payload is not None:
-                await self.app(scope, receive, send)
-                return
+                return await call_next(request)
 
         bearer_token = extract_bearer_token(request.headers)
         if bearer_token:
@@ -71,24 +61,12 @@ class AuthMiddleware:
                 bearer_token, session_metadata.id, secret
             )
             if token_payload is not None:
+                response = await call_next(request)
                 auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                set_auth_cookie(response, auth_cookie, request=request)
+                return response
 
-                async def send_wrapper(message: Message) -> None:
-                    if message["type"] == "http.response.start":
-                        headers = list(message.get("headers", []))
-                        cookie_headers = _build_auth_cookie_headers(
-                            auth_cookie, request
-                        )
-                        if cookie_headers:
-                            headers.extend(cookie_headers)
-                            message["headers"] = headers
-                    await send(message)
-
-                await self.app(scope, receive, send_wrapper)
-                return
-
-        response = _unauthorized_response(request)
-        await response(scope, receive, send)
+        return _unauthorized_response(request)
 
 
 def _unauthorized_response(request: Request) -> Response:
@@ -103,15 +81,3 @@ def _is_auth_exempt_path(path: str) -> bool:
     if path.endswith("/"):
         return path.rstrip("/") in AUTH_EXEMPT_PATHS
     return False
-
-
-def _build_auth_cookie_headers(
-    token: str, request: Request
-) -> list[tuple[bytes, bytes]]:
-    response = Response()
-    set_auth_cookie(response, token, request=request)
-    return [
-        header
-        for header in response.raw_headers
-        if header[0].lower() == b"set-cookie"
-    ]

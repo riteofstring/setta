@@ -30,7 +30,6 @@ import {
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
-import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
@@ -194,8 +193,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case OverviewTabNameEnum.ProjectAISettings:
-      return <ProjectAISettings />;
+    // case OverviewTabNameEnum.ProjectAISettings:
+    // return <ProjectLLMSettings />;
     default:
       return selectedTabName satisfies never;
   }
