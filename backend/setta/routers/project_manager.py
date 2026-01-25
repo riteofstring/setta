@@ -30,7 +30,10 @@ from setta.project_state.project_manager_types import (
     GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
-    MoveSectionRequest,
+    IndentParamsRequest,
+    MoveParamGroupsRequest,
+    MoveParamsRequest,
+    MoveSectionsRequest,
     OutputAccessorCompletionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -63,9 +66,7 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
-    SetPromptFormatRequest,
-    SetPromptInputsRequest,
-    SetPromptTemplateRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -75,7 +76,6 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
-    SetSectionWithParamsDisplayModeRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -85,6 +85,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
+    SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -99,6 +100,7 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
@@ -120,6 +122,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
+from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 router = SettaProjectContextAPIRouter(
     require_project_context_by_default=True,
@@ -491,6 +494,15 @@ async def route_toggle_variant_json_source(
     await manager.toggle_variant_json_source(x)
 
 
+@router.post(Route.SET_VARIANT_JSON_SOURCE_KEYS)
+async def route_set_variant_json_source_keys(
+    x: SetVariantJsonSourceKeysRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_variant_json_source_keys(x)
+
+
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
 async def route_delete_json_source_file_and_variant(
     x: DeleteJSONSourceFileAndVariantRequest, ctx: RuntimeContextFromRequest
@@ -510,31 +522,13 @@ async def route_set_text_block_text(
     await manager.set_text_block_text(x)
 
 
-@router.post(Route.SET_PROMPT_TEMPLATE)
-async def route_set_prompt_template(
-    x: SetPromptTemplateRequest, ctx: RuntimeContextFromRequest
+@router.post(Route.SET_PROJECT_CONFIG_CODEGEN_TARGETS)
+async def route_set_project_config_codegen_targets(
+    x: SetProjectConfigCodegenTargetsRequest, ctx: RuntimeContextFromRequest
 ):
+    await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
-    await manager.set_prompt_template(x)
-
-
-@router.post(Route.SET_PROMPT_INPUTS)
-async def route_set_prompt_inputs(
-    x: SetPromptInputsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
-    await manager.set_prompt_inputs(x)
-
-
-@router.post(Route.SET_PROMPT_FORMAT)
-async def route_set_prompt_format(
-    x: SetPromptFormatRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
-    await manager.set_prompt_format(x)
+    await manager.set_project_config_codegen_targets(x)
 
 
 @router.post(Route.SET_GEN_CODE_PREFIX)
@@ -597,7 +591,10 @@ async def route_set_code_obj_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_code_obj_name(x)
+    try:
+        await manager.set_code_obj_name(x)
+    except InvalidParamName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
@@ -785,7 +782,10 @@ async def route_set_section_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_section_name(x)
+    try:
+        await manager.set_section_name(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)
@@ -828,9 +828,12 @@ async def route_set_text_block_display_mode(
 async def route_set_text_block_heading_as_section_name(
     x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
 ):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).set_text_block_heading_as_section_name(x)
+    try:
+        await state.project_manager_switcher.get(
+            x.projectConfigId
+        ).set_text_block_heading_as_section_name(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)
@@ -840,15 +843,6 @@ async def route_set_text_block_meta_control_style(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_text_block_meta_control_style(x)
-
-
-@router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)
-async def route_set_section_with_params_display_mode(
-    x: SetSectionWithParamsDisplayModeRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_with_params_display_mode(x)
 
 
 @router.post(Route.SET_CALLABLE_HIDE_PARAMS)
@@ -960,11 +954,43 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
     await manager.set_social_url(x)
 
 
-@router.post(Route.MOVE_SECTION)
-async def route_move_section(x: MoveSectionRequest, ctx: RuntimeContextFromRequest):
+@router.post(Route.MOVE_SECTIONS)
+async def route_move_sections(x: MoveSectionsRequest, ctx: RuntimeContextFromRequest):
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.move_section(x)
+    await manager.move_sections(x)
+
+
+@router.post(Route.MOVE_PARAMS)
+async def route_move_params(x: MoveParamsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.move_params(x)
+
+
+@router.post(Route.MOVE_PARAM_GROUPS)
+async def route_move_param_groups(
+    x: MoveParamGroupsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.move_param_groups(x)
+
+
+@router.post(Route.INDENT_PARAMS)
+async def route_indent_params(x: IndentParamsRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.indent_params(x)
+
+
+@router.post(Route.UNINDENT_PARAMS)
+async def route_unindent_params(
+    x: UnindentParamsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.unindent_params(x)
 
 
 @router.post(Route.GROUP_SECTIONS)

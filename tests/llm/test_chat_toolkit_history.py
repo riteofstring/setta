@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
-from setta.llm.chat_store import AgentRunChatStore
+from setta.llm.chat_store import DBEChatStore
 from setta.llm.chat_toolkit import (
     ChatHistory,
     assistant_message,
@@ -24,7 +24,7 @@ class ChatHistoryTests(unittest.TestCase):
     def test_create_append_and_delete_chat(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
+            history = ChatHistory(DBEChatStore(dbe))
 
             first_message = user_message([message_text("Hello toolkit")])
             chat = history.create(
