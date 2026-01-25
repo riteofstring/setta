@@ -77,8 +77,9 @@ def test_ensure_background_process_started_raises_on_exit() -> None:
         stderr=subprocess.DEVNULL,
     )
     try:
+        proc.wait()
         with pytest.raises(click.ClickException):
-            _ensure_background_process_started(proc, wait_seconds=0.05)
+            _ensure_background_process_started(proc, wait_seconds=0)
     finally:
         proc.wait()
 

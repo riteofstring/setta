@@ -500,32 +500,22 @@ class TestOpenCodeSdkAdapterIntegration:
         )
 
     @staticmethod
-    def _await_port_free(port: int, timeout_seconds: float = 10.0) -> None:
-        start = time.monotonic()
-        while time.monotonic() - start < timeout_seconds:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(0.5)
-                try:
-                    sock.connect(("127.0.0.1", port))
-                except OSError:
-                    return
-            time.sleep(0.2)
-        pytest.skip(
-            f"OpenCode server still running on port {port}. "
-            "Stop the server and retry."
-        )
+    def _reserve_port() -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
 
     async def test_opencode_sdk_streams_message(self) -> None:
         model = self._require_opencode_sdk()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
-            self._await_port_free(4096)
+            port = self._reserve_port()
             run = runner.start_run(
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "opencodePort": port},
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
@@ -540,12 +530,12 @@ class TestOpenCodeSdkAdapterIntegration:
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
-            self._await_port_free(4096)
+            port = self._reserve_port()
             run = runner.start_run(
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "opencodePort": port},
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
@@ -560,12 +550,15 @@ class TestOpenCodeSdkAdapterIntegration:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
             code_word = f"setta-opencode-{secrets.token_hex(6)}"
-            self._await_port_free(4096)
+            port = self._reserve_port()
             first_run = runner.start_run(
                 config.id,
                 config,
                 None,
-                {"prompt": f"Remember this codeword: {code_word}. Reply with OK."},
+                {
+                    "prompt": f"Remember this codeword: {code_word}. Reply with OK.",
+                    "opencodePort": port,
+                },
             )
             first_stored = await self._await_completed_run(
                 dbe, first_run.id, runner=runner
@@ -576,7 +569,6 @@ class TestOpenCodeSdkAdapterIntegration:
             assert isinstance(session_id, str)
             assert session_id
 
-            self._await_port_free(4096)
             second_run = runner.start_run(
                 config.id,
                 config,
@@ -584,6 +576,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 {
                     "prompt": "What codeword did I ask you to remember?",
                     "sessionId": session_id,
+                    "opencodePort": port,
                 },
             )
             second_stored = await self._await_completed_run(
@@ -601,7 +594,7 @@ class TestOpenCodeSdkAdapterIntegration:
             with TemporaryDirectory() as tmpdir:
                 dbe, runner = self._build_runner(Path(tmpdir))
                 config = self._build_config(model)
-                self._await_port_free(4096)
+                port = self._reserve_port()
                 tool_name = mcp_server.test_tool_name or "list_mcp_tools"
                 tool_token = mcp_server.test_tool_token or "OK"
                 permission_key = f"{SETTA_MCP_SERVER_ID}_{tool_name}"
@@ -623,7 +616,7 @@ class TestOpenCodeSdkAdapterIntegration:
                     config.id,
                     config,
                     profile,
-                    {"prompt": prompt},
+                    {"prompt": prompt, "opencodePort": port},
                 )
                 approval_id = await self._await_pending_approval(runner, dbe, run.id)
                 await runner.respond_to_approval(approval_id, True)
@@ -648,7 +641,7 @@ class TestOpenCodeSdkAdapterIntegration:
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
-            self._await_port_free(4096)
+            port = self._reserve_port()
             prompt = (
                 "Use the question tool to ask exactly three questions. "
                 "Each question must include options Yes and No. "
@@ -658,7 +651,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": prompt},
+                {"prompt": prompt, "opencodePort": port},
             )
             tool_call_id, questions = await self._await_pending_question(
                 runner, dbe, run.id
