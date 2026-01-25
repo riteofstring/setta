@@ -285,6 +285,10 @@ open_bootstrap_in_devtools() {
             echo "Opening Setta bootstrap URL in devtools Chrome."
           fi
           if open_devtools_tab "$url_candidate"; then
+            return 0
+          fi
+          if [[ "$DEVTOOLS_OPEN_WITH_CHROME" == "1" ]]; then
+            # Fallback for environments where the DevTools JSON endpoint isn't reachable yet.
             open_url_in_devtools_profile "$url_candidate"
             return 0
           fi
