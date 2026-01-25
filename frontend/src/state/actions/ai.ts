@@ -789,7 +789,9 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
 }
 
-function isResponsePlaceholderId(messageId: string | null | undefined): boolean {
+function isResponsePlaceholderId(
+  messageId: string | null | undefined,
+): boolean {
   if (!messageId) {
     return false;
   }

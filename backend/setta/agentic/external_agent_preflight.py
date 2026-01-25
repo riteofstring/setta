@@ -61,10 +61,7 @@ def build_external_agent_preflight_status(
             if sdk_issue:
                 issues.append(sdk_issue)
 
-            if (
-                config.toolType == ExternalAgentToolType.opencode
-                and not config.baseUrl
-            ):
+            if config.toolType == ExternalAgentToolType.opencode and not config.baseUrl:
                 cli_version, cli_issue = _check_opencode_cli()
                 if cli_issue:
                     issues.append(cli_issue)

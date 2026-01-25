@@ -679,7 +679,9 @@ class _CodexAppServerEventParser:
             self._emitted_tool_calls.add(call_id)
         events: list[ExternalAgentStreamEvent] = []
         if not message_id:
-            message_id, message_events = self._ensure_assistant_message_for_tool(payload)
+            message_id, message_events = self._ensure_assistant_message_for_tool(
+                payload
+            )
             events.extend(message_events)
         self._store_message_tool_call(
             message_id,
@@ -693,9 +695,7 @@ class _CodexAppServerEventParser:
             arguments_delta=arguments_delta,
             tool_name=tool_name,
         )
-        events.append(
-            ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
-        )
+        events.append(ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event))
         return events
 
     def _handle_function_call_output_item(
@@ -711,9 +711,9 @@ class _CodexAppServerEventParser:
         raw_output = _extract_function_call_output(item)
         if raw_output is None:
             return []
-        tool_name = self._function_call_names.get(call_id) or _extract_function_call_name(
-            item
-        )
+        tool_name = self._function_call_names.get(
+            call_id
+        ) or _extract_function_call_name(item)
         arguments = self._function_call_args.get(call_id)
         arguments_dict = _normalize_function_call_arguments(arguments)
         output = _maybe_parse_json(raw_output)
@@ -1455,7 +1455,9 @@ class _CodexAppServerEventParser:
                 tool_name=pending.tool_name,
             )
             events.append(
-                ExternalAgentStreamEvent(raw=pending.raw_payload, stream_chunk=tool_event)
+                ExternalAgentStreamEvent(
+                    raw=pending.raw_payload, stream_chunk=tool_event
+                )
             )
         self._pending_tool_calls.clear()
         self._pending_tool_call_order.clear()

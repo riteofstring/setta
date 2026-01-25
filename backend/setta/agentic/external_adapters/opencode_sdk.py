@@ -15,7 +15,6 @@ from setta.agentic.external_adapters.base import (
 )
 from setta.agentic.external_adapters.prompt_utils import build_prompt_from_inputs
 from setta.agentic.external_adapters.stream_utils import (
-    collect_stream_lines,
     iter_stream_lines,
     parse_json_line,
 )
@@ -469,14 +468,14 @@ class _OpenCodeSdkEventParser:
                                 message_id=message.id,
                                 tool_call_id=tool_call_id,
                                 arguments_delta=arguments_delta,
-                                tool_name=tool_name if isinstance(tool_name, str) else None,
+                                tool_name=tool_name
+                                if isinstance(tool_name, str)
+                                else None,
                             ),
                         )
                     )
             self._register_tool_call(message, tool_call_id, tool_name, state)
-            tool_result = _build_tool_result_from_state(
-                tool_call_id, tool_name, state
-            )
+            tool_result = _build_tool_result_from_state(tool_call_id, tool_name, state)
             if tool_result is not None:
                 events.append(
                     ExternalAgentStreamEvent(

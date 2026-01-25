@@ -111,7 +111,5 @@ def _build_auth_cookie_headers(
     response = Response()
     set_auth_cookie(response, token, request=request)
     return [
-        header
-        for header in response.raw_headers
-        if header[0].lower() == b"set-cookie"
+        header for header in response.raw_headers if header[0].lower() == b"set-cookie"
     ]

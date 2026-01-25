@@ -38,8 +38,8 @@ from mcp.types import (
     JSONRPCMessage,
     JSONRPCRequest,
     JSONRPCResponse,
+    ToolAnnotations,
 )
-from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 from sse_starlette import EventSourceResponse
 from starlette.applications import Starlette
@@ -104,19 +104,25 @@ class _SettaSseServerTransport(SseServerTransport):
 
         root_path = scope.get("root_path", "")
         full_message_path_for_client = root_path.rstrip("/") + self._endpoint
-        client_post_uri_data = f"{quote(full_message_path_for_client)}?session_id={session_id.hex}"
+        client_post_uri_data = (
+            f"{quote(full_message_path_for_client)}?session_id={session_id.hex}"
+        )
 
         sse_stream_writer, sse_stream_reader = anyio.create_memory_object_stream(0)
 
         async def sse_writer():
             async with sse_stream_writer, write_stream_reader:
-                await sse_stream_writer.send({"event": "endpoint", "data": client_post_uri_data})
+                await sse_stream_writer.send(
+                    {"event": "endpoint", "data": client_post_uri_data}
+                )
 
                 async for session_message in write_stream_reader:
                     await sse_stream_writer.send(
                         {
                             "event": "message",
-                            "data": session_message.message.model_dump_json(by_alias=True, exclude_none=True),
+                            "data": session_message.message.model_dump_json(
+                                by_alias=True, exclude_none=True
+                            ),
                         }
                     )
 
@@ -124,9 +130,9 @@ class _SettaSseServerTransport(SseServerTransport):
 
             async def response_wrapper(scope, receive, send):
                 try:
-                    await EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer)(
-                        scope, receive, send
-                    )
+                    await EventSourceResponse(
+                        content=sse_stream_reader, data_sender_callable=sse_writer
+                    )(scope, receive, send)
                 finally:
                     await read_stream_writer.aclose()
                     await write_stream_reader.aclose()
@@ -148,7 +154,9 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
     ) -> None:
         writer = self._read_stream_writer
         if writer is None:  # pragma: no cover
-            raise ValueError("No read stream writer available. Ensure connect() is called first.")
+            raise ValueError(
+                "No read stream writer available. Ensure connect() is called first."
+            )
         try:
             if not await self._validate_accept_header(request, scope, send):
                 return
@@ -186,7 +194,8 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                 return
 
             is_initialization_request = (
-                isinstance(message.root, JSONRPCRequest) and message.root.method == "initialize"
+                isinstance(message.root, JSONRPCRequest)
+                and message.root.method == "initialize"
             )  # pragma: no cover
 
             if is_initialization_request:  # pragma: no cover
@@ -199,7 +208,9 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                         )
                         await response(scope, receive, send)
                         return
-            elif not await self._validate_request_headers(request, send):  # pragma: no cover
+            elif not await self._validate_request_headers(
+                request, send
+            ):  # pragma: no cover
                 return
 
             if not isinstance(message.root, JSONRPCRequest):  # pragma: no cover
@@ -215,14 +226,24 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                 return
 
             protocol_version = (
-                str(message.root.params.get("protocolVersion", DEFAULT_NEGOTIATED_VERSION))
+                str(
+                    message.root.params.get(
+                        "protocolVersion", DEFAULT_NEGOTIATED_VERSION
+                    )
+                )
                 if is_initialization_request and message.root.params
-                else request.headers.get(MCP_PROTOCOL_VERSION_HEADER, DEFAULT_NEGOTIATED_VERSION)
+                else request.headers.get(
+                    MCP_PROTOCOL_VERSION_HEADER, DEFAULT_NEGOTIATED_VERSION
+                )
             )
 
             request_id = str(message.root.id)  # pragma: no cover
-            self._request_streams[request_id] = anyio.create_memory_object_stream[EventMessage](0)  # pragma: no cover
-            request_stream_reader = self._request_streams[request_id][1]  # pragma: no cover
+            self._request_streams[request_id] = anyio.create_memory_object_stream[
+                EventMessage
+            ](0)  # pragma: no cover
+            request_stream_reader = self._request_streams[request_id][
+                1
+            ]  # pragma: no cover
 
             if self.is_json_response_enabled:  # pragma: no cover
                 metadata = ServerMessageMetadata(request_context=request)
@@ -231,7 +252,9 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                 try:
                     response_message = None
                     async for event_message in request_stream_reader:
-                        if isinstance(event_message.message.root, JSONRPCResponse | JSONRPCError):
+                        if isinstance(
+                            event_message.message.root, JSONRPCResponse | JSONRPCError
+                        ):
                             response_message = event_message.message
                             break
                         logger.debug("received: %s", event_message.message.root.method)
@@ -240,7 +263,9 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                         response = self._create_json_response(response_message)
                         await response(scope, receive, send)
                     else:
-                        logger.error("No response message received before stream closed")
+                        logger.error(
+                            "No response message received before stream closed"
+                        )
                         response = self._create_error_response(
                             "Error processing request: No response received",
                             HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -257,7 +282,9 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                 finally:
                     await self._clean_up_memory_streams(request_id)
             else:  # pragma: no cover
-                sse_stream_writer, sse_stream_reader = anyio.create_memory_object_stream[dict[str, str]](0)
+                sse_stream_writer, sse_stream_reader = (
+                    anyio.create_memory_object_stream[dict[str, str]](0)
+                )
 
                 self._sse_stream_writers[request_id] = sse_stream_writer
 
@@ -290,7 +317,11 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                     "Cache-Control": "no-cache, no-transform",
                     "Connection": "keep-alive",
                     "Content-Type": CONTENT_TYPE_SSE,
-                    **({MCP_SESSION_ID_HEADER: self.mcp_session_id} if self.mcp_session_id else {}),
+                    **(
+                        {MCP_SESSION_ID_HEADER: self.mcp_session_id}
+                        if self.mcp_session_id
+                        else {}
+                    ),
                 }
                 response = EventSourceResponse(
                     content=sse_stream_reader,
@@ -326,10 +357,14 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
                 await writer.send(Exception(err))
             return
 
-    async def _handle_get_request(self, request: Request, send: Send) -> None:  # pragma: no cover
+    async def _handle_get_request(
+        self, request: Request, send: Send
+    ) -> None:  # pragma: no cover
         writer = self._read_stream_writer
         if writer is None:
-            raise ValueError("No read stream writer available. Ensure connect() is called first.")
+            raise ValueError(
+                "No read stream writer available. Ensure connect() is called first."
+            )
 
         _, has_sse = self._check_accept_headers(request)
 
@@ -365,11 +400,15 @@ class _SettaStreamableHTTPServerTransport(StreamableHTTPServerTransport):
             await response(request.scope, request.receive, send)
             return
 
-        sse_stream_writer, sse_stream_reader = anyio.create_memory_object_stream[dict[str, str]](0)
+        sse_stream_writer, sse_stream_reader = anyio.create_memory_object_stream[
+            dict[str, str]
+        ](0)
 
         async def standalone_sse_writer() -> None:
             try:
-                self._request_streams[GET_STREAM_KEY] = anyio.create_memory_object_stream[EventMessage](0)
+                self._request_streams[GET_STREAM_KEY] = (
+                    anyio.create_memory_object_stream[EventMessage](0)
+                )
                 standalone_stream_reader = self._request_streams[GET_STREAM_KEY][1]
 
                 async with sse_stream_writer, standalone_stream_reader:
@@ -412,7 +451,9 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
             security_settings=self.security_settings,
         )
 
-        async def run_stateless_server(*, task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED):
+        async def run_stateless_server(
+            *, task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED
+        ):
             async with http_transport.connect() as streams:
                 read_stream, write_stream = streams
                 task_status.started()
@@ -437,7 +478,10 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
         request = Request(scope, receive)
         request_mcp_session_id = request.headers.get(MCP_SESSION_ID_HEADER)
 
-        if request_mcp_session_id is not None and request_mcp_session_id in self._server_instances:  # pragma: no cover
+        if (
+            request_mcp_session_id is not None
+            and request_mcp_session_id in self._server_instances
+        ):  # pragma: no cover
             transport = self._server_instances[request_mcp_session_id]
             logger.debug("Session already exists, handling request directly")
             await transport.handle_request(scope, receive, send)
@@ -459,7 +503,10 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
                 self._server_instances[http_transport.mcp_session_id] = http_transport
                 logger.info("Created new transport with session ID: %s", new_session_id)
 
-                async def run_server(*, task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED) -> None:
+                async def run_server(
+                    *,
+                    task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED,
+                ) -> None:
                     async with http_transport.connect() as streams:
                         read_stream, write_stream = streams
                         task_status.started()
@@ -480,14 +527,17 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
                         finally:
                             if (
                                 http_transport.mcp_session_id
-                                and http_transport.mcp_session_id in self._server_instances
+                                and http_transport.mcp_session_id
+                                in self._server_instances
                                 and not http_transport.is_terminated
                             ):
                                 logger.info(
                                     "Cleaning up crashed session %s from active instances.",
                                     http_transport.mcp_session_id,
                                 )
-                                del self._server_instances[http_transport.mcp_session_id]
+                                del self._server_instances[
+                                    http_transport.mcp_session_id
+                                ]
 
                 assert self._task_group is not None
                 await self._task_group.start(run_server)
