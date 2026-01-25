@@ -323,8 +323,6 @@ def _path_matches_route(path: str, route: str) -> bool:
 
 
 def _is_auth_exempt_path(path: str) -> bool:
-    if path.startswith(f"{Route.PREFIX.value}/attachments/"):
-        return True
     if path in AUTH_EXEMPT_PATHS:
         return True
     if path.endswith("/"):
