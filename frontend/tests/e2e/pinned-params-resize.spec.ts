@@ -204,9 +204,15 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     },
   });
   expect(pinnedMaxResult.didReach).toBe(true);
-  const expectedPinnedMaxAtLayout = resolveExpectedPinnedMax(layoutMetrics);
+  const availableHeight = Math.max(
+    layoutMetrics.paramGroupHeight -
+      layoutMetrics.paramGroupPadding -
+      layoutMetrics.edgesHeight -
+      (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
+    0,
+  );
   const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > expectedPinnedMaxAtLayout + 1;
+    layoutMetrics.pinnedContentHeight > availableHeight + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -265,8 +271,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     unpinnedArea,
     edgesStrip,
   );
-  const expectedPinnedMaxAfterManual = resolveExpectedPinnedMax(
-    layoutMetricsAfterManual,
+  const availableHeightAfterManual = Math.max(
+    layoutMetricsAfterManual.paramGroupHeight -
+      layoutMetricsAfterManual.paramGroupPadding -
+      layoutMetricsAfterManual.edgesHeight -
+      (layoutMetricsAfterManual.unpinnedRowHeight +
+        layoutMetricsAfterManual.unpinnedPadding),
+    0,
+  );
+  const expectedPinnedMaxAfterManual = Math.min(
+    availableHeightAfterManual,
+    layoutMetricsAfterManual.pinnedContentHeight,
   );
   const canGrowAfterManual =
     expectedPinnedMaxAfterManual - pinnedHeightManual > 6;
@@ -379,8 +394,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   expect(layoutMetricsAfterReload.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMinAfterReloadCheck + 4,
   );
-  const expectedPinnedMaxAfterReload = resolveExpectedPinnedMax(
-    layoutMetricsAfterReload,
+  const availableHeightAfterReload = Math.max(
+    layoutMetricsAfterReload.paramGroupHeight -
+      layoutMetricsAfterReload.paramGroupPadding -
+      layoutMetricsAfterReload.edgesHeight -
+      (layoutMetricsAfterReload.unpinnedRowHeight +
+        layoutMetricsAfterReload.unpinnedPadding),
+    0,
+  );
+  const expectedPinnedMaxAfterReload = Math.min(
+    availableHeightAfterReload,
+    layoutMetricsAfterReload.pinnedContentHeight,
   );
   const expectedPinnedMinAfterReload =
     pinnedRowHeightAfterReload +
@@ -473,21 +497,14 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     pinnedRows.first(),
     "pinned",
   );
-  if (
-    (await unpinnedRows.count()) > 1 &&
-    unpinnedMetrics.scrollHeight > unpinnedMetrics.clientHeight + 1
-  ) {
+  if ((await unpinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       unpinnedArea,
       unpinnedRows.nth(1),
       "unpinned-secondary",
     );
   }
-  if (
-    (await pinnedRows.count()) > 1 &&
-    pinnedMetricsAfterShrink.scrollHeight >
-      pinnedMetricsAfterShrink.clientHeight + 1
-  ) {
+  if ((await pinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       pinnedList,
       pinnedRows.nth(1),
@@ -1592,20 +1609,6 @@ type LayoutSnapshotMetrics = Record<string, number | boolean>;
 type PinnedLayoutMetrics = Awaited<ReturnType<typeof getPinnedLayoutMetrics>>;
 type PinnedMaxResult = { metrics: PinnedLayoutMetrics; didReach: boolean };
 
-function resolveExpectedPinnedMax(metrics: PinnedLayoutMetrics): number {
-  if (metrics.pinnedMaxHeight > 0) {
-    return metrics.pinnedMaxHeight;
-  }
-  const availableHeight = Math.max(
-    metrics.paramGroupHeight -
-      metrics.paramGroupPadding -
-      metrics.edgesHeight -
-      (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
-    0,
-  );
-  return Math.min(availableHeight, metrics.pinnedContentHeight);
-}
-
 async function attachLayoutSnapshot({
   testInfo,
   label,
@@ -1658,7 +1661,17 @@ async function waitForPinnedMax(
       edgesStrip,
     );
     lastMetrics = metrics;
-    const expectedPinnedMax = resolveExpectedPinnedMax(metrics);
+    const availableHeight = Math.max(
+      metrics.paramGroupHeight -
+        metrics.paramGroupPadding -
+        metrics.edgesHeight -
+        (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
+      0,
+    );
+    const expectedPinnedMax = Math.min(
+      availableHeight,
+      metrics.pinnedContentHeight,
+    );
     if (Math.abs(metrics.pinnedHeight - expectedPinnedMax) <= 2) {
       didReach = true;
       break;
