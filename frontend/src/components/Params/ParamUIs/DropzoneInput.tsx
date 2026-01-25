@@ -7,6 +7,7 @@ import {
 } from "react";
 import { FiUploadCloud } from "react-icons/fi";
 import { openDropzoneFilePickerModal } from "state/actions/modal";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -38,6 +39,7 @@ import {
   CodeObjTypeEnum,
   DropzoneModeEnum,
   FileArtifact,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
 type DropzoneInputProps = {
@@ -50,6 +52,85 @@ type DropzoneInputProps = {
   mode?: DropzoneModeEnum;
   maxAttachments?: number | null;
 };
+
+type DropzoneStatelessDisplayAttachment =
+  | {
+      kind: "file";
+      name: string;
+      size: number;
+    }
+  | {
+      kind: "text";
+      name: string;
+      text: string;
+    };
+
+function formatBytes(bytes: number): string {
+  const megaBytes = bytes / (1024 * 1024);
+  if (megaBytes >= 1) {
+    const rounded = Math.round(megaBytes * 10) / 10;
+    return `${rounded} MB`;
+  }
+  const kiloBytes = bytes / 1024;
+  const rounded = Math.round(kiloBytes * 10) / 10;
+  return `${rounded} KB`;
+}
+
+const DROPZONE_MAX_FILE_BYTES = 25 * 1024 * 1024;
+const DROPZONE_MAX_FILE_LABEL = formatBytes(DROPZONE_MAX_FILE_BYTES);
+
+function getErrorDetail(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const detail = record.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+  return null;
+}
+
+function notifyOversizedFiles(files: File[]): void {
+  if (files.length === 0) {
+    return;
+  }
+  const names = files.slice(0, 3).map((file) => file.name);
+  let message = "";
+  if (files.length === 1) {
+    message = `File "${names[0]}" exceeds the ${DROPZONE_MAX_FILE_LABEL} limit.`;
+  } else {
+    const suffix =
+      files.length > names.length
+        ? ` +${files.length - names.length} more`
+        : "";
+    message = `Skipped ${files.length} files over ${DROPZONE_MAX_FILE_LABEL}: ${names.join(
+      ", ",
+    )}${suffix}.`;
+  }
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+function splitFilesBySize(files: File[]): {
+  accepted: File[];
+  rejected: File[];
+} {
+  const accepted: File[] = [];
+  const rejected: File[] = [];
+  for (const file of files) {
+    if (file.size > DROPZONE_MAX_FILE_BYTES) {
+      rejected.push(file);
+      continue;
+    }
+    accepted.push(file);
+  }
+  return { accepted, rejected };
+}
 
 export function DropzoneInputConfigForParam({
   sectionId,
@@ -107,6 +188,10 @@ function DropzoneInputConfig({
   onChange: (nextConfig: DropzoneConfigForFrontend) => void;
   isDisabled: boolean;
 }) {
+  function applyConfigUpdate(update: Partial<DropzoneConfigForFrontend>): void {
+    onChange({ ...config, ...update });
+  }
+
   const mode = config.mode ?? DropzoneModeEnum.STATEFUL;
   const placeholderValue = config.placeholder ?? "";
   let maxAttachments = "";
@@ -119,25 +204,25 @@ function DropzoneInputConfig({
   }
 
   function handleModeChange(event: ChangeEvent<HTMLSelectElement>) {
-    onChange({ mode: event.target.value as DropzoneModeEnum });
+    applyConfigUpdate({ mode: event.target.value as DropzoneModeEnum });
   }
 
   function handleMaxAttachmentsChange(event: ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value;
     if (raw.trim() === "") {
-      onChange({ maxAttachments: null });
+      applyConfigUpdate({ maxAttachments: null });
       return;
     }
     const parsed = Number.parseInt(raw, 10);
     if (Number.isNaN(parsed) || parsed <= 0) {
-      onChange({ maxAttachments: null });
+      applyConfigUpdate({ maxAttachments: null });
       return;
     }
-    onChange({ maxAttachments: parsed });
+    applyConfigUpdate({ maxAttachments: parsed });
   }
 
   function handlePlaceholderChange(event: ChangeEvent<HTMLInputElement>) {
-    onChange({ placeholder: event.target.value });
+    applyConfigUpdate({ placeholder: event.target.value });
   }
 
   return (
@@ -190,7 +275,7 @@ function DropzoneInputConfig({
           <button
             type="button"
             className="h-8 rounded-lg border border-setta-200 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-400 dark:hover:bg-setta-850"
-            onClick={() => onChange({ maxAttachments: null })}
+            onClick={() => applyConfigUpdate({ maxAttachments: null })}
             disabled={isDisabled}
           >
             No limit
@@ -212,7 +297,7 @@ export function DropzoneInput({
   maxAttachments = null,
 }: DropzoneInputProps) {
   const [statelessAttachments, setStatelessAttachments] = useState<
-    DropzoneStatelessAttachment[]
+    DropzoneStatelessDisplayAttachment[]
   >([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -321,15 +406,16 @@ export function DropzoneInput({
     if (slots === 0) {
       return;
     }
-    const allowedFiles = slots === null ? files : files.slice(0, slots);
+    const { accepted, rejected } = splitFilesBySize(files);
+    if (rejected.length > 0) {
+      notifyOversizedFiles(rejected);
+    }
+    const allowedFiles = slots === null ? accepted : accepted.slice(0, slots);
     if (allowedFiles.length === 0) {
       return;
     }
     setIsUploading(true);
     try {
-      const fileIds = allowedFiles.map((file) =>
-        createDropzoneFileArtifactId(file.name),
-      );
       const base64Payloads = await Promise.all(
         allowedFiles.map((file) => readFileAsBase64(file)),
       );
@@ -343,13 +429,22 @@ export function DropzoneInput({
             base64: base64Payloads[index],
           }),
         );
-        setStatelessAttachments((prev) => [...prev, ...attachments]);
+        const displayAttachments: DropzoneStatelessDisplayAttachment[] =
+          allowedFiles.map((file) => ({
+            kind: "file",
+            name: file.name,
+            size: file.size,
+          }));
+        setStatelessAttachments((prev) => [...prev, ...displayAttachments]);
         onStatelessDrop?.(attachments);
         return;
       }
       if (!onChange) {
         return;
       }
+      const fileIds = allowedFiles.map((file) =>
+        createDropzoneFileArtifactId(file.name),
+      );
       const artifacts: FileArtifact[] = base64Payloads.map(
         (payload, index) => ({
           type: ArtifactTypeEnum.File,
@@ -395,7 +490,12 @@ export function DropzoneInput({
         name: "Dropped text",
         text,
       };
-      setStatelessAttachments((prev) => [...prev, attachment]);
+      const displayAttachment: DropzoneStatelessDisplayAttachment = {
+        kind: "text",
+        name: "Dropped text",
+        text,
+      };
+      setStatelessAttachments((prev) => [...prev, displayAttachment]);
       onStatelessDrop?.([attachment]);
       return;
     }
@@ -440,6 +540,10 @@ export function DropzoneInput({
         paths: allowedPaths,
       });
       if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        const message =
+          detail ?? "Failed to import server files into attachments.";
+        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
         return;
       }
       const newAttachments: DropzoneStoredAttachment[] = res.data.map(

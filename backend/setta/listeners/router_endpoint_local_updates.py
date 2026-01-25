@@ -72,10 +72,7 @@ def _build_chat_dependency_value(
         ChatSectionImpl,
     )
     if chat_impl.chatId is None:
-        raise ValueError(
-            f"Chat section {section_id} requires chatId for "
-            f"{representation.value} representation."
-        )
+        return LiteralDependencyValue(payload=repr(state.model_dump(mode="json")))
     chat_path = C.SETTA_FILES_FOLDER / "chats" / f"{chat_impl.chatId}.json"
     if representation is SectionRepresentationMode.file_read:
         return FileReadDependencyValue(str(chat_path))

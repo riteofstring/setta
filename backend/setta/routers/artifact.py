@@ -44,6 +44,8 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
+DROPZONE_MAX_FILE_BYTES = 25 * 1024 * 1024
+DROPZONE_MAX_FILE_LABEL = f"{DROPZONE_MAX_FILE_BYTES // (1024 * 1024)} MB"
 
 
 class CheckIfFileExistsRequests(BaseModel):
@@ -339,6 +341,18 @@ async def route_import_files_to_artifacts(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Path is not a file: {raw_path}",
+            )
+        try:
+            size = resolved.stat().st_size
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to stat file: {raw_path}",
+            ) from exc
+        if size > DROPZONE_MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {raw_path}"),
             )
         try:
             content = resolved.read_bytes()

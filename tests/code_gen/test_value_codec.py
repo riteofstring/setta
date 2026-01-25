@@ -220,6 +220,20 @@ class PythonValueCodecTest(TestCase):
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
 
+    def test_draw_section_expression_returns_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Draw",
+            full_path_name="draw",
+            type=SectionType.Draw,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("None"),
+            representation=SectionRepresentationMode.expression,
+        )
+        self.assertEqual(codec.format_section(section_node), "None")
+
     def test_image_section_with_literal_path_is_quoted(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
@@ -258,6 +272,20 @@ class PythonValueCodecTest(TestCase):
             codec.required_imports,
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
+
+    def test_image_section_expression_returns_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Image",
+            full_path_name="image",
+            type=SectionType.Image,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("None"),
+            representation=SectionRepresentationMode.expression,
+        )
+        self.assertEqual(codec.format_section(section_node), "None")
 
     def test_chat_section_expression_renders_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)

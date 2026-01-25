@@ -164,6 +164,12 @@ class PythonValueCodec:
                         f"Image section {node.full_path_name} missing value."
                     )
                 representation = node.representation
+                if representation is SectionRepresentationMode.expression:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Image section {node.full_path_name} expected literal expression payload."
+                        )
+                    return node.value.payload
                 if representation is SectionRepresentationMode.file_path:
                     if node.value.type is not DependencyValueType.Literal:
                         raise ValueError(
@@ -181,6 +187,12 @@ class PythonValueCodec:
                         f"Draw section {node.full_path_name} missing value."
                     )
                 representation = node.representation
+                if representation is SectionRepresentationMode.expression:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Draw section {node.full_path_name} expected literal expression payload."
+                        )
+                    return node.value.payload
                 if representation is SectionRepresentationMode.file_path:
                     if node.value.type is not DependencyValueType.Literal:
                         raise ValueError(

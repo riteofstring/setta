@@ -332,7 +332,7 @@ class Artifacts:
     def read_file_from_disk(self, path: Path):
         normalized_path = self._resolve_path(path)
         content = self.dbe.read(normalized_path, "rb")
-        if content:
+        if content is not None:
             b64_str = base64.b64encode(content).decode("utf-8")
             artifact = FileArtifact(
                 id=self.normalize_artifact_id(path),

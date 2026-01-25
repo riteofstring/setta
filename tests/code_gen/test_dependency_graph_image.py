@@ -105,12 +105,12 @@ class ImageDependencyGraphTests(TestCase):
         with self.assertRaises(ValueError):
             DependencyGraph(project_state)
 
-    def test_image_section_file_read_requires_path(self) -> None:
+    def test_image_section_file_read_falls_back_without_path(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
         )
-        create_top_level_section(
+        section_id = create_top_level_section(
             settings,
             project_state,
             SectionType.Image,
@@ -122,5 +122,43 @@ class ImageDependencyGraphTests(TestCase):
             representation=SectionRepresentationMode.file_read,
         )
 
-        with self.assertRaises(ValueError):
-            DependencyGraph(project_state)
+        graph = DependencyGraph(project_state)
+        dep_key = create_dep_key(sectionId=section_id)
+        node = graph.graph[dep_key]
+        self.assertIsInstance(node, SectionNode)
+        self.assertEqual(
+            SectionRepresentationMode.expression,
+            node.representation,
+        )
+        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert node.value is not None
+        self.assertEqual(node.value.payload, "None")
+
+    def test_image_section_file_path_falls_back_without_path(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Image,
+            Position(),
+        )
+        policy = project_state.projectConfig.codegenTargets[0].sectionPolicy
+        policy.typePolicies[SectionType.Image] = SectionTypeCodegenPolicy(
+            mode=SectionCodegenMode.include,
+            representation=SectionRepresentationMode.file_path,
+        )
+
+        graph = DependencyGraph(project_state)
+        dep_key = create_dep_key(sectionId=section_id)
+        node = graph.graph[dep_key]
+        self.assertIsInstance(node, SectionNode)
+        self.assertEqual(
+            SectionRepresentationMode.expression,
+            node.representation,
+        )
+        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert node.value is not None
+        self.assertEqual(node.value.payload, "None")

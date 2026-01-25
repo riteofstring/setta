@@ -89,12 +89,12 @@ class ChatDependencyGraphTests(TestCase):
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
         self.assertEqual(node.value.payload, expected_path)
 
-    def test_chat_section_file_read_requires_chat_id(self) -> None:
+    def test_chat_section_file_read_falls_back_without_chat_id(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
         )
-        create_top_level_section(
+        section_id = create_top_level_section(
             settings,
             project_state,
             SectionType.Chat,
@@ -106,8 +106,54 @@ class ChatDependencyGraphTests(TestCase):
             representation=SectionRepresentationMode.file_read,
         )
 
-        with self.assertRaises(ValueError):
-            DependencyGraph(project_state)
+        graph = DependencyGraph(project_state)
+        dep_key = create_dep_key(sectionId=section_id)
+        node = graph.graph[dep_key]
+        self.assertIsInstance(node, SectionNode)
+        self.assertEqual(
+            SectionRepresentationMode.expression,
+            node.representation,
+        )
+        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert node.value is not None
+        expected_state = ChatSectionState()
+        self.assertEqual(
+            repr(expected_state.model_dump(mode="json")),
+            node.value.payload,
+        )
+
+    def test_chat_section_file_path_falls_back_without_chat_id(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        policy = project_state.projectConfig.codegenTargets[0].sectionPolicy
+        policy.typePolicies[SectionType.Chat] = SectionTypeCodegenPolicy(
+            mode=SectionCodegenMode.include,
+            representation=SectionRepresentationMode.file_path,
+        )
+
+        graph = DependencyGraph(project_state)
+        dep_key = create_dep_key(sectionId=section_id)
+        node = graph.graph[dep_key]
+        self.assertIsInstance(node, SectionNode)
+        self.assertEqual(
+            SectionRepresentationMode.expression,
+            node.representation,
+        )
+        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert node.value is not None
+        expected_state = ChatSectionState()
+        self.assertEqual(
+            repr(expected_state.model_dump(mode="json")),
+            node.value.payload,
+        )
 
     def test_chat_section_file_read_exports_file_value(self) -> None:
         settings = SettingsState()

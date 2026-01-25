@@ -135,6 +135,31 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
         self.assertEqual(update.value.payload, expected_path)
 
+    def test_builds_chat_section_update_payload_without_chat_id(self) -> None:
+        project_state, section_id, dependency_graph = _build_chat_project_state(
+            representation=SectionRepresentationMode.file_path,
+        )
+        state = ChatSectionState(
+            messages=[],
+            inputText="",
+            waitingForResponse=False,
+            toolCallArguments={},
+        )
+
+        updates = build_local_router_endpoint_updates(
+            endpoint_name="route_set_chat_section_state",
+            payload={"sectionId": section_id, "state": state},
+            dependency_graph=dependency_graph,
+            project_state=project_state,
+        )
+
+        self.assertEqual(1, len(updates))
+        update = updates[0]
+        self.assertIsInstance(update.value, LiteralDependencyValue)
+        parsed = ChatSectionState.model_validate(literal_eval(update.value.payload))
+        self.assertEqual(state.messages, parsed.messages)
+        self.assertEqual(state.toolCallArguments, parsed.toolCallArguments)
+
     def test_ignores_unrelated_endpoints(self) -> None:
         project_state, _, dependency_graph = _build_chat_project_state(
             representation=SectionRepresentationMode.expression,

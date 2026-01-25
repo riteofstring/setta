@@ -317,25 +317,31 @@ class DependencyGraph:
             toolCallArguments=section_impl.toolCallArguments,
         )
         representation = ctx.codegen_policy.representation
+        effective_representation = representation
+        state_literal = LiteralDependencyValue(
+            repr(state_payload.model_dump(mode="json"))
+        )
         dependency_value: BaseDependencyValueUnion | None
         if representation is SectionRepresentationMode.file_read:
             if section_impl.chatId is None:
-                raise ValueError(
-                    f"Chat section {ctx.section_id} requires chatId for file_read representation."
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = state_literal
+            else:
+                chat_path = (
+                    C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
                 )
-            chat_path = C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
-            dependency_value = FileReadDependencyValue(str(chat_path))
+                dependency_value = FileReadDependencyValue(str(chat_path))
         elif representation is SectionRepresentationMode.file_path:
             if section_impl.chatId is None:
-                raise ValueError(
-                    f"Chat section {ctx.section_id} requires chatId for file_path representation."
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = state_literal
+            else:
+                chat_path = (
+                    C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
                 )
-            chat_path = C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
-            dependency_value = LiteralDependencyValue(str(chat_path))
+                dependency_value = LiteralDependencyValue(str(chat_path))
         else:
-            dependency_value = LiteralDependencyValue(
-                repr(state_payload.model_dump(mode="json"))
-            )
+            dependency_value = state_literal
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -344,7 +350,7 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=dependency_value,
             deps={},
-            representation=representation,
+            representation=effective_representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
@@ -354,18 +360,23 @@ class DependencyGraph:
         if not isinstance(section_impl, DrawSectionImpl):
             return
         representation = ctx.codegen_policy.representation
+        effective_representation = representation
         if representation is SectionRepresentationMode.file_read:
             if not section_impl.renderedImagePath:
-                raise ValueError(
-                    f"Draw section {ctx.section_id} requires renderedImagePath for file_read representation."
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = LiteralDependencyValue("None")
+            else:
+                dependency_value = FileReadDependencyValue(
+                    section_impl.renderedImagePath
                 )
-            dependency_value = FileReadDependencyValue(section_impl.renderedImagePath)
         elif representation is SectionRepresentationMode.file_path:
             if not section_impl.renderedImagePath:
-                raise ValueError(
-                    f"Draw section {ctx.section_id} requires renderedImagePath for file_path representation."
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = LiteralDependencyValue("None")
+            else:
+                dependency_value = LiteralDependencyValue(
+                    section_impl.renderedImagePath
                 )
-            dependency_value = LiteralDependencyValue(section_impl.renderedImagePath)
         else:
             raise ValueError(
                 f"Unsupported representation {representation.value} for Draw section {ctx.section_id}"
@@ -378,7 +389,7 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=dependency_value,
             deps={},
-            representation=representation,
+            representation=effective_representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
@@ -388,18 +399,19 @@ class DependencyGraph:
         if not isinstance(section_impl, ImageSectionImpl):
             return
         representation = ctx.codegen_policy.representation
+        effective_representation = representation
         if representation is SectionRepresentationMode.file_read:
             if not section_impl.imagePath:
-                raise ValueError(
-                    f"Image section {ctx.section_id} requires imagePath for file_read representation."
-                )
-            dependency_value = FileReadDependencyValue(section_impl.imagePath)
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = LiteralDependencyValue("None")
+            else:
+                dependency_value = FileReadDependencyValue(section_impl.imagePath)
         elif representation is SectionRepresentationMode.file_path:
             if not section_impl.imagePath:
-                raise ValueError(
-                    f"Image section {ctx.section_id} requires imagePath for file_path representation."
-                )
-            dependency_value = LiteralDependencyValue(section_impl.imagePath)
+                effective_representation = SectionRepresentationMode.expression
+                dependency_value = LiteralDependencyValue("None")
+            else:
+                dependency_value = LiteralDependencyValue(section_impl.imagePath)
         else:
             raise ValueError(
                 f"Unsupported representation {representation.value} for Image section {ctx.section_id}"
@@ -412,7 +424,7 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=dependency_value,
             deps={},
-            representation=representation,
+            representation=effective_representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
