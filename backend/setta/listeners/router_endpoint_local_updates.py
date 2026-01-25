@@ -27,7 +27,7 @@ def build_local_router_endpoint_updates(
     section_id = payload["sectionId"]
     state_payload = payload["state"]
     state = ChatSectionState.model_validate(state_payload)
-    literal_value = LiteralDependencyValue(payload=state.model_dump_json())
+    literal_value = LiteralDependencyValue(payload=repr(state.model_dump(mode="json")))
     return [
         LocalDependencyUpdate(
             dependency_key=SectionDependencyKey(sectionId=section_id),

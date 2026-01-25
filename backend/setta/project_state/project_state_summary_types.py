@@ -58,6 +58,5 @@ class ProjectStateSummary:  # setta-convert-pydantic-to-js: skip
     singletonSections: SingletonSections = field(default_factory=SingletonSections)
     parentSectionMap: dict[ID, ID | None] = field(default_factory=dict)
     shownParamVariantIds: list[ID] = field(default_factory=list)
-    variantIdsWithYamlValues: list[ID] = field(default_factory=list)
     requiredDecodedImages: list[str] = field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None

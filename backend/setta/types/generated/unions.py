@@ -11,13 +11,13 @@ from setta.types.section_impls import (
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
+    GenPythonMetadataSectionImpl,
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     IFrameSectionImpl,
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -32,12 +32,12 @@ BaseSectionImplUnion = (
     | ChartSectionImpl
     | DrawSectionImpl
     | TextBlockSectionImpl
-    | PromptSectionImpl
     | MetaControlSectionImpl
     | SocialSectionImpl
     | GlobalVariablesSectionImpl
     | CodeSectionImpl
     | GenPythonCodeSectionImpl
+    | GenPythonMetadataSectionImpl
     | TerminalSectionImpl
     | IFrameSectionImpl
     | ChatSectionImpl
@@ -54,7 +54,9 @@ BaseSectionWithParamsImplUnion = (
 
 BaseCanvasSectionImplUnion = ChartSectionImpl | DrawSectionImpl
 
-BaseCodeSectionImplUnion = CodeSectionImpl | GenPythonCodeSectionImpl
+BaseCodeSectionImplUnion = (
+    CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl
+)
 
 BaseParentSectionImplUnion = ListRootSectionImpl | GroupSectionImpl
 
@@ -147,13 +149,13 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgs,
     DrawSectionImplArgs,
     GenPythonCodeSectionImplArgs,
+    GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -168,12 +170,12 @@ BaseSectionImplArgsUnion = (
     | ChartSectionImplArgs
     | DrawSectionImplArgs
     | TextBlockSectionImplArgs
-    | PromptSectionImplArgs
     | MetaControlSectionImplArgs
     | SocialSectionImplArgs
     | GlobalVariablesSectionImplArgs
     | CodeSectionImplArgs
     | GenPythonCodeSectionImplArgs
+    | GenPythonMetadataSectionImplArgs
     | TerminalSectionImplArgs
     | IFrameSectionImplArgs
     | ChatSectionImplArgs
@@ -192,6 +194,7 @@ from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
     DrawAreaLayerItemTransformArtifact,
+    FileArtifact,
     ImageArtifact,
 )
 
@@ -200,6 +203,7 @@ BaseArtifactUnion = (
     | BrushStrokeArtifact
     | DrawAreaLayerItemTransformArtifact
     | ChartDataArtifact
+    | FileArtifact
 )
 
 BaseArtifactUnionWithDiscriminator = Annotated[

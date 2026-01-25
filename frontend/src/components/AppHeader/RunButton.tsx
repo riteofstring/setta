@@ -20,11 +20,22 @@ import {
   useProjectState,
   useRunControl,
 } from "state/definitions";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
   const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
-  const projectConfigId = useProjectState((x) => x.projectConfig.id);
+  const projectConfig = useProjectState((x) => x.projectConfig);
+  const genPythonSectionId = useProjectState(
+    (x) => x.singletonSections.GenPythonCode,
+  );
+  const projectConfigId = projectConfig.id;
+  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
+  const entryCodeBlockId = projectConfig.entryCodeBlockId;
+  const entryIsGenPython =
+    entryCodeBlockId !== null && entryCodeBlockId === genPythonSectionId;
+  const canRunFromMain =
+    pythonCodegenEnabled || (Boolean(entryCodeBlockId) && !entryIsGenPython);
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
@@ -42,6 +53,8 @@ export function RunButton() {
 
   const activeButtonClasses =
     "bg-blue-800 text-white hover:bg-blue-700 dark:bg-blue-800 dark:text-white dark:hover:bg-blue-700";
+  const disabledButtonClasses =
+    "cursor-not-allowed opacity-60 hover:bg-transparent dark:hover:bg-transparent";
 
   // Menu item styling with proper hover effect that's contained within the button
   const menuItemClasses =
@@ -77,10 +90,15 @@ export function RunButton() {
       <div className="flex justify-stretch">
         <button
           onClick={runFromMainRunButton}
-          className={`nodrag inline-flex cursor-pointer items-center focus-visible:ring-2 ${baseClasses} ${
+          className={`nodrag inline-flex items-center focus-visible:ring-2 ${baseClasses} ${
             isContinuousActive ? activeButtonClasses : idleButtonClasses
-          } rounded-r-none px-2`}
-          {...getFloatingBoxHandlers({ content: "Run your code." })}
+          } ${canRunFromMain ? "cursor-pointer" : disabledButtonClasses} rounded-r-none px-2`}
+          disabled={!canRunFromMain}
+          {...getFloatingBoxHandlers({
+            content: canRunFromMain
+              ? "Run your code."
+              : "Select a manual entry code block to run.",
+          })}
         >
           {mainIcon}
           Run

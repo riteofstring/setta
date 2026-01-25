@@ -24,7 +24,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
         {"codeObjVariantMap", "pinnedParams", "selectedParams", "ignoreTypeErrors"}
     ),
     "BaseArtifactSectionImpl": DEFAULT_EXCLUSIONS.union({"artifactGroupIds"}),
-    "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS.union({"renderedValue"}),
+    "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
     "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
@@ -39,7 +39,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
-    "PromptSectionImpl": DEFAULT_EXCLUSIONS,
     "MetaControlSectionImpl": DEFAULT_EXCLUSIONS.union(
         {"metaControlParamId", "codeObjVariantMap"}
     ),
@@ -47,6 +46,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,
     "CodeSectionImpl": DEFAULT_EXCLUSIONS,
     "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,
+    "GenPythonMetadataSectionImpl": DEFAULT_EXCLUSIONS,
     "TerminalSectionImpl": DEFAULT_EXCLUSIONS,
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
@@ -203,8 +203,6 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
-    PromptFormat,
-    SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
     CodeFileBinding
@@ -218,6 +216,7 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
+    DropzoneMode,
 )
 
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion

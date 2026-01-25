@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from setta.database.db_objs import DBE
 from setta.project_state.share_runtime_state import ShareRuntimeState
+from setta.share.chat_manager import ShareChatManager
 from setta.server_state import SettaFastAPIState
 from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import Terminals
@@ -173,20 +174,23 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                 "no-llm-no-run",
                 SharePolicy(allowLLM=False, allowRun=False),
                 False,
+                False,
             ),
             (
                 "llm-only",
                 SharePolicy(allowLLM=True, allowRun=False),
+                True,
                 False,
             ),
             (
                 "llm-run",
                 SharePolicy(allowLLM=True, allowRun=True),
                 True,
+                True,
             ),
         ]
 
-        for label, policy, expect_run in scenarios:
+        for label, policy, expect_llm, expect_run in scenarios:
             with self.subTest(label=label):
                 with TemporaryDirectory() as tmpdir:
                     project_config_name = "share_test"
@@ -201,7 +205,10 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                     self.assertFalse((root / "llm_config.json").exists())
                     self.assertFalse((root / "llm_config.example.json").exists())
 
-                    self.assertTrue(state.agent_runner.disabled)
+                    if expect_llm:
+                        self.assertIsInstance(state.chat_manager, ShareChatManager)
+                    else:
+                        self.assertFalse(state.chat_manager)
 
                     self.assertTrue(state.mcp_client.disabled)
 
