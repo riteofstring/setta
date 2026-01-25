@@ -118,7 +118,6 @@ function _MarkdownEditorCore({
     <article
       ref={ref}
       className={wrapperClassName}
-      data-section-main-editor
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
       tabIndex={0}
     >

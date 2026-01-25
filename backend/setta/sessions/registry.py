@@ -9,6 +9,7 @@ from pathlib import Path
 import psutil
 from pydantic import BaseModel, Field
 
+from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 
 SESSION_METADATA_FILENAME = "session.json"
@@ -180,8 +181,16 @@ class SessionRegistry:
             return True
         is_setta = self._is_setta_process(process)
         if is_setta is False:
+            if metadata.pid == os.getpid() and self._is_in_process_backend():
+                return False
             return True
         return False
+
+    def _is_in_process_backend(self) -> bool:
+        raw = os.environ.get(IN_PROCESS_ENV_VAR)
+        if not raw:
+            return False
+        return raw.strip().lower() not in {"0", "false", "no"}
 
     def _is_session_suspicious(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:

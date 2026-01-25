@@ -23,14 +23,16 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
 - Code sections (SectionType.Code) -> imperative logic, helpers, listeners; update with `set_code`.
-- GenPythonCode section -> read-only mirror of generated code; never edit directly.
+- GenPythonCode section -> read-only mirror of generated code; only present when Python codegen is enabled.
+- GenPythonMetadata section -> read-only mirror of generated metadata; only present when metadata output is enabled.
+- Python codegen target settings (`projectConfig.codegenTargets` entry for `python`) hold `genCodePrefix` and `genCodeSuffix`.
 - `genCodePrefix` -> imports and shared helpers used by generated expressions; update with `set_gen_code_prefix`.
 - `genCodeSuffix` -> minimal postamble (default: `state = SettaState()`); only change via `set_gen_code_suffix` if asked.
-- Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces and do not emit generated values.
+- Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces. Draw/Image can emit file-backed values when allowlisted; the rest generally do not emit generated values.
 
 ## Generated code pipeline
-- The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py`.
-- The generator emits: `genCodePrefix` + blank lines + generated body + blank lines + `genCodeSuffix`.
+- The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py` when Python codegen is enabled.
+- The generator emits: `genCodePrefix` + blank lines + generated body + blank lines + `genCodeSuffix` from the Python target settings.
 - Default suffix is `state = SettaState()`; keep it unless explicitly asked to change it.
 - Add imports needed by generated callables or param expressions in `genCodePrefix`
   using `set_gen_code_prefix`. The generated body assumes those names exist.
@@ -47,16 +49,16 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - ListRoot sections -> `state.<path> = [child_value0, child_value1, ...]` in order.
 - GlobalVariables section -> top-level params become `state.<param_name>`.
 - MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
-- TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
-- Sections outside the dependency graph (Code, GenPythonCode, Image, Chart, Browser,
-  Terminal, Chat, etc.) do not emit generated values.
+- TextBlock -> `state.<path> = "<text>"`; Draw -> file-backed payload or None.
+- Sections outside the dependency graph (Code, GenPythonCode, GenPythonMetadata, Chart, Browser,
+  Terminal, etc.) do not emit generated values.
 
 ## Meta control sections
 - MetaControl sections contain exactly one control code object (`metaControlParamId`); they are not param lists.
 - Do not add control parameters or add_kwarg entries; create another MetaControl section for more controls.
 - Create them with `create_top_level_section` (implType: `MetaControl`) and optional `controlCodeObjType` (default: `SliderParam`).
 - To change the control type, use `change_param_impl` on the control param id; to persist a value, use `set_param_entered_value`.
-- Button controls emit action events (actionId == section name) and do not persist a value.
+- Button controls emit action events (dependencyKey == section SectionDependencyKey) and do not persist a value.
 - In `get_latest_project_state_summary`, MetaControl sections list the control param as the
   single entry in `parameters`; use its `paramId` for `set_param_entered_value`,
   `change_param_impl`, or `set_code_obj_name`.

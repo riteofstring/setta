@@ -2,15 +2,22 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from setta.types.code_obj_impls import DropzoneParamCodeObjImpl
+from setta.types.dropzone import rewrite_dropzone_attachment_paths
 from setta.types.generated.effective_impls import set_effective_impl_value
-from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_variant_base_and_effective_code_obj_impl,
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
+    BaseSectionWithParamsImpl,
     ChartSectionImpl,
     CodeFileBinding,
     DrawSectionImpl,
     ImageSectionImpl,
+    MetaControlSectionImpl,
 )
 
 if TYPE_CHECKING:
@@ -72,41 +79,53 @@ def rewrite_project_state_paths(
                         base_impl, section, variant, {"dataPath": new_path}
                     )
 
-            if isinstance(impl, DrawSectionImpl) and impl.layers:
-                updated_layers = []
-                layers_changed = False
-                for layer in impl.layers:
-                    updated_elements = []
-                    layer_changed = False
-                    for element in layer.elements:
-                        new_data_path = resolve_artifact_path(element.dataPath)
-                        new_transform_id = resolve_artifact_path(element.transformId)
-                        if (
-                            new_data_path != element.dataPath
-                            or new_transform_id != element.transformId
-                        ):
-                            layer_changed = True
-                            updated_elements.append(
-                                element.model_copy(
-                                    update={
-                                        "dataPath": new_data_path,
-                                        "transformId": new_transform_id,
-                                    }
+            if isinstance(impl, DrawSectionImpl):
+                if impl.renderedImagePath:
+                    new_path = resolve_artifact_path(impl.renderedImagePath)
+                    if new_path != impl.renderedImagePath:
+                        set_effective_impl_value(
+                            base_impl,
+                            section,
+                            variant,
+                            {"renderedImagePath": new_path},
+                        )
+                if impl.layers:
+                    updated_layers = []
+                    layers_changed = False
+                    for layer in impl.layers:
+                        updated_elements = []
+                        layer_changed = False
+                        for element in layer.elements:
+                            new_data_path = resolve_artifact_path(element.dataPath)
+                            new_transform_id = resolve_artifact_path(
+                                element.transformId
+                            )
+                            if (
+                                new_data_path != element.dataPath
+                                or new_transform_id != element.transformId
+                            ):
+                                layer_changed = True
+                                updated_elements.append(
+                                    element.model_copy(
+                                        update={
+                                            "dataPath": new_data_path,
+                                            "transformId": new_transform_id,
+                                        }
+                                    )
                                 )
+                            else:
+                                updated_elements.append(element)
+                        if layer_changed:
+                            layers_changed = True
+                            updated_layers.append(
+                                layer.model_copy(update={"elements": updated_elements})
                             )
                         else:
-                            updated_elements.append(element)
-                    if layer_changed:
-                        layers_changed = True
-                        updated_layers.append(
-                            layer.model_copy(update={"elements": updated_elements})
+                            updated_layers.append(layer)
+                    if layers_changed:
+                        set_effective_impl_value(
+                            base_impl, section, variant, {"layers": updated_layers}
                         )
-                    else:
-                        updated_layers.append(layer)
-                if layers_changed:
-                    set_effective_impl_value(
-                        base_impl, section, variant, {"layers": updated_layers}
-                    )
 
             if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
                 updated_binding = resolve_code_binding(impl.codeFileBinding)
@@ -122,6 +141,36 @@ def rewrite_project_state_paths(
                 new_name = resolve_json_source_name(variant.name)
                 if new_name != variant.name:
                     variant.name = new_name
+
+            if isinstance(impl, BaseSectionWithParamsImpl) or isinstance(
+                impl, MetaControlSectionImpl
+            ):
+                for code_obj_id, code_obj_variant_id in impl.codeObjVariantMap.items():
+                    if code_obj_id not in project_state.codeObjs:
+                        raise KeyError(f"Unknown code object id {code_obj_id}")
+                    if code_obj_variant_id not in project_state.codeObjVariants:
+                        raise KeyError(
+                            f"Unknown code object variant id {code_obj_variant_id}"
+                        )
+                    code_obj_core = project_state.codeObjs[code_obj_id]
+                    (
+                        code_obj_variant,
+                        base_code_obj_impl,
+                        effective_code_obj_impl,
+                    ) = get_variant_base_and_effective_code_obj_impl(
+                        project_state, code_obj_core, code_obj_variant_id
+                    )
+                    if isinstance(effective_code_obj_impl, DropzoneParamCodeObjImpl):
+                        updated_value = rewrite_dropzone_attachment_paths(
+                            effective_code_obj_impl.value, resolve_artifact_path
+                        )
+                        if updated_value != effective_code_obj_impl.value:
+                            set_effective_impl_value(
+                                base_code_obj_impl,
+                                code_obj_core,
+                                code_obj_variant,
+                                {"value": updated_value},
+                            )
 
     gen_binding = getattr(project_state, "genCodeBinding", None)
     if gen_binding is not None:
