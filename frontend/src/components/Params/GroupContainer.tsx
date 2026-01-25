@@ -854,8 +854,8 @@ function GetUnpinnedParams({
   setUnpinnedMinHeight,
   unpinnedMinHeight,
 }: GetUnpinnedParamsProps) {
-  const { ref, isScrollable } = useIsScrollable();
   const lastMeasuredMinHeightRef = useRef<number | null>(null);
+  const rafIdRef = useRef<number>(0);
   const { hideUnpinnedParams, hasUnpinnedParams, unpinnedTopLevelParamIds } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -882,69 +882,47 @@ function GetUnpinnedParams({
     (x) => x[unpinnedMinHeightKey] ?? 0,
   );
 
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node || !hasUnpinnedParams) {
-      lastMeasuredMinHeightRef.current = null;
-      setUnpinnedMinHeight(null);
-      useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
-      return;
-    }
-    let observedRow: HTMLElement | null = null;
-    let rafId = 0;
-    const observer = new ResizeObserver(() => {
-      scheduleUpdate();
-    });
-    const mutationObserver = new MutationObserver(() => {
-      scheduleUpdate();
-    });
-    const updateObservedRow = () => {
-      const nextRow = (node.querySelector(
-        ":scope > article.section-args-nested-key-value",
-      ) ??
-        node.querySelector(
-          ":scope > article.section-lg-value",
-        )) as HTMLElement | null;
-      if (nextRow === observedRow) {
-        return nextRow;
+  const updateMinHeight = useCallback(
+    (node: HTMLDivElement) => {
+      if (!hasUnpinnedParams) {
+        if (lastMeasuredMinHeightRef.current !== null) {
+          lastMeasuredMinHeightRef.current = null;
+        }
+        setUnpinnedMinHeight(null);
+        useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+        return;
       }
-      if (observedRow) {
-        observer.unobserve(observedRow);
-      }
-      observedRow = nextRow;
-      if (observedRow) {
-        observer.observe(observedRow);
-      }
-      return observedRow;
-    };
-    const underlineBuffer = 2;
-    const getHeaderHeight = (row: HTMLElement) => {
-      let height = row.offsetHeight;
-      const nestedContainer = row.querySelector<HTMLElement>(
-        ":scope > div.section-args-nested.section-key-value",
-      );
-      if (!nestedContainer) {
-        return height;
-      }
-      const rowStyle = window.getComputedStyle(row);
-      const rowGapValue = Number.parseFloat(rowStyle.rowGap);
-      const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
-      const nestedHeight = nestedContainer.offsetHeight;
-      const headerHeight = Math.ceil(height - nestedHeight - rowGap);
-      return headerHeight > 0 ? headerHeight : height;
-    };
-    const update = () => {
-      const observedRow = updateObservedRow();
+      const observedRow =
+        (node.querySelector(":scope > article.section-args-nested-key-value") ??
+          node.querySelector(":scope > article.section-lg-value")) ??
+        null;
+      const underlineBuffer = 2;
+      const getHeaderHeight = (row: Element) => {
+        const element = row as HTMLElement;
+        let height = element.offsetHeight;
+        const nestedContainer = element.querySelector<HTMLElement>(
+          ":scope > div.section-args-nested.section-key-value",
+        );
+        if (!nestedContainer) {
+          return height;
+        }
+        const rowStyle = window.getComputedStyle(element);
+        const rowGapValue = Number.parseFloat(rowStyle.rowGap);
+        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
+        const nestedHeight = nestedContainer.offsetHeight;
+        const headerHeight = Math.ceil(height - nestedHeight - rowGap);
+        return headerHeight > 0 ? headerHeight : height;
+      };
       const rowHeight = observedRow ? getHeaderHeight(observedRow) : 0;
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
-          setUnpinnedMinHeight(lastMeasured);
-          useTemporaryMiscState.setState({
-            [unpinnedMinHeightKey]: lastMeasured,
-          });
           return;
         }
+        if (lastMeasuredMinHeightRef.current === null) {
+          return;
+        }
+        lastMeasuredMinHeightRef.current = null;
         setUnpinnedMinHeight(null);
         useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
         return;
@@ -955,34 +933,54 @@ function GetUnpinnedParams({
         Number.parseFloat(style.paddingBottom);
       const nextHeight = Math.ceil(rowHeight + padding + underlineBuffer);
       const resolvedMinHeight = nextHeight > 0 ? nextHeight : null;
+      if (lastMeasuredMinHeightRef.current === resolvedMinHeight) {
+        return;
+      }
       lastMeasuredMinHeightRef.current = resolvedMinHeight;
       setUnpinnedMinHeight(resolvedMinHeight);
       useTemporaryMiscState.setState({
         [unpinnedMinHeightKey]: resolvedMinHeight ?? 0,
       });
-    };
-    const scheduleUpdate = () => {
-      if (rafId !== 0) {
+    },
+    [hasUnpinnedParams, setUnpinnedMinHeight, unpinnedMinHeightKey],
+  );
+
+  const scheduleUpdate = useCallback(
+    (node: HTMLDivElement) => {
+      if (rafIdRef.current !== 0) {
         return;
       }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = 0;
-        update();
+      rafIdRef.current = window.requestAnimationFrame(() => {
+        rafIdRef.current = 0;
+        updateMinHeight(node);
       });
-    };
-    update();
-    observer.observe(node);
-    mutationObserver.observe(node, { childList: true });
+    },
+    [updateMinHeight],
+  );
+
+  const { ref, isScrollable } = useIsScrollable({
+    onMeasure: scheduleUpdate,
+  });
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (node) {
+      scheduleUpdate(node);
+    } else if (!hasUnpinnedParams) {
+      lastMeasuredMinHeightRef.current = null;
+      setUnpinnedMinHeight(null);
+      useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+    }
     return () => {
-      observer.disconnect();
-      mutationObserver.disconnect();
-      if (rafId !== 0) {
-        window.cancelAnimationFrame(rafId);
+      if (rafIdRef.current !== 0) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = 0;
       }
     };
   }, [
     hasUnpinnedParams,
     ref,
+    scheduleUpdate,
     setUnpinnedMinHeight,
     unpinnedMinHeightKey,
     unpinnedTopLevelParamIds.length,

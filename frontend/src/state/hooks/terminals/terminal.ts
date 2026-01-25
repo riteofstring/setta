@@ -48,6 +48,7 @@ export function useTerminal({
   useEffect(() => {
     terminalReadyRef.current = false;
     if (isShareMode && !shareSessionId) {
+      clearPendingSectionTextFocus(sectionId);
       return;
     }
     const terminal = new Terminal({
@@ -85,6 +86,8 @@ export function useTerminal({
       terminal.focus();
       if (attempt < 240) {
         requestAnimationFrame(() => focusTerminalInput(attempt + 1));
+      } else {
+        clearPendingSectionTextFocus(sectionId);
       }
     };
 
@@ -127,6 +130,7 @@ export function useTerminal({
     const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
     return () => {
+      clearPendingSectionTextFocus(sectionId);
       terminalCleanup(ws, terminal);
       unsub();
     };

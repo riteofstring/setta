@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrSectionVariantId,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -11,6 +12,7 @@ import {
   useProjectState,
   useSettings,
   useTemporaryMiscState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { getKwargsControlsHeightKey } from "utils/constants";
@@ -37,11 +39,13 @@ export function KwargsControls({
   bgColor = "bg-transparent",
 }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
+  const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
 
   useLayoutEffect(() => {
     const node = controlsRef.current;
     if (!node) {
+      lastMeasuredHeightRef.current = null;
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
@@ -52,6 +56,10 @@ export function KwargsControls({
         (Number.parseFloat(style.marginBottom) || 0);
       const measuredHeight = node.offsetHeight + marginHeight;
       const nextHeight = Math.ceil(measuredHeight);
+      if (lastMeasuredHeightRef.current === nextHeight) {
+        return;
+      }
+      lastMeasuredHeightRef.current = nextHeight;
       useTemporaryMiscState.setState({
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
@@ -63,6 +71,7 @@ export function KwargsControls({
     observer.observe(node);
     return () => {
       observer.disconnect();
+      lastMeasuredHeightRef.current = null;
       useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
   }, [heightKey]);
@@ -105,14 +114,20 @@ export function KwargsControls({
   const canPinParams =
     selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
   const pinParamsDisabled = !canPinParams;
+  const shouldUnpinSelected =
+    selectedParams.length > 0 &&
+    selectedParams.every((paramId) => pinnedParams.includes(paramId));
+  const pinButtonLabel = shouldUnpinSelected
+    ? "Unpin selected args"
+    : "Pin selected args";
 
   function onClickPinParam() {
     if (!canPinParams) {
       return;
     }
-    const nextPinnedParams = Array.from(
-      new Set([...pinnedParams, ...selectedParams]),
-    );
+    const nextPinnedParams = shouldUnpinSelected
+      ? pinnedParams.filter((paramId) => !selectedParams.includes(paramId))
+      : Array.from(new Set([...pinnedParams, ...selectedParams]));
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -122,6 +137,12 @@ export function KwargsControls({
             pinnedParams: nextPinnedParams,
           },
         );
+        updateShownParamIdsForPinToggle({
+          state,
+          sectionId,
+          selectedParams,
+          shouldUnpin: shouldUnpinSelected,
+        });
       },
       send: (frontendOpId) =>
         route_set_section_pinned_params({
@@ -211,8 +232,8 @@ export function KwargsControls({
               onClick={onClickPinParam}
               tabIndex={0}
               disabled={pinParamsDisabled}
-              aria-label="Pin selected args"
-              {...getFloatingBoxHandlers({ content: "Pin selected args" })}
+              aria-label={pinButtonLabel}
+              {...getFloatingBoxHandlers({ content: pinButtonLabel })}
             >
               <i className="gg-pin-alt mt-1 !scale-50" />
             </button>
@@ -319,3 +340,50 @@ const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
       }),
   });
 }, 200);
+
+function updateShownParamIdsForPinToggle({
+  state,
+  sectionId,
+  selectedParams,
+  shouldUnpin,
+}: {
+  state: ZustandProjectState;
+  sectionId: string;
+  selectedParams: string[];
+  shouldUnpin: boolean;
+}) {
+  const variantId = getCurrSectionVariantId(state, sectionId);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return;
+  }
+  const from = shouldUnpin ? shown.pinned : shown.unpinned;
+  const to = shouldUnpin ? shown.unpinned : shown.pinned;
+
+  for (const paramId of selectedParams) {
+    if (paramId in to.requiredParamIdsToPaths) {
+      if (paramId in from.requiredParamIdsToPaths) {
+        delete from.requiredParamIdsToPaths[paramId];
+      }
+      if (from.topLevelParamIds.includes(paramId)) {
+        from.topLevelParamIds = from.topLevelParamIds.filter(
+          (id) => id !== paramId,
+        );
+      }
+      continue;
+    }
+    if (paramId in from.requiredParamIdsToPaths) {
+      to.requiredParamIdsToPaths[paramId] =
+        from.requiredParamIdsToPaths[paramId];
+      delete from.requiredParamIdsToPaths[paramId];
+    }
+    if (from.topLevelParamIds.includes(paramId)) {
+      from.topLevelParamIds = from.topLevelParamIds.filter(
+        (id) => id !== paramId,
+      );
+      if (!to.topLevelParamIds.includes(paramId)) {
+        to.topLevelParamIds = [...to.topLevelParamIds, paramId];
+      }
+    }
+  }
+}

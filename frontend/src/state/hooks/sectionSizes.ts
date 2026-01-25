@@ -357,10 +357,19 @@ export function useSectionMinMaxDims(sectionId: string) {
   }, _.isEqual);
 }
 
-export function useIsScrollable() {
+type UseIsScrollableOptions = {
+  onMeasure?: (element: HTMLDivElement) => void;
+};
+
+export function useIsScrollable(options: UseIsScrollableOptions = {}) {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
+  const onMeasureRef = useRef<UseIsScrollableOptions["onMeasure"]>(null);
+
+  useEffect(() => {
+    onMeasureRef.current = options.onMeasure ?? null;
+  }, [options.onMeasure]);
 
   useEffect(() => {
     if (!elementRef.current) return;
@@ -373,6 +382,7 @@ export function useIsScrollable() {
         setIsScrollableHorizontal(
           elementRef.current.scrollWidth > elementRef.current.clientWidth,
         );
+        onMeasureRef.current?.(elementRef.current);
       }
     }
 

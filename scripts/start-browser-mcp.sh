@@ -84,6 +84,10 @@ PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
 PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
 PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
 PLAYWRITER_BOOTSTRAP="${PLAYWRITER_BOOTSTRAP:-1}"
+BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
+DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
+DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
+BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
 
 default_playwriter_profile_dir() {
   echo "${MCP_RUN_DIR}/playwriter-profile"
@@ -158,30 +162,46 @@ if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
 
+resolve_python_bin() {
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return 0
+  fi
+  return 1
+}
+
 write_pid() {
   mkdir -p "$MCP_RUN_DIR"
   printf "%s\n" "$2" > "$1"
 }
 
 get_bootstrap_url() {
-  if ! command -v setta >/dev/null 2>&1; then
-    return 1
-  fi
-
   if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
     # Ensure the python env is active for the Setta CLI.
     # shellcheck disable=SC1090
     source "${ROOT_DIR}/activate.sh"
   fi
+  if ! command -v setta >/dev/null 2>&1; then
+    return 1
+  fi
 
   local status_payload=""
-  status_payload="$(setta status --connect-info --latest --json 2>/dev/null || true)"
+  status_payload="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
   if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
     return 1
   fi
 
   local b64_payload="${status_payload#__SETTA_JSON_B64__}"
-  SETTA_STATUS_B64="$b64_payload" python - <<'PY'
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "$python_bin" ]]; then
+    return 1
+  fi
+  SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
 import base64
 import json
 import os
@@ -191,10 +211,185 @@ payload = os.environ.get("SETTA_STATUS_B64", "")
 if not payload:
     sys.exit(1)
 data = json.loads(base64.b64decode(payload).decode("utf-8"))
-url = data.get("bootstrapUrlFragment", "")
+url = data.get("bootstrapUrlFragment", "") or data.get("bootstrapUrlPlain", "")
 if url:
     print(url)
 PY
+}
+
+open_devtools_tab() {
+  local target_url="$1"
+  if [[ -z "$target_url" ]]; then
+    return 1
+  fi
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "$python_bin" ]]; then
+    return 1
+  fi
+
+  TARGET_URL="$target_url" DEBUG_PORT="$DEBUG_PORT" "$python_bin" - <<'PY'
+import json
+import os
+import sys
+import urllib.parse
+import urllib.request
+
+target = os.environ.get("TARGET_URL", "")
+port = os.environ.get("DEBUG_PORT", "")
+if not target or not port:
+    sys.exit(1)
+
+encoded = urllib.parse.quote(target, safe="")
+endpoint = f"http://127.0.0.1:{port}/json/new?{encoded}"
+payload = None
+def _request(method, url):
+    req = urllib.request.Request(url, method=method)
+    return urllib.request.urlopen(req, timeout=2)
+
+try:
+    request = urllib.request.Request(endpoint, method="PUT")
+    with urllib.request.urlopen(request, timeout=2) as response:
+        payload = response.read()
+except Exception:
+    try:
+        with urllib.request.urlopen(endpoint, timeout=2) as response:
+            payload = response.read()
+    except Exception:
+        sys.exit(1)
+
+if not payload:
+    sys.exit(1)
+
+try:
+    data = json.loads(payload.decode("utf-8"))
+except Exception:
+    sys.exit(1)
+
+target_id = data.get("id")
+if target_id:
+    try:
+        activate_url = f"http://127.0.0.1:{port}/json/activate/{target_id}"
+        with urllib.request.urlopen(activate_url, timeout=2):
+            pass
+    except Exception:
+        pass
+
+if os.environ.get("DEVTOOLS_CLOSE_BLANK_TABS") == "1" and target_id:
+    list_url = f"http://127.0.0.1:{port}/json/list"
+    try:
+        with urllib.request.urlopen(list_url, timeout=2) as response:
+            pages = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        sys.exit(0)
+
+    for page in pages:
+        if page.get("id") == target_id:
+            continue
+        if page.get("url") != "about:blank":
+            continue
+        close_url = f"http://127.0.0.1:{port}/json/close/{page['id']}"
+        try:
+            with _request("PUT", close_url):
+                pass
+        except Exception:
+            try:
+                with urllib.request.urlopen(close_url, timeout=2):
+                    pass
+            except Exception:
+                continue
+PY
+}
+
+bootstrap_url_ready() {
+  local target_url="$1"
+  if [[ -z "$target_url" ]]; then
+    return 1
+  fi
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "$python_bin" ]]; then
+    return 0
+  fi
+  local url_no_fragment="${target_url%%#*}"
+  if [[ -z "$url_no_fragment" ]]; then
+    return 1
+  fi
+
+  TARGET_URL="$url_no_fragment" "$python_bin" - <<'PY'
+import os
+import sys
+import urllib.request
+
+target = os.environ.get("TARGET_URL", "")
+if not target:
+    sys.exit(1)
+
+try:
+    req = urllib.request.Request(target, method="GET")
+    with urllib.request.urlopen(req, timeout=2) as response:
+        status = getattr(response, "status", 200)
+        if 200 <= status < 400:
+            sys.exit(0)
+        sys.exit(1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
+open_url_in_devtools_profile() {
+  local target_url="$1"
+  if [[ -z "$target_url" ]]; then
+    return 1
+  fi
+  if [[ "$DEVTOOLS_OPEN_WITH_CHROME" != "1" ]]; then
+    return 0
+  fi
+
+  "$CHROME_BIN" \
+    --user-data-dir="$PROFILE_DIR" \
+    --no-first-run \
+    --no-default-browser-check \
+    "${CHROME_ARGS[@]}" \
+    "$target_url" >/dev/null 2>&1 &
+}
+
+open_bootstrap_in_devtools() {
+  if [[ "$PLAYWRITER_BOOTSTRAP" != "1" ]]; then
+    return
+  fi
+
+  if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
+    echo "Waiting for Setta bootstrap URL..."
+  fi
+  local elapsed=0
+  while [[ "$elapsed" -lt "$BOOTSTRAP_WAIT_SECONDS" ]]; do
+    local url_candidate=""
+    if url_candidate="$(get_bootstrap_url)"; then
+      if [[ -n "$url_candidate" ]]; then
+        if bootstrap_url_ready "$url_candidate"; then
+          if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
+            echo "Opening Setta bootstrap URL in devtools Chrome."
+          fi
+          if open_devtools_tab "$url_candidate"; then
+            open_url_in_devtools_profile "$url_candidate"
+            return 0
+          fi
+        elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
+          echo "Bootstrap URL not ready yet (backend still starting)."
+        fi
+      elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
+        echo "Bootstrap URL not yet available (setta status returned no URL)."
+      fi
+    elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
+      echo "Bootstrap URL not yet available (setta status failed)."
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
+    echo "Timed out waiting for Setta bootstrap URL."
+  fi
 }
 
 usage() {
@@ -213,6 +408,9 @@ Environment variables:
   PLAYWRITER_PROFILE_MODE  shared|isolated (default: isolated)
   PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
   PLAYWRITER_BOOTSTRAP  Open /__setta__/bootstrap with token when possible (default: 1)
+  BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
+  DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
+  DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 
@@ -317,6 +515,7 @@ mkdir -p "$PROFILE_DIR"
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
+  open_bootstrap_in_devtools
   exec "$CHROME_BIN" \
     --remote-debugging-port="$DEBUG_PORT" \
     --user-data-dir="$PROFILE_DIR" \
@@ -333,6 +532,7 @@ else
     "${CHROME_ARGS[@]}" \
     about:blank >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+  open_bootstrap_in_devtools
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
   echo "To stop the debug browser, quit that Chrome window or kill its process."
 fi

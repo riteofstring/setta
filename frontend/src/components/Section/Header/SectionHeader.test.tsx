@@ -13,6 +13,10 @@ describe("hasMarkdownHeadingText", () => {
     expect(hasMarkdownHeadingText("  ## Indented")).toBe(true);
   });
 
+  it("detects headings after leading text", () => {
+    expect(hasMarkdownHeadingText("Intro\n# Heading\nMore")).toBe(true);
+  });
+
   it("returns false when there is no heading text", () => {
     expect(hasMarkdownHeadingText("#   ")).toBe(false);
   });

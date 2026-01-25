@@ -45,4 +45,4 @@ cd "${ROOT_DIR}/frontend"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
 SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-pnpm exec playwright test --timeout=60000 --reporter=line "$@"
+pnpm exec playwright test --reporter=line "$@"

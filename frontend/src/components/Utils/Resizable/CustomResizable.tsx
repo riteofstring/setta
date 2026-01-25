@@ -18,6 +18,7 @@ import {
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -100,6 +101,7 @@ function CustomResizableCore({
 
   const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
+  const { canEditLayout } = useShareCapabilities();
 
   function onResizeStart() {
     useResizeEvent.setState((state) => {
@@ -125,6 +127,7 @@ function CustomResizableCore({
       changedSize,
       minHeight,
       minWidth,
+      aspectRatio,
     });
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
@@ -173,6 +176,12 @@ function CustomResizableCore({
     if (_.size(nextSize) === 0) {
       return;
     }
+    if (!canEditLayout || positionAndSizeLocked) {
+      useProjectState.setState((state) => {
+        setSelfParentSiblingChildrenWidths(sectionId, nextSize, state);
+      });
+      return;
+    }
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -197,6 +206,8 @@ function CustomResizableCore({
     size.width,
     sizeMode.height,
     sizeMode.width,
+    canEditLayout,
+    positionAndSizeLocked,
   ]);
 
   const heightResizable =
@@ -399,28 +410,39 @@ function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.resizeEvent[sectionId] = resizeEvent;
 }
 
-function clampChangedSize({
+export function clampChangedSize({
   changedSize,
   minHeight,
   minWidth,
+  aspectRatio,
 }: {
   changedSize: Partial<SectionSize>;
   minHeight: number;
   minWidth: number;
+  aspectRatio: boolean;
 }) {
   const clampedSize = { ...changedSize };
   const hasHeight = typeof changedSize.height === "number";
   const hasWidth = typeof changedSize.width === "number";
 
   if (hasHeight && hasWidth) {
-    const adjusted = adjustSizeToBeAtLeastMin(
-      changedSize.height,
-      changedSize.width,
-      minHeight,
-      minWidth,
-    );
-    clampedSize.height = adjusted.height;
-    clampedSize.width = adjusted.width;
+    if (aspectRatio) {
+      const adjusted = adjustSizeToBeAtLeastMin(
+        changedSize.height,
+        changedSize.width,
+        minHeight,
+        minWidth,
+      );
+      clampedSize.height = adjusted.height;
+      clampedSize.width = adjusted.width;
+      return clampedSize;
+    }
+    if (changedSize.height < minHeight) {
+      clampedSize.height = minHeight;
+    }
+    if (changedSize.width < minWidth) {
+      clampedSize.width = minWidth;
+    }
     return clampedSize;
   }
 

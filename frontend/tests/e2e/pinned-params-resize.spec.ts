@@ -39,22 +39,24 @@ type ProjectMetadataResponse = {
 test("pinned params resize behavior", async ({ page }, testInfo) => {
   await ensureAppReady(page);
 
-  const didUpdateSettings = await ensureSizingPolicyDefaults(page);
-  if (didUpdateSettings) {
-    await page.reload();
-    await page.waitForSelector(".react-flow__pane");
-  }
+  const settingsSnapshot = await loadSettingsSnapshot(page);
+  try {
+    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
+    if (didUpdateSettings) {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+    }
 
-  const sections = page.locator('section[class*="card-section"]');
-  await ensureProjectConfig(page, sections);
+    const sections = page.locator('section[class*="card-section"]');
+    await ensureProjectConfig(page, sections);
 
-  const ensuredCallable = await ensureCallableSectionWithMathSqrt(
-    page,
-    sections,
-  );
-  let callableSection = ensuredCallable.callableSection;
-  const callableName = ensuredCallable.callableName;
-  await ensureImportMath(page);
+    const ensuredCallable = await ensureCallableSectionWithMathSqrt(
+      page,
+      sections,
+    );
+    let callableSection = ensuredCallable.callableSection;
+    const callableName = ensuredCallable.callableName;
+    await ensureImportMath(page);
 
   await focusSectionFromOverview(page, callableName, callableSection);
   let paramGroup = callableSection.locator("div.section-row-pin-main").first();
@@ -118,12 +120,12 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   unpinnedRows = unpinnedArea.locator(
     ":scope > article.section-args-nested-key-value",
   );
-  await expect
-    .poll(async () => pinnedRows.count())
-    .toBeGreaterThanOrEqual(pinCount);
-  await expect
-    .poll(async () => unpinnedRows.count())
-    .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => pinnedRows.count())
+      .toBeGreaterThanOrEqual(pinCount);
+    await expect
+      .poll(async () => unpinnedRows.count())
+      .toBeGreaterThanOrEqual(1);
 
   let edgesHeight = await getHeight(edgesStrip);
   const pinnedRowHeight = await getMinParamRowHeight(pinnedList);
@@ -537,10 +539,32 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
 
   const edgesHeightAfter = await getHeight(edgesStrip);
   expect(Math.abs(edgesHeightAfter - edgesHeight)).toBeLessThanOrEqual(2);
-  const edgesMetrics = await getScrollMetrics(edgesStrip);
-  expect(edgesMetrics.scrollHeight).toBeLessThanOrEqual(
-    edgesMetrics.clientHeight + 2,
-  );
+    const edgesMetrics = await getScrollMetrics(edgesStrip);
+    expect(edgesMetrics.scrollHeight).toBeLessThanOrEqual(
+      edgesMetrics.clientHeight + 2,
+    );
+
+    const pinnedRowCountBeforeUnpin = await pinnedRows.count();
+    if (pinnedRowCountBeforeUnpin > 0) {
+      const unpinCount = Math.min(2, pinnedRowCountBeforeUnpin);
+      const unpinIndices = Array.from({ length: unpinCount }, (_, index) => index);
+      await selectArgRowsByIndex(page, pinnedRows, unpinIndices);
+      const unpinButton = callableSection.getByRole("button", {
+        name: "Unpin selected args",
+      });
+      await expect(unpinButton).toBeEnabled();
+      const unpinnedRowCountBefore = await unpinnedRows.count();
+      await unpinButton.click();
+      await expect
+        .poll(async () => pinnedRows.count())
+        .toBeLessThan(pinnedRowCountBeforeUnpin);
+      await expect
+        .poll(async () => unpinnedRows.count())
+        .toBeGreaterThanOrEqual(unpinnedRowCountBefore + 1);
+    }
+  } finally {
+    await restoreSettings(page, settingsSnapshot);
+  }
 });
 
 async function ensureProjectConfig(
@@ -912,6 +936,21 @@ async function ensureSizingPolicyDefaults(page: Page): Promise<boolean> {
   }
 
   return didUpdate;
+}
+
+async function loadSettingsSnapshot(page: Page): Promise<SettingsState> {
+  const settings = await postBackend<SettingsState>(page, "/loadSettings", null);
+  if (!settings) {
+    throw new Error("Missing settings payload.");
+  }
+  return settings;
+}
+
+async function restoreSettings(
+  page: Page,
+  settings: SettingsState,
+): Promise<void> {
+  await postBackend(page, "/saveSettings", { settings });
 }
 
 async function getCurrentProjectConfigId(page: Page): Promise<string> {

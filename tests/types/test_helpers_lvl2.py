@@ -168,6 +168,23 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
+class MarkdownHeadingTests(unittest.TestCase):
+    def test_get_first_markdown_heading_matches_heading_rules(self) -> None:
+        cases = [
+            ("# Title", "Title"),
+            ("## Tasks", "Tasks"),
+            ("   ### Notes", "Notes"),
+            ("###### Deep", "Deep"),
+            ("####### Too deep", None),
+            ("#   ", None),
+            ("Plain text\n# Heading\nMore", "Heading"),
+        ]
+
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(get_first_markdown_heading(text), expected)
+
+
 class SmartLayoutTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
