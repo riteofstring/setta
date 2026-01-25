@@ -18,7 +18,6 @@ import {
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
@@ -29,7 +28,6 @@ import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
-  DropzoneModeEnum,
   HttpRequestMethodEnum,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
@@ -88,9 +86,6 @@ function MetaControlValueArea({
     sectionName,
     paramDisplayName,
     buttonConfig,
-    dropzoneMode,
-    dropzoneMaxAttachments,
-    dropzonePlaceholder,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -120,9 +115,6 @@ function MetaControlValueArea({
           requestHeaderValue: buttonImpl.requestHeaderValue,
           requestBody: buttonImpl.requestBody,
         },
-        dropzoneMode: null,
-        dropzoneMaxAttachments: null,
-        dropzonePlaceholder: null,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -131,7 +123,6 @@ function MetaControlValueArea({
       controlParamId,
       isBaseChildlessCodeObjImpl,
     );
-    const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
     return {
       codeObjType: childlessImpl.type,
       baseValue: childlessImpl.value,
@@ -139,11 +130,6 @@ function MetaControlValueArea({
       sectionName,
       paramDisplayName,
       buttonConfig: null,
-      dropzoneMode: isDropzone ? childlessImpl.mode : null,
-      dropzoneMaxAttachments: isDropzone
-        ? childlessImpl.maxAttachments ?? null
-        : null,
-      dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
     };
   }, _.isEqual);
 
@@ -205,23 +191,6 @@ function MetaControlValueArea({
     });
   }
 
-  function handleDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (attachments.length === 0) {
-      return;
-    }
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.Section,
-        sectionId,
-      },
-      payload: JSON.stringify({
-        sectionId,
-        paramInfoId: controlParamId,
-        attachments,
-      }),
-    });
-  }
-
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       {codeObjType === CodeObjTypeEnum.ButtonParam ? (
@@ -244,10 +213,6 @@ function MetaControlValueArea({
           value={value}
           defaultVal={defaultVal}
           onValueChange={handleValueChange}
-          onDropzoneStateless={handleDropzoneStateless}
-          dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
-          dropzoneMaxAttachments={dropzoneMaxAttachments}
-          dropzonePlaceholder={dropzonePlaceholder ?? undefined}
           showSectionTitle={showSectionTitle}
         />
       )}

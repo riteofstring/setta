@@ -266,15 +266,6 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
-export const useDropzoneFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-  })),
-);
-
 type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
@@ -433,6 +424,24 @@ export const useTypeErrors = withProjectState(
       withResetFn<ZustandTypeErrors>(() => ({
         userRequested: false,
         errors: {},
+      })),
+    ),
+  ),
+);
+
+type ZustandNameValidationErrors = {
+  projectErrors: Array<string>;
+  sectionErrors: Record<string, Array<string>>;
+  paramErrors: Record<string, Array<string>>;
+};
+
+export const useNameValidationErrors = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ZustandNameValidationErrors>(() => ({
+        projectErrors: [],
+        sectionErrors: {},
+        paramErrors: {},
       })),
     ),
   ),

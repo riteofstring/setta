@@ -5,6 +5,7 @@ export function useEditableOnSubmit(
   onSetTitle: (x: string) => void,
   condition: (x: string) => boolean | Promise<boolean>,
   allowEmpty = false,
+  normalize: (x: string) => string = (x) => x,
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
@@ -22,7 +23,11 @@ export function useEditableOnSubmit(
       blurTriggeredByEscapeKey.current = false;
       return;
     }
-    const v = event.target.value;
+    const rawValue = event.target.value;
+    const v = normalize(rawValue);
+    if (v !== rawValue) {
+      setInputValue(v);
+    }
     if ((allowEmpty || v != "") && v != initialValue && (await condition(v))) {
       onSetTitle(v);
     } else {

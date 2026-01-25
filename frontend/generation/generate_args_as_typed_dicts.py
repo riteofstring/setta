@@ -124,7 +124,6 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ButtonActionMode,
     HttpRequestMethod,
-    DropzoneMode,
 )
 from setta.types.edges import Edge, EdgePort
 from setta.types.chat_messages import (

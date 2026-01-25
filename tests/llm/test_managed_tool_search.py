@@ -7,7 +7,6 @@ from setta.llm.chat_toolkit.managed.tool_search import (
 )
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.types.chat_messages import ToolCall, ToolCallFunction, ToolReferenceContent
-from setta.types.id import ID
 from setta.utils.constants import C
 
 
@@ -45,7 +44,6 @@ class ManagedToolSearchTests(unittest.TestCase):
         )
 
         tool_message, referenced_names = build_search_tool_chat_message(
-            chat_id=ID("chat-1"),
             tool_name=search_tool_name,
             tool_call=tool_call,
             call_result=call_result,

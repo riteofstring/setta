@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
 
         # {full_path:path} is to catch all paths not explicitly covered here
         @app.get("/{full_path:path}", response_class=HTMLResponse)
-        async def read_root(full_path: str):
+        async def read_root(_full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
