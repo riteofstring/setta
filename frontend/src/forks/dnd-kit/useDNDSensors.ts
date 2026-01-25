@@ -90,7 +90,7 @@ export function useSectionDndSensors() {
   }, [canEditLayout]);
 }
 
-export function useParamDndSensors() {
+function useParamDndSensors() {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   return useMemo(() => {

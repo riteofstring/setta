@@ -257,7 +257,7 @@ export function focusOnSection(
   movePaneToIncludeElement(sectionRef);
 }
 
-export function focusOnSectionSearch(sectionId: string) {
+function focusOnSectionSearch(sectionId: string) {
   const element = document.getElementById(`${sectionId}-search`);
   element?.focus({ preventScroll: true });
 }

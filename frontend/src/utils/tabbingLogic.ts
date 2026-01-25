@@ -4,7 +4,7 @@ import { useLocalStorage, useSectionRefs } from "state/definitions";
 import { HOME_ROUTER_PATH } from "./constants";
 import { SectionTypeEnum } from "./generatedTypes";
 
-export function overviewPaneOnKeyDown(e) {
+function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
@@ -13,7 +13,7 @@ export function overviewPaneOnKeyDown(e) {
   }
 }
 
-export function uiEditorPaneOnKeyDown(e) {
+function uiEditorPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
@@ -23,12 +23,7 @@ export function uiEditorPaneOnKeyDown(e) {
   }
 }
 
-export function siteLogoOnKeyDown(
-  e,
-  navigate,
-  location,
-  homePath = HOME_ROUTER_PATH,
-) {
+function siteLogoOnKeyDown(e, navigate, location, homePath = HOME_ROUTER_PATH) {
   if (location.pathname === homePath) {
     return;
   }
@@ -39,7 +34,7 @@ export function siteLogoOnKeyDown(
   }
 }
 
-export function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
+function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
   if (e.code === "Space") {
     if (!projectPath) {
       return;
@@ -53,7 +48,7 @@ function withinSectionTabbingHelper(focusEl) {
   movePaneToIncludeElement(focusEl);
 }
 
-export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
+function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
@@ -101,7 +96,7 @@ function getCurrentElementIndex(e, focusableArray) {
     : focusableArray.indexOf(document.activeElement);
 }
 
-export function tabFromDocumentBody(e) {
+function tabFromDocumentBody(e) {
   if (document.activeElement === document.body) {
     focusOnProjectOverviewButton(e);
   }
@@ -151,7 +146,7 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
   }
 }
 
-export function focusOnSection(e, sectionId, focusOnFirstElement = true) {
+function focusOnSection(e, sectionId, focusOnFirstElement = true) {
   e?.preventDefault();
   if (getSectionType(sectionId) === SectionTypeEnum.Group) {
     useSectionRefs

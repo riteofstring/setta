@@ -16,6 +16,7 @@ def _default_ignore_paths() -> list[Path]:
         (C.RUN_FOLDER / "mcp").resolve(),
     ]
 
+
 logger = logging.getLogger(__name__)
 
 

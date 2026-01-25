@@ -57,7 +57,6 @@ export function getExtensions({
   keyComboActions,
   isDisabled,
   useJsx,
-  useJsx,
 }: GetExtensionsOptions) {
   const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
   const shouldWrap = wrapLines ?? !singleLine;

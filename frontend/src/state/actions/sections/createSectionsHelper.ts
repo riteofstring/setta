@@ -8,9 +8,9 @@ import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
+  createSectionSize,
   Position,
   SectionTypeEnum,
-  createSectionSize,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";

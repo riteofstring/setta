@@ -10,10 +10,6 @@ import {
 import { CodeLanguage } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
 import {
-  focusOnSectionSearch,
-  focusOnSectionTextInput,
-} from "utils/tabbingLogic";
-import {
   route_create_top_level_section,
   route_set_section_name,
 } from "utils/generatedEndpoints";
@@ -27,7 +23,11 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import {
+  focusOnSectionSearch,
+  focusOnSectionTextInput,
+} from "utils/tabbingLogic";
+import { applyActiveSectionChange } from "../activeSectionController";
 import {
   createTopLevelSectionLayoutDict,
   getCurrEffectiveSectionImpl,
@@ -93,7 +93,7 @@ export async function createTopLevelSection({
 function ensureSectionOnTop(sectionId: string, attempt = 0) {
   const nodeInternals = useNodeInternals.getState().x;
   if (nodeInternals.has(sectionId)) {
-    setActiveSectionIdAndUpdateZIndex(sectionId);
+    applyActiveSectionChange({ interaction: "go-to", sectionId });
     return;
   }
   if (attempt < 20) {

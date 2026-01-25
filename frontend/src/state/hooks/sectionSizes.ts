@@ -32,7 +32,6 @@ import {
   SectionSizingPolicy,
   SectionType,
   SectionTypeEnum,
-  SectionWithParamsDisplayModeEnum,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
@@ -282,7 +281,6 @@ export function useSectionMinMaxDims(sectionId: string) {
     if (
       !isMinimized &&
       isBaseSectionWithParamsImpl(impl) &&
-      impl.displayMode === SectionWithParamsDisplayModeEnum.Gui &&
       !hideParams
     ) {
       let baseMinHeight = minHeight;
