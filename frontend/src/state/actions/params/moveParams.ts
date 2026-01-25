@@ -226,6 +226,13 @@ function moveParamsWithBackend({
   if (paramIds.length === 0) {
     return;
   }
+  console.log("[dnd-debug] moveParamsWithBackend", {
+    sectionId,
+    paramIds,
+    newParentId,
+    newIndex,
+    projectConfigId: getCurrProjectConfigId(),
+  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       applyParamMove(state, sectionId, {
@@ -256,6 +263,11 @@ function moveParamGroupsWithBackend({
   if (moves.length === 0) {
     return;
   }
+  console.log("[dnd-debug] moveParamGroupsWithBackend", {
+    sectionId,
+    moves,
+    projectConfigId: getCurrProjectConfigId(),
+  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       for (const move of moves) {

@@ -61,7 +61,9 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
+function debugParamDnd(message: string, details?: Record<string, unknown>) {
+  console.log("[dnd-debug] ParamDndMonitor", message, details ?? {});
+}
 
 type ParamDragData = {
   type?: string;

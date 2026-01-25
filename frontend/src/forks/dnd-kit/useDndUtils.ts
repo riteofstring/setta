@@ -37,6 +37,15 @@ export function useDisableSortable(sectionId: string) {
     (x) =>
       x.disabled[sectionId] ?? { draggable: implIsFrozen, droppable: true },
   );
+  useEffect(() => {
+    console.log("[dnd-debug] useDisableSortable:init", {
+      sectionId,
+      implIsFrozen,
+      isSorting,
+      isMovingFree,
+      disabled,
+    });
+  }, [sectionId, implIsFrozen, isSorting, isMovingFree, disabled]);
 
   useEffect(() => {
     setDndDisabled(sectionId, {
@@ -59,6 +68,7 @@ export function useDisableSortable(sectionId: string) {
 
   function enableSort({ active }) {
     if (implIsFrozen) {
+      console.log("[dnd-debug] useDisableSortable:impl-frozen", { sectionId });
       return;
     }
 
@@ -68,6 +78,10 @@ export function useDisableSortable(sectionId: string) {
       active.id !== sectionId &&
       !activeIdInAncestorSet(active.id)
     ) {
+      console.log("[dnd-debug] useDisableSortable:move-free-disable", {
+        sectionId,
+        activeId: String(active.id),
+      });
       setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
     // Sorting a child of this section
@@ -75,11 +89,19 @@ export function useDisableSortable(sectionId: string) {
       isSorting &&
       active.data?.current?.sortable?.containerId === sectionId
     ) {
+      console.log("[dnd-debug] useDisableSortable:sorting-disable", {
+        sectionId,
+        activeId: String(active.id),
+      });
       setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
   }
 
   function onDragDone({ active }) {
+    console.log("[dnd-debug] useDisableSortable:drag-done", {
+      sectionId,
+      activeId: String(active.id),
+    });
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 

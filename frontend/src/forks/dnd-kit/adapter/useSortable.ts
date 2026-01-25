@@ -85,12 +85,31 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const itemType =
     typeof customData?.type === "string" ? customData.type : null;
+  if (itemType === "param") {
+    console.log("[dnd-debug] useSortable:init", {
+      id,
+      containerId,
+      index,
+      sortingEnabled,
+      useDragOverlay,
+      disabled: localDisabled,
+    });
+  }
   const disableFeedback =
     sortingEnabled || isMovingFree || itemType === "param";
   const feedback = disableFeedback ? "none" : undefined;
   const sortableTransition = shouldTrackSorting ? transition : null;
   let dragModifiers;
   if (isSortingMode) {
+    console.log("[dnd-debug] useSortable:isSortingMode", {
+      id,
+      containerId,
+      itemType,
+      sortingEnabled,
+      isDragActive,
+      activeIndex,
+      overIndex,
+    });
     const containerIsHorizontal =
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [

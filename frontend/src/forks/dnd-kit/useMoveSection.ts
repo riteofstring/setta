@@ -29,8 +29,15 @@ function onSortEnd({
   over,
   collisions,
 }: Pick<DragEndEvent, "active" | "over" | "collisions">) {
+  console.log("[dnd-debug] section:onSortEnd:start", {
+    activeId: String(active.id),
+    overId: over ? String(over.id) : null,
+    collisionCount: collisions?.length ?? 0,
+    parentId: active.data?.current?.sortable?.containerId ?? null,
+  });
   const parentId = active.data?.current?.sortable?.containerId;
   if (!parentId) {
+    console.log("[dnd-debug] section:onSortEnd:no-parent");
     manualDndChildrenReset();
     return;
   }
@@ -41,6 +48,10 @@ function onSortEnd({
   const draggingIds = resolveDraggingIds(activeId);
   const draggingSet = new Set(draggingIds);
   if (isDescendantOfSectionSelection(state, parentId, draggingSet)) {
+    console.log("[dnd-debug] section:onSortEnd:descendant", {
+      parentId,
+      draggingIds,
+    });
     manualDndChildrenReset();
     return;
   }
@@ -52,6 +63,10 @@ function onSortEnd({
     over,
   });
   if (!overId || draggingSet.has(overId)) {
+    console.log("[dnd-debug] section:onSortEnd:invalid-over", {
+      overId,
+      draggingIds,
+    });
     manualDndChildrenReset();
     return;
   }
@@ -62,6 +77,10 @@ function onSortEnd({
   const overIndex = filteredChildren.indexOf(overId);
 
   if (overIndex < 0) {
+    console.log("[dnd-debug] section:onSortEnd:over-not-found", {
+      overId,
+      childrenCount: children.length,
+    });
     manualDndChildrenReset();
     return;
   }
@@ -81,10 +100,16 @@ function onSortEnd({
     ...draggingIds,
   );
   if (arraysEqual(nextChildren, children)) {
+    console.log("[dnd-debug] section:onSortEnd:no-change");
     manualDndChildrenReset();
     return;
   }
 
+  console.log("[dnd-debug] section:onSortEnd:move", {
+    draggingIds,
+    parentId,
+    newIndex,
+  });
   moveSectionsWithBackend({
     sectionIds: draggingIds,
     newParentId: parentId,
@@ -100,6 +125,12 @@ async function onFreeMoveEnd({
   collisions,
   delta,
 }: Pick<DragEndEvent, "active" | "over" | "collisions" | "delta">) {
+  console.log("[dnd-debug] section:onFreeMoveEnd:start", {
+    activeId: String(active.id),
+    overId: over ? String(over.id) : null,
+    collisionCount: collisions?.length ?? 0,
+    delta,
+  });
   const dndChildrenState = useDndChildren.getState();
   const activeId = String(active.id);
   const draggingIds = resolveDraggingIds(activeId);
@@ -122,6 +153,9 @@ async function onFreeMoveEnd({
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
     if (!children) {
+      console.log("[dnd-debug] section:onFreeMoveEnd:no-children", {
+        newParentId,
+      });
       manualDndChildrenReset();
       return;
     }
@@ -148,6 +182,7 @@ async function onFreeMoveEnd({
       delta,
     );
     if (!positionsById) {
+      console.log("[dnd-debug] section:onFreeMoveEnd:no-positions");
       manualDndChildrenReset();
       return;
     }
@@ -157,11 +192,16 @@ async function onFreeMoveEnd({
     newParentId &&
     isDescendantOfSectionSelection(state, newParentId, draggingSet)
   ) {
+    console.log("[dnd-debug] section:onFreeMoveEnd:descendant", {
+      newParentId,
+      draggingIds,
+    });
     manualDndChildrenReset();
     return;
   }
 
   if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
+    console.log("[dnd-debug] section:onFreeMoveEnd:invalid-drop");
     manualDndChildrenReset();
     return;
   }
@@ -179,6 +219,7 @@ async function onFreeMoveEnd({
       ...draggingIds,
     );
     if (arraysEqual(nextChildren, children)) {
+      console.log("[dnd-debug] section:onFreeMoveEnd:no-change");
       manualDndChildrenReset();
       return;
     }
@@ -189,6 +230,7 @@ async function onFreeMoveEnd({
     areAllTopLevel(state, draggingIds) &&
     positionsMatchTopLevelLayouts(state, positionsById)
   ) {
+    console.log("[dnd-debug] section:onFreeMoveEnd:no-layout-change");
     manualDndChildrenReset();
     return;
   }
@@ -201,6 +243,12 @@ async function onFreeMoveEnd({
 
   moveSectionsWithBackend({
     sectionIds: draggingIds,
+    newParentId,
+    newIndex,
+    positionsById,
+  });
+  console.log("[dnd-debug] section:onFreeMoveEnd:move", {
+    draggingIds,
     newParentId,
     newIndex,
     positionsById,
@@ -219,6 +267,15 @@ export function useOnDragEnd() {
     canceled,
     delta,
   }: DragEndEvent) {
+    console.log("[dnd-debug] section:onDragEnd", {
+      activeId: String(active.id),
+      overId: over ? String(over.id) : null,
+      collisionCount: collisions?.length ?? 0,
+      canceled,
+      delta,
+      isSorting: useDndState.getState().isSorting,
+      isMovingFree: useDndState.getState().isMovingFree,
+    });
     if (canceled) {
       forceDeactivateDnd();
       return;

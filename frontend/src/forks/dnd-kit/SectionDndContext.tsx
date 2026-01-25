@@ -1,6 +1,6 @@
 import { DragDropProvider } from "forks/dnd-kit/adapter";
 import { createCollisionTracker } from "forks/dnd-kit/adapter/collision";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { DeferredDndDeactivation } from "./DeferredDndDeactivation";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
@@ -18,6 +18,14 @@ export function SectionDndContext({ children }) {
   const { modifiers } = useModifiers();
   const sensors = useSectionDndSensors();
   const { isMovingFree, isSorting } = useDndMode();
+  useEffect(() => {
+    console.log("[dnd-debug] SectionDndContext", {
+      sensorCount: sensors.length,
+      isMovingFree,
+      isSorting,
+      hasModifiers: Boolean(modifiers && modifiers.length > 0),
+    });
+  }, [sensors.length, isMovingFree, isSorting, modifiers]);
   const collisionTracker = useMemo(
     () =>
       createCollisionTracker({

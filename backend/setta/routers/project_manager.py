@@ -1054,6 +1054,15 @@ async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRe
 
 @router.post(Route.MOVE_SECTIONS)
 async def route_move_sections(x: MoveSectionsRequest, ctx: RuntimeContextFromRequest):
+    logger.info(
+        "route_move_sections project_config_id=%s section_ids=%s new_parent_id=%s new_index=%s positions_by_id=%s frontend_op_id=%s",
+        x.projectConfigId,
+        x.sectionIds,
+        x.newParentId,
+        x.newIndex,
+        x.positionsById,
+        x.frontendOpId,
+    )
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.move_sections(x)
@@ -1061,6 +1070,15 @@ async def route_move_sections(x: MoveSectionsRequest, ctx: RuntimeContextFromReq
 
 @router.post(Route.MOVE_PARAMS)
 async def route_move_params(x: MoveParamsRequest, ctx: RuntimeContextFromRequest):
+    logger.info(
+        "route_move_params project_config_id=%s section_id=%s param_ids=%s new_parent_id=%s new_index=%s frontend_op_id=%s",
+        x.projectConfigId,
+        x.sectionId,
+        x.paramIds,
+        x.newParentId,
+        x.newIndex,
+        x.frontendOpId,
+    )
     await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.move_params(x)
@@ -1070,6 +1088,13 @@ async def route_move_params(x: MoveParamsRequest, ctx: RuntimeContextFromRequest
 async def route_move_param_groups(
     x: MoveParamGroupsRequest, ctx: RuntimeContextFromRequest
 ):
+    logger.info(
+        "route_move_param_groups project_config_id=%s section_id=%s moves=%s frontend_op_id=%s",
+        x.projectConfigId,
+        x.sectionId,
+        x.moves,
+        x.frontendOpId,
+    )
     await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.move_param_groups(x)
@@ -1109,6 +1134,12 @@ async def route_ungroup_groups(x: UngroupGroupsRequest, ctx: RuntimeContextFromR
 async def route_toggle_param_selected(
     x: ToggleParamSelectedRequest, ctx: RuntimeContextFromRequest
 ):
+    logger.info(
+        "route_toggle_param_selected project_config_id=%s section_id=%s param_info_id=%s",
+        x.projectConfigId,
+        x.sectionId,
+        x.paramInfoId,
+    )
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.toggle_param_selected(x)
@@ -1118,6 +1149,11 @@ async def route_toggle_param_selected(
 async def route_unselect_all_params(
     x: UnselectAllParamsRequest, ctx: RuntimeContextFromRequest
 ):
+    logger.info(
+        "route_unselect_all_params project_config_id=%s section_id=%s",
+        x.projectConfigId,
+        x.sectionId,
+    )
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.unselect_all_params(x)
