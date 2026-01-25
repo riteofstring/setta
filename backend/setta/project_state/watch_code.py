@@ -95,7 +95,7 @@ def normalize_watch_code_files(files: list[str]) -> list[str]:
     for raw in files:
         if not raw:
             continue
-        normalized = str(normalize_path(raw))
+        normalized = str(_normalize_watch_code_path(raw, "file"))
         if normalized in seen:
             continue
         seen.add(normalized)
@@ -111,7 +111,7 @@ def normalize_watch_code_folders(
     for folder in folders:
         if not folder.path:
             continue
-        normalized = str(normalize_path(folder.path))
+        normalized = str(_normalize_watch_code_path(folder.path, "folder"))
         key = (normalized, folder.recursive)
         if key in seen:
             continue
@@ -125,11 +125,12 @@ def build_watch_code_snapshot(
 ) -> WatchCodeConfigSnapshot:
     project_config = project_state.projectConfig
     files = tuple(sorted(normalize_watch_code_files(project_config.watchCodeFiles)))
+    normalized_folders = normalize_watch_code_folders(project_config.watchCodeFolders)
     folders = tuple(
         sorted(
             (
-                (str(normalize_path(folder.path)), folder.recursive)
-                for folder in project_config.watchCodeFolders
+                (folder.path, folder.recursive)
+                for folder in normalized_folders
                 if folder.path
             ),
             key=lambda item: (item[0], item[1]),
@@ -147,6 +148,13 @@ def _should_ignore_path(path: Path) -> bool:
         if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
             return True
     return False
+
+
+def _normalize_watch_code_path(raw: str, label: str) -> Path:
+    normalized = normalize_path(raw)
+    if normalized.is_absolute():
+        raise ValueError(f"Watch code {label} paths must be inside the repo: {raw!r}")
+    return normalized
 
 
 def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
@@ -321,6 +329,7 @@ def parse_python_callables(
         return None
     module_path = convert_path_to_module_path(normalize_path(source_path))
     output: list[WatchCodeCallableInfo] = []
+    build_params = logger.isEnabledFor(logging.DEBUG)
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             output.append(
@@ -331,7 +340,9 @@ def parse_python_callables(
                     _signature_hash(node.args, drop_first_arg=False),
                     _body_hash(node),
                     source_path,
-                    _build_param_proposals(node.args, drop_first_arg=False),
+                    _build_param_proposals(node.args, drop_first_arg=False)
+                    if build_params
+                    else (),
                 )
             )
         elif isinstance(node, ast.AsyncFunctionDef):
@@ -343,7 +354,9 @@ def parse_python_callables(
                     _signature_hash(node.args, drop_first_arg=False),
                     _body_hash(node),
                     source_path,
-                    _build_param_proposals(node.args, drop_first_arg=False),
+                    _build_param_proposals(node.args, drop_first_arg=False)
+                    if build_params
+                    else (),
                 )
             )
         elif isinstance(node, ast.ClassDef):
@@ -360,7 +373,11 @@ def parse_python_callables(
                 proposals: tuple[WatchCodeParamProposal, ...] = ()
             else:
                 signature_hash = _signature_hash(init_def.args, drop_first_arg=True)
-                proposals = _build_param_proposals(init_def.args, drop_first_arg=True)
+                proposals = (
+                    _build_param_proposals(init_def.args, drop_first_arg=True)
+                    if build_params
+                    else ()
+                )
             output.append(
                 _build_callable_info(
                     module_path,
@@ -693,8 +710,11 @@ class WatchCodeManager:
     def _handle_directory_created(self, path: Path) -> None:
         if not self._pending_dirs:
             return
+        normalized_path = normalize_path(path)
         for pending_dir in list(self._pending_dirs):
-            if pending_dir == path or pending_dir.is_relative_to(path):
+            if pending_dir == normalized_path or pending_dir.is_relative_to(
+                normalized_path
+            ):
                 self._sync_watch_dirs({})
                 return
 
@@ -917,24 +937,28 @@ class WatchCodeManager:
         did_move_update = False
         if moved_from is not None:
             project_config = project_state.projectConfig
-            dest_key = str(normalize_path(path))
             registry = project_config.watchCodeRegistry
             baseline = project_config.watchCodeBaselineByPath
+            dest_key = str(normalize_path(path))
+            src_key = str(normalize_path(moved_from))
             dest_known = dest_key in baseline or any(
                 entry.sourcePath == dest_key for entry in registry.values()
             )
+            src_tracked = src_key in baseline or any(
+                entry.sourcePath == src_key for entry in registry.values()
+            )
             logger.debug(
-                "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s dest_known=%s registry_size=%s baseline_paths=%s",
+                "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s src_tracked=%s dest_known=%s registry_size=%s baseline_paths=%s",
                 project_config.id,
                 normalize_path(moved_from),
                 normalize_path(path),
+                src_tracked,
                 dest_known,
                 len(registry),
                 len(baseline),
             )
-            if not dest_known:
+            if src_tracked:
                 parsed_callables = parse_python_callables(raw, path)
-                src_key = str(normalize_path(moved_from))
                 if parsed_callables is None:
                     if src_key in baseline:
                         baseline[dest_key] = list(baseline[src_key])
@@ -949,7 +973,7 @@ class WatchCodeManager:
                         moved_registry_entries += 1
                 did_move_update = True
                 logger.debug(
-                    "watch_code._scan_file move_baseline_only project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
+                    "watch_code._scan_file move_update project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
                     project_config.id,
                     normalize_path(path),
                     0 if parsed_callables is None else len(parsed_callables),
@@ -1390,97 +1414,6 @@ class WatchCodeManager:
                     await self._notify_import_failure(
                         project_config_id, callable_name, source=callable_name
                     )
-
-    async def _update_sections_for_callable(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_ids: list[ID],
-        callable_name: str,
-    ) -> None:
-        project_config_id = project_state.projectConfig.id
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
-        gen_code = self._project_manager.gen_code.get(project_config_id)
-        missing_dep_keys: list[ID] = []
-        prefix_mismatch = False
-        if gen_code is not None:
-            prefix_mismatch = (
-                gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix
-            )
-            missing_dep_keys = [
-                section_id
-                for section_id in section_ids
-                if create_dep_key(section_id) not in gen_code.dep_graph.graph
-            ]
-        needs_refresh = gen_code is None or prefix_mismatch or bool(missing_dep_keys)
-        logger.debug(
-            "watch_code._update_sections_for_callable callable=%s section_ids=%s gen_code=%s prefix_mismatch=%s missing_dep_keys=%s needs_refresh=%s",
-            callable_name,
-            section_ids,
-            gen_code is not None,
-            prefix_mismatch,
-            missing_dep_keys,
-            needs_refresh,
-        )
-        if needs_refresh:
-            await self._project_manager._refresh_codegen_state(project_state)
-            gen_code = self._project_manager._require_python_codegen(project_config_id)
-            missing_after_refresh = [
-                section_id
-                for section_id in section_ids
-                if create_dep_key(section_id) not in gen_code.dep_graph.graph
-            ]
-            if missing_after_refresh:
-                logger.error(
-                    "watch_code._update_sections_for_callable dep_graph missing after refresh callable=%s missing_section_ids=%s graph_size=%s",
-                    callable_name,
-                    missing_after_refresh,
-                    len(gen_code.dep_graph.graph),
-                )
-        settings = self._project_manager.settings_file.settings
-        for section_id in section_ids:
-            if section_id not in project_state.sections:
-                logger.warning(
-                    "watch_code._update_sections_for_callable missing section_id=%s callable=%s",
-                    section_id,
-                    callable_name,
-                )
-                continue
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CallableSectionImpl):
-                logger.debug(
-                    "watch_code._update_sections_for_callable non-callable section_id=%s callable=%s section_type=%s",
-                    section_id,
-                    callable_name,
-                    type(section_impl).__name__,
-                )
-                continue
-            logger.debug(
-                "watch_code._update_sections_for_callable applying callable=%s section_id=%s",
-                callable_name,
-                section_id,
-            )
-            response = await gen_code.set_callable(
-                settings,
-                project_state,
-                section_id,
-                callable_name,
-                True,
-            )
-            logger.debug(
-                "watch_code._update_sections_for_callable set_callable_result callable=%s section_id=%s lsp_status=%s",
-                callable_name,
-                section_id,
-                response.lspStatus,
-            )
-            if (
-                response.lspStatus is SignatureHelpStatus.NO_MATCH
-                and gen_code.lsp_writer is not None
-            ):
-                await self._notify_import_failure(
-                    project_config_id, callable_name, source=callable_name
-                )
 
     def _rename_sections_for_callable(
         self,

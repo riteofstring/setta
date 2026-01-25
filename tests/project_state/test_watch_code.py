@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self._tmp_dir = TemporaryDirectory()
+        self._tmp_dir = TemporaryDirectory(dir=Path.cwd())
         self.addCleanup(self._tmp_dir.cleanup)
         root = Path(self._tmp_dir.name)
         self.setta_root = root / "setta_files"
@@ -228,6 +228,28 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         baseline = state.projectConfig.watchCodeBaselineByPath
         self.assertIn(str(normalize_path(new_file)), baseline)
         self.assertEqual(state.projectConfig.watchCodeRegistry, {})
+
+    async def test_rejects_watch_inputs_outside_repo(self) -> None:
+        outside_file = Path.cwd().parent / "outside_watch.py"
+        with self.assertRaises(ValueError):
+            await self.manager.set_watch_code_inputs(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=self.project_config_id,
+                    watchCodeFolders=[],
+                    watchCodeFiles=[str(outside_file)],
+                )
+            )
+        outside_folder = Path.cwd().parent / "outside_watch_dir"
+        with self.assertRaises(ValueError):
+            await self.manager.set_watch_code_inputs(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=self.project_config_id,
+                    watchCodeFolders=[
+                        WatchCodeFolder(path=str(outside_folder), recursive=False)
+                    ],
+                    watchCodeFiles=[],
+                )
+            )
 
     async def test_auto_creates_callable_section_for_new_def(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -426,7 +448,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(ancestor, watch_manager._watched_dirs)
 
         missing_dir.mkdir(parents=True, exist_ok=True)
-        watch_manager._handle_directory_created(normalize_path(missing_dir))
+        watch_manager._handle_directory_created(missing_dir.resolve())
         self.assertNotIn(normalized_missing, watch_manager._pending_dirs)
         self.assertIn(normalized_missing, watch_manager._watched_dirs)
 
@@ -518,6 +540,100 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         baseline = updated_state.projectConfig.watchCodeBaselineByPath
         self.assertIn(str(normalize_path(moved_path)), baseline)
         self.assertNotIn(str(normalize_path(bulk_path)), baseline)
+
+    async def test_move_in_from_untracked_creates_sections(self) -> None:
+        watch_root = self.setta_root.parent / "watch_root"
+        watch_root.mkdir(parents=True, exist_ok=True)
+        source_root = self.setta_root.parent / "unwatched_root"
+        source_root.mkdir(parents=True, exist_ok=True)
+        source_path = source_root / "incoming.py"
+        source_path.write_text("def incoming():\n    return 1\n")
+        dest_path = watch_root / "incoming.py"
+
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+
+        source_path.replace(dest_path)
+        self.manager.watch_code_manager._handle_event(
+            source_path, "moved", dest_path
+        )
+        debouncer_key = (self.project_config_id, normalize_path(dest_path))
+        debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
+        await debouncer.flush(
+            self.project_config_id, normalize_path(dest_path), False
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(dest_path))
+        identity = build_callable_identity(
+            f"{module_path}.incoming", WatchCodeCallableKind.function
+        )
+        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+
+    async def test_move_over_existing_dest_cleans_source_entries(self) -> None:
+        watch_root = self.setta_root.parent / "watch_root_existing"
+        watch_root.mkdir(parents=True, exist_ok=True)
+        dest_path = watch_root / "dest.py"
+        src_path = watch_root / "src.py"
+        dest_path.write_text("def dest_only():\n    return 1\n")
+        src_path.write_text("def existing():\n    return 1\n")
+
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+
+        src_path.write_text(
+            src_path.read_text() + "\n\ndef watched():\n    return 2\n"
+        )
+        await self.manager.watch_code_manager._scan_file(
+            self.project_config_id,
+            src_path,
+            baseline_only=False,
+        )
+
+        src_path.replace(dest_path)
+        self.manager.watch_code_manager._handle_event(src_path, "moved", dest_path)
+        debouncer_key = (self.project_config_id, normalize_path(dest_path))
+        debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
+        await debouncer.flush(
+            self.project_config_id, normalize_path(dest_path), False
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        src_key = str(normalize_path(src_path))
+        self.assertNotIn(src_key, state.projectConfig.watchCodeBaselineByPath)
+        for entry in state.projectConfig.watchCodeRegistry.values():
+            self.assertNotEqual(entry.sourcePath, src_key)
+        moved_module_path = convert_path_to_module_path(normalize_path(dest_path))
+        moved_identity = build_callable_identity(
+            f"{moved_module_path}.watched", WatchCodeCallableKind.function
+        )
+        self.assertIn(moved_identity, state.projectConfig.watchCodeRegistry)
 
     async def test_signature_change_updates_registry(self) -> None:
         await self.manager.set_watch_code_enabled(
