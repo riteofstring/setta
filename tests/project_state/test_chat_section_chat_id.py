@@ -24,9 +24,13 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_g
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    SectionRepresentationMode,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionImpl
+from setta.types.section_impls import ChatSectionImpl, SectionType
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -173,6 +177,10 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},
         )
+        python_target = project_config.codegenTargets[0]
+        python_target.sectionPolicy.typePolicies[
+            SectionType.Chat
+        ].representation = SectionRepresentationMode.expression
 
         self.project_config_id = project_config.id
         self.section_id = section.id

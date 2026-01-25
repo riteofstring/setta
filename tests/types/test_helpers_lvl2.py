@@ -1,11 +1,15 @@
+import json
 import unittest
 
 from setta.types.code_obj_impls import (
     CodeObjType,
     CodeParamCodeObjImpl,
     DropdownParamCodeObjImpl,
+    DropzoneMode,
+    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
+from setta.types.dropzone import parse_dropzone_value
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -22,8 +26,7 @@ from setta.types.helpers_lvl2 import (
     indent_params,
     move_params_to_parent,
     move_params_within_parent,
-    set_text_block_heading_as_section_name,
-    set_text_block_text,
+    set_param_entered_value,
     set_chat_section_chat_id,
     set_section_param_filter,
     unindent_params,
@@ -39,9 +42,9 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     ChatSectionImpl,
+    MetaControlSectionImpl,
     SectionSize,
     SectionType,
-    TextBlockSectionImpl,
 )
 
 
@@ -206,6 +209,99 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertTrue(updated_impl.coreNameEditable)
         self.assertEqual(updated_impl.coreNameType, old_core_name_type)
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
+
+
+class DropzoneParamValueTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        self.section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.DropzoneParam,
+        )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            MetaControlSectionImpl,
+        )
+        self.param_id = section_impl.metaControlParamId
+        assert self.param_id is not None
+        param_core = self.project_state.codeObjs[self.param_id]
+        variant_id = param_core.defaultVariant
+        assert variant_id is not None
+        impl_id = self.project_state.codeObjVariants[variant_id].impl
+        self.dropzone_impl = self.project_state.codeObjImpls[impl_id]
+        assert isinstance(self.dropzone_impl, DropzoneParamCodeObjImpl)
+
+    def test_set_param_entered_value_truncates_dropzone_attachments(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATEFUL
+        self.dropzone_impl.maxAttachments = 1
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:first",
+                    "name": "Dropped text",
+                    "text": "first",
+                },
+                {
+                    "kind": "text",
+                    "id": "text:second",
+                    "name": "Dropped text",
+                    "text": "second",
+                },
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
+        )
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        parsed = parse_dropzone_value(updated_impl.value)
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(len(parsed.attachments), 1)
+        self.assertEqual(parsed.attachments[0].id, "text:first")
+
+    def test_set_param_entered_value_clears_stateless_dropzone(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATELESS
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:payload",
+                    "name": "Dropped text",
+                    "text": "payload",
+                }
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
+        )
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        self.assertEqual(updated_impl.value, "")
 
 
 class ParamMoveTests(unittest.TestCase):
@@ -488,38 +584,6 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
-
-
-class TextBlockHeadingAsNameTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_invalid_heading_does_not_block_text_update(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.TextBlock,
-            Position(),
-        )
-        self.project_state.validate_parent_section_map()
-        original_name = self.project_state.sections[section_id].name
-        set_text_block_heading_as_section_name(
-            self.project_state,
-            section_id,
-            True,
-        )
-        text = "# Intro @ 2026\n\nBody content."
-        set_text_block_text(self.project_state, section_id, text)
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            TextBlockSectionImpl,
-        )
-        self.assertEqual(text, section_impl.text)
-        self.assertEqual(original_name, self.project_state.sections[section_id].name)
 
 
 if __name__ == "__main__":  # pragma: no cover

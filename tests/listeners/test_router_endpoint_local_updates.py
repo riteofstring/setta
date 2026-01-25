@@ -1,4 +1,5 @@
 import unittest
+from ast import literal_eval
 
 from setta.listeners.router_endpoint_local_updates import (
     build_local_router_endpoint_updates,
@@ -37,7 +38,7 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             update.dependency_key,
         )
         self.assertIsInstance(update.value, LiteralDependencyValue)
-        parsed = ChatSectionState.model_validate_json(update.value.payload)
+        parsed = ChatSectionState.model_validate(literal_eval(update.value.payload))
         self.assertEqual(state.messages, parsed.messages)
         self.assertEqual(state.toolCallArguments, parsed.toolCallArguments)
 
