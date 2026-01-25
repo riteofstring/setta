@@ -10,6 +10,7 @@ import setta.routers.artifact as artifact_router
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
+    DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
     GetFolderContentsRequest,
     ImportFilesToArtifactsRequest,
@@ -24,7 +25,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
-from setta.types.artifact import FileArtifact
+from setta.types.artifact import ArtifactType, FileArtifact
 from setta.utils.constants import C, CWD
 from tests.utils.runtime_context import runtime_context
 from tests.utils.manager_fixture import _seed_minimal_setta_files
@@ -400,12 +401,37 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             file_path = (CWD / artifact_id).resolve()
             self.assertTrue(file_path.exists())
             deleted = await route_delete_artifacts(
-                DeleteArtifactsRequest(artifactIds=[artifact_id]),
+                DeleteArtifactsRequest(
+                    artifacts=[
+                        DeleteArtifactRequestItem(
+                            id=artifact_id,
+                            type=ArtifactType.File,
+                        )
+                    ]
+                ),
                 runtime_ctx,
             )
         self.assertIn(expected_id, deleted)
         self.assertFalse(file_path.exists())
         self.assertIsNone(state.artifacts.get_cached_file(artifact_id))
+
+    async def test_delete_artifacts_rejects_non_file_type(self) -> None:
+        state = await self._build_state()
+        artifact_id = (C.ARTIFACTS_FOLDER / "chart.json").as_posix()
+        with runtime_context(state) as runtime_ctx:
+            with self.assertRaises(HTTPException) as ctx:
+                await route_delete_artifacts(
+                    DeleteArtifactsRequest(
+                        artifacts=[
+                            DeleteArtifactRequestItem(
+                                id=artifact_id,
+                                type=ArtifactType.ChartData,
+                            )
+                        ]
+                    ),
+                    runtime_ctx,
+                )
+        self.assertEqual(400, ctx.exception.status_code)
 
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:
         state = await self._build_state()
@@ -413,7 +439,14 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
         with runtime_context(state) as runtime_ctx:
             with self.assertRaises(HTTPException) as ctx:
                 await route_delete_artifacts(
-                    DeleteArtifactsRequest(artifactIds=[outside_id]),
+                    DeleteArtifactsRequest(
+                        artifacts=[
+                            DeleteArtifactRequestItem(
+                                id=outside_id,
+                                type=ArtifactType.File,
+                            )
+                        ]
+                    ),
                     runtime_ctx,
                 )
         self.assertEqual(403, ctx.exception.status_code)

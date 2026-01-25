@@ -19,6 +19,7 @@ from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.policy import ensure_share_deployment_path
 from setta.types.artifact import (
+    ArtifactType,
     BrushStrokeArtifact,
     ChartDataArtifact,
     DrawAreaLayerItemTransformArtifact,
@@ -96,8 +97,13 @@ class ImportFilesToArtifactsResponseItem(BaseModel):
     size: int
 
 
+class DeleteArtifactRequestItem(BaseModel):
+    id: str
+    type: ArtifactType
+
+
 class DeleteArtifactsRequest(BaseModel):
-    artifactIds: list[str]
+    artifacts: list[DeleteArtifactRequestItem]
 
 
 def _estimate_base64_decoded_bytes(payload: str) -> int:
@@ -495,7 +501,8 @@ async def route_update_artifacts(
                 compute_last_read_hash=False,
                 reset_conflict=True,
             )
-            payloads.append(artifact)
+            if not isinstance(artifact, FileArtifact):
+                payloads.append(artifact)
             results.append(
                 ArtifactSaveResult(
                     id=normalized_id,
@@ -521,8 +528,18 @@ async def route_delete_artifacts(
     x: DeleteArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[str]:
-    if not x.artifactIds:
+    if not x.artifacts:
         return []
+    for artifact in x.artifacts:
+        if artifact.type is not ArtifactType.File:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "DELETE_ARTIFACTS only supports File artifacts; "
+                    f"received {artifact.type.value}."
+                ),
+            )
+    artifact_ids = [artifact.id for artifact in x.artifacts]
     if ctx.share_mode:
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
@@ -540,7 +557,7 @@ async def route_delete_artifacts(
         artifacts = _get_artifacts(ctx)
     try:
         deleted_ids = artifacts.delete_file_artifacts(
-            x.artifactIds, artifacts_root=artifacts_root
+            artifact_ids, artifacts_root=artifacts_root
         )
     except PermissionError as exc:
         raise HTTPException(

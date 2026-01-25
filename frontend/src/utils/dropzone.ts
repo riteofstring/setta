@@ -146,11 +146,20 @@ export function serializeDropzoneValue(
 }
 
 function extractFileExtension(fileName: string): string | null {
-  const lastDot = fileName.lastIndexOf(".");
-  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+  const baseName = fileName.split(/[/\\]/).pop() ?? fileName;
+  if (!baseName) {
     return null;
   }
-  return fileName.slice(lastDot);
+  let dotIndex = baseName.indexOf(".");
+  if (dotIndex <= 0) {
+    if (baseName.startsWith(".")) {
+      dotIndex = baseName.indexOf(".", 1);
+    }
+  }
+  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
+    return null;
+  }
+  return baseName.slice(dotIndex);
 }
 
 export function createDropzoneFileArtifactId(

@@ -778,7 +778,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/178458ae-8d67-4d5d-a44c-158f5bf96f96.bin" as const,
+        "setta_files/artifacts/a9eaa08b-f394-413f-9b0f-3b3a85b84d5e.bin" as const,
     ),
   value: z.string(),
 });
@@ -5768,8 +5768,13 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
+const DeleteArtifactRequestItemSchema = z.object({
+  id: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+});
+
 const DeleteArtifactsRequestSchema = z.object({
-  artifactIds: z.array(z.string()),
+  artifacts: z.array(DeleteArtifactRequestItemSchema),
 });
 
 export type DeleteArtifactsRequestInput = z.input<

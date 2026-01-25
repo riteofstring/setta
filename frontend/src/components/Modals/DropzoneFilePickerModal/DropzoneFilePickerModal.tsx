@@ -18,10 +18,15 @@ export function DropzoneFilePickerModal({ open }: { open: boolean }) {
     return null;
   }
 
-  const canAttach = selectedNode?.type === "file";
+  const canAttach =
+    selectedNode?.type === "file" &&
+    (remainingSlots === null || remainingSlots > 0);
 
   function attachFile(node: FileNode | null) {
     if (!node || node.type !== "file") {
+      return;
+    }
+    if (remainingSlots !== null && remainingSlots <= 0) {
       return;
     }
     onPickPaths([node.fullPath]);

@@ -93,6 +93,7 @@ const DROPZONE_MAX_FILE_LABEL_STATELESS = formatBytes(
 const DROPZONE_MAX_STATELESS_PAYLOAD_LABEL = formatBytes(
   DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
 );
+const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
 
 function getMaxFileLimit(mode: DropzoneModeEnum): {
   maxBytes: number;
@@ -162,6 +163,12 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
 
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+function notifyInvalidStatefulValue(): void {
+  const message =
+    "Dropzone value is not valid JSON. Clear it before adding attachments.";
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
@@ -394,6 +401,10 @@ export function DropzoneInput({
   const parsedStatefulValue = useMemo(() => {
     return parseDropzoneValue(value);
   }, [value]);
+  const hasInvalidStatefulValue =
+    mode === DropzoneModeEnum.STATEFUL &&
+    value.trim() !== "" &&
+    parsedStatefulValue === null;
 
   const statefulAttachments: DropzoneStoredAttachment[] =
     parsedStatefulValue?.attachments ?? [];
@@ -411,6 +422,12 @@ export function DropzoneInput({
     }
     return limit;
   }, [maxAttachments]);
+  const statelessDisplayLimit = useMemo(() => {
+    if (attachmentLimit !== null) {
+      return attachmentLimit;
+    }
+    return DROPZONE_STATELESS_DISPLAY_LIMIT;
+  }, [attachmentLimit]);
 
   const displayAttachments = useMemo(() => {
     if (mode === DropzoneModeEnum.STATELESS) {
@@ -446,7 +463,7 @@ export function DropzoneInput({
 
   function getCurrentCount(): number {
     if (mode === DropzoneModeEnum.STATELESS) {
-      return statelessAttachments.length;
+      return 0;
     }
     return statefulAttachments.length;
   }
@@ -483,7 +500,10 @@ export function DropzoneInput({
     addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
     if (artifactIds.length > 0) {
       const deleteRes = await route_delete_artifacts({
-        artifactIds,
+        artifacts: artifactIds.map((artifactId) => ({
+          id: artifactId,
+          type: ArtifactTypeEnum.File,
+        })),
       });
       if (!res200(deleteRes)) {
         const deleteDetail = getErrorDetail(deleteRes.data);
@@ -527,6 +547,10 @@ export function DropzoneInput({
       return;
     }
     if (files.length === 0) {
+      return;
+    }
+    if (mode === DropzoneModeEnum.STATEFUL && hasInvalidStatefulValue) {
+      notifyInvalidStatefulValue();
       return;
     }
     const currentCount = getCurrentCount();
@@ -603,7 +627,13 @@ export function DropzoneInput({
             name: file.name,
             size: file.size,
           }));
-        setStatelessAttachments((prev) => [...prev, ...displayAttachments]);
+        setStatelessAttachments((prev) => {
+          const next = [...prev, ...displayAttachments];
+          if (next.length <= statelessDisplayLimit) {
+            return next;
+          }
+          return next.slice(-statelessDisplayLimit);
+        });
         onStatelessDrop?.(attachments);
         return;
       }
@@ -651,6 +681,10 @@ export function DropzoneInput({
     if (isDisabled || isUploading) {
       return;
     }
+    if (mode === DropzoneModeEnum.STATEFUL && hasInvalidStatefulValue) {
+      notifyInvalidStatefulValue();
+      return;
+    }
     const currentCount = getCurrentCount();
     const slots = getRemainingSlots(currentCount);
     if (slots === 0) {
@@ -672,7 +706,13 @@ export function DropzoneInput({
         name: "Dropped text",
         text,
       };
-      setStatelessAttachments((prev) => [...prev, displayAttachment]);
+      setStatelessAttachments((prev) => {
+        const next = [...prev, displayAttachment];
+        if (next.length <= statelessDisplayLimit) {
+          return next;
+        }
+        return next.slice(-statelessDisplayLimit);
+      });
       onStatelessDrop?.([attachment]);
       return;
     }
@@ -698,6 +738,10 @@ export function DropzoneInput({
       return;
     }
     if (mode === DropzoneModeEnum.STATELESS) {
+      return;
+    }
+    if (hasInvalidStatefulValue) {
+      notifyInvalidStatefulValue();
       return;
     }
     if (!onChange) {
@@ -748,7 +792,14 @@ export function DropzoneInput({
   }
 
   async function deleteFileAttachment(artifactId: string): Promise<boolean> {
-    const res = await route_delete_artifacts({ artifactIds: [artifactId] });
+    const res = await route_delete_artifacts({
+      artifacts: [
+        {
+          id: artifactId,
+          type: ArtifactTypeEnum.File,
+        },
+      ],
+    });
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachment.";
