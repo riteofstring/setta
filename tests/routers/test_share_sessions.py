@@ -1,10 +1,10 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi import Request
+import pytest
 from starlette.types import Scope
 
 from setta.database.db_objs import DBE
@@ -103,7 +103,9 @@ def _make_request(share_session_id: str | None) -> Request:
     return Request(scope, empty_receive)
 
 
-class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
+class TestShareSessionRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -135,20 +137,13 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 _make_request(None),
                 state,
             )
-            self.assertEqual(
-                project_config_name, session_response.deploymentName
-            )
-            self.assertEqual(
-                deployment_version, session_response.deploymentVersion
-            )
-            self.assertEqual(
-                project_config.id, session_response.defaultProjectConfigId
-            )
-            self.assertEqual(
-                [project_config.id],
-                [config.id for config in session_response.projectMetadata],
-            )
-            self.assertIsNotNone(session_response.shareSessionId)
+            assert session_response.deploymentName == project_config_name
+            assert session_response.deploymentVersion == deployment_version
+            assert session_response.defaultProjectConfigId == project_config.id
+            assert [config.id for config in session_response.projectMetadata] == [
+                project_config.id
+            ]
+            assert session_response.shareSessionId is not None
 
             request = _make_request(session_response.shareSessionId)
             response = await route_get_share_deployment_state(
@@ -157,12 +152,10 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 state,
                 request,
             )
-            self.assertIsInstance(
+            assert isinstance(
                 response, ProjectStateSingleConfigWithCompletedOpIds
             )
-            self.assertEqual(
-                project_config.id, response.projectState.projectConfig.id
-            )
+            assert response.projectState.projectConfig.id == project_config.id
 
     async def test_state_requires_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -180,14 +173,14 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(deployment_root)
 
             request = _make_request(None)
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_get_share_deployment_state(
                     project_config_name,
                     deployment_version,
                     state,
                     request,
                 )
-            self.assertEqual(400, ctx.exception.status_code)
+            assert ctx.value.status_code == 400
 
     async def test_session_loads_multiple_project_configs(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -220,9 +213,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 state,
                 request,
             )
-            self.assertEqual(
-                config_b.id, response.projectState.projectConfig.id
-            )
+            assert response.projectState.projectConfig.id == config_b.id
 
     async def test_current_session_uses_active_deployment(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -244,20 +235,12 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                 state,
             )
 
-            self.assertEqual(
-                project_config_name, session_response.deploymentName
-            )
-            self.assertEqual(
-                deployment_version, session_response.deploymentVersion
-            )
-            self.assertEqual(
-                project_config.id, session_response.defaultProjectConfigId
-            )
-            self.assertIsNotNone(session_response.shareSessionId)
-            self.assertTrue(
-                state.share_session_store.has_session(
-                    session_response.shareSessionId
-                )
+            assert session_response.deploymentName == project_config_name
+            assert session_response.deploymentVersion == deployment_version
+            assert session_response.defaultProjectConfigId == project_config.id
+            assert session_response.shareSessionId is not None
+            assert state.share_session_store.has_session(
+                session_response.shareSessionId
             )
 
     async def test_unknown_session_id_returns_404(self) -> None:
@@ -276,14 +259,14 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(deployment_root)
 
             request = _make_request("missing-session")
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_get_share_deployment_state(
                     project_config_name,
                     deployment_version,
                     state,
                     request,
                 )
-            self.assertEqual(404, ctx.exception.status_code)
+            assert ctx.value.status_code == 404
 
     async def test_deployment_mismatch_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -300,14 +283,14 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(deployment_root)
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_create_share_session(
                     "wrong-config",
                     deployment_version,
                     _make_request(None),
                     state,
                 )
-            self.assertEqual(404, ctx.exception.status_code)
+            assert ctx.value.status_code == 404
 
     async def test_share_mode_blocks_deployment_lists(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -324,13 +307,13 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(deployment_root)
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 route_list_share_deployments(state)
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 route_list_share_deployment_versions(project_config_name, state)
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_share_mode_latest_redacts_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -348,10 +331,7 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(deployment_root)
 
             latest = route_get_latest_share_deployment(project_config_name, state)
-            self.assertEqual(project_config_name, latest.deploymentName)
-            self.assertEqual(Path("redacted"), latest.deploymentRoot)
-            self.assertEqual(Path("redacted"), latest.sharePolicyPath)
+            assert latest.deploymentName == project_config_name
+            assert latest.deploymentRoot == Path("redacted")
+            assert latest.sharePolicyPath == Path("redacted")
 
-
-if __name__ == "__main__":
-    unittest.main()

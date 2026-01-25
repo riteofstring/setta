@@ -1,11 +1,11 @@
 import asyncio
 import os
-import unittest
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -172,7 +172,9 @@ def _mint_auth_cookie(sessions_root: Path) -> tuple[str, str]:
     return metadata.id, token
 
 
-class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
+class TestShareFrontendWebsocketRequirements:
+    pytestmark = pytest.mark.asyncio
+
     async def test_share_frontend_allows_missing_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-websocket-test"
@@ -190,9 +192,9 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
             await route_websocket_share_frontend(websocket, state)
 
-            self.assertIsNone(_close_code(messages))
-            self.assertTrue(
-                any(message.get("type") == "websocket.accept" for message in messages)
+            assert _close_code(messages) is None
+            assert any(
+                message.get("type") == "websocket.accept" for message in messages
             )
 
     async def test_missing_share_session_closes(self) -> None:
@@ -231,7 +233,7 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 else:
                     os.environ[SESSIONS_ROOT_ENV_VAR] = prev_root
 
-            self.assertEqual(4400, _close_code(messages))
+            assert _close_code(messages) == 4400
 
     async def test_unknown_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -270,7 +272,7 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 else:
                     os.environ[SESSIONS_ROOT_ENV_VAR] = prev_root
 
-            self.assertEqual(4404, _close_code(messages))
+            assert _close_code(messages) == 4404
 
     async def test_share_frontend_message_touches_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -309,10 +311,12 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
             await task
 
             touched = state.share_session_store._sessions[session.id].last_accessed_at
-            self.assertGreater(touched, threshold)
+            assert touched > threshold
 
 
-class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
+class TestTerminalWebsocketRequirements:
+    pytestmark = pytest.mark.asyncio
+
     async def test_missing_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-websocket-test"
@@ -328,7 +332,7 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
             await require_share_session_id_from_websocket(websocket, state)
 
-            self.assertEqual(4400, _close_code(messages))
+            assert _close_code(messages) == 4400
 
     async def test_unknown_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -348,7 +352,7 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
             await require_share_session_id_from_websocket(websocket, state)
 
-            self.assertEqual(4404, _close_code(messages))
+            assert _close_code(messages) == 4404
 
     async def test_terminal_activity_touches_share_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -371,7 +375,6 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
             headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
             section_id = create_new_id()
             terminal_id = build_terminal_id(section_id, session.id)
-            self.addAsyncCleanup(state.terminals.delete_terminal, terminal_id)
             ready_event = asyncio.Event()
             gate_event = asyncio.Event()
             messages: list[Message] = []
@@ -383,26 +386,24 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 message_ready_event=ready_event,
                 message_gate=gate_event,
             )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                task = asyncio.create_task(
-                    terminal_websocket_endpoint(
-                        websocket,
-                        state.share_runtime_state.default_project_config_id,
-                        section_id,
-                        "client-keepalive",
-                        runtime_ctx,
+            try:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    task = asyncio.create_task(
+                        terminal_websocket_endpoint(
+                            websocket,
+                            state.share_runtime_state.default_project_config_id,
+                            section_id,
+                            "client-keepalive",
+                            runtime_ctx,
+                        )
                     )
-                )
 
-                await ready_event.wait()
-                threshold = get_now_timestamp()
-                gate_event.set()
-                await task
+                    await ready_event.wait()
+                    threshold = get_now_timestamp()
+                    gate_event.set()
+                    await task
+            finally:
+                await state.terminals.delete_terminal(terminal_id)
 
             touched = state.share_session_store._sessions[session.id].last_accessed_at
-            self.assertGreater(touched, threshold)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert touched > threshold

@@ -1,8 +1,8 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI
+import pytest
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -60,58 +60,53 @@ def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
-class ShareTerminalRouteTests(unittest.IsolatedAsyncioTestCase):
-    async def _build_state(self, root: Path) -> SettaFastAPIState:
-        app = FastAPI()
-        state = SettaFastAPIState(
-            app,
-            share_mode=True,
-            share_deployment_root=root,
+async def _build_state(root: Path) -> SettaFastAPIState:
+    app = FastAPI()
+    state = SettaFastAPIState(
+        app,
+        share_mode=True,
+        share_deployment_root=root,
+    )
+    await state.wait_until_ready()
+    return state
+
+
+@pytest.mark.asyncio
+async def test_delete_terminals_scopes_to_share_session() -> None:
+    with TemporaryDirectory() as tmpdir:
+        project_config_name = "share-terminals-test"
+        root = _build_share_deployment_root(tmpdir, project_config_name)
+        project_config_id = _write_share_project(
+            root,
+            project_config_name=project_config_name,
+            deployment_version=root.name,
         )
-        await state.wait_until_ready()
-        return state
+        _write_share_policy(root, SharePolicy(allowRun=True))
+        state = await _build_state(root)
+        session_a = state.share_session_store.create_session()
+        session_b = state.share_session_store.create_session()
+        section_id = create_new_id()
+        terminal_id_a = build_terminal_id(section_id, session_a.id)
+        terminal_id_b = build_terminal_id(section_id, session_b.id)
 
-    async def test_delete_terminals_scopes_to_share_session(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-terminals-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowRun=True))
-            state = await self._build_state(root)
-            session_a = state.share_session_store.create_session()
-            session_b = state.share_session_store.create_session()
-            section_id = create_new_id()
-            terminal_id_a = build_terminal_id(section_id, session_a.id)
-            terminal_id_b = build_terminal_id(section_id, session_b.id)
-
-            state.terminals.new_terminal(
-                project_config_id,
-                terminal_id_a,
-                share_session_id=session_a.id,
-            )
-            state.terminals.new_terminal(
-                project_config_id,
-                terminal_id_b,
-                share_session_id=session_b.id,
-            )
-            self.addAsyncCleanup(
-                state.terminals.delete_terminals,
-                [terminal_id_a, terminal_id_b],
-            )
-
+        state.terminals.new_terminal(
+            project_config_id,
+            terminal_id_a,
+            share_session_id=session_a.id,
+        )
+        state.terminals.new_terminal(
+            project_config_id,
+            terminal_id_b,
+            share_session_id=session_b.id,
+        )
+        try:
             with runtime_context(state, session_a.id) as runtime_ctx:
                 await route_delete_terminals(
                     DeleteTerminalsRequest(sectionIds=[section_id]),
                     runtime_ctx,
                 )
 
-            self.assertNotIn(terminal_id_a, state.terminals.PTY_PIDS)
-            self.assertIn(terminal_id_b, state.terminals.PTY_PIDS)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert terminal_id_a not in state.terminals.PTY_PIDS
+            assert terminal_id_b in state.terminals.PTY_PIDS
+        finally:
+            await state.terminals.delete_terminals([terminal_id_a, terminal_id_b])

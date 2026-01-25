@@ -1,9 +1,9 @@
-import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
 
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.project_state.project_manager_types import (
@@ -137,7 +137,9 @@ async def _shutdown_state(state: SettaFastAPIState) -> None:
         stop_file_watcher(state.lsp_writers)
 
 
-class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
+class TestNameValidationRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def test_set_project_config_name_invalid_returns_422(self) -> None:
         try:
             with TemporaryDirectory() as tmpdir:
@@ -149,20 +151,20 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             main_manager.project_state_backend.defaultProjectConfigId
                         )
                         if default_project_config_id is None:
-                            self.fail(
+                            pytest.fail(
                                 "Expected default project config id for rename test."
                             )
                         request = SetProjectConfigNameRequest(
                             projectConfigId=default_project_config_id,
                             newName="home",
                         )
-                        with self.assertRaises(HTTPException) as ctx:
+                        with pytest.raises(HTTPException) as ctx:
                             await route_set_project_config_name(request, state)
-                        self.assertEqual(422, ctx.exception.status_code)
+                        assert ctx.value.status_code == 422
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:
-            self.skipTest(str(exc))
+            pytest.skip(str(exc))
 
     async def test_set_section_name_invalid_returns_422(self) -> None:
         try:
@@ -175,7 +177,7 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             main_manager.project_state_backend.defaultProjectConfigId
                         )
                         if default_project_config_id is None:
-                            self.fail(
+                            pytest.fail(
                                 "Expected default project config id for rename test."
                             )
                         project_state = main_manager.get_single_config_state(
@@ -197,14 +199,14 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             sectionId=section_id,
                             name="bad/name",
                         )
-                        with self.assertRaises(HTTPException) as ctx:
+                        with pytest.raises(HTTPException) as ctx:
                             with runtime_context(state) as runtime_ctx:
                                 await route_set_section_name(request, runtime_ctx)
-                        self.assertEqual(422, ctx.exception.status_code)
+                        assert ctx.value.status_code == 422
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:
-            self.skipTest(str(exc))
+            pytest.skip(str(exc))
 
     async def test_set_code_obj_name_invalid_returns_422(self) -> None:
         try:
@@ -217,7 +219,7 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             main_manager.project_state_backend.defaultProjectConfigId
                         )
                         if default_project_config_id is None:
-                            self.fail(
+                            pytest.fail(
                                 "Expected default project config id for rename test."
                             )
                         project_state = main_manager.get_single_config_state(
@@ -228,7 +230,7 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             ProjectCodegenLanguage.python,
                         )
                         if not python_codegen_enabled:
-                            self.skipTest(
+                            pytest.skip(
                                 "Python codegen disabled; param validation skipped."
                             )
                         param_section_id = None
@@ -289,14 +291,14 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId=param_id,
                             name="invalid name",
                         )
-                        with self.assertRaises(HTTPException) as ctx:
+                        with pytest.raises(HTTPException) as ctx:
                             with runtime_context(state) as runtime_ctx:
                                 await route_set_code_obj_name(request, runtime_ctx)
-                        self.assertEqual(422, ctx.exception.status_code)
+                        assert ctx.value.status_code == 422
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:
-            self.skipTest(str(exc))
+            pytest.skip(str(exc))
 
     async def test_set_code_obj_name_meta_control_succeeds(self) -> None:
         try:
@@ -309,7 +311,7 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             main_manager.project_state_backend.defaultProjectConfigId
                         )
                         if default_project_config_id is None:
-                            self.fail(
+                            pytest.fail(
                                 "Expected default project config id for rename test."
                             )
                         project_state = main_manager.get_single_config_state(
@@ -346,13 +348,11 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                         updated_state = main_manager.get_single_config_state(
                             default_project_config_id
                         )
-                        self.assertEqual(
-                            "control_name", updated_state.codeObjs[param_id].name
-                        )
+                        assert updated_state.codeObjs[param_id].name == "control_name"
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:
-            self.skipTest(str(exc))
+            pytest.skip(str(exc))
 
     async def test_set_code_obj_name_shared_param_succeeds(self) -> None:
         try:
@@ -365,7 +365,7 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             main_manager.project_state_backend.defaultProjectConfigId
                         )
                         if default_project_config_id is None:
-                            self.fail(
+                            pytest.fail(
                                 "Expected default project config id for rename test."
                             )
                         project_state = main_manager.get_single_config_state(
@@ -392,13 +392,17 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             project_state, section_a_id
                         )
                         if not isinstance(section_a_impl, BaseDictSectionImpl):
-                            self.fail("Expected dict section implementation.")
+                            pytest.fail("Expected dict section implementation.")
                         shared_root_id = section_a_impl.topLevelParamId
                         if shared_root_id is None:
-                            self.fail("Expected dict section to have a top-level param.")
+                            pytest.fail(
+                                "Expected dict section to have a top-level param."
+                            )
                         shared_variant_map = dict(section_a_impl.codeObjVariantMap)
                         if shared_root_id not in shared_variant_map:
-                            self.fail("Expected top-level param variant mapping.")
+                            pytest.fail(
+                                "Expected top-level param variant mapping."
+                            )
                         set_curr_effective_section_impl_value(
                             project_state,
                             section_b_id,
@@ -420,11 +424,11 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                         updated_state = main_manager.get_single_config_state(
                             default_project_config_id
                         )
-                        self.assertEqual(
-                            "shared_param",
-                            updated_state.codeObjs[shared_param_id].name,
+                        assert (
+                            updated_state.codeObjs[shared_param_id].name
+                            == "shared_param"
                         )
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:
-            self.skipTest(str(exc))
+            pytest.skip(str(exc))

@@ -1,9 +1,9 @@
 import json
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -95,7 +95,9 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
     ]
 
 
-class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
+class TestShareArtifactRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -133,14 +135,14 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state, session.id) as runtime_ctx:
                 results = await route_update_artifacts(request, runtime_ctx)
 
-            self.assertEqual(1, len(results))
-            self.assertEqual("saved", results[0].status)
-            self.assertFalse(artifact_path.exists())
+            assert len(results) == 1
+            assert results[0].status == "saved"
+            assert not artifact_path.exists()
 
             cached = state.share_runtime_state.get_session_artifacts(
                 session.id
             ).get_cached_brush_stroke(artifact_path)
-            self.assertIsNotNone(cached)
+            assert cached is not None
 
     async def test_share_normalizes_artifact_ids_to_deployment_relative(self) -> None:
         with TemporaryDirectory(dir=str(Path.cwd())) as tmpdir:
@@ -171,21 +173,21 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
                 results = await route_update_artifacts(request, runtime_ctx)
 
             expected_id = artifact_path.relative_to(root).as_posix()
-            self.assertEqual(expected_id, results[0].id)
+            assert results[0].id == expected_id
             cached = state.share_runtime_state.get_session_artifacts(
                 session.id
             ).get_cached_brush_stroke(artifact_path)
-            self.assertIsNotNone(cached)
-            self.assertEqual(expected_id, cached.id)
+            assert cached is not None
+            assert cached.id == expected_id
 
             image_path = root / "artifacts" / "preview.png"
             image_path.write_bytes(b"img")
             payload = LoadCachedPathsRequest(paths=[str(image_path)])
             with runtime_context(state, session.id) as runtime_ctx:
                 loaded = route_load_cached_image_artifacts(payload, runtime_ctx)
-            self.assertEqual(1, len(loaded))
-            self.assertIsNotNone(loaded[0])
-            self.assertEqual(image_path.relative_to(root).as_posix(), loaded[0].id)
+            assert len(loaded) == 1
+            assert loaded[0] is not None
+            assert loaded[0].id == image_path.relative_to(root).as_posix()
 
     async def test_share_updates_blocked_by_policy(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -216,11 +218,11 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             request = UpdateArtifactsRequest(artifacts=[artifact])
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_update_artifacts(request, runtime_ctx)
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_share_updates_broadcast_to_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -280,12 +282,9 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
                 json.loads(text)["messageType"]
                 for text in _sent_text_messages(messages_b)
             ]
-            self.assertIn("UpdateArtifacts", types_a)
-            self.assertNotIn("UpdateArtifacts", types_b)
+            assert "UpdateArtifacts" in types_a
+            assert "UpdateArtifacts" not in types_b
 
             await websocket_a.close()
             await websocket_b.close()
 
-
-if __name__ == "__main__":
-    unittest.main()

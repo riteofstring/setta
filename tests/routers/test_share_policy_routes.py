@@ -1,8 +1,8 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -313,7 +313,9 @@ def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
-class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
+class TestSharePolicyRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -346,20 +348,20 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 projectConfigId=project_config_id,
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_get_llm_response(
                         request,
                         runtime_ctx,
                     )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_get_llm_config(runtime_ctx)
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_publish_share_deployment_blocked_in_share_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -375,9 +377,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 deploymentName=root.parent.name,
                 projectConfigId=project_config_id,
             )
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_publish_share_deployment(request, state)
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_llm_updates_blocked_in_share_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -397,24 +399,24 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_set_llm_config(
                         config,
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
             payload = UpdateAPIKeysRequest(
                 apiKeys={"OPENAI_API_KEY": "test-key"}
             )
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_set_llm_api_keys(
                         payload,
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_run_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -434,24 +436,24 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 cliId=None,
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_run_code(run_request, runtime_ctx)
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
             kill_request = KillSubprocessesRequest(
                 projectConfigId=project_config_id,
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_kill_subprocesses(
                         kill_request,
                         runtime_ctx,
                     )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_terminal_section_blocked_when_run_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -480,18 +482,18 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 projectConfigId=project_config_id,
                 implType=SectionType.Terminal,
             )
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_create_top_level_section(
                         create_request, runtime_ctx
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
             updated_sections = len(
                 state.share_runtime_state.get_session_state(
                     session.id, project_config_id
                 ).sections
             )
-            self.assertEqual(baseline_sections, updated_sections)
+            assert baseline_sections == updated_sections
 
     async def test_structural_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -510,39 +512,39 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     projectConfigId=project_config_id,
                     implType=SectionType.TextBlock,
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_create_top_level_section(
                         create_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 delete_request = DeleteSectionsRequest(
                     projectConfigId=project_config_id,
                     sectionIds=[create_new_id()],
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_delete_sections(delete_request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 code_obj_request = SetCodeObjNameRequest(
                     projectConfigId=project_config_id,
                     codeObjId=create_new_id(),
                     name="renamed",
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_code_obj_name(code_obj_request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 display_request = SetCodeObjDisplayNameRequest(
                     projectConfigId=project_config_id,
                     codeObjId=create_new_id(),
                     displayName="Display",
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_code_obj_display_name(
                         display_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 binding_request = SetCodeFileBindingRequest(
                     projectConfigId=project_config_id,
@@ -552,20 +554,20 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                         "access_mode": CodeFileAccessMode.read_write,
                     },
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_code_file_binding(
                         binding_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 rename_request = SetSectionNameRequest(
                     projectConfigId=project_config_id,
                     sectionId=create_new_id(),
                     name="Renamed",
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_section_name(rename_request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_param_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -709,10 +711,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
-                    with self.subTest(name=name):
-                        with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, runtime_ctx)
-                        self.assertEqual(403, ctx.exception.status_code)
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_code_param_edits_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -764,10 +765,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
-                    with self.subTest(name=name):
-                        with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, runtime_ctx)
-                        self.assertEqual(403, ctx.exception.status_code)
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_param_impl_and_kwargs_blocked_when_param_changes_allowed(
         self,
@@ -827,10 +827,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
-                    with self.subTest(name=name):
-                        with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, runtime_ctx)
-                        self.assertEqual(403, ctx.exception.status_code)
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_param_policy_applies_to_all_configs(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -853,9 +852,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     sectionId=create_new_id(),
                     text="blocked",
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_text_block_text(request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_layout_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -876,9 +875,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 hideParams=True,
             )
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_set_callable_hide_params(request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_param_selection_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -899,20 +898,20 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 paramInfoId=create_new_id(),
             )
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_toggle_param_selected(
                         toggle_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
                 unselect_request = UnselectAllParamsRequest(
                     projectConfigId=project_config_id,
                 )
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_unselect_all_params(
                         unselect_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_view_mode_routes_blocked_when_variant_changes_allowed(
         self,
@@ -979,10 +978,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
-                    with self.subTest(name=name):
-                        with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, runtime_ctx)
-                        self.assertEqual(403, ctx.exception.status_code)
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_layout_routes_blocked_when_layout_changes_allowed(
         self,
@@ -1029,10 +1027,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
-                    with self.subTest(name=name):
-                        with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, runtime_ctx)
-                        self.assertEqual(403, ctx.exception.status_code)
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1054,9 +1051,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 asRef=False,
             )
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_paste_sections(request, runtime_ctx)
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_rename_refactor_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1078,17 +1075,17 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 projectConfigId=project_config_id,
             )
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_accept_rename_refactor(
                         accept_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_decline_rename_refactor(
                         decline_request, runtime_ctx
                     )
-                self.assertEqual(403, ctx.exception.status_code)
+                assert ctx.value.status_code == 403
 
     async def test_terminal_routes_require_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1101,22 +1098,18 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 require_share_session_id(state, None)
-            self.assertEqual(400, ctx.exception.status_code)
+            assert ctx.value.status_code == 400
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 require_share_session_id(state, "missing-session")
-            self.assertEqual(404, ctx.exception.status_code)
+            assert ctx.value.status_code == 404
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 require_share_session_id(state, None)
-            self.assertEqual(400, ctx.exception.status_code)
+            assert ctx.value.status_code == 400
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 require_share_session_id(state, "missing-session")
-            self.assertEqual(404, ctx.exception.status_code)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert ctx.value.status_code == 404

@@ -1,12 +1,12 @@
 import json
 import tomllib
-import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from fastapi import HTTPException
+import pytest
 
 from setta.agentic.external_agent_defaults import (
     DEFAULT_CLAUDE_ALLOW_RULES,
@@ -89,7 +89,9 @@ class _AgenticTestState:
     prompt_template_watcher: object | None = None
 
 
-class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
+class TestAgenticRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def test_profile_crud_and_runs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
@@ -151,21 +153,21 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 profiles = await route_get_agent_profiles(ctx)
-                self.assertEqual(len(profiles), 1)
-                self.assertEqual(profiles[0].id, profile.id)
+                assert len(profiles) == 1
+                assert profiles[0].id == profile.id
 
                 updated = profile.model_copy(update={"name": "Planner v2"})
                 updated_profile = await route_update_agent_profile(
                     UpdateAgentProfileRequest(profile=updated),
                     ctx,
                 )
-                self.assertEqual(updated_profile.name, "Planner v2")
+                assert updated_profile.name == "Planner v2"
 
                 fetched = await route_get_agent_profile(
                     GetAgentProfileRequest(profileId=profile.id),
                     ctx,
                 )
-                self.assertEqual(fetched.name, "Planner v2")
+                assert fetched.name == "Planner v2"
 
                 run = await route_start_agent_run(
                     StartAgentRunRequest(
@@ -174,30 +176,30 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     ctx,
                 )
-                self.assertEqual(run.status, AgentRunStatus.running)
+                assert run.status == AgentRunStatus.running
 
                 fetched_run = await route_get_agent_run(
                     GetAgentRunRequest(runId=run.id),
                     ctx,
                 )
-                self.assertEqual(fetched_run.id, run.id)
+                assert fetched_run.id == run.id
 
                 stopped = await route_stop_agent_run(
                     StopAgentRunRequest(runId=run.id),
                     ctx,
                 )
-                self.assertEqual(stopped.status, AgentRunStatus.cancelled)
-                self.assertIsNotNone(stopped.finishedAt)
+                assert stopped.status == AgentRunStatus.cancelled
+                assert stopped.finishedAt is not None
 
                 runs = await route_get_agent_runs(ctx)
-                self.assertEqual(len(runs), 1)
+                assert len(runs) == 1
 
                 await route_delete_agent_profile(
                     DeleteAgentProfileRequest(profileId=profile.id),
                     ctx,
                 )
                 profiles = await route_get_agent_profiles(ctx)
-                self.assertEqual(profiles, [])
+                assert profiles == []
 
     async def test_prompt_template_crud(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -224,14 +226,14 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 templates = await route_get_prompt_templates(ctx)
-                self.assertEqual(len(templates), 1)
-                self.assertEqual(templates[0].id, created.id)
+                assert len(templates) == 1
+                assert templates[0].id == created.id
 
                 fetched = await route_get_prompt_template(
                     GetPromptTemplateRequest(templateId=created.id),
                     ctx,
                 )
-                self.assertEqual(fetched.template, "Hello {{ name }}")
+                assert fetched.template == "Hello {{ name }}"
 
                 updated = created.model_copy(
                     update={
@@ -243,15 +245,15 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     UpdatePromptTemplateRequest(template=updated),
                     ctx,
                 )
-                self.assertEqual(updated_template.description, "Updated greeting")
-                self.assertEqual(updated_template.template, "Hey {{ name }}")
+                assert updated_template.description == "Updated greeting"
+                assert updated_template.template == "Hey {{ name }}"
 
                 await route_delete_prompt_template(
                     DeletePromptTemplateRequest(templateId=updated_template.id),
                     ctx,
                 )
                 templates = await route_get_prompt_templates(ctx)
-                self.assertEqual(templates, [])
+                assert templates == []
 
     async def test_external_agent_config_crud(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -283,30 +285,30 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 configs = await route_get_external_agent_configs(ctx)
-                self.assertEqual(len(configs), 1)
-                self.assertEqual(configs[0].id, created.id)
+                assert len(configs) == 1
+                assert configs[0].id == created.id
 
                 fetched = await route_get_external_agent_config(
                     GetExternalAgentConfigRequest(configId=created.id),
                     ctx,
                 )
-                self.assertEqual(fetched.name, "Codex app-server")
+                assert fetched.name == "Codex app-server"
 
                 updated = created.model_copy(update={"name": "Codex app-server v2"})
                 updated_config = await route_update_external_agent_config(
                     UpdateExternalAgentConfigRequest(config=updated),
                     ctx,
                 )
-                self.assertEqual(updated_config.name, "Codex app-server v2")
+                assert updated_config.name == "Codex app-server v2"
 
                 await route_delete_external_agent_config(
                     DeleteExternalAgentConfigRequest(configId=updated.id),
                     ctx,
                 )
                 configs = await route_get_external_agent_configs(ctx)
-                self.assertEqual(configs, [])
+                assert configs == []
 
-                with self.assertRaises(HTTPException):
+                with pytest.raises(HTTPException):
                     await route_get_external_agent_config(
                         GetExternalAgentConfigRequest(configId=updated.id),
                         ctx,
@@ -334,20 +336,20 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ctx,
                 )
 
-            self.assertEqual(
-                created.settingsMode,
-                ExternalAgentSettingsMode.managed_local,
+            assert (
+                created.settingsMode
+                == ExternalAgentSettingsMode.managed_local
             )
-            self.assertTrue(created.settingsAllowSettaEdits)
+            assert created.settingsAllowSettaEdits
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(permissions.get("allow"), DEFAULT_CLAUDE_ALLOW_RULES)
-                self.assertEqual(permissions.get("ask"), DEFAULT_CLAUDE_ASK_RULES)
+                assert permissions.get("allow") == DEFAULT_CLAUDE_ALLOW_RULES
+                assert permissions.get("ask") == DEFAULT_CLAUDE_ASK_RULES
 
     async def test_external_agent_config_initializes_codex_settings_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -371,8 +373,8 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ctx,
                 )
 
-            self.assertEqual(created.approvalPolicy, "on-failure")
-            self.assertEqual(created.sandboxPolicy, "workspace-write")
+            assert created.approvalPolicy == "on-failure"
+            assert created.sandboxPolicy == "workspace-write"
 
             settings_path = (
                 setta_root
@@ -381,16 +383,16 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 / str(created.id)
                 / "config.toml"
             )
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = tomllib.loads(settings_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("approval_policy"), "on-failure")
-            self.assertEqual(payload.get("sandbox_mode"), "workspace-write")
+            assert payload.get("approval_policy") == "on-failure"
+            assert payload.get("sandbox_mode") == "workspace-write"
             mcp_servers = payload.get("mcp_servers")
-            self.assertIsInstance(mcp_servers, dict)
+            assert isinstance(mcp_servers, dict)
             if isinstance(mcp_servers, dict):
-                self.assertEqual(
-                    mcp_servers.get("setta", {}).get("url"),
-                    f"{C.BACKEND}/mcp",
+                assert (
+                    mcp_servers.get("setta", {}).get("url")
+                    == f"{C.BACKEND}/mcp"
                 )
 
     async def test_external_agent_config_initializes_opencode_settings_file(self) -> None:
@@ -422,16 +424,13 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                 / str(created.id)
                 / "opencode.json"
             )
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("permission"), DEFAULT_OPENCODE_PERMISSION)
+            assert payload.get("permission") == DEFAULT_OPENCODE_PERMISSION
             mcp = payload.get("mcp")
-            self.assertIsInstance(mcp, dict)
+            assert isinstance(mcp, dict)
             if isinstance(mcp, dict):
-                self.assertEqual(
-                    mcp.get("setta", {}).get("url"),
-                    f"{C.BACKEND}/mcp",
-                )
+                assert mcp.get("setta", {}).get("url") == f"{C.BACKEND}/mcp"
 
     async def test_external_agent_run_blocks_on_preflight(self) -> None:
         class _Runner:
@@ -493,7 +492,7 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                         ),
                         ctx,
                     )
-                    with self.assertRaises(HTTPException) as ctx_err:
+                    with pytest.raises(HTTPException) as ctx_err:
                         await route_start_agent_run(
                             StartAgentRunRequest(
                                 profileId=profile.id,
@@ -501,4 +500,4 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                             ),
                             ctx,
                         )
-                    self.assertEqual(ctx_err.exception.status_code, 503)
+                    assert ctx_err.value.status_code == 503

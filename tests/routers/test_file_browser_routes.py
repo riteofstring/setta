@@ -1,10 +1,11 @@
 import base64
 import os
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
+import pytest_asyncio
 
 import setta.routers.artifact as artifact_router
 from setta.database.db_objs import DBE
@@ -125,20 +126,24 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
 
 
-class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
+class TestFileBrowserRoutes:
+    pytestmark = pytest.mark.asyncio
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._states: list[SettaFastAPIState] = []
         self._temp_dirs: list[TemporaryDirectory] = []
         self._temp_dir = TemporaryDirectory()
         self._previous_constants = _set_temp_constants(Path(self._temp_dir.name))
-
-    async def asyncTearDown(self) -> None:
-        for state in self._states:
-            await _shutdown_state(state)
-        for temp_dir in self._temp_dirs:
-            temp_dir.cleanup()
-        _restore_constants(self._previous_constants)
-        self._temp_dir.cleanup()
+        try:
+            yield
+        finally:
+            for state in self._states:
+                await _shutdown_state(state)
+            for temp_dir in self._temp_dirs:
+                temp_dir.cleanup()
+            _restore_constants(self._previous_constants)
+            self._temp_dir.cleanup()
 
     async def _build_state(
         self,
@@ -191,9 +196,9 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
         state = await self._build_state()
         with runtime_context(state) as runtime_ctx:
             response = route_get_file_browser_root(runtime_ctx)
-        self.assertEqual(str(CWD.resolve()), response.rootPath)
-        self.assertEqual(os.sep, response.pathSeparator)
-        self.assertIn(".git", response.ignorePatterns)
+        assert str(CWD.resolve()) == response.rootPath
+        assert os.sep == response.pathSeparator
+        assert ".git" in response.ignorePatterns
 
     async def test_get_file_browser_root_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -210,9 +215,9 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             session = state.share_session_store.create_session()
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     route_get_file_browser_root(runtime_ctx)
-        self.assertEqual(403, ctx.exception.status_code)
+        assert ctx.value.status_code == 403
 
     async def test_get_folder_contents_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -229,12 +234,12 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             session = state.share_session_store.create_session()
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(root)),
                         runtime_ctx,
                     )
-        self.assertEqual(403, ctx.exception.status_code)
+        assert ctx.value.status_code == 403
 
     async def test_get_folder_contents_filters_hidden_and_ignored(self) -> None:
         state = await self._build_state()
@@ -250,10 +255,10 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     runtime_ctx,
                 )
         names = {item["name"] for item in items}
-        self.assertIn("visible.txt", names)
-        self.assertIn("child", names)
-        self.assertNotIn("node_modules", names)
-        self.assertNotIn(".env", names)
+        assert "visible.txt" in names
+        assert "child" in names
+        assert "node_modules" not in names
+        assert ".env" not in names
 
     async def test_get_folder_contents_include_hidden_and_ignore_override(self) -> None:
         state = await self._build_state()
@@ -273,12 +278,12 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     runtime_ctx,
                 )
         names = {item["name"] for item in items}
-        self.assertIn(".env", names)
-        self.assertIn("node_modules", names)
+        assert ".env" in names
+        assert "node_modules" in names
         for item in items:
-            self.assertIn("fullPath", item)
-            self.assertIn("mtime", item)
-            self.assertIn("size", item)
+            assert "fullPath" in item
+            assert "mtime" in item
+            assert "size" in item
 
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
@@ -295,20 +300,20 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     runtime_ctx,
                 )
-        self.assertEqual(1, len(items))
+        assert len(items) == 1
         expected_path = (root_path / items[0]["name"]).resolve()
-        self.assertEqual(expected_path, Path(items[0]["fullPath"]).resolve())
+        assert expected_path == Path(items[0]["fullPath"]).resolve()
 
     async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory() as tmpdir:
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=tmpdir),
                         runtime_ctx,
                     )
-        self.assertEqual(403, ctx.exception.status_code)
+        assert ctx.value.status_code == 403
 
     async def test_get_folder_contents_errors(self) -> None:
         state = await self._build_state()
@@ -318,18 +323,18 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             file_path.write_text("hi", encoding="utf-8")
             missing_path = root_path / "missing"
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(HTTPException) as missing_ctx:
+                with pytest.raises(HTTPException) as missing_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(missing_path)),
                         runtime_ctx,
                     )
-                self.assertEqual(404, missing_ctx.exception.status_code)
-                with self.assertRaises(HTTPException) as directory_ctx:
+                assert missing_ctx.value.status_code == 404
+                with pytest.raises(HTTPException) as directory_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(file_path)),
                         runtime_ctx,
                     )
-                self.assertEqual(400, directory_ctx.exception.status_code)
+                assert directory_ctx.value.status_code == 400
 
     async def test_import_files_to_artifacts_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -346,35 +351,35 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             session = state.share_session_store.create_session()
             with runtime_context(state, session.id) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
                         ImportFilesToArtifactsRequest(paths=["/tmp/ignored.txt"]),
                         runtime_ctx,
                     )
-        self.assertEqual(403, ctx.exception.status_code)
+        assert ctx.value.status_code == 403
 
     async def test_import_files_to_artifacts_missing_path(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=CWD) as tmpdir:
             missing_path = Path(tmpdir) / "missing.txt"
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
                         ImportFilesToArtifactsRequest(paths=[str(missing_path)]),
                         runtime_ctx,
                     )
-        self.assertEqual(404, ctx.exception.status_code)
+        assert ctx.value.status_code == 404
 
     async def test_import_files_to_artifacts_directory_path(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=CWD) as tmpdir:
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
                         ImportFilesToArtifactsRequest(paths=[tmpdir]),
                         runtime_ctx,
                     )
-        self.assertEqual(400, ctx.exception.status_code)
+        assert ctx.value.status_code == 400
 
     async def test_import_files_to_artifacts_success(self) -> None:
         state = await self._build_state()
@@ -387,17 +392,14 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     ImportFilesToArtifactsRequest(paths=[str(file_path)]),
                     runtime_ctx,
                 )
-        self.assertEqual(1, len(results))
+        assert len(results) == 1
         result = results[0]
-        self.assertEqual(file_path.name, result.name)
-        self.assertEqual(len(contents), result.size)
+        assert file_path.name == result.name
+        assert len(contents) == result.size
         cached = state.artifacts.get_cached_file(result.id)
-        self.assertIsNotNone(cached)
         assert cached is not None
-        self.assertEqual(
-            base64.b64encode(contents).decode("utf-8"),
-            cached.value,
-        )
+        assert cached is not None
+        assert base64.b64encode(contents).decode("utf-8") == cached.value
 
     async def test_update_artifacts_rejects_oversized_file(self) -> None:
         state = await self._build_state()
@@ -410,12 +412,12 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             artifact_id = (C.ARTIFACTS_FOLDER / "too-big.bin").as_posix()
             artifact = FileArtifact(id=artifact_id, value=oversized_payload)
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(HTTPException) as ctx:
+                with pytest.raises(HTTPException) as ctx:
                     await route_update_artifacts(
                         UpdateArtifactsRequest(artifacts=[artifact]),
                         runtime_ctx,
                     )
-            self.assertEqual(413, ctx.exception.status_code)
+            assert ctx.value.status_code == 413
         finally:
             artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
             artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
@@ -431,7 +433,7 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                 runtime_ctx,
             )
             file_path = (CWD / artifact_id).resolve()
-            self.assertTrue(file_path.exists())
+            assert file_path.exists()
             deleted = await route_delete_artifacts(
                 DeleteArtifactsRequest(
                     artifacts=[
@@ -443,15 +445,15 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 runtime_ctx,
             )
-        self.assertIn(expected_id, deleted)
-        self.assertFalse(file_path.exists())
-        self.assertIsNone(state.artifacts.get_cached_file(artifact_id))
+        assert expected_id in deleted
+        assert not file_path.exists()
+        assert state.artifacts.get_cached_file(artifact_id) is None
 
     async def test_delete_artifacts_rejects_non_file_type(self) -> None:
         state = await self._build_state()
         artifact_id = (C.ARTIFACTS_FOLDER / "chart.json").as_posix()
         with runtime_context(state) as runtime_ctx:
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_delete_artifacts(
                     DeleteArtifactsRequest(
                         artifacts=[
@@ -463,13 +465,13 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     runtime_ctx,
                 )
-        self.assertEqual(400, ctx.exception.status_code)
+        assert ctx.value.status_code == 400
 
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:
         state = await self._build_state()
         outside_id = "setta_files/code/should-not-delete.txt"
         with runtime_context(state) as runtime_ctx:
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await route_delete_artifacts(
                     DeleteArtifactsRequest(
                         artifacts=[
@@ -481,8 +483,5 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     runtime_ctx,
                 )
-        self.assertEqual(403, ctx.exception.status_code)
+        assert ctx.value.status_code == 403
 
-
-if __name__ == "__main__":
-    unittest.main()

@@ -1,10 +1,10 @@
-import unittest
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -220,7 +220,7 @@ def _build_external_run(
 
 
 @dataclass(slots=True)
-class TestState:
+class _TestState:
     dbe: DBE
     agent_runner: AgentRunner
     wmh_frontend_sender: WMHFrontendSender
@@ -230,7 +230,9 @@ class TestState:
     chat_manager: None = None
 
 
-class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
+class TestAgentRunChatRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def test_share_mode_blocks_llm_when_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-llm-config-guard"
@@ -249,7 +251,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             await state.wait_until_ready()
             session = state.share_session_store.create_session()
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_get_llm_response(
                         GetLLMResponseRequest(
@@ -265,14 +267,14 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                         runtime_ctx,
                     )
 
-            self.assertEqual(ctx.exception.status_code, 403)
-            self.assertEqual(ctx.exception.detail, "Share LLM support is not enabled.")
+            assert ctx.value.status_code == 403
+            assert ctx.value.detail == "Share LLM support is not enabled."
 
     async def test_get_llm_chat_from_agent_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
@@ -307,15 +309,15 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ctx,
                 )
 
-            self.assertEqual(len(response.messages), 2)
-            self.assertFalse(response.waitingForResponse)
-            self.assertEqual(response.llmConfig.id, "primary")
+            assert len(response.messages) == 2
+            assert not response.waitingForResponse
+            assert response.llmConfig.id == "primary"
 
     async def test_get_llm_chat_uses_latest_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
@@ -360,11 +362,11 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ctx,
                 )
 
-            self.assertEqual(len(response.messages), 1)
+            assert len(response.messages) == 1
             message = response.messages[0]
-            self.assertEqual(message.content[0].text, "Second chat message")
-            self.assertFalse(response.waitingForResponse)
-            self.assertEqual(response.llmConfig.id, "primary")
+            assert message.content[0].text == "Second chat message"
+            assert not response.waitingForResponse
+            assert response.llmConfig.id == "primary"
 
     async def test_external_engine_rejects_llm_chat_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -377,7 +379,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             dbe.write_project(project_state)
             runner = _build_runner(dbe)
             external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
@@ -423,7 +425,7 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             save_agent_run(dbe, run)
 
             with runtime_context(state) as ctx:
-                with self.assertRaises(HTTPException) as exc:
+                with pytest.raises(HTTPException) as exc:
                     await route_get_llm_response(
                         GetLLMResponseRequest(
                             chatId=chat_id,
@@ -438,16 +440,14 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                         ctx,
                     )
 
-            self.assertEqual(exc.exception.status_code, 409)
-            self.assertEqual(
-                exc.exception.detail, "Chat engine mismatch; start a new chat."
-            )
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
@@ -480,22 +480,22 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                     ctx,
                 )
 
-            self.assertEqual(len(response.messages), 2)
-            self.assertTrue(response.waitingForResponse)
-            self.assertEqual(response.toolCallArguments, {})
+            assert len(response.messages) == 2
+            assert response.waitingForResponse
+            assert response.toolCallArguments == {}
 
     async def test_get_external_agent_chat_missing_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
 
             with runtime_context(state) as ctx:
-                with self.assertRaises(HTTPException) as exc:
+                with pytest.raises(HTTPException) as exc:
                     await route_get_external_agent_chat(
                         GetExternalAgentChatRequest(
                             chatId=ID("missing-external"),
@@ -504,8 +504,8 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                         ctx,
                     )
 
-            self.assertEqual(exc.exception.status_code, 404)
-            self.assertEqual(exc.exception.detail, "Chat not found")
+            assert exc.value.status_code == 404
+            assert exc.value.detail == "Chat not found"
 
     async def test_external_agent_prior_messages_use_external_runs(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -550,16 +550,14 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 project_config_id=project_config_id,
             )
 
-            self.assertEqual(2, len(prior_messages))
-            self.assertEqual(
-                "External reply", prior_messages[1].content[0].text
-            )
+            assert len(prior_messages) == 2
+            assert prior_messages[1].content[0].text == "External reply"
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = TestState(
+            state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
@@ -586,8 +584,8 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             stopped = load_agent_run(dbe, running_run.id)
-            self.assertIsNotNone(stopped)
+            assert stopped is not None
             if stopped is None:
                 return
-            self.assertEqual(stopped.status, AgentRunStatus.cancelled)
-            self.assertIsNotNone(stopped.finishedAt)
+            assert stopped.status == AgentRunStatus.cancelled
+            assert stopped.finishedAt is not None

@@ -1,7 +1,8 @@
-import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.store import save_engine_configs
 from setta.database.db_objs import DBE
@@ -30,63 +31,59 @@ class _ListenerRouteState:
     share_runtime_state: None = None
 
 
-class ListenerChatRouteTests(unittest.IsolatedAsyncioTestCase):
-    async def test_create_chat_allows_scriptable_engine(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir))
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            state = _ListenerRouteState(
-                dbe=dbe,
-                agent_runner=_RunnerStub(
-                    config=AllLLMConfigs(configs={}, mcpServers={})
-                ),
-                wmh_frontend_sender=frontend_sender,
-            )
-            request = CreateChatRequest(
-                engineConfigId=None,
-                firstMessage=UserChatMessage(
-                    id="msg-1",
-                    content=[MessageTextContent(text="Hello")],
-                ),
-            )
-            with runtime_context(state) as ctx:
-                chat = await route_create_chat(request, ctx)
-            self.assertEqual(chat.llmConfig.id, SCRIPTABLE_LLM_CONFIG_ID)
-
-    async def test_create_chat_resolves_internal_engine(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir))
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            llm_configs = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(id="primary", model="gpt-test"),
-                },
-                mcpServers={},
-            )
-            engine_config = EngineConfig(
-                name="Primary LLM",
-                engineType=EngineType.setta_llm,
-                settaLlmConfigId="primary",
-            )
-            save_engine_configs(dbe, [engine_config])
-            state = _ListenerRouteState(
-                dbe=dbe,
-                agent_runner=_RunnerStub(config=llm_configs),
-                wmh_frontend_sender=frontend_sender,
-            )
-            request = CreateChatRequest(
-                engineConfigId=engine_config.id,
-                firstMessage=UserChatMessage(
-                    id="msg-1",
-                    content=[MessageTextContent(text="Hello")],
-                ),
-            )
-            with runtime_context(state) as ctx:
-                chat = await route_create_chat(request, ctx)
-            self.assertEqual(chat.llmConfig.id, "primary")
+@pytest.mark.asyncio
+async def test_create_chat_allows_scriptable_engine() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir))
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+        state = _ListenerRouteState(
+            dbe=dbe,
+            agent_runner=_RunnerStub(config=AllLLMConfigs(configs={}, mcpServers={})),
+            wmh_frontend_sender=frontend_sender,
+        )
+        request = CreateChatRequest(
+            engineConfigId=None,
+            firstMessage=UserChatMessage(
+                id="msg-1",
+                content=[MessageTextContent(text="Hello")],
+            ),
+        )
+        with runtime_context(state) as ctx:
+            chat = await route_create_chat(request, ctx)
+        assert chat.llmConfig.id == SCRIPTABLE_LLM_CONFIG_ID
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.asyncio
+async def test_create_chat_resolves_internal_engine() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir))
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+        llm_configs = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(id="primary", model="gpt-test"),
+            },
+            mcpServers={},
+        )
+        engine_config = EngineConfig(
+            name="Primary LLM",
+            engineType=EngineType.setta_llm,
+            settaLlmConfigId="primary",
+        )
+        save_engine_configs(dbe, [engine_config])
+        state = _ListenerRouteState(
+            dbe=dbe,
+            agent_runner=_RunnerStub(config=llm_configs),
+            wmh_frontend_sender=frontend_sender,
+        )
+        request = CreateChatRequest(
+            engineConfigId=engine_config.id,
+            firstMessage=UserChatMessage(
+                id="msg-1",
+                content=[MessageTextContent(text="Hello")],
+            ),
+        )
+        with runtime_context(state) as ctx:
+            chat = await route_create_chat(request, ctx)
+        assert chat.llmConfig.id == "primary"

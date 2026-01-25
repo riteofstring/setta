@@ -1,10 +1,10 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from datetime import timedelta
 
 from fastapi import FastAPI, HTTPException, Request
+import pytest
 from starlette.types import Scope
 
 from setta.routers.dependencies import (
@@ -114,111 +114,114 @@ def _make_app_request(
     return Request(scope, empty_receive)
 
 
-class ShareDependencyTests(unittest.TestCase):
-    def test_request_header_precedence(self) -> None:
-        request = _make_request(
-            headers=[
-                (b"x-share-session-id", b"header"),
-                (b"cookie", b"shareSessionId=cookie"),
-            ],
-            query_string="shareSessionId=query",
+def test_request_header_precedence() -> None:
+    request = _make_request(
+        headers=[
+            (b"x-share-session-id", b"header"),
+            (b"cookie", b"shareSessionId=cookie"),
+        ],
+        query_string="shareSessionId=query",
+    )
+    assert maybe_get_share_session_id_from_request(request) == "header"
+
+
+def test_request_cookie_fallback() -> None:
+    request = _make_request(
+        headers=[(b"cookie", b"shareSessionId=cookie")],
+        query_string="shareSessionId=query",
+    )
+    assert maybe_get_share_session_id_from_request(request) == "cookie"
+
+
+def test_request_query_fallback() -> None:
+    request = _make_request(query_string="shareSessionId=query")
+    assert maybe_get_share_session_id_from_request(request) == "query"
+
+
+def test_request_missing_session_id_returns_none() -> None:
+    request = _make_request()
+    assert maybe_get_share_session_id_from_request(request) is None
+
+
+async def _build_state(root: Path) -> tuple[FastAPI, SettaFastAPIState]:
+    app = FastAPI()
+    state = SettaFastAPIState(
+        app,
+        share_mode=True,
+        share_deployment_root=root,
+    )
+    app.state.setta = state
+    await state.wait_until_ready()
+    return app, state
+
+
+@pytest.mark.asyncio
+async def test_runtime_context_exposes_session_id() -> None:
+    with TemporaryDirectory() as tmpdir:
+        project_config_name = "share-dependency-test"
+        root = _build_share_deployment_root(tmpdir, project_config_name)
+        _write_share_project(
+            root,
+            project_config_name=project_config_name,
+            deployment_version=root.name,
         )
-        self.assertEqual("header", maybe_get_share_session_id_from_request(request))
-
-    def test_request_cookie_fallback(self) -> None:
-        request = _make_request(
-            headers=[(b"cookie", b"shareSessionId=cookie")],
-            query_string="shareSessionId=query",
-        )
-        self.assertEqual("cookie", maybe_get_share_session_id_from_request(request))
-
-    def test_request_query_fallback(self) -> None:
-        request = _make_request(query_string="shareSessionId=query")
-        self.assertEqual("query", maybe_get_share_session_id_from_request(request))
-
-    def test_request_missing_session_id_returns_none(self) -> None:
-        request = _make_request()
-        self.assertIsNone(maybe_get_share_session_id_from_request(request))
-
-
-class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
-    async def _build_state(self, root: Path) -> tuple[FastAPI, SettaFastAPIState]:
-        app = FastAPI()
-        state = SettaFastAPIState(
+        app, state = await _build_state(root)
+        session = state.share_session_store.create_session()
+        request = _make_app_request(
             app,
-            share_mode=True,
-            share_deployment_root=root,
+            headers=[(b"x-share-session-id", session.id.encode())],
         )
-        app.state.setta = state
-        await state.wait_until_ready()
-        return app, state
+        context = get_runtime_context_from_request(request)
+        try:
+            runtime_ctx = await context.__anext__()
+            assert runtime_ctx.share_session_id == session.id
+        finally:
+            await context.aclose()
 
-    async def test_runtime_context_exposes_session_id(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-dependency-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            app, state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            request = _make_app_request(
-                app,
-                headers=[(b"x-share-session-id", session.id.encode())],
-            )
-            context = get_runtime_context_from_request(request)
-            try:
-                runtime_ctx = await context.__anext__()
-                self.assertEqual(session.id, runtime_ctx.share_session_id)
-            finally:
-                await context.aclose()
 
-    async def test_share_session_context_requires_session_id(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-dependency-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            app, _state = await self._build_state(root)
-            request = _make_app_request(app)
-            context = get_runtime_context_from_request(request)
-            try:
-                with self.assertRaises(HTTPException) as ctx:
-                    await context.__anext__()
-                self.assertEqual(400, ctx.exception.status_code)
-            finally:
-                await context.aclose()
-
-    async def test_share_session_context_touches_session(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-dependency-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            app, state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            old_timestamp = session.last_accessed_at - timedelta(seconds=120)
-            session.last_accessed_at = old_timestamp
-            request = _make_app_request(
-                app,
-                headers=[(b"x-share-session-id", session.id.encode())],
-            )
-            context = get_runtime_context_from_request(request)
-            try:
+@pytest.mark.asyncio
+async def test_share_session_context_requires_session_id() -> None:
+    with TemporaryDirectory() as tmpdir:
+        project_config_name = "share-dependency-test"
+        root = _build_share_deployment_root(tmpdir, project_config_name)
+        _write_share_project(
+            root,
+            project_config_name=project_config_name,
+            deployment_version=root.name,
+        )
+        app, _state = await _build_state(root)
+        request = _make_app_request(app)
+        context = get_runtime_context_from_request(request)
+        try:
+            with pytest.raises(HTTPException) as exc:
                 await context.__anext__()
-            finally:
-                await context.aclose()
+            assert exc.value.status_code == 400
+        finally:
+            await context.aclose()
 
-            self.assertGreater(session.last_accessed_at, old_timestamp)
 
+@pytest.mark.asyncio
+async def test_share_session_context_touches_session() -> None:
+    with TemporaryDirectory() as tmpdir:
+        project_config_name = "share-dependency-test"
+        root = _build_share_deployment_root(tmpdir, project_config_name)
+        _write_share_project(
+            root,
+            project_config_name=project_config_name,
+            deployment_version=root.name,
+        )
+        app, state = await _build_state(root)
+        session = state.share_session_store.create_session()
+        old_timestamp = session.last_accessed_at - timedelta(seconds=120)
+        session.last_accessed_at = old_timestamp
+        request = _make_app_request(
+            app,
+            headers=[(b"x-share-session-id", session.id.encode())],
+        )
+        context = get_runtime_context_from_request(request)
+        try:
+            await context.__anext__()
+        finally:
+            await context.aclose()
 
-if __name__ == "__main__":
-    unittest.main()
+        assert session.last_accessed_at > old_timestamp

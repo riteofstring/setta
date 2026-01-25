@@ -1,9 +1,9 @@
 import json
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+import pytest
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -84,7 +84,9 @@ def _seed_share_dirs(root: Path) -> None:
         (root / folder).mkdir(parents=True, exist_ok=True)
 
 
-class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
+class TestShareFilesystemRoutes:
+    pytestmark = pytest.mark.asyncio
+
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -110,14 +112,14 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             session = state.share_session_store.create_session()
 
             allowed_path = root / "json_sources" / "allowed.json"
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_create_file(
                         CreateFileRequest(filepath=str(allowed_path)),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
-            self.assertFalse(allowed_path.exists())
+            assert ctx.value.status_code == 403
+            assert not allowed_path.exists()
 
     async def test_new_json_version_name_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -133,13 +135,13 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             session = state.share_session_store.create_session()
 
             allowed_path = root / "json_sources" / "version.json"
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_new_json_version_name(
                         NewJSONVersionNameRequest(filename=str(allowed_path)),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_get_json_source_path_to_be_deleted_restricts_share_paths(
         self,
@@ -156,13 +158,13 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_get_json_source_path_to_be_deleted(
                         GetJSONSourcePathToBeDeleted(variantName="data.json"),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_check_if_file_exists_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -184,16 +186,16 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                     CheckIfFileExistsRequests(filepath=str(allowed_path)),
                     runtime_ctx,
                 )
-            self.assertTrue(result)
+            assert result
 
             blocked_path = root / "manifest.json"
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_check_if_file_exists(
                         CheckIfFileExistsRequests(filepath=str(blocked_path)),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_get_folder_contents_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -210,21 +212,21 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
 
             artifacts_dir = root / "artifacts"
             (artifacts_dir / "image.png").touch()
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(artifacts_dir)),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(root)),
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_load_cached_image_artifacts_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -245,8 +247,8 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             payload = LoadCachedPathsRequest(paths=[str(image_path)])
             with runtime_context(state, session.id) as runtime_ctx:
                 result = route_load_cached_image_artifacts(payload, runtime_ctx)
-            self.assertEqual(1, len(result))
-            self.assertIsNotNone(result[0])
+            assert len(result) == 1
+            assert result[0] is not None
 
     async def test_delete_section_variant_blocked_in_share_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -265,12 +267,12 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                 variantId=create_new_id(),
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 session = state.share_session_store.create_session()
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_delete_section_variant_or_ask(request, runtime_ctx)
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_delete_json_source_variant_blocked_in_share_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -290,7 +292,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                 filepath="some-file.json",
             )
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 session = state.share_session_store.create_session()
                 with runtime_context(state, session.id) as runtime_ctx:
                     await route_delete_json_source_file_and_variant(
@@ -298,7 +300,7 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                         runtime_ctx,
                     )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_load_cached_chart_data_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -319,14 +321,14 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             payload = LoadCachedPathsRequest(paths=[str(chart_path)])
             with runtime_context(state, session.id) as runtime_ctx:
                 result = route_load_cached_chart_data(payload, runtime_ctx)
-            self.assertEqual(1, len(result))
-            self.assertIsNotNone(result[0])
+            assert len(result) == 1
+            assert result[0] is not None
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_load_cached_chart_data(blocked_payload, runtime_ctx)
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_load_cached_brush_strokes_restricts_share_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -355,14 +357,14 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             payload = LoadCachedPathsRequest(paths=[str(stroke_path)])
             with runtime_context(state, session.id) as runtime_ctx:
                 result = route_load_cached_brush_strokes(payload, runtime_ctx)
-            self.assertEqual(1, len(result))
-            self.assertIsNotNone(result[0])
+            assert len(result) == 1
+            assert result[0] is not None
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_load_cached_brush_strokes(blocked_payload, runtime_ctx)
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
     async def test_load_cached_draw_area_layer_item_transform_restricts_share_paths(
         self,
@@ -393,18 +395,15 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                 result = route_load_cached_draw_area_layer_item_transform(
                     payload, runtime_ctx
                 )
-            self.assertEqual(1, len(result))
-            self.assertIsNotNone(result[0])
+            assert len(result) == 1
+            assert result[0] is not None
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
                     route_load_cached_draw_area_layer_item_transform(
                         blocked_payload,
                         runtime_ctx,
                     )
-            self.assertEqual(403, ctx.exception.status_code)
+            assert ctx.value.status_code == 403
 
-
-if __name__ == "__main__":
-    unittest.main()
