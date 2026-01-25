@@ -4,7 +4,6 @@ import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -16,7 +15,10 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
+    CreateNewSectionVariantRequest,
     SetCodeRequest,
+    SetCallableRequest,
+    SetSectionVariantRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
 )
@@ -68,14 +70,16 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         for path in (self.setta_root, self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
+        self._original_constants = {
+            "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
+            "CODE_FOLDER": C.CODE_FOLDER,
+            "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
+            "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
+        }
+        C.SETTA_FILES_FOLDER = self.setta_root
+        C.CODE_FOLDER = self.code_folder
+        C.ARTIFACTS_FOLDER = self.artifacts_folder
+        C.DB_BACKUP_FOLDER = self.backup_folder
 
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
@@ -137,8 +141,8 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         self.manager.shutdown()
         await _shutdown_manager(self.manager)
-        for patcher in reversed(self._patchers):
-            patcher.stop()
+        for name, value in self._original_constants.items():
+            setattr(C, name, value)
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
         code_impl = CodeSectionImpl(id=ID("code-impl"))
@@ -671,6 +675,181 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         param_ids_after = get_curr_top_level_param_ids(updated_state, section_id)
         self.assertEqual(param_ids_after, param_ids_before)
 
+    async def test_removed_callable_removes_section(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        first_code = (
+            "def existing(a):\n    return a\n\n"
+            "def watched(value):\n    return value\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=first_code,
+            )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        watched_name = f"{module_path}.watched"
+        watched_identity = build_callable_identity(
+            watched_name, WatchCodeCallableKind.function
+        )
+        entry = state.projectConfig.watchCodeRegistry[watched_identity]
+        watched_section_id = entry.sectionIds[0]
+
+        second_code = "def existing(a):\n    return a\n"
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=second_code,
+            )
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        self.assertNotIn(
+            watched_identity, updated_state.projectConfig.watchCodeRegistry
+        )
+        self.assertNotIn(watched_section_id, updated_state.sections)
+
+    async def test_removed_callable_keeps_section_with_other_variants(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        first_code = (
+            "def existing(a):\n    return a\n\n"
+            "def alpha(value):\n    return value\n\n"
+            "def beta(value):\n    return value + 1\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=first_code,
+            )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        alpha_identity = build_callable_identity(
+            f"{module_path}.alpha", WatchCodeCallableKind.function
+        )
+        beta_identity = build_callable_identity(
+            f"{module_path}.beta", WatchCodeCallableKind.function
+        )
+        alpha_entry = state.projectConfig.watchCodeRegistry[alpha_identity]
+        beta_entry = state.projectConfig.watchCodeRegistry[beta_identity]
+        alpha_section_id = alpha_entry.sectionIds[0]
+
+        await self.manager.create_new_section_variant(
+            CreateNewSectionVariantRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=alpha_section_id,
+            )
+        )
+        variant_state = self.manager.get_single_config_state(self.project_config_id)
+        core = variant_state.sections[alpha_section_id]
+        original_variant_id = core.variants[0]
+        new_variant_id = core.variants[-1]
+
+        await self.manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=alpha_section_id,
+                callableName=beta_entry.callableName,
+                refetchParams=True,
+            )
+        )
+        await self.manager.set_section_variant(
+            SetSectionVariantRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=alpha_section_id,
+                variantId=original_variant_id,
+            )
+        )
+
+        second_code = (
+            "def existing(a):\n    return a\n\n"
+            "def beta(value):\n    return value + 1\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=second_code,
+            )
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        self.assertNotIn(
+            alpha_identity, updated_state.projectConfig.watchCodeRegistry
+        )
+        self.assertIn(alpha_section_id, updated_state.sections)
+        updated_core = updated_state.sections[alpha_section_id]
+        self.assertEqual(updated_core.variants, [new_variant_id])
+        active_variant = updated_state.projectConfig.sectionVariantMap[alpha_section_id]
+        self.assertEqual(active_variant, new_variant_id)
+        section_impl = get_curr_effective_section_impl(
+            updated_state, alpha_section_id
+        )
+        self.assertIsInstance(section_impl, CallableSectionImpl)
+        callable_id = section_impl.callable
+        self.assertIsNotNone(callable_id)
+        if callable_id is None:
+            raise AssertionError("Expected callable to be set.")
+        callable_obj = updated_state.codeObjs[callable_id]
+        self.assertEqual(callable_obj.name, beta_entry.callableName)
+
+    async def test_deleted_file_clears_registry_and_baseline(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(self.watch_file_path)],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        updated_code = (
+            "def existing(a):\n    return a\n\n"
+            "def added(value):\n    return value\n"
+        )
+        self.watch_file_path.write_text(updated_code)
+        await self.manager.watch_code_manager._scan_file(
+            self.project_config_id,
+            self.watch_file_path,
+            baseline_only=False,
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.watch_file_path))
+        added_identity = build_callable_identity(
+            f"{module_path}.added", WatchCodeCallableKind.function
+        )
+        self.assertIn(added_identity, state.projectConfig.watchCodeRegistry)
+        self.assertIn(
+            str(normalize_path(self.watch_file_path)),
+            state.projectConfig.watchCodeBaselineByPath,
+        )
+
+        await self.manager.apply_watch_code_file_delete(
+            self.project_config_id, self.watch_file_path
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        self.assertEqual(updated_state.projectConfig.watchCodeRegistry, {})
+        self.assertNotIn(
+            str(normalize_path(self.watch_file_path)),
+            updated_state.projectConfig.watchCodeBaselineByPath,
+        )
+
     async def test_class_callable_is_registered(self) -> None:
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
@@ -719,14 +898,16 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
         ):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
+        self._original_constants = {
+            "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
+            "CODE_FOLDER": C.CODE_FOLDER,
+            "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
+            "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
+        }
+        C.SETTA_FILES_FOLDER = self.setta_root
+        C.CODE_FOLDER = self.code_folder
+        C.ARTIFACTS_FOLDER = self.artifacts_folder
+        C.DB_BACKUP_FOLDER = self.backup_folder
 
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
@@ -798,8 +979,8 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
         await _shutdown_manager(self.manager)
         await stop_lsps(self.lsp_servers, self.lsp_readers)
         stop_file_watcher(self.lsp_writers)
-        for patcher in reversed(self._patchers):
-            patcher.stop()
+        for name, value in self._original_constants.items():
+            setattr(C, name, value)
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
         code_impl = CodeSectionImpl(id=ID("code-impl"))

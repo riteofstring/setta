@@ -1520,6 +1520,31 @@ class BaseProjectManager(ABC):
             await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def apply_watch_code_file_delete(
+        self,
+        project_config_id: ID,
+        path: Path,
+    ) -> None:
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            return
+        normalized_path = normalize_path(path)
+        project_state = self.get_single_config_state(project_config_id)
+        project_config = project_state.projectConfig
+        if not project_config.watchCodeEnabled:
+            return
+        snapshot = build_watch_code_snapshot(project_state)
+        if not self.watch_code_manager._path_matches_watch_inputs(
+            normalized_path, snapshot.files, snapshot.folders
+        ):
+            return
+        did_update = await self.watch_code_manager.apply_delete_update(
+            project_state,
+            normalized_path,
+        )
+        if did_update:
+            await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}

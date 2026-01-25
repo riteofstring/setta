@@ -13,9 +13,14 @@ from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHel
 from setta.project_state.utils import convert_path_to_module_path
 from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.dependency_key import create_dep_key
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_variant_base_and_effective_section_impl_with_type_guard,
+)
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
+    delete_section_variant,
+    delete_sections,
     resolve_top_level_section_position_and_pan,
 )
 from setta.types.id import ID
@@ -439,8 +444,9 @@ class WatchCodeManager:
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
+        self._delete_debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
-        self._notified_import_failures: set[str] = set()
+        self._notified_import_failures: set[tuple[ID, str]] = set()
         self._pending_moves: dict[tuple[ID, Path], Path] = {}
         self._started = False
         self._handler = WatchCodeEventHandler(
@@ -472,6 +478,9 @@ class WatchCodeManager:
         for debouncer in self._debouncers.values():
             debouncer.cancel()
         self._debouncers.clear()
+        for debouncer in self._delete_debouncers.values():
+            debouncer.cancel()
+        self._delete_debouncers.clear()
 
     def sync_from_backend(self, backend: ProjectStateBackend) -> None:
         configs = backend.projectConfigs
@@ -482,7 +491,9 @@ class WatchCodeManager:
             for config_id in removed_config_ids:
                 self._config_snapshots.pop(config_id, None)
             self._cancel_debouncers_for_configs(removed_config_ids)
+            self._cancel_delete_debouncers_for_configs(removed_config_ids)
             self._clear_pending_moves_for_configs(removed_config_ids)
+            self._clear_import_failures_for_configs(removed_config_ids)
 
         desired_watch_dirs: dict[Path, bool] = {}
         next_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
@@ -523,7 +534,9 @@ class WatchCodeManager:
         }
         if disabled_config_ids:
             self._cancel_debouncers_for_configs(disabled_config_ids)
+            self._cancel_delete_debouncers_for_configs(disabled_config_ids)
             self._clear_pending_moves_for_configs(disabled_config_ids)
+            self._clear_import_failures_for_configs(disabled_config_ids)
 
         stale_debouncer_keys: list[tuple[ID, Path]] = []
         for key in list(self._debouncers.keys()):
@@ -539,6 +552,24 @@ class WatchCodeManager:
                 stale_debouncer_keys.append(key)
         for key in stale_debouncer_keys:
             debouncer = self._debouncers.pop(key, None)
+            if debouncer is None:
+                continue
+            debouncer.cancel()
+
+        stale_delete_keys: list[tuple[ID, Path]] = []
+        for key in list(self._delete_debouncers.keys()):
+            project_config_id, path = key
+            if project_config_id not in next_snapshots:
+                continue
+            snapshot = next_snapshots[project_config_id]
+            if not snapshot.enabled:
+                continue
+            if not self._path_matches_watch_inputs(
+                path, snapshot.files, snapshot.folders
+            ):
+                stale_delete_keys.append(key)
+        for key in stale_delete_keys:
+            debouncer = self._delete_debouncers.pop(key, None)
             if debouncer is None:
                 continue
             debouncer.cancel()
@@ -565,12 +596,29 @@ class WatchCodeManager:
             debouncer = self._debouncers.pop(key)
             debouncer.cancel()
 
+    def _cancel_delete_debouncers_for_configs(self, config_ids: set[ID]) -> None:
+        for key in list(self._delete_debouncers.keys()):
+            project_config_id, _ = key
+            if project_config_id not in config_ids:
+                continue
+            debouncer = self._delete_debouncers.pop(key)
+            debouncer.cancel()
+
     def _clear_pending_moves_for_configs(self, config_ids: set[ID]) -> None:
         for key in list(self._pending_moves.keys()):
             project_config_id, _ = key
             if project_config_id not in config_ids:
                 continue
             self._pending_moves.pop(key, None)
+
+    def _clear_import_failures_for_configs(self, config_ids: set[ID]) -> None:
+        if not config_ids:
+            return
+        self._notified_import_failures = {
+            (project_config_id, source)
+            for project_config_id, source in self._notified_import_failures
+            if project_config_id not in config_ids
+        }
 
     def baseline_on_enable(self, project_state: ProjectStateSingleConfig) -> None:
         project_config = project_state.projectConfig
@@ -650,26 +698,27 @@ class WatchCodeManager:
         if event_type == "moved":
             if dest_path is None:
                 return
-            if _should_ignore_path(dest_path):
+            dest_matches = False
+            if not _should_ignore_path(dest_path) and dest_path.suffix == ".py":
+                for project_config_id, snapshot in self._config_snapshots.items():
+                    if not snapshot.enabled:
+                        continue
+                    if not self._path_matches_watch_inputs(
+                        dest_path, snapshot.files, snapshot.folders
+                    ):
+                        continue
+                    dest_matches = True
+                    self._pending_moves[
+                        (project_config_id, normalize_path(dest_path))
+                    ] = normalize_path(path)
+                    self._debounce_scan(
+                        project_config_id,
+                        dest_path,
+                        baseline_only=False,
+                    )
+            if dest_matches:
                 return
-            if dest_path.suffix != ".py":
-                return
-            for project_config_id, snapshot in self._config_snapshots.items():
-                if not snapshot.enabled:
-                    continue
-                if not self._path_matches_watch_inputs(
-                    dest_path, snapshot.files, snapshot.folders
-                ):
-                    continue
-                self._pending_moves[(project_config_id, normalize_path(dest_path))] = (
-                    normalize_path(path)
-                )
-                self._debounce_scan(
-                    project_config_id,
-                    dest_path,
-                    baseline_only=False,
-                )
-            return
+            event_type = "deleted"
 
         if _should_ignore_path(path):
             return
@@ -683,6 +732,7 @@ class WatchCodeManager:
             ):
                 continue
             if event_type == "deleted":
+                self._debounce_delete(project_config_id, path)
                 continue
             self._debounce_scan(project_config_id, path, baseline_only=False)
 
@@ -703,6 +753,16 @@ class WatchCodeManager:
         self._debouncers[key].trigger(
             project_config_id, normalize_path(path), baseline_only
         )
+
+    def _debounce_delete(self, project_config_id: ID, path: Path) -> None:
+        key = (project_config_id, normalize_path(path))
+        if key not in self._delete_debouncers:
+            self._delete_debouncers[key] = AsyncDebouncer(
+                self._handle_deleted_file,
+                wait=0.3,
+                label=f"watch-code-delete-{project_config_id}",
+            )
+        self._delete_debouncers[key].trigger(project_config_id, normalize_path(path))
 
     async def _scan_file(
         self,
@@ -731,6 +791,14 @@ class WatchCodeManager:
             raw,
             baseline_only=baseline_only,
             moved_from=moved_from,
+        )
+
+    async def _handle_deleted_file(self, project_config_id: ID, path: Path) -> None:
+        if project_config_id not in self._config_snapshots:
+            return
+        await self._project_manager.apply_watch_code_file_delete(
+            project_config_id,
+            normalize_path(path),
         )
 
     def _path_matches_watch_inputs(
@@ -866,6 +934,33 @@ class WatchCodeManager:
         )
         return did_update or did_move_update
 
+    async def apply_delete_update(
+        self,
+        project_state: ProjectStateSingleConfig,
+        path: Path,
+    ) -> bool:
+        project_config = project_state.projectConfig
+        if not project_config_has_codegen_language(
+            project_config, ProjectCodegenLanguage.python
+        ):
+            return False
+        registry = project_config.watchCodeRegistry
+        baseline = project_config.watchCodeBaselineByPath
+        source_key = str(normalize_path(path))
+        removed_identities = {
+            identity
+            for identity, entry in registry.items()
+            if entry.sourcePath == source_key
+        }
+        did_update = False
+        if removed_identities:
+            if self._remove_watch_code_identities(project_state, removed_identities):
+                did_update = True
+        if source_key in baseline:
+            baseline.pop(source_key)
+            did_update = True
+        return did_update
+
     def _baseline_watch_inputs(self, project_config) -> None:
         for file_path in normalize_watch_code_files(project_config.watchCodeFiles):
             self._baseline_file(project_config, Path(file_path))
@@ -941,8 +1036,6 @@ class WatchCodeManager:
         if baseline_only:
             self._record_baseline(project_config, source_path, callables)
             return True
-        if not callables:
-            return False
         if not project_config_has_codegen_language(
             project_config, ProjectCodegenLanguage.python
         ):
@@ -951,11 +1044,6 @@ class WatchCodeManager:
         registry = project_config.watchCodeRegistry
         baseline = project_config.watchCodeBaselineByPath
         source_key = str(normalize_path(source_path))
-        if source_key in baseline:
-            baseline_entries = set(baseline[source_key])
-        else:
-            baseline_entries = set()
-
         current_by_identity: dict[str, WatchCodeCallableInfo] = {
             entry.identity: entry for entry in callables
         }
@@ -965,7 +1053,7 @@ class WatchCodeManager:
                 registry_entries_for_file[identity] = entry
         logger.debug(
             "watch_code._apply_callable_updates baseline_entries=%s registry_entries=%s source_path=%s",
-            len(baseline_entries),
+            len(baseline.get(source_key, [])),
             len(registry_entries_for_file),
             source_key,
         )
@@ -1022,9 +1110,13 @@ class WatchCodeManager:
                 reference_name = self._resolve_reference_name(
                     registry, new_info, exclude_identity=new_info.identity
                 )
-                if old_reference_name != reference_name:
+                if (
+                    old_reference_name != reference_name
+                    or old_module_path != new_info.module_path
+                    or old_symbol_name != new_info.symbol_name
+                ):
                     logger.debug(
-                        "watch_code._apply_callable_updates renaming callable identity=%s old_name=%s new_name=%s",
+                        "watch_code._apply_callable_updates updating import identity=%s old_name=%s new_name=%s",
                         identity,
                         old_reference_name,
                         reference_name,
@@ -1048,8 +1140,31 @@ class WatchCodeManager:
                     reference_name,
                 )
                 did_update = True
-            added_identities = set(current_by_identity.keys()) - set(registry.keys())
 
+        registry_entries_for_file = {
+            identity: entry
+            for identity, entry in registry.items()
+            if entry.sourcePath == source_key
+        }
+        removed_identities = set(registry_entries_for_file.keys()) - set(
+            current_by_identity.keys()
+        )
+        baseline_entries: set[str] = set()
+        if source_key in baseline:
+            updated_baseline = [
+                identity
+                for identity in baseline[source_key]
+                if identity in current_by_identity
+            ]
+            if updated_baseline != baseline[source_key]:
+                baseline[source_key] = updated_baseline
+                did_update = True
+            baseline_entries = set(baseline[source_key])
+        if removed_identities:
+            if self._remove_watch_code_identities(project_state, removed_identities):
+                did_update = True
+
+        new_section_updates: list[tuple[str, list[ID]]] = []
         for identity, info in current_by_identity.items():
             if identity in registry:
                 entry = registry[identity]
@@ -1119,10 +1234,10 @@ class WatchCodeManager:
                 [proposal.name for proposal in info.param_proposals],
             )
             did_update = True
-            await self._update_sections_for_callable(
-                project_state,
-                [section_id],
-                reference_name,
+            new_section_updates.append((reference_name, [section_id]))
+        if new_section_updates:
+            await self._update_sections_for_callables(
+                project_state, new_section_updates
             )
         return did_update
 
@@ -1139,6 +1254,101 @@ class WatchCodeManager:
         entry.bodyHash = info.body_hash
         entry.sourcePath = info.source_path
         registry[info.identity] = entry
+
+    async def _update_sections_for_callables(
+        self,
+        project_state: ProjectStateSingleConfig,
+        callables: list[tuple[str, list[ID]]],
+    ) -> None:
+        if not callables:
+            return
+        project_config_id = project_state.projectConfig.id
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        gen_code = self._project_manager.gen_code.get(project_config_id)
+        section_ids = [section_id for _, ids in callables for section_id in ids]
+        missing_dep_keys: list[ID] = []
+        prefix_mismatch = False
+        if gen_code is not None:
+            prefix_mismatch = (
+                gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix
+            )
+            missing_dep_keys = [
+                section_id
+                for section_id in section_ids
+                if create_dep_key(section_id) not in gen_code.dep_graph.graph
+            ]
+        needs_refresh = gen_code is None or prefix_mismatch or bool(missing_dep_keys)
+        logger.debug(
+            "watch_code._update_sections_for_callables callables=%s section_ids=%s gen_code=%s prefix_mismatch=%s missing_dep_keys=%s needs_refresh=%s",
+            len(callables),
+            section_ids,
+            gen_code is not None,
+            prefix_mismatch,
+            missing_dep_keys,
+            needs_refresh,
+        )
+        if needs_refresh:
+            await self._project_manager._refresh_codegen_state(project_state)
+            gen_code = self._project_manager._require_python_codegen(project_config_id)
+            missing_after_refresh = [
+                section_id
+                for section_id in section_ids
+                if create_dep_key(section_id) not in gen_code.dep_graph.graph
+            ]
+            if missing_after_refresh:
+                logger.error(
+                    "watch_code._update_sections_for_callables dep_graph missing after refresh missing_section_ids=%s graph_size=%s",
+                    missing_after_refresh,
+                    len(gen_code.dep_graph.graph),
+                )
+        settings = self._project_manager.settings_file.settings
+        for callable_name, callable_section_ids in callables:
+            for section_id in callable_section_ids:
+                if section_id not in project_state.sections:
+                    logger.warning(
+                        "watch_code._update_sections_for_callables missing section_id=%s callable=%s",
+                        section_id,
+                        callable_name,
+                    )
+                    continue
+                section_impl = get_curr_effective_section_impl(
+                    project_state, section_id
+                )
+                if not isinstance(section_impl, CallableSectionImpl):
+                    logger.debug(
+                        "watch_code._update_sections_for_callables non-callable section_id=%s callable=%s section_type=%s",
+                        section_id,
+                        callable_name,
+                        type(section_impl).__name__,
+                    )
+                    continue
+                logger.debug(
+                    "watch_code._update_sections_for_callables applying callable=%s section_id=%s",
+                    callable_name,
+                    section_id,
+                )
+                response = await gen_code.set_callable(
+                    settings,
+                    project_state,
+                    section_id,
+                    callable_name,
+                    True,
+                )
+                logger.debug(
+                    "watch_code._update_sections_for_callables set_callable_result callable=%s section_id=%s lsp_status=%s",
+                    callable_name,
+                    section_id,
+                    response.lspStatus,
+                )
+                if (
+                    response.lspStatus is SignatureHelpStatus.NO_MATCH
+                    and gen_code.lsp_writer is not None
+                ):
+                    await self._notify_import_failure(
+                        project_config_id, callable_name, source=callable_name
+                    )
 
     async def _update_sections_for_callable(
         self,
@@ -1269,6 +1479,7 @@ class WatchCodeManager:
             SectionType.Callable,
             position=position,
         )
+        project_state.parentSectionMap[section_id] = None
         return section_id
 
     def _ensure_gen_code_import(
@@ -1382,6 +1593,80 @@ class WatchCodeManager:
                 valid.append(section_id)
         return valid
 
+    def _remove_watch_code_identities(
+        self,
+        project_state: ProjectStateSingleConfig,
+        identities: set[str],
+    ) -> bool:
+        if not identities:
+            return False
+        registry = project_state.projectConfig.watchCodeRegistry
+        did_update = False
+        for identity in sorted(identities):
+            if identity not in registry:
+                continue
+            entry = registry[identity]
+            self._cleanup_removed_callable(project_state, identity, entry)
+            registry.pop(identity)
+            did_update = True
+        return did_update
+
+    def _cleanup_removed_callable(
+        self,
+        project_state: ProjectStateSingleConfig,
+        identity: str,
+        entry: WatchCodeRegistryEntry,
+    ) -> None:
+        module_path, symbol_name = self._split_canonical_identity(identity)
+        self._remove_gen_code_import(
+            project_state,
+            module_path,
+            symbol_name,
+            entry.callableName,
+        )
+        section_ids = self._prune_section_ids(project_state, entry)
+        entry.sectionIds = section_ids
+        entry.sectionsCount = len(section_ids)
+        sections_to_delete: set[ID] = set()
+        for section_id in section_ids:
+            if section_id not in project_state.sections:
+                continue
+            core = project_state.sections[section_id]
+            variants_to_remove: list[ID] = []
+            for variant_id in list(core.variants):
+                _, _, impl = (
+                    get_variant_base_and_effective_section_impl_with_type_guard(
+                        project_state,
+                        core,
+                        variant_id,
+                        CallableSectionImpl,
+                    )
+                )
+                if impl.callable is None:
+                    continue
+                callable_id = impl.callable
+                if callable_id not in project_state.codeObjs:
+                    raise KeyError(
+                        f"Missing callable {callable_id} for section {section_id}."
+                    )
+                callable_obj = project_state.codeObjs[callable_id]
+                if callable_obj.name == entry.callableName:
+                    variants_to_remove.append(variant_id)
+            if not variants_to_remove:
+                continue
+            remaining_variants = [
+                variant_id
+                for variant_id in core.variants
+                if variant_id not in variants_to_remove
+            ]
+            if not remaining_variants:
+                sections_to_delete.add(section_id)
+                continue
+            for variant_id in variants_to_remove:
+                delete_section_variant(project_state, section_id, variant_id)
+        if sections_to_delete:
+            delete_sections(project_state, sorted(sections_to_delete))
+
     async def _notify_import_failure(
         self,
         project_config_id: ID,
@@ -1389,9 +1674,10 @@ class WatchCodeManager:
         *,
         source: str,
     ) -> None:
-        if source in self._notified_import_failures:
+        key = (project_config_id, source)
+        if key in self._notified_import_failures:
             return
-        self._notified_import_failures.add(source)
+        self._notified_import_failures.add(key)
         notification = SettaNotification(
             projectConfigId=project_config_id,
             type=SettaNotificationType.warning,

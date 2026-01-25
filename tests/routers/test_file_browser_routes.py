@@ -2,7 +2,6 @@ import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from fastapi import FastAPI, HTTPException
 
@@ -74,16 +73,25 @@ async def _shutdown_state(state: SettaFastAPIState) -> None:
 class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self._states: list[SettaFastAPIState] = []
-        self._patchers: list[patch] = []
         self._temp_dirs: list[TemporaryDirectory] = []
+        self._original_constants = {
+            "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
+            "CODE_FOLDER": C.CODE_FOLDER,
+            "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
+            "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
+            "RUN_FOLDER": C.RUN_FOLDER,
+            "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
+            "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
+            "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+        }
 
     async def asyncTearDown(self) -> None:
         for state in self._states:
             await _shutdown_state(state)
-        for patcher in reversed(self._patchers):
-            patcher.stop()
         for temp_dir in self._temp_dirs:
             temp_dir.cleanup()
+        for name, value in self._original_constants.items():
+            setattr(C, name, value)
 
     async def _build_state(
         self,
@@ -112,19 +120,14 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
                 share_deployments_folder,
             ):
                 path.mkdir(parents=True, exist_ok=True)
-            patchers = [
-                patch.object(C, "SETTA_FILES_FOLDER", setta_root),
-                patch.object(C, "CODE_FOLDER", code_folder),
-                patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder),
-                patch.object(C, "DB_BACKUP_FOLDER", backup_folder),
-                patch.object(C, "RUN_FOLDER", run_folder),
-                patch.object(C, "RUN_SESSIONS_FOLDER", run_sessions_folder),
-                patch.object(C, "RUN_LOGS_FOLDER", run_logs_folder),
-                patch.object(C, "SHARE_DEPLOYMENTS_FOLDER", share_deployments_folder),
-            ]
-            for patcher in patchers:
-                patcher.start()
-            self._patchers.extend(patchers)
+            C.SETTA_FILES_FOLDER = setta_root
+            C.CODE_FOLDER = code_folder
+            C.ARTIFACTS_FOLDER = artifacts_folder
+            C.DB_BACKUP_FOLDER = backup_folder
+            C.RUN_FOLDER = run_folder
+            C.RUN_SESSIONS_FOLDER = run_sessions_folder
+            C.RUN_LOGS_FOLDER = run_logs_folder
+            C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
         app = FastAPI()
         state = SettaFastAPIState(
             app,

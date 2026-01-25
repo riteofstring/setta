@@ -188,7 +188,9 @@ export function WatchCodePane() {
                 <input
                   className={inputClasses}
                   disabled={inputsDisabled}
-                  onBlur={() => updateFolder(index, {}, true)}
+                  onBlur={(event) =>
+                    updateFolder(index, { path: event.target.value }, true)
+                  }
                   onChange={(event) =>
                     updateFolder(index, { path: event.target.value })
                   }
@@ -256,7 +258,9 @@ export function WatchCodePane() {
                 <input
                   className={inputClasses}
                   disabled={inputsDisabled}
-                  onBlur={() => updateFile(index, file, true)}
+                  onBlur={(event) =>
+                    updateFile(index, event.target.value, true)
+                  }
                   onChange={(event) => updateFile(index, event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
