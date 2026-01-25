@@ -1,4 +1,3 @@
-import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -18,8 +17,6 @@ from setta.types.generated.settings_state import SettingsState
 if TYPE_CHECKING:
     from setta.types.generated.unions import BaseParamCodeObjImplUnion
     from setta.types.id import ID
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,26 +47,12 @@ def process_signature_help_response(
 ):
     result = response.result
     if not result or not result.signatures:
-        logger.debug(
-            "signature_help.process_signature_help_response empty signatures result=%s",
-            result is not None,
-        )
         return None
     return parse_signature(settings, result.signatures[0])
 
 
 def parse_signature(settings: SettingsState, signature: LSPTypes.SignatureInformation):
     documentation = lsp_documentation_to_str(signature.documentation)
-    param_labels = []
-    if signature.parameters:
-        param_labels = [param.label for param in signature.parameters]
-    logger.debug(
-        "signature_help.parse_signature label=%s param_count=%s param_labels=%s doc_len=%s",
-        signature.label,
-        len(signature.parameters or []),
-        param_labels,
-        len(documentation),
-    )
     var_docstrings = process_docstring(documentation)
     codeObjs, codeObjImplMap = wrapper_parse_signature(
         settings, signature, var_docstrings, get_pyright_param_proposals
@@ -105,11 +88,6 @@ def wrapper_parse_signature(
     ],
 ):
     params = get_proposed_params(signature, docstring)
-    logger.debug(
-        "signature_help.wrapper_parse_signature parser=%s proposals=%s",
-        getattr(get_proposed_params, "__name__", "unknown"),
-        [(proposal.name, proposal.default) for proposal in params],
-    )
     codeObjs: list[Core] = []
     codeObjImplMap: dict["ID", "BaseParamCodeObjImplUnion"] = {}
     positional_only_indicator_idx = -1
