@@ -1,11 +1,11 @@
 import asyncio
 import sys
-import unittest
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType
 
+import pytest
 from setta.api.listener import SettaListener
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -66,7 +66,8 @@ def _write_share_project(
     return dbe, project_config
 
 
-class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareSessionCleanup:
     async def test_cleanup_removes_session_state_and_manager(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-session-cleanup"
@@ -117,12 +118,12 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 switcher,
             )
 
-            self.assertIn(session.id, expired_ids)
-            self.assertFalse(share_runtime_state.has_session_state(session.id))
-            self.assertEqual([], switcher.project_managers)
+            assert session.id in expired_ids
+            assert not share_runtime_state.has_session_state(session.id)
+            assert switcher.project_managers == []
 
             await asyncio.gather(manager.queue_task, return_exceptions=True)
-            self.assertTrue(manager.queue_task.cancelled())
+            assert manager.queue_task.cancelled()
 
     async def test_cleanup_drops_listener_and_chat_state(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -170,10 +171,10 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                     module=module,
                 )
             )
-            self.assertIn(
-                (session.id, project_config_id),
-                listener_runtime._session_handles,
-            )
+            assert (
+                session.id,
+                project_config_id,
+            ) in listener_runtime._session_handles
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
@@ -182,10 +183,10 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 share_listener_runtime=listener_runtime,
             )
 
-            self.assertIn(session.id, expired_ids)
-            self.assertFalse(session_store.has_session(session.id))
-            self.assertFalse(listener_runtime._session_handles)
-            self.assertNotIn(module_name, sys.modules)
+            assert session.id in expired_ids
+            assert not session_store.has_session(session.id)
+            assert not listener_runtime._session_handles
+            assert module_name not in sys.modules
 
             await asyncio.gather(task, return_exceptions=True)
 
@@ -218,8 +219,8 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 terminal_id,
                 share_session_id=session.id,
             )
-            self.assertTrue(created)
-            self.assertIn(terminal_id, terminals.PTY_PIDS)
+            assert created
+            assert terminal_id in terminals.PTY_PIDS
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
@@ -228,9 +229,5 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 terminals=terminals,
             )
 
-            self.assertIn(session.id, expired_ids)
-            self.assertNotIn(terminal_id, terminals.PTY_PIDS)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert session.id in expired_ids
+            assert terminal_id not in terminals.PTY_PIDS

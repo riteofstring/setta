@@ -1,6 +1,5 @@
 import os
 import time
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -8,7 +7,7 @@ from setta.database.utils import create_new_id
 from setta.server_state import cleanup_share_run_output
 
 
-class ShareRunCleanupTests(unittest.TestCase):
+class TestShareRunCleanup:
     def test_cleanup_removes_expired_runs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             runs_root = Path(tmpdir) / f"share-runs-{create_new_id()}"
@@ -35,11 +34,7 @@ class ShareRunCleanupTests(unittest.TestCase):
 
             removed = cleanup_share_run_output(runs_root, ttl_seconds=60)
 
-            self.assertEqual(2, removed)
-            self.assertFalse(old_run.exists())
-            self.assertFalse((runs_root / session_prune).exists())
-            self.assertTrue(keep_new_run.exists())
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert removed == 2
+            assert not old_run.exists()
+            assert not (runs_root / session_prune).exists()
+            assert keep_new_run.exists()

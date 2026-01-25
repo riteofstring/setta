@@ -1,5 +1,3 @@
-import unittest
-
 from setta.mcp.tool_search_index import (
     ToolSearchIndex,
     build_tool_search_entries_from_llm_definitions,
@@ -7,7 +5,7 @@ from setta.mcp.tool_search_index import (
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 
 
-class LocalToolSearchTests(unittest.TestCase):
+class TestLocalToolSearch:
     def test_search_returns_namespaced_tool_names(self) -> None:
         definitions = {
             "setta__read_file_range": {
@@ -41,10 +39,10 @@ class LocalToolSearchTests(unittest.TestCase):
         )
         index = ToolSearchIndex.build(entries)
 
-        self.assertIsNotNone(index)
+        assert index is not None
         results = index.search("read file", 1)
 
-        self.assertEqual(results[0].name, "setta__read_file_range")
+        assert results[0].name == "setta__read_file_range"
 
     def test_search_includes_categories(self) -> None:
         definitions = {
@@ -70,7 +68,7 @@ class LocalToolSearchTests(unittest.TestCase):
         )
         index = ToolSearchIndex.build(entries)
 
-        self.assertIsNotNone(index)
+        assert index is not None
         results = index.search("notifications", 1)
 
-        self.assertEqual(results[0].category, "alerts")
+        assert results[0].category == "alerts"

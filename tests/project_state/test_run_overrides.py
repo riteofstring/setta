@@ -1,10 +1,10 @@
-import unittest
-from types import SimpleNamespace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from fastapi import HTTPException
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -82,8 +82,10 @@ class RunOverridesProjectManager(BaseProjectManager):
         )
 
 
-class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
+@pytest.mark.asyncio
+class TestRunOverride:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self._run_folder_original = C.RUN_FOLDER
@@ -120,7 +122,8 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
             self.dbe,
         )
 
-    def tearDown(self) -> None:
+        yield
+
         C.RUN_FOLDER = self._run_folder_original
         C.RUN_SESSIONS_FOLDER = self._run_sessions_folder_original
         C.RUN_LOGS_FOLDER = self._run_logs_folder_original
@@ -273,12 +276,12 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                 manager.project_state_backend, project_config.id
             )
 
-            self.assertTrue(command.startswith("bash "))
-            self.assertTrue(str(snapshot_path).endswith(".sh"))
-            self.assertEqual(entry_section_id, code_section.id)
-            self.assertEqual(
-                base_state.projectConfig.sectionVariantMap[code_section.id],
-                python_variant.id,
+            assert command.startswith("bash ")
+            assert str(snapshot_path).endswith(".sh")
+            assert entry_section_id == code_section.id
+            assert (
+                base_state.projectConfig.sectionVariantMap[code_section.id]
+                == python_variant.id
             )
             param_value = get_curr_effective_code_obj_impl_with_type_guard(
                 base_state,
@@ -286,12 +289,12 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                 param_core.id,
                 CodeParamCodeObjImpl,
             )
-            self.assertEqual(param_value.value, "1")
+            assert param_value.value == "1"
             effective_impl = get_curr_effective_section_impl(
                 base_state, code_section.id
             )
-            self.assertIsInstance(effective_impl, CodeSectionImpl)
-            self.assertEqual(effective_impl.codeLanguage, CodeLanguage.python)
+            assert isinstance(effective_impl, CodeSectionImpl)
+            assert effective_impl.codeLanguage == CodeLanguage.python
         finally:
             manager.shutdown()
 
@@ -300,7 +303,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
             self._build_manager_and_state()
         )
         try:
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 await manager.create_run_command_with_overrides(
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
@@ -317,7 +320,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
             self._build_manager_and_state()
         )
         try:
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 await manager.create_run_command_with_overrides(
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
@@ -345,7 +348,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
         ) = self._build_manager_and_state()
         dict_variant_id = dict_section.variants[0]
         try:
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 await manager.create_run_command_with_overrides(
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
@@ -364,7 +367,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
             self._build_manager_and_state()
         )
         try:
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await manager.create_run_command_with_overrides(
                     RunDetachedRequest(
                         projectConfigId=project_config.id,
@@ -372,7 +375,7 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                         runSnapshotMode=RunSnapshotMode.never,
                     )
                 )
-            self.assertEqual(ctx.exception.status_code, 400)
+            assert ctx.value.status_code == 400
         finally:
             manager.shutdown()
 
@@ -397,14 +400,12 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
             )
-            self.assertTrue(command.startswith("bash "))
-            self.assertEqual(entry_section_id, code_section.id)
-            self.assertTrue(snapshot_path.exists())
-            self.assertTrue(snapshot_path.is_file())
-            self.assertTrue(
-                self._run_root.resolve() in snapshot_path.resolve().parents
-            )
-            self.assertEqual(snapshot_path.read_text().strip(), "echo hi")
+            assert command.startswith("bash ")
+            assert entry_section_id == code_section.id
+            assert snapshot_path.exists()
+            assert snapshot_path.is_file()
+            assert self._run_root.resolve() in snapshot_path.resolve().parents
+            assert snapshot_path.read_text().strip() == "echo hi"
         finally:
             manager.shutdown()
 
@@ -430,10 +431,10 @@ class RunOverrideTests(unittest.IsolatedAsyncioTestCase):
                 runSnapshotMode=RunSnapshotMode.ephemeral,
                 paramOverrides={"bad": "2"},
             )
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state) as runtime_ctx:
                     await route_run_detached(request, runtime_ctx)
-            self.assertEqual(ctx.exception.status_code, 400)
-            self.assertIn("Invalid param override key", str(ctx.exception.detail))
+            assert ctx.value.status_code == 400
+            assert "Invalid param override key" in str(ctx.value.detail)
         finally:
             manager.shutdown()

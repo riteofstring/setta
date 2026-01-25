@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import (
     GEN_CODE_BODY_INDENT,
@@ -111,7 +109,7 @@ def build_callable_project_state(param_count: int) -> ProjectStateSingleConfig:
     return project_state
 
 
-class CodeGeneratorFormattingTests(TestCase):
+class TestCodeGeneratorFormatting:
     def test_dict_section_renders_multiline_values(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -152,23 +150,21 @@ class CodeGeneratorFormattingTests(TestCase):
                 target_line = line
                 break
 
-        self.assertIsNotNone(target_index)
         assert target_index is not None
-        self.assertTrue(target_line.startswith("        state.config = {"))
+        assert target_line.startswith("        state.config = {")
 
         expected_block_len = target_index + 1 + len(param_ids) + 1
-        self.assertGreaterEqual(len(generated_lines), expected_block_len)
+        assert len(generated_lines) >= expected_block_len
 
-        item_lines = generated_lines[target_index + 1 : target_index + 1 + len(param_ids)]
+        item_lines = generated_lines[
+            target_index + 1 : target_index + 1 + len(param_ids)
+        ]
         for idx, line in enumerate(item_lines):
-            self.assertTrue(line.startswith("            "))
-            self.assertIn(
-                f"'param_{idx}': state.config__param_{idx},",
-                line,
-            )
+            assert line.startswith("            ")
+            assert f"'param_{idx}': state.config__param_{idx}," in line
 
         closing_line = generated_lines[target_index + 1 + len(param_ids)]
-        self.assertEqual(closing_line, "        }")
+        assert closing_line == "        }"
 
     def test_callable_section_renders_multiline_args(self) -> None:
         param_count = 4
@@ -192,26 +188,25 @@ class CodeGeneratorFormattingTests(TestCase):
                 target_index = idx
                 break
 
-        self.assertIsNotNone(target_index)
         assert target_index is not None
-        self.assertEqual(
-            generated_lines[target_index],
-            f"{GEN_CODE_BODY_INDENT}state.call = my_callable(",
+        assert generated_lines[target_index] == (
+            f"{GEN_CODE_BODY_INDENT}state.call = my_callable("
         )
 
         expected_block_len = target_index + 1 + param_count + 1
-        self.assertGreaterEqual(len(generated_lines), expected_block_len)
+        assert len(generated_lines) >= expected_block_len
 
-        item_lines = generated_lines[target_index + 1 : target_index + 1 + param_count]
+        item_lines = generated_lines[
+            target_index + 1 : target_index + 1 + param_count
+        ]
         for idx, line in enumerate(item_lines):
-            self.assertEqual(
-                line,
+            assert line == (
                 f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}"
-                f"param_{idx}=state.call__param_{idx},",
+                f"param_{idx}=state.call__param_{idx},"
             )
 
         closing_line = generated_lines[target_index + 1 + param_count]
-        self.assertEqual(closing_line, f"{GEN_CODE_BODY_INDENT})")
+        assert closing_line == f"{GEN_CODE_BODY_INDENT})"
 
     def test_dict_section_escapes_keys_and_sanitizes_var_names(self) -> None:
         settings = SettingsState()
@@ -257,4 +252,4 @@ class CodeGeneratorFormattingTests(TestCase):
                 f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}"
                 f"{expected_key}: state.{expected_full_path},"
             )
-            self.assertIn(expected_line, generated_lines)
+            assert expected_line in generated_lines

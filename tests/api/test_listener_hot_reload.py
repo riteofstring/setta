@@ -5,9 +5,10 @@ import os
 import sys
 import tempfile
 import textwrap
-import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
@@ -32,9 +33,10 @@ class _StubWebsocket:
         self.sent.append(payload)
 
 
-class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        super().setUp()
+@pytest.mark.asyncio
+class TestSettaListenerHotReload:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._mtime_offset = 1.0
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
@@ -137,29 +139,31 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 await listener._refresh_from_snapshot(project_state)
                 await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(self._get_listener_invocations(listener), ["v1"])
+                assert self._get_listener_invocations(listener) == ["v1"]
 
                 self._write_listener_module(module_path, "v2")
                 await reloader.reload_now(reload_module=True)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(self._get_listener_invocations(listener), ["v1", "v2"])
+                assert self._get_listener_invocations(listener) == ["v1", "v2"]
 
                 self._write_listener_module(module_path, "v3")
                 await reloader.reload_now(reload_module=True)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(
-                    self._get_listener_invocations(listener), ["v1", "v2", "v3"]
-                )
+                assert self._get_listener_invocations(listener) == [
+                    "v1",
+                    "v2",
+                    "v3",
+                ]
             finally:
                 sys.modules.pop(module_name, None)
                 sys.modules.pop(module_dir.name, None)
 
-        self.assertEqual(len(register_ids), 3)
-        self.assertEqual(len(set(register_ids)), 3)
-        self.assertEqual(len(listener._callbacks), 1)
+        assert len(register_ids) == 3
+        assert len(set(register_ids)) == 3
+        assert len(listener._callbacks) == 1
         final_spec = next(iter(listener._callbacks.values()))
-        self.assertEqual(final_spec.callback_id, register_ids[-1])
-        self.assertIs(listener._websocket, websocket)
+        assert final_spec.callback_id == register_ids[-1]
+        assert listener._websocket is websocket
 
     async def test_reloader_infers_watch_paths_from_builder(self) -> None:
         listener = SettaListener(project_name="Demo Project")
@@ -185,9 +189,9 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                     extra_watch_paths={str(extra_path)},
                 )
                 inferred_paths = {path for path in reloader._paths}
-                self.assertIn(module_path.resolve(), inferred_paths)
-                self.assertIn(module_dir.resolve(), inferred_paths)
-                self.assertIn(extra_path.resolve(), inferred_paths)
+                assert module_path.resolve() in inferred_paths
+                assert module_dir.resolve() in inferred_paths
+                assert extra_path.resolve() in inferred_paths
             finally:
                 sys.modules.pop(f"{root_dir.name}.{module_name}", None)
                 sys.modules.pop(root_dir.name, None)
@@ -219,10 +223,10 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 )
                 spec_by_root = {spec.root: spec for spec in reloader._watch_specs}
                 callbacks_root = callbacks_dir.resolve()
-                self.assertIn(callbacks_root, spec_by_root)
+                assert callbacks_root in spec_by_root
                 callbacks_spec = spec_by_root[callbacks_root]
-                self.assertFalse(callbacks_spec.is_file)
-                self.assertIn("**/*.py", callbacks_spec.includes)
+                assert not callbacks_spec.is_file
+                assert "**/*.py" in callbacks_spec.includes
 
                 ignored_path = callbacks_dir / "ignored.tmp"
                 allowed_path = callbacks_dir / "allowed.cfg"
@@ -235,11 +239,11 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                     extra_watch_paths=[str(callbacks_dir)],
                     ignore_patterns=["*.tmp"],
                 )
-                self.assertFalse(
-                    filtered_reloader._watch_filter(Change.modified, str(ignored_path))
+                assert not filtered_reloader._watch_filter(
+                    Change.modified, str(ignored_path)
                 )
-                self.assertTrue(
-                    filtered_reloader._watch_filter(Change.modified, str(allowed_path))
+                assert filtered_reloader._watch_filter(
+                    Change.modified, str(allowed_path)
                 )
             finally:
                 sys.modules.pop(f"{module_dir.name}.{module_name}", None)
@@ -268,14 +272,14 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         )
 
         reloader = captured["reloader"]
-        self.assertIs(reloader.listener, listener)
-        self.assertIs(reloader._builder, builder)
-        self.assertFalse(reloader._trigger_refresh)
-        self.assertEqual(reloader._settle_delay, 0.25)
+        assert reloader.listener is listener
+        assert reloader._builder is builder
+        assert not reloader._trigger_refresh
+        assert reloader._settle_delay == 0.25
         glob_spec = next(
             spec for spec in reloader._watch_specs if "**/*.py" in spec.includes
         )
-        self.assertIn("*.tmp", glob_spec.ignores)
+        assert "*.tmp" in glob_spec.ignores
 
     async def test_start_requires_hot_reload_for_builder(self) -> None:
         listener = SettaListener(project_name="Demo Project")
@@ -283,7 +287,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         def builder(target: SettaListener) -> None:
             pass
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             listener.start(builder=builder)
 
     @staticmethod

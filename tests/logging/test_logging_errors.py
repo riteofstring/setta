@@ -1,7 +1,6 @@
-import asyncio
 import logging
-import os
-import unittest
+
+import pytest
 
 from setta.logging.context import (
     LoggingContextFilter,
@@ -19,148 +18,148 @@ class _RecordingHandler(logging.Handler):
         self.records.append(record)
 
 
-class LoggingErrorHelpersTests(unittest.TestCase):
-    def setUp(self) -> None:
-        push_logging_context(replace=True)
-        self.logger = logging.getLogger("tests.logging.errors")
-        self.logger.setLevel(logging.DEBUG)
-        self.handler = _RecordingHandler()
-        self.handler.addFilter(LoggingContextFilter())
-        self.logger.addHandler(self.handler)
+@pytest.fixture
+def logging_setup():
+    push_logging_context(replace=True)
+    logger = logging.getLogger("tests.logging.errors")
+    logger.setLevel(logging.DEBUG)
+    handler = _RecordingHandler()
+    handler.addFilter(LoggingContextFilter())
+    logger.addHandler(handler)
+    yield logger, handler
+    logger.removeHandler(handler)
+    push_logging_context(replace=True)
 
-    def tearDown(self) -> None:
-        self.logger.removeHandler(self.handler)
-        push_logging_context(replace=True)
 
-    def test_log_route_failure_attaches_context(self) -> None:
-        push_logging_context(project_config_id="alpha", request_id="req-9")
-        exc = RuntimeError("boom")
-        log_failure(
-            exc,
-            label="save-project",
-            logger=self.logger,
-            context={"task": "autosave"},
+def test_log_route_failure_attaches_context(logging_setup) -> None:
+    logger, handler = logging_setup
+    push_logging_context(project_config_id="alpha", request_id="req-9")
+    exc = RuntimeError("boom")
+    log_failure(
+        exc,
+        label="save-project",
+        logger=logger,
+        context={"task": "autosave"},
+    )
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.ERROR
+    assert "request_id=req-9" in record.setta_context
+    assert "project_config_id=alpha" in record.setta_context
+    assert "failure_label=save-project" in record.setta_context
+    assert "failure_handled=false" in record.setta_context
+    assert "task=autosave" in record.setta_context
+
+
+@pytest.mark.asyncio
+async def test_run_safely_logs_warning_on_handled_failure(logging_setup) -> None:
+    logger, handler = logging_setup
+
+    async def _failing() -> None:
+        raise ValueError("nope")
+
+    result = await run_safely(
+        _failing(),
+        label="terminal-run",
+        logger=logger,
+        handled=True,
+    )
+    assert result is None
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.WARNING
+    assert "failure_label=terminal-run" in record.setta_context
+    assert "failure_handled=true" in record.setta_context
+
+
+def test_log_failure_omits_traceback_for_handled_when_not_debug(
+    logging_setup, monkeypatch
+) -> None:
+    logger, handler = logging_setup
+    monkeypatch.delenv("SETTA_HANDLED_TRACEBACKS", raising=False)
+    logger.setLevel(logging.INFO)
+    exc = ValueError("nope")
+    log_failure(
+        exc,
+        label="handled-http",
+        logger=logger,
+        handled=True,
+    )
+
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.WARNING
+    assert record.exc_info is None
+    assert "ValueError: nope" in record.getMessage()
+
+
+def test_log_failure_can_force_traceback_for_handled_via_env(
+    logging_setup, monkeypatch
+) -> None:
+    logger, handler = logging_setup
+    monkeypatch.setenv("SETTA_HANDLED_TRACEBACKS", "1")
+    logger.setLevel(logging.INFO)
+    exc = ValueError("nope")
+    log_failure(
+        exc,
+        label="handled-http",
+        logger=logger,
+        handled=True,
+    )
+
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.WARNING
+    assert record.exc_info is not None
+
+
+@pytest.mark.asyncio
+async def test_run_safely_reraises_and_logs_error(logging_setup) -> None:
+    logger, handler = logging_setup
+
+    async def _failing() -> None:
+        raise RuntimeError("explode")
+
+    with pytest.raises(RuntimeError):
+        await run_safely(
+            _failing(),
+            label="llm-task",
+            logger=logger,
+            re_raise=True,
         )
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.ERROR)
-        self.assertIn("request_id=req-9", record.setta_context)
-        self.assertIn("project_config_id=alpha", record.setta_context)
-        self.assertIn("failure_label=save-project", record.setta_context)
-        self.assertIn("failure_handled=false", record.setta_context)
-        self.assertIn("task=autosave", record.setta_context)
 
-    def test_run_safely_logs_warning_on_handled_failure(self) -> None:
-        async def _failing() -> None:
-            raise ValueError("nope")
-
-        async def _invoke() -> None:
-            result = await run_safely(
-                _failing(),
-                label="terminal-run",
-                logger=self.logger,
-                handled=True,
-            )
-            self.assertIsNone(result)
-
-        asyncio.run(_invoke())
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.WARNING)
-        self.assertIn("failure_label=terminal-run", record.setta_context)
-        self.assertIn("failure_handled=true", record.setta_context)
-
-    def test_log_failure_omits_traceback_for_handled_when_not_debug(self) -> None:
-        original = os.environ.pop("SETTA_HANDLED_TRACEBACKS", None)
-        try:
-            self.logger.setLevel(logging.INFO)
-            exc = ValueError("nope")
-            log_failure(
-                exc,
-                label="handled-http",
-                logger=self.logger,
-                handled=True,
-            )
-        finally:
-            if original is not None:
-                os.environ["SETTA_HANDLED_TRACEBACKS"] = original
-
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.WARNING)
-        self.assertIsNone(record.exc_info)
-        self.assertIn("ValueError: nope", record.getMessage())
-
-    def test_log_failure_can_force_traceback_for_handled_via_env(self) -> None:
-        original = os.environ.get("SETTA_HANDLED_TRACEBACKS")
-        os.environ["SETTA_HANDLED_TRACEBACKS"] = "1"
-        try:
-            self.logger.setLevel(logging.INFO)
-            exc = ValueError("nope")
-            log_failure(
-                exc,
-                label="handled-http",
-                logger=self.logger,
-                handled=True,
-            )
-        finally:
-            if original is None:
-                os.environ.pop("SETTA_HANDLED_TRACEBACKS", None)
-            else:
-                os.environ["SETTA_HANDLED_TRACEBACKS"] = original
-
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.WARNING)
-        self.assertIsNotNone(record.exc_info)
-
-    def test_run_safely_reraises_and_logs_error(self) -> None:
-        async def _failing() -> None:
-            raise RuntimeError("explode")
-
-        async def _invoke() -> None:
-            with self.assertRaises(RuntimeError):
-                await run_safely(
-                    _failing(),
-                    label="llm-task",
-                    logger=self.logger,
-                    re_raise=True,
-                )
-
-        asyncio.run(_invoke())
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.ERROR)
-        self.assertIn("failure_handled=false", record.setta_context)
-
-    def test_run_safely_logs_sync_factory_exception(self) -> None:
-        def _factory() -> asyncio.Future[None]:
-            raise ValueError("factory boom")
-
-        async def _invoke() -> None:
-            result = await run_safely(
-                _factory,
-                label="sync-factory",
-                logger=self.logger,
-                handled=True,
-            )
-            self.assertIsNone(result)
-
-        asyncio.run(_invoke())
-        self.assertEqual(len(self.handler.records), 1)
-        record = self.handler.records[0]
-        self.assertEqual(record.levelno, logging.WARNING)
-        self.assertIn("failure_label=sync-factory", record.setta_context)
-        self.assertIn("failure_handled=true", record.setta_context)
-
-    def test_run_safely_requires_awaitable(self) -> None:
-        async def _invoke() -> None:
-            with self.assertRaises(TypeError):
-                await run_safely(lambda: 42, label="bad")
-
-        asyncio.run(_invoke())
-        self.assertEqual(len(self.handler.records), 0)
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.ERROR
+    assert "failure_handled=false" in record.setta_context
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.asyncio
+async def test_run_safely_logs_sync_factory_exception(logging_setup) -> None:
+    logger, handler = logging_setup
+
+    def _factory():
+        raise ValueError("factory boom")
+
+    result = await run_safely(
+        _factory,
+        label="sync-factory",
+        logger=logger,
+        handled=True,
+    )
+    assert result is None
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.WARNING
+    assert "failure_label=sync-factory" in record.setta_context
+    assert "failure_handled=true" in record.setta_context
+
+
+@pytest.mark.asyncio
+async def test_run_safely_requires_awaitable(logging_setup) -> None:
+    logger, handler = logging_setup
+
+    with pytest.raises(TypeError):
+        await run_safely(lambda: 42, label="bad")
+
+    assert len(handler.records) == 0

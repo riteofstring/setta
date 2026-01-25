@@ -1,15 +1,14 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.types.id import ID
 from setta.types.share_deployment import (
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
 )
-
 
 def _write_listener_entrypoint(root: Path) -> None:
     entrypoint = root / "listener.py"
@@ -39,7 +38,8 @@ def _build_manifest(
     )
 
 
-class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareListenerRuntime:
     def test_missing_entrypoint_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -49,7 +49,7 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 entrypoint="listener.py",
             )
 
-            with self.assertRaises(FileNotFoundError):
+            with pytest.raises(FileNotFoundError):
                 ShareListenerRuntime(
                     deployment_root=root,
                     manifest=manifest,
@@ -69,7 +69,7 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 manifest=manifest,
             )
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 await runtime.ensure_listener_for_session(None, project_config_id)
 
     async def test_stop_session_listener_and_stop_all(self) -> None:
@@ -93,16 +93,14 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             handle_b = runtime._session_handles.get(("session-b", project_config_id))
             if handle_a is None or handle_b is None:
                 raise AssertionError("expected session listener handles")
-            self.assertEqual(["session-a"], handle_a.module.BUILT)
-            self.assertEqual(["session-b"], handle_b.module.BUILT)
+            assert handle_a.module.BUILT == ["session-a"]
+            assert handle_b.module.BUILT == ["session-b"]
 
             runtime.stop_session_listener("session-a", project_config_id)
-            self.assertNotIn(
-                ("session-a", project_config_id), runtime._session_handles
-            )
+            assert ("session-a", project_config_id) not in runtime._session_handles
 
             runtime.stop_all()
-            self.assertFalse(runtime._session_handles)
+            assert not runtime._session_handles
 
             await asyncio.gather(
                 handle_a.task,
@@ -132,11 +130,11 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             handle_b = runtime._session_handles.get(("session-a", config_b))
             if handle_a is None or handle_b is None:
                 raise AssertionError("expected session listener handles")
-            self.assertEqual(["session-a"], handle_a.module.BUILT)
-            self.assertEqual(["session-a"], handle_b.module.BUILT)
+            assert handle_a.module.BUILT == ["session-a"]
+            assert handle_b.module.BUILT == ["session-a"]
 
             runtime.drop_session_listener("session-a")
-            self.assertFalse(runtime._session_handles)
+            assert not runtime._session_handles
 
             await asyncio.gather(
                 handle_a.task,

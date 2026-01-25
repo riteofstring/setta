@@ -1,11 +1,11 @@
 import asyncio
 import hashlib
 import tempfile
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.code import BashCode
@@ -42,8 +42,9 @@ def register_binding(
     return binding
 
 
-class CodeFilesTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestCodeFiles:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._tmpdir = tempfile.TemporaryDirectory()
@@ -58,7 +59,8 @@ class CodeFilesTests(unittest.TestCase):
         self.path = root / "code.py"
         self.path.touch()
 
-    def tearDown(self) -> None:
+        yield
+
         asyncio.set_event_loop(None)
         self._loop.close()
         self._tmpdir.cleanup()
@@ -100,13 +102,13 @@ class CodeFilesTests(unittest.TestCase):
             self.manager, self.path, CodeFileAccessMode.read_write
         )
 
-        self.assertEqual(self.manager.get_bindings(self.path), {binding})
+        assert self.manager.get_bindings(self.path) == {binding}
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
-        self.assertIsInstance(metadata, CodeFileMetadata)
         assert metadata is not None
-        self.assertIsNone(metadata.last_read_hash)
-        self.assertIsNone(metadata.last_written_hash)
+        assert isinstance(metadata, CodeFileMetadata)
+        assert metadata is not None
+        assert metadata.last_read_hash is None
+        assert metadata.last_written_hash is None
 
     def test_register_binding_updates_existing_access_mode(self) -> None:
         original = register_binding(
@@ -121,7 +123,7 @@ class CodeFilesTests(unittest.TestCase):
 
         self.manager.register_binding(self.path, updated)
 
-        self.assertEqual(self.manager.get_bindings(self.path), {updated})
+        assert self.manager.get_bindings(self.path) == {updated}
 
     def test_register_binding_rejects_conflicts_for_other_sections(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
@@ -132,7 +134,7 @@ class CodeFilesTests(unittest.TestCase):
             access_mode=CodeFileAccessMode.write_only,
         )
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.manager.register_binding(self.path, conflicting)
 
     def test_record_write_updates_metadata(self) -> None:
@@ -141,10 +143,10 @@ class CodeFilesTests(unittest.TestCase):
         self.manager.record_write(self.path, "hash")
 
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertEqual(metadata.last_written_hash, "hash")
-        self.assertFalse(metadata.has_conflict)
+        assert metadata is not None
+        assert metadata.last_written_hash == "hash"
+        assert not metadata.has_conflict
 
     def test_watch_code_files_registers_callbacks(self) -> None:
         state, _, _, _ = self._build_project_state()
@@ -160,9 +162,9 @@ class CodeFilesTests(unittest.TestCase):
 
         normalized = normalize_path(self.path)
         callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
-        self.assertIn(normalized, callbacks)
+        assert normalized in callbacks
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
-        self.assertIn(normalized, tracked_bindings)
+        assert normalized in tracked_bindings
 
     def test_watch_code_files_clears_callbacks_when_config_removed(self) -> None:
         state, _, _, _ = self._build_project_state()
@@ -182,16 +184,16 @@ class CodeFilesTests(unittest.TestCase):
         self._loop.run_until_complete(asyncio.sleep(0))
         normalized = normalize_path(self.path)
         callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
-        self.assertIn(normalized, callbacks)
+        assert normalized in callbacks
 
         backend_holder["value"] = ProjectStateBackend()
         self.manager.watch_code_files(category, _getter, _reload)
         self._loop.run_until_complete(asyncio.sleep(0))
 
         callbacks_after = self.manager.specific_file_watcher.callbacks.get(category, {})
-        self.assertEqual(callbacks_after, {})
+        assert callbacks_after == {}
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
-        self.assertEqual(tracked_bindings, {})
+        assert tracked_bindings == {}
 
     def test_watch_code_files_refreshes_bindings_from_backend(self) -> None:
         state, section_id, variant_id, project_config_id = self._build_project_state()
@@ -216,18 +218,18 @@ class CodeFilesTests(unittest.TestCase):
         self._loop.run_until_complete(asyncio.sleep(0))
 
         bindings = self.manager.get_bindings(self.path)
-        self.assertEqual(len(bindings), 1)
+        assert len(bindings) == 1
         (binding,) = tuple(bindings)
-        self.assertEqual(binding.section_id, section_id)
-        self.assertEqual(binding.variant_id, variant_id)
-        self.assertEqual(binding.project_config_id, project_config_id)
-        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
-        self.assertNotIn(stale_path, self.manager._bindings)
+        assert binding.section_id == section_id
+        assert binding.variant_id == variant_id
+        assert binding.project_config_id == project_config_id
+        assert binding.access_mode == CodeFileAccessMode.read_write
+        assert stale_path not in self.manager._bindings
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
 
-        with self.assertRaises(PermissionError):
+        with pytest.raises(PermissionError):
             self.manager.record_write(self.path, "hash")
 
     def test_should_reload_skips_known_write_hash(self) -> None:
@@ -236,12 +238,12 @@ class CodeFilesTests(unittest.TestCase):
 
         should_reload = self.manager.should_reload(self.path, "hash")
 
-        self.assertFalse(should_reload)
+        assert not should_reload
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertEqual(metadata.last_read_hash, "hash")
-        self.assertFalse(metadata.has_conflict)
+        assert metadata is not None
+        assert metadata.last_read_hash == "hash"
+        assert not metadata.has_conflict
 
     def test_should_reload_marks_conflict_on_external_change(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_write)
@@ -249,12 +251,12 @@ class CodeFilesTests(unittest.TestCase):
 
         should_reload = self.manager.should_reload(self.path, "hash-new")
 
-        self.assertTrue(should_reload)
+        assert should_reload
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertTrue(metadata.has_conflict)
-        self.assertIsNone(metadata.last_read_hash)
+        assert metadata is not None
+        assert metadata.has_conflict
+        assert metadata.last_read_hash is None
 
     def test_should_reload_ignores_write_only_files(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.write_only)
@@ -262,11 +264,11 @@ class CodeFilesTests(unittest.TestCase):
 
         should_reload = self.manager.should_reload(self.path, "hash-new")
 
-        self.assertFalse(should_reload)
+        assert not should_reload
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertTrue(metadata.has_conflict)
+        assert metadata is not None
+        assert metadata.has_conflict
 
     def test_record_read_clears_conflict(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_write)
@@ -276,14 +278,15 @@ class CodeFilesTests(unittest.TestCase):
         self.manager.record_read(self.path, "hash-new")
 
         metadata = self.manager.get_metadata(self.path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertEqual(metadata.last_read_hash, "hash-new")
-        self.assertFalse(metadata.has_conflict)
+        assert metadata is not None
+        assert metadata.last_read_hash == "hash-new"
+        assert not metadata.has_conflict
 
 
-class CodeWriteToDiskTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestCodeWriteToDisk:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = tempfile.TemporaryDirectory()
         root = Path(self._tmpdir.name).resolve()
 
@@ -295,7 +298,8 @@ class CodeWriteToDiskTests(unittest.TestCase):
         self.dbe = DBE(root)
         self.code_files = CodeFiles(self.frontend_sender, self.file_watcher, self.dbe)
 
-    def tearDown(self) -> None:
+        yield
+
         with suppress(RuntimeError):
             self.file_watcher.stop()
         asyncio.set_event_loop(None)
@@ -329,12 +333,12 @@ class CodeWriteToDiskTests(unittest.TestCase):
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
             wrote = code.write_to_disk("echo 'blocked'")
 
-        self.assertFalse(wrote)
+        assert not wrote
         mock_write.assert_not_called()
         metadata = self.code_files.get_metadata(binding.canonical_path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertIsNone(metadata.last_written_hash)
+        assert metadata is not None
+        assert metadata.last_written_hash is None
 
     def test_write_to_disk_skips_noop_writes(self) -> None:
         binding = self._register_binding("noop.sh", CodeFileAccessMode.read_write)
@@ -347,12 +351,12 @@ class CodeWriteToDiskTests(unittest.TestCase):
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
             wrote = code.write_to_disk(initial_content)
 
-        self.assertFalse(wrote)
+        assert not wrote
         mock_write.assert_not_called()
         metadata = self.code_files.get_metadata(binding.canonical_path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertEqual(metadata.last_written_hash, initial_hash)
+        assert metadata is not None
+        assert metadata.last_written_hash == initial_hash
 
     def test_write_to_disk_records_write_metadata(self) -> None:
         binding = self._register_binding("write.sh", CodeFileAccessMode.read_write)
@@ -363,16 +367,12 @@ class CodeWriteToDiskTests(unittest.TestCase):
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
             wrote = code.write_to_disk(new_content)
 
-        self.assertTrue(wrote)
+        assert wrote
         mock_write.assert_called_once_with(binding.canonical_path, new_content)
         metadata = self.code_files.get_metadata(binding.canonical_path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertEqual(metadata.last_written_hash, expected_hash)
-        self.assertFalse(metadata.has_conflict)
+        assert metadata is not None
+        assert metadata.last_written_hash == expected_hash
+        assert not metadata.has_conflict
         disk_content = self.dbe.read(binding.canonical_path)
-        self.assertEqual(disk_content, new_content)
-
-
-if __name__ == "__main__":  # pragma: no cover - manual execution
-    unittest.main()
+        assert disk_content == new_content

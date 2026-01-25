@@ -1,13 +1,13 @@
-import unittest
 from typing import Annotated
 
+import pytest
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from pydantic import Field
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 
-
-class FastMCPPreparsePatchTest(unittest.TestCase):
-    def setUp(self) -> None:
+class TestFastMCPPreparsePatch:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         apply_fastmcp_preparse_patch()
 
     def test_string_annotations_skip_json_preparse(self) -> None:
@@ -29,11 +29,7 @@ class FastMCPPreparsePatchTest(unittest.TestCase):
 
         parsed = metadata.pre_parse_json(raw_data)
 
-        self.assertEqual(parsed["payload"], {"value": 1})
-        self.assertEqual(parsed["label"], raw_data["label"])
-        self.assertEqual(parsed["annotated_label"], raw_data["annotated_label"])
-        self.assertEqual(parsed["optional_label"], raw_data["optional_label"])
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert parsed["payload"] == {"value": 1}
+        assert parsed["label"] == raw_data["label"]
+        assert parsed["annotated_label"] == raw_data["annotated_label"]
+        assert parsed["optional_label"] == raw_data["optional_label"]

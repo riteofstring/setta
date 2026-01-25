@@ -1,5 +1,4 @@
-from unittest import TestCase
-
+import pytest
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import (
@@ -21,8 +20,7 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
-
-class ImageDependencyGraphTests(TestCase):
+class TestImageDependencyGraph:
     def test_image_section_exports_file_value_when_enabled(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -48,11 +46,11 @@ class ImageDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertTrue(node.include_in_codegen)
-        self.assertIsInstance(node.value, FileReadDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.include_in_codegen
+        assert isinstance(node.value, FileReadDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "artifacts/reversed_image.png")
+        assert node.value.payload == "artifacts/reversed_image.png"
 
     def test_image_section_exports_file_path_when_enabled(self) -> None:
         settings = SettingsState()
@@ -79,11 +77,11 @@ class ImageDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertTrue(node.include_in_codegen)
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.include_in_codegen
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "artifacts/reversed_image.png")
+        assert node.value.payload == "artifacts/reversed_image.png"
 
     def test_image_section_rejects_json_representation(self) -> None:
         settings = SettingsState()
@@ -102,7 +100,7 @@ class ImageDependencyGraphTests(TestCase):
             representation=SectionRepresentationMode.expression,
         )
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             DependencyGraph(project_state)
 
     def test_image_section_file_read_falls_back_without_path(self) -> None:
@@ -125,14 +123,11 @@ class ImageDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "None")
+        assert node.value.payload == "None"
 
     def test_image_section_file_path_falls_back_without_path(self) -> None:
         settings = SettingsState()
@@ -154,11 +149,8 @@ class ImageDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "None")
+        assert node.value.payload == "None"

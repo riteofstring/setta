@@ -1,8 +1,8 @@
 import re
-import unittest
 from uuid import UUID
 
 import yaml
+import pytest
 
 from setta.project_state.readable_export import build_readable_project_export
 from setta.types.code_obj_impls import (
@@ -272,8 +272,9 @@ def _build_backend() -> ProjectStateBackend:
     return backend
 
 
-class ReadableProjectExportTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestReadableProjectExport:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.backend = _build_backend()
         self.payload = build_readable_project_export(
             self.backend,
@@ -287,7 +288,7 @@ class ReadableProjectExportTests(unittest.TestCase):
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
             re.IGNORECASE,
         )
-        self.assertIsNone(uuid_pattern.search(yaml_payload))
+        assert uuid_pattern.search(yaml_payload) is None
 
     def test_readable_export_code_section_uses_file_reference(self) -> None:
         code_section = next(
@@ -295,9 +296,9 @@ class ReadableProjectExportTests(unittest.TestCase):
             for section in self.config["sections"]
             if section["type"] == "Code"
         )
-        self.assertIn("files", code_section)
-        self.assertIn("code", code_section["files"])
-        self.assertNotIn("code", code_section)
+        assert "files" in code_section
+        assert "code" in code_section["files"]
+        assert "code" not in code_section
 
     def test_readable_export_json_source_omits_params(self) -> None:
         json_section = next(
@@ -305,13 +306,10 @@ class ReadableProjectExportTests(unittest.TestCase):
             for section in self.config["sections"]
             if section["type"] == "Dict" and "jsonSourceKeys" in section
         )
-        self.assertIn("files", json_section)
-        self.assertIn("jsonSource", json_section["files"])
-        self.assertNotIn("params", json_section)
+        assert "files" in json_section
+        assert "jsonSource" in json_section["files"]
+        assert "params" not in json_section
 
     def test_readable_export_edges_use_paths(self) -> None:
         edges = self.config["edges"]
-        self.assertIn(
-            {"from": "Source.out.result", "to": "Target.param.alpha"},
-            edges,
-        )
+        assert {"from": "Source.out.result", "to": "Target.param.alpha"} in edges

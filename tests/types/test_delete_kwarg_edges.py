@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
@@ -23,8 +23,9 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
 
 
-class DeleteKwargEdgeTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestDeleteKwargEdges:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="delete-kwarg-edges-test")
@@ -80,12 +81,12 @@ class DeleteKwargEdgeTests(unittest.TestCase):
         section_impl = get_curr_effective_section_impl_with_type_guard(
             self.project_state, target_section_id, BaseDictSectionImpl
         )
-        self.assertNotIn(target_param_id, section_impl.edgeInputParams)
-        self.assertEqual(self.project_state.projectConfig.edges, [])
+        assert target_param_id not in section_impl.edgeInputParams
+        assert self.project_state.projectConfig.edges == []
         param_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
             target_section_id,
             target_param_id,
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(param_impl.value, "")
+        assert param_impl.value == ""

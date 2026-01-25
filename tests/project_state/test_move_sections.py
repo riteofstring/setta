@@ -1,5 +1,4 @@
-import unittest
-
+import pytest
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_child_sections,
@@ -13,7 +12,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
 
-class MoveSectionsTests(unittest.TestCase):
+class TestMoveSections:
     def test_move_sections_within_parent_keeps_contiguous_block(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -43,15 +42,14 @@ class MoveSectionsTests(unittest.TestCase):
         )
 
         updated_children = get_curr_section_children_ids(project_state, parent_id)
-        self.assertEqual(
-            updated_children,
-            [child_ids[1], child_ids[0], child_ids[2], child_ids[3]],
-        )
+        assert updated_children == [
+            child_ids[1],
+            child_ids[0],
+            child_ids[2],
+            child_ids[3],
+        ]
         project_state.validate_parent_section_map()
-        self.assertEqual(
-            project_state.parentSectionMap[child_ids[0]],
-            parent_id,
-        )
+        assert project_state.parentSectionMap[child_ids[0]] == parent_id
 
     def test_move_sections_from_top_level_removes_layout_entries(self) -> None:
         settings = SettingsState()
@@ -85,15 +83,12 @@ class MoveSectionsTests(unittest.TestCase):
             0,
         )
 
-        self.assertNotIn(top_level_a, project_state.projectConfig.topLevelSections)
-        self.assertNotIn(top_level_b, project_state.projectConfig.topLevelSections)
+        assert top_level_a not in project_state.projectConfig.topLevelSections
+        assert top_level_b not in project_state.projectConfig.topLevelSections
         updated_children = get_curr_section_children_ids(project_state, parent_id)
-        self.assertEqual(updated_children, [top_level_a, top_level_b])
+        assert updated_children == [top_level_a, top_level_b]
         project_state.validate_parent_section_map()
-        self.assertEqual(
-            project_state.parentSectionMap[top_level_a],
-            parent_id,
-        )
+        assert project_state.parentSectionMap[top_level_a] == parent_id
 
     def test_move_sections_rejects_selected_parent(self) -> None:
         settings = SettingsState()
@@ -108,9 +103,7 @@ class MoveSectionsTests(unittest.TestCase):
         )
         project_state.validate_parent_section_map()
 
-        with self.assertRaisesRegex(
-            ValueError, "Cannot reparent into a selected section."
-        ):
+        with pytest.raises(ValueError, match="Cannot reparent into a selected section."):
             move_sections_to_parent_section(
                 project_state,
                 parent_id,
@@ -139,8 +132,8 @@ class MoveSectionsTests(unittest.TestCase):
         )
         project_state.validate_parent_section_map()
 
-        with self.assertRaisesRegex(
-            ValueError, "Cannot reparent into a descendant of selection."
+        with pytest.raises(
+            ValueError, match="Cannot reparent into a descendant of selection."
         ):
             move_sections_to_parent_section(
                 project_state,
@@ -171,18 +164,16 @@ class MoveSectionsTests(unittest.TestCase):
         project_state.validate_parent_section_map()
         original_children = get_curr_section_children_ids(project_state, parent_id)
 
-        with self.assertRaisesRegex(
-            ValueError, "New index exceeds available sibling range."
-        ):
+        with pytest.raises(ValueError, match="New index exceeds available sibling range."):
             move_sections_to_parent_section(
                 project_state,
                 parent_id,
                 [child_ids[1]],
                 3,
             )
-        self.assertEqual(
-            get_curr_section_children_ids(project_state, parent_id),
-            original_children,
+        assert (
+            get_curr_section_children_ids(project_state, parent_id)
+            == original_children
         )
         project_state.validate_parent_section_map()
 
@@ -242,21 +233,20 @@ class MoveSectionsTests(unittest.TestCase):
             0,
         )
 
-        self.assertEqual(
-            get_curr_section_children_ids(project_state, parent_a),
-            [child_a_ids[1]],
-        )
-        self.assertEqual(
-            get_curr_section_children_ids(project_state, parent_b),
-            [child_b_ids[0]],
-        )
-        self.assertEqual(
-            get_curr_section_children_ids(project_state, parent_c),
-            [child_a_ids[0], child_b_ids[1], child_c],
-        )
+        assert get_curr_section_children_ids(project_state, parent_a) == [
+            child_a_ids[1],
+        ]
+        assert get_curr_section_children_ids(project_state, parent_b) == [
+            child_b_ids[0],
+        ]
+        assert get_curr_section_children_ids(project_state, parent_c) == [
+            child_a_ids[0],
+            child_b_ids[1],
+            child_c,
+        ]
         project_state.validate_parent_section_map()
-        self.assertEqual(project_state.parentSectionMap[child_a_ids[0]], parent_c)
-        self.assertEqual(project_state.parentSectionMap[child_b_ids[1]], parent_c)
+        assert project_state.parentSectionMap[child_a_ids[0]] == parent_c
+        assert project_state.parentSectionMap[child_b_ids[1]] == parent_c
 
     def test_move_sections_rejects_missing_parent_entry(self) -> None:
         settings = SettingsState()
@@ -279,9 +269,7 @@ class MoveSectionsTests(unittest.TestCase):
         )
         project_state.validate_parent_section_map()
 
-        with self.assertRaisesRegex(
-            KeyError, "Missing parentSectionMap entry"
-        ):
+        with pytest.raises(KeyError, match="Missing parentSectionMap entry"):
             move_sections_to_parent_section(
                 project_state,
                 "missing-parent",
@@ -327,7 +315,7 @@ class MoveSectionsTests(unittest.TestCase):
         move_section_to_pane(project_state, child_id, Position(x=5, y=5))
 
         layout = project_state.projectConfig.topLevelSections[child_id]
-        self.assertEqual(layout.zIndex, 8)
+        assert layout.zIndex == 8
 
     def test_move_section_to_pane_increments_z_index_for_multiple_moves(self) -> None:
         settings = SettingsState()
@@ -362,9 +350,5 @@ class MoveSectionsTests(unittest.TestCase):
 
         layout_first = project_state.projectConfig.topLevelSections[child_ids[0]]
         layout_second = project_state.projectConfig.topLevelSections[child_ids[1]]
-        self.assertEqual(layout_first.zIndex, 11)
-        self.assertEqual(layout_second.zIndex, 12)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert layout_first.zIndex == 11
+        assert layout_second.zIndex == 12

@@ -1,5 +1,6 @@
-import unittest
 from typing import Any
+
+import pytest
 
 from setta.logging.context import (
     get_logging_context,
@@ -13,38 +14,41 @@ from starlette.types import Scope
 from starlette.websockets import WebSocket
 
 
-class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        self._token = push_logging_context(replace=True)
+@pytest.fixture(autouse=True)
+def logging_context_scope():
+    token = push_logging_context(replace=True)
+    yield
+    reset_logging_context(token)
 
-    def tearDown(self) -> None:
-        reset_logging_context(self._token)
 
-    async def test_bind_websocket_logging_context_infers_metadata(self) -> None:
-        websocket = _make_websocket(
-            path="/api/ws/frontend",
-        )
-        expected_websocket_id = ensure_websocket_context(websocket)
-        async with bind_websocket_logging_context(
-            websocket,
-            project_config_id="alpha",
-        ):
-            context = get_logging_context()
-            self.assertEqual(context["websocket_id"], expected_websocket_id)
-            self.assertEqual(context["project_config_id"], "alpha")
-            self.assertEqual(context["path"], "/api/ws/frontend")
+@pytest.mark.asyncio
+async def test_bind_websocket_logging_context_infers_metadata() -> None:
+    websocket = _make_websocket(
+        path="/api/ws/frontend",
+    )
+    expected_websocket_id = ensure_websocket_context(websocket)
+    async with bind_websocket_logging_context(
+        websocket,
+        project_config_id="alpha",
+    ):
+        context = get_logging_context()
+        assert context["websocket_id"] == expected_websocket_id
+        assert context["project_config_id"] == "alpha"
+        assert context["path"] == "/api/ws/frontend"
 
-    async def test_spawn_background_task_sets_context(self) -> None:
-        async def _coro() -> str:
-            return get_logging_context()["task"]
 
-        task = spawn_background_task(
-            _coro(),
-            label="manual-task",
-            request_id="req-123",
-        )
-        result = await task
-        self.assertEqual(result, "manual-task")
+@pytest.mark.asyncio
+async def test_spawn_background_task_sets_context() -> None:
+    async def _coro() -> str:
+        return get_logging_context()["task"]
+
+    task = spawn_background_task(
+        _coro(),
+        label="manual-task",
+        request_id="req-123",
+    )
+    result = await task
+    assert result == "manual-task"
 
 
 def _make_websocket(
@@ -82,6 +86,3 @@ def _make_websocket(
 
     return WebSocket(scope, empty_receive, empty_send)
 
-
-if __name__ == "__main__":
-    unittest.main()

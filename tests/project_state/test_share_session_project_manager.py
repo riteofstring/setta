@@ -1,8 +1,8 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -188,7 +188,8 @@ def _write_project_with_states(
     return dbe
 
 
-class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareSessionProjectManager:
     async def test_session_manager_supports_multiple_configs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_state_a = _build_project_state(
@@ -238,13 +239,13 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                 state_b = session_manager.get_single_config_state(
                     project_state_b.projectConfig.id
                 )
-                self.assertEqual(
-                    project_state_a.projectConfig.name,
-                    state_a.projectConfig.name,
+                assert (
+                    project_state_a.projectConfig.name
+                    == state_a.projectConfig.name
                 )
-                self.assertEqual(
-                    project_state_b.projectConfig.name,
-                    state_b.projectConfig.name,
+                assert (
+                    project_state_b.projectConfig.name
+                    == state_b.projectConfig.name
                 )
             finally:
                 session_manager.shutdown()
@@ -252,8 +253,8 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                     session_manager.queue_task,
                     return_exceptions=True,
                 )
-                self.assertEqual(1, len(results))
-                self.assertIsInstance(results[0], asyncio.CancelledError)
+                assert 1 == len(results)
+                assert isinstance(results[0], asyncio.CancelledError)
 
     async def test_update_without_lsp_does_not_raise(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -300,16 +301,12 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                 updated_target = get_python_codegen_target_with_type_guard(
                     updated.projectConfig
                 )
-                self.assertEqual("import math\n", updated_target.genCodePrefix)
+                assert "import math\n" == updated_target.genCodePrefix
             finally:
                 session_manager.shutdown()
                 results = await asyncio.gather(
                     session_manager.queue_task,
                     return_exceptions=True,
                 )
-                self.assertEqual(1, len(results))
-                self.assertIsInstance(results[0], asyncio.CancelledError)
-
-
-if __name__ == "__main__":
-    unittest.main()
+                assert 1 == len(results)
+                assert isinstance(results[0], asyncio.CancelledError)

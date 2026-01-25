@@ -1,5 +1,4 @@
 import base64
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,7 +15,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DrawSectionImpl
 
 
-class DrawSnapshotTests(unittest.TestCase):
+class TestDrawSnapshot:
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID]:
         draw_impl = DrawSectionImpl(id=ID("draw-impl"), name="Draw")
         variant = Variant(
@@ -63,16 +62,16 @@ class DrawSnapshotTests(unittest.TestCase):
                 snapshots_by_section_id={section_id: payload},
                 artifact_root=artifacts_root,
             )
-            self.assertTrue(did_update)
+            assert did_update
             impl = get_curr_effective_section_impl_with_type_guard(
                 project_state,
                 section_id,
                 DrawSectionImpl,
             )
             expected_path = build_draw_snapshot_path(section_id, artifacts_root)
-            self.assertEqual(expected_path.as_posix(), impl.renderedImagePath)
+            assert expected_path.as_posix() == impl.renderedImagePath
             written = dbe.read(expected_path, mode="rb")
-            self.assertEqual(expected_bytes, written)
+            assert expected_bytes == written
 
             did_skip = apply_draw_snapshot_updates(
                 dbe=dbe,
@@ -80,13 +79,13 @@ class DrawSnapshotTests(unittest.TestCase):
                 snapshots_by_section_id={},
                 artifact_root=artifacts_root,
             )
-            self.assertFalse(did_skip)
+            assert not did_skip
             impl_after_skip = get_curr_effective_section_impl_with_type_guard(
                 project_state,
                 section_id,
                 DrawSectionImpl,
             )
-            self.assertEqual(expected_path.as_posix(), impl_after_skip.renderedImagePath)
+            assert expected_path.as_posix() == impl_after_skip.renderedImagePath
 
     def test_apply_draw_snapshot_updates_noop_when_missing(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -100,14 +99,10 @@ class DrawSnapshotTests(unittest.TestCase):
                 snapshots_by_section_id=None,
                 artifact_root=artifacts_root,
             )
-            self.assertFalse(did_update)
+            assert not did_update
             impl = get_curr_effective_section_impl_with_type_guard(
                 project_state,
                 section_id,
                 DrawSectionImpl,
             )
-            self.assertIsNone(impl.renderedImagePath)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert impl.renderedImagePath is None

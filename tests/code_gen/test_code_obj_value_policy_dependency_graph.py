@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
@@ -114,7 +112,7 @@ def build_project_state(
     )
 
 
-class CodeObjValuePolicyDependencyGraphTests(TestCase):
+class TestCodeObjValuePolicyDependencyGraph:
     def test_param_node_uses_type_policy_representation(self) -> None:
         section_id = ID("section-1")
         callable_id = ID("callable-1")
@@ -133,10 +131,10 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, ParamNode)
-        self.assertEqual(
-            node.value_representation,
-            CodeObjValueRepresentationMode.json_parsed,
+        assert isinstance(node, ParamNode)
+        assert (
+            node.value_representation
+            == CodeObjValueRepresentationMode.json_parsed
         )
 
     def test_param_node_override_takes_precedence(self) -> None:
@@ -160,8 +158,8 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, ParamNode)
-        self.assertEqual(
-            node.value_representation,
-            CodeObjValueRepresentationMode.json_parsed,
+        assert isinstance(node, ParamNode)
+        assert (
+            node.value_representation
+            == CodeObjValueRepresentationMode.json_parsed
         )

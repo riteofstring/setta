@@ -1,9 +1,9 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
@@ -59,7 +59,8 @@ def _write_share_policy(root: Path, policy: SharePolicy) -> None:
 
 
 
-class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestSharePolicyEnforcement:
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -83,13 +84,13 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as raised:
+            with pytest.raises(HTTPException) as raised:
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowParamChanges",
                     denied_message="Share policy disallows parameter changes.",
                 )
 
-            self.assertEqual(403, raised.exception.status_code)
+            assert raised.value.status_code == 403
 
     async def test_variant_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -104,13 +105,13 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as raised:
+            with pytest.raises(HTTPException) as raised:
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowVariantChanges",
                     denied_message="Share policy disallows variant changes.",
                 )
 
-            self.assertEqual(403, raised.exception.status_code)
+            assert raised.value.status_code == 403
 
     async def test_layout_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -125,13 +126,13 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as raised:
+            with pytest.raises(HTTPException) as raised:
                 await runtime_ctx.enforce_policy(
                     policy_flag="allowLayoutChanges",
                     denied_message="Share policy disallows layout changes.",
                 )
 
-            self.assertEqual(403, raised.exception.status_code)
+            assert raised.value.status_code == 403
 
     async def test_structural_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -145,7 +146,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as raised:
+            with pytest.raises(HTTPException) as raised:
                 await deny_in_share_mode(
                     share_mode=runtime_ctx.share_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
@@ -153,7 +154,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                     share_session_id=runtime_ctx.share_session_id,
                 )
 
-            self.assertEqual(403, raised.exception.status_code)
+            assert raised.value.status_code == 403
 
     async def test_lsp_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -167,7 +168,7 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as raised:
+            with pytest.raises(HTTPException) as raised:
                 await deny_in_share_mode(
                     share_mode=runtime_ctx.share_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
@@ -175,7 +176,4 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                     share_session_id=runtime_ctx.share_session_id,
                 )
 
-            self.assertEqual(403, raised.exception.status_code)
-
-if __name__ == "__main__":
-    unittest.main()
+            assert raised.value.status_code == 403

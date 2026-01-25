@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.types.generated.settings_state import SettingsState
 from setta.types.settings_state import (
     MetaControlSizeMode,
@@ -9,23 +7,22 @@ from setta.types.settings_state import (
 )
 
 
-class SettingsStateMetaControlPolicyTests(TestCase):
-    def test_meta_control_sizing_policy_overrides(self) -> None:
-        policy = SectionSizingPolicy(
-            metaControlByType=MetaControlSizingPolicyByType(
-                DropzoneParam=MetaControlSizingPolicyTypeEntry(
-                    minHeight=120,
-                    minWidth=300,
-                    sizeModeHeight=MetaControlSizeMode.auto_only,
-                    sizeModeWidth=MetaControlSizeMode.any,
-                )
+def test_meta_control_sizing_policy_overrides() -> None:
+    policy = SectionSizingPolicy(
+        metaControlByType=MetaControlSizingPolicyByType(
+            DropzoneParam=MetaControlSizingPolicyTypeEntry(
+                minHeight=120,
+                minWidth=300,
+                sizeModeHeight=MetaControlSizeMode.auto_only,
+                sizeModeWidth=MetaControlSizeMode.any,
             )
         )
+    )
 
-        settings = SettingsState(sectionSizingPolicy=policy)
-        entry = settings.sectionSizingPolicy.metaControlByType.DropzoneParam
+    settings = SettingsState(sectionSizingPolicy=policy)
+    entry = settings.sectionSizingPolicy.metaControlByType.DropzoneParam
 
-        self.assertEqual(120, entry.minHeight)
-        self.assertEqual(300, entry.minWidth)
-        self.assertEqual(MetaControlSizeMode.auto_only, entry.sizeModeHeight)
-        self.assertEqual(MetaControlSizeMode.any, entry.sizeModeWidth)
+    assert entry.minHeight == 120
+    assert entry.minWidth == 300
+    assert entry.sizeModeHeight == MetaControlSizeMode.auto_only
+    assert entry.sizeModeWidth == MetaControlSizeMode.any

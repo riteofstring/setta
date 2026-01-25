@@ -1,8 +1,8 @@
 import json
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -35,10 +35,10 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class JsonSourceSaveNestedPathsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestJsonSourceSaveNestedPaths:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
-        self.addCleanup(self._tmpdir.cleanup)
 
         root = Path(self._tmpdir.name)
         self.dbe = DBE(root)
@@ -56,6 +56,10 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="json-source-save")
         )
+
+        yield
+
+        self._tmpdir.cleanup()
 
     def _create_json_source_section(self, json_source_keys: list[str], filename: Path):
         section_id = create_top_level_section(
@@ -121,7 +125,7 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         beta_variant, beta_base_impl, _ = get_variant_base_and_effective_code_obj_impl(
             self.project_state, beta_mode_core, beta_mode_variant_id
         )
-        self.assertIsInstance(beta_base_impl, BaseChildlessCodeObjImpl)
+        assert isinstance(beta_base_impl, BaseChildlessCodeObjImpl)
         set_effective_impl_value(
             beta_base_impl,
             beta_mode_core,
@@ -132,10 +136,10 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         save_json_source_data(self.dbe, self.project_state)
         updated = read_json_source_payload(filename, self.dbe)
 
-        self.assertIn("app", updated)
-        self.assertIn("paths", updated)
-        self.assertIn("rollouts", updated["features"])
-        self.assertTrue(updated["features"]["flags"]["betaMode"])
+        assert "app" in updated
+        assert "paths" in updated
+        assert "rollouts" in updated["features"]
+        assert updated["features"]["flags"]["betaMode"]
 
     def test_save_merges_root_and_nested_updates(self) -> None:
         payload = {
@@ -181,7 +185,7 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
         beta_variant, beta_base_impl, _ = get_variant_base_and_effective_code_obj_impl(
             self.project_state, beta_mode_core, beta_mode_variant_id
         )
-        self.assertIsInstance(beta_base_impl, BaseChildlessCodeObjImpl)
+        assert isinstance(beta_base_impl, BaseChildlessCodeObjImpl)
         set_effective_impl_value(
             beta_base_impl,
             beta_mode_core,
@@ -191,9 +195,9 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
 
         save_json_source_data(self.dbe, self.project_state)
         updated = read_json_source_payload(filename, self.dbe)
-        self.assertIn("app", updated)
-        self.assertIn("features", updated)
-        self.assertTrue(updated["features"]["flags"]["betaMode"])
+        assert "app" in updated
+        assert "features" in updated
+        assert updated["features"]["flags"]["betaMode"]
 
     def test_apply_updates_root_replaces_existing_with_nested_override(self) -> None:
         existing = {
@@ -205,7 +209,7 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
             (["app"], {"debug": False}),
         ]
         updated = apply_json_source_updates(existing, updates)
-        self.assertEqual(updated, {"app": {"debug": False}})
+        assert updated == {"app": {"debug": False}}
 
     def test_apply_updates_nested_replaces_subtree(self) -> None:
         existing = {
@@ -218,5 +222,5 @@ class JsonSourceSaveNestedPathsTests(unittest.TestCase):
             (["features", "flags"], {"newUI": True}),
         ]
         updated = apply_json_source_updates(existing, updates)
-        self.assertEqual(updated["features"]["flags"], {"newUI": True})
-        self.assertIn("rollouts", updated["features"])
+        assert updated["features"]["flags"] == {"newUI": True}
+        assert "rollouts" in updated["features"]

@@ -1,9 +1,8 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from fastapi import FastAPI
-
 from setta.database.db_objs import DBE
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.server_state import SettaFastAPIState
@@ -59,7 +58,8 @@ def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
-class ShareStateTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareState:
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
         state = SettaFastAPIState(
@@ -81,15 +81,15 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
 
-            self.assertIsInstance(state.share_session_store, MemorySessionStore)
-            self.assertIsInstance(state.share_runtime_state, ShareRuntimeState)
-            self.assertEqual(
-                project_config.id,
-                state.share_runtime_state.project_state_backend.defaultProjectConfigId,
+            assert isinstance(state.share_session_store, MemorySessionStore)
+            assert isinstance(state.share_runtime_state, ShareRuntimeState)
+            assert (
+                project_config.id
+                == state.share_runtime_state.project_state_backend.defaultProjectConfigId
             )
-            self.assertIsNotNone(state.specific_file_watcher)
-            self.assertTrue(state.mcp_client.disabled)
-            self.assertFalse(state.lsps)
+            assert state.specific_file_watcher is not None
+            assert state.mcp_client.disabled
+            assert not state.lsps
 
     async def test_share_state_does_not_seed_settings_or_llm_files(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -102,12 +102,12 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
 
-            self.assertFalse((root / "setta-settings.json").exists())
-            self.assertFalse((root / "setta-settings-project.json").exists())
-            self.assertFalse((root / "llm_config.json").exists())
-            self.assertFalse((root / "llm_config.example.json").exists())
+            assert not (root / "setta-settings.json").exists()
+            assert not (root / "setta-settings-project.json").exists()
+            assert not (root / "llm_config.json").exists()
+            assert not (root / "llm_config.example.json").exists()
 
-            self.assertIsNotNone(state.settings_file)
+            assert state.settings_file is not None
 
     async def test_share_state_uses_runtime_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -125,17 +125,17 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
             deployment_root = root.resolve()
             runtime_root = state.dbe.runtime_root
-            self.assertNotEqual(runtime_root, deployment_root)
-            self.assertEqual(
+            assert runtime_root != deployment_root
+            assert (
                 Path(tmpdir).resolve()
                 / "share_deployments"
                 / "share_runtime"
                 / manifest_name
-                / manifest_version,
-                runtime_root,
+                / manifest_version
+                == runtime_root
             )
-            self.assertTrue(state.dbe.temporary_id_map.is_relative_to(runtime_root))
-            self.assertFalse(state.dbe.temporary_id_map.is_relative_to(deployment_root))
+            assert state.dbe.temporary_id_map.is_relative_to(runtime_root)
+            assert not state.dbe.temporary_id_map.is_relative_to(deployment_root)
 
     async def test_share_state_uses_manifest_for_relocated_runtime_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -154,58 +154,49 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             expected = (
                 root.parent / "share_runtime" / manifest_name / manifest_version
             ).resolve()
-            self.assertEqual(expected, state.dbe.runtime_root)
+            assert expected == state.dbe.runtime_root
 
     def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             app = FastAPI()
-            with self.assertRaises(FileNotFoundError):
+            with pytest.raises(FileNotFoundError):
                 SettaFastAPIState(
                     app,
                     share_mode=True,
                     share_deployment_root=root,
                 )
 
-    async def test_share_state_policy_gates_services(self) -> None:
-        scenarios = [
-            (
-                "no-llm-no-run",
-                SharePolicy(allowLLM=False, allowRun=False),
-                False,
-            ),
-            (
-                "llm-only",
-                SharePolicy(allowLLM=True, allowRun=False),
-                False,
-            ),
-            (
-                "llm-run",
-                SharePolicy(allowLLM=True, allowRun=True),
-                True,
-            ),
-        ]
+    @pytest.mark.parametrize(
+        ("policy", "expect_run"),
+        [
+            (SharePolicy(allowLLM=False, allowRun=False), False),
+            (SharePolicy(allowLLM=True, allowRun=False), False),
+            (SharePolicy(allowLLM=True, allowRun=True), True),
+        ],
+        ids=["no-llm-no-run", "llm-only", "llm-run"],
+    )
+    async def test_share_state_policy_gates_services(
+        self, policy: SharePolicy, expect_run: bool
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share_test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, policy)
+            state = await self._build_state(root)
+            assert not (root / "llm_config.json").exists()
+            assert not (root / "llm_config.example.json").exists()
 
-        for label, policy, expect_run in scenarios:
-            with self.subTest(label=label):
-                with TemporaryDirectory() as tmpdir:
-                    project_config_name = "share_test"
-                    root = _build_share_deployment_root(tmpdir, project_config_name)
-                    _write_share_project(
-                        root,
-                        project_config_name=project_config_name,
-                        deployment_version=root.name,
-                    )
-                    _write_share_policy(root, policy)
-                    state = await self._build_state(root)
-                    self.assertFalse((root / "llm_config.json").exists())
-                    self.assertFalse((root / "llm_config.example.json").exists())
+            assert state.agent_runner.disabled
 
-                    self.assertTrue(state.agent_runner.disabled)
+            assert state.mcp_client.disabled
 
-                    self.assertTrue(state.mcp_client.disabled)
-
-                    if expect_run:
-                        self.assertIsInstance(state.terminals, Terminals)
-                    else:
-                        self.assertFalse(state.terminals)
+            if expect_run:
+                assert isinstance(state.terminals, Terminals)
+            else:
+                assert not state.terminals

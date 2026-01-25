@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import shutil
-import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -58,10 +60,30 @@ from tests.utils.manager_fixture import _shutdown_manager
 logger = logging.getLogger(__name__)
 
 
-class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+@contextmanager
+def _capture_logger(
+    caplog: pytest.LogCaptureFixture, logger: logging.Logger, level: int
+):
+    handler = caplog.handler
+    added = False
+    previous_level = logger.level
+    if handler not in logger.handlers:
+        logger.addHandler(handler)
+        added = True
+    caplog.set_level(level, logger=logger.name)
+    try:
+        yield
+    finally:
+        if added:
+            logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+
+@pytest.mark.asyncio
+class TestWatchCode:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self._tmp_dir = TemporaryDirectory(dir=Path.cwd())
-        self.addCleanup(self._tmp_dir.cleanup)
         root = Path(self._tmp_dir.name)
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
@@ -138,11 +160,13 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         await self.manager._process_queue_task_started.wait()
 
-    async def asyncTearDown(self) -> None:
+        yield
+
         self.manager.shutdown()
         await _shutdown_manager(self.manager)
         for name, value in self._original_constants.items():
             setattr(C, name, value)
+        self._tmp_dir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
         code_impl = CodeSectionImpl(id=ID("code-impl"))
@@ -195,9 +219,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         callable_name = f"{module_path}.existing"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         baseline = state.projectConfig.watchCodeBaselineByPath
-        self.assertIn(str(normalize_path(self.watch_file_path)), baseline)
-        self.assertIn(identity, baseline[str(normalize_path(self.watch_file_path))])
-        self.assertEqual(state.projectConfig.watchCodeRegistry, {})
+        assert str(normalize_path(self.watch_file_path)) in baseline
+        assert identity in baseline[str(normalize_path(self.watch_file_path))]
+        assert state.projectConfig.watchCodeRegistry == {}
         callable_sections = [
             section_id
             for section_id in state.sections
@@ -206,7 +230,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                 CallableSectionImpl,
             )
         ]
-        self.assertEqual(callable_sections, [])
+        assert callable_sections == []
 
     async def test_baseline_new_watch_inputs_when_enabled(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -226,12 +250,12 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         state = self.manager.get_single_config_state(self.project_config_id)
         baseline = state.projectConfig.watchCodeBaselineByPath
-        self.assertIn(str(normalize_path(new_file)), baseline)
-        self.assertEqual(state.projectConfig.watchCodeRegistry, {})
+        assert str(normalize_path(new_file)) in baseline
+        assert state.projectConfig.watchCodeRegistry == {}
 
     async def test_rejects_watch_inputs_outside_repo(self) -> None:
         outside_file = Path.cwd().parent / "outside_watch.py"
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
                     projectConfigId=self.project_config_id,
@@ -240,7 +264,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
         inside_file = self.watch_file_path.resolve()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
                     projectConfigId=self.project_config_id,
@@ -249,7 +273,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
         outside_folder = Path.cwd().parent / "outside_watch_dir"
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
                     projectConfigId=self.project_config_id,
@@ -260,7 +284,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
         inside_folder = self.watch_file_path.parent.resolve()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
                     projectConfigId=self.project_config_id,
@@ -293,12 +317,12 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
         callable_name = f"{module_path}.new_func"
         identity = f"{callable_name}:function"
-        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+        assert identity in state.projectConfig.watchCodeRegistry
         entry = state.projectConfig.watchCodeRegistry[identity]
-        self.assertEqual(entry.callableName, "new_func")
-        self.assertEqual(len(entry.sectionIds), 1)
+        assert entry.callableName == "new_func"
+        assert len(entry.sectionIds) == 1
         section_impl = get_curr_effective_section_impl(state, entry.sectionIds[0])
-        self.assertIsInstance(section_impl, CallableSectionImpl)
+        assert isinstance(section_impl, CallableSectionImpl)
 
     async def test_external_file_reload_creates_section(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -341,7 +365,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         callable_name = f"{module_path}.external_added"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
-        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+        assert identity in state.projectConfig.watchCodeRegistry
 
     async def test_scan_skips_when_watch_code_disabled(self) -> None:
         await self.manager.set_watch_code_inputs(
@@ -374,7 +398,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             baseline_only=False,
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        self.assertEqual(state.projectConfig.watchCodeRegistry, {})
+        assert state.projectConfig.watchCodeRegistry == {}
 
     async def test_disable_cancels_pending_watch_code_scans(self) -> None:
         await self.manager.set_watch_code_inputs(
@@ -396,14 +420,14 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             baseline_only=False,
         )
         debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
-        self.assertIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+        assert debouncer_key in self.manager.watch_code_manager._debouncers
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
                 projectConfigId=self.project_config_id,
                 enabled=False,
             )
         )
-        self.assertNotIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+        assert debouncer_key not in self.manager.watch_code_manager._debouncers
 
     async def test_recursive_toggle_reschedules_watch_dirs(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -426,8 +450,8 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         normalized_root = normalize_path(watch_root)
         entry = self.manager.watch_code_manager._watched_dirs.get(normalized_root)
-        self.assertIsNotNone(entry)
-        self.assertFalse(entry[1])
+        assert entry is not None
+        assert not entry[1]
 
         await self.manager.set_watch_code_inputs(
             SetWatchCodeInputsRequest(
@@ -443,8 +467,8 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         updated_entry = self.manager.watch_code_manager._watched_dirs.get(
             normalized_root
         )
-        self.assertIsNotNone(updated_entry)
-        self.assertTrue(updated_entry[1])
+        assert updated_entry is not None
+        assert updated_entry[1]
 
     async def test_missing_watch_dir_watches_parent_until_created(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -469,14 +493,14 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         normalized_missing = normalize_path(missing_dir)
         watch_manager = self.manager.watch_code_manager
-        self.assertIn(normalized_missing, watch_manager._pending_dirs)
+        assert normalized_missing in watch_manager._pending_dirs
         ancestor = normalize_path(missing_dir.parent)
-        self.assertIn(ancestor, watch_manager._watched_dirs)
+        assert ancestor in watch_manager._watched_dirs
 
         missing_dir.mkdir(parents=True, exist_ok=True)
         watch_manager._handle_directory_created(missing_dir.resolve())
-        self.assertNotIn(normalized_missing, watch_manager._pending_dirs)
-        self.assertIn(normalized_missing, watch_manager._watched_dirs)
+        assert normalized_missing not in watch_manager._pending_dirs
+        assert normalized_missing in watch_manager._watched_dirs
 
     async def test_delete_project_configs_syncs_watch_code_state(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -491,10 +515,10 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             baseline_only=False,
         )
         debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
-        self.assertIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+        assert debouncer_key in self.manager.watch_code_manager._debouncers
         await self.manager.delete_project_configs([self.project_config_id])
-        self.assertEqual(self.manager.watch_code_manager._config_snapshots, {})
-        self.assertEqual(self.manager.watch_code_manager._debouncers, {})
+        assert self.manager.watch_code_manager._config_snapshots == {}
+        assert self.manager.watch_code_manager._debouncers == {}
 
     async def test_moved_file_does_not_create_sections_for_existing_callables(
         self,
@@ -538,8 +562,8 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         watched_identity = build_callable_identity(
             f"{module_path}.watched", WatchCodeCallableKind.function
         )
-        self.assertIn(watched_identity, state.projectConfig.watchCodeRegistry)
-        self.assertEqual(len(state.projectConfig.watchCodeRegistry), 1)
+        assert watched_identity in state.projectConfig.watchCodeRegistry
+        assert len(state.projectConfig.watchCodeRegistry) == 1
 
         moved_path = bulk_path.with_name("bulk_watch_moved.py")
         bulk_path.replace(moved_path)
@@ -559,13 +583,13 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
         )
-        self.assertIn(moved_identity, updated_state.projectConfig.watchCodeRegistry)
-        self.assertEqual(len(updated_state.projectConfig.watchCodeRegistry), 1)
+        assert moved_identity in updated_state.projectConfig.watchCodeRegistry
+        assert len(updated_state.projectConfig.watchCodeRegistry) == 1
         entry = updated_state.projectConfig.watchCodeRegistry[moved_identity]
-        self.assertEqual(entry.sourcePath, str(normalize_path(moved_path)))
+        assert entry.sourcePath == str(normalize_path(moved_path))
         baseline = updated_state.projectConfig.watchCodeBaselineByPath
-        self.assertIn(str(normalize_path(moved_path)), baseline)
-        self.assertNotIn(str(normalize_path(bulk_path)), baseline)
+        assert str(normalize_path(moved_path)) in baseline
+        assert str(normalize_path(bulk_path)) not in baseline
 
     async def test_move_in_from_untracked_creates_sections(self) -> None:
         watch_root = self.setta_root.parent / "watch_root"
@@ -609,7 +633,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         identity = build_callable_identity(
             f"{module_path}.incoming", WatchCodeCallableKind.function
         )
-        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+        assert identity in state.projectConfig.watchCodeRegistry
 
     async def test_move_over_existing_dest_cleans_source_entries(self) -> None:
         watch_root = self.setta_root.parent / "watch_root_existing"
@@ -656,14 +680,14 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
 
         state = self.manager.get_single_config_state(self.project_config_id)
         src_key = str(normalize_path(src_path))
-        self.assertNotIn(src_key, state.projectConfig.watchCodeBaselineByPath)
+        assert src_key not in state.projectConfig.watchCodeBaselineByPath
         for entry in state.projectConfig.watchCodeRegistry.values():
-            self.assertNotEqual(entry.sourcePath, src_key)
+            assert entry.sourcePath != src_key
         moved_module_path = convert_path_to_module_path(normalize_path(dest_path))
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
         )
-        self.assertIn(moved_identity, state.projectConfig.watchCodeRegistry)
+        assert moved_identity in state.projectConfig.watchCodeRegistry
 
     async def test_move_between_configs_cleans_source_entries(self) -> None:
         existing_config_ids = set(
@@ -674,7 +698,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             set(self.manager.project_state_backend.projectConfigs.keys())
             - existing_config_ids
         )
-        self.assertEqual(len(new_config_ids), 1)
+        assert len(new_config_ids) == 1
         secondary_config_id = next(iter(new_config_ids))
 
         source_root = self.setta_root.parent / "watch_root_source"
@@ -729,7 +753,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         src_identity = build_callable_identity(
             f"{src_module_path}.moved", WatchCodeCallableKind.function
         )
-        self.assertIn(src_identity, state.projectConfig.watchCodeRegistry)
+        assert src_identity in state.projectConfig.watchCodeRegistry
 
         dest_path = dest_root / "moved.py"
         src_path.replace(dest_path)
@@ -751,16 +775,16 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
 
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         src_key = str(normalize_path(src_path))
-        self.assertNotIn(src_key, updated_state.projectConfig.watchCodeBaselineByPath)
+        assert src_key not in updated_state.projectConfig.watchCodeBaselineByPath
         for entry in updated_state.projectConfig.watchCodeRegistry.values():
-            self.assertNotEqual(entry.sourcePath, src_key)
+            assert entry.sourcePath != src_key
 
         dest_state = self.manager.get_single_config_state(secondary_config_id)
         dest_module_path = convert_path_to_module_path(normalize_path(dest_path))
         dest_identity = build_callable_identity(
             f"{dest_module_path}.moved", WatchCodeCallableKind.function
         )
-        self.assertIn(dest_identity, dest_state.projectConfig.watchCodeRegistry)
+        assert dest_identity in dest_state.projectConfig.watchCodeRegistry
 
     async def test_signature_change_updates_registry(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -799,7 +823,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         updated_entry = updated_state.projectConfig.watchCodeRegistry[identity]
-        self.assertNotEqual(updated_entry.signatureHash, previous_hash)
+        assert updated_entry.signatureHash != previous_hash
 
     async def test_syntax_error_keeps_watch_registry(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -824,7 +848,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         identity = build_callable_identity(
             f"{module_path}.watched", WatchCodeCallableKind.function
         )
-        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+        assert identity in state.projectConfig.watchCodeRegistry
 
         invalid_code = "def existing(a):\n    return a\n\n" "def watched("
         await self.manager.set_code(
@@ -835,7 +859,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        self.assertIn(identity, updated_state.projectConfig.watchCodeRegistry)
+        assert identity in updated_state.projectConfig.watchCodeRegistry
 
     async def test_signature_change_without_lsp_keeps_params(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -862,7 +886,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         entry = state.projectConfig.watchCodeRegistry[identity]
         section_id = entry.sectionIds[0]
         param_ids_before = get_curr_top_level_param_ids(state, section_id)
-        self.assertEqual(len(param_ids_before), 0)
+        assert len(param_ids_before) == 0
 
         second_code = (
             "def existing(a):\n    return a\n\n"
@@ -877,7 +901,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         param_ids_after = get_curr_top_level_param_ids(updated_state, section_id)
-        self.assertEqual(len(param_ids_after), 0)
+        assert len(param_ids_after) == 0
 
     async def test_rename_reuses_section_ids(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -922,10 +946,10 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         renamed_identity = build_callable_identity(
             renamed_name, WatchCodeCallableKind.function
         )
-        self.assertNotIn(original_identity, updated_state.projectConfig.watchCodeRegistry)
-        self.assertIn(renamed_identity, updated_state.projectConfig.watchCodeRegistry)
+        assert original_identity not in updated_state.projectConfig.watchCodeRegistry
+        assert renamed_identity in updated_state.projectConfig.watchCodeRegistry
         updated_entry = updated_state.projectConfig.watchCodeRegistry[renamed_identity]
-        self.assertEqual(updated_entry.sectionIds, original_section_ids)
+        assert updated_entry.sectionIds == original_section_ids
 
     async def test_rename_preserves_existing_params(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -962,7 +986,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         )
         state_with_param = self.manager.get_single_config_state(self.project_config_id)
         param_ids_before = get_curr_top_level_param_ids(state_with_param, section_id)
-        self.assertEqual(len(param_ids_before), 1)
+        assert len(param_ids_before) == 1
 
         second_code = (
             "def existing(a):\n    return a\n\n"
@@ -980,9 +1004,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         renamed_identity = build_callable_identity(
             renamed_name, WatchCodeCallableKind.function
         )
-        self.assertIn(renamed_identity, updated_state.projectConfig.watchCodeRegistry)
+        assert renamed_identity in updated_state.projectConfig.watchCodeRegistry
         param_ids_after = get_curr_top_level_param_ids(updated_state, section_id)
-        self.assertEqual(param_ids_after, param_ids_before)
+        assert param_ids_after == param_ids_before
 
     async def test_removed_callable_removes_section(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -1020,10 +1044,11 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        self.assertNotIn(
-            watched_identity, updated_state.projectConfig.watchCodeRegistry
+        assert (
+            watched_identity
+            not in updated_state.projectConfig.watchCodeRegistry
         )
-        self.assertNotIn(watched_section_id, updated_state.sections)
+        assert watched_section_id not in updated_state.sections
 
     async def test_removed_callable_keeps_section_with_other_variants(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -1095,24 +1120,25 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        self.assertNotIn(
-            alpha_identity, updated_state.projectConfig.watchCodeRegistry
+        assert (
+            alpha_identity
+            not in updated_state.projectConfig.watchCodeRegistry
         )
-        self.assertIn(alpha_section_id, updated_state.sections)
+        assert alpha_section_id in updated_state.sections
         updated_core = updated_state.sections[alpha_section_id]
-        self.assertEqual(updated_core.variants, [new_variant_id])
+        assert updated_core.variants == [new_variant_id]
         active_variant = updated_state.projectConfig.sectionVariantMap[alpha_section_id]
-        self.assertEqual(active_variant, new_variant_id)
+        assert active_variant == new_variant_id
         section_impl = get_curr_effective_section_impl(
             updated_state, alpha_section_id
         )
-        self.assertIsInstance(section_impl, CallableSectionImpl)
+        assert isinstance(section_impl, CallableSectionImpl)
         callable_id = section_impl.callable
-        self.assertIsNotNone(callable_id)
+        assert callable_id is not None
         if callable_id is None:
             raise AssertionError("Expected callable to be set.")
         callable_obj = updated_state.codeObjs[callable_id]
-        self.assertEqual(callable_obj.name, beta_entry.callableName)
+        assert callable_obj.name == beta_entry.callableName
 
     async def test_deleted_file_clears_registry_and_baseline(self) -> None:
         await self.manager.set_watch_code_inputs(
@@ -1143,20 +1169,20 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         added_identity = build_callable_identity(
             f"{module_path}.added", WatchCodeCallableKind.function
         )
-        self.assertIn(added_identity, state.projectConfig.watchCodeRegistry)
-        self.assertIn(
-            str(normalize_path(self.watch_file_path)),
-            state.projectConfig.watchCodeBaselineByPath,
+        assert added_identity in state.projectConfig.watchCodeRegistry
+        assert (
+            str(normalize_path(self.watch_file_path))
+            in state.projectConfig.watchCodeBaselineByPath
         )
 
         await self.manager.apply_watch_code_file_delete(
             self.project_config_id, self.watch_file_path
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        self.assertEqual(updated_state.projectConfig.watchCodeRegistry, {})
-        self.assertNotIn(
-            str(normalize_path(self.watch_file_path)),
-            updated_state.projectConfig.watchCodeBaselineByPath,
+        assert updated_state.projectConfig.watchCodeRegistry == {}
+        assert (
+            str(normalize_path(self.watch_file_path))
+            not in updated_state.projectConfig.watchCodeBaselineByPath
         )
 
     async def test_class_callable_is_registered(self) -> None:
@@ -1185,15 +1211,16 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         identity = build_callable_identity(
             callable_name, WatchCodeCallableKind.class_init
         )
-        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+        assert identity in state.projectConfig.watchCodeRegistry
         entry = state.projectConfig.watchCodeRegistry[identity]
-        self.assertEqual(entry.kind, WatchCodeCallableKind.class_init)
+        assert entry.kind == WatchCodeCallableKind.class_init
 
 
-class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+@pytest.mark.asyncio
+class TestWatchCodeLspOrdering:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self._tmp_dir = TemporaryDirectory()
-        self.addCleanup(self._tmp_dir.cleanup)
         root = Path(self._tmp_dir.name)
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
@@ -1276,20 +1303,25 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
             code_files=self.code_files,
             lsp_writers=self.lsp_writers,
         )
+        self._lsps_started = False
         await self.manager._process_queue_task_started.wait()
-        if shutil.which("basedpyright-langserver") is None:
-            raise unittest.SkipTest(
-                "basedpyright-langserver is required for LSP ordering tests"
-            )
-        await start_lsps(self.lsp_servers, self.lsp_readers, self.lsp_writers)
-
-    async def asyncTearDown(self) -> None:
-        self.manager.shutdown()
-        await _shutdown_manager(self.manager)
-        await stop_lsps(self.lsp_servers, self.lsp_readers)
-        stop_file_watcher(self.lsp_writers)
-        for name, value in self._original_constants.items():
-            setattr(C, name, value)
+        try:
+            if shutil.which("basedpyright-langserver") is None:
+                pytest.skip(
+                    "basedpyright-langserver is required for LSP ordering tests"
+                )
+            await start_lsps(self.lsp_servers, self.lsp_readers, self.lsp_writers)
+            self._lsps_started = True
+            yield
+        finally:
+            self.manager.shutdown()
+            await _shutdown_manager(self.manager)
+            if self._lsps_started:
+                await stop_lsps(self.lsp_servers, self.lsp_readers)
+                stop_file_watcher(self.lsp_writers)
+            for name, value in self._original_constants.items():
+                setattr(C, name, value)
+            self._tmp_dir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
         code_impl = CodeSectionImpl(id=ID("code-impl"))
@@ -1323,7 +1355,7 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
         )
         return project_state, project_config.id, section.id
 
-    async def test_syncs_lsp_before_watch_code_update(self) -> None:
+    async def test_syncs_lsp_before_watch_code_update(self, caplog) -> None:
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
                 projectConfigId=self.project_config_id,
@@ -1332,7 +1364,9 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
         )
         updated_code = "def hello(a, b, c):\n    return a + b + c\n"
         logger.debug("test_syncs_lsp_before_watch_code_update start")
-        with self.assertLogs("setta.project_state", level="DEBUG") as logs:
+        caplog.clear()
+        project_logger = logging.getLogger("setta.project_state")
+        with _capture_logger(caplog, project_logger, logging.DEBUG):
             logging.getLogger("setta.project_state").debug(
                 "test_syncs_lsp_before_watch_code_update set_code_begin"
             )
@@ -1349,7 +1383,16 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
             logging.getLogger("setta.project_state").debug(
                 "test_syncs_lsp_before_watch_code_update set_code_end"
             )
-        messages = logs.output
+        messages = [
+            record.getMessage()
+            for record in caplog.records
+            if record.name
+            in {
+                "setta.project_state.base_project_manager",
+                "setta.project_state.watch_code",
+                "setta.project_state",
+            }
+        ]
         sync_idx = next(
             idx
             for idx, msg in enumerate(messages)
@@ -1360,5 +1403,5 @@ class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
             for idx, msg in enumerate(messages)
             if "watch_code.handle_code_section_update" in msg
         )
-        self.assertLess(sync_idx, watch_idx)
+        assert sync_idx < watch_idx
         logger.debug("test_syncs_lsp_before_watch_code_update done")

@@ -2,8 +2,8 @@ import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
-from unittest import TestCase
 
+import pytest
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode, SectionNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
@@ -22,8 +22,7 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import SectionType
 
-
-class PythonValueCodecTest(TestCase):
+class TestPythonValueCodec:
     def _build_codec(
         self,
         mode: PythonValueMode,
@@ -45,22 +44,15 @@ class PythonValueCodecTest(TestCase):
     def test_live_mode_renders_inline_base64_dict(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         rendered = codec.format_dependency_value(Base64DependencyValue("c29tZQ=="))
-        self.assertEqual(
-            rendered,
-            "'c29tZQ=='",
-        )
-        self.assertEqual(codec.required_imports, ())
+        assert rendered == "'c29tZQ=='"
+        assert codec.required_imports == ()
 
     def test_packaged_mode_uses_helper_for_base64(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         rendered = codec.format_dependency_value(Base64DependencyValue("c29tZQ=="))
-        self.assertEqual(
-            rendered,
-            "_helpers.decode_base64_value('c29tZQ==')",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "_helpers.decode_base64_value('c29tZQ==')"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )
 
     def test_format_callable_section_handles_passing_styles(self) -> None:
@@ -107,10 +99,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("my_callable"),
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(
-            rendered,
-            "my_callable(*self.section.args, color=self.section.color)",
-        )
+        assert rendered == "my_callable(*self.section.args, color=self.section.color)"
 
     def test_text_param_formats_as_string_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -124,7 +113,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("2+2"),
             passing_style=ParameterPassingStyle.DEFAULT,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
+        assert codec.format_param_expression(param_node) == "'2+2'"
 
     def test_code_param_formats_as_raw_expression(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -138,7 +127,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("2+2"),
             passing_style=ParameterPassingStyle.DEFAULT,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "2+2")
+        assert codec.format_param_expression(param_node) == "2+2"
 
     def test_slider_param_json_representation_parses_payload(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -153,7 +142,7 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
             value_representation=CodeObjValueRepresentationMode.json_parsed,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "[1, 2, 3]")
+        assert codec.format_param_expression(param_node) == "[1, 2, 3]"
 
     def test_code_param_string_representation_quotes_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -168,7 +157,7 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
             value_representation=CodeObjValueRepresentationMode.string,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
+        assert codec.format_param_expression(param_node) == "'2+2'"
 
     def test_json_representation_invalid_payload_falls_back_to_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -183,7 +172,7 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
             value_representation=CodeObjValueRepresentationMode.json_parsed,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
+        assert codec.format_param_expression(param_node) == "'{invalid'"
 
     def test_format_text_block_without_value_returns_none(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -196,7 +185,7 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=None,
         )
-        self.assertEqual(codec.format_section(section_node), "None")
+        assert codec.format_section(section_node) == "None"
 
     def test_prompt_section_formats_as_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -209,7 +198,7 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue("Hello Ada"),
         )
-        self.assertEqual(codec.format_section(section_node), "'Hello Ada'")
+        assert codec.format_section(section_node) == "'Hello Ada'"
 
     def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
@@ -224,13 +213,9 @@ class PythonValueCodecTest(TestCase):
             representation=SectionRepresentationMode.file_read,
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(
-            rendered,
-            "_helpers.read_file_value('/tmp/draw.png')",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "_helpers.read_file_value('/tmp/draw.png')"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )
 
     def test_draw_section_expression_returns_literal(self) -> None:
@@ -245,7 +230,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("None"),
             representation=SectionRepresentationMode.expression,
         )
-        self.assertEqual(codec.format_section(section_node), "None")
+        assert codec.format_section(section_node) == "None"
 
     def test_image_section_with_literal_path_is_quoted(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -259,9 +244,9 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("artifacts/reversed_image.png"),
             representation=SectionRepresentationMode.file_path,
         )
-        self.assertEqual(
-            codec.format_section(section_node),
-            "'artifacts/reversed_image.png'",
+        assert (
+            codec.format_section(section_node)
+            == "'artifacts/reversed_image.png'"
         )
 
     def test_image_section_uses_file_read_value_helpers(self) -> None:
@@ -277,13 +262,9 @@ class PythonValueCodecTest(TestCase):
             representation=SectionRepresentationMode.file_read,
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(
-            rendered,
-            "_helpers.read_file_value('/tmp/image.png')",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "_helpers.read_file_value('/tmp/image.png')"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )
 
     def test_image_section_expression_returns_literal(self) -> None:
@@ -298,7 +279,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("None"),
             representation=SectionRepresentationMode.expression,
         )
-        self.assertEqual(codec.format_section(section_node), "None")
+        assert codec.format_section(section_node) == "None"
 
     def test_chat_section_expression_renders_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -313,7 +294,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue(payload),
             representation=SectionRepresentationMode.expression,
         )
-        self.assertEqual(codec.format_section(section_node), payload)
+        assert codec.format_section(section_node) == payload
 
     def test_chat_section_file_path_quotes_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -327,7 +308,7 @@ class PythonValueCodecTest(TestCase):
             value=LiteralDependencyValue("/tmp/chat.json"),
             representation=SectionRepresentationMode.file_path,
         )
-        self.assertEqual(codec.format_section(section_node), "'/tmp/chat.json'")
+        assert codec.format_section(section_node) == "'/tmp/chat.json'"
 
     def test_chat_section_file_read_uses_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
@@ -342,10 +323,9 @@ class PythonValueCodecTest(TestCase):
             representation=SectionRepresentationMode.file_read,
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(rendered, "_helpers.read_file_value('/tmp/chat.json')")
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "_helpers.read_file_value('/tmp/chat.json')"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )
 
     def test_draw_section_without_value_raises(self) -> None:
@@ -360,7 +340,7 @@ class PythonValueCodecTest(TestCase):
             value=None,
             representation=SectionRepresentationMode.file_read,
         )
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             codec.format_section(section_node)
 
     def test_packaged_mode_uses_helper_for_file_reads(self) -> None:
@@ -368,13 +348,9 @@ class PythonValueCodecTest(TestCase):
         rendered = codec.format_dependency_value(
             FileReadDependencyValue("/tmp/file.txt")
         )
-        self.assertEqual(
-            rendered,
-            "_helpers.read_file_value('/tmp/file.txt')",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "_helpers.read_file_value('/tmp/file.txt')"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )
 
     def test_meta_control_formatting_uses_code_obj_type(self) -> None:
@@ -390,7 +366,7 @@ class PythonValueCodecTest(TestCase):
             control_code_obj_type=CodeObjType.TextParam,
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(rendered, "'secret'")
+        assert rendered == "'secret'"
 
     def test_dropzone_param_empty_value_renders_empty_list(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -405,7 +381,7 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
             value_representation=CodeObjValueRepresentationMode.file_path,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "[]")
+        assert codec.format_param_expression(param_node) == "[]"
 
     def test_dropzone_param_payload_renders_as_attachment_list(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -439,7 +415,7 @@ class PythonValueCodecTest(TestCase):
             value_representation=CodeObjValueRepresentationMode.file_path,
         )
         expected = repr(["artifacts/test.txt", "hello"])
-        self.assertEqual(codec.format_param_expression(param_node), expected)
+        assert codec.format_param_expression(param_node) == expected
 
     def test_dropzone_param_invalid_payload_falls_back_to_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -454,7 +430,7 @@ class PythonValueCodecTest(TestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
             value_representation=CodeObjValueRepresentationMode.file_path,
         )
-        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
+        assert codec.format_param_expression(param_node) == "'{invalid'"
 
     def test_dropzone_param_file_read_uses_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
@@ -485,11 +461,7 @@ class PythonValueCodecTest(TestCase):
             value_representation=CodeObjValueRepresentationMode.file_read,
         )
         rendered = codec.format_param_expression(param_node)
-        self.assertEqual(
-            rendered,
-            "[_helpers.read_file_value('/tmp/test.txt'), 'hello']",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
+        assert rendered == "[_helpers.read_file_value('/tmp/test.txt'), 'hello']"
+        assert codec.required_imports == (
+            "from setta.code_gen.python import value_helpers as _helpers",
         )

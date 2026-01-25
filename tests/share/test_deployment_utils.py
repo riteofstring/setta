@@ -1,5 +1,4 @@
 import json
-import unittest
 from pathlib import Path
 
 from setta.code_gen.utils import sanitize_slug
@@ -23,7 +22,7 @@ from setta.types.section_impls import (
 )
 
 
-class ShareDeploymentUtilsTests(unittest.TestCase):
+class TestShareDeploymentUtils:
     def test_rewrite_project_state_paths_updates_gen_code_binding(self) -> None:
         project_config = ProjectConfig(name="Share Project")
         project_slug = sanitize_slug(project_config.name)
@@ -76,18 +75,18 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
             resolve_json_source_name=lambda path_str: path_str,
         )
 
-        self.assertEqual(
-            rebased_root / "setta_gen.py",
-            project_state.genCodeBinding.canonical_path,
+        assert (
+            rebased_root / "setta_gen.py"
+            == project_state.genCodeBinding.canonical_path
         )
         updated_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
             gen_section_id,
             GenPythonCodeSectionImpl,
         )
-        self.assertEqual(
-            rebased_root / "setta_gen.py",
-            updated_impl.codeFileBinding.canonical_path,
+        assert (
+            rebased_root / "setta_gen.py"
+            == updated_impl.codeFileBinding.canonical_path
         )
 
     def test_rewrite_project_state_paths_updates_draw_snapshot_path(self) -> None:
@@ -136,10 +135,7 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
             draw_section_id,
             DrawSectionImpl,
         )
-        self.assertEqual(
-            "rebased/artifacts/draw.png",
-            updated_impl.renderedImagePath,
-        )
+        assert updated_impl.renderedImagePath == "rebased/artifacts/draw.png"
 
     def test_rewrite_project_state_paths_updates_dropzone_attachment_paths(self) -> None:
         dropzone_impl = DropzoneParamCodeObjImpl(
@@ -222,12 +218,5 @@ class ShareDeploymentUtilsTests(unittest.TestCase):
             DropzoneParamCodeObjImpl,
         )
         payload = parse_dropzone_value(updated_impl.value)
-        self.assertIsNotNone(payload)
-        self.assertEqual(
-            "rebased/artifacts/old.txt",
-            payload.attachments[0].id,
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert payload is not None
+        assert payload.attachments[0].id == "rebased/artifacts/old.txt"

@@ -1,14 +1,13 @@
-import unittest
 from dataclasses import dataclass
 from typing import Any
 
+import pytest
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_search_index import _build_parameter_text
 from setta.mcp.tools.tool_search import list_mcp_tools, search_mcp_tools
-
 
 @dataclass
 class ToolSpec:
@@ -53,8 +52,9 @@ def _build_tool(
     )
 
 
-class SearchMCPToolsTest(unittest.TestCase):
-    def setUp(self) -> None:
+class TestSearchMCPTools:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.tool_specs = [
             ToolSpec(
                 name="read_file_range",
@@ -112,8 +112,8 @@ class SearchMCPToolsTest(unittest.TestCase):
             ctx=self.ctx,
         )
 
-        self.assertEqual(len(results.results), 1)
-        self.assertEqual(results.results[0].name, "read_file_range")
+        assert len(results.results) == 1
+        assert results.results[0].name == "read_file_range"
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_mcp_tools(
@@ -122,10 +122,10 @@ class SearchMCPToolsTest(unittest.TestCase):
             ctx=self.ctx,
         )
 
-        self.assertEqual(len(results.results), len(self.tool_specs))
+        assert len(results.results) == len(self.tool_specs)
 
     def test_raises_for_blank_query(self) -> None:
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             search_mcp_tools(
                 query="   ",
                 ctx=self.ctx,
@@ -140,11 +140,12 @@ class SearchMCPToolsTest(unittest.TestCase):
             ctx=empty_ctx,
         )
 
-        self.assertEqual(results.results, [])
+        assert results.results == []
 
 
-class ListMCPToolsTest(unittest.TestCase):
-    def setUp(self) -> None:
+class TestListMCPTools:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.tool_names = [
             "search_project_sources",
             "read_file_range",
@@ -166,16 +167,16 @@ class ListMCPToolsTest(unittest.TestCase):
     def test_returns_sorted_registered_tool_names(self) -> None:
         results = list_mcp_tools(ctx=self.ctx).tools
 
-        self.assertEqual(results, sorted(self.tool_names))
+        assert results == sorted(self.tool_names)
 
     def test_returns_empty_list_when_no_tools_registered(self) -> None:
         empty_state = StubSettaState()
         empty_ctx = Context(fastmcp=StubFastMCP([], empty_state))
 
-        self.assertEqual(list_mcp_tools(ctx=empty_ctx).tools, [])
+        assert list_mcp_tools(ctx=empty_ctx).tools == []
 
 
-class BuildParameterTextTest(unittest.TestCase):
+class TestBuildParameterText:
     def test_includes_nested_definition_descriptions(self) -> None:
         schema = {
             "$defs": {
@@ -226,9 +227,9 @@ class BuildParameterTextTest(unittest.TestCase):
 
         text = _build_parameter_text(schema)
 
-        self.assertIn("sectionSizes", text)
-        self.assertIn("Map of section IDs to size definitions.", text)
-        self.assertIn("Horizontal dimension or auto.", text)
-        self.assertIn("Explicit pixel width.", text)
-        self.assertIn("Vertical dimension or auto.", text)
-        self.assertIn("Explicit pixel height.", text)
+        assert "sectionSizes" in text
+        assert "Map of section IDs to size definitions." in text
+        assert "Horizontal dimension or auto." in text
+        assert "Explicit pixel width." in text
+        assert "Vertical dimension or auto." in text
+        assert "Explicit pixel height." in text

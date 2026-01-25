@@ -1,8 +1,4 @@
-import os
-import tempfile
-import unittest
-from pathlib import Path
-
+import pytest
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
@@ -13,72 +9,40 @@ from setta.types.routes import Route
 from setta.utils.constants import C
 
 
-class AuthCORSTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp_dir.cleanup)
+@pytest.fixture
+def cors_client(tmp_path, monkeypatch):
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(C, "RUN_SESSIONS_FOLDER", sessions_root)
+    monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
+    monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+    monkeypatch.delenv(SESSION_ID_ENV_VAR, raising=False)
 
-        self.original_sessions_root = C.RUN_SESSIONS_FOLDER
-        self.original_host = C.HOST
-        self.original_port = C.PORT
-        self.addCleanup(self._restore_constants)
+    app = FastAPI()
+    app.add_middleware(LoggingContextMiddleware)
+    app.add_middleware(AuthMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=C.FRONTEND_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-        C.RUN_SESSIONS_FOLDER = Path(self.temp_dir.name) / "sessions"
-        C.HOST = C.DEFAULT_HOST
-        C.PORT = C.DEFAULT_PORT
+    @app.get(f"{Route.PREFIX.value}/cors-check")
+    async def cors_check() -> dict[str, bool]:
+        return {"ok": True}
 
-        self._set_session_env(None)
-
-        app = FastAPI()
-        app.add_middleware(LoggingContextMiddleware)
-        app.add_middleware(AuthMiddleware)
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=C.FRONTEND_ORIGINS,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-
-        @app.get(f"{Route.PREFIX.value}/cors-check")
-        async def cors_check() -> dict[str, bool]:
-            return {"ok": True}
-
-        self.client = TestClient(app)
-        self.addCleanup(self.client.close)
-
-    def _restore_constants(self) -> None:
-        C.RUN_SESSIONS_FOLDER = self.original_sessions_root
-        C.HOST = self.original_host
-        C.PORT = self.original_port
-
-    def _set_session_env(self, value: str | None) -> None:
-        original = os.environ.get(SESSION_ID_ENV_VAR)
-
-        def restore_env() -> None:
-            if original is None:
-                os.environ.pop(SESSION_ID_ENV_VAR, None)
-            else:
-                os.environ[SESSION_ID_ENV_VAR] = original
-
-        self.addCleanup(restore_env)
-        if value is None:
-            os.environ.pop(SESSION_ID_ENV_VAR, None)
-        else:
-            os.environ[SESSION_ID_ENV_VAR] = value
-
-    def test_cors_headers_on_unauthorized(self) -> None:
-        origin = C.FRONTEND_ORIGINS[0]
-        response = self.client.get(
-            f"{Route.PREFIX.value}/cors-check", headers={"Origin": origin}
-        )
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
-        self.assertEqual(
-            response.headers.get("access-control-allow-credentials"), "true"
-        )
+    with TestClient(app) as client:
+        yield client
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_cors_headers_on_unauthorized(cors_client) -> None:
+    origin = C.FRONTEND_ORIGINS[0]
+    response = cors_client.get(
+        f"{Route.PREFIX.value}/cors-check", headers={"Origin": origin}
+    )
+
+    assert response.status_code == 401
+    assert response.headers.get("access-control-allow-origin") == origin
+    assert response.headers.get("access-control-allow-credentials") == "true"

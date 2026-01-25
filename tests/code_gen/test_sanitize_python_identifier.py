@@ -1,28 +1,22 @@
-import unittest
-
 from setta.code_gen.utils import sanitize_python_identifier
 
 
-class SanitizePythonIdentifierTests(unittest.TestCase):
+class TestSanitizePythonIdentifier:
     def test_preserves_simple_identifiers(self) -> None:
-        self.assertEqual("alpha", sanitize_python_identifier("alpha"))
-        self.assertEqual("_alpha1", sanitize_python_identifier("_alpha1"))
+        assert sanitize_python_identifier("alpha") == "alpha"
+        assert sanitize_python_identifier("_alpha1") == "_alpha1"
 
     def test_replaces_invalid_characters(self) -> None:
-        self.assertEqual("user_id", sanitize_python_identifier("user-id"))
-        self.assertEqual("white_space", sanitize_python_identifier("white space"))
+        assert sanitize_python_identifier("user-id") == "user_id"
+        assert sanitize_python_identifier("white space") == "white_space"
 
     def test_prefixes_leading_digits(self) -> None:
-        self.assertEqual("_123", sanitize_python_identifier("123"))
-        self.assertEqual("_123_abc", sanitize_python_identifier("123 abc"))
+        assert sanitize_python_identifier("123") == "_123"
+        assert sanitize_python_identifier("123 abc") == "_123_abc"
 
     def test_avoids_keywords(self) -> None:
-        self.assertEqual("_class", sanitize_python_identifier("class"))
-        self.assertEqual("_for", sanitize_python_identifier("for"))
+        assert sanitize_python_identifier("class") == "_class"
+        assert sanitize_python_identifier("for") == "_for"
 
     def test_empty_string_falls_back_to_underscore(self) -> None:
-        self.assertEqual("_", sanitize_python_identifier(""))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert sanitize_python_identifier("") == "_"

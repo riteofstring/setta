@@ -1,6 +1,6 @@
-import unittest
 from typing import TYPE_CHECKING, cast
 
+import pytest
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.listener_artifact_updates import (
     ListenerArtifactUpdateError,
@@ -54,7 +54,7 @@ def _build_artifacts() -> Artifacts:
     return Artifacts(websocket_handler, file_watcher, dbe)
 
 
-class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
+class TestApplyListenerArtifactUpdates:
     def test_image_artifact_is_cached_and_marked_dirty(self):
         artifacts = _build_artifacts()
         artifact = ImageArtifact(
@@ -67,14 +67,14 @@ class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
             updates=[artifact],
         )
 
-        self.assertEqual(1, len(applied))
+        assert 1 == len(applied)
         cached = applied[0]
         normalized_path = normalize_path("artifacts/new-image.png")
-        self.assertEqual(str(normalized_path), cached.id)
-        self.assertIs(cached, artifacts.images[normalized_path])
+        assert str(normalized_path) == cached.id
+        assert cached is artifacts.images[normalized_path]
         metadata = artifacts.image_metadata[normalized_path]
-        self.assertTrue(metadata.is_dirty)
-        self.assertIsNone(metadata.last_read_hash)
+        assert metadata.is_dirty
+        assert metadata.last_read_hash is None
 
     def test_chart_data_artifact_is_cached(self):
         artifacts = _build_artifacts()
@@ -87,10 +87,10 @@ class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
         )
 
         normalized_path = normalize_path("charts/data.csv")
-        self.assertEqual(1, len(applied))
+        assert 1 == len(applied)
         cached = applied[0]
-        self.assertEqual(chart_data, cached.value)
-        self.assertIs(cached, artifacts.chart_data[normalized_path])
+        assert chart_data == cached.value
+        assert cached is artifacts.chart_data[normalized_path]
 
     def test_brush_stroke_artifact_is_cached(self):
         artifacts = _build_artifacts()
@@ -110,8 +110,8 @@ class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
         )
 
         normalized_path = normalize_path("layers/brush.json")
-        self.assertEqual(brush, applied[0].value)
-        self.assertIs(applied[0], artifacts.brush_strokes[normalized_path])
+        assert brush == applied[0].value
+        assert applied[0] is artifacts.brush_strokes[normalized_path]
 
     def test_transform_artifact_is_cached(self):
         artifacts = _build_artifacts()
@@ -127,15 +127,15 @@ class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
         )
 
         normalized_path = normalize_path("layers/transform.json")
-        self.assertEqual(transform, applied[0].value)
-        self.assertIs(
-            applied[0],
-            artifacts.draw_area_layer_item_transforms[normalized_path],
+        assert transform == applied[0].value
+        assert (
+            applied[0]
+            is artifacts.draw_area_layer_item_transforms[normalized_path]
         )
 
     def test_invalid_path_raises_listener_error(self):
         artifacts = _build_artifacts()
         artifact = ImageArtifact(id="\x00bad", value="data:image/png;base64,AAA")
 
-        with self.assertRaises(ListenerArtifactUpdateError):
+        with pytest.raises(ListenerArtifactUpdateError):
             apply_listener_artifact_updates(artifacts=artifacts, updates=[artifact])

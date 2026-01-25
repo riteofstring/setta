@@ -1,5 +1,3 @@
-import unittest
-
 from mcp.types import Tool, ToolAnnotations
 
 from setta.mcp.client import MultiMCPClient
@@ -22,7 +20,7 @@ def _build_tool(
     )
 
 
-class MultiMCPClientToolCacheTests(unittest.TestCase):
+class TestMultiMCPClientToolCache:
     def test_namespaces_tools_and_routes(self) -> None:
         client = MultiMCPClient({})
         init_annotations = ToolAnnotations.model_validate(
@@ -42,19 +40,23 @@ class MultiMCPClientToolCacheTests(unittest.TestCase):
             SETTA_MCP_SERVER_ID, [init_tool, no_annotation_tool]
         )
 
-        self.assertIn(
-            f"{SETTA_MCP_SERVER_ID}__read_file_range", client.init_tool_definitions
+        assert (
+            f"{SETTA_MCP_SERVER_ID}__read_file_range"
+            in client.init_tool_definitions
         )
-        self.assertIn(
-            f"{SETTA_MCP_SERVER_ID}__list_projects",
-            client.discoverable_tool_definitions,
+        assert (
+            f"{SETTA_MCP_SERVER_ID}__list_projects"
+            in client.discoverable_tool_definitions
         )
-        self.assertEqual(
-            client.routing[f"{SETTA_MCP_SERVER_ID}__read_file_range"],
-            (SETTA_MCP_SERVER_ID, "read_file_range"),
+        assert client.routing[f"{SETTA_MCP_SERVER_ID}__read_file_range"] == (
+            SETTA_MCP_SERVER_ID,
+            "read_file_range",
         )
-        self.assertIsNone(
-            client.tool_annotations_by_name[f"{SETTA_MCP_SERVER_ID}__list_projects"]
+        assert (
+            client.tool_annotations_by_name[
+                f"{SETTA_MCP_SERVER_ID}__list_projects"
+            ]
+            is None
         )
 
     def test_filters_tools_by_server(self) -> None:
@@ -67,8 +69,8 @@ class MultiMCPClientToolCacheTests(unittest.TestCase):
 
         filtered = client.discoverable_tool_definitions_for_servers({"github"})
 
-        self.assertIn("github__search_repo", filtered)
-        self.assertNotIn(f"{SETTA_MCP_SERVER_ID}__read_file_range", filtered)
+        assert "github__search_repo" in filtered
+        assert f"{SETTA_MCP_SERVER_ID}__read_file_range" not in filtered
 
     def test_skips_search_tool(self) -> None:
         client = MultiMCPClient({})
@@ -82,11 +84,11 @@ class MultiMCPClientToolCacheTests(unittest.TestCase):
 
         client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [search_tool])
 
-        self.assertNotIn(
-            f"{SETTA_MCP_SERVER_ID}__search_mcp_tools",
-            client.discoverable_tool_definitions,
+        assert (
+            f"{SETTA_MCP_SERVER_ID}__search_mcp_tools"
+            not in client.discoverable_tool_definitions
         )
-        self.assertIn(
-            f"{SETTA_MCP_SERVER_ID}__search_mcp_tools",
-            client.init_tool_definitions,
+        assert (
+            f"{SETTA_MCP_SERVER_ID}__search_mcp_tools"
+            in client.init_tool_definitions
         )

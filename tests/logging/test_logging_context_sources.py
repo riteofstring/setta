@@ -1,4 +1,3 @@
-import unittest
 from typing import Any
 
 from setta.logging.context_sources import (
@@ -13,7 +12,7 @@ from starlette.types import Scope
 from starlette.websockets import WebSocket
 
 
-class LoggingContextSourcesTests(unittest.TestCase):
+class TestLoggingContextSources:
     def test_build_request_context_sets_request_metadata(self) -> None:
         def get_project_status() -> None:
             return None
@@ -24,13 +23,13 @@ class LoggingContextSourcesTests(unittest.TestCase):
             endpoint=get_project_status,
         )
         context = build_request_context(request)
-        self.assertEqual(context["method"], "POST")
-        self.assertEqual(context["path"], "/api/projects/alpha/load")
-        self.assertEqual(context["endpoint"], "get_project_status")
+        assert context["method"] == "POST"
+        assert context["path"] == "/api/projects/alpha/load"
+        assert context["endpoint"] == "get_project_status"
         first_request_id = context["request_id"]
         second_request_id = build_request_context(request)["request_id"]
-        self.assertEqual(first_request_id, second_request_id)
-        self.assertTrue(first_request_id.startswith("req-"))
+        assert first_request_id == second_request_id
+        assert first_request_id.startswith("req-")
 
     def test_build_request_context_merges_extra_values(self) -> None:
         request = _make_request(
@@ -42,10 +41,10 @@ class LoggingContextSourcesTests(unittest.TestCase):
             request,
             extra_values={"section_id": "sec-9"},
         )
-        self.assertEqual(context["method"], "GET")
-        self.assertEqual(context["path"], "/api/projects")
-        self.assertEqual(context["section_id"], "sec-9")
-        self.assertEqual(ensure_request_context(request), context["request_id"])
+        assert context["method"] == "GET"
+        assert context["path"] == "/api/projects"
+        assert context["section_id"] == "sec-9"
+        assert ensure_request_context(request) == context["request_id"]
 
     def test_build_websocket_context_accepts_project_id(self) -> None:
         websocket = _make_websocket(
@@ -53,9 +52,9 @@ class LoggingContextSourcesTests(unittest.TestCase):
         )
         context = build_websocket_context(websocket, project_config_id="delta")
         websocket_id = context["websocket_id"]
-        self.assertEqual(context["project_config_id"], "delta")
-        self.assertTrue(websocket_id.startswith("ws-"))
-        self.assertEqual(websocket_id, ensure_websocket_context(websocket))
+        assert context["project_config_id"] == "delta"
+        assert websocket_id.startswith("ws-")
+        assert websocket_id == ensure_websocket_context(websocket)
 
     def test_build_background_task_context_merges_values(self) -> None:
         context = build_background_task_context(
@@ -65,16 +64,13 @@ class LoggingContextSourcesTests(unittest.TestCase):
             websocket_id="ws-2",
             extra_values={"section_id": "sec-9"},
         )
-        self.assertEqual(
-            context,
-            {
-                "task": "autosave",
-                "project_config_id": "alpha",
-                "request_id": "req-zeta",
-                "websocket_id": "ws-2",
-                "section_id": "sec-9",
-            },
-        )
+        assert context == {
+            "task": "autosave",
+            "project_config_id": "alpha",
+            "request_id": "req-zeta",
+            "websocket_id": "ws-2",
+            "section_id": "sec-9",
+        }
 
 
 def _make_request(
@@ -145,6 +141,3 @@ def _make_websocket(
 
     return WebSocket(scope, empty_receive, empty_send)
 
-
-if __name__ == "__main__":
-    unittest.main()

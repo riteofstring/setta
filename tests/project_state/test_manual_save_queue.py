@@ -1,9 +1,9 @@
 import asyncio
 import types
-import unittest
 from dataclasses import dataclass
 from typing import Awaitable, Callable, cast
 
+import pytest
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.types.id import ID
 
@@ -45,14 +45,15 @@ def _bind_delayed_set_project_config_name(
     return types.MethodType(delayed_set_project_config_name, manager)
 
 
-class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestManualSaveQueueDrain:
     async def test_settings_manual_save_waits_for_pending_ops(self):
         async with real_settings_manager() as fixture:
             manager = fixture.manager
             delayed_method = _bind_delayed_set_project_config_name(manager)
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
-            self.assertIsNotNone(default_config_id)
+            assert default_config_id is not None
             default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
@@ -67,35 +68,29 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
             )
 
             on_disk_before = fixture.dbe.read_settings_project()
-            self.assertEqual(
-                on_disk_before.projectConfig.name,
-                original_name,
-            )
+            assert on_disk_before.projectConfig.name == original_name
 
             op_task = asyncio.create_task(delayed_method(request))
             await asyncio.sleep(0)
-            self.assertIn("settings-op", manager.pending_frontend_ops)
-            self.assertFalse(op_task.done())
+            assert "settings-op" in manager.pending_frontend_ops
+            assert not op_task.done()
 
             await manager.finish_pending_operations()
             await op_task
 
-            self.assertNotIn("settings-op", manager.pending_frontend_ops)
-            self.assertEqual(
-                manager.project_state_backend.projectConfigs[default_config_id].name,
-                new_name,
+            assert "settings-op" not in manager.pending_frontend_ops
+            assert (
+                manager.project_state_backend.projectConfigs[default_config_id].name
+                == new_name
             )
 
             on_disk_before_save = fixture.dbe.read_settings_project()
-            self.assertEqual(
-                on_disk_before_save.projectConfig.name,
-                original_name,
-            )
+            assert on_disk_before_save.projectConfig.name == original_name
 
             manager.perform_manual_save()
 
             on_disk_after = fixture.dbe.read_settings_project()
-            self.assertEqual(on_disk_after.projectConfig.name, new_name)
+            assert on_disk_after.projectConfig.name == new_name
 
     async def test_project_manual_save_waits_for_pending_ops(self):
         async with real_project_manager() as fixture:
@@ -103,7 +98,7 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
             delayed_method = _bind_delayed_set_project_config_name(manager)
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
-            self.assertIsNotNone(default_config_id)
+            assert default_config_id is not None
             default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
@@ -118,39 +113,32 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
             )
 
             on_disk_before = fixture.dbe.read_project()
-            self.assertEqual(
-                on_disk_before.projectConfigs[default_config_id].name,
-                original_name,
+            assert (
+                on_disk_before.projectConfigs[default_config_id].name
+                == original_name
             )
 
             op_task = asyncio.create_task(delayed_method(request))
             await asyncio.sleep(0)
-            self.assertIn("project-op", manager.pending_frontend_ops)
-            self.assertFalse(op_task.done())
+            assert "project-op" in manager.pending_frontend_ops
+            assert not op_task.done()
 
             await manager.finish_pending_operations()
             await op_task
 
-            self.assertNotIn("project-op", manager.pending_frontend_ops)
-            self.assertEqual(
-                manager.project_state_backend.projectConfigs[default_config_id].name,
-                new_name,
+            assert "project-op" not in manager.pending_frontend_ops
+            assert (
+                manager.project_state_backend.projectConfigs[default_config_id].name
+                == new_name
             )
 
             on_disk_before_save = fixture.dbe.read_project()
-            self.assertEqual(
-                on_disk_before_save.projectConfigs[default_config_id].name,
-                original_name,
+            assert (
+                on_disk_before_save.projectConfigs[default_config_id].name
+                == original_name
             )
 
             manager.perform_manual_save()
 
             on_disk_after = fixture.dbe.read_project()
-            self.assertEqual(
-                on_disk_after.projectConfigs[default_config_id].name,
-                new_name,
-            )
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert on_disk_after.projectConfigs[default_config_id].name == new_name

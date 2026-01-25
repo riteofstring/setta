@@ -1,9 +1,10 @@
 import asyncio
-import unittest
 from contextlib import AsyncExitStack
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+import pytest_asyncio
 from setta.project_state.base_project_manager import BaseProjectManager
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -28,14 +29,16 @@ async def _non_serialized_completion(
     return payload.result
 
 
-class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+@pytest.mark.asyncio
+class TestUpdateAndCompletionConcurrency:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
         self.manager_hooks = cast("Any", self.manager)
         project_config_id = self.manager.project_state_backend.defaultProjectConfigId
-        self.assertIsNotNone(project_config_id)
+        assert project_config_id is not None
         self.project_config_id = cast("str", project_config_id)
 
         # Bind helper coroutines onto the real manager so tests exercise the live queue.
@@ -49,7 +52,8 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
 
-    async def asyncTearDown(self) -> None:
+        yield
+
         await self._exit_stack.aclose()
 
     async def test_completion_waits_for_update_write_lock(self):
@@ -65,7 +69,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
         update_task = asyncio.create_task(manager_hooks.blocking_update(update_payload))
         await update_payload.started.wait()
-        self.assertIn("update-op", manager.pending_frontend_ops)
+        assert "update-op" in manager.pending_frontend_ops
 
         completion_payload = SimpleNamespace(
             frontendOpId="completion-op",
@@ -80,28 +84,28 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertIn("completion-op", manager.pending_frontend_ops)
-        self.assertFalse(completion_payload.entered.is_set())
+        assert "completion-op" in manager.pending_frontend_ops
+        assert not completion_payload.entered.is_set()
 
         update_payload.release.set()
         await update_payload.completed.wait()
         await update_task
 
-        self.assertNotIn("update-op", manager.pending_frontend_ops)
+        assert "update-op" not in manager.pending_frontend_ops
         await asyncio.wait_for(completion_payload.entered.wait(), timeout=1)
-        self.assertIn("completion-op", manager.pending_frontend_ops)
+        assert "completion-op" in manager.pending_frontend_ops
 
         completion_payload.release.set()
         result = await completion_task
 
-        self.assertEqual(result, "completion-result")
-        self.assertTrue(completion_payload.completed.is_set())
-        self.assertNotIn("completion-op", manager.pending_frontend_ops)
-        self.assertEqual(
-            manager.completed_op_ids_since_last_broadcast,
-            ["update-op", "completion-op"],
-        )
-        self.assertIsNone(manager._current_frontend_op_id.get())
+        assert result == "completion-result"
+        assert completion_payload.completed.is_set()
+        assert "completion-op" not in manager.pending_frontend_ops
+        assert manager.completed_op_ids_since_last_broadcast == [
+            "update-op",
+            "completion-op",
+        ]
+        assert manager._current_frontend_op_id.get() is None
 
     async def test_update_can_start_while_completion_waits_on_read(self):
         manager = self.manager
@@ -119,8 +123,8 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             manager_hooks.completion(completion_payload)
         )
         await asyncio.wait_for(completion_payload.entered.wait(), timeout=1)
-        self.assertIn("completion-op", manager.pending_frontend_ops)
-        self.assertFalse(completion_payload.completed.is_set())
+        assert "completion-op" in manager.pending_frontend_ops
+        assert not completion_payload.completed.is_set()
 
         update_payload = SimpleNamespace(
             frontendOpId="update-op",
@@ -132,26 +136,26 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
         update_task = asyncio.create_task(manager_hooks.blocking_update(update_payload))
         await asyncio.wait_for(update_payload.started.wait(), timeout=1)
-        self.assertIn("update-op", manager.pending_frontend_ops)
-        self.assertFalse(completion_payload.completed.is_set())
+        assert "update-op" in manager.pending_frontend_ops
+        assert not completion_payload.completed.is_set()
 
         update_payload.release.set()
         await asyncio.wait_for(update_payload.completed.wait(), timeout=1)
         await update_task
-        self.assertNotIn("update-op", manager.pending_frontend_ops)
+        assert "update-op" not in manager.pending_frontend_ops
 
-        self.assertFalse(completion_payload.completed.is_set())
+        assert not completion_payload.completed.is_set()
         completion_payload.release.set()
         completion_result = await completion_task
 
-        self.assertEqual(completion_result, "completion-result")
-        self.assertTrue(completion_payload.completed.is_set())
-        self.assertNotIn("completion-op", manager.pending_frontend_ops)
-        self.assertEqual(
-            manager.completed_op_ids_since_last_broadcast,
-            ["update-op", "completion-op"],
-        )
-        self.assertIsNone(manager._current_frontend_op_id.get())
+        assert completion_result == "completion-result"
+        assert completion_payload.completed.is_set()
+        assert "completion-op" not in manager.pending_frontend_ops
+        assert manager.completed_op_ids_since_last_broadcast == [
+            "update-op",
+            "completion-op",
+        ]
+        assert manager._current_frontend_op_id.get() is None
 
     async def test_write_lock_available_while_completion_waits(self):
         manager = self.manager
@@ -193,8 +197,6 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         release_write_lock.set()
         completion_payload.release.set()
         await asyncio.gather(write_task, completion_task)
-        self.assertNotIn("completion-op", manager.pending_frontend_ops)
-        self.assertEqual(
-            manager.completed_op_ids_since_last_broadcast, ["completion-op"]
-        )
-        self.assertIsNone(manager._current_frontend_op_id.get())
+        assert "completion-op" not in manager.pending_frontend_ops
+        assert manager.completed_op_ids_since_last_broadcast == ["completion-op"]
+        assert manager._current_frontend_op_id.get() is None

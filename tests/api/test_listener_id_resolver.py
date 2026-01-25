@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.api.listener import ListenerDependencyIds, ListenerRuntimeState
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -162,8 +162,9 @@ def _build_project_state_with_params():
     return project_state, section_id, kwarg_id
 
 
-class ListenerDependencyIdsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestListenerDependencyIds:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         project_state, ids = _build_project_state_with_duplicate_sections()
         runtime_state = _build_runtime_state(project_state)
         self.ids_helper = ListenerDependencyIds(
@@ -173,13 +174,13 @@ class ListenerDependencyIdsTests(unittest.TestCase):
 
     def test_dependency_name_resolves_section(self) -> None:
         resolved = self.ids_helper.section_id("Settings_Group__Item_2")
-        self.assertEqual(resolved, self.ids["child_2"])
+        assert resolved == self.ids["child_2"]
 
     def test_resolve_payload_maps_section_dependencies(self) -> None:
         resolved = self.ids_helper.section_ids(
             ["Settings_Group", "Settings_Group__Item_2"]
         )
-        self.assertEqual(resolved, [self.ids["group"], self.ids["child_2"]])
+        assert resolved == [self.ids["group"], self.ids["child_2"]]
 
     def test_resolve_payload_maps_param_dependency(self) -> None:
         project_state, section_id, kwarg_id = _build_project_state_with_params()
@@ -191,8 +192,8 @@ class ListenerDependencyIdsTests(unittest.TestCase):
             runtime_state.dependency_graph, runtime_state.project_state
         )
         param_ids = ids_helper.param_ids(dependency_name)
-        self.assertEqual(param_ids.sectionId, section_id)
-        self.assertEqual(param_ids.paramInfoId, kwarg_id)
+        assert param_ids.sectionId == section_id
+        assert param_ids.paramInfoId == kwarg_id
 
 
 def _find_param_dependency_name(
@@ -205,6 +206,3 @@ def _find_param_dependency_name(
                 return name
     raise AssertionError(f"Missing dependency for param {code_obj_id}")
 
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

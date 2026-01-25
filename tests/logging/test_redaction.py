@@ -1,5 +1,4 @@
 import json
-import unittest
 from typing import Annotated
 
 from pydantic import BaseModel
@@ -11,7 +10,7 @@ from setta.logging.context import (
 from setta.logging.redaction import REDACTED_VALUE, Sensitive
 
 
-class LoggingRedactionTests(unittest.TestCase):
+class TestLoggingRedaction:
     def test_redacts_sensitive_annotated_fields_in_pydantic_models(self) -> None:
         class Payload(BaseModel):
             api_key: Annotated[str, Sensitive()]
@@ -29,8 +28,8 @@ class LoggingRedactionTests(unittest.TestCase):
 
         raw_payload = context["payload"]
         parsed = json.loads(raw_payload)
-        self.assertEqual(parsed["api_key"], REDACTED_VALUE)
-        self.assertEqual(parsed["message"], "hello world")
+        assert parsed["api_key"] == REDACTED_VALUE
+        assert parsed["message"] == "hello world"
 
     def test_summarizes_large_collections(self) -> None:
         values = [f"value-{i}" for i in range(50)]
@@ -41,10 +40,6 @@ class LoggingRedactionTests(unittest.TestCase):
             reset_logging_context(token)
 
         parsed = json.loads(context["big_list"])
-        self.assertEqual(parsed["len"], 50)
-        self.assertTrue(parsed["truncated"])
-        self.assertEqual(len(parsed["sample"]), 25)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert parsed["len"] == 50
+        assert parsed["truncated"]
+        assert len(parsed["sample"]) == 25

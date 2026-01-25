@@ -1,7 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -25,10 +25,10 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class JsonSourceMultiSectionKeysTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestJsonSourceMultiSectionKeys:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
-        self.addCleanup(self._tmpdir.cleanup)
 
         root = Path(self._tmpdir.name)
         self.dbe = DBE(root)
@@ -46,6 +46,10 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="json-source-multi")
         )
+
+        yield
+
+        self._tmpdir.cleanup()
 
     def _create_json_source_section(self, json_source_keys: list[str]):
         section_id = create_top_level_section(
@@ -90,7 +94,7 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
 
     def _assert_section_code_objs_exist(self, section_id: str) -> None:
         for code_obj_id in self._get_section_code_obj_ids(section_id):
-            self.assertIn(code_obj_id, self.project_state.codeObjs)
+            assert code_obj_id in self.project_state.codeObjs
 
     def test_sections_with_shared_json_source_keep_distinct_code_objs(self) -> None:
         section_a, variant_a = self._create_json_source_section(["alpha"])
@@ -114,7 +118,7 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
 
         ids_a = self._get_section_code_obj_ids(section_a)
         ids_b = self._get_section_code_obj_ids(section_b)
-        self.assertTrue(ids_a.isdisjoint(ids_b))
+        assert ids_a.isdisjoint(ids_b)
         self._assert_backend_roundtrip()
 
         set_curr_effective_section_impl_value(
@@ -148,7 +152,7 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         impl = get_curr_effective_section_impl_with_type_guard(
             self.project_state, section_id, BaseDictSectionImpl
         )
-        self.assertTrue(impl.jsonSourceMissing)
+        assert impl.jsonSourceMissing
 
     def test_json_source_leaf_path_marks_missing(self) -> None:
         section_id, variant_id = self._create_json_source_section(["alpha", "one"])
@@ -164,7 +168,7 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         impl = get_curr_effective_section_impl_with_type_guard(
             self.project_state, section_id, BaseDictSectionImpl
         )
-        self.assertTrue(impl.jsonSourceMissing)
+        assert impl.jsonSourceMissing
 
     def test_unrequested_shared_variant_is_not_updated(self) -> None:
         section_a, variant_a = self._create_json_source_section(["alpha"])
@@ -207,11 +211,11 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
             self.project_state, section_b, BaseDictSectionImpl
         )
 
-        self.assertGreater(len(impl_a_updated.codeObjVariantMap), len(prev_a_map))
-        self.assertEqual(prev_b_map, impl_b_updated.codeObjVariantMap)
-        self.assertEqual(prev_b_top_level, impl_b_updated.topLevelParamId)
+        assert len(impl_a_updated.codeObjVariantMap) > len(prev_a_map)
+        assert prev_b_map == impl_b_updated.codeObjVariantMap
+        assert prev_b_top_level == impl_b_updated.topLevelParamId
         for code_obj_id in prev_b_map.keys():
-            self.assertIn(code_obj_id, self.project_state.codeObjs)
+            assert code_obj_id in self.project_state.codeObjs
 
     def test_unrequested_shared_variant_marks_missing(self) -> None:
         section_a, variant_a = self._create_json_source_section(["alpha"])
@@ -223,8 +227,8 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         impl_b = get_curr_effective_section_impl_with_type_guard(
             self.project_state, section_b, BaseDictSectionImpl
         )
-        self.assertFalse(impl_a.jsonSourceMissing)
-        self.assertFalse(impl_b.jsonSourceMissing)
+        assert not impl_a.jsonSourceMissing
+        assert not impl_b.jsonSourceMissing
 
         load_json_sources_into_data_structures(
             self.project_state,
@@ -238,5 +242,5 @@ class JsonSourceMultiSectionKeysTests(unittest.TestCase):
         impl_b_after = get_curr_effective_section_impl_with_type_guard(
             self.project_state, section_b, BaseDictSectionImpl
         )
-        self.assertTrue(impl_a_after.jsonSourceMissing)
-        self.assertTrue(impl_b_after.jsonSourceMissing)
+        assert impl_a_after.jsonSourceMissing
+        assert impl_b_after.jsonSourceMissing

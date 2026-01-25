@@ -1,8 +1,9 @@
 import json
-import unittest
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
+import pytest
+import pytest_asyncio
 from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME, sanitize_name
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
@@ -30,15 +31,17 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
 
 
-class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestRenameRefactorBroadcast:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
         self.websocket_manager = fixture.websocket_manager
         project_config_id = self.manager.project_state_backend.defaultProjectConfigId
         if not project_config_id:
-            self.fail("Expected default project config id for rename test.")
+            pytest.fail("Expected default project config id for rename test.")
         self.project_config_id: ID = project_config_id
 
         await self.manager.set_project_config_codegen_targets(
@@ -89,7 +92,8 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-    async def asyncTearDown(self):
+        yield
+
         self.websocket_manager.sockets.pop(self.websocket_id, None)
         await self._exit_stack.aclose()
 
@@ -112,7 +116,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 except (TypeError, ValueError):
                     continue
                 return section_id, param_id, section_core.name
-        self.fail(
+        pytest.fail(
             "Expected to locate a section parameter pair with a childless implementation."
         )
 
@@ -138,7 +142,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl_before.value, str)
+            assert isinstance(impl_before.value, str)
             original_param_value = impl_before.value
 
             old_token = f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(current_name)}"
@@ -164,11 +168,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertIn(
-                frontend_op_id,
-                self.manager.pending_rename_results,
-                "Rename prompt should enqueue a pending entry.",
-            )
+            assert (
+                frontend_op_id in self.manager.pending_rename_results
+            ), "Rename prompt should enqueue a pending entry."
 
             rename_payloads: list[dict] = []
             for message in self._sent_messages[prev_message_count:]:
@@ -178,28 +180,24 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 if payload.get("messageType") == "ReturnRenameRefactorResults":
                     rename_payloads.append(payload)
 
-            self.assertTrue(
-                rename_payloads,
-                "Expected rename refactor results broadcast for ALWAYS_ASK mode.",
+            assert rename_payloads, (
+                "Expected rename refactor results broadcast for ALWAYS_ASK mode."
             )
             content = rename_payloads[-1]["content"]
 
-            self.assertEqual(content["projectConfigId"], self.project_config_id)
-            self.assertEqual(content["frontendOpId"], frontend_op_id)
-            self.assertEqual(content["renameMode"], "ALWAYS_ASK")
-            self.assertIn("changedNodeValues", content)
-            self.assertIsInstance(content["changedNodeValues"], list)
-            self.assertTrue(
-                content["changedNodeValues"],
-                "Expected at least one changed node value in broadcast payload.",
+            assert content["projectConfigId"] == self.project_config_id
+            assert content["frontendOpId"] == frontend_op_id
+            assert content["renameMode"] == "ALWAYS_ASK"
+            assert "changedNodeValues" in content
+            assert isinstance(content["changedNodeValues"], list)
+            assert content["changedNodeValues"], (
+                "Expected at least one changed node value in broadcast payload."
             )
             first_value = content["changedNodeValues"][0]
-            self.assertIn("sectionId", first_value["depKey"])
-            self.assertIn("newValue", first_value)
-            self.assertIn(
-                sanitize_name(new_name),
-                first_value["newValue"],
-                "Expected updated value to reference the sanitized new section name.",
+            assert "sectionId" in first_value["depKey"]
+            assert "newValue" in first_value
+            assert sanitize_name(new_name) in first_value["newValue"], (
+                "Expected updated value to reference the sanitized new section name."
             )
 
             await self.manager.decline_rename_refactor(
@@ -273,7 +271,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 or target_param_id is None
                 or original_name is None
             ):
-                self.fail(
+                pytest.fail(
                     "Expected section and parameter ids to exercise rename acceptance."
                 )
 
@@ -298,22 +296,17 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertIn(
-                "rename-op-accept",
-                self.manager.pending_rename_results,
-                "Rename acceptance should create a pending entry.",
-            )
+            assert (
+                "rename-op-accept" in self.manager.pending_rename_results
+            ), "Rename acceptance should create a pending entry."
             pending_project_config_id, pending_values = (
                 self.manager.pending_rename_results["rename-op-accept"]
             )
-            self.assertEqual(
-                pending_project_config_id,
-                self.project_config_id,
-                "Pending rename result should be keyed by the target project config.",
+            assert pending_project_config_id == self.project_config_id, (
+                "Pending rename result should be keyed by the target project config."
             )
-            self.assertTrue(
-                pending_values,
-                "Pending rename result should describe at least one changed node value.",
+            assert pending_values, (
+                "Pending rename result should describe at least one changed node value."
             )
 
             state_mid = await self.manager.load_project_config(self.project_config_id)
@@ -323,11 +316,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 target_param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl_mid.value, str)
-            self.assertEqual(
-                impl_mid.value,
-                old_token,
-                "Values should remain unchanged before accepting the rename.",
+            assert isinstance(impl_mid.value, str)
+            assert impl_mid.value == old_token, (
+                "Values should remain unchanged before accepting the rename."
             )
 
             await self.manager.accept_rename_refactor(
@@ -337,11 +328,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertNotIn(
-                "rename-op-accept",
-                self.manager.pending_rename_results,
-                "Acceptance should clear the pending entry.",
-            )
+            assert (
+                "rename-op-accept" not in self.manager.pending_rename_results
+            ), "Acceptance should clear the pending entry."
 
             state_after = await self.manager.load_project_config(self.project_config_id)
             impl_after = get_curr_effective_code_obj_impl_with_type_guard(
@@ -350,12 +339,10 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 target_param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl_after.value, str)
-            self.assertEqual(
-                impl_after.value,
-                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}",
-                "Acceptance should update dependent values to the renamed token.",
-            )
+            assert isinstance(impl_after.value, str)
+            assert impl_after.value == (
+                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}"
+            ), "Acceptance should update dependent values to the renamed token."
         finally:
             backend_settings.renameRefactorMode = previous_mode
 
@@ -398,7 +385,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 or target_param_id is None
                 or original_name is None
             ):
-                self.fail(
+                pytest.fail(
                     "Expected section and parameter ids to exercise rename decline."
                 )
 
@@ -423,22 +410,17 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertIn(
-                "rename-op-decline",
-                self.manager.pending_rename_results,
-                "Decline should enqueue a pending rename result.",
-            )
+            assert (
+                "rename-op-decline" in self.manager.pending_rename_results
+            ), "Decline should enqueue a pending rename result."
             pending_project_config_id, pending_values = (
                 self.manager.pending_rename_results["rename-op-decline"]
             )
-            self.assertEqual(
-                pending_project_config_id,
-                self.project_config_id,
-                "Pending rename decline entry should match the request project config.",
+            assert pending_project_config_id == self.project_config_id, (
+                "Pending rename decline entry should match the request project config."
             )
-            self.assertTrue(
-                pending_values,
-                "Pending rename decline entry should describe at least one changed node value.",
+            assert pending_values, (
+                "Pending rename decline entry should describe at least one changed node value."
             )
 
             state_mid = await self.manager.load_project_config(self.project_config_id)
@@ -448,11 +430,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 target_param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl_mid.value, str)
-            self.assertEqual(
-                impl_mid.value,
-                old_token,
-                "Values should remain unchanged before declining the rename.",
+            assert isinstance(impl_mid.value, str)
+            assert impl_mid.value == old_token, (
+                "Values should remain unchanged before declining the rename."
             )
 
             await self.manager.decline_rename_refactor(
@@ -462,11 +442,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertNotIn(
-                "rename-op-decline",
-                self.manager.pending_rename_results,
-                "Decline should clear the pending entry.",
-            )
+            assert (
+                "rename-op-decline" not in self.manager.pending_rename_results
+            ), "Decline should clear the pending entry."
 
             state_after = await self.manager.load_project_config(self.project_config_id)
             impl_after = get_curr_effective_code_obj_impl_with_type_guard(
@@ -475,11 +453,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 target_param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl_after.value, str)
-            self.assertEqual(
-                impl_after.value,
-                old_token,
-                "Decline should not apply rename-related changes.",
+            assert isinstance(impl_after.value, str)
+            assert impl_after.value == old_token, (
+                "Decline should not apply rename-related changes."
             )
         finally:
             backend_settings.renameRefactorMode = previous_mode
@@ -522,7 +498,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 or target_param_id is None
                 or original_name is None
             ):
-                self.fail(
+                pytest.fail(
                     "Expected to locate a section/parameter pair for rename auto-apply test."
                 )
 
@@ -548,11 +524,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            self.assertNotIn(
-                "rename-op-auto",
-                self.manager.pending_rename_results,
-                "Auto-rename should not enqueue pending results.",
-            )
+            assert (
+                "rename-op-auto" not in self.manager.pending_rename_results
+            ), "Auto-rename should not enqueue pending results."
             rename_broadcasts = [
                 message
                 for message in self._sent_messages
@@ -561,9 +535,8 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 and json.loads(message["text"])["messageType"]
                 == "ReturnRenameRefactorResults"
             ]
-            self.assertFalse(
-                rename_broadcasts,
-                "Auto-rename mode should not broadcast rename prompts.",
+            assert not rename_broadcasts, (
+                "Auto-rename mode should not broadcast rename prompts."
             )
 
             updated_state = await self.manager.load_project_config(
@@ -575,11 +548,9 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 target_param_id,
                 BaseChildlessCodeObjImpl,
             )
-            self.assertIsInstance(impl.value, str)
-            self.assertEqual(
-                impl.value,
-                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}",
-                "Auto-rename should update dependent parameter value to the new token.",
-            )
+            assert isinstance(impl.value, str)
+            assert impl.value == (
+                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}"
+            ), "Auto-rename should update dependent parameter value to the new token."
         finally:
             backend_settings.renameRefactorMode = previous_mode

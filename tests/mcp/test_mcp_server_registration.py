@@ -1,18 +1,21 @@
 import asyncio
 import logging
-import unittest
 from types import SimpleNamespace
-import setta.file_watchers.lsp as lsp_file_watcher
-import setta.file_watchers.specific_file_watcher as specific_file_watcher
-import setta.mcp.tools  # noqa: F401
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from mcp.server.fastmcp.server import Context
-from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
-from setta.llm.chat_store import AgentRunChatStore
+from watchdog.observers.polling import PollingObserver
+
+import setta.file_watchers.lsp as lsp_file_watcher
+import setta.file_watchers.specific_file_watcher as specific_file_watcher
+import setta.mcp.tools  # noqa: F401
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
+from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
+from setta.llm.chat_store import AgentRunChatStore
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
@@ -25,7 +28,6 @@ from setta.types.id import ID
 from setta.types.llm_config import MCPServerConfig
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from watchdog.observers.polling import PollingObserver
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 
@@ -46,7 +48,8 @@ def _build_state(project_fixture, settings_fixture, frontend_sender):
     )
 
 
-class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestMCPServerToolRegistration:
     async def test_initializes_server_and_lists_tools(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
             app = FastAPI()
@@ -74,8 +77,8 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 tool.name for tool in mcp_server.list_registered_tools()
             )
 
-            self.assertGreater(len(registered_tool_names), 0)
-            self.assertIn("read_file_range", registered_tool_names)
+            assert len(registered_tool_names) > 0
+            assert "read_file_range" in registered_tool_names
 
             search_results = search_mcp_tools(
                 query="section size settings",
@@ -83,14 +86,8 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 ctx=ctx,
             )
             search_result_names = [result.name for result in search_results.results]
-            self.assertIn(
-                "set_section_sizes",
-                search_result_names,
-            )
-            self.assertNotIn(
-                C.SEARCH_MCP_TOOLS_NAME,
-                search_result_names,
-            )
+            assert "set_section_sizes" in search_result_names
+            assert C.SEARCH_MCP_TOOLS_NAME not in search_result_names
 
             search_tool = next(
                 tool
@@ -106,14 +103,8 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             parsed_results = results_via_tool_run.results
             parsed_result_names = [result.name for result in parsed_results]
-            self.assertIn(
-                "set_section_sizes",
-                parsed_result_names,
-            )
-            self.assertNotIn(
-                C.SEARCH_MCP_TOOLS_NAME,
-                parsed_result_names,
-            )
+            assert "set_section_sizes" in parsed_result_names
+            assert C.SEARCH_MCP_TOOLS_NAME not in parsed_result_names
 
     async def test_search_finds_create_top_level_section(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
@@ -149,13 +140,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     ctx=ctx,
                 )
                 result_names = [result.name for result in results.results]
-                self.assertIn(
-                    "create_top_level_section",
-                    result_names,
-                    msg=(
-                        f"search results for '{query}' did not include "
-                        "create_top_level_section"
-                    ),
+                assert "create_top_level_section" in result_names, (
+                    f"search results for '{query}' did not include "
+                    "create_top_level_section"
                 )
 
     async def test_streamable_http_manager_initializes_on_startup(self) -> None:
@@ -180,7 +167,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     return response.status_code
 
             status_code = await asyncio.to_thread(_post_streamable_request)
-            self.assertLess(status_code, 500)
+            assert status_code < 500
 
     async def test_streamable_manager_restarts_after_stop(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
@@ -203,10 +190,10 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             await mcp_server.start_streamable_manager()
 
             task = mcp_server._streamable_manager_task
-            self.assertIsNotNone(task)
+            assert task is not None
             if task is not None:
                 await asyncio.sleep(0)
-                self.assertFalse(task.done())
+                assert not task.done()
 
             await mcp_server.stop_streamable_manager()
 
@@ -269,7 +256,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             emit_actions = [
                 item for item in actions if isinstance(item, EmitChunkAction)
             ]
-            self.assertEqual(len(emit_actions), 1)
+            assert len(emit_actions) == 1
             tool_message = emit_actions[0].chunk.result
 
             search_result_names = [
@@ -277,18 +264,18 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 for entry in tool_message.result.get("searchResults", [])
                 if isinstance(entry, dict)
             ]
-            self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                search_result_names,
+            assert (
+                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes")
+                in search_result_names
             )
             referenced_names = [
                 entry.tool_name
                 for entry in tool_message.content
                 if isinstance(entry, ToolReferenceContent)
             ]
-            self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
-                referenced_names,
+            assert (
+                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes")
+                in referenced_names
             )
 
     async def test_does_not_register_project_config_id_in_temp_map(self) -> None:
@@ -313,16 +300,16 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             wrapped_tool = mcp_server.setta_id_transformer(_dummy_tool)
 
             project_config_id = ID("test-project-uuid")
-            self.assertNotIn(project_config_id, mcp_server.canonical_to_temporary)
+            assert project_config_id not in mcp_server.canonical_to_temporary
 
             await wrapped_tool(projectConfigId=str(project_config_id))
 
-            self.assertNotIn(project_config_id, mcp_server.canonical_to_temporary)
+            assert project_config_id not in mcp_server.canonical_to_temporary
             temporary_to_canonical, canonical_to_temporary = (
                 fixture.dbe.read_temporary_id_map()
             )
-            self.assertNotIn(project_config_id, canonical_to_temporary)
-            self.assertNotIn(project_config_id, temporary_to_canonical.values())
+            assert project_config_id not in canonical_to_temporary
+            assert project_config_id not in temporary_to_canonical.values()
 
     async def test_tool_param_descriptions_from_docstrings(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
@@ -346,8 +333,5 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             properties = tool.parameters.get("properties", {})
             section_schema = properties.get("sectionId")
-            self.assertIsInstance(section_schema, dict)
-            self.assertEqual(
-                section_schema.get("description"),
-                "The id of the terminal.",
-            )
+            assert isinstance(section_schema, dict)
+            assert section_schema.get("description") == "The id of the terminal."

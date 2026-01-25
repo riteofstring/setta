@@ -52,6 +52,9 @@ setta = "setta.start:cli"
 dev = [
     "build==1.0.3",
     "pip-audit==2.9.0",
+    "pytest==8.3.3",
+    "pytest-asyncio==0.23.8",
+    "pytest-xdist==3.6.1",
 ]
 gemini = [
     "google-cloud-aiplatform==1.128.0",

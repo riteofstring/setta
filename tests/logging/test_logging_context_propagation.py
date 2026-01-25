@@ -1,7 +1,6 @@
 import asyncio
-import tempfile
-import unittest
-from pathlib import Path
+
+import pytest
 
 from setta.logging.context import (
     get_logging_context,
@@ -14,87 +13,78 @@ from setta.lsp.writer import LanguageServerWriter
 from setta.utils.async_debouncer import AsyncDebouncer
 
 
-class AsyncDebouncerLoggingTests(unittest.IsolatedAsyncioTestCase):
-    async def test_trigger_runs_job_with_current_context(self) -> None:
-        contexts: list[dict[str, str]] = []
-        done = asyncio.Event()
+@pytest.mark.asyncio
+async def test_trigger_runs_job_with_current_context() -> None:
+    contexts: list[dict[str, str]] = []
+    done = asyncio.Event()
 
-        async def _job() -> None:
-            contexts.append(get_logging_context())
-            done.set()
+    async def _job() -> None:
+        contexts.append(get_logging_context())
+        done.set()
 
-        debouncer = AsyncDebouncer(_job, wait=0.01, label="debounce-test")
-        token = push_logging_context(project_config_id="proj-ctx", request_id="req-ctx")
-        try:
-            debouncer.trigger()
-            await asyncio.wait_for(done.wait(), timeout=1)
-        finally:
-            reset_logging_context(token)
+    debouncer = AsyncDebouncer(_job, wait=0.01, label="debounce-test")
+    token = push_logging_context(project_config_id="proj-ctx", request_id="req-ctx")
+    try:
+        debouncer.trigger()
+        await asyncio.wait_for(done.wait(), timeout=1)
+    finally:
+        reset_logging_context(token)
 
-        self.assertEqual(contexts[0]["task"], "debounce-test")
-        self.assertEqual(contexts[0]["project_config_id"], "proj-ctx")
-        self.assertEqual(contexts[0]["request_id"], "req-ctx")
-
-
-class LanguageServerLoggingTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        self._tempdir = tempfile.TemporaryDirectory()
-        self.workspace = Path(self._tempdir.name)
-
-    def tearDown(self) -> None:
-        self._tempdir.cleanup()
-
-    async def test_writer_send_and_wait_binds_request_metadata(self) -> None:
-        server = LanguageServer(self.workspace, settings={}, name="unit-writer")
-        writer = LanguageServerWriter(server)
-        contexts: list[dict[str, str]] = []
-        request_id = "req-lsp"
-
-        async def _fake_request() -> None:
-            contexts.append(get_logging_context())
-            writer.pending_requests[request_id].set_result("done")
-
-        result = await writer.send_and_wait(_fake_request(), request_id)
-        self.assertEqual(result, "done")
-        self.assertEqual(contexts[0]["task"], "lsp-send-request")
-        self.assertEqual(contexts[0]["lsp_request_id"], request_id)
-        self.assertEqual(contexts[0]["lsp_server"], "unit-writer")
-
-    async def test_reader_diagnostics_callback_carries_context(self) -> None:
-        server = LanguageServer(self.workspace, settings={}, name="unit-reader")
-        reader = LanguageServerReader(server)
-        uri = "file:///tmp/example.py"
-        contexts: list[dict[str, str]] = []
-        notified = asyncio.Event()
-
-        async def _diagnostics_callback(_payload) -> None:
-            contexts.append(get_logging_context())
-            notified.set()
-
-        reader.add_diagnostics_response_callback(uri, _diagnostics_callback)
-        reader.process_response_without_id(
-            "textDocument/publishDiagnostics",
-            {
-                "params": {
-                    "uri": uri,
-                    "diagnostics": [
-                        {
-                            "range": {
-                                "start": {"line": 0, "character": 0},
-                                "end": {"line": 0, "character": 1},
-                            },
-                            "message": "stub",
-                        }
-                    ],
-                }
-            },
-        )
-        await asyncio.wait_for(notified.wait(), timeout=1)
-
-        self.assertEqual(contexts[0]["task"], "lsp-diagnostics-callback")
-        self.assertEqual(contexts[0]["uri"], uri)
-        self.assertEqual(contexts[0]["lsp_server"], "unit-reader")
+    assert contexts[0]["task"] == "debounce-test"
+    assert contexts[0]["project_config_id"] == "proj-ctx"
+    assert contexts[0]["request_id"] == "req-ctx"
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.asyncio
+async def test_writer_send_and_wait_binds_request_metadata(tmp_path) -> None:
+    server = LanguageServer(tmp_path, settings={}, name="unit-writer")
+    writer = LanguageServerWriter(server)
+    contexts: list[dict[str, str]] = []
+    request_id = "req-lsp"
+
+    async def _fake_request() -> None:
+        contexts.append(get_logging_context())
+        writer.pending_requests[request_id].set_result("done")
+
+    result = await writer.send_and_wait(_fake_request(), request_id)
+    assert result == "done"
+    assert contexts[0]["task"] == "lsp-send-request"
+    assert contexts[0]["lsp_request_id"] == request_id
+    assert contexts[0]["lsp_server"] == "unit-writer"
+
+
+@pytest.mark.asyncio
+async def test_reader_diagnostics_callback_carries_context(tmp_path) -> None:
+    server = LanguageServer(tmp_path, settings={}, name="unit-reader")
+    reader = LanguageServerReader(server)
+    uri = "file:///tmp/example.py"
+    contexts: list[dict[str, str]] = []
+    notified = asyncio.Event()
+
+    async def _diagnostics_callback(_payload) -> None:
+        contexts.append(get_logging_context())
+        notified.set()
+
+    reader.add_diagnostics_response_callback(uri, _diagnostics_callback)
+    reader.process_response_without_id(
+        "textDocument/publishDiagnostics",
+        {
+            "params": {
+                "uri": uri,
+                "diagnostics": [
+                    {
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 0, "character": 1},
+                        },
+                        "message": "stub",
+                    }
+                ],
+            }
+        },
+    )
+    await asyncio.wait_for(notified.wait(), timeout=1)
+
+    assert contexts[0]["task"] == "lsp-diagnostics-callback"
+    assert contexts[0]["uri"] == uri
+    assert contexts[0]["lsp_server"] == "unit-reader"

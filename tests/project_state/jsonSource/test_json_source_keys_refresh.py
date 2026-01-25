@@ -1,9 +1,10 @@
 import asyncio
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -65,8 +66,10 @@ class JsonSourceKeysManager(BaseProjectManager):
         return None
 
 
-class JsonSourceKeysRefreshTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestJsonSourceKeysRefresh:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
@@ -125,7 +128,8 @@ class JsonSourceKeysRefreshTests(unittest.IsolatedAsyncioTestCase):
         self.section_id = next(iter(self.project_state.sections.keys()))
         self.variant_id = next(iter(self.project_state.sectionVariants.keys()))
 
-    async def asyncTearDown(self):
+        yield
+
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -188,9 +192,9 @@ class JsonSourceKeysRefreshTests(unittest.IsolatedAsyncioTestCase):
         impl = get_curr_effective_section_impl_with_type_guard(
             project_state, self.section_id, BaseDictSectionImpl
         )
-        self.assertEqual(impl.jsonSourceKeys, ["beta"])
+        assert impl.jsonSourceKeys == ["beta"]
 
         normalized_path = normalize_path(self.json_path)
         processed = self.json_source.json_sources[normalized_path]
-        self.assertIn(("beta",), processed.hierarchy.name_path_to_id)
-        self.assertNotIn(("alpha",), processed.hierarchy.name_path_to_id)
+        assert ("beta",) in processed.hierarchy.name_path_to_id
+        assert ("alpha",) not in processed.hierarchy.name_path_to_id

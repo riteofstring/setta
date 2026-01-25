@@ -1,5 +1,4 @@
 import logging
-import unittest
 
 from setta.logging.context import (
     LoggingContextFilter,
@@ -8,7 +7,7 @@ from setta.logging.context import (
 )
 
 
-class LoggingContextFormattingTests(unittest.TestCase):
+class TestLoggingContextFormatting:
     def test_formats_as_logfmt_and_quotes_spaces(self) -> None:
         token = push_logging_context(values={"path": "/Users/kevin/My Project"})
         try:
@@ -25,7 +24,7 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(record.setta_context, 'path="/Users/kevin/My Project"')
+        assert record.setta_context == 'path="/Users/kevin/My Project"'
 
     def test_formats_as_logfmt_and_escapes_quotes_and_backslashes(self) -> None:
         token = push_logging_context(values={"value": 'a "quote" and a \\\\ slash'})
@@ -43,8 +42,8 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(
-            record.setta_context, 'value="a \\"quote\\" and a \\\\\\\\ slash"'
+        assert (
+            record.setta_context == 'value="a \\"quote\\" and a \\\\\\\\ slash"'
         )
 
     def test_leaves_safe_values_unquoted(self) -> None:
@@ -63,7 +62,7 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(record.setta_context, "request_id=abc-123_DEF")
+        assert record.setta_context == "request_id=abc-123_DEF"
 
     def test_quotes_empty_string(self) -> None:
         token = push_logging_context(values={"empty": ""})
@@ -81,7 +80,7 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(record.setta_context, 'empty=""')
+        assert record.setta_context == 'empty=""'
 
     def test_quotes_values_with_equals(self) -> None:
         token = push_logging_context(values={"query": "a=b"})
@@ -99,8 +98,4 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(record.setta_context, 'query="a=b"')
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert record.setta_context == 'query="a=b"'

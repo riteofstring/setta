@@ -1,4 +1,3 @@
-import unittest
 from ast import literal_eval
 
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -48,7 +47,7 @@ def _build_chat_project_state(
     return project_state, section_id, DependencyGraph(project_state)
 
 
-class RouterEndpointLocalUpdateTests(unittest.TestCase):
+class TestRouterEndpointLocalUpdates:
     def test_builds_chat_section_update_payload_expression(self) -> None:
         project_state, section_id, dependency_graph = _build_chat_project_state(
             representation=SectionRepresentationMode.expression,
@@ -72,16 +71,16 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             project_state=project_state,
         )
 
-        self.assertEqual(1, len(updates))
+        assert len(updates) == 1
         update = updates[0]
-        self.assertEqual(
-            SectionDependencyKey(sectionId=section_id),
-            update.dependency_key,
+        assert (
+            SectionDependencyKey(sectionId=section_id)
+            == update.dependency_key
         )
-        self.assertIsInstance(update.value, LiteralDependencyValue)
+        assert isinstance(update.value, LiteralDependencyValue)
         parsed = ChatSectionState.model_validate(literal_eval(update.value.payload))
-        self.assertEqual(state.messages, parsed.messages)
-        self.assertEqual(state.toolCallArguments, parsed.toolCallArguments)
+        assert state.messages == parsed.messages
+        assert state.toolCallArguments == parsed.toolCallArguments
 
     def test_builds_chat_section_update_payload_file_path(self) -> None:
         chat_id = ID("chat-path")
@@ -103,11 +102,11 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             project_state=project_state,
         )
 
-        self.assertEqual(1, len(updates))
+        assert len(updates) == 1
         update = updates[0]
-        self.assertIsInstance(update.value, LiteralDependencyValue)
+        assert isinstance(update.value, LiteralDependencyValue)
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
-        self.assertEqual(update.value.payload, expected_path)
+        assert update.value.payload == expected_path
 
     def test_builds_chat_section_update_payload_file_read(self) -> None:
         chat_id = ID("chat-read")
@@ -129,11 +128,11 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             project_state=project_state,
         )
 
-        self.assertEqual(1, len(updates))
+        assert len(updates) == 1
         update = updates[0]
-        self.assertIsInstance(update.value, FileReadDependencyValue)
+        assert isinstance(update.value, FileReadDependencyValue)
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
-        self.assertEqual(update.value.payload, expected_path)
+        assert update.value.payload == expected_path
 
     def test_builds_chat_section_update_payload_without_chat_id(self) -> None:
         project_state, section_id, dependency_graph = _build_chat_project_state(
@@ -153,12 +152,12 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             project_state=project_state,
         )
 
-        self.assertEqual(1, len(updates))
+        assert len(updates) == 1
         update = updates[0]
-        self.assertIsInstance(update.value, LiteralDependencyValue)
+        assert isinstance(update.value, LiteralDependencyValue)
         parsed = ChatSectionState.model_validate(literal_eval(update.value.payload))
-        self.assertEqual(state.messages, parsed.messages)
-        self.assertEqual(state.toolCallArguments, parsed.toolCallArguments)
+        assert state.messages == parsed.messages
+        assert state.toolCallArguments == parsed.toolCallArguments
 
     def test_ignores_unrelated_endpoints(self) -> None:
         project_state, _, dependency_graph = _build_chat_project_state(
@@ -170,7 +169,7 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             dependency_graph=dependency_graph,
             project_state=project_state,
         )
-        self.assertEqual([], updates)
+        assert updates == []
 
     def test_skips_missing_dependency_graph_entries(self) -> None:
         project_state, _, dependency_graph = _build_chat_project_state(
@@ -190,8 +189,4 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
             project_state=project_state,
         )
 
-        self.assertEqual([], updates)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert updates == []

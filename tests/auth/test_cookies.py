@@ -1,5 +1,4 @@
-import unittest
-
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -7,40 +6,37 @@ from fastapi.testclient import TestClient
 from setta.auth.cookies import set_auth_cookie
 
 
-class AuthCookieTests(unittest.TestCase):
-    def _build_app(self) -> FastAPI:
-        app = FastAPI()
+@pytest.fixture
+def app() -> FastAPI:
+    app = FastAPI()
 
-        @app.get("/set-cookie")
-        async def set_cookie(request: Request):
-            response = JSONResponse({"ok": True})
-            set_auth_cookie(response, "token-value", request=request)
-            return response
+    @app.get("/set-cookie")
+    async def set_cookie(request: Request):
+        response = JSONResponse({"ok": True})
+        set_auth_cookie(response, "token-value", request=request)
+        return response
 
-        return app
+    return app
 
-    def test_set_auth_cookie_secure_https(self) -> None:
-        app = self._build_app()
-        client = TestClient(app, base_url="https://testserver")
-        self.addCleanup(client.close)
 
+@pytest.mark.parametrize(
+    ("base_url", "expect_secure"),
+    [
+        ("https://testserver", True),
+        ("http://testserver", False),
+    ],
+)
+def test_set_auth_cookie_secure_flags(
+    app: FastAPI,
+    base_url: str,
+    expect_secure: bool,
+) -> None:
+    with TestClient(app, base_url=base_url) as client:
         response = client.get("/set-cookie")
 
-        self.assertEqual(response.status_code, 200)
-        cookie_header = response.headers.get("set-cookie", "")
-        self.assertIn("Secure", cookie_header)
-
-    def test_set_auth_cookie_secure_http(self) -> None:
-        app = self._build_app()
-        client = TestClient(app, base_url="http://testserver")
-        self.addCleanup(client.close)
-
-        response = client.get("/set-cookie")
-
-        self.assertEqual(response.status_code, 200)
-        cookie_header = response.headers.get("set-cookie", "")
-        self.assertNotIn("Secure", cookie_header)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    if expect_secure:
+        assert "Secure" in cookie_header
+    else:
+        assert "Secure" not in cookie_header

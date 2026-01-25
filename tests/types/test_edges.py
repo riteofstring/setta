@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
@@ -23,8 +23,9 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
 
-class EdgeCleanupTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestEdgeCleanup:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="edge-cleanup-test")
@@ -100,7 +101,7 @@ class EdgeCleanupTests(unittest.TestCase):
             target_param_id,
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(target_impl.value, "")
+        assert target_impl.value == ""
 
     def test_delete_edges_keeps_value_when_edge_remains(self) -> None:
         source_section_id = self._create_dict_section()
@@ -136,8 +137,8 @@ class EdgeCleanupTests(unittest.TestCase):
             target_param_id,
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(target_impl.value, "connected")
-        self.assertEqual(len(self.project_state.projectConfig.edges), 1)
+        assert target_impl.value == "connected"
+        assert len(self.project_state.projectConfig.edges) == 1
 
     def test_set_edges_clears_removed_targets(self) -> None:
         source_section_id = self._create_dict_section()
@@ -167,5 +168,5 @@ class EdgeCleanupTests(unittest.TestCase):
             target_param_id,
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(target_impl.value, "")
-        self.assertEqual(self.project_state.projectConfig.edges, [])
+        assert target_impl.value == ""
+        assert self.project_state.projectConfig.edges == []

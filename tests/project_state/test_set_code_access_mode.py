@@ -1,10 +1,11 @@
 import asyncio
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import pytest
+import pytest_asyncio
 from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -72,8 +73,10 @@ class AccessModeTestManager(BaseProjectManager):
         return None
 
 
-class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestSetCodeAccessMode:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
@@ -143,7 +146,8 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
         await self.manager._process_queue_task_started.wait()
         await self.manager.update(self.project_state.model_copy(deep=True))
 
-    async def asyncTearDown(self):
+        yield
+
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -210,7 +214,7 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
             code="print('blocked')",
         )
 
-        with self.assertRaises(PermissionError):
+        with pytest.raises(PermissionError):
             await self.manager.set_code(request)
 
         state_after = self.manager.get_single_config_state(self.project_config_id)
@@ -219,8 +223,4 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
             self.section_id,
             BaseCodeSectionImpl,
         )
-        self.assertEqual(impl_after.code, self.initial_code)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert impl_after.code == self.initial_code

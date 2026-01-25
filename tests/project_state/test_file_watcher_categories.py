@@ -1,8 +1,9 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -26,10 +27,11 @@ from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.manager_fixture import _shutdown_manager
 
 
-class FileWatcherCategoryTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+@pytest.mark.asyncio
+class TestFileWatcherCategory:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self) -> None:
         self._tmp_dir = TemporaryDirectory()
-        self.addCleanup(self._tmp_dir.cleanup)
         self.root = Path(self._tmp_dir.name)
         self.setta_root = self.root / "setta_files"
         self.setta_root.mkdir(parents=True, exist_ok=True)
@@ -88,8 +90,11 @@ class FileWatcherCategoryTests(unittest.IsolatedAsyncioTestCase):
             lsp_writers=None,
         )
 
-        self.addAsyncCleanup(_shutdown_manager, self.settings_manager)
-        self.addAsyncCleanup(_shutdown_manager, self.main_manager)
+        yield
+
+        await _shutdown_manager(self.settings_manager)
+        await _shutdown_manager(self.main_manager)
+        self._tmp_dir.cleanup()
 
     def _seed_project_state(self) -> None:
         project_config = ProjectConfig(id=ID("main-config"), name="main")
@@ -108,15 +113,15 @@ class FileWatcherCategoryTests(unittest.IsolatedAsyncioTestCase):
             f"{self.settings_manager._file_watcher_category_prefix}_JSONSource"
         )
         main_category = f"{self.main_manager._file_watcher_category_prefix}_JSONSource"
-        self.assertNotEqual(settings_category, main_category)
+        assert settings_category != main_category
 
         settings_path = normalize_path(self.dbe.settings)
         callbacks = self.specific_file_watcher.callbacks
-        self.assertIn(settings_category, callbacks)
-        self.assertIn(main_category, callbacks)
-        self.assertIn(settings_path, callbacks[settings_category])
+        assert settings_category in callbacks
+        assert main_category in callbacks
+        assert settings_path in callbacks[settings_category]
 
         self.main_manager.watch_json_source_files()
 
         callbacks_after = self.specific_file_watcher.callbacks
-        self.assertIn(settings_path, callbacks_after[settings_category])
+        assert settings_path in callbacks_after[settings_category]

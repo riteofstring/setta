@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.chat_messages import MessageTextContent, SystemChatMessage
 from setta.types.dependency_key import create_dep_key
@@ -23,7 +21,7 @@ from setta.types.section_impls import ChatSectionState, SectionType
 from setta.utils.constants import C
 
 
-class ChatDependencyGraphTests(TestCase):
+class TestChatDependencyGraph:
     def test_chat_section_expression_exports_dict_literal(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -53,13 +51,10 @@ class ChatDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(
-            node.value.payload,
-            repr(chat_state.model_dump(mode="json")),
-        )
+        assert node.value.payload == repr(chat_state.model_dump(mode="json"))
 
     def test_chat_section_file_path_exports_literal_path(self) -> None:
         settings = SettingsState()
@@ -83,11 +78,11 @@ class ChatDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
-        self.assertEqual(node.value.payload, expected_path)
+        assert node.value.payload == expected_path
 
     def test_chat_section_file_read_falls_back_without_chat_id(self) -> None:
         settings = SettingsState()
@@ -109,18 +104,12 @@ class ChatDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
         expected_state = ChatSectionState()
-        self.assertEqual(
-            repr(expected_state.model_dump(mode="json")),
-            node.value.payload,
-        )
+        assert node.value.payload == repr(expected_state.model_dump(mode="json"))
 
     def test_chat_section_file_path_falls_back_without_chat_id(self) -> None:
         settings = SettingsState()
@@ -142,18 +131,12 @@ class ChatDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
         expected_state = ChatSectionState()
-        self.assertEqual(
-            repr(expected_state.model_dump(mode="json")),
-            node.value.payload,
-        )
+        assert node.value.payload == repr(expected_state.model_dump(mode="json"))
 
     def test_chat_section_file_read_exports_file_value(self) -> None:
         settings = SettingsState()
@@ -177,8 +160,8 @@ class ChatDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertIsInstance(node.value, FileReadDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert isinstance(node.value, FileReadDependencyValue)
         assert node.value is not None
         expected_path = str(C.SETTA_FILES_FOLDER / "chats" / f"{chat_id}.json")
-        self.assertEqual(node.value.payload, expected_path)
+        assert node.value.payload == expected_path

@@ -1,5 +1,6 @@
 import json
-import unittest
+
+import pytest
 
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
@@ -157,8 +158,9 @@ def build_callable_project_state(
     return project_state, section_id, param_id
 
 
-class AddKwargTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestAddKwarg:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -179,7 +181,6 @@ class AddKwargTests(unittest.TestCase):
             section_id,
             BaseDictSectionImpl,
         )
-        self.assertIsNotNone(section_impl.topLevelParamId)
         assert section_impl.topLevelParamId is not None
 
         top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
@@ -188,27 +189,27 @@ class AddKwargTests(unittest.TestCase):
             section_impl.topLevelParamId,
             NestedParamCodeObjImpl,
         )
-        self.assertIsInstance(top_level_impl, NestedParamCodeObjImpl)
-        self.assertEqual(len(top_level_impl.children), 1)
+        assert isinstance(top_level_impl, NestedParamCodeObjImpl)
+        assert len(top_level_impl.children) == 1
 
         kwarg_id = top_level_impl.children[0]
         kwarg_core = self.project_state.codeObjs[kwarg_id]
         kwarg_variant_id = kwarg_core.defaultVariant
-        self.assertIsNotNone(kwarg_variant_id)
         assert kwarg_variant_id is not None
 
         kwarg_impl_id = self.project_state.codeObjVariants[kwarg_variant_id].impl
         kwarg_impl = self.project_state.codeObjImpls[kwarg_impl_id]
-        self.assertIsInstance(kwarg_impl, CodeParamCodeObjImpl)
+        assert isinstance(kwarg_impl, CodeParamCodeObjImpl)
 
         top_level_param_ids = get_curr_top_level_param_ids(
             self.project_state, section_id
         )
-        self.assertEqual(top_level_param_ids, [kwarg_id])
+        assert top_level_param_ids == [kwarg_id]
 
 
-class DeleteSectionsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestDeleteSections:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -222,17 +223,20 @@ class DeleteSectionsTests(unittest.TestCase):
             Position(),
         )
         self.project_state.validate_parent_section_map()
-        self.assertIn(section_id, self.project_state.projectConfig.sectionVariantMap)
+        assert section_id in self.project_state.projectConfig.sectionVariantMap
 
         delete_sections(self.project_state, [section_id])
 
-        self.assertNotIn(section_id, self.project_state.sections)
-        self.assertNotIn(section_id, self.project_state.projectConfig.sectionVariantMap)
+        assert section_id not in self.project_state.sections
+        assert (
+            section_id not in self.project_state.projectConfig.sectionVariantMap
+        )
         self.project_state.validate_code_file_bindings()
 
 
-class ChatSectionChatIdTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestChatSectionChatId:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -254,7 +258,7 @@ class ChatSectionChatIdTests(unittest.TestCase):
             section_id,
             ChatSectionImpl,
         )
-        self.assertEqual(section_impl.chatId, chat_id)
+        assert section_impl.chatId == chat_id
 
     def test_set_chat_section_settings_updates_agent_profile(self) -> None:
         section_id = create_top_level_section(
@@ -280,14 +284,15 @@ class ChatSectionChatIdTests(unittest.TestCase):
             section_id,
             ChatSectionImpl,
         )
-        self.assertTrue(section_impl.managed)
-        self.assertEqual(section_impl.engineConfigId, engine_config_id)
-        self.assertEqual(section_impl.agentProfileId, agent_profile_id)
-        self.assertTrue(section_impl.thinking)
+        assert section_impl.managed
+        assert section_impl.engineConfigId == engine_config_id
+        assert section_impl.agentProfileId == agent_profile_id
+        assert section_impl.thinking
 
 
-class PromptSectionTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestPromptSection:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -311,9 +316,9 @@ class PromptSectionTests(unittest.TestCase):
             section_id,
             PromptSectionImpl,
         )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, ["name"])
-        self.assertEqual(impl.renderError, "Missing variables: name")
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
 
         set_prompt_section_inputs(
             self.project_state,
@@ -325,9 +330,9 @@ class PromptSectionTests(unittest.TestCase):
             section_id,
             PromptSectionImpl,
         )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
+        assert impl.renderedText == "Hello Ada"
+        assert impl.missingVariables == []
+        assert impl.renderError is None
 
     def test_prompt_section_reports_syntax_errors(self) -> None:
         section_id = create_top_level_section(
@@ -347,9 +352,9 @@ class PromptSectionTests(unittest.TestCase):
             section_id,
             PromptSectionImpl,
         )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNotNone(impl.renderError)
+        assert impl.renderedText == ""
+        assert impl.missingVariables == []
+        assert impl.renderError is not None
 
     def test_prompt_section_format_updates_rendering(self) -> None:
         section_id = create_top_level_section(
@@ -379,13 +384,14 @@ class PromptSectionTests(unittest.TestCase):
             section_id,
             PromptSectionImpl,
         )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
+        assert impl.renderedText == "Hello Ada"
+        assert impl.missingVariables == []
+        assert impl.renderError is None
 
 
-class ChangeParamImplTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestChangeParamImpl:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -406,7 +412,6 @@ class ChangeParamImplTests(unittest.TestCase):
             section_id,
             BaseDictSectionImpl,
         )
-        self.assertIsNotNone(section_impl.topLevelParamId)
         assert section_impl.topLevelParamId is not None
 
         top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
@@ -415,7 +420,7 @@ class ChangeParamImplTests(unittest.TestCase):
             section_impl.topLevelParamId,
             NestedParamCodeObjImpl,
         )
-        self.assertEqual(len(top_level_impl.children), 1)
+        assert len(top_level_impl.children) == 1
         kwarg_id = top_level_impl.children[0]
 
         kwarg_impl = get_curr_effective_code_obj_impl_with_type_guard(
@@ -424,7 +429,7 @@ class ChangeParamImplTests(unittest.TestCase):
             kwarg_id,
             CodeParamCodeObjImpl,
         )
-        self.assertTrue(kwarg_impl.coreNameEditable)
+        assert kwarg_impl.coreNameEditable
         old_core_name_type = kwarg_impl.coreNameType
         old_passing_style = kwarg_impl.passingStyle
 
@@ -442,11 +447,11 @@ class ChangeParamImplTests(unittest.TestCase):
             kwarg_id,
             DropdownParamCodeObjImpl,
         )
-        self.assertTrue(updated_impl.coreNameEditable)
-        self.assertEqual(updated_impl.coreNameType, old_core_name_type)
-        self.assertEqual(updated_impl.passingStyle, old_passing_style)
+        assert updated_impl.coreNameEditable
+        assert updated_impl.coreNameType == old_core_name_type
+        assert updated_impl.passingStyle == old_passing_style
 
-class AddChildrenOfCallableTests(unittest.TestCase):
+class TestAddChildrenOfCallable:
     def test_refetch_preserves_existing_param_value(self) -> None:
         project_state, section_id, param_id = build_callable_project_state(
             "original"
@@ -455,7 +460,6 @@ class AddChildrenOfCallableTests(unittest.TestCase):
             project_state, section_id, CallableSectionImpl
         )
         callable_id = section_impl.callable
-        self.assertIsNotNone(callable_id)
         assert callable_id is not None
 
         new_param = Core(id=ID("param-new"), name="param")
@@ -478,8 +482,8 @@ class AddChildrenOfCallableTests(unittest.TestCase):
             callable_id,
             CodeCallableCodeObjImpl,
         )
-        self.assertEqual(callable_impl.children, [param_id])
-        self.assertNotIn(new_param.id, project_state.codeObjs)
+        assert callable_impl.children == [param_id]
+        assert new_param.id not in project_state.codeObjs
 
         param_impl = get_curr_effective_code_obj_impl_with_type_guard(
             project_state,
@@ -487,29 +491,32 @@ class AddChildrenOfCallableTests(unittest.TestCase):
             param_id,
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(param_impl.value, "original")
+        assert param_impl.value == "original"
 
 
-class MarkdownHeadingTests(unittest.TestCase):
-    def test_get_first_markdown_heading_matches_heading_rules(self) -> None:
-        cases = [
-            ("# Title", "Title"),
-            ("## Tasks", "Tasks"),
-            ("   ### Notes", "Notes"),
-            ("###### Deep", "Deep"),
-            ("####### Too deep", None),
-            ("#   ", None),
-            ("    # Not a heading", None),
-            ("Plain text\n# Heading\nMore", "Heading"),
-        ]
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("# Title", "Title"),
+        ("## Tasks", "Tasks"),
+        ("   ### Notes", "Notes"),
+        ("###### Deep", "Deep"),
+        ("####### Too deep", None),
+        ("#   ", None),
+        ("    # Not a heading", None),
+        ("Plain text\n# Heading\nMore", "Heading"),
+    ],
+)
+def test_get_first_markdown_heading_matches_heading_rules(
+    text: str,
+    expected: str | None,
+) -> None:
+    assert get_first_markdown_heading(text) == expected
 
-        for text, expected in cases:
-            with self.subTest(text=text):
-                self.assertEqual(get_first_markdown_heading(text), expected)
 
-
-class DropzoneParamValueTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestDropzoneParamValue:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -568,10 +575,9 @@ class DropzoneParamValueTests(unittest.TestCase):
             DropzoneParamCodeObjImpl,
         )
         parsed = parse_dropzone_value(updated_impl.value)
-        self.assertIsNotNone(parsed)
         assert parsed is not None
-        self.assertEqual(len(parsed.attachments), 1)
-        self.assertEqual(parsed.attachments[0].id, "text:first")
+        assert len(parsed.attachments) == 1
+        assert parsed.attachments[0].id == "text:first"
 
     def test_set_param_entered_value_clears_stateless_dropzone(self) -> None:
         self.dropzone_impl.mode = DropzoneMode.STATELESS
@@ -598,7 +604,7 @@ class DropzoneParamValueTests(unittest.TestCase):
             self.param_id,
             DropzoneParamCodeObjImpl,
         )
-        self.assertEqual(updated_impl.value, "")
+        assert updated_impl.value == ""
 
     def test_update_param_impl_config_clears_stateless_dropzone_value(self) -> None:
         self.dropzone_impl.mode = DropzoneMode.STATEFUL
@@ -633,7 +639,7 @@ class DropzoneParamValueTests(unittest.TestCase):
             self.param_id,
             DropzoneParamCodeObjImpl,
         )
-        self.assertEqual(updated_impl.value, "")
+        assert updated_impl.value == ""
 
     def test_update_param_impl_config_truncates_dropzone_attachments(self) -> None:
         self.dropzone_impl.mode = DropzoneMode.STATEFUL
@@ -675,14 +681,14 @@ class DropzoneParamValueTests(unittest.TestCase):
             DropzoneParamCodeObjImpl,
         )
         parsed = parse_dropzone_value(updated_impl.value)
-        self.assertIsNotNone(parsed)
         assert parsed is not None
-        self.assertEqual(len(parsed.attachments), 1)
-        self.assertEqual(parsed.attachments[0].id, "text:first")
+        assert len(parsed.attachments) == 1
+        assert parsed.attachments[0].id == "text:first"
 
 
-class DeleteSelectedParamsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestDeleteSelectedParams:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -716,12 +722,11 @@ class DeleteSelectedParamsTests(unittest.TestCase):
             section_id,
             BaseDictSectionImpl,
         )
-        self.assertNotIn(param_one, section_impl.pinnedParams)
-        self.assertNotIn(param_one, section_impl.selectedParams)
-        self.assertIn(param_two, section_impl.pinnedParams)
+        assert param_one not in section_impl.pinnedParams
+        assert param_one not in section_impl.selectedParams
+        assert param_two in section_impl.pinnedParams
 
         top_level_param_id = section_impl.topLevelParamId
-        self.assertIsNotNone(top_level_param_id)
         assert top_level_param_id is not None
         top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -729,12 +734,13 @@ class DeleteSelectedParamsTests(unittest.TestCase):
             top_level_param_id,
             NestedParamCodeObjImpl,
         )
-        self.assertNotIn(param_one, top_level_impl.children)
-        self.assertIn(param_two, top_level_impl.children)
+        assert param_one not in top_level_impl.children
+        assert param_two in top_level_impl.children
 
 
-class ParamMoveTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestParamMove:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -774,10 +780,11 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(
-            root_impl.children,
-            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
-        )
+        assert root_impl.children == [
+            self.param_ids[1],
+            self.param_ids[2],
+            self.param_ids[0],
+        ]
 
     def test_param_filter_whitespace_allows_reorder(self) -> None:
         set_section_param_filter(self.project_state, self.section_id, "   ")
@@ -790,10 +797,11 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(
-            root_impl.children,
-            [self.param_ids[1], self.param_ids[2], self.param_ids[0]],
-        )
+        assert root_impl.children == [
+            self.param_ids[1],
+            self.param_ids[2],
+            self.param_ids[0],
+        ]
 
     def test_indent_converts_previous_sibling(self) -> None:
         indent_params(
@@ -804,7 +812,7 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(root_impl.children, [self.param_ids[0], self.param_ids[2]])
+        assert root_impl.children == [self.param_ids[0], self.param_ids[2]]
 
         parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -812,7 +820,7 @@ class ParamMoveTests(unittest.TestCase):
             self.param_ids[0],
             NestedParamCodeObjImpl,
         )
-        self.assertEqual(parent_impl.children, [self.param_ids[1]])
+        assert parent_impl.children == [self.param_ids[1]]
 
     def test_indent_non_contiguous_groups(self) -> None:
         extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
@@ -826,7 +834,7 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(root_impl.children, [param_ids[0], param_ids[2]])
+        assert root_impl.children == [param_ids[0], param_ids[2]]
 
         first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -834,7 +842,7 @@ class ParamMoveTests(unittest.TestCase):
             param_ids[0],
             NestedParamCodeObjImpl,
         )
-        self.assertEqual(first_parent_impl.children, [param_ids[1]])
+        assert first_parent_impl.children == [param_ids[1]]
 
         second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -842,7 +850,7 @@ class ParamMoveTests(unittest.TestCase):
             param_ids[2],
             NestedParamCodeObjImpl,
         )
-        self.assertEqual(second_parent_impl.children, [param_ids[3]])
+        assert second_parent_impl.children == [param_ids[3]]
 
     def test_unindent_converts_empty_nested(self) -> None:
         indent_params(
@@ -859,10 +867,11 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(
-            root_impl.children,
-            [self.param_ids[0], self.param_ids[1], self.param_ids[2]],
-        )
+        assert root_impl.children == [
+            self.param_ids[0],
+            self.param_ids[1],
+            self.param_ids[2],
+        ]
 
         parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -870,7 +879,7 @@ class ParamMoveTests(unittest.TestCase):
             self.param_ids[0],
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(parent_impl.value, "{}")
+        assert parent_impl.value == "{}"
 
     def test_unindent_multi_parent_selection(self) -> None:
         extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
@@ -890,7 +899,7 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(root_impl.children, param_ids)
+        assert root_impl.children == param_ids
 
         first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -898,7 +907,7 @@ class ParamMoveTests(unittest.TestCase):
             param_ids[0],
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(first_parent_impl.value, "{}")
+        assert first_parent_impl.value == "{}"
 
         second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -906,7 +915,7 @@ class ParamMoveTests(unittest.TestCase):
             param_ids[2],
             CodeParamCodeObjImpl,
         )
-        self.assertEqual(second_parent_impl.value, "{}")
+        assert second_parent_impl.value == "{}"
 
     def test_move_params_to_parent_reparents(self) -> None:
         indent_params(
@@ -926,7 +935,7 @@ class ParamMoveTests(unittest.TestCase):
         )
 
         root_impl = self._get_root_impl()
-        self.assertEqual(root_impl.children, [self.param_ids[0]])
+        assert root_impl.children == [self.param_ids[0]]
 
         parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
@@ -934,11 +943,12 @@ class ParamMoveTests(unittest.TestCase):
             self.param_ids[0],
             NestedParamCodeObjImpl,
         )
-        self.assertEqual(parent_impl.children, [self.param_ids[1], self.param_ids[2]])
+        assert parent_impl.children == [self.param_ids[1], self.param_ids[2]]
 
 
-class SmartLayoutTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestSmartLayout:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -957,9 +967,9 @@ class SmartLayoutTests(unittest.TestCase):
             viewport_bounds,
         )
 
-        self.assertAlmostEqual(position.x, 24.0)
-        self.assertAlmostEqual(position.y, 24.0)
-        self.assertIsNone(pan_to)
+        assert position.x == pytest.approx(24.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is None
 
     def test_smart_layout_positions_right_and_pans_when_viewport_too_narrow(
         self,
@@ -976,12 +986,11 @@ class SmartLayoutTests(unittest.TestCase):
             viewport_bounds,
         )
 
-        self.assertAlmostEqual(position.x, 124.0)
-        self.assertAlmostEqual(position.y, 24.0)
-        self.assertIsNotNone(pan_to)
+        assert position.x == pytest.approx(124.0)
+        assert position.y == pytest.approx(24.0)
         assert pan_to is not None
-        self.assertAlmostEqual(pan_to.x, position.x + 80.0)
-        self.assertAlmostEqual(pan_to.y, position.y + 50.0)
+        assert pan_to.x == pytest.approx(position.x + 80.0)
+        assert pan_to.y == pytest.approx(position.y + 50.0)
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -1009,13 +1018,14 @@ class SmartLayoutTests(unittest.TestCase):
             viewport_bounds,
         )
 
-        self.assertAlmostEqual(position.x, 24.0)
-        self.assertAlmostEqual(position.y, 24.0)
-        self.assertIsNone(pan_to)
+        assert position.x == pytest.approx(24.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is None
 
 
-class TextBlockHeadingAsNameTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestTextBlockHeadingAsName:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -1042,14 +1052,13 @@ class TextBlockHeadingAsNameTests(unittest.TestCase):
             section_id,
             TextBlockSectionImpl,
         )
-        self.assertEqual(text, section_impl.text)
-        self.assertEqual(original_name, self.project_state.sections[section_id].name)
-        self.assertEqual(text, section_impl.text)
-        self.assertEqual(original_name, self.project_state.sections[section_id].name)
+        assert section_impl.text == text
+        assert self.project_state.sections[section_id].name == original_name
 
 
-class TextBlockDefaultsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestTextBlockDefaults:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -1069,7 +1078,7 @@ class TextBlockDefaultsTests(unittest.TestCase):
             section_id,
             TextBlockSectionImpl,
         )
-        self.assertFalse(impl.headingAsSectionName)
+        assert not impl.headingAsSectionName
 
     def test_markdown_respects_heading_as_section_name_default_true(self) -> None:
         self.settings.textBlockSectionDefault.headingAsSectionName = True
@@ -1085,8 +1094,5 @@ class TextBlockDefaultsTests(unittest.TestCase):
             section_id,
             TextBlockSectionImpl,
         )
-        self.assertTrue(impl.headingAsSectionName)
+        assert impl.headingAsSectionName
 
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

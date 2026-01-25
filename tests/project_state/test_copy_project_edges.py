@@ -1,5 +1,4 @@
-import unittest
-
+import pytest
 from setta.database.utils import create_new_id
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.settings_state import SettingsState
@@ -17,8 +16,9 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
 
-class CopyProjectEdgeTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestCopyProjectEdge:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="copy-project-edge-test")
@@ -75,15 +75,15 @@ class CopyProjectEdgeTests(unittest.TestCase):
         new_variant_ids = set(copied.sectionVariants.keys())
         new_code_obj_ids = set(copied.codeObjs.keys())
 
-        self.assertEqual(len(copied.projectConfig.edges), 1)
+        assert len(copied.projectConfig.edges) == 1
         copied_edge = copied.projectConfig.edges[0]
-        self.assertIn(copied_edge.sourceSectionId, new_section_ids)
-        self.assertIn(copied_edge.targetSectionId, new_section_ids)
-        self.assertNotIn(copied_edge.sourceSectionId, old_section_ids)
-        self.assertNotIn(copied_edge.targetSectionId, old_section_ids)
-        self.assertIn(copied_edge.sourceVariantId, new_variant_ids)
-        self.assertIn(copied_edge.targetVariantId, new_variant_ids)
-        self.assertNotIn(copied_edge.sourceVariantId, old_variant_ids)
-        self.assertNotIn(copied_edge.targetVariantId, old_variant_ids)
-        self.assertIn(copied_edge.targetPortId, new_code_obj_ids)
-        self.assertNotIn(copied_edge.targetPortId, old_code_obj_ids)
+        assert copied_edge.sourceSectionId in new_section_ids
+        assert copied_edge.targetSectionId in new_section_ids
+        assert copied_edge.sourceSectionId not in old_section_ids
+        assert copied_edge.targetSectionId not in old_section_ids
+        assert copied_edge.sourceVariantId in new_variant_ids
+        assert copied_edge.targetVariantId in new_variant_ids
+        assert copied_edge.sourceVariantId not in old_variant_ids
+        assert copied_edge.targetVariantId not in old_variant_ids
+        assert copied_edge.targetPortId in new_code_obj_ids
+        assert copied_edge.targetPortId not in old_code_obj_ids

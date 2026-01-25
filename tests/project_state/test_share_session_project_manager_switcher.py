@@ -1,8 +1,8 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -80,7 +80,8 @@ def _build_switcher(
     return switcher, share_manager
 
 
-class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareSessionProjectManagerSwitcher:
     async def test_switcher_requires_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-switcher-test"
@@ -92,7 +93,7 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
             )
             switcher, share_manager = _build_switcher(root)
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 switcher.get(
                     share_manager.default_project_config_id, share_session_id=None
                 )
@@ -112,19 +113,16 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
                 project_config.id,
                 share_session_id="session-a",
             )
-            self.assertIs(
-                manager_a,
-                switcher.get(
-                    project_config.id,
-                    share_session_id="session-a",
-                ),
+            assert manager_a is switcher.get(
+                project_config.id,
+                share_session_id="session-a",
             )
 
             manager_b = switcher.get(
                 project_config.id,
                 share_session_id="session-b",
             )
-            self.assertIsNot(manager_a, manager_b)
+            assert manager_a is not manager_b
 
             await manager_a._process_queue_task_started.wait()
             await manager_b._process_queue_task_started.wait()
@@ -136,10 +134,6 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
                 manager_b.queue_task,
                 return_exceptions=True,
             )
-            self.assertEqual(2, len(results))
-            self.assertIsInstance(results[0], asyncio.CancelledError)
-            self.assertIsInstance(results[1], asyncio.CancelledError)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert 2 == len(results)
+            assert isinstance(results[0], asyncio.CancelledError)
+            assert isinstance(results[1], asyncio.CancelledError)

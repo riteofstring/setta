@@ -1,10 +1,11 @@
 import asyncio
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import pytest
+import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -78,8 +79,10 @@ class ChatSectionChatIdManager(BaseProjectManager):
         return None
 
 
-class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestChatSectionChatId:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
@@ -149,7 +152,8 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
         await self.manager._process_queue_task_started.wait()
         await self.manager.update(self.project_state.model_copy(deep=True))
 
-    async def asyncTearDown(self):
+        yield
+
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -220,14 +224,14 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertEqual(chat_id, chat.id)
+        assert chat_id == chat.id
         state_after = self.manager.get_single_config_state(self.project_config_id)
         impl_after = get_curr_effective_section_impl_with_type_guard(
             state_after,
             self.section_id,
             ChatSectionImpl,
         )
-        self.assertEqual(impl_after.chatId, chat.id)
+        assert impl_after.chatId == chat.id
 
     async def test_get_chat_section_chat_id_returns_external_run(self) -> None:
         chat_id = ID("external-chat")
@@ -264,7 +268,7 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertEqual(resolved, chat_id)
+        assert resolved == chat_id
 
     async def test_get_chat_section_chat_id_clears_missing(self) -> None:
         missing_chat_id = ID("missing-chat")
@@ -283,15 +287,11 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertIsNone(chat_id)
+        assert chat_id is None
         state_after = self.manager.get_single_config_state(self.project_config_id)
         impl_after = get_curr_effective_section_impl_with_type_guard(
             state_after,
             self.section_id,
             ChatSectionImpl,
         )
-        self.assertIsNone(impl_after.chatId)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert impl_after.chatId is None

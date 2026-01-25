@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
@@ -21,12 +21,13 @@ from setta.types.section_impls import SectionType
 from tests.utils.manager_fixture import real_project_manager
 
 
-class EdgeOutputReapplyTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestEdgeOutputReapply:
     async def test_set_section_edge_outputs_reapplies_edge_values(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager
             project_config_id = manager.project_state_backend.defaultProjectConfigId
-            self.assertIsNotNone(project_config_id)
+            assert project_config_id is not None
             project_config_id = ID(project_config_id)
 
             project_state = manager.get_single_config_state(project_config_id)
@@ -95,7 +96,7 @@ class EdgeOutputReapplyTests(unittest.IsolatedAsyncioTestCase):
             expected_initial = manager.gen_code[project_config_id].build_edge_expression(
                 project_state, edge
             )
-            self.assertEqual(target_impl.value, expected_initial)
+            assert target_impl.value == expected_initial
 
             await manager.set_section_edge_outputs(
                 SetSectionEdgeOutputsRequest(
@@ -123,5 +124,5 @@ class EdgeOutputReapplyTests(unittest.IsolatedAsyncioTestCase):
             expected_updated = manager.gen_code[project_config_id].build_edge_expression(
                 project_state, edge
             )
-            self.assertNotEqual(expected_initial, expected_updated)
-            self.assertEqual(target_impl.value, expected_updated)
+            assert expected_initial != expected_updated
+            assert target_impl.value == expected_updated

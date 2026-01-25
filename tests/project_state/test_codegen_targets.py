@@ -1,9 +1,9 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import HTTPException
 
+import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -129,18 +129,20 @@ class CodegenTargetsProjectManager(BaseProjectManager):
         return None
 
 
-class CodegenTargetsSettingsTests(unittest.TestCase):
+class TestCodegenTargetsSettings:
     def test_settings_project_has_no_gen_code_binding(self) -> None:
         project_state = create_settings_project_state(Path("settings.json"))
-        self.assertIsNone(project_state.genCodeBinding)
+        assert project_state.genCodeBinding is None
 
 
-class CodegenTargetsBindingsTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestCodegenTargetsBindings:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         self._previous = _set_temp_constants(Path(self._tmpdir.name))
 
-    def tearDown(self) -> None:
+        yield
+
         _restore_constants(self._previous)
         self._tmpdir.cleanup()
 
@@ -173,17 +175,19 @@ class CodegenTargetsBindingsTests(unittest.TestCase):
         )
         project_state.validate_code_file_bindings()
 
-        self.assertIsNone(project_state.genCodeBinding)
+        assert project_state.genCodeBinding is None
         updated_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
             section.id,
             GenPythonCodeSectionImpl,
         )
-        self.assertIsNone(updated_impl.codeFileBinding)
+        assert updated_impl.codeFileBinding is None
 
 
-class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
+@pytest.mark.asyncio
+class TestCodegenTargetsRunCommand:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         self._previous = _set_temp_constants(Path(self._tmpdir.name))
 
@@ -214,7 +218,8 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
             self.dbe,
         )
 
-    def tearDown(self) -> None:
+        yield
+
         _restore_constants(self._previous)
         self._tmpdir.cleanup()
 
@@ -267,7 +272,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         )
         manager.shutdown()
 
-        self.assertTrue(command.startswith("bash "))
+        assert command.startswith("bash ")
 
     async def test_create_run_command_triggers_autosave_for_draw_snapshots(
         self,
@@ -357,9 +362,9 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
             DrawSectionImpl,
         )
         expected_path = build_draw_snapshot_path(draw_section.id, C.ARTIFACTS_FOLDER)
-        self.assertEqual(expected_path.as_posix(), updated_draw.renderedImagePath)
-        self.assertTrue(expected_path.exists())
-        self.assertTrue(manager.autosave_debouncer.is_pending)
+        assert expected_path.as_posix() == updated_draw.renderedImagePath
+        assert expected_path.exists()
+        assert manager.autosave_debouncer.is_pending
         manager.shutdown()
 
     async def test_create_run_command_rejects_non_runnable_language(self) -> None:
@@ -402,7 +407,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         )
         await manager._refresh_codegen_state(project_state)
 
-        with self.assertRaises(HTTPException) as ctx:
+        with pytest.raises(HTTPException) as ctx:
             await manager.create_run_command(
                 RunCodeRequest(
                     projectConfigId=project_config.id,
@@ -410,7 +415,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
                     runSnapshotMode=RunSnapshotMode.never,
                 )
             )
-        self.assertEqual(400, ctx.exception.status_code)
+        assert 400 == ctx.value.status_code
         manager.shutdown()
 
     async def test_refresh_codegen_state_writes_non_runnable_code(self) -> None:
@@ -443,7 +448,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
             section.id,
             CodeSectionImpl,
         )
-        self.assertIsNotNone(binding_impl.codeFileBinding)
+        assert binding_impl.codeFileBinding is not None
         binding_path = binding_impl.codeFileBinding.canonical_path
 
         backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
@@ -463,8 +468,8 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         await manager._refresh_codegen_state(project_state)
         manager.shutdown()
 
-        self.assertTrue(binding_path.exists())
-        self.assertEqual(binding_path.read_text(encoding="utf-8"), code_impl.code)
+        assert binding_path.exists()
+        assert binding_path.read_text(encoding="utf-8") == code_impl.code
 
     async def test_create_run_command_requires_entry_section_when_python_disabled(
         self,
@@ -488,7 +493,7 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
             backend,
         )
 
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             await manager.create_run_command(
                 RunCodeRequest(
                     projectConfigId=project_config.id,
@@ -531,13 +536,13 @@ class CodegenTargetsRunCommandTests(unittest.IsolatedAsyncioTestCase):
         )
 
         updated_state = manager.get_single_config_state(project_config.id)
-        self.assertIsNone(updated_state.singletonSections.GenPythonCode)
-        self.assertIsNone(updated_state.projectConfig.entryCodeBlockId)
-        self.assertNotIn(gen_section_id, updated_state.sections)
+        assert updated_state.singletonSections.GenPythonCode is None
+        assert updated_state.projectConfig.entryCodeBlockId is None
+        assert gen_section_id not in updated_state.sections
         manager.shutdown()
 
 
-class ShareRuntimeStateCodegenTargetsTests(unittest.TestCase):
+class TestShareRuntimeStateCodegenTargets:
     def test_share_runtime_state_skips_gen_code_binding_without_python(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = (
@@ -569,10 +574,11 @@ class ShareRuntimeStateCodegenTargetsTests(unittest.TestCase):
             manager.create_session_backend("session-a")
             session_state = manager.get_session_state("session-a", project_config.id)
 
-            self.assertIsNone(session_state.genCodeBinding)
+            assert session_state.genCodeBinding is None
 
 
-class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestShareRuntimeStateRunCommand:
     async def test_share_runtime_state_rejects_non_runnable_language(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = (
@@ -630,7 +636,7 @@ class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             manager.create_session_backend("session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
+            with pytest.raises(HTTPException) as ctx:
                 await manager.create_run_command(
                     "session-a",
                     RunCodeRequest(
@@ -639,7 +645,7 @@ class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
                         runSnapshotMode=RunSnapshotMode.ephemeral,
                     ),
                 )
-            self.assertEqual(400, ctx.exception.status_code)
+            assert 400 == ctx.value.status_code
 
     async def test_share_runtime_state_snapshots_non_runnable_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -739,7 +745,7 @@ class ShareRuntimeStateRunCommandTests(unittest.IsolatedAsyncioTestCase):
 
             runs_root = manager.share_runs_root / "session-a"
             snapshots = [path for path in runs_root.iterdir() if path.is_dir()]
-            self.assertEqual(1, len(snapshots))
+            assert 1 == len(snapshots)
             snapshot_dir = snapshots[0]
-            self.assertTrue((snapshot_dir / "entry.py").exists())
-            self.assertTrue((snapshot_dir / "sample.json").exists())
+            assert (snapshot_dir / "entry.py").exists()
+            assert (snapshot_dir / "sample.json").exists()

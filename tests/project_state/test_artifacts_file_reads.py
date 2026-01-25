@@ -1,5 +1,4 @@
 import tempfile
-import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -26,7 +25,7 @@ class _StubSpecificFileWatcher:
         pass
 
 
-class ArtifactFileReadTests(unittest.TestCase):
+class TestArtifactFileRead:
     def test_read_file_from_disk_allows_empty_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -41,13 +40,9 @@ class ArtifactFileReadTests(unittest.TestCase):
 
             artifact = artifacts.read_file_from_disk(file_path)
 
-            self.assertIsInstance(artifact, FileArtifact)
-            self.assertEqual("", artifact.value)
+            assert isinstance(artifact, FileArtifact)
+            assert "" == artifact.value
             normalized_path = normalize_path(file_path)
-            self.assertIn(normalized_path, artifacts.files)
+            assert normalized_path in artifacts.files
             metadata = artifacts.file_metadata[normalized_path]
-            self.assertEqual(compute_md5_hex(b""), metadata.last_read_hash)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+            assert compute_md5_hex(b"") == metadata.last_read_hash

@@ -1,11 +1,12 @@
 import asyncio
 import types
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import pytest
+import pytest_asyncio
 import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
 from setta.code_gen.utils import sanitize_slug
@@ -85,8 +86,10 @@ class ListenerEmitTestManager(BaseProjectManager):
         return None
 
 
-class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestApplyListenerEmitUpdates:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
@@ -155,7 +158,8 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         await self.manager._process_queue_task_started.wait()
         await self.manager.update(self.project_state.model_copy(deep=True))
 
-    async def asyncTearDown(self):
+        yield
+
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -245,11 +249,11 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
             self.text_section_id,
             TextBlockSectionImpl,
         )
-        self.assertEqual(new_text, updated_impl.text)
-        self.assertEqual(1, len(captured_broadcasts))
-        self.assertEqual(
-            self.project_config_id,
-            captured_broadcasts[0].projectState.projectConfig.id,
+        assert new_text == updated_impl.text
+        assert 1 == len(captured_broadcasts)
+        assert (
+            self.project_config_id
+            == captured_broadcasts[0].projectState.projectConfig.id
         )
 
     async def test_missing_section_raises_listener_error(self):
@@ -277,7 +281,7 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         original_broadcast = sender.broadcast_project_state
         sender.broadcast_project_state = types.MethodType(capture_broadcast, sender)
         try:
-            with self.assertRaises(ListenerDependencyUpdateError):
+            with pytest.raises(ListenerDependencyUpdateError):
                 await self.manager.apply_listener_emit_updates(
                     projectConfigId=self.project_config_id,
                     dependency_updates=dependency_updates,
@@ -286,7 +290,7 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         finally:
             sender.broadcast_project_state = original_broadcast
 
-        self.assertEqual([], captured_broadcasts)
+        assert [] == captured_broadcasts
 
     async def test_artifact_updates_trigger_artifact_broadcast(self):
         artifact_updates = [
@@ -331,18 +335,11 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
             sender.broadcast_artifacts_update = original_artifact_broadcast
             sender.broadcast_project_state = original_project_broadcast
 
-        self.assertEqual([], captured_project_calls)
-        self.assertEqual(1, len(captured_artifact_calls))
+        assert [] == captured_project_calls
+        assert 1 == len(captured_artifact_calls)
         artifacts_payload, update_type = captured_artifact_calls[0]
-        self.assertEqual("update", update_type)
-        self.assertEqual(1, len(artifacts_payload))
+        assert "update" == update_type
+        assert 1 == len(artifacts_payload)
         artifact = artifacts_payload[0]
-        self.assertEqual(
-            normalize_path("listener/new-image.png"),
-            normalize_path(artifact.id),
-        )
-        self.assertEqual("data:image/png;base64,AAA", artifact.value)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert normalize_path("listener/new-image.png") == normalize_path(artifact.id)
+        assert "data:image/png;base64,AAA" == artifact.value

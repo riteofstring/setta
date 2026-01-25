@@ -146,7 +146,7 @@ class ApiCommandIntegrationTests(unittest.TestCase):
     def _cleanup_class_resources(cls) -> None:
         handle = getattr(cls, "handle", None)
         if handle is not None:
-            handle.stop()
+            handle.stop(join_timeout=30.0)
         if hasattr(cls, "original_cwd"):
             os.chdir(cls.original_cwd)
         cls._restore_fixture_constants()

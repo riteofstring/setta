@@ -1,10 +1,11 @@
 import asyncio
 import os
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -168,13 +169,14 @@ def build_project_state() -> tuple[ProjectStateSingleConfig, ID]:
     return project_state, section_id
 
 
-class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestAutoRefetchHistory:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self._old_cwd = Path.cwd()
         os.chdir(root)
-        self.addCleanup(os.chdir, self._old_cwd)
 
         self.setta_root = (Path.cwd() / C.SETTA_FILES_FOLDER).resolve()
         self.code_folder = (Path.cwd() / C.CODE_FOLDER).resolve()
@@ -234,7 +236,8 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
         await self.manager._process_queue_task_started.wait()
         await self.manager.update(self.project_state.model_copy(deep=True))
 
-    async def asyncTearDown(self):
+        yield
+
         if Path.cwd() != self._old_cwd:
             os.chdir(self._old_cwd)
         self.manager.autosave_debouncer.cancel()
@@ -252,7 +255,7 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
             self.project_state.projectConfig.id,
             {self.section_id},
         )
-        self.assertEqual(len(self.manager.history._history), history_len)
+        assert len(self.manager.history._history) == history_len
 
     async def test_auto_refetch_missing_section_is_ignored(self):
         history_len = len(self.manager.history._history)
@@ -260,13 +263,13 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
             self.project_state.projectConfig.id,
             {ID("missing-section")},
         )
-        self.assertEqual(len(self.manager.history._history), history_len)
+        assert len(self.manager.history._history) == history_len
 
     async def test_auto_refetch_updates_on_empty_callable_name(self):
         project_state = self.project_state.model_copy(deep=True)
         section_impl = get_curr_effective_section_impl(project_state, self.section_id)
         callable_id = section_impl.callable
-        self.assertIsNotNone(callable_id)
+        assert callable_id is not None
         project_state.codeObjs[callable_id].name = ""
         await self.manager.update(project_state)
 
@@ -279,7 +282,7 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
             project_state.projectConfig.id
         )
         updated_impl = get_curr_effective_section_impl(updated_state, self.section_id)
-        self.assertIsNone(updated_impl.callable)
+        assert updated_impl.callable is None
 
     async def test_codegen_refresh_preserves_callable_mismatch_sections(self):
         project_config_id = self.project_state.projectConfig.id
@@ -289,11 +292,7 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.update(self.project_state.model_copy(deep=True))
 
         updated_gen_code = self.manager.gen_code[project_config_id]
-        self.assertEqual(
-            updated_gen_code.latest_callable_mismatch_sections,
-            {self.section_id},
+        assert (
+            updated_gen_code.latest_callable_mismatch_sections
+            == {self.section_id}
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

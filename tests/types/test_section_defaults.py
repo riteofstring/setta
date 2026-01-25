@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.types.section_impls import (
     ChartSectionImpl,
@@ -10,26 +10,21 @@ from setta.types.section_impls import (
 from setta.types.settings_state import SectionSizingPolicy
 
 
-class SectionDefaultSizingTests(unittest.TestCase):
-    def test_section_size_defaults_to_auto_width(self) -> None:
-        size = SectionSize()
-        self.assertEqual(size.width, SectionSizeMode.auto)
-
-    def test_default_section_sizes_meet_policy_minimums(self) -> None:
-        policy = SectionSizingPolicy()
-        cases = [
-            ("Chart", ChartSectionImpl(), policy.byType.Chart),
-            ("Draw", DrawSectionImpl(), policy.byType.Draw),
-            ("Chat", ChatSectionImpl(), policy.byType.Chat),
-        ]
-
-        for name, impl, policy_entry in cases:
-            with self.subTest(section=name):
-                self.assertIsInstance(impl.size.width, (int, float))
-                self.assertIsInstance(impl.size.height, (int, float))
-                self.assertGreaterEqual(impl.size.width, policy_entry.minWidth)
-                self.assertGreaterEqual(impl.size.height, policy_entry.minHeight)
+def test_section_size_defaults_to_auto_width() -> None:
+    size = SectionSize()
+    assert size.width == SectionSizeMode.auto
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.parametrize(
+    ("impl", "policy_entry"),
+    [
+        (ChartSectionImpl(), SectionSizingPolicy().byType.Chart),
+        (DrawSectionImpl(), SectionSizingPolicy().byType.Draw),
+        (ChatSectionImpl(), SectionSizingPolicy().byType.Chat),
+    ],
+)
+def test_default_section_sizes_meet_policy_minimums(impl, policy_entry) -> None:
+    assert isinstance(impl.size.width, (int, float))
+    assert isinstance(impl.size.height, (int, float))
+    assert impl.size.width >= policy_entry.minWidth
+    assert impl.size.height >= policy_entry.minHeight

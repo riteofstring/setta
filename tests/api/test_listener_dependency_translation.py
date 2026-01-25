@@ -1,5 +1,6 @@
-import unittest
 from typing import TYPE_CHECKING, cast
+
+import pytest
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -101,8 +102,9 @@ def _build_project_state_with_duplicate_names():
     )
 
 
-class SettaListenerDependencyTranslationTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestSettaListenerDependencyTranslation:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         (
             project_config,
             sections,
@@ -145,13 +147,13 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         callback_payload = next(iter(register_content.callbacks.values()))
         dependency = callback_payload.dependencies[0]
 
-        self.assertEqual(dependency, original_dep_key)
+        assert dependency == original_dep_key
 
         graph_node = self.dependency_graph.graph[original_dep_key]
-        self.assertEqual(graph_node.full_path_name, sanitized_child)
+        assert graph_node.full_path_name == sanitized_child
 
         spec = next(iter(listener._callbacks.values()))
-        self.assertEqual(spec.structured_dependencies[0], dependency)
+        assert spec.structured_dependencies[0] == dependency
 
     def test_duplicate_sanitized_names_translate_to_distinct_dependencies(self) -> None:
         listener = self._create_listener()
@@ -160,10 +162,10 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
             for name in self.dependency_graph.full_path_name_to_dep_key
             if name.startswith("Settings_Group__Data_Source")
         )
-        self.assertEqual(
-            sanitized_names,
-            ["Settings_Group__Data_Source", "Settings_Group__Data_Source_2"],
-        )
+        assert sanitized_names == [
+            "Settings_Group__Data_Source",
+            "Settings_Group__Data_Source_2",
+        ]
 
         @listener.listen(deps=tuple(sanitized_names))
         def _callback(state, ctx):
@@ -173,13 +175,13 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         callback_payload = next(iter(register_content.callbacks.values()))
         dependencies = callback_payload.dependencies
 
-        self.assertEqual(len(dependencies), 2)
-        self.assertNotEqual(dependencies[0], dependencies[1])
+        assert len(dependencies) == 2
+        assert dependencies[0] != dependencies[1]
 
         mapped_names = []
         for dependency, sanitized in zip(dependencies, sanitized_names):
             graph_node = self.dependency_graph.graph[dependency]
-            self.assertEqual(graph_node.full_path_name, sanitized)
+            assert graph_node.full_path_name == sanitized
             mapped_names.append(graph_node.full_path_name)
 
-        self.assertEqual(mapped_names, sanitized_names)
+        assert mapped_names == sanitized_names

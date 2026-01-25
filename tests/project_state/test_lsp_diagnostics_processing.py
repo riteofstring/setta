@@ -1,9 +1,8 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from lsprotocol import types as LSPTypes
-
+import pytest
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import (
     GEN_CODE_BODY_INDENT,
@@ -164,7 +163,7 @@ def build_diagnostic(
     )
 
 
-class LspDiagnosticsProcessingTests(unittest.TestCase):
+class TestLspDiagnosticsProcessing:
     def test_param_ignore_filters_errors(self):
         project_state, section_id, param_id = build_project_state("bad_value")
         dep_graph, code_generator = build_code_generator(project_state)
@@ -187,10 +186,10 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             code_generator,
             dep_graph,
         )
-        self.assertIn(section_id, errors)
-        self.assertIn(param_id, errors[section_id].params)
-        self.assertEqual(errors[section_id].params[param_id], ["Argument type mismatch"])
-        self.assertEqual(errors[section_id].callable, [])
+        assert section_id in errors
+        assert param_id in errors[section_id].params
+        assert errors[section_id].params[param_id] == ["Argument type mismatch"]
+        assert errors[section_id].callable == []
 
         ignored = {
             section_id: TypeErrorIgnoreState(callable=False, params={param_id: True})
@@ -201,7 +200,7 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             dep_graph,
             ignored,
         )
-        self.assertEqual(filtered, {})
+        assert filtered == {}
 
     def test_undefined_symbol_uses_range_index(self):
         project_state, section_id, param_id = build_project_state("unknown_symbol")
@@ -211,7 +210,7 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
         line = code_generator.lines[dep_key]
         value_start = line.pos + line.prefix_len
         value_end = value_start + line.value_len
-        self.assertGreater(value_end - value_start, 2)
+        assert value_end - value_start > 2
 
         start = value_start + 1
         end = min(value_start + 4, value_end)
@@ -229,12 +228,11 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             code_generator,
             dep_graph,
         )
-        self.assertIn(section_id, errors)
-        self.assertIn(param_id, errors[section_id].params)
-        self.assertEqual(
-            errors[section_id].params[param_id],
-            ["unknown_symbol is not defined"],
-        )
+        assert section_id in errors
+        assert param_id in errors[section_id].params
+        assert errors[section_id].params[param_id] == [
+            "unknown_symbol is not defined"
+        ]
 
     def test_undefined_callable_symbol_tracked(self):
         project_state, section_id, _ = build_project_state("value")
@@ -264,9 +262,9 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             code_generator,
             dep_graph,
         )
-        self.assertIn(section_id, errors)
-        self.assertEqual(errors[section_id].callable, ["MissingFunc is not defined"])
-        self.assertIn(section_id, undefined_sections)
+        assert section_id in errors
+        assert errors[section_id].callable == ["MissingFunc is not defined"]
+        assert section_id in undefined_sections
 
     def test_ignored_callable_undefined_still_tracked(self):
         project_state, section_id, _ = build_project_state("value")
@@ -298,8 +296,8 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             dep_graph,
             ignored,
         )
-        self.assertEqual(errors, {})
-        self.assertIn(section_id, undefined_sections)
+        assert errors == {}
+        assert section_id in undefined_sections
 
     def test_undefined_symbol_on_param_does_not_mark_callable(self):
         project_state, section_id, param_id = build_project_state("unknown_symbol")
@@ -329,9 +327,9 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             code_generator,
             dep_graph,
         )
-        self.assertIn(section_id, errors)
-        self.assertIn(param_id, errors[section_id].params)
-        self.assertNotIn(section_id, undefined_sections)
+        assert section_id in errors
+        assert param_id in errors[section_id].params
+        assert section_id not in undefined_sections
 
     def test_multiline_code_param_wraps_expression(self):
         param_value = "[\n1,\n2,\n]"
@@ -343,15 +341,16 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
         value = line.var_str[line.prefix_len :]
         lines = value.splitlines()
 
-        self.assertEqual(lines[0], "(")
-        self.assertEqual(lines[1], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}[")
-        self.assertEqual(lines[2], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}1,")
-        self.assertEqual(lines[3], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}2,")
-        self.assertEqual(lines[4], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}]")
-        self.assertEqual(lines[5], f"{GEN_CODE_BODY_INDENT})")
+        assert lines[0] == "("
+        assert lines[1] == f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}["
+        assert lines[2] == f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}1,"
+        assert lines[3] == f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}2,"
+        assert lines[4] == f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}]"
+        assert lines[5] == f"{GEN_CODE_BODY_INDENT})"
 
 
-class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestLspDiagnosticsIntegration:
     async def test_removed_section_does_not_trigger_auto_refetch(self):
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -410,7 +409,7 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             await gen_code.diagnostics_callback(notification)
 
-            self.assertEqual(callback_calls, [])
+            assert callback_calls == []
 
     async def test_resolved_callable_triggers_auto_refetch(self):
         with TemporaryDirectory() as tmpdir:
@@ -466,7 +465,7 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             await gen_code.diagnostics_callback(notification)
 
-            self.assertEqual(callback_calls, [{section_id}])
+            assert callback_calls == [{section_id}]
 
     async def test_existing_callable_mismatch_does_not_trigger_refetch(self):
         with TemporaryDirectory() as tmpdir:
@@ -536,10 +535,11 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             await gen_code.diagnostics_callback(notification)
 
-            self.assertEqual(callback_calls, [])
+            assert callback_calls == []
 
 
-class ProjectGenPythonCodeMutationHookTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestProjectGenPythonCodeMutationHook:
     async def test_hook_not_called_on_noop(self):
         project_state, section_id, _ = build_project_state("value")
         dep_graph, code_generator = build_code_generator(project_state)
@@ -585,8 +585,8 @@ class ProjectGenPythonCodeMutationHookTests(unittest.IsolatedAsyncioTestCase):
                 on_before_mutation=on_before_mutation,
             )
 
-            self.assertEqual(response.lspStatus, SignatureHelpStatus.SKIPPED)
-            self.assertFalse(hook_called)
+            assert response.lspStatus == SignatureHelpStatus.SKIPPED
+            assert not hook_called
 
     async def test_hook_called_on_clear_callable(self):
         project_state, section_id, _ = build_project_state("value")
@@ -633,11 +633,7 @@ class ProjectGenPythonCodeMutationHookTests(unittest.IsolatedAsyncioTestCase):
                 on_before_mutation=on_before_mutation,
             )
 
-            self.assertEqual(response.lspStatus, SignatureHelpStatus.SKIPPED)
-            self.assertTrue(hook_called)
+            assert response.lspStatus == SignatureHelpStatus.SKIPPED
+            assert hook_called
             updated_impl = get_curr_effective_section_impl(project_state, section_id)
-            self.assertIsNone(updated_impl.callable)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert updated_impl.callable is None

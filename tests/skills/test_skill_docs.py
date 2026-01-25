@@ -1,5 +1,4 @@
 import re
-import unittest
 from pathlib import Path
 
 import yaml
@@ -29,10 +28,10 @@ def _parse_front_matter(text: str) -> tuple[dict, str]:
     return data, body_text
 
 
-class SkillDocTests(unittest.TestCase):
+class TestSkillDocs:
     def test_skills_exist(self) -> None:
         skills = list(SKILLS_ROOT.rglob("SKILL.md"))
-        self.assertTrue(skills, "No SKILL.md files found under skills/")
+        assert skills, "No SKILL.md files found under skills/"
 
     def test_skill_front_matter_contract(self) -> None:
         for skill_path in SKILLS_ROOT.rglob("SKILL.md"):
@@ -40,15 +39,15 @@ class SkillDocTests(unittest.TestCase):
             front_matter, _ = _parse_front_matter(text)
 
             for key in ("name", "description", "compatibility", "metadata"):
-                self.assertIn(key, front_matter, f"{skill_path} missing {key}")
+                assert key in front_matter, f"{skill_path} missing {key}"
 
             metadata = front_matter.get("metadata")
-            self.assertIsInstance(metadata, dict, f"{skill_path} metadata not a dict")
-            self.assertIn("version", metadata, f"{skill_path} missing metadata.version")
-            self.assertIsInstance(
-                metadata.get("version"),
-                str,
-                f"{skill_path} metadata.version not a string",
+            assert isinstance(metadata, dict), f"{skill_path} metadata not a dict"
+            assert "version" in metadata, (
+                f"{skill_path} missing metadata.version"
+            )
+            assert isinstance(metadata.get("version"), str), (
+                f"{skill_path} metadata.version not a string"
             )
 
     def test_skill_reference_files_exist(self) -> None:
@@ -59,11 +58,6 @@ class SkillDocTests(unittest.TestCase):
             skill_dir = skill_path.parent
             for ref in references:
                 ref_path = (skill_dir / ref).resolve()
-                self.assertTrue(
-                    ref_path.exists(),
-                    f"{skill_path} references missing file: {ref}",
+                assert ref_path.exists(), (
+                    f"{skill_path} references missing file: {ref}"
                 )
-
-
-if __name__ == "__main__":
-    unittest.main()

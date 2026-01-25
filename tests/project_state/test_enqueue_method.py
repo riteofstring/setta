@@ -1,9 +1,10 @@
 import asyncio
-import unittest
 from contextlib import AsyncExitStack
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+import pytest_asyncio
 from setta.project_state.base_project_manager import BaseProjectManager
 
 from tests.utils.manager_fixture import real_settings_manager
@@ -33,8 +34,10 @@ async def _non_serialized_blocking(
     return payload.value
 
 
-class EnqueueMethodTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestEnqueueMethod:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
@@ -60,7 +63,8 @@ class EnqueueMethodTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
 
-    async def asyncTearDown(self):
+        yield
+
         await self._exit_stack.aclose()
 
     async def test_serialized_runs_sequentially(self):
@@ -83,36 +87,33 @@ class EnqueueMethodTests(unittest.IsolatedAsyncioTestCase):
 
         task1 = asyncio.create_task(manager_hooks.serialized_blocking(payload1))
         await asyncio.wait_for(payload1.entered.wait(), timeout=1)
-        self.assertIn("serialized-1", manager.pending_frontend_ops)
+        assert "serialized-1" in manager.pending_frontend_ops
 
         task2 = asyncio.create_task(manager_hooks.serialized_blocking(payload2))
         await asyncio.sleep(0)
-        self.assertFalse(
-            payload2.entered.is_set(),
-            "Second serialized call should wait for the queue to drain.",
+        assert not payload2.entered.is_set(), (
+            "Second serialized call should wait for the queue to drain."
         )
-        self.assertIn("serialized-2", manager.pending_frontend_ops)
+        assert "serialized-2" in manager.pending_frontend_ops
 
         payload1.release.set()
         await asyncio.wait_for(payload1.completed.wait(), timeout=1)
-        self.assertIn("serialized-1", manager_hooks.serialized_finished)
+        assert "serialized-1" in manager_hooks.serialized_finished
         await task1
 
         await asyncio.wait_for(payload2.entered.wait(), timeout=1)
-        self.assertEqual(
-            manager_hooks.serialized_started, ["serialized-1", "serialized-2"]
-        )
+        assert manager_hooks.serialized_started == ["serialized-1", "serialized-2"]
         payload2.release.set()
         await asyncio.wait_for(payload2.completed.wait(), timeout=1)
         result2 = await task2
 
-        self.assertEqual(result2, 2)
-        self.assertEqual(manager.pending_frontend_ops, {})
-        self.assertEqual(
-            manager.completed_op_ids_since_last_broadcast,
-            ["serialized-1", "serialized-2"],
-        )
-        self.assertIsNone(manager._current_frontend_op_id.get())
+        assert result2 == 2
+        assert manager.pending_frontend_ops == {}
+        assert manager.completed_op_ids_since_last_broadcast == [
+            "serialized-1",
+            "serialized-2",
+        ]
+        assert manager._current_frontend_op_id.get() is None
 
     async def test_non_serialized_tracks_frontend_id(self):
         manager = self.manager
@@ -122,16 +123,16 @@ class EnqueueMethodTests(unittest.IsolatedAsyncioTestCase):
         payload = SimpleNamespace(frontendOpId="abc123", value=7, event=asyncio.Event())
         task = asyncio.create_task(manager_hooks.non_serialized_blocking(payload))
         await asyncio.sleep(0)
-        self.assertIn("abc123", manager.pending_frontend_ops)
+        assert "abc123" in manager.pending_frontend_ops
         payload.event.set()
         result = await task
 
-        self.assertEqual(result, 7)
-        self.assertEqual(manager.pending_frontend_ops, {})
-        self.assertEqual(manager_hooks.non_serialized_started, ["abc123"])
-        self.assertEqual(manager_hooks.non_serialized_finished, ["abc123"])
-        self.assertEqual(manager.completed_op_ids_since_last_broadcast, ["abc123"])
-        self.assertIsNone(manager._current_frontend_op_id.get())
+        assert result == 7
+        assert manager.pending_frontend_ops == {}
+        assert manager_hooks.non_serialized_started == ["abc123"]
+        assert manager_hooks.non_serialized_finished == ["abc123"]
+        assert manager.completed_op_ids_since_last_broadcast == ["abc123"]
+        assert manager._current_frontend_op_id.get() is None
 
     async def test_non_serialized_runs_concurrently(self):
         manager = self.manager
@@ -147,21 +148,15 @@ class EnqueueMethodTests(unittest.IsolatedAsyncioTestCase):
         task2 = asyncio.create_task(manager_hooks.non_serialized_blocking(payload2))
         await asyncio.sleep(0)
 
-        self.assertCountEqual(manager_hooks.non_serialized_started, ["op1", "op2"])
-        self.assertEqual(set(manager.pending_frontend_ops.keys()), {"op1", "op2"})
+        assert set(manager_hooks.non_serialized_started) == {"op1", "op2"}
+        assert set(manager.pending_frontend_ops.keys()) == {"op1", "op2"}
 
         event1.set()
         event2.set()
         results = await asyncio.gather(task1, task2)
 
-        self.assertEqual(results, [1, 2])
-        self.assertEqual(set(manager_hooks.non_serialized_finished), {"op1", "op2"})
-        self.assertEqual(manager.pending_frontend_ops, {})
-        self.assertEqual(
-            set(manager.completed_op_ids_since_last_broadcast), {"op1", "op2"}
-        )
-        self.assertIsNone(manager._current_frontend_op_id.get())
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert results == [1, 2]
+        assert set(manager_hooks.non_serialized_finished) == {"op1", "op2"}
+        assert manager.pending_frontend_ops == {}
+        assert set(manager.completed_op_ids_since_last_broadcast) == {"op1", "op2"}
+        assert manager._current_frontend_op_id.get() is None

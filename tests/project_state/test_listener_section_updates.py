@@ -1,5 +1,3 @@
-import unittest
-
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
@@ -17,7 +15,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionImpl, ChatSectionState, SectionType
 
 
-class ListenerChatSectionUpdatesTests(unittest.TestCase):
+class TestListenerChatSectionUpdates:
     def test_listener_updates_chat_section_with_dict_payload(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -51,11 +49,11 @@ class ListenerChatSectionUpdatesTests(unittest.TestCase):
             section_id,
             ChatSectionImpl,
         )
-        self.assertEqual(impl.inputText, "draft")
-        self.assertTrue(impl.waitingForResponse)
-        self.assertEqual(impl.toolCallArguments, {"tool": "arg"})
-        self.assertEqual(len(impl.messages), 1)
-        self.assertEqual(impl.messages[0].content[0].text, "hello")
+        assert impl.inputText == "draft"
+        assert impl.waitingForResponse
+        assert impl.toolCallArguments == {"tool": "arg"}
+        assert len(impl.messages) == 1
+        assert impl.messages[0].content[0].text == "hello"
 
     def test_listener_updates_chat_section_with_json_payload(self) -> None:
         settings = SettingsState()
@@ -90,11 +88,11 @@ class ListenerChatSectionUpdatesTests(unittest.TestCase):
             section_id,
             ChatSectionImpl,
         )
-        self.assertEqual(impl.inputText, "draft")
-        self.assertTrue(impl.waitingForResponse)
-        self.assertEqual(impl.toolCallArguments, {"tool": "arg"})
-        self.assertEqual(len(impl.messages), 1)
-        self.assertEqual(impl.messages[0].content[0].text, "hello")
+        assert impl.inputText == "draft"
+        assert impl.waitingForResponse
+        assert impl.toolCallArguments == {"tool": "arg"}
+        assert len(impl.messages) == 1
+        assert impl.messages[0].content[0].text == "hello"
 
     def test_listener_updates_chat_section_with_literal_payload(self) -> None:
         settings = SettingsState()
@@ -129,8 +127,8 @@ class ListenerChatSectionUpdatesTests(unittest.TestCase):
             section_id,
             ChatSectionImpl,
         )
-        self.assertEqual(impl.inputText, "draft")
-        self.assertTrue(impl.waitingForResponse)
-        self.assertEqual(impl.toolCallArguments, {"tool": "arg"})
-        self.assertEqual(len(impl.messages), 1)
-        self.assertEqual(impl.messages[0].content[0].text, "hello")
+        assert impl.inputText == "draft"
+        assert impl.waitingForResponse
+        assert impl.toolCallArguments == {"tool": "arg"}
+        assert len(impl.messages) == 1
+        assert impl.messages[0].content[0].text == "hello"

@@ -1,22 +1,21 @@
 import asyncio
-import unittest
 from types import MethodType
 
+import pytest
+import pytest_asyncio
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.types.id import ID
 
 from tests.utils.manager_fixture import real_settings_manager
 
-
-class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestJsonSourceReloadDebounce:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._manager_cm = real_settings_manager()
         self.fixture = await self._manager_cm.__aenter__()
-        self.addAsyncCleanup(self._manager_cm.__aexit__, None, None, None)
 
         self.manager = self.fixture.manager
-        self.addCleanup(self.manager.autosave_debouncer.cancel)
-        self.addCleanup(self.manager.autosave_debouncer.cancel_pending)
 
         self.category = f"{self.manager._file_watcher_category_prefix}_JSONSource"
         category_mapping = self.manager.json_source._get_category_section_variants(
@@ -48,7 +47,13 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         self.manager.load_json_sources = MethodType(spy_load_json_sources, self.manager)
-        self.addAsyncCleanup(self._restore_load_json_sources)
+
+        yield
+
+        await self._restore_load_json_sources()
+        self.manager.autosave_debouncer.cancel()
+        self.manager.autosave_debouncer.cancel_pending()
+        await self._manager_cm.__aexit__(None, None, None)
 
     async def _restore_load_json_sources(self):
         self.manager.load_json_sources = self._original_load_json_sources
@@ -75,7 +80,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             previous_mapping,
         )
 
-        self.assertTrue(result)
+        assert result
 
     async def test_should_not_defer_when_autosave_not_pending(self):
         await self._set_autosave_pending(False)
@@ -89,7 +94,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             previous_mapping,
         )
 
-        self.assertFalse(result)
+        assert not result
 
     async def test_should_not_defer_for_newly_watched_variant(self):
         await self._set_autosave_pending(True)
@@ -105,19 +110,19 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             previous_mapping,
         )
 
-        self.assertFalse(result)
+        assert not result
 
     async def test_flush_processes_deferred_variants(self):
         section_variants = {self.variant}
         self.manager._record_deferred_json_source_loads(self.category, section_variants)
 
         await self.manager._flush_deferred_json_source_loads()
-        self.assertEqual(1, len(self.load_calls))
+        assert 1 == len(self.load_calls)
 
         called_json_sources, called_variants = self.load_calls[0]
-        self.assertIs(called_json_sources, self.manager.json_source.json_sources)
-        self.assertEqual(section_variants, called_variants)
-        self.assertNotIn(self.category, self.manager._deferred_json_source_loads)
+        assert called_json_sources is self.manager.json_source.json_sources
+        assert section_variants == called_variants
+        assert self.category not in self.manager._deferred_json_source_loads
 
         await self.manager._flush_deferred_json_source_loads()
-        self.assertEqual(1, len(self.load_calls))
+        assert 1 == len(self.load_calls)

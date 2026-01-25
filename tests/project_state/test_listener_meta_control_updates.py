@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
@@ -20,7 +18,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
 
-class ListenerMetaControlUpdatesTests(TestCase):
+class TestListenerMetaControlUpdates:
     def test_listener_updates_meta_control_param_value(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -53,4 +51,4 @@ class ListenerMetaControlUpdatesTests(TestCase):
             control_param_id,
             BaseChildlessCodeObjImpl,
         )
-        self.assertEqual(impl.value, "updated")
+        assert impl.value == "updated"

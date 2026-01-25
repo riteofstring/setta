@@ -1,6 +1,5 @@
 import os
 from time import perf_counter
-from unittest import TestCase
 
 from lsprotocol import types as LSPTypes
 
@@ -18,7 +17,7 @@ from tests.code_gen.test_code_generator_formatting import (
 )
 
 
-class CodeGeneratorBenchmarkTests(TestCase):
+class TestCodeGeneratorBenchmark:
     def test_code_generator_benchmark(self) -> None:
         param_count = 500
         generate_iterations = 5
@@ -80,9 +79,9 @@ class CodeGeneratorBenchmarkTests(TestCase):
                 f"(iters={diagnostics_iterations}, diagnostics={len(diagnostics)})",
             )
 
-        self.assertGreaterEqual(generate_elapsed, 0)
-        self.assertGreaterEqual(change_elapsed, 0)
-        self.assertGreaterEqual(diagnostics_elapsed, 0)
+        assert generate_elapsed >= 0
+        assert change_elapsed >= 0
+        assert diagnostics_elapsed >= 0
 
     def _build_diagnostics(
         self,

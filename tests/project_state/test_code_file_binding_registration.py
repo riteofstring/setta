@@ -1,11 +1,12 @@
 import asyncio
 import hashlib
-import unittest
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import pytest
+import pytest_asyncio
 from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -79,8 +80,10 @@ class TestProjectManager(BaseProjectManager):
         return None
 
 
-class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+@pytest.mark.asyncio
+class TestCodeFileBindingRegistration:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
@@ -148,7 +151,8 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await self.manager._process_queue_task_started.wait()
 
-    async def asyncTearDown(self):
+        yield
+
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -202,15 +206,15 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.update(project_state)
 
         section_bindings = self.manager.code_files.get_bindings(self.expected_code_path)
-        self.assertEqual(len(section_bindings), 1)
+        assert len(section_bindings) == 1
         (binding,) = tuple(section_bindings)
-        self.assertEqual(binding.section_id, self.section_id)
-        self.assertEqual(binding.variant_id, self.variant_id)
-        self.assertEqual(binding.project_config_id, self.project_config_id)
-        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
+        assert binding.section_id == self.section_id
+        assert binding.variant_id == self.variant_id
+        assert binding.project_config_id == self.project_config_id
+        assert binding.access_mode == CodeFileAccessMode.read_write
 
         gen_binding = project_state.genCodeBinding
-        self.assertIsNotNone(gen_binding)
+        assert gen_binding is not None
 
     async def test_reload_code_sections_updates_state(self):
         project_state = self.project_state.model_copy(deep=True)
@@ -220,7 +224,7 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self.dbe.write(self.expected_code_path, new_code)
 
         bindings = self.manager.code_files.get_bindings(self.expected_code_path)
-        self.assertTrue(bindings)
+        assert bindings
 
         update = FileWatcherCoreUpdate(
             absPath=self.expected_code_path,
@@ -245,24 +249,24 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.reload_code_sections(plan)
 
         metadata = self.manager.code_files.get_metadata(self.expected_code_path)
-        self.assertIsNotNone(metadata)
         assert metadata is not None
-        self.assertFalse(metadata.has_conflict)
+        assert metadata is not None
+        assert not metadata.has_conflict
         expected_hash = hashlib.md5(new_code.encode()).hexdigest()
-        self.assertEqual(metadata.last_read_hash, expected_hash)
+        assert metadata.last_read_hash == expected_hash
 
         single_state = convert_backend_to_single_config(
             self.manager.project_state_backend, self.project_config_id
         )
         section_impl = get_curr_effective_section_impl(single_state, self.section_id)
-        self.assertIsInstance(section_impl, CodeSectionImpl)
         assert isinstance(section_impl, CodeSectionImpl)
-        self.assertEqual(section_impl.code, new_code)
+        assert isinstance(section_impl, CodeSectionImpl)
+        assert section_impl.code == new_code
 
-        self.assertIn(self.project_config_id, self.manager.code_dict)
+        assert self.project_config_id in self.manager.code_dict
         code_entries = self.manager.code_dict[self.project_config_id]
-        self.assertIn(self.section_id, code_entries)
-        self.assertEqual(code_entries[self.section_id].code, new_code)
+        assert self.section_id in code_entries
+        assert code_entries[self.section_id].code == new_code
 
     async def test_other_manager_updates_do_not_clear_bindings(self):
         project_state = self.project_state.model_copy(deep=True)
@@ -271,8 +275,8 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         gen_code_path = normalize_path(
             build_gen_code_path(C.CODE_FOLDER, project_state.projectConfig.name)
         )
-        self.assertTrue(self.manager.code_files.get_bindings(gen_code_path))
-        self.assertTrue(self.manager.code_files.get_bindings(self.expected_code_path))
+        assert self.manager.code_files.get_bindings(gen_code_path)
+        assert self.manager.code_files.get_bindings(self.expected_code_path)
 
         settings_code_files = CodeFiles(
             self.frontend_sender,
@@ -301,20 +305,21 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
             settings_backend,
         )
         await settings_manager._process_queue_task_started.wait()
-        self.assertIsNot(self.manager.code_files, settings_manager.code_files)
+        assert self.manager.code_files is not settings_manager.code_files
 
-        self.addAsyncCleanup(self._shutdown_extra_manager, settings_manager)
-
-        await settings_manager.set_show_param_display_names(
-            SetShowParamDisplayNamesRequest(
-                projectConfigId=settings_config.id,
-                showParamDisplayNames=not settings_config.showParamDisplayNames,
+        try:
+            await settings_manager.set_show_param_display_names(
+                SetShowParamDisplayNamesRequest(
+                    projectConfigId=settings_config.id,
+                    showParamDisplayNames=not settings_config.showParamDisplayNames,
+                )
             )
-        )
-        await settings_manager.finish_pending_operations()
+            await settings_manager.finish_pending_operations()
+        finally:
+            await self._shutdown_extra_manager(settings_manager)
 
-        self.assertTrue(self.manager.code_files.get_bindings(gen_code_path))
-        self.assertTrue(self.manager.code_files.get_bindings(self.expected_code_path))
+        assert self.manager.code_files.get_bindings(gen_code_path)
+        assert self.manager.code_files.get_bindings(self.expected_code_path)
 
     async def _shutdown_extra_manager(self, manager: BaseProjectManager) -> None:
         manager.autosave_debouncer.cancel()
@@ -322,7 +327,3 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         manager.queue_task.cancel()
         with suppress(asyncio.CancelledError):
             await manager.queue_task
-
-
-if __name__ == "__main__":  # pragma: no cover - manual execution
-    unittest.main()

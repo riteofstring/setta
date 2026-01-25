@@ -2,13 +2,12 @@ import asyncio
 import json
 import shutil
 import tempfile
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
-
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
@@ -292,12 +291,12 @@ def _write_project_with_states(
     return dbe
 
 
-class ShareRuntimeStateTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestShareRuntimeState:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-
-    def tearDown(self) -> None:
+        yield
         asyncio.set_event_loop(None)
         self._loop.close()
 
@@ -318,11 +317,11 @@ class ShareRuntimeStateTests(unittest.TestCase):
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
-            self.assertEqual(config_b.id, manager.default_project_config_id)
+            assert config_b.id == manager.default_project_config_id
 
             manager.create_session_backend("session-a")
             session_state = manager.get_session_state("session-a", config_b.id)
-            self.assertEqual(config_b.id, session_state.projectConfig.id)
+            assert config_b.id == session_state.projectConfig.id
 
     def test_manifest_allows_relocated_deployment_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -338,13 +337,13 @@ class ShareRuntimeStateTests(unittest.TestCase):
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
-            self.assertNotEqual(root.name, manifest.deploymentVersion)
-            self.assertNotEqual(root.parent.name, manifest.deploymentName)
+            assert root.name != manifest.deploymentVersion
+            assert root.parent.name != manifest.deploymentName
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
-            self.assertEqual(config.name, manager.deployment_name)
-            self.assertEqual(manifest.deploymentVersion, manager.deployment_version)
+            assert config.name == manager.deployment_name
+            assert manifest.deploymentVersion == manager.deployment_version
 
     def test_manifest_missing_project_config_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -360,7 +359,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_missing_project_configs_raises(self) -> None:
@@ -377,7 +376,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_missing_project_json_raises(self) -> None:
@@ -393,7 +392,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
-            with self.assertRaises(FileNotFoundError):
+            with pytest.raises(FileNotFoundError):
                 ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_session_state_does_not_preload_artifacts(self) -> None:
@@ -416,7 +415,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             artifacts = manager.get_session_artifacts("session-a")
             cached = artifacts.get_cached_image(image_path)
 
-            self.assertIsNone(cached)
+            assert cached is None
 
     def test_relative_canvas_paths_are_rebased(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -516,12 +515,12 @@ class ShareRuntimeStateTests(unittest.TestCase):
             expected_chart = str(normalize_path(root / chart_rel_path))
             expected_draw = str(normalize_path(root / draw_rel_path))
             expected_transform = str(normalize_path(root / transform_rel_path))
-            self.assertEqual(expected_chart, chart_session_impl.dataPath)
-            self.assertEqual(1, len(draw_session_impl.layers))
-            self.assertEqual(1, len(draw_session_impl.layers[0].elements))
+            assert expected_chart == chart_session_impl.dataPath
+            assert 1 == len(draw_session_impl.layers)
+            assert 1 == len(draw_session_impl.layers[0].elements)
             element = draw_session_impl.layers[0].elements[0]
-            self.assertEqual(expected_draw, element.dataPath)
-            self.assertEqual(expected_transform, element.transformId)
+            assert expected_draw == element.dataPath
+            assert expected_transform == element.transformId
 
     def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
@@ -542,41 +541,41 @@ class ShareRuntimeStateTests(unittest.TestCase):
             session_id = "session-ephemeral"
             manager.create_session_backend(session_id)
             runs_root = manager.share_runs_root
-            self.addCleanup(
-                lambda: shutil.rmtree(runs_root, ignore_errors=True)
-            )
             run_request = RunCodeRequest(
                 projectConfigId=project_config_id,
                 sectionId=section_id,
                 cliId=None,
             )
 
-            command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, run_request)
-            )
+            try:
+                command = self._loop.run_until_complete(
+                    manager.create_run_command(session_id, run_request)
+                )
 
-            run_root = runs_root / session_id
-            self.assertTrue(run_root.exists())
-            run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
-            self.assertEqual(1, len(run_dirs))
-            run_dir = run_dirs[0]
-            runner_path = run_dir / "runner.py"
-            gen_path = run_dir / "setta_gen.py"
-            meta_path = run_dir / GEN_CODE_META_FILENAME
-            self.assertTrue(runner_path.exists())
-            self.assertTrue(gen_path.exists())
-            python_target = get_python_codegen_target_with_type_guard(
-                project_state.projectConfig
-            )
-            if python_target.generateMetadata:
-                self.assertTrue(meta_path.exists())
-            else:
-                self.assertFalse(meta_path.exists())
-            self.assertEqual("print('hello')", runner_path.read_text(encoding="utf-8"))
-            expected = build_python_snapshot_module_run_command(
-                run_root, runner_path
-            )
-            self.assertEqual(expected, command)
+                run_root = runs_root / session_id
+                assert run_root.exists()
+                run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
+                assert 1 == len(run_dirs)
+                run_dir = run_dirs[0]
+                runner_path = run_dir / "runner.py"
+                gen_path = run_dir / "setta_gen.py"
+                meta_path = run_dir / GEN_CODE_META_FILENAME
+                assert runner_path.exists()
+                assert gen_path.exists()
+                python_target = get_python_codegen_target_with_type_guard(
+                    project_state.projectConfig
+                )
+                if python_target.generateMetadata:
+                    assert meta_path.exists()
+                else:
+                    assert not meta_path.exists()
+                assert "print('hello')" == runner_path.read_text(encoding="utf-8")
+                expected = build_python_snapshot_module_run_command(
+                    run_root, runner_path
+                )
+                assert expected == command
+            finally:
+                shutil.rmtree(runs_root, ignore_errors=True)
 
     def test_run_command_ephemeral_outside_cwd_uses_absolute_path(self) -> None:
         with TemporaryDirectory(dir=Path(tempfile.gettempdir())) as tmpdir:
@@ -606,24 +605,24 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 manager.create_run_command(session_id, run_request)
             )
 
-            self.assertTrue(manager.share_runs_root.is_absolute())
+            assert manager.share_runs_root.is_absolute()
             run_root = manager.share_runs_root / session_id
             run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
-            self.assertEqual(1, len(run_dirs))
+            assert 1 == len(run_dirs)
             runner_path = run_dirs[0] / "runner.py"
             meta_path = run_dirs[0] / GEN_CODE_META_FILENAME
-            self.assertTrue(runner_path.is_absolute())
+            assert runner_path.is_absolute()
             python_target = get_python_codegen_target_with_type_guard(
                 project_state.projectConfig
             )
             if python_target.generateMetadata:
-                self.assertTrue(meta_path.exists())
+                assert meta_path.exists()
             else:
-                self.assertFalse(meta_path.exists())
+                assert not meta_path.exists()
             expected = build_python_snapshot_module_run_command(
                 run_root, runner_path
             )
-            self.assertEqual(expected, command)
+            assert expected == command
 
     def test_json_source_values_are_rehydrated(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -681,20 +680,20 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 section_id,
                 DictSectionImpl,
             )
-            self.assertFalse(impl.jsonSourceMissing)
+            assert not impl.jsonSourceMissing
             target_code_obj_id = None
             for code_obj_id in impl.codeObjVariantMap.keys():
                 if session_state.codeObjs[code_obj_id].name == "foo":
                     target_code_obj_id = code_obj_id
                     break
-            self.assertIsNotNone(target_code_obj_id)
+            assert target_code_obj_id is not None
             code_impl = get_curr_effective_code_obj_impl_with_type_guard(
                 session_state,
                 section_id,
                 target_code_obj_id,
                 CodeParamCodeObjImpl,
             )
-            self.assertEqual("123", code_impl.value)
+            assert "123" == code_impl.value
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
@@ -711,7 +710,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 SharePolicy(runSnapshotMode=RunSnapshotMode.never).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 ShareRuntimeState(dbe, root, frontend_sender)
 
     def test_session_state_isolation(self) -> None:
@@ -742,10 +741,10 @@ class ShareRuntimeStateTests(unittest.TestCase):
 
             session_b_after = manager.get_session_state("session-b", config.id)
             session_a_after = manager.get_session_state("session-a", config.id)
-            self.assertEqual(original_name, session_b_after.projectConfig.name)
-            self.assertNotEqual(
-                session_a_after.projectConfig.name,
-                session_b_after.projectConfig.name,
+            assert original_name == session_b_after.projectConfig.name
+            assert (
+                session_a_after.projectConfig.name
+                != session_b_after.projectConfig.name
             )
 
     def test_update_session_state_targets_single_config(self) -> None:
@@ -790,8 +789,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
             updated_b = manager.get_session_state(
                 "session-a", state_b.projectConfig.id
             )
-            self.assertEqual("Updated Project A", updated_a.projectConfig.name)
-            self.assertEqual(original_b_name, updated_b.projectConfig.name)
+            assert "Updated Project A" == updated_a.projectConfig.name
+            assert original_b_name == updated_b.projectConfig.name
 
     def test_unknown_session_state_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -812,13 +811,13 @@ class ShareRuntimeStateTests(unittest.TestCase):
             manager.create_session_backend("session-a")
             existing_state = manager.get_session_state("session-a", config.id)
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 manager.get_session_state("missing", config.id)
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 manager.update_session_state("missing", config.id, existing_state)
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 manager.delete_session_state("missing")
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 manager.create_session_backend("session-a")
 
     def test_listener_emit_requires_updates(self) -> None:
@@ -852,7 +851,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 session_manager = switcher.get_for_session("session-a")
                 try:
                     await session_manager._process_queue_task_started.wait()
-                    with self.assertRaises(ValueError):
+                    with pytest.raises(ValueError):
                         await session_manager.apply_listener_emit_updates(
                             projectConfigId=project_config_id,
                             dependency_updates=[],
@@ -864,8 +863,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                         session_manager.queue_task,
                         return_exceptions=True,
                     )
-                    self.assertEqual(1, len(results))
-                    self.assertIsInstance(results[0], asyncio.CancelledError)
+                    assert 1 == len(results)
+                    assert isinstance(results[0], asyncio.CancelledError)
 
             self._loop.run_until_complete(run_test())
 
@@ -908,7 +907,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 try:
                     await session_manager._process_queue_task_started.wait()
                     manager.delete_session_state("session-a")
-                    with self.assertRaises(KeyError):
+                    with pytest.raises(KeyError):
                         await session_manager.apply_listener_emit_updates(
                             projectConfigId=project_config_id,
                             dependency_updates=dependency_updates,
@@ -920,8 +919,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                         session_manager.queue_task,
                         return_exceptions=True,
                     )
-                    self.assertEqual(1, len(results))
-                    self.assertIsInstance(results[0], asyncio.CancelledError)
+                    assert 1 == len(results)
+                    assert isinstance(results[0], asyncio.CancelledError)
 
             self._loop.run_until_complete(run_test())
 
@@ -1003,8 +1002,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                         session_manager.queue_task,
                         return_exceptions=True,
                     )
-                    self.assertEqual(1, len(results))
-                    self.assertIsInstance(results[0], asyncio.CancelledError)
+                    assert 1 == len(results)
+                    assert isinstance(results[0], asyncio.CancelledError)
 
             self._loop.run_until_complete(run_test())
 
@@ -1014,7 +1013,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 section_id,
                 TextBlockSectionImpl,
             )
-            self.assertEqual(new_text, impl_a.text)
+            assert new_text == impl_a.text
 
             session_state_b = manager.get_session_state("session-b", project_config_id)
             impl_b = get_curr_effective_section_impl_with_type_guard(
@@ -1022,7 +1021,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 section_id,
                 TextBlockSectionImpl,
             )
-            self.assertNotEqual(new_text, impl_b.text)
+            assert new_text != impl_b.text
 
             types_a = [
                 json.loads(text)["messageType"]
@@ -1033,8 +1032,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 for text in _sent_text_messages(frontend_messages_b)
             ]
 
-            self.assertIn("UpdateFrontendProjectState", types_a)
-            self.assertNotIn("UpdateFrontendProjectState", types_b)
+            assert "UpdateFrontendProjectState" in types_a
+            assert "UpdateFrontendProjectState" not in types_b
 
             self._loop.run_until_complete(websocket_a.close())
             self._loop.run_until_complete(websocket_b.close())
@@ -1091,15 +1090,15 @@ class ShareRuntimeStateTests(unittest.TestCase):
                         section_id,
                         TextBlockSectionImpl,
                     )
-                    self.assertEqual(new_text, impl.text)
+                    assert new_text == impl.text
                 finally:
                     session_manager.queue_task.cancel()
                     results = await asyncio.gather(
                         session_manager.queue_task,
                         return_exceptions=True,
                     )
-                    self.assertEqual(1, len(results))
-                    self.assertIsInstance(results[0], asyncio.CancelledError)
+                    assert 1 == len(results)
+                    assert isinstance(results[0], asyncio.CancelledError)
 
             self._loop.run_until_complete(run_test())
 
@@ -1180,8 +1179,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                         session_manager.queue_task,
                         return_exceptions=True,
                     )
-                    self.assertEqual(1, len(results))
-                    self.assertIsInstance(results[0], asyncio.CancelledError)
+                    assert 1 == len(results)
+                    assert isinstance(results[0], asyncio.CancelledError)
 
             self._loop.run_until_complete(run_test())
 
@@ -1194,12 +1193,8 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 for text in _sent_text_messages(frontend_messages_b)
             ]
 
-            self.assertNotIn("UpdateArtifacts", types_a)
-            self.assertIn("UpdateArtifacts", types_b)
+            assert "UpdateArtifacts" not in types_a
+            assert "UpdateArtifacts" in types_b
 
             self._loop.run_until_complete(websocket_a.close())
             self._loop.run_until_complete(websocket_b.close())
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -1,116 +1,134 @@
 import logging
-import unittest
+from contextlib import contextmanager
+
+import pytest
 
 from setta.logging.errors import run_safely
 from setta.logging.tasks import spawn_background_task
 
 
-class LoggingErrorsTests(unittest.IsolatedAsyncioTestCase):
-    async def test_run_safely_swallow_defaults_to_unhandled(self) -> None:
-        async def boom() -> None:
-            raise ValueError("nope")
+@contextmanager
+def _capture_logger(
+    caplog: pytest.LogCaptureFixture, logger: logging.Logger, level: int
+):
+    handler = caplog.handler
+    added = False
+    previous_level = logger.level
+    if handler not in logger.handlers:
+        logger.addHandler(handler)
+        added = True
+    caplog.set_level(level, logger=logger.name)
+    try:
+        yield
+    finally:
+        if added:
+            logger.removeHandler(handler)
+        logger.setLevel(previous_level)
 
-        logger_name = "setta.tests.logging.errors.default_unhandled"
-        logger = logging.getLogger(logger_name)
 
-        with self.assertLogs(logger_name, level="ERROR") as captured:
-            result = await run_safely(boom(), label="boom-test", logger=logger)
+@pytest.mark.asyncio
+async def test_run_safely_swallow_defaults_to_unhandled(caplog) -> None:
+    async def boom() -> None:
+        raise ValueError("nope")
 
-        self.assertIsNone(result)
-        self.assertTrue(
-            any(
-                "Unhandled failure in boom-test" in message
-                for message in captured.output
-            )
+    logger_name = "setta.tests.logging.errors.default_unhandled"
+    logger = logging.getLogger(logger_name)
+
+    with _capture_logger(caplog, logger, logging.ERROR):
+        result = await run_safely(boom(), label="boom-test", logger=logger)
+
+    assert result is None
+    assert any(
+        "Unhandled failure in boom-test" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_safely_handled_is_warning_even_when_swallowed(caplog) -> None:
+    async def boom() -> None:
+        raise ValueError("nope")
+
+    logger_name = "setta.tests.logging.errors.handled_warning"
+    logger = logging.getLogger(logger_name)
+
+    with _capture_logger(caplog, logger, logging.WARNING):
+        result = await run_safely(
+            boom(),
+            label="boom-test",
+            logger=logger,
+            handled=True,
         )
 
-    async def test_run_safely_handled_is_warning_even_when_swallowed(self) -> None:
-        async def boom() -> None:
-            raise ValueError("nope")
+    assert result is None
+    assert any(record.levelno == logging.WARNING for record in caplog.records)
+    assert any(
+        "Handled failure in boom-test" in record.getMessage()
+        for record in caplog.records
+    )
 
-        logger_name = "setta.tests.logging.errors.handled_warning"
-        logger = logging.getLogger(logger_name)
 
-        with self.assertLogs(logger_name, level="WARNING") as captured:
-            result = await run_safely(
+@pytest.mark.asyncio
+async def test_run_safely_re_raise_severity_decoupled(caplog) -> None:
+    async def boom() -> None:
+        raise ValueError("nope")
+
+    logger_name = "setta.tests.logging.errors.reraise"
+    logger = logging.getLogger(logger_name)
+
+    with _capture_logger(caplog, logger, logging.ERROR):
+        with pytest.raises(ValueError):
+            await run_safely(
                 boom(),
                 label="boom-test",
                 logger=logger,
-                handled=True,
+                re_raise=True,
             )
 
-        self.assertIsNone(result)
-        self.assertTrue(
-            any(message.startswith("WARNING:") for message in captured.output)
+    assert any(
+        "Unhandled failure in boom-test" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_spawn_background_task_defaults_to_unhandled(caplog) -> None:
+    async def boom() -> None:
+        raise ValueError("nope")
+
+    logger_name = "setta.tests.logging.errors.spawn_default_unhandled"
+    logger = logging.getLogger(logger_name)
+
+    with _capture_logger(caplog, logger, logging.ERROR):
+        task = spawn_background_task(boom(), label="bg-test", logger=logger)
+        result = await task
+
+    assert result is None
+    assert any(
+        "Unhandled failure in bg-test" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_spawn_background_task_can_mark_failures_handled(caplog) -> None:
+    async def boom() -> None:
+        raise ValueError("nope")
+
+    logger_name = "setta.tests.logging.errors.spawn_handled"
+    logger = logging.getLogger(logger_name)
+
+    with _capture_logger(caplog, logger, logging.WARNING):
+        task = spawn_background_task(
+            boom(),
+            label="bg-test",
+            logger=logger,
+            handled=True,
         )
-        self.assertTrue(
-            any(
-                "Handled failure in boom-test" in message for message in captured.output
-            )
-        )
+        result = await task
 
-    async def test_run_safely_re_raise_severity_decoupled(self) -> None:
-        async def boom() -> None:
-            raise ValueError("nope")
-
-        logger_name = "setta.tests.logging.errors.reraise"
-        logger = logging.getLogger(logger_name)
-
-        with self.assertLogs(logger_name, level="ERROR") as captured:
-            with self.assertRaises(ValueError):
-                await run_safely(
-                    boom(),
-                    label="boom-test",
-                    logger=logger,
-                    re_raise=True,
-                )
-
-        self.assertTrue(
-            any(
-                "Unhandled failure in boom-test" in message
-                for message in captured.output
-            )
-        )
-
-    async def test_spawn_background_task_defaults_to_unhandled(self) -> None:
-        async def boom() -> None:
-            raise ValueError("nope")
-
-        logger_name = "setta.tests.logging.errors.spawn_default_unhandled"
-        logger = logging.getLogger(logger_name)
-
-        with self.assertLogs(logger_name, level="ERROR") as captured:
-            task = spawn_background_task(boom(), label="bg-test", logger=logger)
-            result = await task
-
-        self.assertIsNone(result)
-        self.assertTrue(
-            any(
-                "Unhandled failure in bg-test" in message for message in captured.output
-            )
-        )
-
-    async def test_spawn_background_task_can_mark_failures_handled(self) -> None:
-        async def boom() -> None:
-            raise ValueError("nope")
-
-        logger_name = "setta.tests.logging.errors.spawn_handled"
-        logger = logging.getLogger(logger_name)
-
-        with self.assertLogs(logger_name, level="WARNING") as captured:
-            task = spawn_background_task(
-                boom(),
-                label="bg-test",
-                logger=logger,
-                handled=True,
-            )
-            result = await task
-
-        self.assertIsNone(result)
-        self.assertTrue(
-            any("Handled failure in bg-test" in message for message in captured.output)
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert result is None
+    assert any(
+        "Handled failure in bg-test" in record.getMessage()
+        for record in caplog.records
+    )

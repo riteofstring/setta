@@ -1,11 +1,12 @@
 import secrets
-import unittest
 from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from setta.auth.tokens import AuthCookieManager, BootstrapTokenManager, NonceTracker
 
 
-class BootstrapTokenManagerTests(unittest.TestCase):
+class TestBootstrapTokenManager:
     def test_mint_and_consume_round_trip(self) -> None:
         manager = BootstrapTokenManager(ttl_seconds=60)
         secret = secrets.token_bytes(32)
@@ -14,9 +15,9 @@ class BootstrapTokenManagerTests(unittest.TestCase):
         token = manager.mint("session-1", secret, now=now)
         payload = manager.consume(token, secret, now=now)
 
-        self.assertEqual(payload.sessionId, "session-1")
-        self.assertEqual(payload.exp, int(now.timestamp()) + 60)
-        self.assertTrue(payload.nonce)
+        assert payload.sessionId == "session-1"
+        assert payload.exp == int(now.timestamp()) + 60
+        assert payload.nonce
 
     def test_rejects_reused_token(self) -> None:
         manager = BootstrapTokenManager(ttl_seconds=60)
@@ -26,7 +27,7 @@ class BootstrapTokenManagerTests(unittest.TestCase):
         token = manager.mint("session-2", secret, now=now)
         manager.consume(token, secret, now=now)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.consume(token, secret, now=now)
 
     def test_rejects_expired_token(self) -> None:
@@ -37,7 +38,7 @@ class BootstrapTokenManagerTests(unittest.TestCase):
         token = manager.mint("session-3", secret, now=now)
         later = now + timedelta(seconds=61)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.consume(token, secret, now=later)
 
     def test_rejects_tampered_signature(self) -> None:
@@ -49,18 +50,18 @@ class BootstrapTokenManagerTests(unittest.TestCase):
         payload_part, signature_part = token.split(".", maxsplit=1)
         tampered = f"{payload_part}.{signature_part}x"
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.consume(tampered, secret, now=now)
 
     def test_rejects_invalid_encoding(self) -> None:
         manager = BootstrapTokenManager(ttl_seconds=60)
         secret = secrets.token_bytes(32)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.consume("a.a", secret)
 
 
-class AuthCookieManagerTests(unittest.TestCase):
+class TestAuthCookieManager:
     def test_mint_and_validate_round_trip(self) -> None:
         manager = AuthCookieManager(ttl_seconds=3600)
         secret = secrets.token_bytes(32)
@@ -69,8 +70,8 @@ class AuthCookieManagerTests(unittest.TestCase):
         token = manager.mint("session-1", secret, now=now)
         payload = manager.validate(token, secret, now=now)
 
-        self.assertEqual(payload.sessionId, "session-1")
-        self.assertEqual(payload.exp, int(now.timestamp()) + 3600)
+        assert payload.sessionId == "session-1"
+        assert payload.exp == int(now.timestamp()) + 3600
 
     def test_rejects_expired_cookie(self) -> None:
         manager = AuthCookieManager(ttl_seconds=5)
@@ -80,7 +81,7 @@ class AuthCookieManagerTests(unittest.TestCase):
         token = manager.mint("session-2", secret, now=now)
         later = now + timedelta(seconds=6)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.validate(token, secret, now=later)
 
     def test_rejects_tampered_cookie_signature(self) -> None:
@@ -92,18 +93,14 @@ class AuthCookieManagerTests(unittest.TestCase):
         payload_part, signature_part = token.split(".", maxsplit=1)
         tampered = f"{payload_part}.{signature_part}x"
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             manager.validate(tampered, secret, now=now)
 
 
-class NonceTrackerTests(unittest.TestCase):
+class TestNonceTracker:
     def test_prunes_expired_nonces(self) -> None:
         tracker = NonceTracker()
         tracker.consume("session-1", "nonce-1", exp=10, now=0)
 
-        self.assertTrue(tracker.is_consumed("session-1", "nonce-1", now=0))
-        self.assertFalse(tracker.is_consumed("session-1", "nonce-1", now=10))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert tracker.is_consumed("session-1", "nonce-1", now=0)
+        assert not tracker.is_consumed("session-1", "nonce-1", now=10)

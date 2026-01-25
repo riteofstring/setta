@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import FileReadDependencyValue, LiteralDependencyValue
@@ -18,7 +16,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
 
-class DrawDependencyGraphTests(TestCase):
+class TestDrawDependencyGraph:
     def test_draw_section_file_path_exports_literal_path(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
@@ -44,10 +42,10 @@ class DrawDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "artifacts/draw.png")
+        assert node.value.payload == "artifacts/draw.png"
 
     def test_draw_section_file_read_exports_file_value(self) -> None:
         settings = SettingsState()
@@ -74,10 +72,10 @@ class DrawDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertIsInstance(node.value, FileReadDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert isinstance(node.value, FileReadDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "artifacts/draw.png")
+        assert node.value.payload == "artifacts/draw.png"
 
     def test_draw_section_file_read_falls_back_without_rendered_path(self) -> None:
         settings = SettingsState()
@@ -99,14 +97,11 @@ class DrawDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "None")
+        assert node.value.payload == "None"
 
     def test_draw_section_file_path_falls_back_without_rendered_path(self) -> None:
         settings = SettingsState()
@@ -128,11 +123,8 @@ class DrawDependencyGraphTests(TestCase):
         graph = DependencyGraph(project_state)
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
-        self.assertIsInstance(node, SectionNode)
-        self.assertEqual(
-            SectionRepresentationMode.expression,
-            node.representation,
-        )
-        self.assertIsInstance(node.value, LiteralDependencyValue)
+        assert isinstance(node, SectionNode)
+        assert node.representation == SectionRepresentationMode.expression
+        assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        self.assertEqual(node.value.payload, "None")
+        assert node.value.payload == "None"

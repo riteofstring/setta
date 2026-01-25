@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.database.utils import create_new_id
 from setta.types.edges import Edge, EdgePort
@@ -20,8 +20,9 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseSectionWithParamsImpl, SectionType
 
 
-class EdgePortVariantTests(unittest.TestCase):
-    def setUp(self) -> None:
+class TestEdgePortVariants:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="edge-port-variant-test")
@@ -60,16 +61,17 @@ class EdgePortVariantTests(unittest.TestCase):
         create_new_section_variant(self.project_state, section_id)
         new_variant_id = self.project_state.projectConfig.sectionVariantMap[section_id]
 
-        self.assertNotEqual(original_variant_id, new_variant_id)
+        assert original_variant_id != new_variant_id
 
         original_impl = self._get_variant_impl(section_id, original_variant_id)
         new_impl = self._get_variant_impl(section_id, new_variant_id)
 
-        self.assertEqual(original_impl.edgeInputParams, new_impl.edgeInputParams)
-        self.assertEqual(
-            [(port.id, port.accessor) for port in original_impl.edgeOutputPorts],
-            [(port.id, port.accessor) for port in new_impl.edgeOutputPorts],
-        )
+        assert original_impl.edgeInputParams == new_impl.edgeInputParams
+        assert [
+            (port.id, port.accessor) for port in original_impl.edgeOutputPorts
+        ] == [
+            (port.id, port.accessor) for port in new_impl.edgeOutputPorts
+        ]
 
         set_section_edge_inputs(self.settings, self.project_state, section_id, [])
         set_section_edge_outputs(
@@ -81,16 +83,16 @@ class EdgePortVariantTests(unittest.TestCase):
         original_impl_after = self._get_variant_impl(section_id, original_variant_id)
         new_impl_after = self._get_variant_impl(section_id, new_variant_id)
 
-        self.assertEqual(original_impl_after.edgeInputParams, [param_id])
-        self.assertEqual(
-            [(port.id, port.accessor) for port in original_impl_after.edgeOutputPorts],
-            [(port_id, "")],
-        )
-        self.assertEqual(new_impl_after.edgeInputParams, [])
-        self.assertEqual(
-            [(port.id, port.accessor) for port in new_impl_after.edgeOutputPorts],
-            [(port_id, ".bar")],
-        )
+        assert original_impl_after.edgeInputParams == [param_id]
+        assert [
+            (port.id, port.accessor)
+            for port in original_impl_after.edgeOutputPorts
+        ] == [(port_id, "")]
+        assert new_impl_after.edgeInputParams == []
+        assert [
+            (port.id, port.accessor)
+            for port in new_impl_after.edgeOutputPorts
+        ] == [(port_id, ".bar")]
 
     def test_create_new_variant_copies_edges(self) -> None:
         source_section_id = create_top_level_section(
@@ -141,18 +143,18 @@ class EdgePortVariantTests(unittest.TestCase):
         ]
 
         edges = self.project_state.projectConfig.edges
-        self.assertEqual(len(edges), 2)
+        assert len(edges) == 2
         new_edges = [
             edge
             for edge in edges
             if edge.sourceSectionId == source_section_id
             and edge.sourceVariantId == new_variant_id
         ]
-        self.assertEqual(len(new_edges), 1)
+        assert len(new_edges) == 1
         new_edge = new_edges[0]
 
-        self.assertNotEqual(new_edge.id, original_edge.id)
-        self.assertEqual(new_edge.sourcePortId, original_edge.sourcePortId)
-        self.assertEqual(new_edge.targetSectionId, original_edge.targetSectionId)
-        self.assertEqual(new_edge.targetVariantId, original_edge.targetVariantId)
-        self.assertEqual(new_edge.targetPortId, original_edge.targetPortId)
+        assert new_edge.id != original_edge.id
+        assert new_edge.sourcePortId == original_edge.sourcePortId
+        assert new_edge.targetSectionId == original_edge.targetSectionId
+        assert new_edge.targetVariantId == original_edge.targetVariantId
+        assert new_edge.targetPortId == original_edge.targetPortId

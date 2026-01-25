@@ -3,10 +3,11 @@ import contextlib
 import io
 import json
 import logging
-import unittest
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from setta.api.listener import (
     ListenerCallbackSpec,
@@ -60,7 +61,8 @@ PARAM_SLIDER_ID = ID("param-slider")
 PARAM_SWITCH_ID = ID("param-switch")
 
 
-class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestSettaListenerRealtimeIntegration:
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
             id=ID("section-impl"),
@@ -140,9 +142,9 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
-        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
-        self.assertTrue(websocket.sent)
+        assert refresh_calls == [{"Welcome": "Hello"}]
+        assert realtime_calls == [{"Welcome": "Hello"}]
+        assert websocket.sent
 
         realtime_spec = next(
             spec
@@ -163,7 +165,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._handle_realtime_event(first_content)
         await asyncio.sleep(0.02)
-        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
+        assert realtime_calls == [{"Welcome": "Hello"}]
 
         second_content = ListenerRealtimeEventContent(
             projectConfigId=project_state.projectConfig.id,
@@ -179,17 +181,17 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.sleep(0.1)
 
-        self.assertEqual(
-            realtime_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated-2"}],
-        )
-        self.assertEqual(listener._dependency_cache.get("Welcome"), "Updated-2")
-        self.assertEqual(listener._get_last_realtime_sequence(), 2)
+        assert realtime_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated-2"},
+        ]
+        assert listener._dependency_cache.get("Welcome") == "Updated-2"
+        assert listener._get_last_realtime_sequence() == 2
 
         register_payload = json.loads(websocket.sent[-1])
-        self.assertIn("callbacks", register_payload["content"])
+        assert "callbacks" in register_payload["content"]
         callback_payloads = list(register_payload["content"]["callbacks"].values())
-        self.assertEqual(callback_payloads[0]["debounceMs"], 50)
+        assert callback_payloads[0]["debounceMs"] == 50
 
     async def test_refresh_callbacks_respect_concurrency_limit(self) -> None:
         project_state = self._build_project_state()
@@ -232,7 +234,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         try:
             await asyncio.wait_for(ready_event.wait(), timeout=1.0)
-            self.assertEqual(concurrency, max_active)
+            assert concurrency == max_active
         finally:
             release_event.set()
 
@@ -260,8 +262,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
-        self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
+        assert run_on_refresh_calls == [{"Welcome": "Hello"}]
+        assert standard_calls == [{"Welcome": "Hello"}]
 
         refresh_spec = next(
             spec for spec in listener._callbacks.values() if spec.function is on_refresh
@@ -281,15 +283,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_realtime_event(realtime_event)
         await asyncio.sleep(0.05)
 
-        self.assertEqual(
-            run_on_refresh_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
-        self.assertEqual(
-            standard_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
-        self.assertEqual(listener._get_last_realtime_sequence(), 1)
+        assert run_on_refresh_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+        ]
+        assert standard_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+        ]
+        assert listener._get_last_realtime_sequence() == 1
 
         refreshed_state = project_state.model_copy(deep=True)
         self._set_snapshot_section_text(refreshed_state, "Updated")
@@ -299,15 +301,16 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertIsNone(listener._get_last_realtime_sequence())
-        self.assertEqual(
-            run_on_refresh_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}, {}],
-        )
-        self.assertEqual(
-            standard_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
+        assert listener._get_last_realtime_sequence() is None
+        assert run_on_refresh_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+            {},
+        ]
+        assert standard_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+        ]
 
     async def test_realtime_sequences_are_tracked_for_share_session(self) -> None:
         project_state = self._build_project_state()
@@ -365,11 +368,12 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(realtime_spec.callback_id)
 
-        self.assertEqual(
-            realtime_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Update-A"}, {"Welcome": "Update-B"}],
-        )
-        self.assertEqual(listener._get_last_realtime_sequence(), 2)
+        assert realtime_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Update-A"},
+            {"Welcome": "Update-B"},
+        ]
+        assert listener._get_last_realtime_sequence() == 2
 
     async def test_realtime_rejects_unconfigured_share_session(self) -> None:
         project_state = self._build_project_state()
@@ -393,7 +397,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         dependency_key = self._get_structured_dependency(realtime_spec)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await listener._handle_realtime_event(
                 ListenerRealtimeEventContent(
                     projectConfigId=project_state.projectConfig.id,
@@ -470,8 +474,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
-        self.assertEqual(action_calls, [["payload-a"], ["payload-b"]])
-        self.assertEqual(listener._get_last_realtime_sequence(), 2)
+        assert action_calls == [["payload-a"], ["payload-b"]]
+        assert listener._get_last_realtime_sequence() == 2
 
     async def test_action_rejects_mismatched_share_session(self) -> None:
         project_state = self._build_project_state()
@@ -496,7 +500,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             await listener._handle_dependency_event(
                 ListenerDependencyEventContent(
                     projectConfigId=project_state.projectConfig.id,
@@ -535,8 +539,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
-        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
+        assert refresh_calls == [{"Welcome": "Hello"}]
+        assert realtime_calls == [{"Welcome": "Hello"}]
 
         realtime_spec = next(
             spec
@@ -559,11 +563,11 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(realtime_spec.callback_id)
 
-        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
-        self.assertEqual(
-            realtime_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
+        assert refresh_calls == [{"Welcome": "Hello"}]
+        assert realtime_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+        ]
 
     async def test_realtime_only_callbacks_skip_snapshot(self) -> None:
         project_state = self._build_project_state()
@@ -583,7 +587,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(realtime_calls, [])
+        assert realtime_calls == []
 
         realtime_spec = next(
             spec
@@ -606,7 +610,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(realtime_spec.callback_id)
 
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+        assert realtime_calls == [{"Welcome": "Updated"}]
 
     async def test_default_dependency_mode_omitted_deps_is_refresh_only(self) -> None:
         project_state = self._build_project_state()
@@ -623,17 +627,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(refresh_calls, [{}])
+        assert refresh_calls == [{}]
 
         refresh_spec = next(
             spec
             for spec in listener._callbacks.values()
             if spec.function is on_refresh
         )
-        self.assertEqual(
-            refresh_spec.dependency_mode,
-            ListenerDependencyMode.REFRESH_ONLY,
-        )
+        assert refresh_spec.dependency_mode == ListenerDependencyMode.REFRESH_ONLY
 
         section_id = next(iter(project_state.sections))
         dependency_key = create_dep_key(sectionId=section_id)
@@ -652,7 +653,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertEqual(refresh_calls, [{}])
+        assert refresh_calls == [{}]
 
     async def test_realtime_only_wildcard_skips_snapshot(self) -> None:
         project_state = self._build_project_state()
@@ -672,7 +673,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(realtime_calls, [])
+        assert realtime_calls == []
 
         section_id = next(iter(project_state.sections))
         dependency_key = create_dep_key(sectionId=section_id)
@@ -696,7 +697,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._scheduler.flush(realtime_spec.callback_id)
 
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+        assert realtime_calls == [{"Welcome": "Updated"}]
 
         refreshed_state = project_state.model_copy(deep=True)
         self._set_snapshot_section_text(refreshed_state, "Updated")
@@ -706,7 +707,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated"}])
+        assert realtime_calls == [{"Welcome": "Updated"}]
 
     async def test_any_dependency_callbacks_receive_all_deltas(self) -> None:
         project_state = self._build_project_state()
@@ -731,8 +732,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
-        self.assertEqual(any_calls, [{}])
-        self.assertEqual(specific_calls, [{"Welcome": "Hello"}])
+        assert any_calls == [{}]
+        assert specific_calls == [{"Welcome": "Hello"}]
 
         specific_spec = next(
             spec
@@ -759,14 +760,11 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._scheduler.flush(specific_spec.callback_id)
         await listener._scheduler.flush(any_spec.callback_id)
 
-        self.assertEqual(
-            any_calls,
-            [{}, {"Welcome": "Updated"}],
-        )
-        self.assertEqual(
-            specific_calls,
-            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
-        )
+        assert any_calls == [{}, {"Welcome": "Updated"}]
+        assert specific_calls == [
+            {"Welcome": "Hello"},
+            {"Welcome": "Updated"},
+        ]
 
     async def test_realtime_delta_rehydrates_typed_values(self) -> None:
         listener = SettaListener(project_name="Project project-typed")
@@ -903,16 +901,16 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._scheduler.flush(slider_spec.callback_id)
         await listener._scheduler.flush(switch_spec.callback_id)
 
-        self.assertEqual(state.section__slider, 5)
-        self.assertIsInstance(state.section__slider, int)
-        self.assertEqual(slider_events, [(5, 5)])
-        self.assertEqual(listener._dependency_cache["section__slider"], 5)
+        assert state.section__slider == 5
+        assert isinstance(state.section__slider, int)
+        assert slider_events == [(5, 5)]
+        assert listener._dependency_cache["section__slider"] == 5
 
-        self.assertTrue(state.section__switch)
-        self.assertIsInstance(state.section__switch, bool)
-        self.assertEqual(switch_events, [(True, True)])
-        self.assertTrue(listener._dependency_cache["section__switch"])
-        self.assertEqual(listener._get_last_realtime_sequence(), 1)
+        assert state.section__switch
+        assert isinstance(state.section__switch, bool)
+        assert switch_events == [(True, True)]
+        assert listener._dependency_cache["section__switch"]
+        assert listener._get_last_realtime_sequence() == 1
 
     async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
         listener = SettaListener(project_name="Project Missing")
@@ -969,13 +967,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 last_resort.setLevel(last_resort_level)
 
         output = stream.getvalue()
-        self.assertIn(
-            "Listener name:Project Missing received error project_state_unavailable",
-            output,
+        assert (
+            "Listener name:Project Missing received error project_state_unavailable"
+            in output
         )
 
 
-class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestSettaListenerBootstrapFailure:
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
             id=ID("section-impl"),
@@ -1028,13 +1027,8 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
 
         await listener._refresh_from_snapshot(project_state)
 
-        self.assertIsNotNone(listener._runtime_state)
-        assert listener._runtime_state is not None  # help type checkers
-        self.assertIsNone(listener._runtime_state.s_instance)
-        self.assertTrue(listener._registration_pending)
-        self.assertEqual(1, len(register_payloads))
-        self.assertEqual("ListenerRegister", register_payloads[0]["messageType"])
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert listener._runtime_state is not None
+        assert listener._runtime_state.s_instance is None
+        assert listener._registration_pending
+        assert len(register_payloads) == 1
+        assert register_payloads[0]["messageType"] == "ListenerRegister"

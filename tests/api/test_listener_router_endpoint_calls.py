@@ -1,5 +1,6 @@
 import asyncio
-import unittest
+
+import pytest
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -70,7 +71,8 @@ def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     return listener
 
 
-class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
+@pytest.mark.asyncio
+class TestListenerRouterEndpointCall:
     async def test_call_router_endpoint_serializes_payload_and_returns_result(
         self,
     ) -> None:
@@ -94,22 +96,16 @@ class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.sleep(0)
 
-        self.assertEqual(1, len(sent_payloads))
+        assert len(sent_payloads) == 1
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        self.assertIsInstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
-        self.assertEqual(
-            "route_get_latest_project_state",
-            parsed_message.content.endpointName,
-        )
-        self.assertEqual(
-            {
-                "frontendOpId": None,
-                "projectConfigId": project_state.projectConfig.id,
-            },
-            parsed_message.content.payload,
-        )
+        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert parsed_message.content.endpointName == "route_get_latest_project_state"
+        assert parsed_message.content.payload == {
+            "frontendOpId": None,
+            "projectConfigId": project_state.projectConfig.id,
+        }
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
@@ -123,7 +119,7 @@ class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
         )
 
         result = await call_task
-        self.assertEqual({"status": "ok"}, result)
+        assert result == {"status": "ok"}
 
     async def test_call_router_endpoint_surfaces_error_details(self) -> None:
         project_state = _build_project_state(ID("proj-router-error"))
@@ -146,7 +142,7 @@ class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        self.assertIsInstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
@@ -160,11 +156,7 @@ class ListenerRouterEndpointCallTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        with self.assertRaises(RuntimeError) as ctx:
+        with pytest.raises(RuntimeError) as ctx:
             await call_task
-        self.assertIn("listener_call_failed", str(ctx.exception))
-        self.assertIn("boom", str(ctx.exception))
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+        assert "listener_call_failed" in str(ctx.value)
+        assert "boom" in str(ctx.value)
