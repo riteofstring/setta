@@ -44,6 +44,23 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
         self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        start_event = events[0].stream_chunk
+        delta_event = events[1].stream_chunk
+        if isinstance(start_event, MessageStartEvent) and isinstance(
+            delta_event, MessageDeltaEvent
+        ):
+            start_text = ""
+            if start_event.message.content:
+                first = start_event.message.content[0]
+                if hasattr(first, "text") and isinstance(first.text, str):
+                    start_text = first.text
+            delta_text = ""
+            if delta_event.content:
+                delta = delta_event.content[0]
+                if hasattr(delta, "text") and isinstance(delta.text, str):
+                    delta_text = delta.text
+            self.assertEqual(start_text, "")
+            self.assertEqual(delta_text, "Hello")
 
     def test_reasoning_part_updates_emit_thinking_delta(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -212,3 +229,72 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
         arguments_delta = tool_calls[0].arguments_delta
         parsed = json.loads(arguments_delta)
         self.assertEqual(parsed.get("command"), "echo hi")
+
+    def test_text_part_snapshot_does_not_duplicate(self) -> None:
+        parser = _OpenCodeSdkEventParser()
+        parser.handle(
+            {
+                "type": "message.updated",
+                "properties": {
+                    "info": {
+                        "id": "msg-6",
+                        "role": "assistant",
+                        "sessionID": "sess-6",
+                        "time": {"created": 1},
+                    }
+                },
+            }
+        )
+        delta_payload = {
+            "type": "message.part.updated",
+            "properties": {
+                "part": {
+                    "id": "prt-6",
+                    "sessionID": "sess-6",
+                    "messageID": "msg-6",
+                    "type": "text",
+                    "text": "Hello",
+                },
+                "delta": "Hello",
+            },
+        }
+        parser.handle(delta_payload)
+        snapshot_payload = {
+            "type": "message.part.updated",
+            "properties": {
+                "part": {
+                    "id": "prt-6",
+                    "sessionID": "sess-6",
+                    "messageID": "msg-6",
+                    "type": "text",
+                    "text": "Hello",
+                }
+            },
+        }
+        parser.handle(snapshot_payload)
+        final_events = parser.handle(
+            {
+                "type": "message.updated",
+                "properties": {
+                    "info": {
+                        "id": "msg-6",
+                        "role": "assistant",
+                        "sessionID": "sess-6",
+                        "time": {"completed": 2},
+                    }
+                },
+            }
+        )
+        finalized = [
+            event.stream_chunk
+            for event in final_events
+            if isinstance(event.stream_chunk, MessageFinalizedEvent)
+        ]
+        self.assertEqual(len(finalized), 1)
+        message = finalized[0].message
+        text = ""
+        if message.content:
+            first = message.content[0]
+            if hasattr(first, "text") and isinstance(first.text, str):
+                text = first.text
+        self.assertEqual(text, "Hello")

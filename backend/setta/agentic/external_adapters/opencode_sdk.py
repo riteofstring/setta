@@ -224,6 +224,7 @@ class _OpenCodeSdkEventParser:
         self._finalized_messages: set[str] = set()
         self._message_roles: dict[str, str] = {}
         self._pending_parts: dict[str, list[dict[str, Any]]] = {}
+        self._part_text_by_id: dict[str, str] = {}
 
     def handle(self, payload: dict[str, Any]) -> list[ExternalAgentStreamEvent]:
         event_type = payload.get("type")
@@ -240,14 +241,15 @@ class _OpenCodeSdkEventParser:
         text = _extract_text(payload)
         if text:
             message, is_new = self._get_or_create_message(payload)
-            if is_new:
+            start_message = message.model_copy(deep=True) if is_new else None
+            _append_message_text(message, text)
+            if start_message is not None:
                 events.append(
                     ExternalAgentStreamEvent(
                         raw=payload,
-                        stream_chunk=MessageStartEvent(message=message),
+                        stream_chunk=MessageStartEvent(message=start_message),
                     )
                 )
-            _append_message_text(message, text)
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
@@ -298,21 +300,43 @@ class _OpenCodeSdkEventParser:
                 return [ExternalAgentStreamEvent(raw=payload)]
         part_type = part.get("type")
         if part_type == "text":
-            text = properties.get("delta")
-            if not isinstance(text, str):
-                text = part.get("text")
-            if not isinstance(text, str) or not text:
+            part_id = part.get("id")
+            if not isinstance(part_id, str) or not part_id:
+                part_id = None
+            prev_text = self._part_text_by_id.get(part_id, "") if part_id else ""
+            raw_delta = properties.get("delta")
+            delta_text = raw_delta if isinstance(raw_delta, str) and raw_delta else None
+            if delta_text is None:
+                full_text = part.get("text")
+                if not isinstance(full_text, str) or not full_text:
+                    return [ExternalAgentStreamEvent(raw=payload)]
+                if prev_text and full_text.startswith(prev_text):
+                    text = full_text[len(prev_text) :]
+                elif prev_text and prev_text.startswith(full_text):
+                    text = ""
+                elif not prev_text:
+                    text = full_text
+                else:
+                    text = full_text
+                if part_id:
+                    self._part_text_by_id[part_id] = full_text
+            else:
+                text = delta_text
+                if part_id:
+                    self._part_text_by_id[part_id] = prev_text + delta_text
+            if not text:
                 return [ExternalAgentStreamEvent(raw=payload)]
             message, is_new = self._get_or_create_message(
                 payload, message_id=message_id
             )
+            start_message = message.model_copy(deep=True) if is_new else None
             _append_message_text(message, text)
             events: list[ExternalAgentStreamEvent] = []
-            if is_new:
+            if start_message is not None:
                 events.append(
                     ExternalAgentStreamEvent(
                         raw=payload,
-                        stream_chunk=MessageStartEvent(message=message),
+                        stream_chunk=MessageStartEvent(message=start_message),
                     )
                 )
             events.append(
@@ -326,21 +350,43 @@ class _OpenCodeSdkEventParser:
             )
             return events
         if part_type == "reasoning":
-            thinking = properties.get("delta")
-            if not isinstance(thinking, str):
-                thinking = part.get("text")
-            if not isinstance(thinking, str) or not thinking:
+            part_id = part.get("id")
+            if not isinstance(part_id, str) or not part_id:
+                part_id = None
+            prev_text = self._part_text_by_id.get(part_id, "") if part_id else ""
+            raw_delta = properties.get("delta")
+            delta_text = raw_delta if isinstance(raw_delta, str) and raw_delta else None
+            if delta_text is None:
+                full_text = part.get("text")
+                if not isinstance(full_text, str) or not full_text:
+                    return [ExternalAgentStreamEvent(raw=payload)]
+                if prev_text and full_text.startswith(prev_text):
+                    thinking = full_text[len(prev_text) :]
+                elif prev_text and prev_text.startswith(full_text):
+                    thinking = ""
+                elif not prev_text:
+                    thinking = full_text
+                else:
+                    thinking = full_text
+                if part_id:
+                    self._part_text_by_id[part_id] = full_text
+            else:
+                thinking = delta_text
+                if part_id:
+                    self._part_text_by_id[part_id] = prev_text + delta_text
+            if not thinking:
                 return [ExternalAgentStreamEvent(raw=payload)]
             message, is_new = self._get_or_create_message(
                 payload, message_id=message_id
             )
+            start_message = message.model_copy(deep=True) if is_new else None
             _append_message_thinking(message, thinking)
             events: list[ExternalAgentStreamEvent] = []
-            if is_new:
+            if start_message is not None:
                 events.append(
                     ExternalAgentStreamEvent(
                         raw=payload,
-                        stream_chunk=MessageStartEvent(message=message),
+                        stream_chunk=MessageStartEvent(message=start_message),
                     )
                 )
             events.append(
