@@ -1,3 +1,4 @@
+import contextlib
 import asyncio
 import json
 import logging
@@ -54,6 +55,33 @@ from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolT
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 logger = logging.getLogger(__name__)
+
+
+def _patch_claude_sdk_query_close() -> None:
+    try:
+        from claude_agent_sdk._internal.query import Query
+    except Exception:
+        return
+    if getattr(Query, "_setta_close_patched", False):
+        return
+    original_close = Query.close
+
+    async def _patched_close(self) -> None:
+        try:
+            await original_close(self)
+        finally:
+            for attr in ("_message_send", "_message_receive"):
+                stream = getattr(self, attr, None)
+                if stream is None:
+                    continue
+                with contextlib.suppress(Exception):
+                    await stream.aclose()
+
+    Query.close = _patched_close  # type: ignore[assignment]
+    Query._setta_close_patched = True
+
+
+_patch_claude_sdk_query_close()
 
 _QUEUE_KIND_MESSAGE = "sdk_message"
 _QUEUE_KIND_RAW = "raw_event"

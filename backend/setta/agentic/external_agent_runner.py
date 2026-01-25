@@ -638,9 +638,14 @@ class ExternalAgentRunner:
         system_prompt: str,
     ) -> None:
         allowlist = self._resolve_external_tool_allowlist(profile)
-        mcp_url = self._build_setta_mcp_url()
-        auth_headers = self._build_mcp_auth_headers()
         if config.toolType == ExternalAgentToolType.claude_code:
+            mcp_url = self._build_setta_mcp_url()
+            auth_headers = self._build_mcp_auth_headers()
+            logger.info(
+                "Configuring Claude MCP url=%s allowlist=%s",
+                mcp_url,
+                allowlist.tool_names if allowlist is not None else None,
+            )
             if "mcpConfig" not in payload_inputs:
                 config_path = self._write_claude_mcp_config(mcp_url)
                 payload_inputs["mcpConfig"] = str(config_path)
@@ -651,6 +656,13 @@ class ExternalAgentRunner:
                 payload_inputs["allowedTools"] = allowed_tools
             return
         if config.toolType == ExternalAgentToolType.opencode:
+            mcp_url = self._build_setta_mcp_url()
+            auth_headers = self._build_mcp_auth_headers()
+            logger.info(
+                "Configuring OpenCode MCP url=%s allowlist=%s",
+                mcp_url,
+                allowlist.tool_names if allowlist is not None else None,
+            )
             config_path = build_opencode_settings_file(
                 self.dbe,
                 config,
@@ -661,6 +673,13 @@ class ExternalAgentRunner:
             env["OPENCODE_CONFIG"] = str(config_path)
             return
         if config.toolType == ExternalAgentToolType.codex:
+            mcp_url = self._build_setta_mcp_streamable_url()
+            auth_headers = self._build_mcp_auth_headers()
+            logger.info(
+                "Configuring Codex MCP url=%s allowlist=%s",
+                mcp_url,
+                allowlist.tool_names if allowlist is not None else None,
+            )
             codex_prompt = self._resolve_codex_developer_instructions(
                 profile, payload_inputs
             )
@@ -691,6 +710,10 @@ class ExternalAgentRunner:
     @staticmethod
     def _build_setta_mcp_url() -> str:
         return f"{C.BACKEND}/mcp"
+
+    @staticmethod
+    def _build_setta_mcp_streamable_url() -> str:
+        return f"{C.BACKEND}/mcp/streamable/"
 
     def _create_temp_dir(self, prefix: str) -> Path:
         return Path(tempfile.mkdtemp(prefix=prefix))
@@ -975,6 +998,13 @@ class ExternalAgentRunner:
             logger.warning("Approval request missing approvalId: %s", payload)
             return
         tool_name = self._extract_tool_name(payload)
+        logger.info(
+            "Approval request received run_id=%s approval_id=%s tool_name=%s payload=%s",
+            run.id,
+            approval_id,
+            tool_name,
+            payload,
+        )
         is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
             if context.config.toolType == ExternalAgentToolType.claude_code:

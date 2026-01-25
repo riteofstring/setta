@@ -798,7 +798,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             self.assertTrue(config_path.exists())
             content = config_path.read_text(encoding="utf-8")
             self.assertIn("[mcp_servers.setta]", content)
-            self.assertIn(f"url = \"{C.BACKEND}/mcp\"", content)
+            self.assertIn(f"url = \"{C.BACKEND}/mcp/streamable/\"", content)
             expected_dir = (
                 dbe.path / "external_agent_settings" / "codex" / "codex-config"
             )

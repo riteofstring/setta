@@ -432,17 +432,17 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
         )
         params = _build_turn_params(context, "hello", "thread-1")
 
-        self.assertEqual(params.get("approvalPolicy"), "onRequest")
+        self.assertEqual(params.get("approvalPolicy"), "on-request")
         sandbox_policy = params.get("sandboxPolicy")
         self.assertIsInstance(sandbox_policy, dict)
         if isinstance(sandbox_policy, dict):
             self.assertEqual(sandbox_policy.get("type"), "workspaceWrite")
 
     def test_map_approval_policy_untrusted(self) -> None:
-        self.assertEqual(_map_approval_policy("untrusted"), "unlessTrusted")
+        self.assertEqual(_map_approval_policy("untrusted"), "untrusted")
 
     def test_map_approval_policy_on_failure(self) -> None:
-        self.assertEqual(_map_approval_policy("on-failure"), "onFailure")
+        self.assertEqual(_map_approval_policy("on-failure"), "on-failure")
 
     def test_build_turn_params_rejects_non_object_output_schema(self) -> None:
         config = ExternalAgentConfig(

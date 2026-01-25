@@ -29,6 +29,8 @@ from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.mcp_test_server import run_test_mcp_server
+
 
 class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
     @staticmethod
@@ -545,6 +547,101 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             if isinstance(entry, dict)
                         )
                         self.assertIn(token, todo_text)
+
+    async def test_claude_sdk_mcp_tool_call(self) -> None:
+        self._require_claude_sdk()
+
+        async with run_test_mcp_server():
+            with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+                dbe = DBE(Path(tmpdir) / "setta_files")
+                project_config = ProjectConfig()
+                dbe.write_project(
+                    ProjectStateBackend(
+                        projectConfigs={project_config.id: project_config},
+                        defaultProjectConfigId=project_config.id,
+                    )
+                )
+                websocket_manager = WebsocketManager()
+                frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+                registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+                runner = ExternalAgentRunner(
+                    dbe,
+                    frontend_sender,
+                    adapter_registry=registry,
+                )
+
+                config = ExternalAgentConfig(
+                    name="Claude SDK",
+                    toolType=ExternalAgentToolType.claude_code,
+                    runMode=ExternalAgentRunMode.sdk,
+                    approvalPolicy="allow",
+                    envVarWhitelist=["ANTHROPIC_API_KEY"],
+                )
+
+                run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {
+                        "prompt": (
+                            "Call the list_mcp_tools tool. Do not answer until "
+                            "after the tool result. Then reply with only OK."
+                        ),
+                        "allowedTools": ["list_mcp_tools"],
+                        "maxTurns": 1,
+                    },
+                )
+
+                handle = await self._await_run_handle(runner, run.id)
+                self._assert_python_sdk_handle(handle)
+
+                stored = await self._await_completed_run(dbe, run.id)
+                outputs = stored.get("outputs")
+                self.assertIsInstance(outputs, dict)
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                if not isinstance(messages, list):
+                    raise AssertionError("Expected messages to be a list")
+
+                tool_errors = []
+                for message in messages:
+                    if (
+                        isinstance(message, dict)
+                        and message.get("role") == "tool"
+                        and message.get("is_error")
+                    ):
+                        tool_errors.append(self._extract_tool_text(message))
+                if tool_errors:
+                    self.fail(
+                        self._debug_dump(
+                            handle,
+                            outputs,
+                            f"Tool errors encountered: {tool_errors}",
+                        )
+                    )
+
+                assistant_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "assistant"
+                ]
+                tool_calls: list[dict] = []
+                for message in assistant_messages:
+                    calls = (
+                        message.get("tool_calls") if isinstance(message, dict) else None
+                    )
+                    if isinstance(calls, list):
+                        tool_calls.extend(
+                            call for call in calls if isinstance(call, dict)
+                        )
+                mcp_calls = [
+                    call
+                    for call in tool_calls
+                    if "list_mcp_tools"
+                    in (call.get("function", {}).get("name") or "")
+                ]
+                self.assertTrue(mcp_calls)
 
     async def test_claude_sdk_local_settings_prompt_for_echo(self) -> None:
         self._require_claude_sdk()

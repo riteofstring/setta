@@ -154,8 +154,8 @@ Test outline:
 - Configure `approvalPolicy = "on-request"` and issue a prompt that requires a command execution.
 - Wait for a pending approval, approve it, and assert the run completes with the expected tool output.
 
-### 6) Claude structured output schema (optional follow-up)
-If the Claude SDK supports output schemas, mirror the Codex structured output test with a small JSON schema and assert the response matches.
+### 6) Claude structured output schema (dropped)
+Removed: we only need tool coverage in integration tests, so structured output schema validation is out of scope.
 
 ### 7) MCP tool call integration (optional follow-up)
 - Add a test for both adapters that triggers an MCP tool call (non-empty MCP config) and validates that tool calls + tool results show up in `outputs.messages`.
@@ -182,3 +182,7 @@ If the Claude SDK supports output schemas, mirror the Codex structured output te
 - Extended Codex app-server adapter to emit generic tool events for collabToolCall/webSearch/imageView/enteredReviewMode/exitedReviewMode/compacted.
 - Added Codex parser tests for the new item types.
 - Ran unit tests: `tests/agentic/test_claude_sdk_adapter.py` and `tests/agentic/test_codex_app_server_adapter.py` (passed).
+- Added Codex TodoWrite integration test (conditional) and approvals integration test.
+- Added MCP tool call integration tests for Claude + Codex plus local MCP test server harness.
+- Removed Claude structured output schema wiring/tests (not needed for tool coverage).
+- Dropped Codex TodoWrite integration test (TodoWrite not documented in app-server docs).

@@ -78,3 +78,7 @@ async def build_runner_with_local_mcp_session(
         finally:
             server_task.cancel()
             await asyncio.gather(server_task, return_exceptions=True)
+            await client_send.aclose()
+            await client_receive.aclose()
+            await server_send.aclose()
+            await server_receive.aclose()

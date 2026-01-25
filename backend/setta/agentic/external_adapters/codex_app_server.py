@@ -62,6 +62,7 @@ _GENERIC_TOOL_ITEM_TYPES = {
 _COMMAND_EXECUTION_TOOL_NAME = "command_execution"
 _FILE_CHANGE_TOOL_NAME = "file_change"
 _MAX_CLI_STDERR_LINES = 200
+_REQUEST_TIMEOUT_SECONDS = 15.0
 
 
 @dataclass
@@ -482,6 +483,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         params = {"clientInfo": {"name": "setta", "version": __version__}}
         await self._send_request(state, "initialize", params)
         await self._send_notification(state, "initialized", None)
+        await self._send_request(state, "config/mcpServer/reload", {})
         state.initialized = True
 
     async def _await_thread_id(
@@ -519,7 +521,16 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             payload["params"] = params
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
-        response = await future
+        try:
+            response = await asyncio.wait_for(future, timeout=_REQUEST_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError as exc:
+            state.pending_requests.pop(request_id, None)
+            if not future.done():
+                future.cancel()
+            raise RuntimeError(
+                "Codex app-server request timed out "
+                f"(method={method}, timeout={_REQUEST_TIMEOUT_SECONDS}s)"
+            ) from exc
         if "error" in response:
             raise RuntimeError(
                 f"Codex app-server request failed ({method}): {response.get('error')}"
@@ -1394,14 +1405,21 @@ def _map_approval_policy(value: str | None) -> str | None:
     normalized = value.strip()
     if not normalized:
         return None
+    normalized_key = normalized.lower().replace("_", "-")
     mapping = {
-        "untrusted": "unlessTrusted",
-        "on-request": "onRequest",
-        "on-requested": "onRequest",
-        "on-failure": "onFailure",
+        "unlesstrusted": "untrusted",
+        "unless-trusted": "untrusted",
+        "untrusted": "untrusted",
+        "on-request": "on-request",
+        "onrequested": "on-request",
+        "on-requested": "on-request",
+        "onrequest": "on-request",
+        "on-failure": "on-failure",
+        "onfailure": "on-failure",
         "never": "never",
     }
-    return mapping.get(normalized, normalized)
+    mapped = mapping.get(normalized_key, normalized)
+    return mapped
 
 
 def _build_sandbox_policy(context: ExternalAgentRunContext) -> dict[str, Any] | None:
@@ -1835,6 +1853,36 @@ def _stringify_tool_result(value: Any) -> str:
         return json.dumps(value)
     except TypeError:
         return str(value)
+
+
+def _summarize_payload(payload: Any) -> Any:
+    if payload is None:
+        return None
+    if isinstance(payload, str):
+        if len(payload) > 200:
+            return f"{payload[:200]}..."
+        return payload
+    if isinstance(payload, list):
+        summarized: list[Any] = []
+        for item in payload:
+            summarized.append(_summarize_payload(item))
+        return summarized
+    if isinstance(payload, dict):
+        summarized_dict: dict[str, Any] = {}
+        for key, value in payload.items():
+            lower_key = key.lower()
+            if lower_key in {"text", "prompt", "developer_instructions"}:
+                if isinstance(value, str):
+                    summarized_dict[key] = f"<text len={len(value)}>"
+                    continue
+            if lower_key in {"input", "params", "arguments"} and isinstance(
+                value, list
+            ):
+                summarized_dict[key] = [_summarize_payload(entry) for entry in value]
+                continue
+            summarized_dict[key] = _summarize_payload(value)
+        return summarized_dict
+    return payload
 
 
 def _is_response(payload: dict[str, Any]) -> bool:

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -6,6 +7,7 @@ import shutil
 import socket
 import subprocess
 import unittest
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -15,8 +17,10 @@ from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import (
+    CodexSettingsManaged,
     ExternalAgentConfig,
     ExternalAgentRunMode,
+    ExternalAgentSettingsManagedBlock,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -25,6 +29,8 @@ from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+
+from tests.utils.mcp_test_server import run_test_mcp_server
 
 
 class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
@@ -49,16 +55,43 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.skipTest("Cannot connect to api.openai.com:443")
         return codex_path
 
-    async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
-        for _ in range(120):
+    async def _await_completed_run(
+        self,
+        dbe: DBE,
+        run_id: ID,
+        *,
+        runner: ExternalAgentRunner | None = None,
+        timeout_seconds: float = 60.0,
+        log_interval_seconds: float = 10.0,
+    ) -> dict:
+        start = time.monotonic()
+        next_log = start + log_interval_seconds
+        stored: dict | None = None
+        while True:
             await asyncio.sleep(0.5)
             stored = dbe.read_agent_run(run_id)
-            if stored and stored.get("status") in {
-                "completed",
-                "failed",
-                "cancelled",
-            }:
+            status = stored.get("status") if isinstance(stored, dict) else None
+            if status in {"completed", "failed", "cancelled"}:
                 break
+            now = time.monotonic()
+            if now - start >= timeout_seconds:
+                stderr_lines = None
+                outputs = stored.get("outputs") if isinstance(stored, dict) else None
+                if runner is not None and run_id in runner._run_state:
+                    stderr_lines = runner._run_state[run_id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                    await runner.stop_run(run_id)
+                self.fail(
+                    self._debug_dump(
+                        outputs,
+                        stderr_lines,
+                        "Codex app-server run timed out "
+                        f"after {timeout_seconds}s; status={status}",
+                    )
+                )
+            if now >= next_log:
+                next_log = now + log_interval_seconds
 
         stored = dbe.read_agent_run(run_id)
         self.assertIsNotNone(stored)
@@ -84,6 +117,61 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
         return stored
+
+    async def _await_pending_approval(
+        self, runner: ExternalAgentRunner, dbe: DBE, run_id: ID
+    ) -> str:
+        start = time.monotonic()
+        next_log = start + 2.0
+        for _ in range(200):
+            for approval_id, state in runner._pending_approvals.items():
+                if state.run_id == run_id:
+                    return approval_id
+            stored = dbe.read_agent_run(run_id)
+            status = stored.get("status") if isinstance(stored, dict) else None
+            if status in {"completed", "failed", "cancelled"}:
+                stderr_lines = None
+                outputs = stored.get("outputs") if isinstance(stored, dict) else None
+                if run_id in runner._run_state:
+                    stderr_lines = runner._run_state[run_id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                self.fail(
+                    self._debug_dump(
+                        outputs,
+                        stderr_lines,
+                        "Codex app-server run completed before approval "
+                        f"(status={status})",
+                    )
+                )
+            now = time.monotonic()
+            if now >= next_log:
+                next_log = now + 2.0
+            await asyncio.sleep(0.1)
+        stderr_lines = None
+        outputs = stored.get("outputs") if isinstance(stored, dict) else None
+        if run_id in runner._run_state:
+            stderr_lines = runner._run_state[run_id].handle.metadata.get("stderr_lines")
+        self.fail(
+            self._debug_dump(
+                outputs,
+                stderr_lines,
+                "Codex app-server run did not request a tool approval in time.",
+            )
+        )
+        raise AssertionError("Unreachable")
+
+    @staticmethod
+    def _matches_repeated_token(text: str, token: str) -> bool:
+        stripped = text.strip()
+        if stripped == token:
+            return True
+        if not stripped or not token:
+            return False
+        if len(stripped) % len(token) != 0:
+            return False
+        repeat_count = len(stripped) // len(token)
+        return stripped == token * repeat_count
 
     @staticmethod
     def _build_config(codex_path: str) -> ExternalAgentConfig:
@@ -138,10 +226,70 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         stderr_tail: list[str] = []
         if isinstance(stderr_lines, list):
             stderr_tail = [str(line) for line in stderr_lines[-50:]]
+        settings_dump = ""
+        if isinstance(outputs, dict):
+            metadata = outputs.get("metadata")
+            if isinstance(metadata, dict):
+                settings_paths = metadata.get("settingsPaths")
+                if isinstance(settings_paths, dict):
+                    codex_path = settings_paths.get("codex")
+                    if isinstance(codex_path, str):
+                        try:
+                            path = Path(codex_path)
+                            if path.exists():
+                                contents = path.read_text(encoding="utf-8")
+                                redacted = (
+                                    CodexAppServerAdapterIntegrationTests
+                                    ._redact_settings_text(contents)
+                                )
+                                settings_dump = (
+                                    f" codexConfigPath={codex_path} "
+                                    f"codexConfig={redacted!r}"
+                                )
+                            else:
+                                settings_dump = (
+                                    f" codexConfigPath={codex_path} "
+                                    "codexConfig=<missing>"
+                                )
+                        except Exception as exc:
+                            settings_dump = (
+                                f" codexConfigPath={codex_path} "
+                                f"codexConfigError={exc!r}"
+                            )
         return (
             f"{label} outputs={outputs} "
-            f"cliStderrTail={stderr_tail if stderr_tail else '[]'}"
+            f"cliStderrTail={stderr_tail if stderr_tail else '[]'}{settings_dump}"
         )
+
+    @staticmethod
+    def _redact_settings_text(text: str) -> str:
+        redacted_lines: list[str] = []
+        for line in text.splitlines():
+            lowered = line.lower()
+            if any(
+                token in lowered
+                for token in (
+                    "api_key",
+                    "apikey",
+                    "authorization",
+                    "auth_token",
+                    "bearer",
+                    "secret",
+                    "password",
+                    "cookie",
+                )
+            ):
+                if "=" in line:
+                    prefix = line.split("=", 1)[0].rstrip()
+                    redacted_lines.append(f"{prefix} = \"[redacted]\"")
+                elif ":" in line:
+                    prefix = line.split(":", 1)[0].rstrip()
+                    redacted_lines.append(f"{prefix}: [redacted]")
+                else:
+                    redacted_lines.append("[redacted]")
+                continue
+            redacted_lines.append(line)
+        return "\n".join(redacted_lines)
 
     @staticmethod
     def _extract_json_object(text: str) -> dict:
@@ -195,7 +343,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 None,
                 {"prompt": "Say hello."},
             )
-            stored = await self._await_completed_run(dbe, run.id)
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -225,7 +373,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 {"prompt": "Say hello."},
             )
 
-            stored = await self._await_completed_run(dbe, run.id)
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -247,7 +395,9 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 None,
                 {"prompt": "Say hello."},
             )
-            first_stored = await self._await_completed_run(dbe, first_run.id)
+            first_stored = await self._await_completed_run(
+                dbe, first_run.id, runner=runner
+            )
             first_outputs = first_stored.get("outputs")
             self.assertIsInstance(first_outputs, dict)
             if not isinstance(first_outputs, dict):
@@ -267,7 +417,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             second_inputs = second_run.inputs or {}
             self.assertEqual(second_inputs.get("threadId"), thread_id)
 
-            await self._await_completed_run(dbe, second_run.id)
+            await self._await_completed_run(dbe, second_run.id, runner=runner)
 
     async def test_codex_app_server_uses_message_history(self) -> None:
         codex_path = self._require_codex_cli()
@@ -293,7 +443,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            stored = await self._await_completed_run(dbe, run.id)
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -321,7 +471,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 },
             )
-            await self._await_completed_run(dbe, first_run.id)
+            await self._await_completed_run(dbe, first_run.id, runner=runner)
 
             second_run = runner.start_run(
                 config.id,
@@ -335,7 +485,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "chatId": str(first_run.id),
                 },
             )
-            stored = await self._await_completed_run(dbe, second_run.id)
+            stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -375,7 +525,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            stored = await self._await_completed_run(dbe, run.id)
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -387,6 +537,245 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             payload = self._extract_json_object(final_text)
             self.assertEqual(payload.get("status"), "ok")
             self.assertEqual(payload.get("codeWord"), token)
+
+    async def test_codex_app_server_mcp_tool_call(self) -> None:
+        codex_path = self._require_codex_cli()
+        async with run_test_mcp_server() as mcp_server:
+            with TemporaryDirectory() as tmpdir:
+                dbe, runner = self._build_runner(Path(tmpdir))
+                config = self._build_config(codex_path)
+                enabled_tools = []
+                if mcp_server.test_tool_name:
+                    enabled_tools.append(mcp_server.test_tool_name)
+                else:
+                    enabled_tools.append("list_mcp_tools")
+                config.settingsManagedBlock = ExternalAgentSettingsManagedBlock(
+                    codex=CodexSettingsManaged(
+                        enabledTools=enabled_tools,
+                    )
+                )
+                debug_tool_inventory: str | None = None
+
+                debug_run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {
+                        "prompt": (
+                            "What tools do you have access to? Reply with only the "
+                            "tool names."
+                        )
+                    },
+                )
+                debug_stored = await self._await_completed_run(
+                    dbe, debug_run.id, runner=runner
+                )
+                debug_outputs = debug_stored.get("outputs")
+                if isinstance(debug_outputs, dict):
+                    debug_text = debug_outputs.get("finalText")
+                    if isinstance(debug_text, str) and debug_text:
+                        debug_tool_inventory = debug_text
+                    elif isinstance(debug_outputs.get("messages"), list):
+                        debug_tool_inventory = self._collect_message_texts(
+                            debug_outputs["messages"]
+                        )
+
+                test_tool_name = mcp_server.test_tool_name
+                test_tool_token = mcp_server.test_tool_token
+                if test_tool_name and test_tool_token:
+                    tool_prompt = (
+                        f"Call the MCP tool `mcp__setta__{test_tool_name}` "
+                        "exactly once. It returns JSON with a `token` field. "
+                        "Do not answer until after the tool result. Then reply "
+                        "with only the token."
+                    )
+                else:
+                    tool_prompt = (
+                        "Call the MCP tool `mcp__setta__list_mcp_tools`. "
+                        "Do not answer until after the tool result. "
+                        "Then reply with only OK."
+                    )
+
+                run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {"prompt": tool_prompt},
+                )
+                debug_adapter = None
+                debug_state = None
+                for _ in range(200):
+                    run_state = runner._run_state.get(run.id)
+                    if run_state is not None:
+                        debug_adapter = run_state.adapter
+                        debug_state = run_state.handle.metadata.get("process_state")
+                        break
+                    await asyncio.sleep(0.1)
+
+                stored = await self._await_completed_run(dbe, run.id, runner=runner)
+                debug_mcp_status: str | None = None
+                debug_config_read: str | None = None
+                debug_requirements_read: str | None = None
+                if (
+                    debug_adapter is not None
+                    and debug_state is not None
+                    and hasattr(debug_state, "lock")
+                ):
+                    async with debug_state.lock:
+                        if hasattr(debug_adapter, "_send_request"):
+                            try:
+                                status_payload = await debug_adapter._send_request(
+                                    debug_state,
+                                    "mcpServerStatus/list",
+                                    {},
+                                )
+                            except Exception as exc:  # pragma: no cover - debug only
+                                debug_mcp_status = f"error: {exc!r}"
+                            else:
+                                debug_mcp_status = json.dumps(
+                                    status_payload,
+                                    sort_keys=True,
+                                    default=str,
+                                )
+                                if len(debug_mcp_status) > 2000:
+                                    debug_mcp_status = f"{debug_mcp_status[:2000]}..."
+                            try:
+                                config_payload = await debug_adapter._send_request(
+                                    debug_state,
+                                    "config/read",
+                                    {},
+                                )
+                            except Exception as exc:  # pragma: no cover - debug only
+                                debug_config_read = f"error: {exc!r}"
+                            else:
+                                debug_config_read = json.dumps(
+                                    config_payload,
+                                    sort_keys=True,
+                                    default=str,
+                                )
+                                if len(debug_config_read) > 2000:
+                                    debug_config_read = f"{debug_config_read[:2000]}..."
+                            try:
+                                requirements_payload = await debug_adapter._send_request(
+                                    debug_state,
+                                    "configRequirements/read",
+                                    {},
+                                )
+                            except Exception as exc:  # pragma: no cover - debug only
+                                debug_requirements_read = f"error: {exc!r}"
+                            else:
+                                debug_requirements_read = json.dumps(
+                                    requirements_payload,
+                                    sort_keys=True,
+                                    default=str,
+                                )
+                                if len(debug_requirements_read) > 2000:
+                                    debug_requirements_read = (
+                                        f"{debug_requirements_read[:2000]}..."
+                                    )
+                outputs = stored.get("outputs")
+                self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                if not isinstance(messages, list):
+                    raise AssertionError("Expected messages to be a list")
+                if (
+                    mcp_server.test_tool_state is not None
+                    and mcp_server.test_tool_state.get("count", 0) < 1
+                    and test_tool_name
+                ):
+                    stderr_lines = None
+                    if run.id in runner._run_state:
+                        stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                            "stderr_lines"
+                        )
+                    self.fail(
+                        self._debug_dump(
+                            outputs,
+                            stderr_lines,
+                            "MCP test tool was not called.",
+                        )
+                    )
+                if test_tool_name and test_tool_token:
+                    final_text = outputs.get("finalText")
+                    self.assertIsInstance(final_text, str)
+                    if isinstance(final_text, str):
+                        if not self._matches_repeated_token(
+                            final_text, test_tool_token
+                        ):
+                            stderr_lines = None
+                            if run.id in runner._run_state:
+                                stderr_lines = runner._run_state[
+                                    run.id
+                                ].handle.metadata.get("stderr_lines")
+                            self.fail(
+                                self._debug_dump(
+                                    outputs,
+                                    stderr_lines,
+                                    "Unexpected MCP tool response text.",
+                                )
+                            )
+
+                assistant_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "assistant"
+                ]
+                tool_calls: list[dict] = []
+                for message in assistant_messages:
+                    calls = (
+                        message.get("tool_calls") if isinstance(message, dict) else None
+                    )
+                    if isinstance(calls, list):
+                        tool_calls.extend(
+                            call for call in calls if isinstance(call, dict)
+                        )
+                # Codex app-server currently does not emit mcpToolCall items for MCP
+                # tools, so we treat successful execution of the test tool as the
+                # signal that the tool call worked.
+                expected_tool_name = test_tool_name or "list_mcp_tools"
+                mcp_calls = [
+                    call
+                    for call in tool_calls
+                    if expected_tool_name
+                    in (call.get("function", {}).get("name") or "")
+                ]
+                tool_call_count = 0
+                if (
+                    mcp_server.test_tool_state is not None
+                    and "count" in mcp_server.test_tool_state
+                ):
+                    tool_call_count = mcp_server.test_tool_state["count"]
+                if not mcp_calls:
+                    if tool_call_count > 0:
+                        return
+                    label = "MCP tool call missing."
+                    if tool_call_count:
+                        label = f"{label} toolCallCount={tool_call_count}"
+                    if debug_tool_inventory is not None:
+                        truncated = debug_tool_inventory.strip()
+                        if len(truncated) > 500:
+                            truncated = f"{truncated[:500]}..."
+                        label = f"{label} toolInventory={truncated!r}"
+                    if debug_mcp_status is not None:
+                        label = f"{label} mcpServerStatus={debug_mcp_status!r}"
+                    if debug_config_read is not None:
+                        label = f"{label} configRead={debug_config_read!r}"
+                    if debug_requirements_read is not None:
+                        label = (
+                            f"{label} configRequirements={debug_requirements_read!r}"
+                        )
+                    stderr_lines = None
+                    if run.id in runner._run_state:
+                        stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                            "stderr_lines"
+                        )
+                    self.fail(
+                        self._debug_dump(outputs, stderr_lines, label)
+                    )
 
     async def test_codex_app_server_resumes_thread_id_across_chats(self) -> None:
         codex_path = self._require_codex_cli()
@@ -405,7 +794,9 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 },
             )
-            first_stored = await self._await_completed_run(dbe, first_run.id)
+            first_stored = await self._await_completed_run(
+                dbe, first_run.id, runner=runner
+            )
             first_outputs = first_stored.get("outputs")
             self.assertIsInstance(first_outputs, dict)
             if not isinstance(first_outputs, dict):
@@ -427,7 +818,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "threadId": thread_id,
                 },
             )
-            stored = await self._await_completed_run(dbe, second_run.id)
+            stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
             outputs = stored.get("outputs")
             self.assertIsInstance(outputs, dict)
             if not isinstance(outputs, dict):
@@ -448,7 +839,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 work_dir = Path(workspace_dir)
                 token_path = work_dir / "token.txt"
                 token_path.write_text(token, encoding="utf-8")
-                command = "cat token.txt"
+                command = (
+                    'python -c "from pathlib import Path; '
+                    "print(Path('token.txt').read_text())\""
+                )
 
                 config = self._build_config(codex_path)
                 config.sandboxPolicy = "workspace-write"
@@ -464,11 +858,11 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             f"Run the shell command `{command}` in the current "
                             "directory. Do not answer until after it completes. "
                             "Then reply with only the exact command output."
-                        )
+                        ),
                     },
                 )
 
-                stored = await self._await_completed_run(dbe, run.id)
+                stored = await self._await_completed_run(dbe, run.id, runner=runner)
                 outputs = stored.get("outputs")
                 events = stored.get("events")
                 stderr_lines = None
@@ -535,3 +929,88 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         if isinstance(event, dict) and event.get("type")
                     ]
                     self.assertIn("run_completed", event_types)
+
+    async def test_codex_app_server_approves_command_execution(self) -> None:
+        codex_path = self._require_codex_cli()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            with TemporaryDirectory() as workspace_dir:
+                work_dir = Path(workspace_dir)
+                token_bytes = secrets.token_bytes(512)
+                token_path = work_dir / "token.bin"
+                token_path.write_bytes(token_bytes)
+                hash_path = work_dir / "hash.py"
+                hash_path.write_text(
+                    (
+                        "import hashlib\n"
+                        "from pathlib import Path\n"
+                        "data = Path('token.bin').read_bytes()\n"
+                        "print(hashlib.sha256(data).hexdigest())\n"
+                    ),
+                    encoding="utf-8",
+                )
+                expected_hash = hashlib.sha256(token_bytes).hexdigest()
+                command = "python hash.py"
+
+                config = self._build_config(codex_path)
+                config.approvalPolicy = "untrusted"
+                config.sandboxPolicy = "workspace-write"
+                config.workingDirStrategy = ExternalAgentWorkingDirStrategy.custom
+                config.workingDir = str(work_dir)
+
+                run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {
+                        "prompt": (
+                            "Run the shell command exactly as written (do not "
+                            "substitute or simplify): "
+                            f"`{command}` in the current directory. Do not answer "
+                            "until after it completes. Then reply with only the "
+                            "exact command output."
+                        )
+                    },
+                )
+
+                approval_id = await self._await_pending_approval(runner, dbe, run.id)
+                await runner.respond_to_approval(approval_id, True)
+
+                stored = await self._await_completed_run(dbe, run.id, runner=runner)
+                outputs = stored.get("outputs")
+                self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                final_text = outputs.get("finalText")
+                self.assertIsInstance(final_text, str)
+                if not isinstance(final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                if not self._matches_repeated_token(final_text, expected_hash):
+                    stderr_lines = None
+                    if run.id in runner._run_state:
+                        stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                            "stderr_lines"
+                        )
+                    self.fail(
+                        self._debug_dump(
+                            outputs,
+                            stderr_lines,
+                            "Unexpected command output text.",
+                        )
+                    )
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                if not isinstance(messages, list):
+                    raise AssertionError("Expected messages to be a list")
+                approvals = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "tool"
+                    and message.get("tool_name") == "setta.approval"
+                ]
+                self.assertTrue(approvals)
+                if approvals:
+                    result = approvals[-1].get("result")
+                    if isinstance(result, dict):
+                        self.assertTrue(result.get("approved"))
