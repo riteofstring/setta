@@ -255,11 +255,7 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             "reportUndefinedFunction",
         )
 
-        (
-            errors,
-            undefined_sections,
-            _callable_mismatch_sections,
-        ) = process_gen_code_diagnostics_with_undefined_symbols(
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
             dep_graph,
@@ -288,11 +284,7 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
         )
 
         ignored = {section_id: TypeErrorIgnoreState(callable=True, params={})}
-        (
-            errors,
-            undefined_sections,
-            _callable_mismatch_sections,
-        ) = process_gen_code_diagnostics_with_undefined_symbols(
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
             dep_graph,
@@ -320,11 +312,7 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             "reportUndefinedVariable",
         )
 
-        (
-            errors,
-            undefined_sections,
-            _callable_mismatch_sections,
-        ) = process_gen_code_diagnostics_with_undefined_symbols(
+        errors, undefined_sections = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
             dep_graph,

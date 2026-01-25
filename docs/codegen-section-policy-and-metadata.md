@@ -12,6 +12,20 @@ The policy has four levers:
 - `typePolicies`: per-section-type defaults (mode + representation).
 - `sectionOverrides`: per-section-id overrides (mode + representation).
 
+## Code obj value policy model
+
+Code obj value policy lives on the Python codegen target as `ProjectCodegenPythonTarget.codeObjValuePolicy` (`backend/setta/types/project_config.py`). It controls how code object (param) values are formatted in generated Python and in MetaControl section outputs.
+
+The policy has two levers:
+- `typePolicies`: per-code-obj-type defaults (representation only).
+- `codeObjOverrides`: per-code-obj-id overrides (representation only).
+
+Supported representations:
+- `literal` (default): use the existing type-specific formatting (current behavior).
+- `json`: parse the stored value as JSON and emit the resulting Python literal.
+- `raw`: always emit the stored string via `repr(...)`.
+Some code obj types only support `literal` (ButtonParam, NestedParam, and CodeCallable); other representations raise `ValueError`.
+
 ## Policy resolution order
 
 `resolve_section_codegen_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedSectionCodegenPolicy` in this order:
@@ -23,12 +37,28 @@ The policy has four levers:
 
 The result is `include_in_codegen` plus the chosen `representation`.
 
+## Code obj value policy resolution order
+
+`resolve_code_obj_value_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedCodeObjValuePolicy` in this order:
+- Start with `typePolicies[code_obj_type]` (defaulting to `literal`).
+- Apply `codeObjOverrides[code_obj_id]` if present.
+- Validate representation support for the code obj type; unsupported combinations raise a `ValueError`.
+
 ## How policy affects codegen
 
 The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
 - The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
 - Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat).
+
+Code obj value policies are resolved during dependency graph export:
+- Each `ParamNode` stores `value_representation`, resolved from `codeObjValuePolicy`.
+- MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
+
+The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
+- `literal` uses the existing per-type formatting (dropzone parsing, switch bools, nested dicts, etc).
+- `json` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
+- `raw` always emits `repr(literal_value)`.
 
 Representation determines how section payloads are encoded:
 - `json` is the only supported representation for most non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
