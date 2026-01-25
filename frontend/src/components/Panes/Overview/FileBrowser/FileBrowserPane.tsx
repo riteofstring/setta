@@ -19,7 +19,7 @@ const MAX_ENTRIES = 5000;
 
 type NodeKind = "folder" | "file";
 
-export type FileNode = {
+type FileNode = {
   name: string;
   fullPath: string;
   type: NodeKind;
@@ -46,15 +46,7 @@ type FileBrowserRowProps = RowData & {
   style: CSSProperties;
 };
 
-type FileBrowserPaneProps = {
-  onFileOpen?: (node: FileNode) => void;
-  onSelectionChange?: (node: FileNode | null) => void;
-};
-
-export function FileBrowserPane({
-  onFileOpen,
-  onSelectionChange,
-}: FileBrowserPaneProps = {}) {
+export function FileBrowserPane() {
   const { rootPath, expandedPaths, selectedPath, filterText } =
     useFileBrowserState((state) => ({
       rootPath: state.rootPath,
@@ -372,17 +364,9 @@ export function FileBrowserPane({
     [childrenByPath, expandedPaths, fetchFolderContents, nodesByPath],
   );
 
-  const handleSelect = useCallback(
-    (path: string) => {
-      useFileBrowserState.setState({ selectedPath: path });
-      if (!onSelectionChange) {
-        return;
-      }
-      const node = nodesByPath[path];
-      onSelectionChange(node ?? null);
-    },
-    [nodesByPath, onSelectionChange],
-  );
+  const handleSelect = useCallback((path: string) => {
+    useFileBrowserState.setState({ selectedPath: path });
+  }, []);
 
   const handleOpen = useCallback(
     (path: string) => {
@@ -392,10 +376,6 @@ export function FileBrowserPane({
       }
       if (node.type === "folder") {
         handleToggle(path);
-        return;
-      }
-      if (onFileOpen) {
-        onFileOpen(node);
         return;
       }
       const codeLanguage = resolveCodeLanguageFromPath(path);

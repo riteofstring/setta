@@ -33,6 +33,7 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
+from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
 
@@ -40,6 +41,7 @@ from setta.types.project_state import AllProjectMetadata
 class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
     LSPDiagnostics = "LSPDiagnostics"
+    NameValidationErrors = "NameValidationErrors"
     TerminalMetadata = "TerminalMetadata"
     Notification = "Notification"
     BackendLogEvent = "BackendLogEvent"
@@ -151,6 +153,13 @@ class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     content: SettaProjectConfigDiagnostics
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
+    )
+
+
+class WebsocketMsgNameValidationErrors(FrontendWebsocketMsg):
+    content: SettaProjectNameValidationErrors
+    messageType: Literal[WebsocketMsgTypeForFrontend.NameValidationErrors] = (
+        WebsocketMsgTypeForFrontend.NameValidationErrors
     )
 
 

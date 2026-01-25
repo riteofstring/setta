@@ -1,11 +1,9 @@
-import base64
 import fnmatch
-import mimetypes
 import os
 import stat
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict, TypeVar
+from typing import NotRequired, TypedDict, TypeVar
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
@@ -22,9 +20,7 @@ from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
     DrawAreaLayerItemTransformArtifact,
-    FileArtifact,
     ImageArtifact,
-    create_file_artifact_id,
 )
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
@@ -80,18 +76,6 @@ class LoadCachedPathsRequest(BaseModel):
 class UpdateArtifactsRequest(BaseModel):
     artifacts: list[BaseArtifactUnion]
     conflictStrategy: SaveConflictStrategy | None = None
-
-
-class ImportFilesToArtifactsRequest(BaseModel):
-    paths: list[str]
-
-
-class ImportFilesToArtifactsResponseItem(BaseModel):
-    kind: Literal["file"] = "file"
-    id: str
-    name: str
-    mimeType: str
-    size: int
 
 
 def _get_share_session_artifacts(
@@ -183,21 +167,6 @@ def _resolve_folder_path(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Folder path must be within the project root.",
-        )
-    return resolved
-
-
-def _resolve_file_path(path_str: str) -> Path:
-    root = CWD.resolve()
-    path = Path(path_str)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (root / path).resolve()
-    if not resolved.is_relative_to(root):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File path must be within the project root.",
         )
     return resolved
 
@@ -311,62 +280,6 @@ def route_get_folder_contents(
     )
 
     return contents
-
-
-@router.post(Route.IMPORT_FILES_TO_ARTIFACTS)
-async def route_import_files_to_artifacts(
-    x: ImportFilesToArtifactsRequest,
-    ctx: RuntimeContextFromRequest,
-) -> list[ImportFilesToArtifactsResponseItem]:
-    if ctx.share_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
-        )
-    if not x.paths:
-        return []
-    artifacts = _get_artifacts(ctx)
-    updates: list[FileArtifact] = []
-    results: list[ImportFilesToArtifactsResponseItem] = []
-    for raw_path in x.paths:
-        resolved = _resolve_file_path(raw_path)
-        if not resolved.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"File does not exist: {raw_path}",
-            )
-        if not resolved.is_file():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Path is not a file: {raw_path}",
-            )
-        try:
-            content = resolved.read_bytes()
-        except OSError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read file: {raw_path}",
-            ) from exc
-        extension = "".join(resolved.suffixes) or ".bin"
-        artifact_id = create_file_artifact_id(extension)
-        updates.append(
-            FileArtifact(
-                id=artifact_id,
-                value=base64.b64encode(content).decode("utf-8"),
-            )
-        )
-        mime_type, _ = mimetypes.guess_type(resolved.name)
-        results.append(
-            ImportFilesToArtifactsResponseItem(
-                id=artifact_id,
-                name=resolved.name,
-                mimeType=mime_type or "application/octet-stream",
-                size=len(content),
-            )
-        )
-    if updates:
-        await artifacts.apply_updates(updates, SaveConflictStrategy.overwrite)
-    return results
 
 
 @router.post(Route.LOAD_CACHED_IMAGE_ARTIFACTS)

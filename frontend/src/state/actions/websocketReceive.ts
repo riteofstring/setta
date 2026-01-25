@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
+import { processNameValidationErrors } from "state/actions/nameValidation";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -389,6 +390,8 @@ function receiveMessage(message: string) {
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
       return processTypeErrors(m.content);
+    case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
+      return processNameValidationErrors(m.content);
     case WebsocketMsgTypeForFrontendEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
