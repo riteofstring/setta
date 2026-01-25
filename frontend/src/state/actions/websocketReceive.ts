@@ -492,7 +492,6 @@ export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
   const dependencyEvent: DependencyEvent = {
     dependencyKey: event.dependencyKey,
     payload: event.payload ?? null,
-    binaryPayload: null,
     timestampMs: event.timestampMs ?? Date.now(),
   };
   const message: WebsocketMsgRealtimeDependencyEvent = {

@@ -3229,7 +3229,7 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-const DependencyEventSchema = z.object({
+export const DependencyEventSchema = z.object({
   dependencyKey: z.union([
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
@@ -3244,7 +3244,6 @@ const DependencyEventSchema = z.object({
       z.null(),
     ])
     .default(null),
-  binaryPayload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 

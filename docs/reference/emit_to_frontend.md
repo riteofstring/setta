@@ -36,7 +36,7 @@ and as `ctx.emit_to_frontend` inside callbacks.
      `DependencyGraph.full_path_name_to_dep_key`.
    - Infers expected value type from the node value or section type:
      - Literal: section params, callable sections, TextBlock sections.
-     - Base64: Draw + Image sections.
+     - Binary: Draw + Image sections.
      - FileRead: dependencies whose current value type is FileRead.
    - Normalizes artifact paths and enforces cached type consistency.
 
