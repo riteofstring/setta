@@ -156,18 +156,26 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     initialLayoutMetrics.pinnedBorderHeight;
   const expectedUnpinnedMin =
     initialLayoutMetrics.unpinnedRowHeight + initialLayoutMetrics.unpinnedPadding;
+  // Pinned param area min height should be the height where 1 pinned param is fully visible.
   expect(initialLayoutMetrics.pinnedMinHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
+  );
+  expect(initialLayoutMetrics.pinnedMinHeight).toBeLessThanOrEqual(
+    expectedPinnedMin + 4,
   );
   expect(initialLayoutMetrics.pinnedHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
   );
+  // Unpinned param area min height should be the height where 1 unpinned param is fully visible.
   expect(initialLayoutMetrics.unpinnedMinHeight).toBeGreaterThanOrEqual(
     expectedUnpinnedMin - 2,
   );
   expect(initialLayoutMetrics.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMin + 4,
   );
+  // Unpinned param area max height should be unbounded.
+  const unpinnedMaxHeight = await getComputedMaxHeight(unpinnedArea);
+  expect(isMaxHeightUnbounded(unpinnedMaxHeight)).toBe(true);
   pinnedList = pinnedArea.locator("div.section-args-nested");
 
   await dragResize(page, callableSection, {
@@ -211,8 +219,16 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
       (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
     0,
   );
-  const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > availableHeight + 1;
+  const expectedPinnedMax = Math.min(
+    availableHeight,
+    layoutMetrics.pinnedContentHeight,
+  );
+  // Pinned param area max height should be the minimum height necessary
+  // to have all pinned params visible.
+  expect(
+    Math.abs(layoutMetrics.pinnedHeight - expectedPinnedMax),
+  ).toBeLessThanOrEqual(2);
+  const shouldScrollAtMax = layoutMetrics.pinnedContentHeight > expectedPinnedMax + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -1454,6 +1470,14 @@ async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
     clientHeight: el.clientHeight,
     scrollHeight: el.scrollHeight,
   }));
+}
+
+async function getComputedMaxHeight(target: Locator): Promise<string> {
+  return target.evaluate((el) => window.getComputedStyle(el).maxHeight);
+}
+
+function isMaxHeightUnbounded(maxHeight: string): boolean {
+  return maxHeight === "none";
 }
 
 async function dragPinnedResize(

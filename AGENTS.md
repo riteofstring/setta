@@ -33,6 +33,7 @@
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
+- Playwright tests do not require running `pnpm ai`.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
