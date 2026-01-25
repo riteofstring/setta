@@ -156,9 +156,6 @@ function MetaControlValueArea({
       if (codeObjType === CodeObjTypeEnum.ButtonParam) {
         return;
       }
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        return;
-      }
       useProjectState.setState((state) => {
         setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
@@ -188,11 +185,7 @@ function MetaControlValueArea({
       sendRealtimeSectionLiteral(sectionId, valueStr);
     }
     if (!options?.skipBackendUpdate) {
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
-      } else {
-        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
-      }
+      debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
     }
   };
 
@@ -293,18 +286,6 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
-    });
-  },
-  50,
-);
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
     });
   },
   50,
