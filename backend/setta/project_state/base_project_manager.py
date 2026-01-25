@@ -333,6 +333,7 @@ from setta.utils.name_validation import (
     collect_project_name_format_errors,
     collect_section_name_conflicts,
     collect_section_name_format_errors,
+    collect_text_block_heading_name_errors,
     validate_param_name,
     validate_param_name_format,
     validate_project_name,
@@ -1127,6 +1128,7 @@ class BaseProjectManager(ABC):
         validate_name_rules: bool = True,
     ):
         async with self._project_state_lock.write_lock():
+            projectState._section_slug_cache = None
             projectState.validate_for_update(
                 validate_code_file_bindings=validate_code_file_bindings,
                 allow_reserved_project_name=allow_reserved_project_name,
@@ -2267,7 +2269,10 @@ class BaseProjectManager(ABC):
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_text(project_state, x.sectionId, x.text)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
@@ -2848,8 +2853,11 @@ class BaseProjectManager(ABC):
         section_errors = collect_section_name_conflicts(project_state)
         param_errors = collect_param_name_conflicts(project_state)
         section_format_errors = collect_section_name_format_errors(project_state)
+        heading_name_errors = collect_text_block_heading_name_errors(project_state)
         param_format_errors = collect_param_name_format_errors(project_state)
         for section_id, errors in section_format_errors.items():
+            section_errors.setdefault(section_id, []).extend(errors)
+        for section_id, errors in heading_name_errors.items():
             section_errors.setdefault(section_id, []).extend(errors)
         for param_id, errors in param_format_errors.items():
             param_errors.setdefault(param_id, []).extend(errors)

@@ -1,6 +1,7 @@
 from pydantic import (
     BaseModel,
     Field,
+    PrivateAttr,
     model_validator,
 )
 
@@ -133,6 +134,9 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
+    _section_slug_cache: tuple[dict[ID, str], dict[str, list[ID]]] | None = PrivateAttr(
+        default=None
+    )
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
@@ -217,6 +221,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId
+        self._section_slug_cache = None
         return self
 
     def validate_shown_param_ids(self):

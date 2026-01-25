@@ -21,6 +21,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ListRootSectionImpl,
+    TextBlockSectionImpl,
 )
 from setta.utils.constants import C
 from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
@@ -58,6 +59,17 @@ def _contains_control_chars(name: str) -> bool:
 
 def _raise_invalid_name(message: str, exc_type: type[ValueError]) -> None:
     raise exc_type(message)
+
+
+_TEXT_BLOCK_HEADING_REGEX = re.compile(r"(^|\n)(#+)\s*(.*?)(?=\n|$)")
+
+
+def _get_text_block_heading(markdown: str) -> str | None:
+    trimmed_markdown = markdown.lstrip()
+    heading_match = _TEXT_BLOCK_HEADING_REGEX.search(trimmed_markdown)
+    if heading_match:
+        return heading_match.group(3).strip()
+    return None
 
 
 def _project_name_format_error(
@@ -209,6 +221,10 @@ def _collect_section_slug_map(
     project_state: "ProjectStateSingleConfig",
     name_overrides: dict["ID", str] | None = None,
 ) -> tuple[dict["ID", str], dict[str, list["ID"]]]:
+    if name_overrides is None:
+        cached = project_state._section_slug_cache
+        if cached is not None:
+            return cached
     slug_by_section_id: dict["ID", str] = {}
     slug_to_section_ids: dict[str, list["ID"]] = {}
     for section_id in project_state.sections:
@@ -218,15 +234,19 @@ def _collect_section_slug_map(
         slug = sanitize_slug(full_name)
         slug_by_section_id[section_id] = slug
         slug_to_section_ids.setdefault(slug, []).append(section_id)
+    if name_overrides is None:
+        project_state._section_slug_cache = (slug_by_section_id, slug_to_section_ids)
     return slug_by_section_id, slug_to_section_ids
 
 
-def validate_section_name(
+def _get_section_name_validation_error(
     project_state: "ProjectStateSingleConfig",
     section_id: "ID",
-    name: str,
-) -> str:
-    normalized = validate_section_name_format(name)
+    normalized: str,
+) -> str | None:
+    format_error = _section_name_format_error(normalized)
+    if format_error:
+        return format_error
     if section_id not in project_state.parentSectionMap:
         raise KeyError(f"Missing parentSectionMap entry for section {section_id}.")
     parent_id = project_state.parentSectionMap[section_id]
@@ -239,10 +259,7 @@ def validate_section_name(
             continue
         sibling_name = project_state.sections[sibling_id].name.strip()
         if sibling_name == normalized:
-            _raise_invalid_name(
-                f'Section name "{normalized}" already exists under this parent.',
-                InvalidSectionName,
-            )
+            return f'Section name "{normalized}" already exists under this parent.'
     if parent_id is None:
         normalized_identifier = sanitize_python_identifier(normalized)
         for sibling_id in sibling_ids:
@@ -252,9 +269,9 @@ def validate_section_name(
             if not sibling_name:
                 continue
             if sanitize_python_identifier(sibling_name) == normalized_identifier:
-                _raise_invalid_name(
-                    "Section name conflicts with another top-level name after Python identifier sanitization.",
-                    InvalidSectionName,
+                return (
+                    "Section name conflicts with another top-level name after Python "
+                    "identifier sanitization."
                 )
 
     slug_by_section_id, slug_to_section_ids = _collect_section_slug_map(
@@ -262,15 +279,21 @@ def validate_section_name(
     )
     section_slug = slug_by_section_id.get(section_id, "")
     if not section_slug:
-        _raise_invalid_name(
-            "Section name is invalid after sanitization.",
-            InvalidSectionName,
-        )
+        return "Section name is invalid after sanitization."
     if len(slug_to_section_ids.get(section_slug, [])) > 1:
-        _raise_invalid_name(
-            f'Section path slug "{section_slug}" conflicts with another section.',
-            InvalidSectionName,
-        )
+        return f'Section path slug "{section_slug}" conflicts with another section.'
+    return None
+
+
+def validate_section_name(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    name: str,
+) -> str:
+    normalized = _normalize_name(name)
+    error = _get_section_name_validation_error(project_state, section_id, normalized)
+    if error:
+        _raise_invalid_name(error, InvalidSectionName)
     return normalized
 
 
@@ -484,6 +507,32 @@ def collect_section_name_conflicts(
             for section_id in ids:
                 add_error(section_id, message)
 
+    return errors
+
+
+def collect_text_block_heading_name_errors(
+    project_state: "ProjectStateSingleConfig",
+) -> dict["ID", list[str]]:
+    errors: dict["ID", list[str]] = {}
+    for section_id in project_state.sections:
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, TextBlockSectionImpl):
+            continue
+        if not section_impl.headingAsSectionName:
+            continue
+        heading = _get_text_block_heading(section_impl.text)
+        if not heading:
+            continue
+        normalized_heading = _normalize_name(heading)
+        error = _get_section_name_validation_error(
+            project_state,
+            section_id,
+            normalized_heading,
+        )
+        if error:
+            errors.setdefault(section_id, []).append(
+                f"Text block heading cannot be used as section name: {error}"
+            )
     return errors
 
 

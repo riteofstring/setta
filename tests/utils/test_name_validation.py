@@ -27,6 +27,8 @@ from setta.types.helpers_lvl2 import (
     move_sections_to_parent_section,
     set_project_config_name,
     set_section_name,
+    set_text_block_heading_as_section_name,
+    set_text_block_text,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
@@ -44,6 +46,7 @@ from setta.utils.name_validation import (
     collect_project_name_format_errors,
     collect_section_name_conflicts,
     collect_section_name_format_errors,
+    collect_text_block_heading_name_errors,
     validate_param_name,
 )
 
@@ -289,6 +292,46 @@ class SectionNameValidationTests(unittest.TestCase):
         self.assertIn(
             "Section name can only contain letters, numbers, spaces, '_' and '-'.",
             errors[section_id],
+        )
+
+    def test_text_block_heading_name_error_flags_invalid_heading(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_text_block_heading_as_section_name(self.project_state, section_id, True)
+        set_text_block_text(self.project_state, section_id, "# Bad/Name")
+        errors = collect_text_block_heading_name_errors(self.project_state)
+        self.assertIn(section_id, errors)
+        self.assertIn(
+            "Text block heading cannot be used as section name: Section name cannot include path separators.",
+            errors[section_id],
+        )
+
+    def test_text_block_heading_name_error_flags_duplicate_sibling(self) -> None:
+        text_block_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        sibling_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, sibling_id, "Duplicate")
+        set_text_block_heading_as_section_name(self.project_state, text_block_id, True)
+        set_text_block_text(self.project_state, text_block_id, "# Duplicate")
+        errors = collect_text_block_heading_name_errors(self.project_state)
+        self.assertIn(
+            'Text block heading cannot be used as section name: Section name "Duplicate" already exists under this parent.',
+            errors[text_block_id],
         )
 
     def test_section_name_rejects_dotdot(self) -> None:

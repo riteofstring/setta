@@ -2018,6 +2018,7 @@ def set_section_sizes(
 def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     normalized = validate_section_name(p, sectionId, name)
     p.sections[sectionId].name = normalized
+    p._section_slug_cache = None
 
 
 def set_meta_control_show_section_title(

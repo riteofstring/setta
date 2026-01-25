@@ -29,6 +29,7 @@ import {
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaNotification,
+  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
   WebsocketConnectionInfo,
@@ -430,6 +431,7 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandNameValidationErrors = {
+  pendingByProjectId: Record<string, SettaProjectNameValidationErrors>;
   projectErrors: Array<string>;
   sectionErrors: Record<string, Array<string>>;
   paramErrors: Record<string, Array<string>>;
@@ -439,6 +441,7 @@ export const useNameValidationErrors = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<ZustandNameValidationErrors>(() => ({
+        pendingByProjectId: {},
         projectErrors: [],
         sectionErrors: {},
         paramErrors: {},
