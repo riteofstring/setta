@@ -12,7 +12,6 @@ from setta.project_state.jsonSource.save import build_json_source_dicts
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
-from setta.project_state.secret_values import strip_password_values
 from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
 )
@@ -670,7 +669,6 @@ async def route_publish_share_deployment(
     snapshot.defaultProjectConfigId = x.projectConfigId
     snapshot = _ensure_snapshot_view_modes(snapshot)
     _rebase_project_state_paths(snapshot, deployment_root)
-    strip_password_values(snapshot)
     json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():
         target_path = _resolve_deployment_relative_path(filename, deployment_root)

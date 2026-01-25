@@ -38,7 +38,7 @@ def _is_pid_running(pid: int) -> bool:
 class DetachedRunManager:
     def __init__(self, dbe: DBE) -> None:
         self._dbe = dbe
-        self._runs_root = self._dbe.runtime_root / "runtime" / "detached_runs"
+        self._runs_root = self._dbe.runtime_root / "runs"
         self._runs_root.mkdir(parents=True, exist_ok=True)
         self._processes: dict[str, subprocess.Popen] = {}
         self._canceled: set[str] = set()

@@ -115,50 +115,6 @@ class TestPythonValueCodec:
         )
         assert codec.format_param_expression(param_node) == "'2+2'"
 
-    def test_password_param_uses_secret_helper(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-secret"),
-            name="secret",
-            full_path_name="section.secret",
-            type=CodeObjType.PasswordParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("ignore-me"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            code_obj_impl_id=ID("impl-secret"),
-        )
-        assert (
-            codec.format_param_expression(param_node)
-            == "_helpers.read_password_value('impl-secret')"
-        )
-        assert codec.required_imports == (
-            "from setta.code_gen.python import value_helpers as _helpers",
-        )
-
-    def test_meta_control_password_uses_secret_helper(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("meta-section"),
-            name="Meta",
-            full_path_name="meta",
-            type=SectionType.MetaControl,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("ignored"),
-            control_code_obj_type=CodeObjType.PasswordParam,
-            control_code_obj_id=ID("meta-secret"),
-            control_code_obj_impl_id=ID("meta-secret-impl"),
-            control_value_representation=CodeObjValueRepresentationMode.string,
-        )
-        assert (
-            codec.format_section(section_node)
-            == "_helpers.read_password_value('meta-secret-impl')"
-        )
-        assert codec.required_imports == (
-            "from setta.code_gen.python import value_helpers as _helpers",
-        )
-
     def test_code_param_formats_as_raw_expression(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         param_node = ParamNode(
