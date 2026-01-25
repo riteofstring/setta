@@ -40,6 +40,13 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
+from setta.utils.chat_attachments import (
+    collect_message_attachments,
+    extract_attachment_text_no_images,
+    extract_attachment_urls,
+    is_image_mime,
+    normalize_attachment_mime,
+)
 from setta.utils.timestamps import get_now_timestamp
 
 logger = logging.getLogger(__name__)
@@ -1767,7 +1774,7 @@ def _build_turn_params(
     params: dict[str, Any] = {}
     if thread_id:
         params["threadId"] = thread_id
-    params["input"] = _build_input(prompt)
+    params["input"] = _build_input(context, prompt)
     model = _extract_model(context)
     if model is not None:
         params["model"] = model
@@ -1790,11 +1797,37 @@ def _build_turn_params(
     return params
 
 
-def _build_input(prompt: str) -> list[dict[str, Any]]:
+def _build_input(
+    context: ExternalAgentRunContext,
+    prompt: str,
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
     normalized = prompt.strip()
-    if not normalized:
-        return []
-    return [{"type": "text", "text": normalized}]
+    if normalized:
+        items.append({"type": "text", "text": normalized})
+    attachment_text = extract_attachment_text_no_images(
+        context.inputs if isinstance(context.inputs, dict) else None
+    )
+    if attachment_text:
+        items.append({"type": "text", "text": attachment_text})
+    raw_messages = context.inputs.get("messages") if context.inputs else None
+    if not isinstance(raw_messages, list):
+        return items
+    attachments = collect_message_attachments(raw_messages)
+    if not attachments:
+        return items
+    url_map = extract_attachment_urls(
+        context.inputs if isinstance(context.inputs, dict) else None
+    )
+    for attachment in attachments:
+        mime_type = normalize_attachment_mime(attachment)
+        if not is_image_mime(mime_type):
+            continue
+        url = url_map.get(attachment.id)
+        if not url:
+            continue
+        items.append({"type": "image", "url": url})
+    return items
 
 
 def _extract_model(context: ExternalAgentRunContext) -> str | None:
