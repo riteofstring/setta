@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 from fastapi import HTTPException
 
 import pytest
+from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -342,17 +343,15 @@ class TestCodegenTargetsRunCommand:
         )
         await manager._refresh_codegen_state(project_state)
 
-        base64_payload = (
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-            "AAAADUlEQVQImWNgYGD4DwABBAEAQkX2WQAAAABJRU5ErkJggg=="
-        )
-        payload = f"data:image/png;base64,{base64_payload}"
+        payload_bytes = b"snapshot-bytes"
+        binary_store = BinaryStore.from_dbe(self.dbe)
+        payload_ref = binary_store.store_bytes(payload_bytes, mime_type="image/png")
         await manager.create_run_command(
             RunCodeRequest(
                 projectConfigId=project_config.id,
                 sectionId=code_section.id,
                 runSnapshotMode=RunSnapshotMode.never,
-                drawSnapshotsBySectionId={draw_section.id: payload},
+                drawSnapshotsBySectionId={draw_section.id: payload_ref},
             )
         )
         updated_state = manager.get_single_config_state(project_config.id)

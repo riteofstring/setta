@@ -2,7 +2,7 @@ import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
+import { listenForCanvasToBlobRequests } from "state/actions/temporaryMiscState";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -13,7 +13,7 @@ import {
   ChartTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { canvasToBase64 } from "../DrawArea/base64Conversion";
+import { canvasToBlob } from "../DrawArea/binaryConversion";
 import { getLineChartConfig, updateLineChartWithNewData } from "./LineChart";
 import {
   getScatterChartConfig,
@@ -71,8 +71,8 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     chartRef.current = new Chart(canvasRef.current, configuration);
     resize();
 
-    const unsub = listenForCanvasToBase64Requests(sectionId, () =>
-      canvasToBase64(canvasRef.current),
+    const unsub = listenForCanvasToBlobRequests(sectionId, () =>
+      canvasRef.current ? canvasToBlob(canvasRef.current) : null,
     );
 
     return () => {

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo } from "react";
-import { sendRealtimeSectionBase64 } from "state/actions/websocketReceive";
-import { serializeLayerStackToBase64 } from "./base64Conversion";
+import { sendRealtimeSectionBinary } from "state/actions/websocketReceive";
+import { serializeLayerStackToBlob } from "./binaryConversion";
 import { LayerCanvasesType } from "./types";
 
 const DEFAULT_THROTTLE_MS = 250;
@@ -24,29 +24,36 @@ export function useRealtimeDrawEmitter({
   draftCanvasRef,
   drawThrottleDelay,
 }: UseRealtimeDrawEmitterArgs): UseRealtimeDrawEmitterResult {
-  const captureSnapshot = useCallback(() => {
-    return serializeLayerStackToBase64(
+  const captureSnapshot = useCallback(async () => {
+    return await serializeLayerStackToBlob(
       layerCanvasRefs.current ?? [],
       draftCanvasRef.current,
     );
   }, [layerCanvasRefs, draftCanvasRef]);
 
-  const emitSnapshot = useCallback(() => {
-    const base64 = captureSnapshot();
-    if (!base64) {
+  const emitSnapshot = useCallback(async () => {
+    const blob = await captureSnapshot();
+    if (!blob) {
       return;
     }
-    sendRealtimeSectionBase64(sectionId, base64);
+    const buffer = await blob.arrayBuffer();
+    sendRealtimeSectionBinary(sectionId, buffer, blob.type || "image/png");
   }, [captureSnapshot, sectionId]);
 
   const throttleMs =
     drawThrottleDelay > 0 ? drawThrottleDelay : DEFAULT_THROTTLE_MS;
 
   const throttledEmit = useMemo(() => {
-    return _.throttle(emitSnapshot, throttleMs, {
-      leading: true,
-      trailing: true,
-    });
+    return _.throttle(
+      () => {
+        void emitSnapshot();
+      },
+      throttleMs,
+      {
+        leading: true,
+        trailing: true,
+      },
+    );
   }, [emitSnapshot, throttleMs]);
 
   useEffect(() => {
@@ -61,7 +68,7 @@ export function useRealtimeDrawEmitter({
 
   const flushRealtimeSnapshot = useCallback(() => {
     throttledEmit.cancel();
-    emitSnapshot();
+    void emitSnapshot();
   }, [throttledEmit, emitSnapshot]);
 
   return { notifyRealtimeDirty, flushRealtimeSnapshot };
