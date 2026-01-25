@@ -434,9 +434,6 @@ def set_project_config_name(
     p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
     normalized = validate_project_name(p, projectConfigId, newName)
-    for k, v in p.projectConfigs.items():
-        if k != projectConfigId and v.name == normalized:
-            raise ProjectNameTaken(f"{normalized} is already taken")
     p.projectConfigs[projectConfigId].name = normalized
 
 

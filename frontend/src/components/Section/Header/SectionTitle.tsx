@@ -11,12 +11,16 @@ import {
   useNameValidationErrors,
   useNodeInternals,
   useProjectState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
-import { validateSectionNameInput } from "utils/nameValidation";
+import {
+  sanitizeNameForSlug,
+  validateSectionNameInput,
+} from "utils/nameValidation";
 
 type SectionTitleClassNames = {
   editing?: string;
@@ -173,6 +177,8 @@ function EditableTitle({
 }
 
 function setSectionName(sectionId: string, name: string) {
+  const previousName =
+    useProjectState.getState().sections[sectionId]?.name ?? "";
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const section = state.sections[sectionId];
@@ -180,6 +186,16 @@ function setSectionName(sectionId: string, name: string) {
         return;
       }
       section.name = name;
+    },
+    rollback: (state) => {
+      const section = state.sections[sectionId];
+      if (!section) {
+        return;
+      }
+      if (section.name !== name) {
+        return;
+      }
+      section.name = previousName;
     },
     send: (frontendOpId) =>
       route_set_section_name({
@@ -209,6 +225,83 @@ function useTitleIsEditable(sectionId: string) {
       titleIsEditable: canEditStructure && !uneditableTypes.includes(impl.type),
     };
   });
+}
+
+function resolveSectionName(
+  state: ZustandProjectState,
+  sectionId: string,
+  nameOverrides: Record<string, string> | null,
+) {
+  if (nameOverrides && sectionId in nameOverrides) {
+    return nameOverrides[sectionId];
+  }
+  return state.sections[sectionId]?.name ?? "";
+}
+
+function resolveSectionFullPathName(
+  state: ZustandProjectState,
+  sectionId: string,
+  nameOverrides: Record<string, string> | null,
+) {
+  if (!state.sections[sectionId]) {
+    return "";
+  }
+  if (!(sectionId in state.parentSectionMap)) {
+    return resolveSectionName(state, sectionId, nameOverrides);
+  }
+  const sectionImpl = getCurrEffectiveSectionImpl(state, sectionId);
+  let parentId = state.parentSectionMap[sectionId];
+  if (!parentId) {
+    return resolveSectionName(state, sectionId, nameOverrides);
+  }
+  let childId = sectionId;
+  let output = "";
+  while (parentId) {
+    if (sectionImpl.type === SectionTypeEnum.ListRoot) {
+      const siblings = getSectionChildren(state, parentId);
+      const idx = siblings.indexOf(sectionId);
+      output = `[${idx}]${output}`;
+    } else {
+      const childName = resolveSectionName(state, childId, nameOverrides);
+      output = `["${childName}"]${output}`;
+    }
+    childId = parentId;
+    parentId = state.parentSectionMap[parentId];
+  }
+  const childName = resolveSectionName(state, childId, nameOverrides);
+  return `${childName}${output}`;
+}
+
+function getSectionSlugConflictError(sectionId: string, value: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  if (!state.sections[sectionId]) {
+    return null;
+  }
+  const nameOverrides = { [sectionId]: normalized };
+  const slugToIds: Record<string, string[]> = {};
+  let sectionSlug = "";
+  for (const id of Object.keys(state.sections)) {
+    const fullPathName = resolveSectionFullPathName(state, id, nameOverrides);
+    const slug = sanitizeNameForSlug(fullPathName);
+    if (!slugToIds[slug]) {
+      slugToIds[slug] = [];
+    }
+    slugToIds[slug].push(id);
+    if (id === sectionId) {
+      sectionSlug = slug;
+    }
+  }
+  if (!sectionSlug) {
+    return "Section name is invalid after sanitization.";
+  }
+  if ((slugToIds[sectionSlug]?.length ?? 0) > 1) {
+    return `Section path slug "${sectionSlug}" conflicts with another section.`;
+  }
+  return null;
 }
 
 function getSiblingHasName(sectionId: string, newName: string) {
@@ -243,6 +336,10 @@ function getSectionNameValidationError(
   }
   if (getSiblingHasName(sectionId, value)) {
     return "Duplicate sibling name.";
+  }
+  const slugError = getSectionSlugConflictError(sectionId, value);
+  if (slugError) {
+    return slugError;
   }
   return null;
 }

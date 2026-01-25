@@ -136,3 +136,15 @@ export function validateParamNameInput(
     skipPathChecks: options.skipPathChecks,
   });
 }
+
+export function sanitizeNameForSlug(name: string): string {
+  const invalidChars = "[]\"' ";
+  let output = "";
+  for (const char of name) {
+    output += invalidChars.includes(char) ? "_" : char;
+  }
+  while (output.includes("__")) {
+    output = output.replace("__", "_");
+  }
+  return output.replace(/^_+|_+$/g, "");
+}

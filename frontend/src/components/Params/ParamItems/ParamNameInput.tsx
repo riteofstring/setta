@@ -9,9 +9,11 @@ import {
   type MouseEventHandler,
 } from "react";
 import { createPortal } from "react-dom";
+import { buildParamParentMap } from "state/actions/params/paramTree";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
@@ -27,8 +29,11 @@ import {
 import {
   isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
+  isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
+  SectionTypeEnum,
+  type BaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
 
@@ -40,6 +45,65 @@ type ParamNameInputProps = {
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
+
+function getRootParamId(sectionImpl: BaseSectionWithParamsImpl): string | null {
+  if (sectionImpl.type === SectionTypeEnum.Callable) {
+    return sectionImpl.callable ?? null;
+  }
+  if (
+    sectionImpl.type === SectionTypeEnum.Dict ||
+    sectionImpl.type === SectionTypeEnum.GlobalVariables
+  ) {
+    return sectionImpl.topLevelParamId ?? null;
+  }
+  return null;
+}
+
+function getParamNameDuplicateError(
+  sectionId: string,
+  paramInfoId: string,
+  value: string,
+): string | null {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+    state,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
+  const rootId = getRootParamId(sectionImpl);
+  if (!rootId) {
+    return null;
+  }
+  const rootImpl = getCurrEffectiveCodeObjImpl(state, sectionId, rootId);
+  if (!isBaseParentCodeObjImpl(rootImpl)) {
+    return null;
+  }
+  const parentById = buildParamParentMap(state, sectionId, rootId);
+  if (!(paramInfoId in parentById)) {
+    return null;
+  }
+  const parentId = parentById[paramInfoId];
+  if (!parentId) {
+    return null;
+  }
+  for (const [siblingId, siblingParentId] of Object.entries(parentById)) {
+    if (siblingParentId !== parentId) {
+      continue;
+    }
+    if (siblingId === paramInfoId) {
+      continue;
+    }
+    const siblingName = state.codeObjs[siblingId]?.name?.trim();
+    if (siblingName && siblingName === normalized) {
+      return `Param name "${normalized}" already exists under this parent.`;
+    }
+  }
+  return null;
+}
 
 export function ParamNameInput({
   border,
@@ -112,9 +176,16 @@ export function ParamNameInput({
   const validationError = useDisplayName
     ? null
     : validateParamNameInput(inputValue, validationOptions);
+  const duplicateError =
+    useDisplayName || validationError
+      ? null
+      : getParamNameDuplicateError(sectionId, paramInfoId, inputValue);
   const errorMessages: Array<string> = [];
   if (validationError) {
     errorMessages.push(validationError);
+  }
+  if (duplicateError) {
+    errorMessages.push(duplicateError);
   }
   if (backendErrors) {
     errorMessages.push(...backendErrors);
@@ -220,6 +291,14 @@ export function ParamNameInput({
     if (nextValidationError) {
       return;
     }
+    const nextDuplicateError = getParamNameDuplicateError(
+      sectionId,
+      paramInfoId,
+      v,
+    );
+    if (nextDuplicateError) {
+      return;
+    }
     debouncedSetParamName(paramInfoId, v);
   }
 
@@ -232,6 +311,15 @@ export function ParamNameInput({
       validationOptions,
     );
     if (nextValidationError) {
+      setInputValue(value);
+      return;
+    }
+    const nextDuplicateError = getParamNameDuplicateError(
+      sectionId,
+      paramInfoId,
+      inputValue,
+    );
+    if (nextDuplicateError) {
       setInputValue(value);
       return;
     }
@@ -295,6 +383,8 @@ export function ParamNameInput({
 }
 
 const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
+  const previousName =
+    useProjectState.getState().codeObjs[codeObjId]?.name ?? "";
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const codeObj = state.codeObjs[codeObjId];
@@ -302,6 +392,16 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
         return;
       }
       codeObj.name = name;
+    },
+    rollback: (state) => {
+      const codeObj = state.codeObjs[codeObjId];
+      if (!codeObj) {
+        return;
+      }
+      if (codeObj.name !== name) {
+        return;
+      }
+      codeObj.name = previousName;
     },
     send: (frontendOpId) =>
       route_set_code_obj_name({

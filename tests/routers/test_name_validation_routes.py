@@ -23,7 +23,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
 )
-from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.helpers_lvl2 import create_top_level_section, get_meta_control_param_id
 from setta.types.project_config import (
     ProjectCodegenLanguage,
     Position,
@@ -248,6 +248,62 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             with runtime_context(state) as runtime_ctx:
                                 await route_set_code_obj_name(request, runtime_ctx)
                         self.assertEqual(422, ctx.exception.status_code)
+                    finally:
+                        await _shutdown_state(state)
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+    async def test_set_code_obj_name_meta_control_succeeds(self) -> None:
+        try:
+            with TemporaryDirectory() as tmpdir:
+                with _patched_setta_paths(tmpdir):
+                    state = await _build_state()
+                    try:
+                        main_manager = state.project_manager_switcher.main
+                        default_project_config_id = (
+                            main_manager.project_state_backend.defaultProjectConfigId
+                        )
+                        if default_project_config_id is None:
+                            self.fail(
+                                "Expected default project config id for rename test."
+                            )
+                        project_state = main_manager.get_single_config_state(
+                            default_project_config_id
+                        )
+                        meta_section_id = None
+                        for section_id in project_state.sections:
+                            section_impl = get_curr_effective_section_impl(
+                                project_state, section_id
+                            )
+                            if section_impl.type == SectionType.MetaControl:
+                                meta_section_id = section_id
+                                break
+                        if meta_section_id is None:
+                            meta_section_id = create_top_level_section(
+                                state.settings_file.settings,
+                                project_state,
+                                SectionType.MetaControl,
+                                Position(x=0, y=0),
+                            )
+                            await main_manager.update_and_broadcast_project_state(
+                                project_state
+                            )
+                        param_id = get_meta_control_param_id(
+                            project_state, meta_section_id
+                        )
+                        request = SetCodeObjNameRequest(
+                            projectConfigId=default_project_config_id,
+                            codeObjId=param_id,
+                            name="control_name",
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            await route_set_code_obj_name(request, runtime_ctx)
+                        updated_state = main_manager.get_single_config_state(
+                            default_project_config_id
+                        )
+                        self.assertEqual(
+                            "control_name", updated_state.codeObjs[param_id].name
+                        )
                     finally:
                         await _shutdown_state(state)
         except RuntimeError as exc:

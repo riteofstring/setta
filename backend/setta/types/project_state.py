@@ -167,12 +167,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         *,
         validate_code_file_bindings: bool,
         allow_reserved_project_name: bool = False,
+        validate_name_rules: bool = True,
     ):
         self.validate_singleton_sections()
         self.validate_parent_section_map()
-        self.validate_name_rules(
-            allow_reserved_project_name=allow_reserved_project_name
-        )
+        if validate_name_rules:
+            self.validate_name_rules(
+                allow_reserved_project_name=allow_reserved_project_name
+            )
         self.validate_view_modes()
         self.validate_shown_param_ids()
         self.validate_required_decoded_images()

@@ -331,6 +331,7 @@ from setta.utils.name_validation import (
     collect_param_name_conflicts,
     collect_section_name_conflicts,
     validate_param_name,
+    validate_param_name_format,
     validate_project_name,
 )
 from setta.utils.utils import normalize_path
@@ -1120,11 +1121,13 @@ class BaseProjectManager(ABC):
         updateFileWatcher: bool = True,
         validate_code_file_bindings: bool = True,
         allow_reserved_project_name: bool = False,
+        validate_name_rules: bool = True,
     ):
         async with self._project_state_lock.write_lock():
             projectState.validate_for_update(
                 validate_code_file_bindings=validate_code_file_bindings,
                 allow_reserved_project_name=allow_reserved_project_name,
+                validate_name_rules=validate_name_rules,
             )
             if self.lsp_writers.full is not None:
                 await self._refresh_codegen_state(projectState)
@@ -1415,7 +1418,11 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            broadcast_name_validation_errors=False,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -1472,9 +1479,17 @@ class BaseProjectManager(ABC):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         section_id = self._find_section_id_for_code_obj(project_state, x.codeObjId)
-        normalized_name = validate_param_name(
-            project_state, section_id, x.codeObjId, x.name
-        )
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if isinstance(section_impl, BaseSectionWithParamsImpl):
+            normalized_name = validate_param_name(
+                project_state, section_id, x.codeObjId, x.name
+            )
+        elif section_impl.type == SectionType.MetaControl:
+            normalized_name = validate_param_name_format(
+                project_state, section_id, x.codeObjId, x.name
+            )
+        else:
+            raise TypeError(f"Section {section_id} does not support code obj renames.")
         project_state.codeObjs[x.codeObjId].name = normalized_name
         await self.update_and_broadcast_project_state(project_state)
 
@@ -2744,6 +2759,10 @@ class BaseProjectManager(ABC):
         for section_id in project_state.sections:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, BaseSectionWithParamsImpl):
+                if section_impl.type != SectionType.MetaControl:
+                    continue
+                if code_obj_id in section_impl.codeObjVariantMap:
+                    matches.append(section_id)
                 continue
             if code_obj_id in section_impl.codeObjVariantMap:
                 matches.append(section_id)
@@ -2759,11 +2778,20 @@ class BaseProjectManager(ABC):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
     async def update_and_broadcast_project_state(
-        self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
+        self,
+        project_state: ProjectStateSingleConfig,
+        updateFileWatcher: bool = True,
+        broadcast_name_validation_errors: bool = True,
+        validate_name_rules: bool = True,
     ):
-        await self.update(project_state, updateFileWatcher=updateFileWatcher)
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=validate_name_rules,
+        )
         await self._broadcast_project_state_snapshot(project_state)
-        await self._broadcast_name_validation_errors(project_state)
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
 
     async def _broadcast_project_state_snapshot(
         self,

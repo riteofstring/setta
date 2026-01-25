@@ -163,6 +163,7 @@ class SessionProjectManager(BaseProjectManager):
         projectState: "ProjectStateSingleConfig",
         updateFileWatcher: bool = True,
         validate_code_file_bindings: bool = True,
+        validate_name_rules: bool = True,
     ) -> None:
         if self.share_runtime_state is None:
             await super().update(
@@ -172,6 +173,7 @@ class SessionProjectManager(BaseProjectManager):
                 allow_reserved_project_name=(
                     self.persistence_mode == SessionPersistenceMode.ide_settings
                 ),
+                validate_name_rules=validate_name_rules,
             )
             return
         async with self._project_state_lock.write_lock():
@@ -179,6 +181,7 @@ class SessionProjectManager(BaseProjectManager):
             projectState.validate_for_update(
                 validate_code_file_bindings=False,
                 allow_reserved_project_name=False,
+                validate_name_rules=validate_name_rules,
             )
             if self.share_runtime_state.should_refresh_codegen():
                 await self._refresh_codegen_state(projectState)

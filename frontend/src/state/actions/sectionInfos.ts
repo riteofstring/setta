@@ -996,9 +996,11 @@ function isResponseDataAndStatus(
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
+  rollback,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
+  rollback?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
@@ -1010,6 +1012,9 @@ export function dispatchOptimisticProjectStateUpdate({
         acknowledgePendingOp(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
         removePendingOp(opId);
+        if (rollback) {
+          useProjectState.setState(rollback);
+        }
       }
     });
   }
