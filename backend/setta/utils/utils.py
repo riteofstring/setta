@@ -5,10 +5,11 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, TypeVar
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.utils.constants import CWD
 
 GEN_CODE_FILENAME = "setta_gen.py"
+GEN_CODE_META_FILENAME = "setta_gen_meta.py"
 
 
 def get_absolute_path(src_path, file_path):
@@ -16,7 +17,7 @@ def get_absolute_path(src_path, file_path):
 
 
 def build_project_sections_dir(code_root: Path, project_name: str) -> Path:
-    project_slug = sanitize_name(project_name)
+    project_slug = sanitize_slug(project_name)
     return code_root / "sections" / project_slug
 
 

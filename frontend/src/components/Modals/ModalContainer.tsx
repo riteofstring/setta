@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "state/definitions";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
+import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
 import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
@@ -20,7 +21,10 @@ export function ModalContainer({ children }) {
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
-        <Dialog.Content className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex h-min max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
+        <Dialog.Content
+          className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800"
+          data-tab-native
+        >
           <ModalContent open={open} />
         </Dialog.Content>
       </Dialog.Portal>
@@ -48,6 +52,8 @@ function ModalContent({ open }: { open: boolean }) {
       return <RenameReferencesModal />;
     case ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT:
       return <PublishShareDeploymentModal open={open} />;
+    case ModalTypeEnum.DROPZONE_FILE_PICKER:
+      return <DropzoneFilePickerModal open={open} />;
     default:
       return modalInfo satisfies never;
   }

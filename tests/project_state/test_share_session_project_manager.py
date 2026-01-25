@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -12,7 +12,11 @@ from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    TopLevelSectionLayout,
+    get_python_codegen_target_with_type_guard,
+)
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -58,7 +62,7 @@ def _build_project_state(
         name=resolved_name,
         entryCodeBlockId=code_section_id,
     )
-    project_slug = sanitize_name(project_config.name)
+    project_slug = sanitize_slug(project_config.name)
     code_root = Path("code") / "sections" / project_slug
 
     gen_binding = CodeFileBinding(
@@ -285,12 +289,18 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                 state = session_manager.get_single_config_state(
                     project_config_id
                 )
-                state.projectConfig.genCodePrefix = "import math\n"
+                python_target = get_python_codegen_target_with_type_guard(
+                    state.projectConfig
+                )
+                python_target.genCodePrefix = "import math\n"
                 await session_manager.update(state, updateFileWatcher=False)
                 updated = share_manager.get_session_state(
                     "session-a", project_config_id
                 )
-                self.assertEqual("import math\n", updated.projectConfig.genCodePrefix)
+                updated_target = get_python_codegen_target_with_type_guard(
+                    updated.projectConfig
+                )
+                self.assertEqual("import math\n", updated_target.genCodePrefix)
             finally:
                 session_manager.shutdown()
                 results = await asyncio.gather(

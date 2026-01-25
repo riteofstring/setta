@@ -6,18 +6,22 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import uvicorn
-
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.constants import (
+    IN_PROCESS_ENV_VAR,
+    SESSION_ID_ENV_VAR,
+    SESSIONS_ROOT_ENV_VAR,
+)
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+    import uvicorn
 
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0
@@ -29,7 +33,7 @@ class BackendServerHandle:
 
     def __init__(
         self,
-        server: uvicorn.Server,
+        server: "uvicorn.Server",
         thread: threading.Thread,
         *,
         session: SessionMetadata | None = None,
@@ -40,6 +44,8 @@ class BackendServerHandle:
         session_env_updated: bool = False,
         previous_sessions_root: str | None = None,
         sessions_root_env_updated: bool = False,
+        previous_in_process: str | None = None,
+        in_process_env_updated: bool = False,
     ) -> None:
         self._server = server
         self._thread = thread
@@ -51,9 +57,11 @@ class BackendServerHandle:
         self._session_env_updated = session_env_updated
         self._previous_sessions_root = previous_sessions_root
         self._sessions_root_env_updated = sessions_root_env_updated
+        self._previous_in_process = previous_in_process
+        self._in_process_env_updated = in_process_env_updated
 
     @property
-    def server(self) -> uvicorn.Server:
+    def server(self) -> "uvicorn.Server":
         return self._server
 
     @property
@@ -103,6 +111,11 @@ class BackendServerHandle:
                 os.environ.pop(SESSIONS_ROOT_ENV_VAR, None)
             else:
                 os.environ[SESSIONS_ROOT_ENV_VAR] = self._previous_sessions_root
+        if self._in_process_env_updated:
+            if self._previous_in_process is None:
+                os.environ.pop(IN_PROCESS_ENV_VAR, None)
+            else:
+                os.environ[IN_PROCESS_ENV_VAR] = self._previous_in_process
         if self._session is not None and self._session_registry is not None:
             self._session_registry.delete_session(self._session.id)
 
@@ -129,6 +142,7 @@ def start_backend(
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
     open_browser: bool | str = False,
+    ws_protocol: str | None = None,
 ) -> BackendServerHandle:
     """Start the packaged FastAPI backend in a background thread.
 
@@ -144,6 +158,8 @@ def start_backend(
         Maximum seconds to wait for readiness when wait_for_ready is True.
     open_browser:
         When True open the bootstrap URL; when a string, open that URL.
+    ws_protocol:
+        Override uvicorn's websocket protocol selection (e.g. "none" for tests).
     """
 
     _ensure_frontend_bundle_available()
@@ -163,6 +179,8 @@ def start_backend(
     os.environ[SESSION_ID_ENV_VAR] = session.id
     previous_sessions_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
     os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
+    previous_in_process = os.environ.get(IN_PROCESS_ENV_VAR)
+    os.environ[IN_PROCESS_ENV_VAR] = "1"
     secret = session_registry.load_secret(session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
     bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
@@ -172,13 +190,21 @@ def start_backend(
     resolved_level = configure_logging(level_override=log_level)
     uvicorn_level = logging.getLevelName(resolved_level).lower()
 
+    import uvicorn
+
+    config_kwargs = {
+        "host": resolved_host,
+        "port": resolved_port,
+        "log_level": uvicorn_level,
+        "log_config": None,
+        "timeout_graceful_shutdown": 1,
+    }
+    if ws_protocol is not None:
+        config_kwargs["ws"] = ws_protocol
+
     config = uvicorn.Config(
         "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_level,
-        log_config=None,
-        timeout_graceful_shutdown=1,
+        **config_kwargs,
     )
     server = uvicorn.Server(config)
 
@@ -200,6 +226,8 @@ def start_backend(
         session_env_updated=True,
         previous_sessions_root=previous_sessions_root,
         sessions_root_env_updated=True,
+        previous_in_process=previous_in_process,
+        in_process_env_updated=True,
     )
 
     if wait_for_ready:

@@ -6,8 +6,13 @@ import { DropdownInput } from "./DropdownInput";
 import { RotaryInput } from "./RotaryInput";
 import { SliderInput } from "./SliderInput";
 
+export type ParamValueChangeOptions = {
+  skipBackendUpdate?: boolean;
+};
+
 export type ParamValueChange = (
   value: string | number | boolean | null,
+  options?: ParamValueChangeOptions,
 ) => void;
 
 type ConfiguredButtonInputProps = {
