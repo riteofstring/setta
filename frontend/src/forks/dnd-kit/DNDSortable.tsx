@@ -27,7 +27,11 @@ export function DNDSortable({
     <SortableContext
       id={sectionId}
       items={items}
-      strategy={getSortingStrategy(disabled, idForDeterminingStrategy)}
+      strategy={getSortingStrategy(
+        disabled,
+        idForDeterminingStrategy,
+        sectionId,
+      )}
       disabled={disabled}
     >
       {children}
@@ -42,18 +46,17 @@ function DisabledSortingStrategy() {
 function getSortingStrategy(
   disabled: Disabled,
   idForDeterminingStrategy: string | null,
+  containerId: string,
 ) {
   if (disabled.draggable || disabled.droppable) {
     return DisabledSortingStrategy;
   }
 
-  if (idForDeterminingStrategy) {
-    const parentId = getDndParentId(idForDeterminingStrategy);
-    if (parentId) {
-      return getSectionIsHorizontalOrientation(parentId)
-        ? horizontalListSortingStrategy
-        : verticalListSortingStrategy;
-    }
-  }
-  return DisabledSortingStrategy;
+  const parentId = idForDeterminingStrategy
+    ? getDndParentId(idForDeterminingStrategy)
+    : null;
+  const resolvedParentId = parentId ?? containerId;
+  return getSectionIsHorizontalOrientation(resolvedParentId)
+    ? horizontalListSortingStrategy
+    : verticalListSortingStrategy;
 }
