@@ -17,7 +17,6 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
@@ -26,7 +25,6 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
@@ -36,9 +34,11 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    PromptFormat,
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -57,6 +57,7 @@ class CoreArgs(TypedDict):
             Literal[
                 "actionMode",
                 "activeLayerIdx",
+                "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -80,12 +81,13 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
-                "deepThink",
                 "defaultVal",
                 "description",
+                "displayMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
+                "engineConfigId",
                 "eraserBrushSize",
                 "folder",
                 "format",
@@ -97,6 +99,7 @@ class CoreArgs(TypedDict):
                 "ignoreTypeErrors",
                 "imagePath",
                 "inputText",
+                "inputs",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -107,24 +110,23 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "label",
                 "layers",
-                "llmConfigId",
                 "managed",
                 "max",
-                "maxAttachments",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
-                "mode",
+                "missingVariables",
                 "name",
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
                 "pinnedAreaHeight",
                 "pinnedParams",
-                "placeholder",
                 "positionAndSizeLocked",
-                "renderedImagePath",
+                "renderError",
+                "renderedText",
+                "renderedValue",
                 "requestBody",
                 "requestHeaderKey",
                 "requestHeaderValue",
@@ -134,8 +136,10 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
+                "template",
                 "text",
                 "textDisplayMode",
+                "thinking",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -153,13 +157,13 @@ class ProjectConfigArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
     showParamDisplayNames: NotRequired[bool]
-    allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -208,6 +212,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
 
@@ -236,6 +241,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
     ]
+    displayMode: NotRequired[
+        SectionWithParamsDisplayMode
+        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
+    ]
     edgeInputParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     edgeOutputPorts: NotRequired[
         list[EdgePort] | Callable[[list[EdgePort]], list[EdgePort]]
@@ -244,10 +253,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
@@ -382,7 +393,6 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[DrawAreaLayer]]
-    renderedImagePath: NotRequired[str | None]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -402,7 +412,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     layers: NotRequired[
         list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
-    renderedImagePath: NotRequired[str | None | Callable[[str | None], str | None]]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
@@ -440,6 +449,29 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
+
+
+class PromptSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Prompt]]
+    template: NotRequired[str]
+    format: NotRequired[PromptFormat]
+    inputs: NotRequired[dict[str, str]]
+    renderedText: NotRequired[str]
+    missingVariables: NotRequired[list[str]]
+    renderError: NotRequired[str | None]
+
+
+class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Prompt]
+        | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
+    ]
+    template: NotRequired[str | Callable[[str], str]]
+    format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
+    inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]
+    renderedText: NotRequired[str | Callable[[str], str]]
+    missingVariables: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    renderError: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
@@ -513,20 +545,6 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
     ]
 
 
-class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
-    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
-
-
-class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.GenPythonMetadata]
-        | Callable[
-            [Literal[SectionType.GenPythonMetadata]],
-            Literal[SectionType.GenPythonMetadata],
-        ]
-    ]
-
-
 class TerminalSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Terminal]]
 
@@ -552,9 +570,10 @@ class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
-    llmConfigId: NotRequired[str | None]
+    engineConfigId: NotRequired[ID | None]
+    agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
-    deepThink: NotRequired[bool]
+    thinking: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -571,9 +590,10 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Chat]], Literal[SectionType.Chat]]
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
-    llmConfigId: NotRequired[str | None | Callable[[str | None], str | None]]
+    engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    deepThink: NotRequired[bool | Callable[[bool], bool]]
+    thinking: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -858,9 +878,6 @@ class TextAreaParamCodeObjImplArgsWithCallable(
 
 class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.DropzoneParam]]
-    mode: NotRequired[DropzoneMode]
-    maxAttachments: NotRequired[int | None]
-    placeholder: NotRequired[str]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -872,9 +889,6 @@ class DropzoneParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.DropzoneParam]], Literal[CodeObjType.DropzoneParam]
         ]
     ]
-    mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
-    maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
-    placeholder: NotRequired[str | Callable[[str], str]]
 
 
 class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):

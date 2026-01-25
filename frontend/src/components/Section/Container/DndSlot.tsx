@@ -43,7 +43,7 @@ function DndSlotInner({ text, behaviorDropType, isGroup }) {
     <div
       className={`grid h-8 min-w-60 select-none place-items-center rounded-full  text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity ${
         invalid
-          ? "[background-color:rgba(185,_28,_28,_0.65)]"
+          ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
       } ${isGroup && "mb-8"}`}
     >

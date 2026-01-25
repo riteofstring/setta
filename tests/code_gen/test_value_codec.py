@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
@@ -16,10 +15,6 @@ from setta.types.dependency_value import (
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-    SectionRepresentationMode,
-)
 from setta.types.section_impls import SectionType
 
 
@@ -140,51 +135,6 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_param_expression(param_node), "2+2")
 
-    def test_slider_param_json_representation_parses_payload(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-code"),
-            name="code",
-            full_path_name="section.code",
-            type=CodeObjType.SliderParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("[1,2,3]"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.json_parsed,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "[1, 2, 3]")
-
-    def test_code_param_string_representation_quotes_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-code"),
-            name="code",
-            full_path_name="section.code",
-            type=CodeObjType.CodeParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("2+2"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.string,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
-
-    def test_json_representation_invalid_payload_falls_back_to_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-text"),
-            name="text",
-            full_path_name="section.text",
-            type=CodeObjType.SliderParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("{invalid"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.json_parsed,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
-
     def test_format_text_block_without_value_returns_none(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
@@ -198,7 +148,20 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_section(section_node), "None")
 
-    def test_draw_section_uses_file_read_value_helpers(self) -> None:
+    def test_prompt_section_formats_as_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Prompt",
+            full_path_name="prompt",
+            type=SectionType.Prompt,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("Hello Ada"),
+        )
+        self.assertEqual(codec.format_section(section_node), "'Hello Ada'")
+
+    def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -207,120 +170,17 @@ class PythonValueCodecTest(TestCase):
             type=SectionType.Draw,
             isTopLevel=True,
             deps={},
-            value=FileReadDependencyValue("/tmp/draw.png"),
-            representation=SectionRepresentationMode.file_read,
+            value=Base64DependencyValue("c29tZQ=="),
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
             rendered,
-            "_helpers.read_file_value('/tmp/draw.png')",
+            "_helpers.decode_base64_value('c29tZQ==')",
         )
         self.assertEqual(
             codec.required_imports,
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
-
-    def test_image_section_with_literal_path_is_quoted(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Image",
-            full_path_name="image",
-            type=SectionType.Image,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("artifacts/reversed_image.png"),
-            representation=SectionRepresentationMode.file_path,
-        )
-        self.assertEqual(
-            codec.format_section(section_node),
-            "'artifacts/reversed_image.png'",
-        )
-
-    def test_image_section_uses_file_read_value_helpers(self) -> None:
-        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Image",
-            full_path_name="image",
-            type=SectionType.Image,
-            isTopLevel=True,
-            deps={},
-            value=FileReadDependencyValue("/tmp/image.png"),
-            representation=SectionRepresentationMode.file_read,
-        )
-        rendered = codec.format_section(section_node)
-        self.assertEqual(
-            rendered,
-            "_helpers.read_file_value('/tmp/image.png')",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
-        )
-
-    def test_chat_section_expression_renders_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        payload = "{'messages': [], 'inputText': '', 'waitingForResponse': False, 'toolCallArguments': {}}"
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Chat",
-            full_path_name="chat",
-            type=SectionType.Chat,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue(payload),
-            representation=SectionRepresentationMode.expression,
-        )
-        self.assertEqual(codec.format_section(section_node), payload)
-
-    def test_chat_section_file_path_quotes_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Chat",
-            full_path_name="chat",
-            type=SectionType.Chat,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("/tmp/chat.json"),
-            representation=SectionRepresentationMode.file_path,
-        )
-        self.assertEqual(codec.format_section(section_node), "'/tmp/chat.json'")
-
-    def test_chat_section_file_read_uses_helpers(self) -> None:
-        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Chat",
-            full_path_name="chat",
-            type=SectionType.Chat,
-            isTopLevel=True,
-            deps={},
-            value=FileReadDependencyValue("/tmp/chat.json"),
-            representation=SectionRepresentationMode.file_read,
-        )
-        rendered = codec.format_section(section_node)
-        self.assertEqual(rendered, "_helpers.read_file_value('/tmp/chat.json')")
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
-        )
-
-    def test_draw_section_without_value_raises(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Draw",
-            full_path_name="draw",
-            type=SectionType.Draw,
-            isTopLevel=True,
-            deps={},
-            value=None,
-            representation=SectionRepresentationMode.file_read,
-        )
-        with self.assertRaises(ValueError):
-            codec.format_section(section_node)
 
     def test_packaged_mode_uses_helper_for_file_reads(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
@@ -350,105 +210,3 @@ class PythonValueCodecTest(TestCase):
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(rendered, "'secret'")
-
-    def test_dropzone_param_empty_value_renders_empty_list(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-dropzone"),
-            name="dropzone",
-            full_path_name="section.dropzone",
-            type=CodeObjType.DropzoneParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue(""),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.file_path,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "[]")
-
-    def test_dropzone_param_payload_renders_as_attachment_list(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        payload = {
-            "version": 1,
-            "attachments": [
-                {
-                    "kind": "file",
-                    "id": "artifacts/test.txt",
-                    "name": "test.txt",
-                    "mimeType": "text/plain",
-                    "size": 12,
-                },
-                {
-                    "kind": "text",
-                    "id": "text:abc",
-                    "name": "Dropped text",
-                    "text": "hello",
-                },
-            ],
-        }
-        param_node = ParamNode(
-            id=ID("param-dropzone"),
-            name="dropzone",
-            full_path_name="section.dropzone",
-            type=CodeObjType.DropzoneParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue(json.dumps(payload)),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.file_path,
-        )
-        expected = repr(["artifacts/test.txt", "hello"])
-        self.assertEqual(codec.format_param_expression(param_node), expected)
-
-    def test_dropzone_param_invalid_payload_falls_back_to_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-dropzone"),
-            name="dropzone",
-            full_path_name="section.dropzone",
-            type=CodeObjType.DropzoneParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("{invalid"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.file_path,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
-
-    def test_dropzone_param_file_read_uses_helpers(self) -> None:
-        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
-        payload = {
-            "attachments": [
-                {
-                    "kind": "file",
-                    "id": "/tmp/test.txt",
-                    "name": "test.txt",
-                },
-                {
-                    "kind": "text",
-                    "id": "text:abc",
-                    "name": "Dropped text",
-                    "text": "hello",
-                },
-            ],
-        }
-        param_node = ParamNode(
-            id=ID("param-dropzone"),
-            name="dropzone",
-            full_path_name="section.dropzone",
-            type=CodeObjType.DropzoneParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue(json.dumps(payload)),
-            passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.file_read,
-        )
-        rendered = codec.format_param_expression(param_node)
-        self.assertEqual(
-            rendered,
-            "[_helpers.read_file_value('/tmp/test.txt'), 'hello']",
-        )
-        self.assertEqual(
-            codec.required_imports,
-            ("from setta.code_gen.python import value_helpers as _helpers",),
-        )

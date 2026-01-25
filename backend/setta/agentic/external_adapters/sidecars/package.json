@@ -1,0 +1,12 @@
+{
+  "name": "setta-external-agent-sidecars",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "0.87.0",
+    "@opencode-ai/sdk": "1.1.28"
+  }
+}
