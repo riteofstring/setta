@@ -245,8 +245,9 @@ function onDragOver({
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
 
+  let ignoredLeftDist = false;
   if (calledFromOnDragMove && dndState.triggerDistCondition) {
-    leftDistBehavior({
+    const handledLeftDist = leftDistBehavior({
       active,
       over,
       dndChildrenState,
@@ -254,7 +255,10 @@ function onDragOver({
       dndSectionId,
       collisions,
     });
-    return;
+    if (handledLeftDist) {
+      return;
+    }
+    ignoredLeftDist = true;
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
@@ -272,8 +276,8 @@ function onDragOver({
     return;
   }
 
-  if (dndState.triggerDistCondition) {
-    leftDistBehavior({
+  if (dndState.triggerDistCondition && !ignoredLeftDist) {
+    const handledLeftDist = leftDistBehavior({
       active,
       over,
       dndChildrenState,
@@ -281,7 +285,9 @@ function onDragOver({
       dndSectionId,
       collisions,
     });
-    return;
+    if (handledLeftDist) {
+      return;
+    }
   }
 
   // Dragging over the temporary section
@@ -408,20 +414,31 @@ function leftDistBehavior({
   oldParentId,
   dndSectionId,
   collisions,
-}) {
+}): boolean {
   const overId = getOverId(over, collisions);
-  // Consider overId to be the new parent, if it's not the temp section.
-  if (overId !== dndSectionId) {
-    maybeMoveToNewParent({
-      active,
-      over,
-      dndSectionId,
-      oldParentId,
-      newParentId: overId,
-      dndChildrenState,
-      collisions,
-    });
+  const overIdKey = overId ? String(overId) : null;
+  if (!overIdKey || overIdKey === dndSectionId) {
+    return true;
   }
+
+  const behaviorDropType = getBehaviorDropType(active.id, overIdKey);
+  if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
+    // Ignore left-dist when the hovered section can't be a parent.
+    setNullBehavior(overId);
+    return false;
+  }
+
+  // Consider overId to be the new parent, if it's not the temp section.
+  maybeMoveToNewParent({
+    active,
+    over,
+    dndSectionId,
+    oldParentId,
+    newParentId: overIdKey,
+    dndChildrenState,
+    collisions,
+  });
+  return true;
 }
 
 function setNullBehavior(overId) {

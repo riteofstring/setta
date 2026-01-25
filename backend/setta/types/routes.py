@@ -171,6 +171,8 @@ class Route(str, Enum):
     PASTE_SECTIONS = "/pasteSections"
     GET_FILE_BROWSER_ROOT = "/getFileBrowserRoot"
     GET_FOLDER_CONTENTS = "/getFolderContents"
+    IMPORT_FILES_TO_ARTIFACTS = "/importFilesToArtifacts"
+    DELETE_ARTIFACTS = "/deleteArtifacts"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"
     LOAD_CACHED_CHART_DATA = "/loadCachedChartData"

@@ -20,6 +20,8 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
     ControlCodeObjTypeSet,
+    DropzoneMode,
+    DropzoneParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
@@ -29,6 +31,7 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
+from setta.types.dropzone import normalize_dropzone_value
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
@@ -424,6 +427,12 @@ def set_param_entered_value(
     paramId: ID,
     value: str,
 ):
+    impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
+    if isinstance(impl, DropzoneParamCodeObjImpl):
+        if impl.mode == DropzoneMode.STATELESS:
+            value = ""
+        else:
+            value = normalize_dropzone_value(value, impl.maxAttachments)
     set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
     )
@@ -1322,9 +1331,12 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
             | CodeObjType.TextAreaParam
-            | CodeObjType.DropzoneParam
         ):
             return value
+        case CodeObjType.DropzoneParam:
+            if impl.mode == DropzoneMode.STATELESS:
+                return ""
+            return normalize_dropzone_value(value, impl.maxAttachments)
         case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:
                 x = float(value)

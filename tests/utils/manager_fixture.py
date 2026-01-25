@@ -175,7 +175,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
     """Provision a SessionProjectManager (main) backed by a seeded temp setta_files bundle."""
-
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         setta_root = root / "setta_files"

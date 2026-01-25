@@ -18,8 +18,10 @@ export const ControlCodeObjTypeSet = new Set([
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
+  "RotaryParam",
   "SliderParam",
   "SwitchParam",
+  "TextAreaParam",
   "TextParam",
 ]);
 
@@ -82,6 +84,7 @@ export const ArtifactTypeEnum = {
   BrushStroke: "BrushStroke",
   DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
   ChartData: "ChartData",
+  File: "File",
 } as const;
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
@@ -156,6 +159,11 @@ export const CodeObjTypeEnum = {
 } as const;
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
 
 export const HttpRequestMethodEnum = {
   GET: "GET",
@@ -264,6 +272,18 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
+export const CodeObjValueRepresentationModeEnum = {
+  expression: "expression",
+  json_parsed: "json_parsed",
+  string: "string",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+
+export type CodeObjValueRepresentationMode = ObjectValues<
+  typeof CodeObjValueRepresentationModeEnum
+>;
+
 export const ProjectCodegenLanguageEnum = { python: "python" } as const;
 
 const SectionCodegenModeEnum = {
@@ -273,9 +293,9 @@ const SectionCodegenModeEnum = {
 } as const;
 
 const SectionRepresentationModeEnum = {
-  json: "json",
-  file: "file",
-  base64: "base64",
+  expression: "expression",
+  file_path: "file_path",
+  file_read: "file_read",
 } as const;
 
 const WatchCodeCallableKindEnum = {
@@ -462,6 +482,8 @@ export const RouteEnum = {
   PASTE_SECTIONS: "/pasteSections",
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
+  IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
+  DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
@@ -486,6 +508,12 @@ export const BackgroundVariantEnum = {
   lines: "lines",
   dots: "dots",
   cross: "cross",
+} as const;
+
+const MetaControlSizeModeEnum = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
 } as const;
 
 export const PanOnScrollModeEnum = {
@@ -751,6 +779,19 @@ const DrawAreaTransformSchema = z.tuple([
 ]);
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
+
+const FileArtifactSchema = z.object({
+  type: z.literal("File").default(ArtifactTypeEnum.File),
+  id: z
+    .string()
+    .default(
+      () =>
+        "setta_files/artifacts/a9eaa08b-f394-413f-9b0f-3b3a85b84d5e.bin" as const,
+    ),
+  value: z.string(),
+});
+
+export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
@@ -1253,6 +1294,7 @@ const SharedModifierSchema = z.object({
   llmConfigId: z.union([z.string(), z.null()]).optional(),
   managed: z.boolean().optional(),
   max: z.union([z.number(), z.int()]).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -1266,12 +1308,14 @@ const SharedModifierSchema = z.object({
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
   name: z.string().optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   renderedImagePath: z.union([z.string(), z.null()]).optional(),
   requestBody: z.string().optional(),
@@ -1367,16 +1411,19 @@ const CoreSchema = z.object({
         "llmConfigId",
         "managed",
         "max",
+        "maxAttachments",
         "messages",
         "metaControlParamId",
         "metaControlStyle",
         "min",
+        "mode",
         "name",
         "overflowMode",
         "paramFilter",
         "passingStyle",
         "pinnedAreaHeight",
         "pinnedParams",
+        "placeholder",
         "positionAndSizeLocked",
         "renderedImagePath",
         "requestBody",
@@ -2084,9 +2131,14 @@ const DropzoneParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
+  placeholder: z.string().default("Drop a file here" as const),
 });
 
-type DropzoneParamCodeObjImpl = z.infer<typeof DropzoneParamCodeObjImplSchema>;
+export type DropzoneParamCodeObjImpl = z.infer<
+  typeof DropzoneParamCodeObjImplSchema
+>;
 
 const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
@@ -2561,6 +2613,9 @@ const DropzoneParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  mode: z.enum(DropzoneModeEnum).optional(),
+  maxAttachments: z.union([z.int(), z.null()]).optional(),
+  placeholder: z.string().optional(),
 });
 
 type DropzoneParamCodeObjImplArgs = z.infer<
@@ -3234,7 +3289,7 @@ const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
     .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
+    .default(SectionRepresentationModeEnum.expression),
 });
 
 type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
@@ -3249,7 +3304,7 @@ const SectionCodegenOverrideSchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
     .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
+    .default(SectionRepresentationModeEnum.expression),
 });
 
 const SectionCodegenPolicySchema = z.object({
@@ -3265,6 +3320,21 @@ const SectionCodegenPolicySchema = z.object({
       SectionTypeEnum.Draw,
       SectionTypeEnum.MetaControl,
     ]),
+  metaControlAllowlist: z
+    .union([z.array(z.enum(CodeObjTypeEnum)), z.null()])
+    .default(() => [
+      CodeObjTypeEnum.CodeParam,
+      CodeObjTypeEnum.TextParam,
+      CodeObjTypeEnum.TextAreaParam,
+      CodeObjTypeEnum.SliderParam,
+      CodeObjTypeEnum.RotaryParam,
+      CodeObjTypeEnum.SwitchParam,
+      CodeObjTypeEnum.ColorPickerParam,
+      CodeObjTypeEnum.DropdownParam,
+      CodeObjTypeEnum.PasswordParam,
+      CodeObjTypeEnum.ButtonParam,
+      CodeObjTypeEnum.DropzoneParam,
+    ]),
   exclude: z.array(IDSchema).default([]),
   typePolicies: z
     .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
@@ -3274,11 +3344,11 @@ const SectionCodegenPolicySchema = z.object({
       ListRoot: createSectionTypeCodegenPolicy(),
       Group: createSectionTypeCodegenPolicy(),
       Image: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       Chart: createSectionTypeCodegenPolicy(),
       Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       TextBlock: createSectionTypeCodegenPolicy(),
       MetaControl: createSectionTypeCodegenPolicy(),
@@ -3290,7 +3360,7 @@ const SectionCodegenPolicySchema = z.object({
       Terminal: createSectionTypeCodegenPolicy(),
       IFrame: createSectionTypeCodegenPolicy(),
       Chat: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       Browser: createSectionTypeCodegenPolicy(),
     })),
@@ -3307,12 +3377,74 @@ export function createSectionCodegenPolicy(
   return SectionCodegenPolicySchema.parse(options);
 }
 
+const CodeObjTypeValuePolicySchema = z.object({
+  representation: z
+    .enum(CodeObjValueRepresentationModeEnum)
+    .default(CodeObjValueRepresentationModeEnum.expression),
+});
+
+type CodeObjTypeValuePolicy = z.infer<typeof CodeObjTypeValuePolicySchema>;
+
+function createCodeObjTypeValuePolicy(
+  options: Partial<CodeObjTypeValuePolicy> = {},
+): CodeObjTypeValuePolicy {
+  return CodeObjTypeValuePolicySchema.parse(options);
+}
+
+const CodeObjValueOverrideSchema = z.object({
+  representation: z
+    .enum(CodeObjValueRepresentationModeEnum)
+    .default(CodeObjValueRepresentationModeEnum.expression),
+});
+
+const CodeObjValuePolicySchema = z.object({
+  typePolicies: z
+    .record(z.enum(CodeObjTypeEnum), CodeObjTypeValuePolicySchema)
+    .default(() => ({
+      CodeCallable: createCodeObjTypeValuePolicy(),
+      CodeParam: createCodeObjTypeValuePolicy(),
+      TextParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      ButtonParam: createCodeObjTypeValuePolicy(),
+      SliderParam: createCodeObjTypeValuePolicy(),
+      RotaryParam: createCodeObjTypeValuePolicy(),
+      SwitchParam: createCodeObjTypeValuePolicy(),
+      ColorPickerParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      DropdownParam: createCodeObjTypeValuePolicy(),
+      PasswordParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      TextAreaParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      DropzoneParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.file_path,
+      }),
+      NestedParam: createCodeObjTypeValuePolicy(),
+    })),
+  codeObjOverrides: z.record(IDSchema, CodeObjValueOverrideSchema).default({}),
+});
+
+type CodeObjValuePolicy = z.infer<typeof CodeObjValuePolicySchema>;
+
+export function createCodeObjValuePolicy(
+  options: Partial<CodeObjValuePolicy> = {},
+): CodeObjValuePolicy {
+  return CodeObjValuePolicySchema.parse(options);
+}
+
 const ProjectCodegenPythonTargetSchema = z.object({
   language: z.literal("python").default(ProjectCodegenLanguageEnum.python),
   genCodePrefix: z.string().default("" as const),
   genCodeSuffix: z.string().default("state = SettaState()" as const),
   generateMetadata: z.boolean().default(false),
   sectionPolicy: SectionCodegenPolicySchema.default(createSectionCodegenPolicy),
+  codeObjValuePolicy: CodeObjValuePolicySchema.default(
+    createCodeObjValuePolicy,
+  ),
 });
 
 export type ProjectCodegenPythonTarget = z.infer<
@@ -3866,6 +3998,121 @@ function createSectionSizingPolicyByType(
   return SectionSizingPolicyByTypeSchema.parse(options);
 }
 
+const MetaControlSizingPolicyTypeEntrySchema = z.object({
+  minHeight: z.number(),
+  minWidth: z.number(),
+  sizeModeHeight: z
+    .enum(MetaControlSizeModeEnum)
+    .default(MetaControlSizeModeEnum.any),
+  sizeModeWidth: z
+    .enum(MetaControlSizeModeEnum)
+    .default(MetaControlSizeModeEnum.any),
+});
+
+export type MetaControlSizingPolicyTypeEntry = z.infer<
+  typeof MetaControlSizingPolicyTypeEntrySchema
+>;
+
+function createMetaControlSizingPolicyTypeEntry(
+  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+): MetaControlSizingPolicyTypeEntry {
+  return MetaControlSizingPolicyTypeEntrySchema.parse(options);
+}
+
+const MetaControlSizingPolicyByTypeSchema = z.object({
+  CodeCallable: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  CodeParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  TextParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  ButtonParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  SliderParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  RotaryParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  SwitchParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  ColorPickerParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  DropdownParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  PasswordParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+      sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+    }),
+  ),
+  TextAreaParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 80.0,
+      minWidth: 200.0,
+    }),
+  ),
+  DropzoneParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 120.0,
+      minWidth: 240.0,
+    }),
+  ),
+  NestedParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+});
+
+type MetaControlSizingPolicyByType = z.infer<
+  typeof MetaControlSizingPolicyByTypeSchema
+>;
+
+function createMetaControlSizingPolicyByType(
+  options: Partial<MetaControlSizingPolicyByType> = {},
+): MetaControlSizingPolicyByType {
+  return MetaControlSizingPolicyByTypeSchema.parse(options);
+}
+
 const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
   minimizedHeight: z.number().default(32),
@@ -3887,6 +4134,9 @@ function createSectionSizingPolicyGlobals(
 const SectionSizingPolicySchema = z.object({
   byType: SectionSizingPolicyByTypeSchema.default(
     createSectionSizingPolicyByType,
+  ),
+  metaControlByType: MetaControlSizingPolicyByTypeSchema.default(
+    createMetaControlSizingPolicyByType,
   ),
   globals: SectionSizingPolicyGlobalsSchema.default(
     createSectionSizingPolicyGlobals,
@@ -4418,6 +4668,9 @@ const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
+  maxAttachments: z.union([z.int(), z.null()]).default(null),
+  placeholder: z.string().default("Drop a file here" as const),
 });
 
 type UserDefaultDropzoneParamCodeObjImpl = z.infer<
@@ -4696,6 +4949,7 @@ const UpdateArtifactMsgContentSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   updateType: z.literal(["update", "delete"]),
@@ -5549,6 +5803,19 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
+const DeleteArtifactRequestItemSchema = z.object({
+  id: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+});
+
+const DeleteArtifactsRequestSchema = z.object({
+  artifacts: z.array(DeleteArtifactRequestItemSchema),
+});
+
+export type DeleteArtifactsRequestInput = z.input<
+  typeof DeleteArtifactsRequestSchema
+>;
+
 const GetFileBrowserRootResponseSchema = z.object({
   rootPath: z.string(),
   pathSeparator: z.string(),
@@ -5572,6 +5839,26 @@ export type GetFolderContentsRequestInput = z.input<
   typeof GetFolderContentsRequestSchema
 >;
 
+const ImportFilesToArtifactsRequestSchema = z.object({
+  paths: z.array(z.string()),
+});
+
+export type ImportFilesToArtifactsRequestInput = z.input<
+  typeof ImportFilesToArtifactsRequestSchema
+>;
+
+const ImportFilesToArtifactsResponseItemSchema = z.object({
+  kind: z.literal("file").default("file" as const),
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+  size: z.int(),
+});
+
+export type ImportFilesToArtifactsResponseItem = z.infer<
+  typeof ImportFilesToArtifactsResponseItemSchema
+>;
+
 const LoadCachedPathsRequestSchema = z.object({
   paths: z.array(z.string()),
 });
@@ -5587,6 +5874,7 @@ const UpdateArtifactsRequestSchema = z.object({
       BrushStrokeArtifactSchema,
       DrawAreaLayerItemTransformArtifactSchema,
       ChartDataArtifactSchema,
+      FileArtifactSchema,
     ]),
   ),
   conflictStrategy: z
