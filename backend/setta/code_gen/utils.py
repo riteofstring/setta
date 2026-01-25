@@ -25,6 +25,10 @@ def sanitize_name(name):
     return name
 
 
+def sanitize_slug(name: str) -> str:
+    return sanitize_name(name).casefold()
+
+
 _PYTHON_IDENTIFIER_INVALID_CHARS = re.compile(r"\W", flags=re.UNICODE)
 
 

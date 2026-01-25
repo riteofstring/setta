@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -187,8 +187,8 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
             sectionVariants={variant.id: variant},
         )
 
-        project_slug = sanitize_name(project_config.name)
-        section_slug = sanitize_name(section.name)
+        project_slug = sanitize_slug(project_config.name)
+        section_slug = sanitize_slug(section.name)
         self.section_id = section.id
         self.variant_id = variant.id
         self.project_config_id = project_config.id

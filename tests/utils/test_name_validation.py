@@ -31,10 +31,14 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     SectionType,
 )
+from setta.utils.constants import C
 from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
+    collect_param_name_format_errors,
+    collect_project_name_format_errors,
     collect_section_name_conflicts,
+    collect_section_name_format_errors,
     validate_param_name,
 )
 
@@ -161,6 +165,31 @@ class ProjectNameValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidProjectName):
             set_project_config_name(backend, secondary.id, "foo bar")
 
+    def test_project_slug_collision_case_insensitive_rejected(self) -> None:
+        primary = ProjectConfig(name="Foo")
+        secondary = ProjectConfig(name="secondary")
+        backend = ProjectStateBackend(
+            projectConfigs={primary.id: primary, secondary.id: secondary},
+            defaultProjectConfigId=primary.id,
+        )
+        with self.assertRaises(InvalidProjectName):
+            set_project_config_name(backend, secondary.id, "foo")
+
+    def test_collect_project_name_format_errors_allows_settings_name(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name=C.SETTINGS_PROJECT_NAME)
+        )
+        self.assertEqual([], collect_project_name_format_errors(project_state))
+
+    def test_collect_project_name_format_errors_flags_invalid(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="bad/name")
+        )
+        self.assertEqual(
+            ["Project name cannot include path separators."],
+            collect_project_name_format_errors(project_state),
+        )
+
 
 class SectionNameValidationTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -204,6 +233,40 @@ class SectionNameValidationTests(unittest.TestCase):
         set_section_name(self.project_state, first, "Foo_Bar")
         with self.assertRaises(InvalidSectionName):
             set_section_name(self.project_state, second, "Foo Bar")
+
+    def test_section_slug_collision_case_insensitive_rejected(self) -> None:
+        first = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        second = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, first, "Foo")
+        with self.assertRaises(InvalidSectionName):
+            set_section_name(self.project_state, second, "foo")
+
+    def test_collect_section_name_format_errors_flags_invalid(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        self.project_state.sections[section_id].name = "bad#name"
+        errors = collect_section_name_format_errors(self.project_state)
+        self.assertIn(section_id, errors)
+        self.assertIn(
+            "Section name can only contain letters, numbers, spaces, '_' and '-'.",
+            errors[section_id],
+        )
 
     def test_section_name_rejects_dotdot(self) -> None:
         section_id = create_top_level_section(
@@ -514,6 +577,42 @@ class ParamNameValidationTests(unittest.TestCase):
                 param_id,
                 "class",
             )
+
+    def test_param_name_rejects_unicode_identifier(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        with self.assertRaises(InvalidParamName):
+            validate_param_name(
+                self.project_state,
+                section_id,
+                param_id,
+                "café",
+            )
+
+    def test_collect_param_name_format_errors_flags_invalid(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        self.project_state.codeObjs[param_id].name = "invalid name"
+        errors = collect_param_name_format_errors(self.project_state)
+        self.assertIn(param_id, errors)
+        self.assertIn(
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
+        )
 
     def test_param_name_rejects_path_separators(self) -> None:
         section_id = create_top_level_section(

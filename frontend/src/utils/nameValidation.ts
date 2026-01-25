@@ -155,5 +155,5 @@ export function sanitizeNameForSlug(name: string): string {
   while (output.includes("__")) {
     output = output.replace("__", "_");
   }
-  return output.replace(/^_+|_+$/g, "");
+  return output.replace(/^_+|_+$/g, "").toLowerCase();
 }

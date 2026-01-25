@@ -3173,6 +3173,7 @@ const WebsocketMsgLSPDiagnosticsSchema = z.object({
 
 const SettaProjectNameValidationErrorsSchema = z.object({
   projectConfigId: IDSchema,
+  projectErrors: z.array(z.string()).default([]),
   sectionErrors: z.record(IDSchema, z.array(z.string())).default({}),
   paramErrors: z.record(IDSchema, z.array(z.string())).default({}),
 });

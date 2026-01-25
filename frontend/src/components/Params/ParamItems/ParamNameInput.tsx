@@ -1,16 +1,16 @@
+import { useParamDuplicateIndex } from "components/Params/ParamDuplicateIndexContext";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type MouseEventHandler,
 } from "react";
 import { createPortal } from "react-dom";
-import { buildParamParentMap } from "state/actions/params/paramTree";
+import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
@@ -18,11 +18,7 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import {
-  useNameValidationErrors,
-  useProjectState,
-  type ZustandProjectState,
-} from "state/definitions";
+import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
@@ -35,11 +31,8 @@ import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
-  SectionTypeEnum,
-  type BaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
-import { shallow } from "zustand/shallow";
 
 type ParamNameInputProps = {
   border: string;
@@ -49,59 +42,6 @@ type ParamNameInputProps = {
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
-
-function getRootParamId(sectionImpl: BaseSectionWithParamsImpl): string | null {
-  if (sectionImpl.type === SectionTypeEnum.Callable) {
-    return sectionImpl.callable ?? null;
-  }
-  if (
-    sectionImpl.type === SectionTypeEnum.Dict ||
-    sectionImpl.type === SectionTypeEnum.GlobalVariables
-  ) {
-    return sectionImpl.topLevelParamId ?? null;
-  }
-  return null;
-}
-
-type ParamDuplicateIndex = {
-  parentById: Record<string, string | null>;
-  namesByParent: Record<string, Record<string, string[]>>;
-};
-
-function buildParamDuplicateIndex(
-  state: ZustandProjectState,
-  sectionId: string,
-): ParamDuplicateIndex {
-  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const rootId = getRootParamId(sectionImpl);
-  if (!rootId) {
-    return { parentById: {}, namesByParent: {} };
-  }
-  const parentById = buildParamParentMap(state, sectionId, rootId);
-  const namesByParent: Record<string, Record<string, string[]>> = {};
-  for (const [paramId, parentId] of Object.entries(parentById)) {
-    if (!parentId) {
-      continue;
-    }
-    const paramName = state.codeObjs[paramId]?.name?.trim();
-    if (!paramName) {
-      continue;
-    }
-    if (!namesByParent[parentId]) {
-      namesByParent[parentId] = {};
-    }
-    const namesForParent = namesByParent[parentId];
-    if (!namesForParent[paramName]) {
-      namesForParent[paramName] = [];
-    }
-    namesForParent[paramName].push(paramId);
-  }
-  return { parentById, namesByParent };
-}
 
 function getParamNameDuplicateError(
   paramInfoId: string,
@@ -201,31 +141,7 @@ export function ParamNameInput({
     requirePythonIdentifier,
     skipPathChecks: isDictSection,
   };
-  const paramTreeDeps = useProjectState(
-    (state) => ({
-      codeObjs: state.codeObjs,
-      codeObjImpls: state.codeObjImpls,
-      codeObjVariants: state.codeObjVariants,
-      sectionImpls: state.sectionImpls,
-      sectionVariants: state.sectionVariants,
-      projectConfig: state.projectConfig,
-      sections: state.sections,
-    }),
-    shallow,
-  );
-  const duplicateIndex = useMemo(
-    () => buildParamDuplicateIndex(useProjectState.getState(), sectionId),
-    [
-      paramTreeDeps.codeObjs,
-      paramTreeDeps.codeObjImpls,
-      paramTreeDeps.codeObjVariants,
-      paramTreeDeps.sectionImpls,
-      paramTreeDeps.sectionVariants,
-      paramTreeDeps.projectConfig,
-      paramTreeDeps.sections,
-      sectionId,
-    ],
-  );
+  const duplicateIndex = useParamDuplicateIndex();
   const validationError = useDisplayName
     ? null
     : validateParamNameInput(inputValue, validationOptions);

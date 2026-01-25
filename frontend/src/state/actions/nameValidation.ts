@@ -10,6 +10,7 @@ export function processNameValidationErrors(
   }
   useNameValidationErrors.getState().reset();
   useNameValidationErrors.setState({
+    projectErrors: content.projectErrors,
     sectionErrors: content.sectionErrors,
     paramErrors: content.paramErrors,
   });

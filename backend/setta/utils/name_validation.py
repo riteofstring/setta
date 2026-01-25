@@ -1,12 +1,14 @@
 import keyword
+import re
 from typing import TYPE_CHECKING
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     ParameterPassingStyle,
 )
 from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -42,6 +44,7 @@ PARAM_RESERVED_NAMES: frozenset[str] = frozenset()
 ALLOWED_SIMPLE_NAME_CHARS: frozenset[str] = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-"
 )
+PYTHON_IDENTIFIER_REGEX = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _normalize_name(name: str) -> str:
@@ -131,27 +134,50 @@ def _ensure_not_reserved(
         )
 
 
+def _project_name_format_error(
+    normalized: str,
+    *,
+    allow_reserved: bool,
+) -> str | None:
+    if not normalized:
+        return "Project name cannot be empty."
+    if _contains_control_chars(normalized):
+        return "Project name cannot include control characters."
+    if "/" in normalized or "\\" in normalized:
+        return "Project name cannot include path separators."
+    if ".." in normalized:
+        return "Project name cannot include '..' path segments."
+    for char in normalized:
+        if char not in ALLOWED_SIMPLE_NAME_CHARS:
+            return (
+                "Project name can only contain letters, numbers, spaces, '_' and '-'."
+            )
+    if not allow_reserved and normalized.lower() in PROJECT_RESERVED_NAMES:
+        return f"Project name '{normalized}' is reserved."
+    slug = sanitize_slug(normalized)
+    if not slug:
+        return "Project name is invalid after sanitization."
+    return None
+
+
+def get_project_name_format_error(
+    name: str,
+    *,
+    allow_reserved: bool = False,
+) -> str | None:
+    normalized = _normalize_name(name)
+    return _project_name_format_error(normalized, allow_reserved=allow_reserved)
+
+
 def validate_project_name_format(
     name: str,
     *,
     allow_reserved: bool = False,
 ) -> str:
     normalized = _normalize_name(name)
-    _ensure_non_empty(normalized, InvalidProjectName, "Project name")
-    _ensure_no_control_chars(normalized, InvalidProjectName, "Project name")
-    _ensure_no_path_separators(normalized, InvalidProjectName, "Project name")
-    _ensure_no_dotdot(normalized, InvalidProjectName, "Project name")
-    _ensure_allowed_chars(normalized, InvalidProjectName, "Project name")
-    if not allow_reserved:
-        _ensure_not_reserved(
-            normalized, PROJECT_RESERVED_NAMES, InvalidProjectName, "Project name"
-        )
-    slug = sanitize_name(normalized)
-    if not slug:
-        _raise_invalid_name(
-            "Project name is invalid after sanitization.",
-            InvalidProjectName,
-        )
+    error = _project_name_format_error(normalized, allow_reserved=allow_reserved)
+    if error:
+        _raise_invalid_name(error, InvalidProjectName)
     return normalized
 
 
@@ -161,11 +187,11 @@ def validate_project_name(
     name: str,
 ) -> str:
     normalized = validate_project_name_format(name)
-    slug = sanitize_name(normalized)
+    slug = sanitize_slug(normalized)
     for existing_id, config in project_state.projectConfigs.items():
         if project_config_id is not None and existing_id == project_config_id:
             continue
-        existing_slug = sanitize_name(config.name)
+        existing_slug = sanitize_slug(config.name)
         if slug == existing_slug:
             _raise_invalid_name(
                 f"Project name '{normalized}' conflicts with existing project '{config.name}'.",
@@ -174,16 +200,35 @@ def validate_project_name(
     return normalized
 
 
+def _section_name_format_error(normalized: str) -> str | None:
+    if not normalized:
+        return "Section name cannot be empty."
+    if _contains_control_chars(normalized):
+        return "Section name cannot include control characters."
+    if "/" in normalized or "\\" in normalized:
+        return "Section name cannot include path separators."
+    if ".." in normalized:
+        return "Section name cannot include '..' path segments."
+    for char in normalized:
+        if char not in ALLOWED_SIMPLE_NAME_CHARS:
+            return (
+                "Section name can only contain letters, numbers, spaces, '_' and '-'."
+            )
+    if normalized.lower() in SECTION_RESERVED_NAMES:
+        return f"Section name '{normalized}' is reserved."
+    return None
+
+
+def get_section_name_format_error(name: str) -> str | None:
+    normalized = _normalize_name(name)
+    return _section_name_format_error(normalized)
+
+
 def validate_section_name_format(name: str) -> str:
     normalized = _normalize_name(name)
-    _ensure_non_empty(normalized, InvalidSectionName, "Section name")
-    _ensure_no_control_chars(normalized, InvalidSectionName, "Section name")
-    _ensure_no_path_separators(normalized, InvalidSectionName, "Section name")
-    _ensure_no_dotdot(normalized, InvalidSectionName, "Section name")
-    _ensure_allowed_chars(normalized, InvalidSectionName, "Section name")
-    _ensure_not_reserved(
-        normalized, SECTION_RESERVED_NAMES, InvalidSectionName, "Section name"
-    )
+    error = _section_name_format_error(normalized)
+    if error:
+        _raise_invalid_name(error, InvalidSectionName)
     return normalized
 
 
@@ -244,7 +289,7 @@ def _collect_section_slug_map(
         full_name = _resolve_section_full_path_name(
             project_state, section_id, name_overrides
         )
-        slug = sanitize_name(full_name)
+        slug = sanitize_slug(full_name)
         slug_by_section_id[section_id] = slug
         slug_to_section_ids.setdefault(slug, []).append(section_id)
     return slug_by_section_id, slug_to_section_ids
@@ -322,6 +367,56 @@ def _is_dict_param(
     return isinstance(section_impl, BaseDictSectionImpl)
 
 
+def _param_name_format_error(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    code_obj_id: "ID",
+    normalized: str,
+) -> str | None:
+    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state, section_id, code_obj_id, BaseParamCodeObjImpl
+    )
+    if not normalized:
+        if code_obj_impl.coreNameEditable:
+            return None
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if isinstance(section_impl, BaseDictSectionImpl):
+            if section_impl.topLevelParamId == code_obj_id:
+                return None
+        return "Param name cannot be empty."
+    if _contains_control_chars(normalized):
+        return "Param name cannot include control characters."
+    if not _is_dict_param(project_state, section_id):
+        if "/" in normalized or "\\" in normalized:
+            return "Param name cannot include path separators."
+        if ".." in normalized:
+            return "Param name cannot include '..' path segments."
+        if normalized.lower() in PARAM_RESERVED_NAMES:
+            return f"Param name '{normalized}' is reserved."
+        python_codegen_enabled = project_config_has_codegen_language(
+            project_state.projectConfig, ProjectCodegenLanguage.python
+        )
+        if python_codegen_enabled and code_obj_impl.passingStyle in (
+            ParameterPassingStyle.DEFAULT,
+            ParameterPassingStyle.KEYWORD_ONLY,
+        ):
+            if PYTHON_IDENTIFIER_REGEX.fullmatch(normalized) is None:
+                return "Param name must be a valid Python identifier."
+            if keyword.iskeyword(normalized):
+                return "Param name cannot be a Python keyword."
+    return None
+
+
+def get_param_name_format_error(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    code_obj_id: "ID",
+    name: str,
+) -> str | None:
+    normalized = _normalize_name(name)
+    return _param_name_format_error(project_state, section_id, code_obj_id, normalized)
+
+
 def _collect_param_hierarchy(
     project_state: "ProjectStateSingleConfig",
     section_id: "ID",
@@ -349,41 +444,14 @@ def validate_param_name_format(
     name: str,
 ) -> str:
     normalized = _normalize_name(name)
-    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        project_state, section_id, code_obj_id, BaseParamCodeObjImpl
+    error = _param_name_format_error(
+        project_state,
+        section_id,
+        code_obj_id,
+        normalized,
     )
-    if not normalized:
-        if code_obj_impl.coreNameEditable:
-            return normalized
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if isinstance(section_impl, BaseDictSectionImpl):
-            if section_impl.topLevelParamId == code_obj_id:
-                return normalized
-    _ensure_non_empty(normalized, InvalidParamName, "Param name")
-    _ensure_no_control_chars(normalized, InvalidParamName, "Param name")
-    if not _is_dict_param(project_state, section_id):
-        _ensure_no_path_separators(normalized, InvalidParamName, "Param name")
-        _ensure_no_dotdot(normalized, InvalidParamName, "Param name")
-        _ensure_not_reserved(
-            normalized, PARAM_RESERVED_NAMES, InvalidParamName, "Param name"
-        )
-        python_codegen_enabled = project_config_has_codegen_language(
-            project_state.projectConfig, ProjectCodegenLanguage.python
-        )
-        if python_codegen_enabled and code_obj_impl.passingStyle in (
-            ParameterPassingStyle.DEFAULT,
-            ParameterPassingStyle.KEYWORD_ONLY,
-        ):
-            if not normalized.isidentifier():
-                _raise_invalid_name(
-                    "Param name must be a valid Python identifier.",
-                    InvalidParamName,
-                )
-            if keyword.iskeyword(normalized):
-                _raise_invalid_name(
-                    "Param name cannot be a Python keyword.",
-                    InvalidParamName,
-                )
+    if error:
+        _raise_invalid_name(error, InvalidParamName)
     return normalized
 
 
@@ -465,6 +533,17 @@ def collect_section_name_conflicts(
     return errors
 
 
+def collect_section_name_format_errors(
+    project_state: "ProjectStateSingleConfig",
+) -> dict["ID", list[str]]:
+    errors: dict["ID", list[str]] = {}
+    for section_id, section in project_state.sections.items():
+        error = get_section_name_format_error(section.name)
+        if error:
+            errors.setdefault(section_id, []).append(error)
+    return errors
+
+
 def collect_param_name_conflicts(
     project_state: "ProjectStateSingleConfig",
 ) -> dict["ID", list[str]]:
@@ -503,6 +582,61 @@ def collect_param_name_conflicts(
                     for param_id in ids:
                         add_error(param_id, message)
     return errors
+
+
+def collect_param_name_format_errors(
+    project_state: "ProjectStateSingleConfig",
+) -> dict["ID", list[str]]:
+    errors: dict["ID", list[str]] = {}
+    for section_id in project_state.sections:
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            continue
+        if (
+            isinstance(section_impl, CallableSectionImpl)
+            and section_impl.callable is None
+        ):
+            continue
+        if (
+            isinstance(section_impl, BaseDictSectionImpl)
+            and section_impl.topLevelParamId is None
+        ):
+            continue
+        for code_obj_id in section_impl.codeObjVariantMap:
+            if code_obj_id not in project_state.codeObjs:
+                raise KeyError(f"Missing code obj {code_obj_id} in project state.")
+            code_obj_impl = get_curr_effective_code_obj_impl(
+                project_state,
+                section_id,
+                code_obj_id,
+            )
+            if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
+                continue
+            error = get_param_name_format_error(
+                project_state,
+                section_id,
+                code_obj_id,
+                project_state.codeObjs[code_obj_id].name,
+            )
+            if error:
+                errors.setdefault(code_obj_id, []).append(error)
+    return errors
+
+
+def collect_project_name_format_errors(
+    project_state: "ProjectStateSingleConfig",
+) -> list[str]:
+    allow_reserved = (
+        project_state.projectConfig.name.strip().lower()
+        == C.SETTINGS_PROJECT_NAME.lower()
+    )
+    error = get_project_name_format_error(
+        project_state.projectConfig.name,
+        allow_reserved=allow_reserved,
+    )
+    if not error:
+        return []
+    return [error]
 
 
 def get_section_slug_conflict_ids(

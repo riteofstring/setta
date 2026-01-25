@@ -4,7 +4,7 @@ from pydantic import (
     model_validator,
 )
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.types.artifact import ArtifactType
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
@@ -345,7 +345,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 access_mode = CodeFileAccessMode.write_only
             else:
                 section_full_name = get_section_path_full_name(self, section_id)
-                section_slug = sanitize_name(section_full_name)
+                section_slug = sanitize_slug(section_full_name)
                 language = effective_impl.codeLanguage
                 extension = CODE_LANGUAGE_EXTENSIONS[language]
                 canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"

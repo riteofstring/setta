@@ -3,7 +3,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProjectState } from "state/definitions";
+import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
@@ -39,8 +39,10 @@ function ProjectNameOnly() {
     blurTriggeredByEscapeKey,
     serverError,
   } = useEditableProjectName();
+  const backendErrors = useNameValidationErrors((state) => state.projectErrors);
   const validationError = validateProjectNameInput(localName);
-  const errorMessage = validationError ?? serverError;
+  const backendErrorMessage = backendErrors?.join("\n") ?? null;
+  const errorMessage = validationError ?? serverError ?? backendErrorMessage;
   let errorClassName = "";
   if (errorMessage) {
     errorClassName = "border-red-400 text-red-600 dark:text-red-300";

@@ -329,7 +329,10 @@ from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.name_validation import (
     collect_param_name_conflicts,
+    collect_param_name_format_errors,
+    collect_project_name_format_errors,
     collect_section_name_conflicts,
+    collect_section_name_format_errors,
     validate_param_name,
     validate_param_name_format,
     validate_project_name,
@@ -1515,7 +1518,7 @@ class BaseProjectManager(ABC):
         """Update the user-facing display name for the requested code object."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].displayName = x.displayName
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
@@ -2833,8 +2836,16 @@ class BaseProjectManager(ABC):
     ) -> None:
         section_errors = collect_section_name_conflicts(project_state)
         param_errors = collect_param_name_conflicts(project_state)
+        section_format_errors = collect_section_name_format_errors(project_state)
+        param_format_errors = collect_param_name_format_errors(project_state)
+        for section_id, errors in section_format_errors.items():
+            section_errors.setdefault(section_id, []).extend(errors)
+        for param_id, errors in param_format_errors.items():
+            param_errors.setdefault(param_id, []).extend(errors)
+        project_errors = collect_project_name_format_errors(project_state)
         content = SettaProjectNameValidationErrors(
             projectConfigId=project_state.projectConfig.id,
+            projectErrors=project_errors,
             sectionErrors=section_errors,
             paramErrors=param_errors,
         )

@@ -141,10 +141,6 @@ class ProjectNotFound(Exception):
     pass
 
 
-class ProjectNameTaken(Exception):
-    pass
-
-
 def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: ID):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, CallableSectionImpl
