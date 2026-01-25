@@ -1,5 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -138,7 +139,29 @@ function EditableTitle({
 
   const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
     useEditableOnSubmit(sectionName, onTitleInputChange, condition);
-  const validationError = getSectionNameValidationError(sectionId, inputValue);
+  const formatError = validateSectionNameInput(inputValue);
+  let siblingError: string | null = null;
+  if (!formatError && getSiblingHasName(sectionId, inputValue)) {
+    siblingError = "Duplicate sibling name.";
+  }
+  const [slugError, setSlugError] = useState<string | null>(null);
+  useEffect(() => {
+    if (formatError || siblingError) {
+      setSlugError(null);
+      return;
+    }
+    if (!inputValue.trim()) {
+      setSlugError(null);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      setSlugError(getSectionSlugConflictError(sectionId, inputValue));
+    }, 200);
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [formatError, inputValue, sectionId, siblingError]);
+  const validationError = formatError ?? siblingError ?? slugError;
   let localErrorClassName = "";
   if (validationError) {
     localErrorClassName = "text-red-500 dark:text-red-300 border-red-400";

@@ -1484,18 +1484,24 @@ class BaseProjectManager(ABC):
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        section_id = self._find_section_id_for_code_obj(project_state, x.codeObjId)
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if isinstance(section_impl, BaseSectionWithParamsImpl):
-            normalized_name = validate_param_name(
-                project_state, section_id, x.codeObjId, x.name
-            )
-        elif section_impl.type == SectionType.MetaControl:
-            normalized_name = validate_param_name_format(
-                project_state, section_id, x.codeObjId, x.name
-            )
-        else:
-            raise TypeError(f"Section {section_id} does not support code obj renames.")
+        section_ids = self._find_section_ids_for_code_obj(project_state, x.codeObjId)
+        normalized_name: str | None = None
+        for section_id in section_ids:
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if isinstance(section_impl, BaseSectionWithParamsImpl):
+                normalized_name = validate_param_name(
+                    project_state, section_id, x.codeObjId, x.name
+                )
+            elif section_impl.type == SectionType.MetaControl:
+                normalized_name = validate_param_name_format(
+                    project_state, section_id, x.codeObjId, x.name
+                )
+            else:
+                raise TypeError(
+                    f"Section {section_id} does not support code obj renames."
+                )
+        if normalized_name is None:
+            raise KeyError(f"Code obj {x.codeObjId} not found in any section.")
         project_state.codeObjs[x.codeObjId].name = normalized_name
         await self.update_and_broadcast_project_state(project_state)
 
@@ -1680,21 +1686,21 @@ class BaseProjectManager(ABC):
         )
         create_edge(project_state, edge)
         self._apply_edge_value(project_state, edge)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_edge(project_state, x.edge)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_edges(project_state, x.edgeIds)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
@@ -1717,14 +1723,14 @@ class BaseProjectManager(ABC):
         if updated_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
         self._apply_edge_value(project_state, updated_edge)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -2756,11 +2762,11 @@ class BaseProjectManager(ABC):
             self.project_state_backend, projectConfigId
         )
 
-    def _find_section_id_for_code_obj(
+    def _find_section_ids_for_code_obj(
         self,
         project_state: ProjectStateSingleConfig,
         code_obj_id: ID,
-    ) -> ID:
+    ) -> list[ID]:
         matches: list[ID] = []
         for section_id in project_state.sections:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
@@ -2774,11 +2780,7 @@ class BaseProjectManager(ABC):
                 matches.append(section_id)
         if not matches:
             raise KeyError(f"Code obj {code_obj_id} not found in any section.")
-        if len(matches) > 1:
-            raise ValueError(
-                f"Code obj {code_obj_id} appears in multiple sections: {matches}."
-            )
-        return matches[0]
+        return matches
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)

@@ -18,6 +18,7 @@ from setta.types.helpers_lvl2 import (
     add_kwarg,
     create_child_sections,
     create_top_level_section,
+    get_section_path_full_name,
     move_sections_to_parent_section,
     set_project_config_name,
     set_section_name,
@@ -307,6 +308,51 @@ class SectionNameValidationTests(unittest.TestCase):
             f'{parent_name}["{child_name}"][{idx}]',
             full_name,
         )
+
+    def test_section_path_full_name_uses_list_root_index_for_children(self) -> None:
+        parent_group = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+            core_overrides={"name": "Parent"},
+        )
+        child_group = create_child_sections(
+            self.settings,
+            self.project_state,
+            parent_group,
+            SectionType.Group,
+            1,
+            None,
+        )[0]
+        list_root = create_child_sections(
+            self.settings,
+            self.project_state,
+            child_group,
+            SectionType.ListRoot,
+            1,
+            None,
+        )[0]
+        leaf_section = create_child_sections(
+            self.settings,
+            self.project_state,
+            list_root,
+            SectionType.Code,
+            1,
+            None,
+        )[0]
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, child_group, "Child")
+        set_section_name(self.project_state, leaf_section, "Leaf")
+        list_parent_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_group,
+            BaseParentSectionImpl,
+        )
+        idx = list_parent_impl.children.index(list_root)
+        expected = 'Parent["Child"][{idx}]["Leaf"]'.format(idx=idx)
+        actual = get_section_path_full_name(self.project_state, leaf_section)
+        self.assertEqual(expected, actual)
 
     def test_move_conflict_marks_invalid_and_clears_bindings(self) -> None:
         parent_a = create_top_level_section(

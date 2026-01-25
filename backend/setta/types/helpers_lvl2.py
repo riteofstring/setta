@@ -256,7 +256,6 @@ def get_top_level_param_ids(
 
 
 def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
-    section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = p.parentSectionMap[section_id]
     if not parent_id:
         return p.sections[section_id].name
@@ -264,8 +263,9 @@ def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
     child_id = section_id
     output = ""
     while parent_id:
-        if isinstance(section_impl, ListRootSectionImpl):
-            idx = get_curr_section_children_ids(p, parent_id).index(section_id)
+        child_impl = get_curr_effective_section_impl(p, child_id)
+        if isinstance(child_impl, ListRootSectionImpl):
+            idx = get_curr_section_children_ids(p, parent_id).index(child_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name

@@ -73,6 +73,7 @@ function useEditableProjectName() {
   }));
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
+  const normalizeName = (value: string) => value.trim();
 
   function extractErrorDetail(data: unknown): string | null {
     if (!data || typeof data !== "object") {
@@ -88,14 +89,15 @@ function useEditableProjectName() {
   }
 
   async function condition(v: string) {
-    const validationError = validateProjectNameInput(v);
+    const normalized = normalizeName(v);
+    const validationError = validateProjectNameInput(normalized);
     if (validationError) {
       setServerError(null);
       return false;
     }
     const res = await route_set_project_config_name({
       projectConfigId,
-      newName: v,
+      newName: normalized,
     });
     if (res200(res)) {
       setServerError(null);
@@ -106,12 +108,19 @@ function useEditableProjectName() {
     return false;
   }
   async function onSetName(v: string) {
-    navigate(pathRelativeToProject(v), {
+    const normalized = normalizeName(v);
+    navigate(pathRelativeToProject(normalized), {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });
   }
 
-  const editable = useEditableOnSubmit(name, onSetName, condition);
+  const editable = useEditableOnSubmit(
+    name,
+    onSetName,
+    condition,
+    false,
+    normalizeName,
+  );
   function onChange(event: ChangeEvent<HTMLInputElement> | string): void {
     setServerError(null);
     editable.onChange(event);

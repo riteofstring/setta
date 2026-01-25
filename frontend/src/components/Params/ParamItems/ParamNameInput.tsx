@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEventHandler,
@@ -13,12 +14,15 @@ import { buildParamParentMap } from "state/actions/params/paramTree";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
-  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useNameValidationErrors, useProjectState } from "state/definitions";
+import {
+  useNameValidationErrors,
+  useProjectState,
+  type ZustandProjectState,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
@@ -29,13 +33,13 @@ import {
 import {
   isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
-  isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
+import { shallow } from "zustand/shallow";
 
 type ParamNameInputProps = {
   border: string;
@@ -59,16 +63,15 @@ function getRootParamId(sectionImpl: BaseSectionWithParamsImpl): string | null {
   return null;
 }
 
-function getParamNameDuplicateError(
+type ParamDuplicateIndex = {
+  parentById: Record<string, string | null>;
+  namesByParent: Record<string, Record<string, string[]>>;
+};
+
+function buildParamDuplicateIndex(
+  state: ZustandProjectState,
   sectionId: string,
-  paramInfoId: string,
-  value: string,
-): string | null {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-  const state = useProjectState.getState();
+): ParamDuplicateIndex {
   const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
     state,
     sectionId,
@@ -76,33 +79,58 @@ function getParamNameDuplicateError(
   );
   const rootId = getRootParamId(sectionImpl);
   if (!rootId) {
-    return null;
-  }
-  const rootImpl = getCurrEffectiveCodeObjImpl(state, sectionId, rootId);
-  if (!isBaseParentCodeObjImpl(rootImpl)) {
-    return null;
+    return { parentById: {}, namesByParent: {} };
   }
   const parentById = buildParamParentMap(state, sectionId, rootId);
-  if (!(paramInfoId in parentById)) {
+  const namesByParent: Record<string, Record<string, string[]>> = {};
+  for (const [paramId, parentId] of Object.entries(parentById)) {
+    if (!parentId) {
+      continue;
+    }
+    const paramName = state.codeObjs[paramId]?.name?.trim();
+    if (!paramName) {
+      continue;
+    }
+    if (!namesByParent[parentId]) {
+      namesByParent[parentId] = {};
+    }
+    const namesForParent = namesByParent[parentId];
+    if (!namesForParent[paramName]) {
+      namesForParent[paramName] = [];
+    }
+    namesForParent[paramName].push(paramId);
+  }
+  return { parentById, namesByParent };
+}
+
+function getParamNameDuplicateError(
+  paramInfoId: string,
+  value: string,
+  duplicateIndex: ParamDuplicateIndex,
+): string | null {
+  const normalized = value.trim();
+  if (!normalized) {
     return null;
   }
-  const parentId = parentById[paramInfoId];
+  if (!(paramInfoId in duplicateIndex.parentById)) {
+    return null;
+  }
+  const parentId = duplicateIndex.parentById[paramInfoId];
   if (!parentId) {
     return null;
   }
-  for (const [siblingId, siblingParentId] of Object.entries(parentById)) {
-    if (siblingParentId !== parentId) {
-      continue;
-    }
-    if (siblingId === paramInfoId) {
-      continue;
-    }
-    const siblingName = state.codeObjs[siblingId]?.name?.trim();
-    if (siblingName && siblingName === normalized) {
-      return `Param name "${normalized}" already exists under this parent.`;
-    }
+  const namesForParent = duplicateIndex.namesByParent[parentId];
+  if (!namesForParent) {
+    return null;
   }
-  return null;
+  const matchingIds = namesForParent[normalized];
+  if (!matchingIds) {
+    return null;
+  }
+  if (matchingIds.length === 1 && matchingIds[0] === paramInfoId) {
+    return null;
+  }
+  return `Param name "${normalized}" already exists under this parent.`;
 }
 
 export function ParamNameInput({
@@ -173,13 +201,38 @@ export function ParamNameInput({
     requirePythonIdentifier,
     skipPathChecks: isDictSection,
   };
+  const paramTreeDeps = useProjectState(
+    (state) => ({
+      codeObjs: state.codeObjs,
+      codeObjImpls: state.codeObjImpls,
+      codeObjVariants: state.codeObjVariants,
+      sectionImpls: state.sectionImpls,
+      sectionVariants: state.sectionVariants,
+      projectConfig: state.projectConfig,
+      sections: state.sections,
+    }),
+    shallow,
+  );
+  const duplicateIndex = useMemo(
+    () => buildParamDuplicateIndex(useProjectState.getState(), sectionId),
+    [
+      paramTreeDeps.codeObjs,
+      paramTreeDeps.codeObjImpls,
+      paramTreeDeps.codeObjVariants,
+      paramTreeDeps.sectionImpls,
+      paramTreeDeps.sectionVariants,
+      paramTreeDeps.projectConfig,
+      paramTreeDeps.sections,
+      sectionId,
+    ],
+  );
   const validationError = useDisplayName
     ? null
     : validateParamNameInput(inputValue, validationOptions);
   const duplicateError =
     useDisplayName || validationError
       ? null
-      : getParamNameDuplicateError(sectionId, paramInfoId, inputValue);
+      : getParamNameDuplicateError(paramInfoId, inputValue, duplicateIndex);
   const errorMessages: Array<string> = [];
   if (validationError) {
     errorMessages.push(validationError);
@@ -292,9 +345,9 @@ export function ParamNameInput({
       return;
     }
     const nextDuplicateError = getParamNameDuplicateError(
-      sectionId,
       paramInfoId,
       v,
+      duplicateIndex,
     );
     if (nextDuplicateError) {
       return;
@@ -315,9 +368,9 @@ export function ParamNameInput({
       return;
     }
     const nextDuplicateError = getParamNameDuplicateError(
-      sectionId,
       paramInfoId,
       inputValue,
+      duplicateIndex,
     );
     if (nextDuplicateError) {
       setInputValue(value);

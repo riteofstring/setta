@@ -25,6 +25,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core
 from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseDictSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
 )
 from setta.types.helpers_lvl1 import (
@@ -43,7 +44,11 @@ from setta.types.project_config import (
     Position,
     project_config_has_codegen_language,
 )
-from setta.types.section_impls import BaseSectionWithParamsImpl, SectionType
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    BaseSectionWithParamsImpl,
+    SectionType,
+)
 from setta.server_state import SettaFastAPIState
 from setta.utils.constants import C
 
@@ -343,6 +348,81 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                         )
                         self.assertEqual(
                             "control_name", updated_state.codeObjs[param_id].name
+                        )
+                    finally:
+                        await _shutdown_state(state)
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+    async def test_set_code_obj_name_shared_param_succeeds(self) -> None:
+        try:
+            with TemporaryDirectory() as tmpdir:
+                with _patched_setta_paths(tmpdir):
+                    state = await _build_state()
+                    try:
+                        main_manager = state.project_manager_switcher.main
+                        default_project_config_id = (
+                            main_manager.project_state_backend.defaultProjectConfigId
+                        )
+                        if default_project_config_id is None:
+                            self.fail(
+                                "Expected default project config id for rename test."
+                            )
+                        project_state = main_manager.get_single_config_state(
+                            default_project_config_id
+                        )
+                        section_a_id = create_top_level_section(
+                            state.settings_file.settings,
+                            project_state,
+                            SectionType.Dict,
+                            Position(x=0, y=0),
+                        )
+                        section_b_id = create_top_level_section(
+                            state.settings_file.settings,
+                            project_state,
+                            SectionType.Dict,
+                            Position(x=200, y=0),
+                        )
+                        shared_param_id = add_kwarg(
+                            state.settings_file.settings,
+                            project_state,
+                            section_a_id,
+                        )
+                        section_a_impl = get_curr_effective_section_impl(
+                            project_state, section_a_id
+                        )
+                        if not isinstance(section_a_impl, BaseDictSectionImpl):
+                            self.fail("Expected dict section implementation.")
+                        shared_root_id = section_a_impl.topLevelParamId
+                        if shared_root_id is None:
+                            self.fail("Expected dict section to have a top-level param.")
+                        shared_variant_map = dict(section_a_impl.codeObjVariantMap)
+                        if shared_root_id not in shared_variant_map:
+                            self.fail("Expected top-level param variant mapping.")
+                        set_curr_effective_section_impl_value(
+                            project_state,
+                            section_b_id,
+                            BaseDictSectionImplArgsWithCallable(
+                                topLevelParamId=shared_root_id,
+                                codeObjVariantMap=shared_variant_map,
+                            ),
+                        )
+                        await main_manager.update_and_broadcast_project_state(
+                            project_state
+                        )
+                        request = SetCodeObjNameRequest(
+                            projectConfigId=default_project_config_id,
+                            codeObjId=shared_param_id,
+                            name="shared_param",
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            await route_set_code_obj_name(request, runtime_ctx)
+                        updated_state = main_manager.get_single_config_state(
+                            default_project_config_id
+                        )
+                        self.assertEqual(
+                            "shared_param",
+                            updated_state.codeObjs[shared_param_id].name,
                         )
                     finally:
                         await _shutdown_state(state)

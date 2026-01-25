@@ -828,12 +828,9 @@ async def route_set_text_block_display_mode(
 async def route_set_text_block_heading_as_section_name(
     x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
 ):
-    try:
-        await state.project_manager_switcher.get(
-            x.projectConfigId
-        ).set_text_block_heading_as_section_name(x)
-    except InvalidSectionName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_heading_as_section_name(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)
