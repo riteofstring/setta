@@ -198,6 +198,8 @@ export function MetaControlContent(props: MetaControlContentProps) {
     case CodeObjTypeEnum.DropzoneParam:
       return (
         <DropzoneControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
           sectionName={sectionName}
           value={value}
           showSectionTitle={showSectionTitle}
@@ -510,6 +512,8 @@ function PasswordControl({
 }
 
 function DropzoneControl({
+  sectionId,
+  controlParamId,
   sectionName,
   value,
   showSectionTitle,
@@ -519,6 +523,8 @@ function DropzoneControl({
   placeholder,
   onStatelessDrop,
 }: {
+  sectionId: string;
+  controlParamId: string;
   sectionName: string;
   value: string;
   showSectionTitle: boolean;
@@ -535,6 +541,8 @@ function DropzoneControl({
       contentClassName="items-stretch"
     >
       <DropzoneInput
+        sectionId={sectionId}
+        paramInfoId={controlParamId}
         value={value}
         onChange={onValueChange}
         onStatelessDrop={onStatelessDrop}

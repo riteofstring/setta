@@ -18,6 +18,7 @@ import {
   DependencyKeyTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
@@ -64,13 +65,15 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   );
 
   // value and enteredValue should always be string
-  function onChange(v) {
+  function onChange(v, options?: ParamValueChangeOptions) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
     if (value !== vStr) {
       sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
     }
-    debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+    if (!options?.skipBackendUpdate) {
+      debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+    }
   }
 
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {

@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
 
+import setta.routers.artifact as artifact_router
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
@@ -364,6 +365,27 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             base64.b64encode(contents).decode("utf-8"),
             cached.value,
         )
+
+    async def test_update_artifacts_rejects_oversized_file(self) -> None:
+        state = await self._build_state()
+        original_limit = artifact_router.DROPZONE_MAX_FILE_BYTES
+        original_label = artifact_router.DROPZONE_MAX_FILE_LABEL
+        try:
+            artifact_router.DROPZONE_MAX_FILE_BYTES = 10
+            artifact_router.DROPZONE_MAX_FILE_LABEL = "10 bytes"
+            oversized_payload = base64.b64encode(b"a" * 11).decode("utf-8")
+            artifact_id = (C.ARTIFACTS_FOLDER / "too-big.bin").as_posix()
+            artifact = FileArtifact(id=artifact_id, value=oversized_payload)
+            with runtime_context(state) as runtime_ctx:
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_update_artifacts(
+                        UpdateArtifactsRequest(artifacts=[artifact]),
+                        runtime_ctx,
+                    )
+            self.assertEqual(413, ctx.exception.status_code)
+        finally:
+            artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
+            artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
 
     async def test_delete_artifacts_removes_file(self) -> None:
         state = await self._build_state()

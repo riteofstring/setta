@@ -32,6 +32,7 @@ import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_delete_artifacts,
   route_import_files_to_artifacts,
+  route_set_param_entered_value,
   route_update_artifacts,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
@@ -42,10 +43,13 @@ import {
   FileArtifact,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import type { ParamValueChange } from "./ConfiguredParamInputs";
 
 type DropzoneInputProps = {
+  sectionId?: string;
+  paramInfoId?: string;
   value: string;
-  onChange?: (value: string) => void;
+  onChange?: ParamValueChange;
   onStatelessDrop?: (attachments: DropzoneStatelessAttachment[]) => void;
   placeholder?: string;
   className?: string;
@@ -156,6 +160,11 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
+function notifyStatelessTextPayloadLimit(limitLabel: string): void {
+  const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
 function splitFilesBySize(
   files: File[],
   maxBytes: number,
@@ -173,6 +182,10 @@ function splitFilesBySize(
     accepted.push(file);
   }
   return { accepted, rejected };
+}
+
+function getUtf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
 }
 
 function estimateBase64Bytes(bytes: number): number {
@@ -356,6 +369,8 @@ function DropzoneInputConfig({
 }
 
 export function DropzoneInput({
+  sectionId,
+  paramInfoId,
   value,
   onChange,
   onStatelessDrop,
@@ -440,6 +455,50 @@ export function DropzoneInput({
   const canAttachMore = remainingSlots === null || remainingSlots > 0;
   const canUseServerPicker = !isShareMode && mode === DropzoneModeEnum.STATEFUL;
 
+  async function commitStatefulValue(
+    updatedValue: string,
+    previousValue: string,
+    artifactIds: string[],
+  ): Promise<boolean> {
+    if (!onChange) {
+      return false;
+    }
+    if (!sectionId || !paramInfoId) {
+      onChange(updatedValue);
+      return true;
+    }
+    onChange(updatedValue, { skipBackendUpdate: true });
+    const res = await route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value: updatedValue,
+      frontendOpId: null,
+    });
+    if (res200(res)) {
+      return true;
+    }
+    const detail = getErrorDetail(res.data);
+    const message = detail ?? "Failed to update attachments.";
+    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    if (artifactIds.length > 0) {
+      const deleteRes = await route_delete_artifacts({
+        artifactIds,
+      });
+      if (!res200(deleteRes)) {
+        const deleteDetail = getErrorDetail(deleteRes.data);
+        const deleteMessage =
+          deleteDetail ?? "Failed to clean up uploaded attachments.";
+        addTemporaryNotification(
+          deleteMessage,
+          SettaNotificationTypeEnum.warning,
+        );
+      }
+    }
+    onChange(previousValue, { skipBackendUpdate: true });
+    return false;
+  }
+
   async function readFileAsBase64(file: File): Promise<string> {
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -501,6 +560,7 @@ export function DropzoneInput({
         return;
       }
     }
+    const previousValue = value;
     setIsUploading(true);
     try {
       const results = await Promise.allSettled(
@@ -581,13 +641,13 @@ export function DropzoneInput({
         ...statefulAttachments,
         ...newAttachments,
       ]);
-      onChange(updatedValue);
+      await commitStatefulValue(updatedValue, previousValue, fileIds);
     } finally {
       setIsUploading(false);
     }
   }
 
-  function handleTextDrop(text: string) {
+  async function handleTextDrop(text: string) {
     if (isDisabled || isUploading) {
       return;
     }
@@ -597,6 +657,11 @@ export function DropzoneInput({
       return;
     }
     if (mode === DropzoneModeEnum.STATELESS) {
+      const textBytes = getUtf8ByteLength(text);
+      if (textBytes > DROPZONE_MAX_STATELESS_PAYLOAD_BYTES) {
+        notifyStatelessTextPayloadLimit(DROPZONE_MAX_STATELESS_PAYLOAD_LABEL);
+        return;
+      }
       const attachment: DropzoneStatelessAttachment = {
         kind: "text",
         name: "Dropped text",
@@ -624,7 +689,8 @@ export function DropzoneInput({
       ...statefulAttachments,
       attachment,
     ]);
-    onChange(updatedValue);
+    const previousValue = value;
+    await commitStatefulValue(updatedValue, previousValue, []);
   }
 
   async function handleServerFilePaths(paths: string[]) {
@@ -646,6 +712,7 @@ export function DropzoneInput({
     if (allowedPaths.length === 0) {
       return;
     }
+    const previousValue = value;
     setIsUploading(true);
     try {
       const res = await route_import_files_to_artifacts({
@@ -671,7 +738,10 @@ export function DropzoneInput({
         ...statefulAttachments,
         ...newAttachments,
       ]);
-      onChange(updatedValue);
+      const artifactIds = newAttachments
+        .map((attachment) => attachment.id)
+        .filter((id): id is string => id !== null);
+      await commitStatefulValue(updatedValue, previousValue, artifactIds);
     } finally {
       setIsUploading(false);
     }
@@ -730,7 +800,7 @@ export function DropzoneInput({
     const text = event.dataTransfer.getData("text/plain");
     const fallbackText = text ? text : event.dataTransfer.getData("text");
     if (fallbackText) {
-      handleTextDrop(fallbackText);
+      await handleTextDrop(fallbackText);
     }
   }
 

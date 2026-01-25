@@ -778,7 +778,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/77589381-4350-465b-ad08-a68d7d25a744.bin" as const,
+        "setta_files/artifacts/b700c59c-810c-4341-a355-82131ec1a69b.bin" as const,
     ),
   value: z.string(),
 });

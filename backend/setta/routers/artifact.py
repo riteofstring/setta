@@ -100,6 +100,27 @@ class DeleteArtifactsRequest(BaseModel):
     artifactIds: list[str]
 
 
+def _estimate_base64_decoded_bytes(payload: str) -> int:
+    normalized = payload.strip()
+    if not normalized:
+        return 0
+    padding = 0
+    if normalized.endswith("=="):
+        padding = 2
+    elif normalized.endswith("="):
+        padding = 1
+    return (len(normalized) * 3 // 4) - padding
+
+
+def _enforce_file_artifact_size(artifact: FileArtifact) -> None:
+    size = _estimate_base64_decoded_bytes(artifact.value)
+    if size > DROPZONE_MAX_FILE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {artifact.id}",
+        )
+
+
 def _get_share_session_artifacts(
     ctx: RuntimeContextFromRequest,
 ):
@@ -453,6 +474,9 @@ async def route_update_artifacts(
     x: UpdateArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
+    for artifact in x.artifacts:
+        if isinstance(artifact, FileArtifact):
+            _enforce_file_artifact_size(artifact)
     if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(

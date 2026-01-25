@@ -258,6 +258,8 @@ export function ParamUI({
     case CodeObjTypeEnum.DropzoneParam:
       return (
         <DropzoneParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           onStatelessDrop={onDropzoneStateless}
@@ -369,6 +371,8 @@ function RotaryParamConfigured({
 }
 
 function DropzoneParamConfigured({
+  sectionId,
+  paramInfoId,
   value,
   onChange,
   onStatelessDrop,
@@ -377,6 +381,8 @@ function DropzoneParamConfigured({
   maxAttachments,
   placeholder,
 }: {
+  sectionId: string;
+  paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
   onStatelessDrop?: (attachments: DropzoneStatelessAttachment[]) => void;
@@ -387,6 +393,8 @@ function DropzoneParamConfigured({
 }) {
   return (
     <DropzoneInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
       onStatelessDrop={onStatelessDrop}

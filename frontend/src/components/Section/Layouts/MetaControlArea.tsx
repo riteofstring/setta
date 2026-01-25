@@ -1,4 +1,7 @@
-import type { ParamValueChange } from "components/Params/ParamUIs/ConfiguredParamInputs";
+import type {
+  ParamValueChange,
+  ParamValueChangeOptions,
+} from "components/Params/ParamUIs/ConfiguredParamInputs";
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import React from "react";
@@ -166,7 +169,10 @@ function MetaControlValueArea({
     },
   );
 
-  const handleValueChange: ParamValueChange = (nextValue) => {
+  const handleValueChange: ParamValueChange = (
+    nextValue,
+    options?: ParamValueChangeOptions,
+  ) => {
     if (codeObjType === CodeObjTypeEnum.ButtonParam) {
       return;
     }
@@ -178,7 +184,9 @@ function MetaControlValueArea({
     if (value !== valueStr) {
       sendRealtimeSectionLiteral(sectionId, valueStr);
     }
-    debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+    if (!options?.skipBackendUpdate) {
+      debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+    }
   };
 
   function handleAction() {
