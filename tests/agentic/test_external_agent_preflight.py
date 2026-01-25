@@ -1,8 +1,10 @@
 import json
 import os
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 import setta.agentic.external_agent_preflight as preflight
 from setta.agentic.external_agent_preflight import (
@@ -159,3 +161,17 @@ class ExternalAgentPreflightTests(unittest.TestCase):
             self.assertEqual(status.sdkVersion, version.strip())
         else:
             self.assertIsNone(status.sdkVersion)
+
+    def test_run_cli_timeout_returns_issue(self) -> None:
+        with mock.patch(
+            "setta.agentic.external_agent_preflight.subprocess.run"
+        ) as mocked_run:
+            mocked_run.side_effect = subprocess.TimeoutExpired(
+                cmd=["node", "--version"], timeout=5
+            )
+            result, issue = preflight._run_cli(["node", "--version"])
+
+            self.assertIsNone(result)
+            self.assertIsNotNone(issue)
+            if issue is not None:
+                self.assertIn("Timed out", issue)

@@ -4,6 +4,8 @@ import os
 import re
 import shutil
 import subprocess
+import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from setta.agentic.node_runtime import resolve_node_command
@@ -27,14 +29,31 @@ _SDK_PACKAGE_BY_TOOL = {
 }
 
 _NODE_MIN_MAJOR: dict[ExternalAgentToolType, int] = {}
+_PREFLIGHT_CACHE_TTL_SECONDS = 30.0
+_DEFAULT_CLI_TIMEOUT_SECONDS = 5.0
+
+
+@dataclass(frozen=True)
+class _PreflightCacheEntry:
+    status: ExternalAgentPreflightStatus
+    config_fingerprint: str
+    env_fingerprint: tuple[tuple[str, ...], tuple[str, ...]]
+    created_at: float
+
+
+_PREFLIGHT_CACHE: dict[str, _PreflightCacheEntry] = {}
 
 
 def build_external_agent_preflight_status(
     dbe: DBE, config: ExternalAgentConfig
 ) -> ExternalAgentPreflightStatus:
+    env_status = _build_env_status(dbe, config.envVarWhitelist)
+    cached = _load_cached_preflight(config, env_status)
+    if cached is not None:
+        return cached
+
     issues: list[str] = []
     supported = _is_run_mode_supported(config.toolType, config.runMode)
-    env_status = _build_env_status(dbe, config.envVarWhitelist)
     if env_status.missing:
         issues.append(f"Missing env vars: {', '.join(env_status.missing)}")
 
@@ -88,7 +107,7 @@ def build_external_agent_preflight_status(
         )
 
     available = supported and len(issues) == 0
-    return ExternalAgentPreflightStatus(
+    status = ExternalAgentPreflightStatus(
         configId=config.id,
         name=config.name,
         toolType=config.toolType,
@@ -104,6 +123,8 @@ def build_external_agent_preflight_status(
         workingDir=working_dir,
         envVars=env_status,
     )
+    _store_preflight_cache(config, env_status, status)
+    return status
 
 
 def _is_run_mode_supported(
@@ -140,12 +161,11 @@ def _check_node(command_path: str | None) -> tuple[str | None, str | None, str |
         node_path = shutil.which(node_command)
     if not node_path:
         return None, None, f"Node executable not found ({node_command})"
-    result = subprocess.run(
-        [node_path, "--version"],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
+    result, issue = _run_cli([node_path, "--version"])
+    if issue:
+        return node_path, None, issue
+    if result is None:
+        return node_path, None, "Failed to read Node version"
     raw = (result.stdout or result.stderr).strip()
     if result.returncode != 0 or not raw:
         return node_path, None, "Failed to read Node version"
@@ -177,16 +197,18 @@ def _check_codex_cli(
         cli_path = shutil.which(command)
     if not cli_path:
         return None, f"codex CLI not found ({command})"
-    result = subprocess.run(
-        [cli_path, "--version"],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
+    result, issue = _run_cli([cli_path, "--version"])
+    if issue:
+        return None, issue
+    if result is None:
+        return None, "Failed to read codex CLI version"
     raw = (result.stdout or result.stderr).strip()
     if result.returncode != 0 or not raw:
         return None, "Failed to read codex CLI version"
-    if not _codex_app_server_available(cli_path):
+    available, availability_issue = _codex_app_server_available(cli_path)
+    if availability_issue:
+        return raw, availability_issue
+    if not available:
         return raw, "codex app-server subcommand not available"
     return raw, None
 
@@ -195,26 +217,24 @@ def _check_opencode_cli() -> tuple[str | None, str | None]:
     cli_path = shutil.which("opencode")
     if not cli_path:
         return None, "opencode CLI not found (install opencode CLI)"
-    result = subprocess.run(
-        [cli_path, "--version"],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
+    result, issue = _run_cli([cli_path, "--version"])
+    if issue:
+        return None, issue
+    if result is None:
+        return None, "Failed to read opencode CLI version"
     raw = (result.stdout or result.stderr).strip()
     if result.returncode != 0 or not raw:
         return None, "Failed to read opencode CLI version"
     return raw, None
 
 
-def _codex_app_server_available(cli_path: str) -> bool:
-    result = subprocess.run(
-        [cli_path, "app-server", "--help"],
-        capture_output=True,
-        text=True,
-        cwd=str(CWD),
-    )
-    return result.returncode == 0
+def _codex_app_server_available(cli_path: str) -> tuple[bool, str | None]:
+    result, issue = _run_cli([cli_path, "app-server", "--help"])
+    if issue:
+        return False, issue
+    if result is None:
+        return False, "Failed to query codex app-server availability"
+    return result.returncode == 0, None
 
 
 def _check_sdk_version(
@@ -237,6 +257,66 @@ def _check_sdk_version(
     if isinstance(version, str) and version.strip():
         return version.strip(), None
     return None, f"{package_name} did not report a version"
+
+
+def _run_cli(
+    command: list[str],
+    *,
+    timeout: float = _DEFAULT_CLI_TIMEOUT_SECONDS,
+) -> tuple[subprocess.CompletedProcess[str] | None, str | None]:
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            cwd=str(CWD),
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"Timed out running {' '.join(command)}"
+    return result, None
+
+
+def _build_config_fingerprint(config: ExternalAgentConfig) -> str:
+    payload = config.model_dump(mode="json")
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _build_env_fingerprint(
+    env_status: ExternalAgentEnvVarStatus,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    return (tuple(env_status.present), tuple(env_status.missing))
+
+
+def _load_cached_preflight(
+    config: ExternalAgentConfig,
+    env_status: ExternalAgentEnvVarStatus,
+) -> ExternalAgentPreflightStatus | None:
+    cache_key = str(config.id)
+    entry = _PREFLIGHT_CACHE.get(cache_key)
+    if entry is None:
+        return None
+    if time.monotonic() - entry.created_at > _PREFLIGHT_CACHE_TTL_SECONDS:
+        return None
+    if entry.config_fingerprint != _build_config_fingerprint(config):
+        return None
+    if entry.env_fingerprint != _build_env_fingerprint(env_status):
+        return None
+    return entry.status
+
+
+def _store_preflight_cache(
+    config: ExternalAgentConfig,
+    env_status: ExternalAgentEnvVarStatus,
+    status: ExternalAgentPreflightStatus,
+) -> None:
+    cache_key = str(config.id)
+    _PREFLIGHT_CACHE[cache_key] = _PreflightCacheEntry(
+        status=status,
+        config_fingerprint=_build_config_fingerprint(config),
+        env_fingerprint=_build_env_fingerprint(env_status),
+        created_at=time.monotonic(),
+    )
 
 
 def _check_claude_python_sdk() -> tuple[str | None, str | None]:

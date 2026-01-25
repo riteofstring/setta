@@ -19,8 +19,12 @@ from typing import (
     overload,
 )
 
-from setta.agentic.chat_view import get_run_chat_id, is_chat_run
-from setta.agentic.store import list_agent_runs
+from setta.agentic.chat_view import (
+    EXTERNAL_AGENT_RUN_TYPE,
+    LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
+)
+from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -1960,11 +1964,15 @@ class BaseProjectManager(ABC):
         chat_id = section_impl.chatId
         if chat_id is None:
             return None
-        runs = list_agent_runs(self.dbe)
-        for run in runs:
-            if not is_chat_run(run):
-                continue
-            if get_run_chat_id(run) == chat_id:
+        for run_type in (
+            LLM_CHAT_RUN_TYPE,
+            SCRIPTABLE_CHAT_RUN_TYPE,
+            EXTERNAL_AGENT_RUN_TYPE,
+        ):
+            run_ids = list_agent_run_ids_by_metadata(
+                self.dbe, run_type=run_type, chat_id=chat_id
+            )
+            if run_ids:
                 return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
         await self.update_and_broadcast_project_state(project_state)

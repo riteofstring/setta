@@ -11,14 +11,13 @@ from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from pydantic import BaseModel
 
+from setta.agentic.chat_view import build_chat_state_from_run
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
-from setta.llm.chat_store import MemoryChatStore
-from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import (
     EmitChunkAction,
@@ -53,6 +52,7 @@ from setta.llm.chat_toolkit.managed.tool_runner import (
     build_execute_tool_calls_action,
 )
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
+from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.llm.config import AllLLMConfigs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
@@ -78,6 +78,7 @@ from setta.types.chat_messages import (
     UserChatMessage,
 )
 from setta.types.chat_stream_events import (
+    LLMStreamingResponseChunk,
     MessageContentDelta,
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -92,6 +93,7 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
@@ -131,6 +133,14 @@ class AIFollowState:
     ids_by_type: dict[FollowIdType, list[ID]]
 
 
+class _NoopChatHistory:
+    def append(self, chat_id: ID, messages: list[BaseChatMessageUnion]) -> None:
+        return None
+
+    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> None:
+        return None
+
+
 class AgentRunner:
     def __init__(
         self,
@@ -149,12 +159,13 @@ class AgentRunner:
         self._raw_env_vars: dict[str, str] = {}
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
+        self._chat_states: dict[ID, ChatSectionState] = {}
         self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
         self._tool_executor = ManagedActionExecutor(
-            chat_history=ChatHistory(MemoryChatStore()),
+            chat_history=_NoopChatHistory(),
             websocket_msg_handler=self.websocket_msg_handler,
             mcp_client=self.mcp_client,
             dbe=self.dbe,
@@ -194,6 +205,12 @@ class AgentRunner:
             )
         return snapshot
 
+    def get_live_chat_state(self, run_id: ID) -> ChatSectionState | None:
+        state = self._chat_states.get(run_id)
+        if state is None:
+            return None
+        return state.model_copy(deep=True)
+
     def _sync_api_keys(self) -> None:
         if not self._raw_env_vars:
             self.api_keys = {}
@@ -217,6 +234,7 @@ class AgentRunner:
         run = context.run
         self._runs[run.id] = run
         save_agent_run(self.dbe, run)
+        self._init_chat_state(run)
         self._record_event(
             run,
             "run_started",
@@ -239,6 +257,7 @@ class AgentRunner:
         def _cleanup(_task: asyncio.Task[Any], run_id: ID) -> None:
             self._tasks.pop(run_id, None)
             self._runs.pop(run_id, None)
+            self._chat_states.pop(run_id, None)
 
         task.add_done_callback(lambda t, run_id=run.id: _cleanup(t, run_id))
         self._tasks[run.id] = task
@@ -1265,6 +1284,7 @@ class AgentRunner:
         while queue:
             action = queue.pop(0)
             if isinstance(action, EmitChunkAction):
+                self._apply_stream_chunk_to_state(context.run, action.chunk)
                 if isinstance(action.chunk, ToolResultEvent):
                     tool_results.append(action.chunk.result)
                 if context.emit_stream:
@@ -1328,6 +1348,24 @@ class AgentRunner:
             tool_call_accumulator,
             preview_state,
         )
+
+    def _init_chat_state(self, run: AgentRun) -> None:
+        self._chat_states[run.id] = build_chat_state_from_run(run)
+
+    def _ensure_chat_state(self, run: AgentRun) -> ChatSectionState:
+        state = self._chat_states.get(run.id)
+        if state is None:
+            state = build_chat_state_from_run(run)
+            self._chat_states[run.id] = state
+        return state
+
+    def _apply_stream_chunk_to_state(
+        self, run: AgentRun, chunk: LLMStreamingResponseChunk
+    ) -> ChatSectionState:
+        state = self._ensure_chat_state(run)
+        updated = apply_stream_delta(state=state, chunk=chunk)
+        self._chat_states[run.id] = updated
+        return updated
 
     async def _handle_text_deltas(
         self,

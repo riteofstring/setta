@@ -265,7 +265,7 @@ class _OpenCodeSdkEventParser:
         if text:
             message, is_new = self._get_or_create_message(payload)
             start_message = message.model_copy(deep=True) if is_new else None
-            _append_message_text(message, text)
+            index = _append_message_text(message, text)
             if start_message is not None:
                 events.append(
                     ExternalAgentStreamEvent(
@@ -278,7 +278,12 @@ class _OpenCodeSdkEventParser:
                     raw=payload,
                     stream_chunk=MessageDeltaEvent(
                         message_id=message.id,
-                        content=[MessageTextDelta(index=0, text=text)],
+                        content=[
+                            MessageTextDelta(
+                                index=index if index is not None else 0,
+                                text=text,
+                            )
+                        ],
                     ),
                 )
             )
@@ -353,7 +358,7 @@ class _OpenCodeSdkEventParser:
                 payload, message_id=message_id
             )
             start_message = message.model_copy(deep=True) if is_new else None
-            _append_message_text(message, text)
+            index = _append_message_text(message, text)
             events: list[ExternalAgentStreamEvent] = []
             if start_message is not None:
                 events.append(
@@ -367,7 +372,12 @@ class _OpenCodeSdkEventParser:
                     raw=payload,
                     stream_chunk=MessageDeltaEvent(
                         message_id=message.id,
-                        content=[MessageTextDelta(index=0, text=text)],
+                        content=[
+                            MessageTextDelta(
+                                index=index if index is not None else 0,
+                                text=text,
+                            )
+                        ],
                     ),
                 )
             )
@@ -403,7 +413,7 @@ class _OpenCodeSdkEventParser:
                 payload, message_id=message_id
             )
             start_message = message.model_copy(deep=True) if is_new else None
-            _append_message_thinking(message, thinking)
+            index = _append_message_thinking(message, thinking)
             events: list[ExternalAgentStreamEvent] = []
             if start_message is not None:
                 events.append(
@@ -417,7 +427,12 @@ class _OpenCodeSdkEventParser:
                     raw=payload,
                     stream_chunk=MessageDeltaEvent(
                         message_id=message.id,
-                        content=[MessageThinkingDelta(index=0, thinking=thinking)],
+                        content=[
+                            MessageThinkingDelta(
+                                index=index if index is not None else 0,
+                                thinking=thinking,
+                            )
+                        ],
                     ),
                 )
             )
@@ -717,22 +732,30 @@ def _extract_text_from_parts(parts: list[Any]) -> str:
     return "".join(output)
 
 
-def _append_message_text(message: AssistantChatMessage, delta: str) -> None:
+def _append_message_text(message: AssistantChatMessage, delta: str) -> int | None:
     if not delta:
-        return
-    if message.content and isinstance(message.content[0], MessageTextContent):
-        message.content[0].text += delta
-        return
-    message.content.insert(0, MessageTextContent(text=delta))
+        return None
+    if message.content:
+        last_index = len(message.content) - 1
+        last_block = message.content[last_index]
+        if isinstance(last_block, MessageTextContent):
+            last_block.text += delta
+            return last_index
+    message.content.append(MessageTextContent(text=delta))
+    return len(message.content) - 1
 
 
-def _append_message_thinking(message: AssistantChatMessage, delta: str) -> None:
+def _append_message_thinking(message: AssistantChatMessage, delta: str) -> int | None:
     if not delta:
-        return
-    if message.content and isinstance(message.content[0], MessageThinkingContent):
-        message.content[0].thinking += delta
-        return
-    message.content.insert(0, MessageThinkingContent(thinking=delta))
+        return None
+    if message.content:
+        last_index = len(message.content) - 1
+        last_block = message.content[last_index]
+        if isinstance(last_block, MessageThinkingContent):
+            last_block.thinking += delta
+            return last_index
+    message.content.append(MessageThinkingContent(thinking=delta))
+    return len(message.content) - 1
 
 
 def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:

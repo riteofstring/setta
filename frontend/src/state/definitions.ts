@@ -485,21 +485,26 @@ type ZustandAIStore = {
   agentProfiles: Array<AgentProfile>;
   agentProfilesInitialLoadComplete: boolean;
   agentProfilesLoadError: string | null;
+  agentProfilesLoading: boolean;
   agentRuns: Array<AgentRun>;
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
   promptTemplates: Array<PromptTemplate>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
+  promptTemplatesLoading: boolean;
   externalAgentConfigs: Array<ExternalAgentConfig>;
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
+  externalAgentConfigsLoading: boolean;
   externalAgentHealth: Array<ExternalAgentPreflightStatus>;
   externalAgentHealthInitialLoadComplete: boolean;
   externalAgentHealthLoadError: string | null;
+  externalAgentHealthLoading: boolean;
   engineConfigs: Array<EngineConfig>;
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
+  engineConfigsLoading: boolean;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -521,21 +526,26 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         agentProfiles: [],
         agentProfilesInitialLoadComplete: false,
         agentProfilesLoadError: null,
+        agentProfilesLoading: false,
         agentRuns: [],
         agentRunsInitialLoadComplete: false,
         agentRunsLoadError: null,
         promptTemplates: [],
         promptTemplatesInitialLoadComplete: false,
         promptTemplatesLoadError: null,
+        promptTemplatesLoading: false,
         externalAgentConfigs: [],
         externalAgentConfigsInitialLoadComplete: false,
         externalAgentConfigsLoadError: null,
+        externalAgentConfigsLoading: false,
         externalAgentHealth: [],
         externalAgentHealthInitialLoadComplete: false,
         externalAgentHealthLoadError: null,
+        externalAgentHealthLoading: false,
         engineConfigs: [],
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
+        engineConfigsLoading: false,
       }),
       {
         name: "setta_ai_data",

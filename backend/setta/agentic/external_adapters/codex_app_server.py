@@ -773,7 +773,7 @@ class _CodexAppServerEventParser:
         message, is_new = self._get_or_create_message(payload)
         self._message_with_deltas.add(message.id)
         self._assistant_message_open = True
-        _append_message_text(message, delta_text)
+        index = _append_message_text(message, delta_text)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
             events.append(
@@ -788,7 +788,12 @@ class _CodexAppServerEventParser:
                 raw=payload,
                 stream_chunk=MessageDeltaEvent(
                     message_id=message.id,
-                    content=[MessageTextDelta(index=0, text=delta_text)],
+                    content=[
+                        MessageTextDelta(
+                            index=index if index is not None else 0,
+                            text=delta_text,
+                        )
+                    ],
                 ),
             )
         )
@@ -814,13 +819,18 @@ class _CodexAppServerEventParser:
         delta_text = _extract_delta_text(payload)
         resolved_delta = _resolve_completion_delta(message, delta_text, self)
         if resolved_delta:
-            _append_message_text(message, resolved_delta)
+            index = _append_message_text(message, resolved_delta)
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
                     stream_chunk=MessageDeltaEvent(
                         message_id=message.id,
-                        content=[MessageTextDelta(index=0, text=resolved_delta)],
+                        content=[
+                            MessageTextDelta(
+                                index=index if index is not None else 0,
+                                text=resolved_delta,
+                            )
+                        ],
                     ),
                 )
             )
@@ -860,7 +870,7 @@ class _CodexAppServerEventParser:
                 )
             )
         if summary or thinking:
-            _append_message_thinking(
+            index = _append_message_thinking(
                 message,
                 thinking,
                 summary,
@@ -873,7 +883,7 @@ class _CodexAppServerEventParser:
                         message_id=message.id,
                         content=[
                             MessageThinkingDelta(
-                                index=0,
+                                index=index if index is not None else 0,
                                 thinking=thinking,
                                 summary=summary,
                                 signature=None,
@@ -895,7 +905,7 @@ class _CodexAppServerEventParser:
         thinking = _extract_reasoning_content(item)
         if not summary and not thinking:
             return [ExternalAgentStreamEvent(raw=payload)]
-        _append_message_thinking(
+        index = _append_message_thinking(
             message,
             thinking,
             summary,
@@ -916,7 +926,7 @@ class _CodexAppServerEventParser:
                     message_id=message.id,
                     content=[
                         MessageThinkingDelta(
-                            index=0,
+                            index=index if index is not None else 0,
                             thinking=thinking,
                             summary=summary,
                             signature=None,
@@ -947,7 +957,7 @@ class _CodexAppServerEventParser:
         if not summary and not thinking:
             return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_reasoning_message(message_id)
-        _append_message_thinking(
+        index = _append_message_thinking(
             message,
             thinking or "",
             summary,
@@ -968,7 +978,7 @@ class _CodexAppServerEventParser:
                     message_id=message.id,
                     content=[
                         MessageThinkingDelta(
-                            index=0,
+                            index=index if index is not None else 0,
                             thinking=thinking or "",
                             summary=summary,
                             signature=None,
@@ -1324,7 +1334,7 @@ class _CodexAppServerEventParser:
             {"id": message_id, "params": {"itemId": message_id}}
         )
         delta_text = "".join(text_parts)
-        _append_message_text(message, delta_text)
+        index = _append_message_text(message, delta_text)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
             self._assistant_message_open = True
@@ -1340,7 +1350,12 @@ class _CodexAppServerEventParser:
                 raw=payload,
                 stream_chunk=MessageDeltaEvent(
                     message_id=message.id,
-                    content=[MessageTextDelta(index=0, text=delta_text)],
+                    content=[
+                        MessageTextDelta(
+                            index=index if index is not None else 0,
+                            text=delta_text,
+                        )
+                    ],
                 ),
             )
         )
@@ -1666,18 +1681,23 @@ def _extract_output_delta_text(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _append_message_text(message: AssistantChatMessage, delta: str) -> None:
+def _append_message_text(message: AssistantChatMessage, delta: str) -> int | None:
     if not delta:
-        return
-    if message.content and isinstance(message.content[0], MessageTextContent):
-        message.content[0].text += delta
-        return
-    message.content.insert(0, MessageTextContent(text=delta))
+        return None
+    if message.content:
+        last_index = len(message.content) - 1
+        last_block = message.content[last_index]
+        if isinstance(last_block, MessageTextContent):
+            last_block.text += delta
+            return last_index
+    message.content.append(MessageTextContent(text=delta))
+    return len(message.content) - 1
 
 
 def _get_message_text(message: AssistantChatMessage) -> str:
-    if message.content and isinstance(message.content[0], MessageTextContent):
-        return message.content[0].text
+    for entry in reversed(message.content):
+        if isinstance(entry, MessageTextContent):
+            return entry.text
     return ""
 
 
@@ -1968,22 +1988,27 @@ def _extract_reasoning_delta_text(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _ensure_thinking_block(message: AssistantChatMessage) -> MessageThinkingContent:
-    if message.content and isinstance(message.content[0], MessageThinkingContent):
-        return message.content[0]
-    block = MessageThinkingContent()
-    message.content.insert(0, block)
-    return block
-
-
 def _append_message_thinking(
     message: AssistantChatMessage,
     thinking: str,
     summary: str | None,
     *,
     append_summary: bool = True,
-) -> None:
-    block = _ensure_thinking_block(message)
+) -> int | None:
+    if not thinking and summary is None:
+        return None
+    block = None
+    index = None
+    if message.content:
+        last_index = len(message.content) - 1
+        last_block = message.content[last_index]
+        if isinstance(last_block, MessageThinkingContent):
+            block = last_block
+            index = last_index
+    if block is None:
+        block = MessageThinkingContent()
+        message.content.append(block)
+        index = len(message.content) - 1
     if thinking:
         block.thinking += thinking
     if summary is not None:
@@ -1991,6 +2016,7 @@ def _append_message_thinking(
             block.summary += summary
         else:
             block.summary = summary
+    return index
 
 
 def _build_command_execution_tool_call(

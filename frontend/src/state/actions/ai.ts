@@ -124,7 +124,15 @@ export function receiveLLMApiKeysUpdate(payload: APIKeys) {
   });
 }
 
-export async function loadAgentProfiles() {
+export async function loadAgentProfiles(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.agentProfilesLoading) {
+    return;
+  }
+  if (!force && state.agentProfilesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ agentProfilesLoading: true });
   const res = await route_get_agent_profiles();
   if (res200(res)) {
     receiveAgentProfilesUpdate(res.data);
@@ -132,6 +140,7 @@ export async function loadAgentProfiles() {
     useAIStore.setState({
       agentProfilesInitialLoadComplete: true,
       agentProfilesLoadError: "Failed to load agent profiles",
+      agentProfilesLoading: false,
     });
   }
 }
@@ -141,6 +150,7 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
     agentProfiles: payload,
     agentProfilesInitialLoadComplete: true,
     agentProfilesLoadError: null,
+    agentProfilesLoading: false,
   });
 }
 
@@ -164,7 +174,15 @@ function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   });
 }
 
-export async function loadPromptTemplates() {
+export async function loadPromptTemplates(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.promptTemplatesLoading) {
+    return;
+  }
+  if (!force && state.promptTemplatesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ promptTemplatesLoading: true });
   const res = await route_get_prompt_templates();
   if (res200(res)) {
     receivePromptTemplatesUpdate(res.data);
@@ -172,6 +190,7 @@ export async function loadPromptTemplates() {
     useAIStore.setState({
       promptTemplatesInitialLoadComplete: true,
       promptTemplatesLoadError: "Failed to load prompt templates",
+      promptTemplatesLoading: false,
     });
   }
 }
@@ -181,10 +200,19 @@ export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
     promptTemplates: payload,
     promptTemplatesInitialLoadComplete: true,
     promptTemplatesLoadError: null,
+    promptTemplatesLoading: false,
   });
 }
 
-export async function loadExternalAgentConfigs() {
+export async function loadExternalAgentConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentConfigsLoading) {
+    return;
+  }
+  if (!force && state.externalAgentConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentConfigsLoading: true });
   const res = await route_get_external_agent_configs();
   if (res200(res)) {
     receiveExternalAgentConfigsUpdate(res.data);
@@ -192,11 +220,20 @@ export async function loadExternalAgentConfigs() {
     useAIStore.setState({
       externalAgentConfigsInitialLoadComplete: true,
       externalAgentConfigsLoadError: "Failed to load external agent configs",
+      externalAgentConfigsLoading: false,
     });
   }
 }
 
-export async function loadExternalAgentHealth() {
+export async function loadExternalAgentHealth(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentHealthLoading) {
+    return;
+  }
+  if (!force && state.externalAgentHealthInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentHealthLoading: true });
   const res = await route_get_external_agent_health();
   if (res200(res)) {
     receiveExternalAgentHealthUpdate(res.data);
@@ -204,6 +241,7 @@ export async function loadExternalAgentHealth() {
     useAIStore.setState({
       externalAgentHealthInitialLoadComplete: true,
       externalAgentHealthLoadError: "Failed to load external agent health",
+      externalAgentHealthLoading: false,
     });
   }
 }
@@ -215,8 +253,9 @@ export function receiveExternalAgentConfigsUpdate(
     externalAgentConfigs: payload,
     externalAgentConfigsInitialLoadComplete: true,
     externalAgentConfigsLoadError: null,
+    externalAgentConfigsLoading: false,
   });
-  void loadExternalAgentHealth();
+  void loadExternalAgentHealth(true);
 }
 
 function receiveExternalAgentHealthUpdate(
@@ -226,10 +265,19 @@ function receiveExternalAgentHealthUpdate(
     externalAgentHealth: payload,
     externalAgentHealthInitialLoadComplete: true,
     externalAgentHealthLoadError: null,
+    externalAgentHealthLoading: false,
   });
 }
 
-export async function loadEngineConfigs() {
+export async function loadEngineConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.engineConfigsLoading) {
+    return;
+  }
+  if (!force && state.engineConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ engineConfigsLoading: true });
   const res = await route_get_engine_configs();
   if (res200(res)) {
     receiveEngineConfigsUpdate(res.data);
@@ -237,6 +285,7 @@ export async function loadEngineConfigs() {
     useAIStore.setState({
       engineConfigsInitialLoadComplete: true,
       engineConfigsLoadError: "Failed to load engine configs",
+      engineConfigsLoading: false,
     });
   }
 }
@@ -246,6 +295,7 @@ export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
     engineConfigs: payload,
     engineConfigsInitialLoadComplete: true,
     engineConfigsLoadError: null,
+    engineConfigsLoading: false,
   });
 }
 

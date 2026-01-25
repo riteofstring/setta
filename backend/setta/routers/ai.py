@@ -276,6 +276,10 @@ async def route_get_llm_chat(
     if latest_run is None:
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
+    if latest_run.status == AgentRunStatus.running:
+        live_state = ctx.state.agent_runner.get_live_chat_state(latest_run.id)
+        if live_state is not None:
+            state = live_state
     engine_config_id = get_run_engine_config_id(latest_run)
     if not engine_config_id:
         raise HTTPException(status_code=500, detail="Chat engine config not found")
@@ -308,6 +312,12 @@ async def route_get_external_agent_chat(
     if latest_run is None:
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
+    if latest_run.status == AgentRunStatus.running:
+        runner = getattr(ctx.state, "external_agent_runner", None)
+        if runner is not None and not runner.disabled:
+            live_state = runner.get_live_chat_state(latest_run.id)
+            if live_state is not None:
+                state = live_state
     return GetExternalAgentChatResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,

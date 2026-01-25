@@ -306,6 +306,46 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 self.assertEqual(delta.thinking, "Plan")
                 self.assertEqual(delta.summary, "Summary")
 
+    def test_mixed_reasoning_and_text_do_not_clobber(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = []
+        events.extend(
+            parser.handle(
+                {
+                    "method": "item/assistantMessage/delta",
+                    "params": {"itemId": "msg-mixed-1", "delta": {"text": "Hello"}},
+                }
+            )
+        )
+        events.extend(
+            parser.handle(
+                {
+                    "method": "item/reasoning/textDelta",
+                    "params": {"itemId": "msg-mixed-1", "delta": "Thinking"},
+                }
+            )
+        )
+        state = build_chat_section_state(messages=[])
+        for event in events:
+            chunk = event.stream_chunk
+            if chunk is None:
+                continue
+            state = apply_stream_delta(state=state, chunk=chunk)
+        message = next(
+            (
+                entry
+                for entry in state.messages
+                if isinstance(entry, AssistantChatMessage)
+                and entry.id == "msg-mixed-1"
+            ),
+            None,
+        )
+        self.assertIsNotNone(message)
+        if isinstance(message, AssistantChatMessage):
+            content_types = [entry.type for entry in message.content]
+            self.assertIn("text", content_types)
+            self.assertIn("thinking", content_types)
+
     def test_command_execution_item_emits_tool_call_and_result(self) -> None:
         parser = _CodexAppServerEventParser()
         parser.handle(

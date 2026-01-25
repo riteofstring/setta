@@ -189,6 +189,12 @@ class ExternalAgentRunner:
             )
         return snapshot
 
+    def get_live_chat_state(self, run_id: ID) -> ChatSectionState | None:
+        state = self._chat_states.get(run_id)
+        if state is None:
+            return None
+        return state.model_copy(deep=True)
+
     def start_run(
         self,
         engine_config_id: ID,
@@ -677,7 +683,6 @@ class ExternalAgentRunner:
         allowlist = self._resolve_external_tool_allowlist(profile)
         if config.toolType == ExternalAgentToolType.claude_code:
             mcp_url = self._build_setta_mcp_url()
-            auth_headers = self._build_mcp_auth_headers()
             logger.info(
                 "Configuring Claude MCP url=%s allowlist=%s",
                 mcp_url,
@@ -1048,48 +1053,31 @@ class ExternalAgentRunner:
         )
         is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
-            if context.config.toolType == ExternalAgentToolType.claude_code:
-                attached = False
-                for tool_call_id, state in list(self._pending_questions.items()):
-                    if state.run_id != run.id:
-                        continue
-                    if state.approval_id is not None:
-                        continue
-                    self._pending_questions[tool_call_id] = ExternalAgentQuestionState(
-                        tool_call_id=state.tool_call_id,
-                        run_id=state.run_id,
-                        project_config_id=state.project_config_id,
-                        chat_id=state.chat_id,
-                        section_id=state.section_id,
-                        approval_id=approval_id,
-                    )
-                    attached = True
-                    break
-                if not attached:
-                    approvals = self._pending_question_approvals.setdefault(run.id, [])
-                    approvals.append(approval_id)
-                self._record_event(
-                    run,
-                    "approval_request",
-                    {"approvalId": approval_id, "payload": payload},
+            attached = False
+            for tool_call_id, state in list(self._pending_questions.items()):
+                if state.run_id != run.id:
+                    continue
+                if state.approval_id is not None:
+                    continue
+                self._pending_questions[tool_call_id] = ExternalAgentQuestionState(
+                    tool_call_id=state.tool_call_id,
+                    run_id=state.run_id,
+                    project_config_id=state.project_config_id,
+                    chat_id=state.chat_id,
+                    section_id=state.section_id,
+                    approval_id=approval_id,
                 )
-                return
-            self._pending_questions[approval_id] = ExternalAgentQuestionState(
-                tool_call_id=approval_id,
-                run_id=run.id,
-                project_config_id=context.project_config_id,
-                chat_id=context.chat_id,
-                section_id=context.section_id,
-                approval_id=approval_id,
+                attached = True
+                break
+            if not attached:
+                approvals = self._pending_question_approvals.setdefault(run.id, [])
+                approvals.append(approval_id)
+            self._record_event(
+                run,
+                "approval_request",
+                {"approvalId": approval_id, "payload": payload},
             )
-            tool_arguments = self._extract_tool_input(payload) or {}
-            tool_call = ToolCall(
-                id=approval_id,
-                function=ToolCallFunction(
-                    name=_ASK_USER_QUESTION_TOOL_NAME,
-                    arguments=tool_arguments,
-                ),
-            )
+            return
         else:
             self._pending_approvals[approval_id] = ExternalAgentApprovalState(
                 approval_id=approval_id,

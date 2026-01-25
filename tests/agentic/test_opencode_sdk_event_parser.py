@@ -2,6 +2,11 @@ import json
 import unittest
 
 from setta.agentic.external_adapters.opencode_sdk import _OpenCodeSdkEventParser
+from setta.llm.chat_toolkit.section_sync import (
+    apply_stream_delta,
+    build_chat_section_state,
+)
+from setta.types.chat_messages import AssistantChatMessage
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -229,6 +234,66 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
         arguments_delta = tool_calls[0].arguments_delta
         parsed = json.loads(arguments_delta)
         self.assertEqual(parsed.get("command"), "echo hi")
+
+    def test_mixed_text_and_reasoning_do_not_clobber(self) -> None:
+        parser = _OpenCodeSdkEventParser()
+        parser.handle(
+            {
+                "type": "message.updated",
+                "properties": {
+                    "info": {
+                        "id": "msg-6",
+                        "role": "assistant",
+                        "sessionID": "sess-6",
+                        "time": {"created": 1},
+                    }
+                },
+            }
+        )
+        text_payload = {
+            "type": "message.part.updated",
+            "properties": {
+                "part": {
+                    "type": "text",
+                    "sessionID": "sess-6",
+                    "messageID": "msg-6",
+                    "text": "Hello",
+                },
+                "delta": "Hello",
+            },
+        }
+        reasoning_payload = {
+            "type": "message.part.updated",
+            "properties": {
+                "part": {
+                    "type": "reasoning",
+                    "sessionID": "sess-6",
+                    "messageID": "msg-6",
+                    "text": "Thinking",
+                },
+                "delta": "Thinking",
+            },
+        }
+        events = parser.handle(text_payload) + parser.handle(reasoning_payload)
+        state = build_chat_section_state(messages=[])
+        for event in events:
+            if event.stream_chunk is None:
+                continue
+            state = apply_stream_delta(state=state, chunk=event.stream_chunk)
+        message = next(
+            (
+                entry
+                for entry in state.messages
+                if isinstance(entry, AssistantChatMessage)
+                and entry.id == "msg-6"
+            ),
+            None,
+        )
+        self.assertIsNotNone(message)
+        if isinstance(message, AssistantChatMessage):
+            content_types = [entry.type for entry in message.content]
+            self.assertIn("text", content_types)
+            self.assertIn("thinking", content_types)
 
     def test_text_part_snapshot_does_not_duplicate(self) -> None:
         parser = _OpenCodeSdkEventParser()

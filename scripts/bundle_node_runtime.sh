@@ -81,6 +81,27 @@ URL="https://nodejs.org/dist/v${NODE_VERSION}/${ARCHIVE}"
 
 echo "Downloading Node ${NODE_VERSION} for ${PLATFORM_TAG}..."
 curl -fsSL "${URL}" -o "${TMP_DIR}/${ARCHIVE}"
+curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o "${TMP_DIR}/SHASUMS256.txt"
+
+EXPECTED_SHA="$(grep " ${ARCHIVE}$" "${TMP_DIR}/SHASUMS256.txt" | awk '{print $1}')"
+if [[ -z "${EXPECTED_SHA}" ]]; then
+  echo "Failed to find checksum for ${ARCHIVE}" >&2
+  exit 1
+fi
+
+if command -v shasum >/dev/null 2>&1; then
+  ACTUAL_SHA="$(shasum -a 256 "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
+elif command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL_SHA="$(sha256sum "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
+else
+  echo "No SHA256 checksum tool available (need shasum or sha256sum)" >&2
+  exit 1
+fi
+
+if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+  echo "Checksum mismatch for ${ARCHIVE}" >&2
+  exit 1
+fi
 
 if [[ "${OS_TAG}" == "win" ]]; then
   python - <<PY

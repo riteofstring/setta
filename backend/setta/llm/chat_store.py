@@ -11,7 +11,7 @@ from setta.agentic.chat_view import (
 )
 from setta.agentic.store import (
     delete_agent_run,
-    list_agent_runs,
+    list_agent_runs_by_metadata,
     load_agent_run,
     save_agent_run,
 )
@@ -73,7 +73,7 @@ class AgentRunChatStore(ChatStore):
         return _build_chat_from_run(run)
 
     def get_all_chat_metadata(self) -> list[ChatMetadata]:
-        runs = [run for run in list_agent_runs(self.dbe) if is_scriptable_chat_run(run)]
+        runs = list_agent_runs_by_metadata(self.dbe, run_type=SCRIPTABLE_CHAT_RUN_TYPE)
         output: list[ChatMetadata] = []
         for run in runs:
             metadata = _build_chat_metadata_from_run(run)

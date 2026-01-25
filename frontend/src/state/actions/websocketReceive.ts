@@ -303,10 +303,6 @@ async function handleShareSessionRecovery() {
 
 function receiveMessage(message: string) {
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
-  console.log(
-    "[websocketReceive] message",
-    JSON.stringify({ raw: message, parsed: m }, null, 2),
-  );
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
