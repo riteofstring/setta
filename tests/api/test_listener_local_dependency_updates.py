@@ -16,9 +16,13 @@ from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRouterEndpointResultContent,
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    SectionRepresentationMode,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionImpl, ChatSectionState
+from setta.types.section_impls import ChatSectionImpl, ChatSectionState, SectionType
 from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
@@ -31,6 +35,7 @@ def _build_chat_project_state(
     section_impl = ChatSectionImpl(
         id=ID(f"{project_config_id}-chat-impl"),
         name="Chat Section",
+        chatId=ID(f"{project_config_id}-chat-id"),
     )
     section_variant = Variant(
         id=ID(f"{project_config_id}-chat-variant"),
@@ -50,6 +55,10 @@ def _build_chat_project_state(
         sectionVariantMap={section_core.id: section_variant.id},
         topLevelSections={section_core.id: TopLevelSectionLayout()},
     )
+    python_target = project_config.codegenTargets[0]
+    python_target.sectionPolicy.typePolicies[
+        SectionType.Chat
+    ].representation = SectionRepresentationMode.expression
     project_state = ProjectStateSingleConfig(
         projectConfig=project_config,
         sections={section_core.id: section_core},

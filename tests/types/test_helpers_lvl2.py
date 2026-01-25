@@ -1,20 +1,21 @@
+import json
 import unittest
 
 from setta.types.code_obj_impls import (
-    CodeCallableCodeObjImpl,
     CodeObjType,
     CodeParamCodeObjImpl,
     DropdownParamCodeObjImpl,
+    DropzoneMode,
+    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.dropzone import parse_dropzone_value
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import (
-    add_children_of_callable,
     add_kwarg,
     apply_top_level_section_layout_snapshot,
     change_param_impl,
@@ -25,9 +26,11 @@ from setta.types.helpers_lvl2 import (
     indent_params,
     move_params_to_parent,
     move_params_within_parent,
+    set_param_entered_value,
     set_chat_section_chat_id,
     set_section_param_filter,
     unindent_params,
+    update_param_impl_config,
 )
 from setta.types.project_config import (
     Position,
@@ -39,99 +42,11 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.id import ID
 from setta.types.section_impls import (
     BaseDictSectionImpl,
-    CallableSectionImpl,
     ChatSectionImpl,
+    MetaControlSectionImpl,
     SectionSize,
     SectionType,
 )
-
-
-def build_callable_project_state(
-    param_value: str,
-) -> tuple[ProjectStateSingleConfig, ID, ID]:
-    section_id = ID("section-1")
-    section_impl_id = ID("section-impl-1")
-    section_variant_id = ID("section-variant-1")
-
-    callable_id = ID("callable-1")
-    callable_impl_id = ID("callable-impl-1")
-    callable_variant_id = ID("callable-variant-1")
-
-    param_id = ID("param-1")
-    param_impl_id = ID("param-impl-1")
-    param_variant_id = ID("param-variant-1")
-
-    callable_impl = CodeCallableCodeObjImpl(
-        id=callable_impl_id,
-        children=[param_id],
-    )
-    callable_variant = Variant(
-        id=callable_variant_id,
-        impl=callable_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(callable_impl),
-    )
-    callable_core = Core(
-        id=callable_id,
-        name="TestCallable",
-        variants=[callable_variant.id],
-        defaultVariant=callable_variant.id,
-    )
-
-    param_impl = CodeParamCodeObjImpl(
-        id=param_impl_id,
-        value=param_value,
-    )
-    param_variant = Variant(
-        id=param_variant_id,
-        impl=param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
-    )
-    param_core = Core(
-        id=param_id,
-        name="param",
-        variants=[param_variant.id],
-        defaultVariant=param_variant.id,
-    )
-
-    section_impl = CallableSectionImpl(
-        id=section_impl_id,
-        callable=callable_id,
-        codeObjVariantMap={
-            callable_id: callable_variant.id,
-            param_id: param_variant.id,
-        },
-    )
-    section_variant = Variant(
-        id=section_variant_id,
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=section_id,
-        name="CallableSection",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-
-    project_config = ProjectConfig(
-        id=ID("project-1"),
-        name="CallableProject",
-        sectionVariantMap={section_id: section_variant.id},
-        topLevelSections={section_id: TopLevelSectionLayout()},
-    )
-    project_state = ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
-        codeObjs={callable_id: callable_core, param_id: param_core},
-        codeObjImpls={callable_impl.id: callable_impl, param_impl.id: param_impl},
-        codeObjVariants={
-            callable_variant.id: callable_variant,
-            param_variant.id: param_variant,
-        },
-    )
-    return project_state, section_id, param_id
 
 
 class AddKwargTests(unittest.TestCase):
@@ -297,48 +212,177 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
-class AddChildrenOfCallableTests(unittest.TestCase):
-    def test_refetch_preserves_existing_param_value(self) -> None:
-        project_state, section_id, param_id = build_callable_project_state(
-            "original"
+class DropzoneParamValueTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        self.section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.DropzoneParam,
         )
         section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state, section_id, CallableSectionImpl
+            self.project_state,
+            self.section_id,
+            MetaControlSectionImpl,
         )
-        callable_id = section_impl.callable
-        self.assertIsNotNone(callable_id)
-        assert callable_id is not None
+        self.param_id = section_impl.metaControlParamId
+        assert self.param_id is not None
+        param_core = self.project_state.codeObjs[self.param_id]
+        variant_id = param_core.defaultVariant
+        assert variant_id is not None
+        impl_id = self.project_state.codeObjVariants[variant_id].impl
+        self.dropzone_impl = self.project_state.codeObjImpls[impl_id]
+        assert isinstance(self.dropzone_impl, DropzoneParamCodeObjImpl)
 
-        new_param = Core(id=ID("param-new"), name="param")
-        new_param_impl = CodeParamCodeObjImpl(
-            id=ID("param-new-impl"),
-            value="new-default",
+    def test_set_param_entered_value_truncates_dropzone_attachments(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATEFUL
+        self.dropzone_impl.maxAttachments = 1
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:first",
+                    "name": "Dropped text",
+                    "text": "first",
+                },
+                {
+                    "kind": "text",
+                    "id": "text:second",
+                    "name": "Dropped text",
+                    "text": "second",
+                },
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
+        )
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        parsed = parse_dropzone_value(updated_impl.value)
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(len(parsed.attachments), 1)
+        self.assertEqual(parsed.attachments[0].id, "text:first")
+
+    def test_set_param_entered_value_clears_stateless_dropzone(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATELESS
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:payload",
+                    "name": "Dropped text",
+                    "text": "payload",
+                }
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
+        )
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        self.assertEqual(updated_impl.value, "")
+
+    def test_update_param_impl_config_clears_stateless_dropzone_value(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATEFUL
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:payload",
+                    "name": "Dropped text",
+                    "text": "payload",
+                }
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
         )
 
-        add_children_of_callable(
-            project_state,
-            section_id,
-            callable_id,
-            [new_param],
-            {new_param.id: new_param_impl},
+        update_param_impl_config(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            {"mode": DropzoneMode.STATELESS},
         )
 
-        callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            project_state,
-            section_id,
-            callable_id,
-            CodeCallableCodeObjImpl,
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
         )
-        self.assertEqual(callable_impl.children, [param_id])
-        self.assertNotIn(new_param.id, project_state.codeObjs)
+        self.assertEqual(updated_impl.value, "")
 
-        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            project_state,
-            section_id,
-            param_id,
-            CodeParamCodeObjImpl,
+    def test_update_param_impl_config_truncates_dropzone_attachments(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATEFUL
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:first",
+                    "name": "Dropped text",
+                    "text": "first",
+                },
+                {
+                    "kind": "text",
+                    "id": "text:second",
+                    "name": "Dropped text",
+                    "text": "second",
+                },
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
         )
-        self.assertEqual(param_impl.value, "original")
+
+        update_param_impl_config(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            {"maxAttachments": 1},
+        )
+
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        parsed = parse_dropzone_value(updated_impl.value)
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(len(parsed.attachments), 1)
+        self.assertEqual(parsed.attachments[0].id, "text:first")
 
 
 class ParamMoveTests(unittest.TestCase):
