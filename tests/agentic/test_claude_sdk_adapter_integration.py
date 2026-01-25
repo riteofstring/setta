@@ -2,10 +2,11 @@ import asyncio
 import importlib.metadata
 import json
 import os
-import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.external_adapters.base import ExternalAgentRunHandle
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
@@ -32,7 +33,10 @@ from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.mcp_test_server import run_test_mcp_server
 
 
-class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+pytestmark = pytest.mark.asyncio
+
+
+class TestClaudeSdkAdapterIntegration:
     @staticmethod
     @contextmanager
     def _temp_home(base_dir: Path):
@@ -69,9 +73,9 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         try:
             version = importlib.metadata.version("claude-agent-sdk")
         except importlib.metadata.PackageNotFoundError:
-            self.skipTest("claude-agent-sdk is not installed")
+            pytest.skip("claude-agent-sdk is not installed")
         if not os.environ.get("ANTHROPIC_API_KEY"):
-            self.skipTest("ANTHROPIC_API_KEY not set")
+            pytest.skip("ANTHROPIC_API_KEY not set")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
@@ -86,9 +90,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 break
 
         stored = dbe.read_agent_run(run_id)
-        self.assertIsNotNone(stored)
-        if stored is None:
-            return {}
+        assert stored is not None
         if "status" not in stored:
             raise KeyError("Agent run missing status")
         status = stored["status"]
@@ -106,7 +108,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(payload, dict) and payload.get("error"):
                         error = payload.get("error")
                         break
-            self.fail(
+            pytest.fail(
                 "Claude SDK run failed; "
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
@@ -123,7 +125,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if task is not None and task.done():
                 break
             await asyncio.sleep(0.1)
-        self.fail(
+        pytest.fail(
             "Claude SDK run did not register a Python SDK handle before completion."
         )
         raise AssertionError("Unreachable")
@@ -136,7 +138,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if state.run_id == run_id and state.approval_id:
                     return tool_call_id
             await asyncio.sleep(0.1)
-        self.fail("Claude SDK run did not request a user question in time.")
+        pytest.fail("Claude SDK run did not request a user question in time.")
         raise AssertionError("Unreachable")
 
     async def _await_pending_approval(
@@ -147,20 +149,20 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if state.run_id == run_id:
                     return approval_id
             await asyncio.sleep(0.1)
-        self.fail("Claude SDK run did not request a tool approval in time.")
+        pytest.fail("Claude SDK run did not request a tool approval in time.")
         raise AssertionError("Unreachable")
 
     def _assert_python_sdk_handle(self, handle: ExternalAgentRunHandle) -> None:
-        self.assertIsNone(handle.process)
+        assert handle.process is None
         queue = handle.metadata.get("queue")
-        self.assertIsInstance(queue, asyncio.Queue)
+        assert isinstance(queue, asyncio.Queue)
         task = handle.metadata.get("task")
-        self.assertIsInstance(task, asyncio.Task)
+        assert isinstance(task, asyncio.Task)
         if isinstance(task, asyncio.Task):
             coro = task.get_coro()
             code = getattr(coro, "cr_code", None)
             filename = getattr(code, "co_filename", "")
-            self.assertTrue(filename.endswith("claude_sdk.py"))
+            assert filename.endswith("claude_sdk.py")
 
     @staticmethod
     def _debug_dump(
@@ -305,11 +307,11 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             if not isinstance(outputs, dict):
                 raise AssertionError("Expected outputs to be a dict")
             session_id = outputs.get("sessionId")
-            self.assertIsInstance(session_id, str)
+            assert isinstance(session_id, str)
             if not isinstance(session_id, str) or not session_id:
                 raise AssertionError("Expected non-empty sessionId in outputs")
 
@@ -353,11 +355,11 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await self._await_run_handle(runner, first_run.id)
             first_stored = await self._await_completed_run(dbe, first_run.id)
             first_outputs = first_stored.get("outputs")
-            self.assertIsInstance(first_outputs, dict)
+            assert isinstance(first_outputs, dict)
             if not isinstance(first_outputs, dict):
                 raise AssertionError("Expected outputs to be a dict")
             session_id = first_outputs.get("sessionId")
-            self.assertIsInstance(session_id, str)
+            assert isinstance(session_id, str)
             if not isinstance(session_id, str) or not session_id:
                 raise AssertionError("Expected non-empty sessionId in outputs")
 
@@ -373,7 +375,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
 
             second_inputs = second_run.inputs or {}
-            self.assertEqual(second_inputs.get("sessionId"), session_id)
+            assert second_inputs.get("sessionId") == session_id
 
             await self._await_completed_run(dbe, second_run.id)
 
@@ -436,12 +438,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             all_text = self._collect_message_texts(messages)
             if token not in all_text:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(handle, outputs, "Read tool token not found.")
                 )
             assistant_messages = [
@@ -449,7 +451,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "assistant"
             ]
-            self.assertTrue(assistant_messages)
+            assert assistant_messages
             tool_calls: list[dict] = []
             for message in assistant_messages:
                 calls = message.get("tool_calls") if isinstance(message, dict) else None
@@ -457,13 +459,13 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     tool_calls.extend(
                         call for call in calls if isinstance(call, dict)
                     )
-            self.assertTrue(tool_calls)
+            assert tool_calls
             tool_names = {
                 call.get("function", {}).get("name")
                 for call in tool_calls
                 if isinstance(call, dict)
             }
-            self.assertIn("Read", tool_names)
+            assert "Read" in tool_names
 
     async def test_claude_sdk_runs_bash_tool(self) -> None:
         self._require_claude_sdk()
@@ -522,12 +524,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             all_text = self._collect_message_texts(messages)
             if "alpha.txt" not in all_text:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle, outputs, "Bash tool output missing alpha.txt."
                     )
@@ -537,19 +539,19 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "assistant"
             ]
-            self.assertTrue(assistant_messages)
+            assert assistant_messages
             tool_calls: list[dict] = []
             for message in assistant_messages:
                 calls = message.get("tool_calls") if isinstance(message, dict) else None
                 if isinstance(calls, list):
                     tool_calls.extend(call for call in calls if isinstance(call, dict))
-            self.assertTrue(tool_calls)
+            assert tool_calls
             tool_names = {
                 call.get("function", {}).get("name")
                 for call in tool_calls
                 if isinstance(call, dict)
             }
-            self.assertIn("Bash", tool_names)
+            assert "Bash" in tool_names
 
     async def test_claude_sdk_todo_write_tool(self) -> None:
         self._require_claude_sdk()
@@ -610,9 +612,9 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
 
             tool_errors = []
             for message in messages:
@@ -623,7 +625,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -641,26 +643,26 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 calls = message.get("tool_calls") if isinstance(message, dict) else None
                 if isinstance(calls, list):
                     tool_calls.extend(call for call in calls if isinstance(call, dict))
-            self.assertTrue(tool_calls)
+            assert tool_calls
             todo_calls = [
                 call
                 for call in tool_calls
                 if call.get("function", {}).get("name") == "TodoWrite"
             ]
-            self.assertTrue(todo_calls)
+            assert todo_calls
             for call in todo_calls:
                 arguments = call.get("function", {}).get("arguments")
-                self.assertIsInstance(arguments, dict)
+                assert isinstance(arguments, dict)
                 if isinstance(arguments, dict):
                     todos = arguments.get("todos")
-                    self.assertIsInstance(todos, list)
+                    assert isinstance(todos, list)
                     if isinstance(todos, list):
                         todo_text = " ".join(
                             str(entry.get("content"))
                             for entry in todos
                             if isinstance(entry, dict)
                         )
-                        self.assertIn(token, todo_text)
+                        assert token in todo_text
 
     async def test_claude_sdk_mcp_tool_call(self) -> None:
         self._require_claude_sdk()
@@ -711,9 +713,9 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
                 stored = await self._await_completed_run(dbe, run.id)
                 outputs = stored.get("outputs")
-                self.assertIsInstance(outputs, dict)
+                assert isinstance(outputs, dict)
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
+                assert isinstance(messages, list)
                 if not isinstance(messages, list):
                     raise AssertionError("Expected messages to be a list")
 
@@ -726,7 +728,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ):
                         tool_errors.append(self._extract_tool_text(message))
                 if tool_errors:
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(
                             handle,
                             outputs,
@@ -755,7 +757,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if "list_mcp_tools"
                     in (call.get("function", {}).get("name") or "")
                 ]
-                self.assertTrue(mcp_calls)
+                assert mcp_calls
 
     async def test_claude_sdk_local_settings_prompt_for_echo(self) -> None:
         self._require_claude_sdk()
@@ -835,12 +837,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             all_text = self._collect_message_texts(messages)
             if "setta-claude-settings" not in all_text:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -849,12 +851,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(permissions.get("ask"), ["Bash(echo:*)"])
+                assert permissions.get("ask") == ["Bash(echo:*)"]
 
     async def test_claude_sdk_emits_thinking_blocks(self) -> None:
         self._require_claude_sdk()
@@ -911,12 +913,12 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             thinking_blocks = self._collect_thinking_blocks(messages)
             if not thinking_blocks:
-                self.fail(f"Expected thinking blocks; outputs={outputs}")
+                pytest.fail(f"Expected thinking blocks; outputs={outputs}")
             thinking_text = "".join(
                 block.get("thinking", "")
                 for block in thinking_blocks
@@ -927,7 +929,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 for block in thinking_blocks
                 if isinstance(block.get("summary"), str)
             )
-            self.assertTrue((thinking_text + summary_text).strip())
+            assert (thinking_text + summary_text).strip()
 
     async def test_claude_sdk_ask_user_question_tool(self) -> None:
         self._require_claude_sdk()
@@ -995,9 +997,9 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             tool_errors = []
             for message in messages:
                 if (
@@ -1007,7 +1009,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -1016,7 +1018,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 )
             all_text = self._collect_message_texts(messages)
             if "Stream closed" in all_text:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -1043,17 +1045,17 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         break
                 if tool_call:
                     break
-            self.assertIsNotNone(tool_call)
+            assert tool_call is not None
             if tool_call is None:
                 return
             arguments = tool_call.get("function", {}).get("arguments")
-            self.assertIsInstance(arguments, dict)
+            assert isinstance(arguments, dict)
             questions = None
             if isinstance(arguments, dict):
                 questions = arguments.get("questions")
-            self.assertIsInstance(questions, list)
+            assert isinstance(questions, list)
             if isinstance(questions, list):
-                self.assertEqual(len(questions), 1)
+                assert len(questions) == 1
 
     async def test_claude_sdk_ask_user_question_multiple_prompts(self) -> None:
         self._require_claude_sdk()
@@ -1130,9 +1132,9 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             tool_errors = []
             for message in messages:
                 if (
@@ -1142,7 +1144,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -1151,7 +1153,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 )
             all_text = self._collect_message_texts(messages)
             if "Stream closed" in all_text:
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         handle,
                         outputs,
@@ -1178,17 +1180,17 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         break
                 if tool_call:
                     break
-            self.assertIsNotNone(tool_call)
+            assert tool_call is not None
             if tool_call is None:
                 return
             arguments = tool_call.get("function", {}).get("arguments")
-            self.assertIsInstance(arguments, dict)
+            assert isinstance(arguments, dict)
             questions = None
             if isinstance(arguments, dict):
                 questions = arguments.get("questions")
-            self.assertIsInstance(questions, list)
+            assert isinstance(questions, list)
             if isinstance(questions, list):
-                self.assertEqual(len(questions), 2)
+                assert len(questions) == 2
 
             tool_messages = [
                 message
@@ -1197,7 +1199,7 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 and message.get("role") == "tool"
                 and message.get("tool_name") == "AskUserQuestion"
             ]
-            self.assertTrue(tool_messages)
+            assert tool_messages
             last_tool = tool_messages[-1]
-            self.assertEqual(last_tool.get("result"), {"answers": answers})
-            self.assertIn("OK", all_text)
+            assert last_tool.get("result") == {"answers": answers}
+            assert "OK" in all_text

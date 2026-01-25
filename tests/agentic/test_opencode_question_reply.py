@@ -2,15 +2,16 @@ import json
 import shutil
 import subprocess
 import textwrap
-import unittest
 from pathlib import Path
 
+import pytest
 
-class OpenCodeQuestionReplyTests(unittest.TestCase):
+
+class TestOpenCodeQuestionReply:
     def _run_node(self, script: str) -> list:
         node_path = shutil.which("node")
         if node_path is None:
-            self.skipTest("node executable not found")
+            pytest.skip("node executable not found")
         result = subprocess.run(
             [node_path, "--input-type=module", "-e", script],
             capture_output=True,
@@ -18,7 +19,7 @@ class OpenCodeQuestionReplyTests(unittest.TestCase):
         )
         if result.returncode != 0:
             output = result.stderr.strip() or result.stdout.strip()
-            self.fail(f"node script failed: {output}")
+            pytest.fail(f"node script failed: {output}")
         output = result.stdout.strip()
         if not output:
             return []
@@ -42,7 +43,7 @@ class OpenCodeQuestionReplyTests(unittest.TestCase):
             """
         ).replace("__MODULE_URI__", module_path.as_uri())
         bodies = self._run_node(script)
-        self.assertIn({"answers": [["Yes"]]}, bodies)
+        assert {"answers": [["Yes"]]} in bodies
 
     def test_array_answers_include_ordered_body(self) -> None:
         module_path = (
@@ -62,7 +63,7 @@ class OpenCodeQuestionReplyTests(unittest.TestCase):
             """
         ).replace("__MODULE_URI__", module_path.as_uri())
         bodies = self._run_node(script)
-        self.assertIn({"answers": [["A"], ["B"]]}, bodies)
+        assert {"answers": [["A"], ["B"]]} in bodies
 
     def test_object_answers_respects_question_order(self) -> None:
         module_path = (
@@ -83,4 +84,4 @@ class OpenCodeQuestionReplyTests(unittest.TestCase):
             """
         ).replace("__MODULE_URI__", module_path.as_uri())
         bodies = self._run_node(script)
-        self.assertIn({"answers": [["Two"], ["One"]]}, bodies)
+        assert {"answers": [["Two"], ["One"]]} in bodies

@@ -1,6 +1,7 @@
 import asyncio
-import unittest
 from pathlib import Path
+
+import pytest
 
 from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
@@ -36,19 +37,19 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 
 
-class ClaudeSdkAdapterParserTests(unittest.TestCase):
+class TestClaudeSdkAdapterParser:
     def test_delta_emits_start_and_delta(self) -> None:
         parser = _ClaudeSdkEventParser()
         events = parser.handle(
             {"type": "message_delta", "delta": "Hello", "messageId": "msg-1"}
         )
 
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
-            self.assertEqual(events[1].stream_chunk.message_id, "msg-1")
-            self.assertEqual(events[1].stream_chunk.content[0].text, "Hello")
+            assert events[1].stream_chunk.message_id == "msg-1"
+            assert events[1].stream_chunk.content[0].text == "Hello"
 
     def test_final_emits_stop_and_finalize(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -61,11 +62,11 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 4)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
-        self.assertIsInstance(events[2].stream_chunk, MessageStopEvent)
-        self.assertIsInstance(events[3].stream_chunk, MessageFinalizedEvent)
+        assert len(events) == 4
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert isinstance(events[2].stream_chunk, MessageStopEvent)
+        assert isinstance(events[3].stream_chunk, MessageFinalizedEvent)
 
     def test_stream_event_tool_use_emits_tool_call_delta(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -78,8 +79,8 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
 
         events = parser.handle(
             {
@@ -96,12 +97,12 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-            self.assertEqual(events[0].stream_chunk.tool_call_id, "toolu-1")
-            self.assertEqual(events[0].stream_chunk.tool_name, "Read")
-            self.assertIn("README.md", events[0].stream_chunk.arguments_delta)
+            assert events[0].stream_chunk.tool_call_id == "toolu-1"
+            assert events[0].stream_chunk.tool_name == "Read"
+            assert "README.md" in events[0].stream_chunk.arguments_delta
 
         events = parser.handle(
             {
@@ -116,11 +117,11 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-            self.assertEqual(events[0].stream_chunk.tool_call_id, "toolu-1")
-            self.assertIn("README.md", events[0].stream_chunk.arguments_delta)
+            assert events[0].stream_chunk.tool_call_id == "toolu-1"
+            assert "README.md" in events[0].stream_chunk.arguments_delta
 
     def test_documented_tools_emit_tool_call_and_result(self) -> None:
         tool_names = [
@@ -171,11 +172,11 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                     },
                 }
             )
-            self.assertEqual(len(events), 1)
-            self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+            assert len(events) == 1
+            assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
             if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-                self.assertEqual(events[0].stream_chunk.tool_call_id, tool_id)
-                self.assertEqual(events[0].stream_chunk.tool_name, tool_name)
+                assert events[0].stream_chunk.tool_call_id == tool_id
+                assert events[0].stream_chunk.tool_name == tool_name
 
             parser.handle(
                 {
@@ -198,10 +199,10 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                     "stream_event": {"type": "content_block_stop", "index": 1},
                 }
             )
-            self.assertEqual(len(events), 1)
-            self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+            assert len(events) == 1
+            assert isinstance(events[0].stream_chunk, ToolResultEvent)
             if isinstance(events[0].stream_chunk, ToolResultEvent):
-                self.assertEqual(events[0].stream_chunk.result.tool_name, tool_name)
+                assert events[0].stream_chunk.result.tool_name == tool_name
 
     def test_stream_event_thinking_deltas(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -230,15 +231,15 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageDeltaEvent)
         if isinstance(events[0].stream_chunk, MessageDeltaEvent):
             delta = events[0].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.thinking, "Plan")
-                self.assertEqual(delta.summary, "Plan summary")
-                self.assertEqual(delta.signature, "sig-1")
+                assert delta.thinking == "Plan"
+                assert delta.summary == "Plan summary"
+                assert delta.signature == "sig-1"
 
         events = parser.handle(
             {
@@ -254,14 +255,14 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageDeltaEvent)
         if isinstance(events[0].stream_chunk, MessageDeltaEvent):
             delta = events[0].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.thinking, " next")
-                self.assertEqual(delta.summary, "Next summary")
+                assert delta.thinking == " next"
+                assert delta.summary == "Next summary"
 
         events = parser.handle(
             {
@@ -273,13 +274,13 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageDeltaEvent)
         if isinstance(events[0].stream_chunk, MessageDeltaEvent):
             delta = events[0].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.signature, "sig-2")
+                assert delta.signature == "sig-2"
 
         events = parser.handle(
             {
@@ -291,13 +292,13 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageDeltaEvent)
         if isinstance(events[0].stream_chunk, MessageDeltaEvent):
             delta = events[0].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.summary, "Final summary")
+                assert delta.summary == "Final summary"
 
     def test_tool_result_emits_tool_result_event(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -348,13 +349,13 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolResultEvent)
         if isinstance(events[0].stream_chunk, ToolResultEvent):
             result = events[0].stream_chunk.result
-            self.assertEqual(result.tool_call_id, "toolu-2")
-            self.assertEqual(result.tool_name, "Bash")
-            self.assertEqual(result.content[0].text, "ok")
+            assert result.tool_call_id == "toolu-2"
+            assert result.tool_name == "Bash"
+            assert result.content[0].text == "ok"
 
     def test_tool_use_delta_overrides_empty_input(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -414,11 +415,11 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             None,
         )
 
-        self.assertIsInstance(finalized, MessageFinalizedEvent)
+        assert isinstance(finalized, MessageFinalizedEvent)
         if isinstance(finalized, MessageFinalizedEvent):
             tool_calls = finalized.message.tool_calls or []
-            self.assertEqual(len(tool_calls), 1)
-            self.assertEqual(tool_calls[0].function.arguments, {"command": "ls"})
+            assert len(tool_calls) == 1
+            assert tool_calls[0].function.arguments == {"command": "ls"}
 
     def test_stream_event_message_start_parses_event_key(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -432,8 +433,8 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
 
     def test_assistant_payload_ignored_after_partial_stream(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -457,8 +458,8 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsNone(events[0].stream_chunk)
+        assert len(events) == 1
+        assert events[0].stream_chunk is None
 
     def test_result_payload_ignored_after_partial_stream(self) -> None:
         parser = _ClaudeSdkEventParser()
@@ -480,8 +481,8 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsNone(events[0].stream_chunk)
+        assert len(events) == 1
+        assert events[0].stream_chunk is None
 
     def test_build_prompt_uses_latest_user_message(self) -> None:
         adapter = ClaudeSdkAdapter()
@@ -511,18 +512,19 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
 
         prompt = adapter._build_prompt(context)
 
-        self.assertEqual(prompt.strip(), "Latest request")
-        self.assertNotIn("System:", prompt)
-        self.assertNotIn("User:", prompt)
+        assert prompt.strip() == "Latest request"
+        assert "System:" not in prompt
+        assert "User:" not in prompt
 
     def test_system_prompt_payload_uses_preset_and_append(self) -> None:
         payload = _build_system_prompt_payload("Use Setta conventions.")
 
-        self.assertEqual(payload.get("preset"), "claude_code")
-        self.assertEqual(payload.get("append"), "Use Setta conventions.")
+        assert payload.get("preset") == "claude_code"
+        assert payload.get("append") == "Use Setta conventions."
 
 
-class ClaudeSdkAdapterToolResponseTests(unittest.IsolatedAsyncioTestCase):
+class TestClaudeSdkAdapterToolResponse:
+    @pytest.mark.asyncio
     async def test_send_tool_response_merges_answers_into_updated_input(self) -> None:
         adapter = ClaudeSdkAdapter()
         loop = asyncio.get_running_loop()
@@ -559,15 +561,12 @@ class ClaudeSdkAdapterToolResponseTests(unittest.IsolatedAsyncioTestCase):
 
         await adapter.send_tool_response(handle, "tool-1", {"answers": answers})
 
-        self.assertTrue(future.done())
+        assert future.done()
         decision = future.result()
-        self.assertTrue(decision.approved)
-        self.assertIsInstance(decision.updated_input, dict)
-        self.assertEqual(decision.updated_input.get("answers"), answers)
-        self.assertEqual(
-            decision.updated_input.get("questions"),
-            tool_input["questions"],
-        )
+        assert decision.approved
+        assert isinstance(decision.updated_input, dict)
+        assert decision.updated_input.get("answers") == answers
+        assert decision.updated_input.get("questions") == tool_input["questions"]
         pending_map = handle.metadata.get("pending_approvals")
         if isinstance(pending_map, dict):
-            self.assertNotIn("tool-1", pending_map)
+            assert "tool-1" not in pending_map

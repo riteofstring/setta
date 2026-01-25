@@ -1,4 +1,3 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -14,7 +13,7 @@ from setta.types.id import ID
 from setta.utils.timestamps import get_now_timestamp
 
 
-class AgentRunIndexTests(unittest.TestCase):
+class TestAgentRunIndex:
     def test_index_filters_runs_by_metadata(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -49,7 +48,7 @@ class AgentRunIndexTests(unittest.TestCase):
                 project_config_id=ID("project-1"),
             )
 
-            self.assertEqual([run_one.id], run_ids)
+            assert [run_one.id] == run_ids
 
             runs = list_agent_runs_by_metadata(
                 dbe,
@@ -58,9 +57,5 @@ class AgentRunIndexTests(unittest.TestCase):
                 project_config_id=ID("project-1"),
             )
 
-            self.assertEqual(1, len(runs))
-            self.assertEqual(run_two.id, runs[0].id)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert len(runs) == 1
+            assert run_two.id == runs[0].id

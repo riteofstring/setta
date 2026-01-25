@@ -1,5 +1,6 @@
 import asyncio
-import unittest
+
+import pytest
 
 from setta.agentic.external_adapters.opencode_sdk import (
     OpenCodeSdkAdapter,
@@ -7,19 +8,20 @@ from setta.agentic.external_adapters.opencode_sdk import (
 )
 
 
-class OpenCodeSdkEnvTests(unittest.TestCase):
+class TestOpenCodeSdkEnv:
     def test_build_env_does_not_force_debug(self) -> None:
         env = OpenCodeSdkAdapter._build_env({})
-        self.assertNotIn("SETTA_OPENCODE_DEBUG", env)
-        self.assertNotIn("SETTA_OPENCODE_DEBUG_RAW", env)
+        assert "SETTA_OPENCODE_DEBUG" not in env
+        assert "SETTA_OPENCODE_DEBUG_RAW" not in env
 
     def test_build_env_enables_debug_when_requested(self) -> None:
         env = OpenCodeSdkAdapter._build_env({"SETTA_OPENCODE_DEBUG": "1"})
-        self.assertEqual(env.get("SETTA_OPENCODE_DEBUG"), "1")
-        self.assertEqual(env.get("SETTA_OPENCODE_DEBUG_RAW"), "1")
+        assert env.get("SETTA_OPENCODE_DEBUG") == "1"
+        assert env.get("SETTA_OPENCODE_DEBUG_RAW") == "1"
 
 
-class OpenCodeSdkStderrTests(unittest.IsolatedAsyncioTestCase):
+class TestOpenCodeSdkStderr:
+    @pytest.mark.asyncio
     async def test_stream_stderr_caps_lines(self) -> None:
         reader = asyncio.StreamReader()
         stderr_lines: list[str] = []
@@ -30,10 +32,6 @@ class OpenCodeSdkStderrTests(unittest.IsolatedAsyncioTestCase):
 
         await OpenCodeSdkAdapter._stream_stderr(reader, stderr_lines)
 
-        self.assertEqual(len(stderr_lines), _OPENCODE_STDERR_MAX_LINES)
+        assert len(stderr_lines) == _OPENCODE_STDERR_MAX_LINES
         expected_start = f"line-{total_lines - _OPENCODE_STDERR_MAX_LINES}"
-        self.assertEqual(stderr_lines[0], expected_start)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert stderr_lines[0] == expected_start

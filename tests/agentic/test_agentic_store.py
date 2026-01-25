@@ -1,6 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.store import (
     create_agent_run,
@@ -29,7 +30,7 @@ from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
 
 
-class AgenticStoreTests(unittest.TestCase):
+class TestAgenticStore:
     def _build_dbe(self, tmpdir: str) -> DBE:
         root = Path(tmpdir) / "setta_files"
         root.mkdir(parents=True, exist_ok=True)
@@ -38,7 +39,7 @@ class AgenticStoreTests(unittest.TestCase):
     def test_profiles_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
-            self.assertEqual(load_agent_profiles(dbe), [])
+            assert load_agent_profiles(dbe) == []
 
             profiles = [
                 AgentProfile(
@@ -57,9 +58,9 @@ class AgenticStoreTests(unittest.TestCase):
             save_agent_profiles(dbe, profiles)
 
             loaded = load_agent_profiles(dbe)
-            self.assertEqual([p.id for p in profiles], [p.id for p in loaded])
-            self.assertEqual(loaded[0].toolAllowlist, ["tool.a", "tool.b"])
-            self.assertEqual(loaded[1].name, "Beta")
+            assert [p.id for p in profiles] == [p.id for p in loaded]
+            assert loaded[0].toolAllowlist == ["tool.a", "tool.b"]
+            assert loaded[1].name == "Beta"
 
     def test_runs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -68,22 +69,22 @@ class AgenticStoreTests(unittest.TestCase):
             save_agent_run(dbe, run)
 
             loaded = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(loaded)
+            assert loaded is not None
             if loaded is None:
                 return
-            self.assertEqual(loaded.id, run.id)
-            self.assertEqual(loaded.status, AgentRunStatus.running)
-            self.assertEqual(loaded.inputs, {"prompt": "hello"})
-            self.assertIsNotNone(loaded.startedAt)
+            assert loaded.id == run.id
+            assert loaded.status == AgentRunStatus.running
+            assert loaded.inputs == {"prompt": "hello"}
+            assert loaded.startedAt is not None
 
             runs = list_agent_runs(dbe)
-            self.assertEqual(len(runs), 1)
-            self.assertEqual(runs[0].id, run.id)
+            assert len(runs) == 1
+            assert runs[0].id == run.id
 
     def test_external_agent_configs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
-            self.assertEqual(load_external_agent_configs(dbe), [])
+            assert load_external_agent_configs(dbe) == []
 
             configs = [
                 ExternalAgentConfig(
@@ -111,13 +112,13 @@ class AgenticStoreTests(unittest.TestCase):
             save_external_agent_configs(dbe, configs)
 
             loaded = load_external_agent_configs(dbe)
-            self.assertEqual([c.id for c in configs], [c.id for c in loaded])
-            self.assertEqual(loaded[0].toolType, ExternalAgentToolType.codex)
-            self.assertEqual(loaded[1].runMode, ExternalAgentRunMode.server)
+            assert [c.id for c in configs] == [c.id for c in loaded]
+            assert loaded[0].toolType == ExternalAgentToolType.codex
+            assert loaded[1].runMode == ExternalAgentRunMode.server
 
             required = require_external_agent_config(dbe, configs[0].id)
-            self.assertEqual(required.id, configs[0].id)
-            with self.assertRaises(KeyError):
+            assert required.id == configs[0].id
+            with pytest.raises(KeyError):
                 require_external_agent_config(dbe, ID("missing-config"))
 
     def test_prompt_templates_roundtrip(self) -> None:
@@ -134,15 +135,15 @@ class AgenticStoreTests(unittest.TestCase):
             save_prompt_template(dbe, template)
 
             loaded = load_prompt_template(dbe, template.id)
-            self.assertIsNotNone(loaded)
+            assert loaded is not None
             if loaded is None:
                 return
-            self.assertEqual(loaded.template, template.template)
-            self.assertEqual(loaded.inputSchema, template.inputSchema)
-            self.assertEqual(loaded.metadata, template.metadata)
+            assert loaded.template == template.template
+            assert loaded.inputSchema == template.inputSchema
+            assert loaded.metadata == template.metadata
 
             templates = list_prompt_templates(dbe)
-            self.assertEqual([entry.id for entry in templates], [template.id])
+            assert [entry.id for entry in templates] == [template.id]
 
             delete_prompt_template(dbe, template.id)
-            self.assertEqual(list_prompt_templates(dbe), [])
+            assert list_prompt_templates(dbe) == []

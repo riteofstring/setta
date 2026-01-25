@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import unittest
 
 from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
@@ -28,7 +27,7 @@ from setta.types.chat_stream_events import (
 from setta.types.id import ID
 
 
-class ChatViewTests(unittest.TestCase):
+class TestChatView:
     def test_sort_key_prefers_latest_updates(self) -> None:
         earlier = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
         later = datetime(2024, 1, 1, 10, 5, tzinfo=timezone.utc)
@@ -58,7 +57,7 @@ class ChatViewTests(unittest.TestCase):
             ],
         )
 
-        self.assertGreater(get_run_sort_key(run_a), get_run_sort_key(run_b))
+        assert get_run_sort_key(run_a) > get_run_sort_key(run_b)
 
     def test_run_type_and_ids(self) -> None:
         run = AgentRun(
@@ -69,11 +68,11 @@ class ChatViewTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(get_run_type(run), LLM_CHAT_RUN_TYPE)
-        self.assertTrue(is_llm_chat_run(run))
-        self.assertTrue(is_chat_run(run))
-        self.assertEqual(get_run_chat_id(run), ID("chat-1"))
-        self.assertEqual(get_run_project_config_id(run), ID("project-1"))
+        assert get_run_type(run) == LLM_CHAT_RUN_TYPE
+        assert is_llm_chat_run(run)
+        assert is_chat_run(run)
+        assert get_run_chat_id(run) == ID("chat-1")
+        assert get_run_project_config_id(run) == ID("project-1")
 
         run_with_event = AgentRun(
             inputs={"runType": LLM_CHAT_RUN_TYPE},
@@ -84,8 +83,8 @@ class ChatViewTests(unittest.TestCase):
                 )
             ],
         )
-        self.assertIsNone(get_run_chat_id(run_with_event))
-        self.assertIsNone(get_run_project_config_id(run_with_event))
+        assert get_run_chat_id(run_with_event) is None
+        assert get_run_project_config_id(run_with_event) is None
 
         scriptable = AgentRun(
             inputs={
@@ -94,9 +93,9 @@ class ChatViewTests(unittest.TestCase):
                 "projectConfigId": "project-3",
             },
         )
-        self.assertEqual(get_run_type(scriptable), SCRIPTABLE_CHAT_RUN_TYPE)
-        self.assertTrue(is_scriptable_chat_run(scriptable))
-        self.assertTrue(is_chat_run(scriptable))
+        assert get_run_type(scriptable) == SCRIPTABLE_CHAT_RUN_TYPE
+        assert is_scriptable_chat_run(scriptable)
+        assert is_chat_run(scriptable)
 
     def test_build_chat_state_ignores_stream_events(self) -> None:
         user_message = UserChatMessage(
@@ -126,9 +125,9 @@ class ChatViewTests(unittest.TestCase):
 
         state = build_chat_state_from_run(run)
 
-        self.assertEqual(len(state.messages), 1)
-        self.assertTrue(state.waitingForResponse)
-        self.assertIsInstance(state.messages[0], UserChatMessage)
+        assert len(state.messages) == 1
+        assert state.waitingForResponse
+        assert isinstance(state.messages[0], UserChatMessage)
 
     def test_get_engine_config_id_from_inputs(self) -> None:
         run = AgentRun(
@@ -146,10 +145,10 @@ class ChatViewTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(get_run_engine_config_id(run), ID("engine-1"))
+        assert get_run_engine_config_id(run) == ID("engine-1")
 
         missing = AgentRun(inputs={"runType": LLM_CHAT_RUN_TYPE})
-        self.assertIsNone(get_run_engine_config_id(missing))
+        assert get_run_engine_config_id(missing) is None
 
     def test_outputs_override_stream(self) -> None:
         output_message = AssistantChatMessage(
@@ -182,11 +181,11 @@ class ChatViewTests(unittest.TestCase):
 
         state = build_chat_state_from_run(run)
 
-        self.assertEqual(len(state.messages), 1)
+        assert len(state.messages) == 1
         assistant_message = state.messages[0]
-        self.assertIsInstance(assistant_message, AssistantChatMessage)
-        self.assertEqual(assistant_message.content[0].text, "Final")
-        self.assertFalse(state.waitingForResponse)
+        assert isinstance(assistant_message, AssistantChatMessage)
+        assert assistant_message.content[0].text == "Final"
+        assert not state.waitingForResponse
 
     def test_build_chat_state_filters_response_placeholders(self) -> None:
         user_message = UserChatMessage(
@@ -221,9 +220,9 @@ class ChatViewTests(unittest.TestCase):
 
         state = build_chat_state_from_run(run)
 
-        self.assertEqual(len(state.messages), 2)
-        self.assertEqual(state.messages[0].id, user_message.id)
-        self.assertEqual(state.messages[1].id, assistant_message.id)
+        assert len(state.messages) == 2
+        assert state.messages[0].id == user_message.id
+        assert state.messages[1].id == assistant_message.id
 
     def test_derive_chat_name_from_first_message(self) -> None:
         message_text = "0123456789" * 4
@@ -231,4 +230,4 @@ class ChatViewTests(unittest.TestCase):
 
         name = derive_chat_name([message])
 
-        self.assertEqual(name, message_text[:30])
+        assert name == message_text[:30]

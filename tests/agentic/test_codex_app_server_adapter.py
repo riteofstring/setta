@@ -1,7 +1,7 @@
-import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from setta.agentic.external_adapters.codex_app_server import (
     CodexAppServerAdapter,
     _CodexAppServerEventParser,
@@ -35,7 +35,7 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 
 
-class CodexAppServerAdapterParserTests(unittest.TestCase):
+class TestCodexAppServerAdapterParser:
     def test_item_start_emits_message_start(self) -> None:
         parser = _CodexAppServerEventParser()
         events = parser.handle(
@@ -45,11 +45,11 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
+        assert len(events) == 1
         chunk = events[0].stream_chunk
-        self.assertIsInstance(chunk, MessageStartEvent)
+        assert isinstance(chunk, MessageStartEvent)
         if isinstance(chunk, MessageStartEvent):
-            self.assertEqual(chunk.message.id, "msg-1")
+            assert chunk.message.id == "msg-1"
 
     def test_agent_message_delta_emits_message_delta(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -66,12 +66,12 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
+        assert len(events) == 1
         chunk = events[0].stream_chunk
-        self.assertIsInstance(chunk, MessageDeltaEvent)
+        assert isinstance(chunk, MessageDeltaEvent)
         if isinstance(chunk, MessageDeltaEvent):
-            self.assertEqual(chunk.message_id, "msg-2")
-            self.assertEqual(chunk.content[0].text, "Hello")
+            assert chunk.message_id == "msg-2"
+            assert chunk.content[0].text == "Hello"
 
     def test_item_completed_emits_stop_and_finalize(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -88,9 +88,9 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStopEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageFinalizedEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStopEvent)
+        assert isinstance(events[1].stream_chunk, MessageFinalizedEvent)
 
     def test_item_completed_with_text_emits_delta(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -107,13 +107,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 4)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
-        self.assertIsInstance(events[2].stream_chunk, MessageStopEvent)
-        self.assertIsInstance(events[3].stream_chunk, MessageFinalizedEvent)
+        assert len(events) == 4
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert isinstance(events[2].stream_chunk, MessageStopEvent)
+        assert isinstance(events[3].stream_chunk, MessageFinalizedEvent)
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
-            self.assertEqual(events[1].stream_chunk.content[0].text, "Done")
+            assert events[1].stream_chunk.content[0].text == "Done"
 
     def test_item_completed_with_full_text_after_deltas_does_not_duplicate(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -155,7 +155,7 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 else:
                     finalized_text = ""
                 break
-        self.assertEqual(finalized_text, "Hello world")
+        assert finalized_text == "Hello world"
 
     def test_response_message_id_is_ignored(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -166,8 +166,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsNone(events[0].stream_chunk)
+        assert len(events) == 1
+        assert events[0].stream_chunk is None
 
         completion_events = parser.handle(
             {
@@ -183,8 +183,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(completion_events), 1)
-        self.assertIsNone(completion_events[0].stream_chunk)
+        assert len(completion_events) == 1
+        assert completion_events[0].stream_chunk is None
 
     def test_item_completed_appends_missing_suffix_after_partial_deltas(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -220,7 +220,7 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 else:
                     finalized_text = ""
                 break
-        self.assertEqual(finalized_text, "Hello world")
+        assert finalized_text == "Hello world"
 
     def test_reasoning_summary_delta_emits_thinking_delta(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -237,13 +237,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, MessageDeltaEvent)
         if isinstance(events[0].stream_chunk, MessageDeltaEvent):
             delta = events[0].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.summary, "Planning steps")
+                assert delta.summary == "Planning steps"
 
     def test_reasoning_text_delta_emits_thinking_delta(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -254,14 +254,14 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
             delta = events[1].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.thinking, "Idea")
+                assert delta.thinking == "Idea"
 
     def test_reasoning_summary_part_added_emits_newline(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -272,13 +272,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
             delta = events[1].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.summary, "\n")
+                assert delta.summary == "\n"
 
     def test_reasoning_item_start_emits_summary_and_thinking(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -296,15 +296,15 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
             delta = events[1].stream_chunk.content[0]
-            self.assertIsInstance(delta, MessageThinkingDelta)
+            assert isinstance(delta, MessageThinkingDelta)
             if isinstance(delta, MessageThinkingDelta):
-                self.assertEqual(delta.thinking, "Plan")
-                self.assertEqual(delta.summary, "Summary")
+                assert delta.thinking == "Plan"
+                assert delta.summary == "Summary"
 
     def test_mixed_reasoning_and_text_do_not_clobber(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -340,11 +340,11 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             ),
             None,
         )
-        self.assertIsNotNone(message)
+        assert message is not None
         if isinstance(message, AssistantChatMessage):
             content_types = [entry.type for entry in message.content]
-            self.assertIn("text", content_types)
-            self.assertIn("thinking", content_types)
+            assert "text" in content_types
+            assert "thinking" in content_types
 
     def test_command_execution_item_emits_tool_call_and_result(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -367,8 +367,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         events = parser.handle(
             {
                 "method": "item/completed",
@@ -385,8 +385,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolResultEvent)
 
     def test_file_change_item_emits_tool_call_and_result(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -410,10 +410,10 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-            self.assertEqual(events[0].stream_chunk.tool_name, "file_change")
+            assert events[0].stream_chunk.tool_name == "file_change"
 
         events = parser.handle(
             {
@@ -429,8 +429,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolResultEvent)
 
     def test_mcp_tool_call_item_emits_tool_call_and_result(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -455,10 +455,10 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-            self.assertEqual(events[0].stream_chunk.tool_name, "mcp__setta__echo")
+            assert events[0].stream_chunk.tool_name == "mcp__setta__echo"
 
         events = parser.handle(
             {
@@ -476,8 +476,8 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolResultEvent)
 
     def test_response_item_function_call_emits_tool_call_delta(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -499,18 +499,18 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
         if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-            self.assertEqual(events[0].stream_chunk.tool_call_id, "call-1")
-            self.assertEqual(events[0].stream_chunk.message_id, "msg-call-1")
-            self.assertEqual(
-                events[0].stream_chunk.tool_name,
-                "mcp__setta__create_top_level_section",
+            assert events[0].stream_chunk.tool_call_id == "call-1"
+            assert events[0].stream_chunk.message_id == "msg-call-1"
+            assert (
+                events[0].stream_chunk.tool_name
+                == "mcp__setta__create_top_level_section"
             )
-            self.assertEqual(
-                events[0].stream_chunk.arguments_delta,
-                "{\"projectConfigId\":\"1\",\"implType\":\"Callable\"}",
+            assert (
+                events[0].stream_chunk.arguments_delta
+                == "{\"projectConfigId\":\"1\",\"implType\":\"Callable\"}"
             )
 
     def test_response_item_function_call_output_emits_tool_result(self) -> None:
@@ -537,20 +537,14 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
             )
 
-        self.assertEqual(len(events), 1)
-        self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+        assert len(events) == 1
+        assert isinstance(events[0].stream_chunk, ToolResultEvent)
         if isinstance(events[0].stream_chunk, ToolResultEvent):
             result = events[0].stream_chunk.result
-            self.assertEqual(result.tool_call_id, "call-2")
-            self.assertEqual(
-                result.tool_name,
-                "mcp__setta__create_top_level_section",
-            )
-            self.assertEqual(
-                result.arguments,
-                {"projectConfigId": "1", "implType": "Callable"},
-            )
-            self.assertEqual(result.result, {"sectionId": "6"})
+            assert result.tool_call_id == "call-2"
+            assert result.tool_name == "mcp__setta__create_top_level_section"
+            assert result.arguments == {"projectConfigId": "1", "implType": "Callable"}
+            assert result.result == {"sectionId": "6"}
 
     def test_response_item_function_call_streams_before_output(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -565,23 +559,17 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, ToolCallDeltaEvent)
-                for event in call_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, ToolCallDeltaEvent)
+            for event in call_events
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, MessageStartEvent)
-                for event in call_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, MessageStartEvent)
+            for event in call_events
         )
-        self.assertTrue(
-            all(
-                not isinstance(event.stream_chunk, ToolResultEvent)
-                for event in call_events
-            )
+        assert all(
+            not isinstance(event.stream_chunk, ToolResultEvent)
+            for event in call_events
         )
         output_events = parser.handle(
             {
@@ -593,11 +581,9 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, ToolResultEvent)
-                for event in output_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, ToolResultEvent)
+            for event in output_events
         )
 
     def test_response_item_function_call_output_is_deduped(self) -> None:
@@ -634,10 +620,9 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
 
-        self.assertTrue(
-            all(
-                not isinstance(event.stream_chunk, ToolResultEvent) for event in events
-            )
+        assert all(
+            not isinstance(event.stream_chunk, ToolResultEvent)
+            for event in events
         )
 
     def test_response_item_function_call_starts_message_for_tool_call(self) -> None:
@@ -663,10 +648,10 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             for event in initial_events
             if isinstance(event.stream_chunk, ToolCallDeltaEvent)
         ]
-        self.assertEqual(len(start_events), 1)
-        self.assertEqual(len(tool_events), 1)
+        assert len(start_events) == 1
+        assert len(tool_events) == 1
         message_id = start_events[0].message.id
-        self.assertEqual(tool_events[0].message_id, message_id)
+        assert tool_events[0].message_id == message_id
         message_events = parser.handle(
             {
                 "type": "response_item",
@@ -687,13 +672,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             for event in message_events
             if isinstance(event.stream_chunk, MessageFinalizedEvent)
         ]
-        self.assertTrue(delta_events)
-        self.assertEqual(delta_events[0].message_id, message_id)
-        self.assertTrue(finalized_events)
+        assert delta_events
+        assert delta_events[0].message_id == message_id
+        assert finalized_events
         finalized_message = finalized_events[0].message
         tool_calls = finalized_message.tool_calls or []
         tool_call_ids = {call.id for call in tool_calls}
-        self.assertIn("call-buffer-1", tool_call_ids)
+        assert "call-buffer-1" in tool_call_ids
 
     def test_mcp_tool_call_starts_message_without_prior_message(self) -> None:
         parser = _CodexAppServerEventParser()
@@ -711,17 +696,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, MessageStartEvent)
-                for event in start_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, MessageStartEvent)
+            for event in start_events
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, ToolCallDeltaEvent)
-                for event in start_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, ToolCallDeltaEvent)
+            for event in start_events
         )
         completed_events = parser.handle(
             {
@@ -739,11 +720,9 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 },
             }
         )
-        self.assertTrue(
-            any(
-                isinstance(event.stream_chunk, ToolResultEvent)
-                for event in completed_events
-            )
+        assert any(
+            isinstance(event.stream_chunk, ToolResultEvent)
+            for event in completed_events
         )
 
     def test_response_item_sequence_attaches_tool_calls_to_message(self) -> None:
@@ -816,12 +795,12 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             for message in state.messages
             if isinstance(message, AssistantChatMessage)
         ]
-        self.assertTrue(assistant_messages)
+        assert assistant_messages
         last_message = assistant_messages[-1]
         tool_calls = last_message.tool_calls or []
         tool_call_ids = {call.id for call in tool_calls}
-        self.assertIn("call_summary", tool_call_ids)
-        self.assertIn("call_create", tool_call_ids)
+        assert "call_summary" in tool_call_ids
+        assert "call_create" in tool_call_ids
 
     def test_generic_item_types_emit_tool_call_and_result(self) -> None:
         generic_types = [
@@ -856,10 +835,10 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 }
             )
 
-            self.assertEqual(len(events), 1)
-            self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+            assert len(events) == 1
+            assert isinstance(events[0].stream_chunk, ToolCallDeltaEvent)
             if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
-                self.assertEqual(events[0].stream_chunk.tool_name, item_type)
+                assert events[0].stream_chunk.tool_name == item_type
 
             events = parser.handle(
                 {
@@ -875,16 +854,13 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                     },
                 }
             )
-            self.assertEqual(len(events), 1)
-            self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+            assert len(events) == 1
+            assert isinstance(events[0].stream_chunk, ToolResultEvent)
             if isinstance(events[0].stream_chunk, ToolResultEvent):
-                self.assertEqual(
-                    events[0].stream_chunk.result.tool_name,
-                    item_type,
-                )
+                assert events[0].stream_chunk.result.tool_name == item_type
 
 
-class CodexAppServerAdapterPromptTests(unittest.TestCase):
+class TestCodexAppServerAdapterPrompt:
     def test_build_prompt_omits_system_messages(self) -> None:
         adapter = CodexAppServerAdapter()
         config = ExternalAgentConfig(
@@ -920,15 +896,15 @@ class CodexAppServerAdapterPromptTests(unittest.TestCase):
 
         prompt = adapter._build_prompt(context)
 
-        self.assertIn("User:\nUser request", prompt)
-        self.assertIn("Assistant:\nAssistant reply", prompt)
-        self.assertIn("Extra prompt.", prompt)
-        self.assertNotIn("System message", prompt)
-        self.assertNotIn("Developer note", prompt)
-        self.assertNotIn("System:\n", prompt)
+        assert "User:\nUser request" in prompt
+        assert "Assistant:\nAssistant reply" in prompt
+        assert "Extra prompt." in prompt
+        assert "System message" not in prompt
+        assert "Developer note" not in prompt
+        assert "System:\n" not in prompt
 
 
-class CodexAppServerAdapterMappingTests(unittest.TestCase):
+class TestCodexAppServerAdapterMapping:
     def test_build_turn_params_maps_policy_and_sandbox(self) -> None:
         config = ExternalAgentConfig(
             name="Codex",
@@ -952,17 +928,17 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
         )
         params = _build_turn_params(context, "hello", "thread-1")
 
-        self.assertEqual(params.get("approvalPolicy"), "on-request")
+        assert params.get("approvalPolicy") == "on-request"
         sandbox_policy = params.get("sandboxPolicy")
-        self.assertIsInstance(sandbox_policy, dict)
+        assert isinstance(sandbox_policy, dict)
         if isinstance(sandbox_policy, dict):
-            self.assertEqual(sandbox_policy.get("type"), "workspaceWrite")
+            assert sandbox_policy.get("type") == "workspaceWrite"
 
     def test_map_approval_policy_untrusted(self) -> None:
-        self.assertEqual(_map_approval_policy("untrusted"), "untrusted")
+        assert _map_approval_policy("untrusted") == "untrusted"
 
     def test_map_approval_policy_on_failure(self) -> None:
-        self.assertEqual(_map_approval_policy("on-failure"), "on-failure")
+        assert _map_approval_policy("on-failure") == "on-failure"
 
     def test_build_turn_params_rejects_non_object_output_schema(self) -> None:
         config = ExternalAgentConfig(
@@ -982,7 +958,7 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
             working_dir=Path("."),
             env={},
         )
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             _build_turn_params(context, "hello", "thread-1")
 
     def test_build_approval_payload_from_request(self) -> None:
@@ -1002,10 +978,10 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(approval_payload.get("type"), "approval_request")
-        self.assertEqual(approval_payload.get("approvalId"), "42")
-        self.assertEqual(approval_payload.get("command"), "rm -rf /")
-        self.assertEqual(state.approval_id_map.get("42"), 42)
+        assert approval_payload.get("type") == "approval_request"
+        assert approval_payload.get("approvalId") == "42"
+        assert approval_payload.get("command") == "rm -rf /"
+        assert state.approval_id_map.get("42") == 42
 
     def test_build_approval_payload_for_file_change(self) -> None:
         state = SimpleNamespace(approval_id_map={})
@@ -1024,13 +1000,13 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(approval_payload.get("type"), "approval_request")
-        self.assertEqual(approval_payload.get("approvalId"), "7")
-        self.assertEqual(approval_payload.get("diff"), "---\n+++")
+        assert approval_payload.get("type") == "approval_request"
+        assert approval_payload.get("approvalId") == "7"
+        assert approval_payload.get("diff") == "---\n+++"
         input_payload = approval_payload.get("input")
-        self.assertIsInstance(input_payload, dict)
+        assert isinstance(input_payload, dict)
         if isinstance(input_payload, dict):
-            self.assertEqual(input_payload.get("diff"), "---\n+++")
+            assert input_payload.get("diff") == "---\n+++"
 
     def test_build_turn_params_includes_effort_summary_and_schema(self) -> None:
         config = ExternalAgentConfig(
@@ -1062,7 +1038,7 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
 
         params = _build_turn_params(context, "hello", "thread-1")
 
-        self.assertEqual(params.get("effort"), "low")
-        self.assertEqual(params.get("summary"), "auto")
-        self.assertEqual(params.get("outputSchema"), output_schema)
-        self.assertEqual(params.get("cwd"), str(context.working_dir))
+        assert params.get("effort") == "low"
+        assert params.get("summary") == "auto"
+        assert params.get("outputSchema") == output_schema
+        assert params.get("cwd") == str(context.working_dir)

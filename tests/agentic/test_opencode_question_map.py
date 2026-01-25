@@ -2,15 +2,16 @@ import json
 import shutil
 import subprocess
 import textwrap
-import unittest
 from pathlib import Path
 
+import pytest
 
-class OpenCodeQuestionMapTests(unittest.TestCase):
+
+class TestOpenCodeQuestionMap:
     def test_resolves_question_id_from_tool_call(self) -> None:
         node_path = shutil.which("node")
         if node_path is None:
-            self.skipTest("node executable not found")
+            pytest.skip("node executable not found")
 
         module_path = (
             Path(__file__).resolve().parents[2]
@@ -22,7 +23,7 @@ class OpenCodeQuestionMapTests(unittest.TestCase):
             / "opencode_question_map.mjs"
         )
         if not module_path.exists():
-            self.fail("opencode_question_map.mjs not found")
+            pytest.fail("opencode_question_map.mjs not found")
 
         event = {
             "type": "question.asked",
@@ -73,4 +74,4 @@ class OpenCodeQuestionMapTests(unittest.TestCase):
         )
         if result.returncode != 0:
             output = result.stderr.strip() or result.stdout.strip()
-            self.fail(f"node script failed: {output}")
+            pytest.fail(f"node script failed: {output}")

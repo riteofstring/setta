@@ -1,4 +1,3 @@
-import unittest
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,7 +62,7 @@ def _build_runner_and_messages(
         yield runner, llm_config, system_prompt, messages, active_project_config_id
 
 
-class StreamEntryFallbackTests(unittest.TestCase):
+class TestStreamEntryFallback:
     def test_primary_thinking_chunk_suppresses_fallback(self) -> None:
         with _runner_context() as runner:
             delta = Delta(
@@ -73,10 +72,8 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
             entries = runner._collect_stream_entries(delta)
 
-            self.assertEqual(len(entries), 1)
-            self.assertEqual(
-                entries[0], StreamContentEntry("thinking", "primary", None)
-            )
+            assert len(entries) == 1
+            assert entries[0] == StreamContentEntry("thinking", "primary", None)
 
     def test_empty_thinking_chunk_allows_reasoning_fallback(self) -> None:
         with _runner_context() as runner:
@@ -87,10 +84,8 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
             entries = runner._collect_stream_entries(delta)
 
-            self.assertGreaterEqual(len(entries), 1)
-            self.assertEqual(
-                entries[0], StreamContentEntry("thinking", "fallback", None)
-            )
+            assert len(entries) >= 1
+            assert entries[0] == StreamContentEntry("thinking", "fallback", None)
 
     def test_provider_specific_thinking_blocks_are_used(self) -> None:
         with _runner_context() as runner:
@@ -102,9 +97,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
             entries = runner._collect_stream_entries(delta)
 
-            self.assertEqual(
-                entries, [StreamContentEntry("thinking", "details", None)]
-            )
+            assert entries == [StreamContentEntry("thinking", "details", None)]
 
     def test_thinking_summary_is_collected(self) -> None:
         with _runner_context() as runner:
@@ -115,17 +108,14 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
             entries = runner._collect_stream_entries(delta)
 
-            self.assertEqual(
-                entries,
-                [
-                    StreamContentEntry(
-                        kind="thinking",
-                        text="primary",
-                        index=None,
-                        summary="Short",
-                    )
-                ],
-            )
+            assert entries == [
+                StreamContentEntry(
+                    kind="thinking",
+                    text="primary",
+                    index=None,
+                    summary="Short",
+                )
+            ]
 
     def test_reasoning_summary_is_collected_from_provider_fields(self) -> None:
         with _runner_context() as runner:
@@ -137,11 +127,11 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
             entries = runner._collect_stream_entries(delta)
 
-            self.assertGreaterEqual(len(entries), 1)
-            self.assertEqual(entries[0].summary, "Fallback summary")
+            assert len(entries) >= 1
+            assert entries[0].summary == "Fallback summary"
 
 
-class SystemPromptInjectionTests(unittest.TestCase):
+class TestSystemPromptInjection:
     def test_payload_includes_system_prompt_before_chat_history(self) -> None:
         with _build_runner_and_messages() as (
             runner,
@@ -158,23 +148,22 @@ class SystemPromptInjectionTests(unittest.TestCase):
                 allowlist=None,
             )
 
-            self.assertEqual(payload["messages"][0]["role"], "system")
+            assert payload["messages"][0]["role"] == "system"
             system_text = payload["messages"][0]["content"][0]["text"]
-            self.assertTrue(system_text.startswith(runner.system_prompt))
-            self.assertIn("## Active project config", system_text)
+            assert system_text.startswith(runner.system_prompt)
+            assert "## Active project config" in system_text
             _, canonical_to_temporary = runner.dbe.read_temporary_id_map()
             if active_project_config_id not in canonical_to_temporary:
                 raise AssertionError("Expected project config ID in temporary map")
             temporary_project_id = canonical_to_temporary[active_project_config_id]
-            self.assertIn(str(temporary_project_id), system_text)
-            self.assertEqual(payload["messages"][1]["role"], "user")
-            self.assertEqual(
-                payload["messages"][1]["content"][0]["text"],
-                "Hello from the user",
+            assert str(temporary_project_id) in system_text
+            assert payload["messages"][1]["role"] == "user"
+            assert (
+                payload["messages"][1]["content"][0]["text"] == "Hello from the user"
             )
 
 
-class CachePromptingTests(unittest.TestCase):
+class TestCachePrompting:
     def test_cache_prompting_matches_support_signal(self) -> None:
         with _build_runner_and_messages() as (
             runner,
@@ -196,15 +185,12 @@ class CachePromptingTests(unittest.TestCase):
             )
 
             if supports_cache:
-                self.assertEqual(
-                    payload.get("cache_control_injection_points"),
-                    [
-                        {"location": "message", "role": "system"},
-                        {"location": "message", "index": -1},
-                    ],
-                )
+                assert payload.get("cache_control_injection_points") == [
+                    {"location": "message", "role": "system"},
+                    {"location": "message", "index": -1},
+                ]
             else:
-                self.assertNotIn("cache_control_injection_points", payload)
+                assert "cache_control_injection_points" not in payload
 
     def test_existing_cache_prompting_configuration_is_preserved(self) -> None:
         with _build_runner_and_messages(
@@ -222,10 +208,9 @@ class CachePromptingTests(unittest.TestCase):
                 allowlist=None,
             )
 
-            self.assertEqual(
-                payload["cache_control_injection_points"],
-                [{"location": "message", "role": "user"}],
-            )
+            assert payload["cache_control_injection_points"] == [
+                {"location": "message", "role": "user"}
+            ]
 
     def test_cache_prompting_with_tool_messages(self) -> None:
         with _build_runner_and_messages() as (
@@ -256,18 +241,15 @@ class CachePromptingTests(unittest.TestCase):
             )
 
             if supports_cache:
-                self.assertEqual(
-                    payload.get("cache_control_injection_points"),
-                    [
-                        {"location": "message", "role": "system"},
-                        {"location": "message", "index": -1},
-                    ],
-                )
+                assert payload.get("cache_control_injection_points") == [
+                    {"location": "message", "role": "system"},
+                    {"location": "message", "index": -1},
+                ]
             else:
-                self.assertNotIn("cache_control_injection_points", payload)
+                assert "cache_control_injection_points" not in payload
 
 
-class AnthropicThinkingSummaryTests(unittest.TestCase):
+class TestAnthropicThinkingSummary:
     def test_payload_strips_thinking_summary_for_anthropic(self) -> None:
         with _build_runner_and_messages(
             model="claude-sonnet-4-5-20250929",
@@ -301,15 +283,11 @@ class AnthropicThinkingSummaryTests(unittest.TestCase):
 
             assistant_payload = payload["messages"][2]
             content = assistant_payload.get("content")
-            self.assertIsInstance(content, list)
+            assert isinstance(content, list)
             if isinstance(content, list):
                 thinking_block = content[0] if content else None
-                self.assertIsInstance(thinking_block, dict)
+                assert isinstance(thinking_block, dict)
                 if isinstance(thinking_block, dict):
-                    self.assertEqual(thinking_block.get("type"), "thinking")
-                    self.assertNotIn("summary", thinking_block)
-                    self.assertEqual(thinking_block.get("signature"), "sig")
-
-
-if __name__ == "__main__":
-    unittest.main()
+                    assert thinking_block.get("type") == "thinking"
+                    assert "summary" not in thinking_block
+                    assert thinking_block.get("signature") == "sig"

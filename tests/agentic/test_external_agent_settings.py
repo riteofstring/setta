@@ -1,8 +1,9 @@
 import json
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import tomllib
+
+import pytest
 
 from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
@@ -27,7 +28,7 @@ def _build_dbe(tmpdir: str) -> DBE:
     return DBE(root)
 
 
-class ExternalAgentSettingsTests(unittest.TestCase):
+class TestExternalAgentSettings:
     def test_write_claude_settings_file_managed_local(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -50,14 +51,14 @@ class ExternalAgentSettingsTests(unittest.TestCase):
             path = write_claude_settings_file(config, project_root=project_root)
 
             expected = project_root / ".claude" / "settings.local.json"
-            self.assertEqual(path, expected)
+            assert path == expected
             payload = json.loads(expected.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(permissions.get("allow"), ["Read"])
-                self.assertEqual(permissions.get("ask"), ["Bash"])
-                self.assertEqual(permissions.get("deny"), ["Write"])
+                assert permissions.get("allow") == ["Read"]
+                assert permissions.get("ask") == ["Bash"]
+                assert permissions.get("deny") == ["Write"]
 
     def test_write_claude_settings_file_preserves_user_keys(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -93,13 +94,13 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             path = write_claude_settings_file(config, project_root=project_root)
 
-            self.assertEqual(path, settings_path)
+            assert path == settings_path
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("userSetting"), {"foo": "bar"})
+            assert payload.get("userSetting") == {"foo": "bar"}
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(permissions.get("allow"), ["New"])
+                assert permissions.get("allow") == ["New"]
 
     def test_write_claude_settings_file_read_only_skips(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -113,8 +114,8 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             path = write_claude_settings_file(config, project_root=project_root)
 
-            self.assertIsNone(path)
-            self.assertFalse((project_root / ".claude").exists())
+            assert path is None
+            assert not (project_root / ".claude").exists()
 
     def test_build_codex_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -146,16 +147,16 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             output_path = output_dir / "config.toml"
             output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(output_payload.get("model"), "gpt-4o")
-            self.assertEqual(output_payload.get("custom", {}).get("value"), "keep")
+            assert output_payload.get("model") == "gpt-4o"
+            assert output_payload.get("custom", {}).get("value") == "keep"
             mcp_servers = output_payload.get("mcp_servers")
-            self.assertIsInstance(mcp_servers, dict)
+            assert isinstance(mcp_servers, dict)
             if isinstance(mcp_servers, dict):
-                self.assertEqual(
-                    mcp_servers.get("setta", {}).get("url"),
-                    "http://localhost:8000/mcp",
+                assert (
+                    mcp_servers.get("setta", {}).get("url")
+                    == "http://localhost:8000/mcp"
                 )
-            self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+            assert base_path.read_text(encoding="utf-8") == original
 
     def test_build_codex_settings_file_sets_preferred_auth_method(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -179,10 +180,10 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             output_path = output_dir / "config.toml"
             output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(output_payload.get("forced_login_method"), "api")
-            self.assertEqual(output_payload.get("preferred_auth_method"), "apikey")
-            self.assertEqual(output_payload.get("cli_auth_credentials_store"), "file")
-            self.assertEqual(output_payload.get("model_reasoning_summary"), "none")
+            assert output_payload.get("forced_login_method") == "api"
+            assert output_payload.get("preferred_auth_method") == "apikey"
+            assert output_payload.get("cli_auth_credentials_store") == "file"
+            assert output_payload.get("model_reasoning_summary") == "none"
 
     def test_build_codex_settings_file_appends_system_prompt(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -214,11 +215,11 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             output_path = output_dir / "config.toml"
             output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                output_payload.get("developer_instructions"),
-                "Setta instructions\n\nBase instructions",
+            assert (
+                output_payload.get("developer_instructions")
+                == "Setta instructions\n\nBase instructions"
             )
-            self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+            assert base_path.read_text(encoding="utf-8") == original
 
     def test_build_opencode_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -250,20 +251,17 @@ class ExternalAgentSettingsTests(unittest.TestCase):
             )
 
             output_payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(output_payload.get("model"), "gpt-4o-mini")
-            self.assertEqual(output_payload.get("permission"), {"run": "ask"})
+            assert output_payload.get("model") == "gpt-4o-mini"
+            assert output_payload.get("permission") == {"run": "ask"}
             mcp = output_payload.get("mcp")
-            self.assertIsInstance(mcp, dict)
+            assert isinstance(mcp, dict)
             if isinstance(mcp, dict):
-                self.assertEqual(
-                    mcp.get("setta", {}).get("url"),
-                    "http://localhost:8000/mcp",
+                assert (
+                    mcp.get("setta", {}).get("url")
+                    == "http://localhost:8000/mcp"
                 )
-                self.assertEqual(
-                    mcp.get("other", {}).get("url"),
-                    "http://example.com",
-                )
-            self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+                assert mcp.get("other", {}).get("url") == "http://example.com"
+            assert base_path.read_text(encoding="utf-8") == original
 
     def test_build_opencode_settings_file_forces_openai_text_verbosity(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -301,24 +299,14 @@ class ExternalAgentSettingsTests(unittest.TestCase):
 
             output_payload = json.loads(output_path.read_text(encoding="utf-8"))
             provider = output_payload.get("provider")
-            self.assertIsInstance(provider, dict)
-            if not isinstance(provider, dict):
-                self.fail("Expected provider to be a dict.")
+            assert isinstance(provider, dict)
             openai = provider.get("openai")
-            self.assertIsInstance(openai, dict)
-            if not isinstance(openai, dict):
-                self.fail("Expected provider.openai to be a dict.")
+            assert isinstance(openai, dict)
             models = openai.get("models")
-            self.assertIsInstance(models, dict)
-            if not isinstance(models, dict):
-                self.fail("Expected provider.openai.models to be a dict.")
+            assert isinstance(models, dict)
             model_entry = models.get("gpt-5.2-chat-latest")
-            self.assertIsInstance(model_entry, dict)
-            if not isinstance(model_entry, dict):
-                self.fail("Expected provider.openai.models entry to be a dict.")
+            assert isinstance(model_entry, dict)
             options = model_entry.get("options")
-            self.assertIsInstance(options, dict)
-            if not isinstance(options, dict):
-                self.fail("Expected provider.openai.models.options to be a dict.")
-            self.assertEqual(options.get("textVerbosity"), "medium")
-            self.assertNotIn("text", options)
+            assert isinstance(options, dict)
+            assert options.get("textVerbosity") == "medium"
+            assert "text" not in options

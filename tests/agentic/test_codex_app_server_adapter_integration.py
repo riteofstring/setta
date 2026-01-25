@@ -6,11 +6,11 @@ import secrets
 import shutil
 import socket
 import subprocess
-import unittest
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -34,26 +34,29 @@ from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.mcp_test_server import run_test_mcp_server
 
 
-class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+pytestmark = pytest.mark.asyncio
+
+
+class TestCodexAppServerAdapterIntegration:
     def _require_codex_cli(self) -> str:
         codex_path = shutil.which("codex")
         if codex_path is None:
-            self.skipTest("codex CLI not installed")
+            pytest.skip("codex CLI not installed")
         if not os.environ.get("OPENAI_API_KEY"):
-            self.skipTest("OPENAI_API_KEY not set")
+            pytest.skip("OPENAI_API_KEY not set")
         result = subprocess.run(
             [codex_path, "app-server", "--help"],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            self.skipTest("codex app-server subcommand not available")
+            pytest.skip("codex app-server subcommand not available")
         try:
             socket.getaddrinfo("api.openai.com", 443)
             with socket.create_connection(("api.openai.com", 443), timeout=3):
                 pass
         except OSError:
-            self.skipTest("Cannot connect to api.openai.com:443")
+            pytest.skip("Cannot connect to api.openai.com:443")
         return codex_path
 
     async def _await_completed_run(
@@ -83,7 +86,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "stderr_lines"
                     )
                     await runner.stop_run(run_id)
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         outputs,
                         stderr_lines,
@@ -95,9 +98,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 next_log = now + log_interval_seconds
 
         stored = dbe.read_agent_run(run_id)
-        self.assertIsNotNone(stored)
-        if stored is None:
-            return {}
+        assert stored is not None
         status = stored.get("status")
         if status != "completed":
             events = stored.get("events")
@@ -113,7 +114,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(payload, dict) and payload.get("error"):
                         error = payload.get("error")
                         break
-            self.fail(
+            pytest.fail(
                 "Codex app-server run failed; "
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
@@ -137,7 +138,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     stderr_lines = runner._run_state[run_id].handle.metadata.get(
                         "stderr_lines"
                     )
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         outputs,
                         stderr_lines,
@@ -153,14 +154,14 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         outputs = stored.get("outputs") if isinstance(stored, dict) else None
         if run_id in runner._run_state:
             stderr_lines = runner._run_state[run_id].handle.metadata.get("stderr_lines")
-        self.fail(
+        pytest.fail(
             self._debug_dump(
                 outputs,
                 stderr_lines,
                 "Codex app-server run did not request a tool approval in time.",
             )
         )
-        raise AssertionError("Unreachable")
+        return ""
 
     @staticmethod
     def _matches_repeated_token(text: str, token: str) -> bool:
@@ -272,14 +273,14 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(entry, dict):
                         return entry
             for value in payload.values():
-                entry = CodexAppServerAdapterIntegrationTests._find_mcp_server_entry(
+                entry = TestCodexAppServerAdapterIntegration._find_mcp_server_entry(
                     value, server_id
                 )
                 if entry is not None:
                     return entry
         if isinstance(payload, list):
             for value in payload:
-                entry = CodexAppServerAdapterIntegrationTests._find_mcp_server_entry(
+                entry = TestCodexAppServerAdapterIntegration._find_mcp_server_entry(
                     value, server_id
                 )
                 if entry is not None:
@@ -370,20 +371,15 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertTrue(final_text.strip())
-            self.assertIn("hello", final_text.lower())
+            assert isinstance(final_text, str)
+            assert final_text.strip()
+            assert "hello" in final_text.lower()
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
-            if isinstance(messages, list):
-                all_text = self._collect_message_texts(messages)
-                self.assertTrue(all_text.strip())
+            assert isinstance(messages, list)
+            all_text = self._collect_message_texts(messages)
+            assert all_text.strip()
 
     async def test_codex_app_server_persists_thread_id(self) -> None:
         codex_path = self._require_codex_cli()
@@ -400,13 +396,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             thread_id = outputs.get("threadId")
-            self.assertIsInstance(thread_id, str)
-            if not isinstance(thread_id, str) or not thread_id:
-                raise AssertionError("Expected non-empty threadId in outputs")
+            assert isinstance(thread_id, str)
+            assert thread_id
 
     async def test_codex_app_server_reuses_thread_id_for_chat(self) -> None:
         codex_path = self._require_codex_cli()
@@ -424,13 +417,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dbe, first_run.id, runner=runner
             )
             first_outputs = first_stored.get("outputs")
-            self.assertIsInstance(first_outputs, dict)
-            if not isinstance(first_outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(first_outputs, dict)
             thread_id = first_outputs.get("threadId")
-            self.assertIsInstance(thread_id, str)
-            if not isinstance(thread_id, str) or not thread_id:
-                raise AssertionError("Expected non-empty threadId in outputs")
+            assert isinstance(thread_id, str)
+            assert thread_id
 
             second_run = runner.start_run(
                 config.id,
@@ -440,7 +430,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
 
             second_inputs = second_run.inputs or {}
-            self.assertEqual(second_inputs.get("threadId"), thread_id)
+            assert second_inputs.get("threadId") == thread_id
 
             await self._await_completed_run(dbe, second_run.id, runner=runner)
 
@@ -470,14 +460,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertIn(code_word, final_text.lower())
+            assert isinstance(final_text, str)
+            assert code_word in final_text.lower()
 
     async def test_codex_app_server_multi_turn_remembers_prompt(self) -> None:
         codex_path = self._require_codex_cli()
@@ -512,14 +498,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertIn(code_word, final_text.lower())
+            assert isinstance(final_text, str)
+            assert code_word in final_text.lower()
 
     async def test_codex_app_server_structured_output_schema(self) -> None:
         codex_path = self._require_codex_cli()
@@ -552,16 +534,12 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
+            assert isinstance(final_text, str)
             payload = self._extract_json_object(final_text)
-            self.assertEqual(payload.get("status"), "ok")
-            self.assertEqual(payload.get("codeWord"), token)
+            assert payload.get("status") == "ok"
+            assert payload.get("codeWord") == token
 
     async def test_codex_app_server_reads_config(self) -> None:
         codex_path = self._require_codex_cli()
@@ -589,25 +567,16 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             metadata = outputs.get("metadata")
-            self.assertIsInstance(metadata, dict)
-            if not isinstance(metadata, dict):
-                raise AssertionError("Expected metadata to be a dict")
+            assert isinstance(metadata, dict)
             settings_paths = metadata.get("settingsPaths")
-            self.assertIsInstance(settings_paths, dict)
-            if not isinstance(settings_paths, dict):
-                raise AssertionError("Expected settingsPaths to be a dict")
+            assert isinstance(settings_paths, dict)
             codex_settings_path = settings_paths.get("codex")
-            self.assertIsInstance(codex_settings_path, str)
-            if not isinstance(codex_settings_path, str):
-                raise AssertionError("Expected codex settings path in metadata")
-            self.assertTrue(Path(codex_settings_path).exists())
+            assert isinstance(codex_settings_path, str)
+            assert Path(codex_settings_path).exists()
 
-            if debug_adapter is None or debug_state is None:
-                raise AssertionError("Expected Codex adapter state for config read")
+            assert debug_adapter is not None and debug_state is not None
 
             async with debug_state.lock:
                 config_payload = await debug_adapter._send_request(
@@ -618,12 +587,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             entry = self._find_mcp_server_entry(
                 config_payload, SETTA_MCP_SERVER_ID
             )
-            self.assertIsInstance(entry, dict)
-            if isinstance(entry, dict):
-                url = entry.get("url")
-                self.assertIsInstance(url, str)
-                if isinstance(url, str):
-                    self.assertIn("/mcp/streamable", url)
+            assert isinstance(entry, dict)
+            url = entry.get("url")
+            assert isinstance(url, str)
+            assert "/mcp/streamable" in url
 
     async def test_codex_app_server_mcp_tool_call(self) -> None:
         codex_path = self._require_codex_cli()
@@ -761,13 +728,9 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                                         f"{debug_requirements_read[:2000]}..."
                                     )
                 outputs = stored.get("outputs")
-                self.assertIsInstance(outputs, dict)
-                if not isinstance(outputs, dict):
-                    raise AssertionError("Expected outputs to be a dict")
+                assert isinstance(outputs, dict)
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
-                if not isinstance(messages, list):
-                    raise AssertionError("Expected messages to be a list")
+                assert isinstance(messages, list)
                 if (
                     mcp_server.test_tool_state is not None
                     and mcp_server.test_tool_state.get("count", 0) < 1
@@ -778,7 +741,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         stderr_lines = runner._run_state[run.id].handle.metadata.get(
                             "stderr_lines"
                         )
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(
                             outputs,
                             stderr_lines,
@@ -787,23 +750,22 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     )
                 if test_tool_name and test_tool_token:
                     final_text = outputs.get("finalText")
-                    self.assertIsInstance(final_text, str)
-                    if isinstance(final_text, str):
-                        if not self._matches_repeated_token(
-                            final_text, test_tool_token
-                        ):
-                            stderr_lines = None
-                            if run.id in runner._run_state:
-                                stderr_lines = runner._run_state[
-                                    run.id
-                                ].handle.metadata.get("stderr_lines")
-                            self.fail(
-                                self._debug_dump(
-                                    outputs,
-                                    stderr_lines,
-                                    "Unexpected MCP tool response text.",
-                                )
+                    assert isinstance(final_text, str)
+                    if not self._matches_repeated_token(
+                        final_text, test_tool_token
+                    ):
+                        stderr_lines = None
+                        if run.id in runner._run_state:
+                            stderr_lines = runner._run_state[
+                                run.id
+                            ].handle.metadata.get("stderr_lines")
+                        pytest.fail(
+                            self._debug_dump(
+                                outputs,
+                                stderr_lines,
+                                "Unexpected MCP tool response text.",
                             )
+                        )
 
                 assistant_messages = [
                     message
@@ -860,7 +822,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         stderr_lines = runner._run_state[run.id].handle.metadata.get(
                             "stderr_lines"
                         )
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(outputs, stderr_lines, label)
                     )
 
@@ -885,13 +847,10 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dbe, first_run.id, runner=runner
             )
             first_outputs = first_stored.get("outputs")
-            self.assertIsInstance(first_outputs, dict)
-            if not isinstance(first_outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(first_outputs, dict)
             thread_id = first_outputs.get("threadId")
-            self.assertIsInstance(thread_id, str)
-            if not isinstance(thread_id, str) or not thread_id:
-                raise AssertionError("Expected non-empty threadId in outputs")
+            assert isinstance(thread_id, str)
+            assert thread_id
 
             second_run = runner.start_run(
                 config.id,
@@ -907,15 +866,11 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertIn(code_word, final_text.lower())
-            self.assertEqual(outputs.get("threadId"), thread_id)
+            assert isinstance(final_text, str)
+            assert code_word in final_text.lower()
+            assert outputs.get("threadId") == thread_id
 
     async def test_codex_app_server_runs_command_execution_item(self) -> None:
         codex_path = self._require_codex_cli()
@@ -957,19 +912,15 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     stderr_lines = runner._run_state[run.id].handle.metadata.get(
                         "stderr_lines"
                     )
-                self.assertIsInstance(outputs, dict)
-                if not isinstance(outputs, dict):
-                    raise AssertionError("Expected outputs to be a dict")
+                assert isinstance(outputs, dict)
                 final_text = outputs.get("finalText")
-                self.assertIsInstance(final_text, str)
-                if not isinstance(final_text, str):
-                    raise AssertionError("Expected finalText to be a string")
+                assert isinstance(final_text, str)
                 if token not in final_text:
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(outputs, stderr_lines, "Command output missing.")
                     )
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
+                assert isinstance(messages, list)
                 tool_messages = []
                 if isinstance(messages, list):
                     tool_messages = [
@@ -978,35 +929,35 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         if isinstance(message, dict)
                         and message.get("role") == "tool"
                     ]
-                self.assertTrue(tool_messages)
+                assert tool_messages
                 command_tools = [
                     message
                     for message in tool_messages
                     if message.get("tool_name") == "command_execution"
                 ]
-                self.assertTrue(command_tools)
+                assert command_tools
                 assistant_messages = [
                     message
                     for message in messages
                     if isinstance(message, dict)
                     and message.get("role") == "assistant"
                 ]
-                self.assertTrue(assistant_messages)
+                assert assistant_messages
                 tool_calls: list[dict] = []
                 for message in assistant_messages:
                     calls = message.get("tool_calls") if isinstance(message, dict) else None
                     if isinstance(calls, list):
                         tool_calls.extend(call for call in calls if isinstance(call, dict))
-                self.assertTrue(tool_calls)
+                assert tool_calls
                 tool_names = {
                     call.get("function", {}).get("name")
                     for call in tool_calls
                     if isinstance(call, dict)
                 }
-                self.assertIn("command_execution", tool_names)
+                assert "command_execution" in tool_names
                 tool_text = self._collect_message_texts(command_tools)
                 if token not in tool_text:
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(outputs, stderr_lines, "Command tool output missing.")
                     )
                 if isinstance(events, list):
@@ -1015,7 +966,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         for event in events
                         if isinstance(event, dict) and event.get("type")
                     ]
-                    self.assertIn("run_completed", event_types)
+                    assert "run_completed" in event_types
 
     async def test_codex_app_server_runs_file_change_item(self) -> None:
         codex_path = self._require_codex_cli()
@@ -1053,16 +1004,12 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     stderr_lines = runner._run_state[run.id].handle.metadata.get(
                         "stderr_lines"
                     )
-                self.assertIsInstance(outputs, dict)
-                if not isinstance(outputs, dict):
-                    raise AssertionError("Expected outputs to be a dict")
+                assert isinstance(outputs, dict)
                 final_text = outputs.get("finalText")
-                self.assertIsInstance(final_text, str)
-                if not isinstance(final_text, str):
-                    raise AssertionError("Expected finalText to be a string")
+                assert isinstance(final_text, str)
                 file_text = target_path.read_text(encoding="utf-8")
                 if token not in file_text:
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(
                             outputs,
                             stderr_lines,
@@ -1070,20 +1017,20 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         )
                     )
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
+                assert isinstance(messages, list)
                 assistant_messages = [
                     message
                     for message in messages
                     if isinstance(message, dict)
                     and message.get("role") == "assistant"
                 ]
-                self.assertTrue(assistant_messages)
+                assert assistant_messages
                 tool_calls: list[dict] = []
                 for message in assistant_messages:
                     calls = message.get("tool_calls") if isinstance(message, dict) else None
                     if isinstance(calls, list):
                         tool_calls.extend(call for call in calls if isinstance(call, dict))
-                self.assertTrue(tool_calls)
+                assert tool_calls
                 tool_names = {
                     call.get("function", {}).get("name")
                     for call in tool_calls
@@ -1108,17 +1055,17 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if message.get("tool_name") == "command_execution"
                 ]
                 if file_tools:
-                    self.assertIn("file_change", tool_names)
+                    assert "file_change" in tool_names
                 else:
-                    self.assertIn("command_execution", tool_names)
-                    self.assertTrue(command_tools)
+                    assert "command_execution" in tool_names
+                    assert command_tools
                     command_text = " ".join(
                         str(message.get("arguments", {}).get("command", ""))
                         for message in command_tools
                         if isinstance(message, dict)
                     )
                     if str(target_path) not in command_text and "target.txt" not in command_text:
-                        self.fail(
+                        pytest.fail(
                             self._debug_dump(
                                 outputs,
                                 stderr_lines,
@@ -1174,20 +1121,16 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
                 stored = await self._await_completed_run(dbe, run.id, runner=runner)
                 outputs = stored.get("outputs")
-                self.assertIsInstance(outputs, dict)
-                if not isinstance(outputs, dict):
-                    raise AssertionError("Expected outputs to be a dict")
+                assert isinstance(outputs, dict)
                 final_text = outputs.get("finalText")
-                self.assertIsInstance(final_text, str)
-                if not isinstance(final_text, str):
-                    raise AssertionError("Expected finalText to be a string")
+                assert isinstance(final_text, str)
                 if not self._matches_repeated_token(final_text, expected_hash):
                     stderr_lines = None
                     if run.id in runner._run_state:
                         stderr_lines = runner._run_state[run.id].handle.metadata.get(
                             "stderr_lines"
                         )
-                    self.fail(
+                    pytest.fail(
                         self._debug_dump(
                             outputs,
                             stderr_lines,
@@ -1195,9 +1138,7 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         )
                     )
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
-                if not isinstance(messages, list):
-                    raise AssertionError("Expected messages to be a list")
+                assert isinstance(messages, list)
                 approvals = [
                     message
                     for message in messages
@@ -1205,8 +1146,8 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     and message.get("role") == "tool"
                     and message.get("tool_name") == "setta.approval"
                 ]
-                self.assertTrue(approvals)
+                assert approvals
                 if approvals:
                     result = approvals[-1].get("result")
                     if isinstance(result, dict):
-                        self.assertTrue(result.get("approved"))
+                        assert result.get("approved")

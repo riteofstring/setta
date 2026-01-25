@@ -1,5 +1,4 @@
 import json
-import unittest
 
 from setta.agentic.external_adapters.opencode_sdk import _OpenCodeSdkEventParser
 from setta.llm.chat_toolkit.section_sync import (
@@ -17,7 +16,7 @@ from setta.types.chat_stream_events import (
 )
 
 
-class OpenCodeSdkEventParserTests(unittest.TestCase):
+class TestOpenCodeSdkEventParser:
     def test_text_part_updates_emit_message_delta(self) -> None:
         parser = _OpenCodeSdkEventParser()
         parser.handle(
@@ -46,9 +45,9 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             },
         }
         events = parser.handle(payload)
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         start_event = events[0].stream_chunk
         delta_event = events[1].stream_chunk
         if isinstance(start_event, MessageStartEvent) and isinstance(
@@ -64,8 +63,8 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
                 delta = delta_event.content[0]
                 if hasattr(delta, "text") and isinstance(delta.text, str):
                     delta_text = delta.text
-            self.assertEqual(start_text, "")
-            self.assertEqual(delta_text, "Hello")
+            assert start_text == ""
+            assert delta_text == "Hello"
 
     def test_reasoning_part_updates_emit_thinking_delta(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -95,14 +94,14 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             },
         }
         events = parser.handle(payload)
-        self.assertEqual(len(events), 2)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageDeltaEvent)
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
         chunk = events[1].stream_chunk
         if isinstance(chunk, MessageDeltaEvent):
-            self.assertIsNotNone(chunk.content)
+            assert chunk.content is not None
             if chunk.content:
-                self.assertEqual(chunk.content[0].type, "thinking_delta")
+                assert chunk.content[0].type == "thinking_delta"
 
     def test_tool_part_emits_tool_call_and_result(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -137,8 +136,8 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             },
         }
         events = parser.handle(pending_payload)
-        self.assertTrue(
-            any(isinstance(event.stream_chunk, ToolCallDeltaEvent) for event in events)
+        assert any(
+            isinstance(event.stream_chunk, ToolCallDeltaEvent) for event in events
         )
         completed_payload = {
             "type": "message.part.updated",
@@ -166,12 +165,12 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             for event in events
             if isinstance(event.stream_chunk, ToolResultEvent)
         ]
-        self.assertEqual(len(tool_results), 1)
+        assert len(tool_results) == 1
         result = tool_results[0].result
-        self.assertEqual(result.tool_call_id, "call-1")
-        self.assertEqual(result.tool_name, "bash")
-        self.assertEqual(result.result, "done")
-        self.assertFalse(result.is_error)
+        assert result.tool_call_id == "call-1"
+        assert result.tool_name == "bash"
+        assert result.result == "done"
+        assert not result.is_error
 
     def test_message_updated_emits_finalization(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -187,10 +186,10 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             },
         }
         events = parser.handle(message_updated)
-        self.assertEqual(len(events), 3)
-        self.assertIsInstance(events[0].stream_chunk, MessageStartEvent)
-        self.assertIsInstance(events[1].stream_chunk, MessageStopEvent)
-        self.assertIsInstance(events[2].stream_chunk, MessageFinalizedEvent)
+        assert len(events) == 3
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageStopEvent)
+        assert isinstance(events[2].stream_chunk, MessageFinalizedEvent)
 
     def test_tool_arguments_delta_uses_json(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -230,10 +229,10 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             for event in events
             if isinstance(event.stream_chunk, ToolCallDeltaEvent)
         ]
-        self.assertEqual(len(tool_calls), 1)
+        assert len(tool_calls) == 1
         arguments_delta = tool_calls[0].arguments_delta
         parsed = json.loads(arguments_delta)
-        self.assertEqual(parsed.get("command"), "echo hi")
+        assert parsed.get("command") == "echo hi"
 
     def test_mixed_text_and_reasoning_do_not_clobber(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -289,11 +288,11 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             ),
             None,
         )
-        self.assertIsNotNone(message)
+        assert message is not None
         if isinstance(message, AssistantChatMessage):
             content_types = [entry.type for entry in message.content]
-            self.assertIn("text", content_types)
-            self.assertIn("thinking", content_types)
+            assert "text" in content_types
+            assert "thinking" in content_types
 
     def test_text_part_snapshot_does_not_duplicate(self) -> None:
         parser = _OpenCodeSdkEventParser()
@@ -355,11 +354,11 @@ class OpenCodeSdkEventParserTests(unittest.TestCase):
             for event in final_events
             if isinstance(event.stream_chunk, MessageFinalizedEvent)
         ]
-        self.assertEqual(len(finalized), 1)
+        assert len(finalized) == 1
         message = finalized[0].message
         text = ""
         if message.content:
             first = message.content[0]
             if hasattr(first, "text") and isinstance(first.text, str):
                 text = first.text
-        self.assertEqual(text, "Hello")
+        assert text == "Hello"

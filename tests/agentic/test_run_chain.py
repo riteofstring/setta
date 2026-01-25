@@ -1,6 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.run_chain import RunChainRunner
@@ -16,7 +17,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class RunChainRunnerTests(unittest.IsolatedAsyncioTestCase):
+class TestRunChainRunner:
+    pytestmark = pytest.mark.asyncio
+
     async def test_empty_chain_completes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
@@ -50,15 +53,15 @@ class RunChainRunnerTests(unittest.IsolatedAsyncioTestCase):
             run = chain_runner.start_run(spec, inputs=None)
             completed = await chain_runner.wait_for_run(run.id, timeout=2)
 
-            self.assertEqual(completed.status.value, "completed")
-            self.assertIsNotNone(completed.finishedAt)
-            self.assertEqual(completed.outputs.get("chainId"), str(spec.id))
-            self.assertEqual(completed.outputs.get("chainName"), spec.name)
-            self.assertEqual(completed.outputs.get("steps"), [])
+            assert completed.status.value == "completed"
+            assert completed.finishedAt is not None
+            assert completed.outputs.get("chainId") == str(spec.id)
+            assert completed.outputs.get("chainName") == spec.name
+            assert completed.outputs.get("steps") == []
             event_types = [event.type for event in completed.events]
-            self.assertIn("chain_started", event_types)
-            self.assertIn("chain_completed", event_types)
-            self.assertIn("snapshot", event_types)
+            assert "chain_started" in event_types
+            assert "chain_completed" in event_types
+            assert "snapshot" in event_types
 
     async def test_step_inputs_reject_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -95,7 +98,7 @@ class RunChainRunnerTests(unittest.IsolatedAsyncioTestCase):
                 inputs={"engineConfigId": "engine-2"},
             )
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 chain_runner._build_step_inputs(
                     step=step,
                     step_index=0,

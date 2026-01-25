@@ -1,24 +1,22 @@
 import os
-import unittest
 from pathlib import Path
+
+import pytest
 
 from setta.agentic import node_runtime
 
 
-class NodeRuntimeTests(unittest.TestCase):
+class TestNodeRuntime:
     def test_resolve_node_command_prefers_explicit_path(self) -> None:
-        self.assertEqual(
-            node_runtime.resolve_node_command("  /custom/node  "),
-            "/custom/node",
-        )
+        assert node_runtime.resolve_node_command("  /custom/node  ") == "/custom/node"
 
     def test_resolve_node_command_uses_bundled_node(self) -> None:
         platform_tag = node_runtime.get_platform_tag()
         if platform_tag is None:
-            self.skipTest("Unsupported platform")
+            pytest.skip("Unsupported platform")
         existing = node_runtime.get_bundled_node_path()
         if existing is not None:
-            self.assertEqual(node_runtime.resolve_node_command(None), str(existing))
+            assert node_runtime.resolve_node_command(None) == str(existing)
             return
 
         vendor_root = node_runtime._NODE_VENDOR_ROOT / platform_tag
@@ -27,10 +25,11 @@ class NodeRuntimeTests(unittest.TestCase):
 
         vendor_root.mkdir(parents=True, exist_ok=True)
         node_path.write_text("stub")
-        self.addCleanup(lambda: _cleanup_path(node_path, vendor_root))
-
-        resolved = node_runtime.resolve_node_command(None)
-        self.assertEqual(resolved, str(node_path))
+        try:
+            resolved = node_runtime.resolve_node_command(None)
+            assert resolved == str(node_path)
+        finally:
+            _cleanup_path(node_path, vendor_root)
 
 
 def _cleanup_path(node_path: Path, vendor_root: Path) -> None:

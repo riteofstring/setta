@@ -3,10 +3,12 @@ import json
 import os
 import sys
 import tomllib
-import unittest
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+
+import pytest
 
 from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
@@ -105,7 +107,8 @@ def _build_context_for_test(
     return context
 
 
-class ExternalAgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
+class TestExternalAgentRunnerStopRun:
+    pytestmark = pytest.mark.asyncio
     async def test_stop_run_does_not_override_completed(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -121,16 +124,16 @@ class ExternalAgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
 
             stopped = await runner.stop_run(run.id)
 
-            self.assertEqual(stopped.status, AgentRunStatus.completed)
+            assert stopped.status == AgentRunStatus.completed
             loaded = load_agent_run(dbe, run.id)
             if loaded is None:
                 raise AssertionError("Expected external agent run to be persisted")
-            self.assertEqual(loaded.status, AgentRunStatus.completed)
+            assert loaded.status == AgentRunStatus.completed
             event_types = [event.type for event in loaded.events]
-            self.assertNotIn("run_cancelled", event_types)
+            assert "run_cancelled" not in event_types
 
 
-class ExternalAgentRunnerContextTests(unittest.TestCase):
+class TestExternalAgentRunnerContext:
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -142,7 +145,7 @@ class ExternalAgentRunnerContextTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.app_server,
             )
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 _build_context_for_test(
                     runner,
                     config,
@@ -165,7 +168,7 @@ async def _apply_claude_payloads(
             await runner._handle_stream_chunk(context, run, event.stream_chunk)
 
 
-class ExternalAgentRunnerTests(unittest.TestCase):
+class TestExternalAgentRunner:
     def test_context_defaults_chat_id_to_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -184,8 +187,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 engine_config_id=engine_config_id,
             )
 
-            self.assertEqual(context.chat_id, context.run.id)
-            self.assertEqual(context.inputs["chatId"], str(context.run.id))
+            assert context.chat_id == context.run.id
+            assert context.inputs["chatId"] == str(context.run.id)
 
     def test_context_sets_run_type(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -205,7 +208,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 engine_config_id=engine_config_id,
             )
 
-            self.assertEqual(context.inputs.get("runType"), EXTERNAL_AGENT_RUN_TYPE)
+            assert context.inputs.get("runType") == EXTERNAL_AGENT_RUN_TYPE
 
     def test_configure_external_tools_writes_claude_settings(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -239,17 +242,17 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             mcp_config = payload_inputs.get("mcpConfig")
-            self.assertIsInstance(mcp_config, str)
+            assert isinstance(mcp_config, str)
             if isinstance(mcp_config, str):
-                self.assertTrue(Path(mcp_config).exists())
+                assert Path(mcp_config).exists()
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(permissions.get("ask"), ["Bash(rm:*)"])
+                assert permissions.get("ask") == ["Bash(rm:*)"]
 
     def test_configure_external_tools_writes_default_claude_allowlist(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -279,15 +282,12 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
-            self.assertTrue(settings_path.exists())
+            assert settings_path.exists()
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
-            self.assertIsInstance(permissions, dict)
+            assert isinstance(permissions, dict)
             if isinstance(permissions, dict):
-                self.assertEqual(
-                    permissions.get("allow"),
-                    DEFAULT_CLAUDE_ALLOW_RULES,
-                )
+                assert permissions.get("allow") == DEFAULT_CLAUDE_ALLOW_RULES
 
     def test_context_inherits_thread_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -321,7 +321,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={"chatId": "chat-1"},
             )
 
-            self.assertEqual(context.inputs.get("threadId"), "thread-123")
+            assert context.inputs.get("threadId") == "thread-123"
 
     def test_context_inherits_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -354,7 +354,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 engine_config_id=engine_config_id,
                 inputs={"chatId": "chat-2"},
             )
-            self.assertEqual(context.inputs.get("sessionId"), "session-456")
+            assert context.inputs.get("sessionId") == "session-456"
 
     def test_context_respects_explicit_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -388,7 +388,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={"chatId": "chat-3", "sessionId": "session-new"},
             )
 
-            self.assertEqual(context.inputs.get("sessionId"), "session-new")
+            assert context.inputs.get("sessionId") == "session-new"
 
     def test_context_reuses_chat_run_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -408,8 +408,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 profile=None,
                 inputs={"chatId": "chat-4"},
             )
-            self.assertTrue(is_new)
-            self.assertEqual(context.run.id, ID("chat-4"))
+            assert is_new
+            assert context.run.id == ID("chat-4")
             initial_started_at = context.run.startedAt
             context.run.status = AgentRunStatus.completed
             context.run.finishedAt = context.run.startedAt
@@ -421,15 +421,12 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 profile=None,
                 inputs={"chatId": "chat-4"},
             )
-            self.assertFalse(is_new_followup)
-            self.assertEqual(followup.run.id, context.run.id)
-            self.assertEqual(followup.run.startedAt, initial_started_at)
-            self.assertEqual(followup.run.status, AgentRunStatus.running)
-            self.assertIsNone(followup.run.finishedAt)
-            self.assertEqual(
-                followup.inputs.get("projectConfigId"),
-                str(project_config.id),
-            )
+            assert not is_new_followup
+            assert followup.run.id == context.run.id
+            assert followup.run.startedAt == initial_started_at
+            assert followup.run.status == AgentRunStatus.running
+            assert followup.run.finishedAt is None
+            assert followup.inputs.get("projectConfigId") == str(project_config.id)
 
     def test_context_rejects_mismatched_project_config(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -464,7 +461,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
             save_agent_run(dbe, run)
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 runner._build_context(
                     engine_config_id,
                     config,
@@ -491,9 +488,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             payload = json.loads(Path(str(config_path)).read_text(encoding="utf-8"))
-            self.assertNotIn("permission", payload)
+            assert "permission" not in payload
 
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -508,13 +505,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             }
 
             snapshot = runner.get_ai_follow_snapshot(project_config_id)
-            self.assertEqual(len(snapshot), 1)
+            assert len(snapshot) == 1
             entry = snapshot[0]
-            self.assertEqual(entry.chatId, chat_id)
-            self.assertEqual(
-                entry.idsByType["section"],
-                [ID("section-1"), ID("section-2")],
-            )
+            assert entry.chatId == chat_id
+            assert entry.idsByType["section"] == [ID("section-1"), ID("section-2")]
 
     def test_normalize_tool_calls_strips_mcp_prefix(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -532,7 +526,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             normalized = runner._normalize_tool_calls(tool_calls)
 
-            self.assertEqual(normalized[0].function.name, "setta__create_section")
+            assert normalized[0].function.name == "setta__create_section"
 
     def test_normalize_tool_calls_opencode_prefix(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -550,7 +544,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             normalized = runner._normalize_tool_calls(tool_calls)
 
-            self.assertEqual(normalized[0].function.name, "setta__create_section")
+            assert normalized[0].function.name == "setta__create_section"
 
     def test_normalize_tool_calls_opencode_question_alias(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -566,7 +560,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             normalized = runner._normalize_tool_calls(tool_calls)
 
-            self.assertEqual(normalized[0].function.name, "AskUserQuestion")
+            assert normalized[0].function.name == "AskUserQuestion"
 
     def test_persist_external_session_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -588,9 +582,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner._persist_external_session_metadata(run, handle)
 
             loaded = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(loaded)
-            self.assertEqual(loaded.outputs.get("sessionId"), "session-999")
-            self.assertEqual(loaded.outputs.get("threadId"), "thread-999")
+            assert loaded is not None
+            assert loaded.outputs.get("sessionId") == "session-999"
+            assert loaded.outputs.get("threadId") == "thread-999"
 
     def test_run_outputs_built_from_stream_events(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -632,10 +626,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 state = runner._apply_stream_chunk_to_state(run, chunk)
             runner._persist_outputs_from_state(run, config, state)
 
-            self.assertIsNotNone(run.outputs)
+            assert run.outputs is not None
             messages = run.outputs.get("messages")
-            self.assertIsInstance(messages, list)
-            self.assertEqual(run.outputs.get("finalText"), "Hello")
+            assert isinstance(messages, list)
+            assert run.outputs.get("finalText") == "Hello"
 
     def test_run_outputs_include_external_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -680,22 +674,22 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 state = runner._apply_stream_chunk_to_state(run, chunk)
             runner._persist_outputs_from_state(run, config, state)
 
-            self.assertIsNotNone(run.outputs)
+            assert run.outputs is not None
             metadata = run.outputs.get("metadata")
-            self.assertIsInstance(metadata, dict)
-            self.assertEqual(metadata.get("engineConfigId"), str(engine_config_id))
-            self.assertEqual(metadata.get("chatId"), "chat-7")
-            self.assertEqual(metadata.get("projectConfigId"), "config-7")
-            self.assertEqual(metadata.get("externalAgentConfigId"), str(config.id))
-            self.assertEqual(metadata.get("toolType"), config.toolType.value)
-            self.assertEqual(metadata.get("runMode"), config.runMode.value)
-            self.assertEqual(metadata.get("model"), "gpt-4o-mini")
-            self.assertEqual(metadata.get("approvalPolicy"), "never")
-            self.assertEqual(metadata.get("sandboxPolicy"), "restricted")
-            self.assertEqual(metadata.get("settingsMode"), "managed_local")
-            self.assertEqual(metadata.get("settingsAllowSettaEdits"), True)
+            assert isinstance(metadata, dict)
+            assert metadata.get("engineConfigId") == str(engine_config_id)
+            assert metadata.get("chatId") == "chat-7"
+            assert metadata.get("projectConfigId") == "config-7"
+            assert metadata.get("externalAgentConfigId") == str(config.id)
+            assert metadata.get("toolType") == config.toolType.value
+            assert metadata.get("runMode") == config.runMode.value
+            assert metadata.get("model") == "gpt-4o-mini"
+            assert metadata.get("approvalPolicy") == "never"
+            assert metadata.get("sandboxPolicy") == "restricted"
+            assert metadata.get("settingsMode") == "managed_local"
+            assert metadata.get("settingsAllowSettaEdits") is True
             settings_paths = metadata.get("settingsPaths")
-            self.assertIsInstance(settings_paths, dict)
+            assert isinstance(settings_paths, dict)
             expected_codex_path = (
                 dbe.path
                 / "external_agent_settings"
@@ -703,7 +697,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 / str(config.id)
                 / "config.toml"
             )
-            self.assertEqual(settings_paths.get("codex"), str(expected_codex_path))
+            assert settings_paths.get("codex") == str(expected_codex_path)
 
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -726,8 +720,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 inputs={"chatId": "chat-1", "sectionId": "section-1"},
             )
 
-            self.assertEqual(str(context.chat_id), "chat-1")
-            self.assertEqual(str(context.section_id), "section-1")
+            assert str(context.chat_id) == "chat-1"
+            assert str(context.section_id) == "section-1"
 
     def test_context_validates_project_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -741,7 +735,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 runMode=ExternalAgentRunMode.app_server,
             )
 
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 runner._build_context(
                     engine_config_id,
                     config,
@@ -765,8 +759,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             resolved = runner._resolve_working_dir(config)
 
-            self.assertTrue(resolved.exists())
-            self.assertEqual(resolved, working_dir)
+            assert resolved.exists()
+            assert resolved == working_dir
 
     def test_env_whitelist_reads_dotenv(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -784,7 +778,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             env = runner._build_env(config)
 
-            self.assertEqual(env.get("OPENAI_API_KEY"), "secret")
+            assert env.get("OPENAI_API_KEY") == "secret"
 
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -808,21 +802,18 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             config_path = context.inputs.get("mcpConfig")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             path = Path(str(config_path))
-            self.assertTrue(path.exists())
+            assert path.exists()
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                payload["mcpServers"]["setta"]["url"],
-                f"{C.BACKEND}/mcp",
-            )
+            assert payload["mcpServers"]["setta"]["url"] == f"{C.BACKEND}/mcp"
             allowed_tools = context.inputs.get("allowedTools")
-            self.assertIsInstance(allowed_tools, list)
-            self.assertIn("mcp__setta__getProjectState", allowed_tools)
-            self.assertIn("mcp__setta__runTool", allowed_tools)
+            assert isinstance(allowed_tools, list)
+            assert "mcp__setta__getProjectState" in allowed_tools
+            assert "mcp__setta__runTool" in allowed_tools
 
             runner._cleanup_context(context)
-            self.assertFalse(path.exists())
+            assert not path.exists()
 
     def test_opencode_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -839,14 +830,11 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             path = Path(str(config_path))
-            self.assertTrue(path.exists())
+            assert path.exists()
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                payload["mcp"]["setta"]["url"],
-                f"{C.BACKEND}/mcp",
-            )
+            assert payload["mcp"]["setta"]["url"] == f"{C.BACKEND}/mcp"
             expected_path = (
                 dbe.path
                 / "external_agent_settings"
@@ -854,10 +842,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 / "opencode-config"
                 / "opencode.json"
             )
-            self.assertEqual(path, expected_path)
+            assert path == expected_path
 
             runner._cleanup_context(context)
-            self.assertTrue(path.exists())
+            assert path.exists()
 
     def test_codex_home_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -874,19 +862,19 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             codex_home = context.env.get("CODEX_HOME")
-            self.assertIsInstance(codex_home, str)
+            assert isinstance(codex_home, str)
             config_path = Path(str(codex_home)) / "config.toml"
-            self.assertTrue(config_path.exists())
+            assert config_path.exists()
             content = config_path.read_text(encoding="utf-8")
-            self.assertIn("[mcp_servers.setta]", content)
-            self.assertIn(f"url = \"{C.BACKEND}/mcp/streamable/\"", content)
+            assert "[mcp_servers.setta]" in content
+            assert f"url = \"{C.BACKEND}/mcp/streamable/\"" in content
             expected_dir = (
                 dbe.path / "external_agent_settings" / "codex" / "codex-config"
             )
-            self.assertEqual(Path(str(codex_home)), expected_dir)
+            assert Path(str(codex_home)) == expected_dir
 
             runner._cleanup_context(context)
-            self.assertTrue(config_path.exists())
+            assert config_path.exists()
 
     def test_codex_config_writes_policy_fields(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -906,15 +894,15 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             codex_home = context.env.get("CODEX_HOME")
-            self.assertIsInstance(codex_home, str)
+            assert isinstance(codex_home, str)
             config_path = Path(str(codex_home)) / "config.toml"
             content = config_path.read_text(encoding="utf-8")
-            self.assertIn('model = "gpt-5-codex"', content)
-            self.assertIn('sandbox_mode = "workspace-write"', content)
-            self.assertIn('approval_policy = "on-failure"', content)
+            assert 'model = "gpt-5-codex"' in content
+            assert 'sandbox_mode = "workspace-write"' in content
+            assert 'approval_policy = "on-failure"' in content
 
             runner._cleanup_context(context)
-            self.assertTrue(config_path.exists())
+            assert config_path.exists()
 
     def test_codex_config_includes_setta_system_prompt(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -935,24 +923,23 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             codex_home = context.env.get("CODEX_HOME")
-            self.assertIsInstance(codex_home, str)
+            assert isinstance(codex_home, str)
             if not isinstance(codex_home, str):
                 raise AssertionError("Expected CODEX_HOME to be a string")
             config_path = Path(codex_home) / "config.toml"
             payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
             developer_instructions = payload.get("developer_instructions")
-            self.assertIsInstance(developer_instructions, str)
+            assert isinstance(developer_instructions, str)
             if isinstance(developer_instructions, str):
-                self.assertIn("Setta MCP System Prompt", developer_instructions)
-                self.assertIn("## Active project config", developer_instructions)
-                self.assertIn("Extra Codex guidance", developer_instructions)
-                self.assertLess(
-                    developer_instructions.find("Setta MCP System Prompt"),
-                    developer_instructions.find("Extra Codex guidance"),
-                )
+                assert "Setta MCP System Prompt" in developer_instructions
+                assert "## Active project config" in developer_instructions
+                assert "Extra Codex guidance" in developer_instructions
+                assert developer_instructions.find(
+                    "Setta MCP System Prompt"
+                ) < developer_instructions.find("Extra Codex guidance")
 
             runner._cleanup_context(context)
-            self.assertTrue(config_path.exists())
+            assert config_path.exists()
 
     def test_codex_config_writes_tool_allowlist(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -979,25 +966,25 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             codex_home = context.env.get("CODEX_HOME")
-            self.assertIsInstance(codex_home, str)
+            assert isinstance(codex_home, str)
             config_path = Path(str(codex_home)) / "config.toml"
             payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
             mcp_servers = payload.get("mcp_servers")
-            self.assertIsInstance(mcp_servers, dict)
+            assert isinstance(mcp_servers, dict)
             server_entry = (
                 mcp_servers.get(SETTA_MCP_SERVER_ID)
                 if isinstance(mcp_servers, dict)
                 else None
             )
-            self.assertIsInstance(server_entry, dict)
+            assert isinstance(server_entry, dict)
             if isinstance(server_entry, dict):
                 enabled_tools = server_entry.get("enabled_tools")
             else:
                 enabled_tools = None
-            self.assertEqual(enabled_tools, ["getProjectState", "runTool"])
+            assert enabled_tools == ["getProjectState", "runTool"]
 
             runner._cleanup_context(context)
-            self.assertTrue(config_path.exists())
+            assert config_path.exists()
 
     def test_opencode_config_writes_permissions(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1015,10 +1002,10 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             config_text = Path(str(config_path)).read_text(encoding="utf-8")
             payload = json.loads(config_text)
-            self.assertEqual(payload.get("permission"), "ask")
+            assert payload.get("permission") == "ask"
 
             runner._cleanup_context(context)
 
@@ -1047,13 +1034,13 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             )
 
             config_path = context.env.get("OPENCODE_CONFIG")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             config_text = Path(str(config_path)).read_text(encoding="utf-8")
             payload = json.loads(config_text)
             permissions = payload.get("permission")
-            self.assertIsInstance(permissions, dict)
-            self.assertEqual(permissions.get("setta_*"), "deny")
-            self.assertEqual(permissions.get("setta_getProjectState"), "allow")
+            assert isinstance(permissions, dict)
+            assert permissions.get("setta_*") == "deny"
+            assert permissions.get("setta_getProjectState") == "allow"
 
             runner._cleanup_context(context)
 
@@ -1073,12 +1060,12 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             context = _build_context_for_test(runner, config)
 
             config_path = context.env.get("OPENCODE_CONFIG")
-            self.assertIsInstance(config_path, str)
+            assert isinstance(config_path, str)
             config_text = Path(str(config_path)).read_text(encoding="utf-8")
             payload = json.loads(config_text)
             permissions = payload.get("permission")
-            self.assertIsInstance(permissions, dict)
-            self.assertEqual(permissions.get("run"), "ask")
+            assert isinstance(permissions, dict)
+            assert permissions.get("run") == "ask"
 
             runner._cleanup_context(context)
 
@@ -1096,12 +1083,13 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             context = _build_context_for_test(runner, config)
 
-            self.assertTrue(context.working_dir.exists())
+            assert context.working_dir.exists()
             runner._cleanup_context(context)
-            self.assertFalse(context.working_dir.exists())
+            assert not context.working_dir.exists()
 
 
-class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
+class TestExternalAgentRunnerApproval:
+    pytestmark = pytest.mark.asyncio
     async def test_approval_request_emits_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1126,20 +1114,20 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            self.assertIn("approval-1", runner._pending_approvals)
+            assert "approval-1" in runner._pending_approvals
             event_types = [event.type for event in run.events]
-            self.assertIn("approval_request", event_types)
-            self.assertNotIn("stream_chunk", event_types)
-            self.assertNotIn("external_event", event_types)
+            assert "approval_request" in event_types
+            assert "stream_chunk" not in event_types
+            assert "external_event" not in event_types
             messages = run.outputs.get("messages") if run.outputs else None
-            self.assertIsInstance(messages, list)
-            self.assertTrue(messages)
+            assert isinstance(messages, list)
+            assert messages
             tool_calls = messages[-1].get("tool_calls")
-            self.assertIsInstance(tool_calls, list)
-            self.assertEqual(tool_calls[0]["function"]["name"], "setta.approval")
-            self.assertEqual(
-                tool_calls[0]["function"]["arguments"].get("approvalId"),
-                "approval-1",
+            assert isinstance(tool_calls, list)
+            assert tool_calls[0]["function"]["name"] == "setta.approval"
+            assert (
+                tool_calls[0]["function"]["arguments"].get("approvalId")
+                == "approval-1"
             )
 
     async def test_codex_approval_request_preserves_tool_metadata(self) -> None:
@@ -1174,16 +1162,16 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
             await runner._handle_approval_request(context, run, payload)
 
             messages = run.outputs.get("messages") if run.outputs else None
-            self.assertIsInstance(messages, list)
-            self.assertTrue(messages)
+            assert isinstance(messages, list)
+            assert messages
             tool_calls = messages[-1].get("tool_calls")
-            self.assertIsInstance(tool_calls, list)
-            self.assertTrue(tool_calls)
+            assert isinstance(tool_calls, list)
+            assert tool_calls
             arguments = tool_calls[0]["function"]["arguments"]
-            self.assertEqual(arguments.get("approvalId"), "approval-codex-1")
-            self.assertEqual(arguments.get("toolName"), "commandExecution")
-            self.assertEqual(arguments.get("tool"), "commandExecution")
-            self.assertEqual(arguments.get("input"), {"command": "ls"})
+            assert arguments.get("approvalId") == "approval-codex-1"
+            assert arguments.get("toolName") == "commandExecution"
+            assert arguments.get("tool") == "commandExecution"
+            assert arguments.get("input") == {"command": "ls"}
 
     async def test_respond_to_approval_emits_tool_result(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1238,25 +1226,26 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 await process.wait()
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             event_types = [event.type for event in updated.events]
-            self.assertIn("tool_result", event_types)
-            self.assertIn("approval_response", event_types)
-            self.assertNotIn("stream_chunk", event_types)
-            self.assertNotIn("external_event", event_types)
+            assert "tool_result" in event_types
+            assert "approval_response" in event_types
+            assert "stream_chunk" not in event_types
+            assert "external_event" not in event_types
             messages = updated.outputs.get("messages") if updated.outputs else None
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             tool_messages = [
                 message for message in messages if message.get("role") == "tool"
             ]
-            self.assertTrue(tool_messages)
+            assert tool_messages
             last_tool = tool_messages[-1]
-            self.assertEqual(last_tool.get("tool_name"), "setta.approval")
-            self.assertEqual(last_tool.get("result"), {"approved": True})
-            self.assertNotIn("approval-1", runner._pending_approvals)
+            assert last_tool.get("tool_name") == "setta.approval"
+            assert last_tool.get("result") == {"approved": True}
+            assert "approval-1" not in runner._pending_approvals
 
 
-class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
+class TestExternalAgentRunnerQuestion:
+    pytestmark = pytest.mark.asyncio
     async def test_question_request_queues_claude_approval(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1291,18 +1280,15 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            self.assertNotIn("question-1", runner._pending_questions)
-            self.assertNotIn("question-1", runner._pending_approvals)
-            self.assertEqual(
-                runner._pending_question_approvals.get(run.id),
-                ["question-1"],
-            )
+            assert "question-1" not in runner._pending_questions
+            assert "question-1" not in runner._pending_approvals
+            assert runner._pending_question_approvals.get(run.id) == ["question-1"]
             event_types = [event.type for event in run.events]
-            self.assertIn("approval_request", event_types)
-            self.assertNotIn("stream_chunk", event_types)
-            self.assertNotIn("external_event", event_types)
+            assert "approval_request" in event_types
+            assert "stream_chunk" not in event_types
+            assert "external_event" not in event_types
             messages = run.outputs.get("messages") if run.outputs else None
-            self.assertIsNone(messages)
+            assert messages is None
 
     async def test_stream_chunk_registers_question_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1336,12 +1322,12 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
 
-            self.assertIn("tool-1", runner._pending_questions)
+            assert "tool-1" in runner._pending_questions
             state = runner._pending_questions["tool-1"]
-            self.assertEqual(state.run_id, run.id)
-            self.assertEqual(state.chat_id, ID("chat-1"))
-            self.assertEqual(state.section_id, ID("section-1"))
-            self.assertIsNone(state.approval_id)
+            assert state.run_id == run.id
+            assert state.chat_id == ID("chat-1")
+            assert state.section_id == ID("section-1")
+            assert state.approval_id is None
 
     async def test_question_approval_attaches_after_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1387,8 +1373,8 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
 
             state = runner._pending_questions["tool-1"]
-            self.assertEqual(state.approval_id, "approval-1")
-            self.assertIsNone(runner._pending_question_approvals.get(run.id))
+            assert state.approval_id == "approval-1"
+            assert runner._pending_question_approvals.get(run.id) is None
 
 
     async def test_question_approval_attaches_before_tool_call(self) -> None:
@@ -1435,8 +1421,8 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
 
             state = runner._pending_questions["tool-1"]
-            self.assertEqual(state.approval_id, "approval-1")
-            self.assertIsNone(runner._pending_question_approvals.get(run.id))
+            assert state.approval_id == "approval-1"
+            assert runner._pending_question_approvals.get(run.id) is None
 
     async def test_respond_to_question_emits_flat_result(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1491,21 +1477,21 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 await process.wait()
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             event_types = [event.type for event in updated.events]
-            self.assertIn("tool_result", event_types)
-            self.assertIn("question_response", event_types)
-            self.assertNotIn("stream_chunk", event_types)
-            self.assertNotIn("external_event", event_types)
+            assert "tool_result" in event_types
+            assert "question_response" in event_types
+            assert "stream_chunk" not in event_types
+            assert "external_event" not in event_types
             messages = updated.outputs.get("messages") if updated.outputs else None
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             tool_messages = [
                 message for message in messages if message.get("role") == "tool"
             ]
-            self.assertTrue(tool_messages)
+            assert tool_messages
             last_tool = tool_messages[-1]
-            self.assertEqual(last_tool.get("result"), {"answers": answers})
-            self.assertNotIn("question-1", runner._pending_questions)
+            assert last_tool.get("result") == {"answers": answers}
+            assert "question-1" not in runner._pending_questions
 
     async def test_respond_to_question_formats_multiple_answers(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1560,26 +1546,23 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
                 await process.wait()
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             messages = updated.outputs.get("messages") if updated.outputs else None
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             tool_messages = [
                 message for message in messages if message.get("role") == "tool"
             ]
-            self.assertTrue(tool_messages)
+            assert tool_messages
             last_tool = tool_messages[-1]
-            self.assertEqual(last_tool.get("result"), {"answers": answers})
+            assert last_tool.get("result") == {"answers": answers}
             content = last_tool.get("content")
-            self.assertIsInstance(content, list)
+            assert isinstance(content, list)
             text_blocks = [
                 block.get("text")
                 for block in content
                 if isinstance(block, dict) and block.get("type") == "text"
             ]
-            self.assertEqual(
-                text_blocks,
-                ["Language: Python\nFramework: FastAPI"],
-            )
+            assert text_blocks == ["Language: Python\nFramework: FastAPI"]
 
     async def test_respond_to_question_uses_approval_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1623,16 +1606,17 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
 
             await runner.respond_to_question("question-1", answers)
 
-            self.assertTrue(pending_future.done())
+            assert pending_future.done()
             decision = pending_future.result()
-            self.assertTrue(decision.approved)
-            self.assertEqual(decision.updated_input, {"answers": answers})
+            assert decision.approved
+            assert decision.updated_input == {"answers": answers}
             pending_map = handle.metadata.get("pending_approvals")
             if isinstance(pending_map, dict):
-                self.assertNotIn("approval-1", pending_map)
+                assert "approval-1" not in pending_map
 
 
-class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
+class TestExternalAgentRunnerClaudeCapture:
+    pytestmark = pytest.mark.asyncio
     async def test_streamed_text_persists_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1682,27 +1666,27 @@ class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
             )
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             if updated is None:
                 return
             outputs = updated.outputs
-            self.assertIsInstance(outputs, dict)
-            self.assertEqual(outputs.get("finalText"), "Hello world")
+            assert isinstance(outputs, dict)
+            assert outputs.get("finalText") == "Hello world"
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             assistant = next(
                 message
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "assistant"
             )
             content = assistant.get("content")
-            self.assertIsInstance(content, list)
+            assert isinstance(content, list)
             text_blocks = [
                 block.get("text")
                 for block in content
                 if isinstance(block, dict) and block.get("type") == "text"
             ]
-            self.assertEqual(text_blocks, ["Hello world"])
+            assert text_blocks == ["Hello world"]
 
     async def test_streamed_thinking_persists_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1773,30 +1757,30 @@ class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
             )
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             if updated is None:
                 return
             outputs = updated.outputs
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             assistant = next(
                 message
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "assistant"
             )
             content = assistant.get("content")
-            self.assertIsInstance(content, list)
+            assert isinstance(content, list)
             thinking_blocks = [
                 block
                 for block in content
                 if isinstance(block, dict) and block.get("type") == "thinking"
             ]
-            self.assertEqual(len(thinking_blocks), 1)
+            assert len(thinking_blocks) == 1
             block = thinking_blocks[0]
-            self.assertEqual(block.get("thinking"), "Plan next")
-            self.assertEqual(block.get("summary"), "Next summary")
-            self.assertEqual(block.get("signature"), "sig-2")
+            assert block.get("thinking") == "Plan next"
+            assert block.get("summary") == "Next summary"
+            assert block.get("signature") == "sig-2"
 
     async def test_streamed_tool_use_and_result_persist(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1881,43 +1865,48 @@ class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
             )
 
             updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
+            assert updated is not None
             if updated is None:
                 return
             outputs = updated.outputs
-            self.assertIsInstance(outputs, dict)
+            assert isinstance(outputs, dict)
             messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
+            assert isinstance(messages, list)
             assistant = next(
                 message
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "assistant"
             )
             tool_calls = assistant.get("tool_calls")
-            self.assertIsInstance(tool_calls, list)
-            self.assertEqual(len(tool_calls), 1)
-            self.assertEqual(tool_calls[0].get("id"), "toolu-1")
+            assert isinstance(tool_calls, list)
+            assert len(tool_calls) == 1
+            assert tool_calls[0].get("id") == "toolu-1"
 
 
-class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
+class TestExternalAgentRunnerMcpAuth:
+    @contextmanager
     def _set_env(self, key: str, value: str | None) -> None:
         previous = os.environ.get(key)
-
-        def _restore() -> None:
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+        try:
+            yield
+        finally:
             if previous is None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = previous
 
-        self.addCleanup(_restore)
-        if value is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = value
-
+    @contextmanager
     def _set_session_env(self, session_id: str, sessions_root: Path) -> None:
-        self._set_env(SESSION_ID_ENV_VAR, session_id)
-        self._set_env(SESSIONS_ROOT_ENV_VAR, str(sessions_root))
+        with ExitStack() as stack:
+            stack.enter_context(self._set_env(SESSION_ID_ENV_VAR, session_id))
+            stack.enter_context(
+                self._set_env(SESSIONS_ROOT_ENV_VAR, str(sessions_root))
+            )
+            yield
 
     def _create_session(self, root: Path) -> tuple[str, Path]:
         sessions_root = root / "sessions"
@@ -1935,90 +1924,90 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             session_id, sessions_root = self._create_session(root)
-            self._set_session_env(session_id, sessions_root)
-            runner = _build_runner(_build_dbe(tmpdir))
-            config_path = runner._write_claude_mcp_config(f"{C.BACKEND}/mcp")
-            payload = json.loads(config_path.read_text(encoding="utf-8"))
-            server = payload.get("mcpServers", {}).get(SETTA_MCP_SERVER_ID)
-            self.assertIsInstance(server, dict)
-            headers = server.get("headers") if isinstance(server, dict) else None
-            self.assertIsInstance(headers, dict)
-            if isinstance(headers, dict):
-                cookie = headers.get("Cookie")
-            else:
-                cookie = None
-            self.assertIsInstance(cookie, str)
-            if isinstance(cookie, str):
-                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
+            with self._set_session_env(session_id, sessions_root):
+                runner = _build_runner(_build_dbe(tmpdir))
+                config_path = runner._write_claude_mcp_config(f"{C.BACKEND}/mcp")
+                payload = json.loads(config_path.read_text(encoding="utf-8"))
+                server = payload.get("mcpServers", {}).get(SETTA_MCP_SERVER_ID)
+                assert isinstance(server, dict)
+                headers = server.get("headers") if isinstance(server, dict) else None
+                assert isinstance(headers, dict)
+                if isinstance(headers, dict):
+                    cookie = headers.get("Cookie")
+                else:
+                    cookie = None
+                assert isinstance(cookie, str)
+                if isinstance(cookie, str):
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_opencode_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             session_id, sessions_root = self._create_session(root)
-            self._set_session_env(session_id, sessions_root)
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                id="opencode-auth",
-                name="OpenCode SDK",
-                toolType=ExternalAgentToolType.opencode,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            config_path = Path(str(context.env.get("OPENCODE_CONFIG")))
-            payload = json.loads(config_path.read_text(encoding="utf-8"))
-            server = payload.get("mcp", {}).get(SETTA_MCP_SERVER_ID)
-            self.assertIsInstance(server, dict)
-            headers = server.get("headers") if isinstance(server, dict) else None
-            self.assertIsInstance(headers, dict)
-            if isinstance(headers, dict):
-                cookie = headers.get("Cookie")
-            else:
-                cookie = None
-            self.assertIsInstance(cookie, str)
-            if isinstance(cookie, str):
-                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
+            with self._set_session_env(session_id, sessions_root):
+                dbe = _build_dbe(tmpdir)
+                _write_project_state(dbe)
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    id="opencode-auth",
+                    name="OpenCode SDK",
+                    toolType=ExternalAgentToolType.opencode,
+                    runMode=ExternalAgentRunMode.sdk,
+                )
+                context = _build_context_for_test(runner, config)
+                config_path = Path(str(context.env.get("OPENCODE_CONFIG")))
+                payload = json.loads(config_path.read_text(encoding="utf-8"))
+                server = payload.get("mcp", {}).get(SETTA_MCP_SERVER_ID)
+                assert isinstance(server, dict)
+                headers = server.get("headers") if isinstance(server, dict) else None
+                assert isinstance(headers, dict)
+                if isinstance(headers, dict):
+                    cookie = headers.get("Cookie")
+                else:
+                    cookie = None
+                assert isinstance(cookie, str)
+                if isinstance(cookie, str):
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_codex_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             session_id, sessions_root = self._create_session(root)
-            self._set_session_env(session_id, sessions_root)
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                id="codex-auth",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            context = _build_context_for_test(runner, config)
-            codex_home = Path(str(context.env.get("CODEX_HOME")))
-            payload = tomllib.loads(
-                (codex_home / "config.toml").read_text(encoding="utf-8")
-            )
-            mcp_servers = payload.get("mcp_servers")
-            self.assertIsInstance(mcp_servers, dict)
-            server_entry = (
-                mcp_servers.get(SETTA_MCP_SERVER_ID)
-                if isinstance(mcp_servers, dict)
-                else None
-            )
-            self.assertIsInstance(server_entry, dict)
-            if isinstance(server_entry, dict):
-                headers = server_entry.get("http_headers")
-            else:
-                headers = None
-            self.assertIsInstance(headers, dict)
-            if isinstance(headers, dict):
-                cookie = headers.get("Cookie")
-            else:
-                cookie = None
-            self.assertIsInstance(cookie, str)
-            if isinstance(cookie, str):
-                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
+            with self._set_session_env(session_id, sessions_root):
+                dbe = _build_dbe(tmpdir)
+                _write_project_state(dbe)
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    id="codex-auth",
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                )
+                context = _build_context_for_test(runner, config)
+                codex_home = Path(str(context.env.get("CODEX_HOME")))
+                payload = tomllib.loads(
+                    (codex_home / "config.toml").read_text(encoding="utf-8")
+                )
+                mcp_servers = payload.get("mcp_servers")
+                assert isinstance(mcp_servers, dict)
+                server_entry = (
+                    mcp_servers.get(SETTA_MCP_SERVER_ID)
+                    if isinstance(mcp_servers, dict)
+                    else None
+                )
+                assert isinstance(server_entry, dict)
+                if isinstance(server_entry, dict):
+                    headers = server_entry.get("http_headers")
+                else:
+                    headers = None
+                assert isinstance(headers, dict)
+                if isinstance(headers, dict):
+                    cookie = headers.get("Cookie")
+                else:
+                    cookie = None
+                assert isinstance(cookie, str)
+                if isinstance(cookie, str):
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_assistant_payload_persists_tool_calls(self) -> None:
         async def _run() -> None:
@@ -2063,26 +2052,26 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
                 )
 
                 updated = load_agent_run(dbe, run.id)
-                self.assertIsNotNone(updated)
+                assert updated is not None
                 if updated is None:
                     return
                 outputs = updated.outputs
-                self.assertIsInstance(outputs, dict)
-                self.assertEqual(outputs.get("finalText"), "Hi")
+                assert isinstance(outputs, dict)
+                assert outputs.get("finalText") == "Hi"
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
+                assert isinstance(messages, list)
                 assistant = next(
                     message
                     for message in messages
                     if isinstance(message, dict) and message.get("role") == "assistant"
                 )
                 tool_calls = assistant.get("tool_calls")
-                self.assertIsInstance(tool_calls, list)
-                self.assertEqual(len(tool_calls), 1)
-                self.assertEqual(tool_calls[0].get("id"), "toolu-2")
+                assert isinstance(tool_calls, list)
+                assert len(tool_calls) == 1
+                assert tool_calls[0].get("id") == "toolu-2"
                 function = tool_calls[0].get("function")
-                self.assertIsInstance(function, dict)
-                self.assertEqual(function.get("name"), "Read")
-                self.assertEqual(function.get("arguments"), {"path": "README.md"})
+                assert isinstance(function, dict)
+                assert function.get("name") == "Read"
+                assert function.get("arguments") == {"path": "README.md"}
 
         asyncio.run(_run())

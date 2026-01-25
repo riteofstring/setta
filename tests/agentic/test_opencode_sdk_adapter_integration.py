@@ -8,9 +8,10 @@ import socket
 import subprocess
 import sys
 import time
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
@@ -43,8 +44,10 @@ _DEFAULT_MODEL_PREFERENCE = {
     ],
 }
 
+pytestmark = pytest.mark.asyncio
 
-class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+
+class TestOpenCodeSdkAdapterIntegration:
     def _require_opencode_sdk(self) -> str:
         sdk_package = (
             Path(__file__).resolve().parents[2]
@@ -59,10 +62,10 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             / "package.json"
         )
         if not sdk_package.exists():
-            self.skipTest("@opencode-ai/sdk is not installed in sidecars")
+            pytest.skip("@opencode-ai/sdk is not installed in sidecars")
         opencode_path = shutil.which("opencode")
         if opencode_path is None:
-            self.skipTest("opencode CLI not installed")
+            pytest.skip("opencode CLI not installed")
         try:
             subprocess.run(
                 [opencode_path, "--version"],
@@ -71,21 +74,21 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 text=True,
             )
         except (OSError, subprocess.CalledProcessError):
-            self.skipTest("opencode CLI not available")
+            pytest.skip("opencode CLI not available")
         node_command = resolve_node_command(None)
         node_path = shutil.which(node_command) or (
             node_command if Path(node_command).exists() else None
         )
         if node_path is None:
-            self.skipTest("node executable not found")
+            pytest.skip("node executable not found")
         model = self._resolve_test_model(opencode_path)
         provider = model.split("/", 1)[0].strip().lower()
         if provider == "anthropic":
             if not os.environ.get("ANTHROPIC_API_KEY"):
-                self.skipTest("ANTHROPIC_API_KEY not set")
+                pytest.skip("ANTHROPIC_API_KEY not set")
             self._require_network("api.anthropic.com", 443)
         else:
-            self.skipTest(
+            pytest.skip(
                 "OpenCode tests require Anthropic Claude Sonnet 4.5; "
                 "set OPENCODE_TEST_MODEL to anthropic/claude-sonnet-4-5-20250929 "
                 "or anthropic/claude-sonnet-4-5."
@@ -100,24 +103,24 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         env_model = os.environ.get("OPENCODE_TEST_MODEL")
         if env_model:
             if "claude-sonnet-4-5" not in env_model:
-                self.skipTest(
+                pytest.skip(
                     "OPENCODE_TEST_MODEL must be Claude Sonnet 4.5 "
                     "(anthropic/claude-sonnet-4-5-20250929)."
                 )
             return env_model
         if _DEFAULT_OPENCODE_TEST_MODEL:
             if "claude-sonnet-4-5" not in _DEFAULT_OPENCODE_TEST_MODEL:
-                self.skipTest(
+                pytest.skip(
                     "Default OpenCode test model must be Claude Sonnet 4.5."
                 )
             return _DEFAULT_OPENCODE_TEST_MODEL
         if not os.environ.get("ANTHROPIC_API_KEY"):
-            self.skipTest("ANTHROPIC_API_KEY not set for OpenCode Claude Sonnet 4.5")
+            pytest.skip("ANTHROPIC_API_KEY not set for OpenCode Claude Sonnet 4.5")
         models = self._list_models(opencode_path, "anthropic")
         selected = self._pick_model(models, "anthropic")
         if selected:
             return selected
-        self.skipTest(
+        pytest.skip(
             "Claude Sonnet 4.5 not available via `opencode models`. "
             "Set OPENCODE_TEST_MODEL to anthropic/claude-sonnet-4-5-20250929."
         )
@@ -177,7 +180,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             with socket.create_connection((host, port), timeout=3):
                 pass
         except OSError:
-            raise unittest.SkipTest(f"Cannot connect to {host}:{port}")
+            pytest.skip(f"Cannot connect to {host}:{port}")
 
     async def _await_completed_run(
         self,
@@ -202,7 +205,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "stderr_lines"
                     )
                     await runner.stop_run(run_id)
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         stored.get("outputs") if isinstance(stored, dict) else None,
                         stderr_lines,
@@ -210,9 +213,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
         stored = dbe.read_agent_run(run_id)
-        self.assertIsNotNone(stored)
-        if stored is None:
-            return {}
+        assert stored is not None
         status = stored.get("status")
         if status != "completed":
             events = stored.get("events")
@@ -232,11 +233,11 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         cli_stderr = payload.get("cliStderr")
                         break
             if self._should_skip_for_server_failure(cli_stderr):
-                raise unittest.SkipTest(
+                pytest.skip(
                     "OpenCode server failed to start; "
                     f"stderr={cli_stderr!r}"
                 )
-            self.fail(
+            pytest.fail(
                 "OpenCode SDK run failed; "
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
@@ -272,7 +273,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     stderr_lines = runner._run_state[run_id].handle.metadata.get(
                         "stderr_lines"
                     )
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         stored.get("outputs") if isinstance(stored, dict) else None,
                         stderr_lines,
@@ -287,14 +288,14 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             stderr_lines = runner._run_state[run_id].handle.metadata.get(
                 "stderr_lines"
             )
-        self.fail(
+        pytest.fail(
             self._debug_dump(
                 None,
                 stderr_lines,
                 "OpenCode SDK run did not request a tool approval in time.",
             )
         )
-        raise AssertionError("Unreachable")
+        return ""
 
     async def _await_pending_question(
         self, runner: ExternalAgentRunner, dbe: DBE, run_id: ID
@@ -326,14 +327,13 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     stderr_lines = runner._run_state[run_id].handle.metadata.get(
                         "stderr_lines"
                     )
-                self.fail(
+                pytest.fail(
                     self._debug_dump(
                         outputs,
                         stderr_lines,
                         "OpenCode SDK run completed before question",
                     )
                 )
-                raise AssertionError("Unreachable")
             if time.monotonic() - start >= 90:
                 break
         stderr_lines = None
@@ -342,14 +342,14 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 "stderr_lines"
             )
             await runner.stop_run(run_id)
-        self.fail(
+        pytest.fail(
             self._debug_dump(
                 {"toolCallId": last_tool_call_id},
                 stderr_lines,
                 "OpenCode SDK run did not provide question arguments in time.",
             )
         )
-        raise AssertionError("Unreachable")
+        return "", []
 
     @staticmethod
     def _extract_questions_from_tool_call(
@@ -361,7 +361,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         raw = buffers.get(tool_call_id)
         if not isinstance(raw, str) or not raw.strip():
             return None
-        return OpenCodeSdkAdapterIntegrationTests._extract_questions_from_raw(raw)
+        return TestOpenCodeSdkAdapterIntegration._extract_questions_from_raw(raw)
 
     @staticmethod
     def _extract_questions_from_outputs(
@@ -397,7 +397,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if isinstance(questions, list):
                         return [entry for entry in questions if isinstance(entry, dict)]
                 if isinstance(args, str):
-                    questions = OpenCodeSdkAdapterIntegrationTests._extract_questions_from_raw(
+                    questions = TestOpenCodeSdkAdapterIntegration._extract_questions_from_raw(
                         args
                     )
                     if questions is not None:
@@ -510,7 +510,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 except OSError:
                     return
             time.sleep(0.2)
-        raise unittest.SkipTest(
+        pytest.skip(
             f"OpenCode server still running on port {port}. "
             "Stop the server and retry."
         )
@@ -529,15 +529,11 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertTrue(final_text.strip())
-            self.assertIn("hello", final_text.lower())
+            assert isinstance(final_text, str)
+            assert final_text.strip()
+            assert "hello" in final_text.lower()
 
     async def test_opencode_sdk_persists_session_id(self) -> None:
         model = self._require_opencode_sdk()
@@ -553,13 +549,10 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             session_id = outputs.get("sessionId")
-            self.assertIsInstance(session_id, str)
-            if not isinstance(session_id, str) or not session_id:
-                raise AssertionError("Expected non-empty sessionId in outputs")
+            assert isinstance(session_id, str)
+            assert session_id
 
     async def test_opencode_sdk_reuses_session_id_for_chat(self) -> None:
         model = self._require_opencode_sdk()
@@ -578,13 +571,10 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dbe, first_run.id, runner=runner
             )
             outputs = first_stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(outputs, dict)
             session_id = outputs.get("sessionId")
-            self.assertIsInstance(session_id, str)
-            if not isinstance(session_id, str) or not session_id:
-                raise AssertionError("Expected sessionId in outputs")
+            assert isinstance(session_id, str)
+            assert session_id
 
             self._await_port_free(4096)
             second_run = runner.start_run(
@@ -600,14 +590,10 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 dbe, second_run.id, runner=runner
             )
             second_outputs = second_stored.get("outputs")
-            self.assertIsInstance(second_outputs, dict)
-            if not isinstance(second_outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
+            assert isinstance(second_outputs, dict)
             final_text = second_outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertIn(code_word, final_text)
+            assert isinstance(final_text, str)
+            assert code_word in final_text
 
     async def test_opencode_sdk_mcp_tool_call_with_approval(self) -> None:
         model = self._require_opencode_sdk()
@@ -643,23 +629,19 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await runner.respond_to_approval(approval_id, True)
                 stored = await self._await_completed_run(dbe, run.id, runner=runner)
                 outputs = stored.get("outputs")
-                self.assertIsInstance(outputs, dict)
-                if not isinstance(outputs, dict):
-                    raise AssertionError("Expected outputs to be a dict")
+                assert isinstance(outputs, dict)
                 final_text = outputs.get("finalText")
-                self.assertIsInstance(final_text, str)
-                if not isinstance(final_text, str):
-                    raise AssertionError("Expected finalText to be a string")
-                self.assertIn(tool_token, final_text)
+                assert isinstance(final_text, str)
+                assert tool_token in final_text
                 messages = outputs.get("messages")
-                self.assertIsInstance(messages, list)
+                assert isinstance(messages, list)
                 if isinstance(messages, list):
                     tool_messages = [
                         message
                         for message in messages
                         if isinstance(message, dict) and message.get("role") == "tool"
                     ]
-                    self.assertTrue(tool_messages)
+                    assert tool_messages
 
     async def test_opencode_sdk_question_response(self) -> None:
         model = self._require_opencode_sdk()
