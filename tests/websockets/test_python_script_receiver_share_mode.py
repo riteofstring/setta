@@ -211,7 +211,8 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 callbacks={
                     "cb": ListenerRegisterCallback(
                         dependencies=[],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
+                        dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
+                        actions=None,
                     )
                 },
                 share_session_id=None,
@@ -318,7 +319,8 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 callbacks={
                     "cb": ListenerRegisterCallback(
                         dependencies=[create_dep_key(sectionId=SECTION_ID)],
-                        dependencyMode=ListenerDependencyMode.ALWAYS,
+                        dependencyMode=ListenerDependencyMode.SPECIFIC,
+                        actions=None,
                     )
                 },
                 share_session_id="session-a",

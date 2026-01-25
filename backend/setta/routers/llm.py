@@ -21,7 +21,7 @@ async def route_get_llm_config(
     ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
     await ctx.enforce_llm_allowed()
-    return ctx.state.agent_runner.config
+    return ctx.state.chat_manager.config
 
 
 @router.post(Route.LLM_CONFIG)
@@ -32,8 +32,8 @@ async def route_set_llm_config(
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating LLM configs.")
     save_llm_config(config, ctx.state.dbe)
-    ctx.state.agent_runner.update_config(config)
-    return ctx.state.agent_runner.config
+    ctx.state.chat_manager.update_config(config)
+    return ctx.state.chat_manager.config
 
 
 @router.get(Route.LLM_API_KEYS)
@@ -42,7 +42,7 @@ async def route_get_llm_api_keys(
 ) -> APIKeys:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
-    return ctx.state.agent_runner.api_keys
+    return ctx.state.chat_manager.api_keys
 
 
 @router.post(Route.LLM_API_KEYS)
@@ -75,8 +75,8 @@ async def route_set_llm_api_keys(
             "Saved LLM API keys",
             severity=SettaBackendLogEventSeverity.info,
         )
-        ctx.state.agent_runner.update_api_keys(env_vars)
-        return ctx.state.agent_runner.api_keys
+        ctx.state.chat_manager.update_api_keys(env_vars)
+        return ctx.state.chat_manager.api_keys
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"
