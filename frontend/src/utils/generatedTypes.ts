@@ -408,8 +408,6 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
-  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
-  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
@@ -941,15 +939,6 @@ export function createMessageThinkingContent(
   return MessageThinkingContentSchema.parse(options);
 }
 
-const ChatFileAttachmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  size: z.union([z.int(), z.null()]).default(null),
-});
-
-export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
-
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
@@ -962,7 +951,6 @@ const SystemChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -990,7 +978,6 @@ const AssistantChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -1008,7 +995,6 @@ const UserChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -3394,9 +3380,43 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
+const SettaLspDiagnosticPositionSchema = z.object({
+  line: z.int(),
+  character: z.int(),
+});
+
+const SettaLspDiagnosticRangeSchema = z.object({
+  start: SettaLspDiagnosticPositionSchema,
+  end: SettaLspDiagnosticPositionSchema,
+});
+
+const SettaLspDiagnosticSchema = z.object({
+  message: z.string(),
+  severity: z.union([z.int(), z.null()]).default(null),
+  code: z.union([z.string(), z.int(), z.null()]).default(null),
+  source: z.union([z.string(), z.null()]).default(null),
+  range: SettaLspDiagnosticRangeSchema,
+  uri: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
+
+const SettaLspDiagnosticsPayloadSchema = z.object({
+  projectConfigId: IDSchema,
+  genCode: SettaProjectConfigDiagnosticsSchema,
+  codeSections: z
+    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
+    .default({}),
+  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
+});
+
+export type SettaLspDiagnosticsPayload = z.infer<
+  typeof SettaLspDiagnosticsPayloadSchema
+>;
+
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaProjectConfigDiagnosticsSchema,
+  content: SettaLspDiagnosticsPayloadSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -6609,23 +6629,6 @@ const UpdateArtifactsRequestSchema = z.object({
 
 export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
->;
-
-const GetAttachmentDownloadUrlRequestSchema = z.object({
-  artifactId: z.string(),
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type GetAttachmentDownloadUrlRequestInput = z.input<
-  typeof GetAttachmentDownloadUrlRequestSchema
->;
-
-const GetAttachmentDownloadUrlResponseSchema = z.object({
-  url: z.string(),
-});
-
-export type GetAttachmentDownloadUrlResponse = z.infer<
-  typeof GetAttachmentDownloadUrlResponseSchema
 >;
 
 const BootstrapConsumeRequestSchema = z.object({
