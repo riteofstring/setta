@@ -101,7 +101,7 @@
     "prune-python": "cd .. && . ./activate.sh && python backend/scripts/prune_generated_types.py && ./format_code.sh",
     "full-cleanup": "pnpm run-knip && pnpm prune-python",
     "gcf": "pnpm generate && pnpm full-cleanup && pnpm f",
-    "gcft": "pnpm gcf && cd .. && ./run_tests.sh",
+    "gcft": "pnpm gcf && cd .. && ./rt.sh",
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
     "generate": "bash ./generation/generate.sh",
