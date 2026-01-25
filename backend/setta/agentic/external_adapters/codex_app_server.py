@@ -1056,7 +1056,10 @@ class _CodexAppServerEventParser:
         if item_id in self._completed_items:
             return False
         item_type = _extract_item_type(item)
-        if _is_message_item_type(item_type, item) and item_id in self._message_with_deltas:
+        if (
+            _is_message_item_type(item_type, item)
+            and item_id in self._message_with_deltas
+        ):
             return False
         return True
 

@@ -237,7 +237,15 @@ def _apply_codex_managed_settings(
     if sandbox_mode is not None:
         payload["sandbox_mode"] = sandbox_mode
     if enabled_tools is not None:
-        payload["enabled_tools"] = enabled_tools
+        mcp_servers = payload.get("mcp_servers")
+        if not isinstance(mcp_servers, dict):
+            mcp_servers = {}
+        server_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
+        if not isinstance(server_entry, dict):
+            server_entry = {}
+        server_entry["enabled_tools"] = enabled_tools
+        mcp_servers[SETTA_MCP_SERVER_ID] = server_entry
+        payload["mcp_servers"] = mcp_servers
 
 
 def _apply_codex_system_prompt(
@@ -320,11 +328,14 @@ def _set_codex_mcp_server(
     mcp_servers = payload.get("mcp_servers")
     if not isinstance(mcp_servers, dict):
         mcp_servers = {}
-    server_entry: dict[str, Any] = {"url": mcp_url}
+    server_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
+    if not isinstance(server_entry, dict):
+        server_entry = {}
+    server_entry["url"] = mcp_url
     if auth_headers:
         cookie_value = auth_headers.get("Cookie")
         if cookie_value:
-            server_entry["headers"] = {"Cookie": cookie_value}
+            server_entry["http_headers"] = {"Cookie": cookie_value}
     mcp_servers[SETTA_MCP_SERVER_ID] = server_entry
     payload["mcp_servers"] = mcp_servers
 

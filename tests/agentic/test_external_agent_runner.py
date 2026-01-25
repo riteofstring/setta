@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import sys
+import tomllib
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -857,8 +858,20 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             codex_home = context.env.get("CODEX_HOME")
             self.assertIsInstance(codex_home, str)
             config_path = Path(str(codex_home)) / "config.toml"
-            content = config_path.read_text(encoding="utf-8")
-            self.assertIn('enabled_tools = ["getProjectState", "runTool"]', content)
+            payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+            mcp_servers = payload.get("mcp_servers")
+            self.assertIsInstance(mcp_servers, dict)
+            server_entry = (
+                mcp_servers.get(SETTA_MCP_SERVER_ID)
+                if isinstance(mcp_servers, dict)
+                else None
+            )
+            self.assertIsInstance(server_entry, dict)
+            if isinstance(server_entry, dict):
+                enabled_tools = server_entry.get("enabled_tools")
+            else:
+                enabled_tools = None
+            self.assertEqual(enabled_tools, ["getProjectState", "runTool"])
 
             runner._cleanup_context(context)
             self.assertTrue(config_path.exists())
@@ -1804,21 +1817,29 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
             )
             context = _build_context_for_test(runner, config)
             codex_home = Path(str(context.env.get("CODEX_HOME")))
-            content = (codex_home / "config.toml").read_text(encoding="utf-8")
-            self.assertIn(C.AUTH_COOKIE_NAME, content)
-            function = tool_calls[0].get("function")
-            self.assertIsInstance(function, dict)
-            self.assertEqual(function.get("name"), "Bash")
-            self.assertEqual(function.get("arguments"), {"command": "ls"})
-            tool_message = next(
-                message
-                for message in messages
-                if isinstance(message, dict)
-                and message.get("role") == "tool"
-                and message.get("tool_call_id") == "toolu-1"
+            payload = tomllib.loads(
+                (codex_home / "config.toml").read_text(encoding="utf-8")
             )
-            self.assertEqual(tool_message.get("tool_name"), "Bash")
-            self.assertEqual(tool_message.get("result"), "ok")
+            mcp_servers = payload.get("mcp_servers")
+            self.assertIsInstance(mcp_servers, dict)
+            server_entry = (
+                mcp_servers.get(SETTA_MCP_SERVER_ID)
+                if isinstance(mcp_servers, dict)
+                else None
+            )
+            self.assertIsInstance(server_entry, dict)
+            if isinstance(server_entry, dict):
+                headers = server_entry.get("http_headers")
+            else:
+                headers = None
+            self.assertIsInstance(headers, dict)
+            if isinstance(headers, dict):
+                cookie = headers.get("Cookie")
+            else:
+                cookie = None
+            self.assertIsInstance(cookie, str)
+            if isinstance(cookie, str):
+                self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
 
     async def test_assistant_payload_persists_tool_calls(self) -> None:
         with TemporaryDirectory() as tmpdir:
