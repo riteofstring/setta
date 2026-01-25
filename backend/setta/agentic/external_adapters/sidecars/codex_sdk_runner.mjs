@@ -38,6 +38,16 @@ function normalizeThreadOptions(value) {
   return options;
 }
 
+function normalizeOutputSchema(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("outputSchema must be a JSON object");
+  }
+  return value;
+}
+
 function extractText(result) {
   if (typeof result === "string") {
     return result;
@@ -367,8 +377,10 @@ async function runTurn(input) {
 
   writeEvent({ type: "turn.started", settaRunId: runId });
   try {
+    const outputSchema = normalizeOutputSchema(input.outputSchema);
+    const turnOptions = outputSchema ? { outputSchema } : {};
     if (typeof thread.runStreamed === "function") {
-      const streamResult = await Promise.resolve(thread.runStreamed(prompt));
+      const streamResult = await Promise.resolve(thread.runStreamed(prompt, turnOptions));
       const events = streamResult?.events ?? streamResult;
       if (!events || typeof events[Symbol.asyncIterator] !== "function") {
         throw new Error("Codex SDK runStreamed() did not return an async iterable");
@@ -392,7 +404,7 @@ async function runTurn(input) {
         writeEvent({ ...event, settaRunId: runId });
       }
     } else {
-      const result = await thread.run(prompt);
+      const result = await thread.run(prompt, turnOptions);
       const text = extractText(result);
       writeEvent({
         type: "item.started",

@@ -98,6 +98,9 @@ class CodexSdkAdapter(ExternalAgentAdapter):
                 thread_options = _build_thread_options(context.config)
                 if thread_options is not None:
                     payload["threadOptions"] = thread_options
+                output_schema = _extract_output_schema(context.inputs)
+                if output_schema is not None:
+                    payload["outputSchema"] = output_schema
                 process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
                 await process.stdin.drain()
             return handle
@@ -731,6 +734,17 @@ def _extract_thread_id(inputs: dict[str, Any] | None) -> str | None:
     if isinstance(raw, str) and raw:
         return raw
     return None
+
+
+def _extract_output_schema(inputs: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not inputs:
+        return None
+    raw = inputs.get("outputSchema")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("Codex outputSchema must be a JSON object")
+    return raw
 
 
 def _build_thread_options(config: ExternalAgentConfig) -> dict[str, bool] | None:

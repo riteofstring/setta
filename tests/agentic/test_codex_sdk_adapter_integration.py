@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import secrets
 import shutil
@@ -310,6 +311,48 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 raise AssertionError("Expected finalText to be a string")
             self.assertIn(code_word, final_text.lower())
 
+    async def test_codex_sdk_structured_output_schema(self) -> None:
+        node_path = self._require_codex_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(node_path)
+            token = f"setta-codex-schema-{secrets.token_hex(6)}"
+            schema = {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "enum": ["ok"]},
+                    "codeWord": {"type": "string", "enum": [token]},
+                },
+                "required": ["status", "codeWord"],
+                "additionalProperties": False,
+            }
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "Return JSON that matches the provided schema exactly. "
+                        "Return only the JSON object."
+                    ),
+                    "outputSchema": schema,
+                },
+            )
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            final_text = outputs.get("finalText")
+            self.assertIsInstance(final_text, str)
+            if not isinstance(final_text, str):
+                raise AssertionError("Expected finalText to be a string")
+            payload = json.loads(final_text.strip())
+            self.assertEqual(payload.get("status"), "ok")
+            self.assertEqual(payload.get("codeWord"), token)
+
     async def test_codex_sdk_resumes_thread_id_across_chats(self) -> None:
         node_path = self._require_codex_sdk()
         with TemporaryDirectory() as tmpdir:
@@ -428,6 +471,25 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if message.get("tool_name") == "command_execution"
                 ]
                 self.assertTrue(command_tools)
+                assistant_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "assistant"
+                ]
+                self.assertTrue(assistant_messages)
+                tool_calls: list[dict] = []
+                for message in assistant_messages:
+                    calls = message.get("tool_calls") if isinstance(message, dict) else None
+                    if isinstance(calls, list):
+                        tool_calls.extend(call for call in calls if isinstance(call, dict))
+                self.assertTrue(tool_calls)
+                tool_names = {
+                    call.get("function", {}).get("name")
+                    for call in tool_calls
+                    if isinstance(call, dict)
+                }
+                self.assertIn("command_execution", tool_names)
                 tool_text = self._collect_message_texts(command_tools)
                 if token not in tool_text:
                     self.fail(
