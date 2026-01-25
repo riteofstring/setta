@@ -1,7 +1,14 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import type { MouseEventHandler } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEventHandler,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
@@ -85,21 +92,26 @@ export function ParamNameInput({
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
+  const [inputValue, setInputValue] = useState(value);
   const { canEditStructure } = useShareCapabilities();
   const backendErrors = useNameValidationErrors(
     (state) => state.paramErrors[paramInfoId],
   );
+  const allowEmpty = isKwarg;
   const requirePythonIdentifier =
     !isDictSection &&
     pythonCodegenEnabled &&
-    (passingStyle === "DEFAULT" || passingStyle === "KEYWORD_ONLY");
+    (passingStyle === "DEFAULT" ||
+      passingStyle === "KEYWORD_ONLY" ||
+      !passingStyle);
+  const validationOptions = {
+    allowEmpty,
+    requirePythonIdentifier,
+    skipPathChecks: isDictSection,
+  };
   const validationError = useDisplayName
     ? null
-    : validateParamNameInput(value, {
-        allowEmpty: isKwarg,
-        requirePythonIdentifier,
-        skipPathChecks: isDictSection,
-      });
+    : validateParamNameInput(inputValue, validationOptions);
   const errorMessages: Array<string> = [];
   if (validationError) {
     errorMessages.push(validationError);
@@ -111,21 +123,95 @@ export function ParamNameInput({
   const hasError = combinedErrorMessage.length > 0;
   let errorClassName = "";
   if (hasError) {
-    errorClassName = "text-red-500 dark:text-red-300 border-red-400";
+    errorClassName =
+      "text-red-500 dark:text-red-300 border-red-400 [&_*]:!text-red-500 dark:[&_*]:!text-red-300";
   }
-  const tooltipContentArray = hasError
-    ? [
-        {
-          title: "Invalid name",
-          content: combinedErrorMessage,
-          wrapperClassName:
-            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
-          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
-        },
-      ]
-    : [];
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const [bubblePosition, setBubblePosition] = useState<{
+    top: number;
+    left: number;
+    visible: boolean;
+  }>({
+    top: 0,
+    left: 0,
+    visible: false,
+  });
+  const dummyDivId = `ParamNameInput-${sectionId}-${paramInfoId}`;
+  const realDivId = `CodeMirror-${sectionId}-${paramInfoId}-keyName`;
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const updateBubblePosition = useCallback(() => {
+    if (!hasError) {
+      return;
+    }
+    const anchorEl =
+      document.getElementById(realDivId) ??
+      document.getElementById(dummyDivId);
+    const containerEl = document.getElementById(
+      `${sectionId}-CustomResizable`,
+    );
+    const bubbleEl = bubbleRef.current;
+    if (!anchorEl || !bubbleEl || !containerEl) {
+      return;
+    }
+    const anchorRect = anchorEl.getBoundingClientRect();
+    const bubbleRect = bubbleEl.getBoundingClientRect();
+    const containerRect = containerEl.getBoundingClientRect();
+    const scaleX =
+      containerEl.offsetWidth > 0
+        ? containerRect.width / containerEl.offsetWidth
+        : 1;
+    const scaleY =
+      containerEl.offsetHeight > 0
+        ? containerRect.height / containerEl.offsetHeight
+        : 1;
+    const margin = 6;
+    const localLeft = (anchorRect.left - containerRect.left) / scaleX;
+    const localTop = (anchorRect.top - containerRect.top) / scaleY;
+    const localAnchorHeight = anchorRect.height / scaleY;
+    const localBubbleWidth = bubbleRect.width / scaleX;
+    const nextTop = localTop + localAnchorHeight + margin;
+    let nextLeft = localLeft;
+    const maxLeft = containerEl.offsetWidth - localBubbleWidth - margin;
+    if (nextLeft > maxLeft) {
+      nextLeft = Math.max(margin, maxLeft);
+    }
+    if (nextLeft < margin) {
+      nextLeft = margin;
+    }
+    setBubblePosition({
+      top: nextTop,
+      left: nextLeft,
+      visible: true,
+    });
+  }, [dummyDivId, hasError, realDivId]);
+
+  useLayoutEffect(() => {
+    if (!hasError) {
+      return;
+    }
+    updateBubblePosition();
+  }, [combinedErrorMessage, hasError, updateBubblePosition]);
+
+  useEffect(() => {
+    if (!hasError) {
+      return;
+    }
+    const handleScrollOrResize = () => {
+      updateBubblePosition();
+    };
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [hasError, updateBubblePosition]);
 
   function onChange(v: string) {
+    setInputValue(v);
     if (!canEditStructure) {
       return;
     }
@@ -133,7 +219,28 @@ export function ParamNameInput({
       debouncedSetParamDisplayName(paramInfoId, v);
       return;
     }
+    const nextValidationError = validateParamNameInput(v, validationOptions);
+    if (nextValidationError) {
+      return;
+    }
     debouncedSetParamName(paramInfoId, v);
+  }
+
+  function onBlur() {
+    if (useDisplayName) {
+      return;
+    }
+    const nextValidationError = validateParamNameInput(
+      inputValue,
+      validationOptions,
+    );
+    if (nextValidationError) {
+      setInputValue(value);
+      return;
+    }
+    if (inputValue !== value) {
+      debouncedSetParamName.flush?.();
+    }
   }
 
   function onEscape(completionResult) {
@@ -147,17 +254,16 @@ export function ParamNameInput({
   const isDisabled = !canEditStructure;
 
   return (
-    <div
-      className="contents"
-      {...getFloatingBoxHandlers(...tooltipContentArray)}
-    >
+    <div className="contents">
       <TextInputCodeMirror
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-        value={value}
+        value={inputValue}
         defaultVal={"Please Enter Key"}
         onChange={onChange}
+        onBlur={onBlur}
         onEscape={onEscape}
+        dummyDivId={dummyDivId}
         dummyCodeClassName={`${NO_PAN_CLASS_NAME} ${bg} ${border} min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${errorClassName}`}
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${errorClassName}`}
         color="green"
@@ -170,6 +276,25 @@ export function ParamNameInput({
       <span
         className={`${hasChildren ? "section-key-value grid-row-start-1 mx-[2px]" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${hasError ? "border-red-400" : ""}`}
       />
+      {hasError &&
+        createPortal(
+          <div
+            ref={bubbleRef}
+            className="pointer-events-none absolute z-50 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200"
+            style={{
+              top: bubblePosition.top,
+              left: bubblePosition.left,
+              opacity: bubblePosition.visible ? 1 : 0,
+            }}
+          >
+            <span
+              className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]"
+            />
+            {combinedErrorMessage}
+          </div>,
+          document.getElementById(`${sectionId}-CustomResizable`) ??
+            document.body,
+        )}
     </div>
   );
 }

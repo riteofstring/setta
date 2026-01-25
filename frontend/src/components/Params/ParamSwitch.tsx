@@ -126,12 +126,12 @@ function TempParamSwitch({
 function RealParamSwitch(props: ParamSwitchProps) {
   const { sectionId, paramInfoId } = props;
 
-  const errorMessages = useTypeErrors(
+  const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
-  const maybeErrorMessage = errorMessages?.join("\n") ?? "";
+  const typeErrorMessage = typeErrors?.join("\n") ?? "";
+  const maybeErrorMessage = typeErrorMessage;
   const hasError = maybeErrorMessage.length > 0;
-
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
       isFocusedSearchResult:
