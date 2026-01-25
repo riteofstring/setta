@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, assert_never
 import rpack
 
 from setta.database.utils import create_new_id
+from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -51,6 +52,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
+    ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
     CoreArgs,
@@ -59,6 +61,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
+    PromptSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
 )
@@ -92,7 +95,6 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
-from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
@@ -102,12 +104,16 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSectionImpl,
     CallableSectionImpl,
+    ChatSectionImpl,
+    ChatSectionState,
     CodeFileBinding,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PromptFormat,
+    PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -449,14 +455,6 @@ def create_section(
         "name": get_default_section_core_name(impl_type),
         **compute_initial_default_variant(variant),
     }
-    if isinstance(impl, TextBlockSectionImpl) and impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
-        if first_heading:
-            default_core_args["name"] = first_heading
     if core_overrides:
         default_core_args.update(core_overrides)
     core = Core(**default_core_args)
@@ -1474,119 +1472,6 @@ def delete_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", section
     return removed_param_id
 
 
-def delete_selected_params(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoIds: list[ID],
-):
-    if not paramInfoIds:
-        return []
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    root_id: ID | None = None
-    if isinstance(section_impl, CallableSectionImpl):
-        root_id = section_impl.callable
-    elif isinstance(section_impl, BaseDictSectionImpl):
-        root_id = section_impl.topLevelParamId
-    else:
-        raise TypeError
-
-    if not root_id:
-        return []
-
-    if root_id not in section_impl.codeObjVariantMap:
-        raise KeyError(
-            f"Root param container {root_id} missing for section {sectionId}"
-        )
-
-    traversal = traverse_hierarchy(
-        p.codeObjs,
-        p.codeObjImpls,
-        p.codeObjVariants,
-        section_impl.codeObjVariantMap,
-        top_level_ids=[],
-        root_id=root_id,
-        options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
-    )
-    parent_map = traversal.parent_map
-
-    removed_param_ids: list[ID] = []
-    parent_to_removed: dict[ID, set[ID]] = {}
-    for param_id in dict.fromkeys(paramInfoIds):
-        if param_id not in p.codeObjs:
-            raise KeyError(f"Param {param_id} not found for deletion.")
-        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, sectionId, param_id, BaseParamCodeObjImpl
-        )
-        if not param_impl.coreNameEditable:
-            continue
-        parent_id = parent_map.get(param_id)
-        if not parent_id:
-            raise KeyError(f"Param {param_id} has no parent in section {sectionId}.")
-        parent_to_removed.setdefault(parent_id, set()).add(param_id)
-        removed_param_ids.append(param_id)
-
-    if not removed_param_ids:
-        return []
-
-    for parent_id, removed_children in parent_to_removed.items():
-        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, sectionId, parent_id, BaseParentCodeObjImpl
-        )
-        next_children = [
-            child for child in parent_impl.children if child not in removed_children
-        ]
-        if next_children == parent_impl.children:
-            continue
-        set_curr_effective_code_obj_impl_value(
-            p,
-            sectionId,
-            parent_id,
-            BaseParentCodeObjImplArgsWithCallable(children=next_children),
-        )
-
-    removed_set = set(removed_param_ids)
-    next_pinned = [
-        param_id
-        for param_id in section_impl.pinnedParams
-        if param_id not in removed_set
-    ]
-    next_selected = [
-        param_id
-        for param_id in section_impl.selectedParams
-        if param_id not in removed_set
-    ]
-    next_ignore_params = {
-        param_id: ignore
-        for param_id, ignore in section_impl.ignoreTypeErrors.params.items()
-        if param_id not in removed_set
-    }
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            pinnedParams=next_pinned,
-            selectedParams=next_selected,
-            ignoreTypeErrors=TypeErrorIgnoreState(
-                callable=section_impl.ignoreTypeErrors.callable,
-                params=next_ignore_params,
-            ),
-        ),
-    )
-
-    next_edge_inputs = [
-        param_id
-        for param_id in section_impl.edgeInputParams
-        if param_id not in removed_set
-    ]
-    if next_edge_inputs != section_impl.edgeInputParams:
-        set_section_edge_inputs(settings, p, sectionId, next_edge_inputs)
-
-    return removed_param_ids
-
-
 def delete_kwarg_from_callable_section(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
@@ -1718,11 +1603,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
         p, sectionId, TextBlockSectionImplArgsWithCallable(text=text)
     )
     if impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(text)
-        )
+        first_heading = get_first_heading_or_text(text)
         if first_heading:
             p.sections[sectionId].name = first_heading
 
@@ -1741,39 +1622,19 @@ def set_text_block_heading_as_section_name(
         TextBlockSectionImplArgsWithCallable(headingAsSectionName=headingAsSectionName),
     )
     if headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
+        first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
             p.sections[sectionId].name = first_heading
 
 
 def get_first_heading_or_text(markdown: str):
     trimmed_markdown = markdown.lstrip()
-    heading_match = re.search(
-        r"(?:^|\n)#+\s*(.*?)(?=\n|$)",
-        trimmed_markdown,
-    )
+    heading_match = re.search(r"(^|\n)(#+)\s*(.*?)(?=\n|$)", trimmed_markdown)
 
     if heading_match:
-        heading_text = heading_match.group(1).strip()
-        if heading_text:
-            return heading_text
+        # Return the heading text (group 3 captures the text after # and spaces)
+        return heading_match.group(3).strip()
 
-    return None
-
-
-def get_first_markdown_heading(markdown: str):
-    heading_match = re.search(
-        r"(?m)^ {0,3}#{1,6}(?!#)\s*(\S.*)$",
-        markdown,
-    )
-    if heading_match:
-        heading_text = heading_match.group(1).strip()
-        if heading_text:
-            return heading_text
     return None
 
 
@@ -2193,31 +2054,6 @@ def set_section_hide_unpinned_params(
     )
 
 
-def set_section_pinned_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, pinnedParams: list[ID]
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
-    )
-
-
-def set_section_pinned_area_height(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    pinnedAreaHeight: float | SectionSizeMode,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(pinnedAreaHeight=pinnedAreaHeight),
-    )
-
-
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):
@@ -2273,6 +2109,127 @@ def set_text_block_format(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
+    )
+
+
+def _render_prompt_section(
+    template: str,
+    inputs: dict[str, str],
+    format: PromptFormat,
+) -> PromptRenderResult:
+    if format is not PromptFormat.Jinja:
+        raise ValueError(f"Unsupported prompt format {format}")
+    return render_prompt(template, inputs)
+
+
+def set_prompt_section_template(
+    p: "ProjectStateSingleConfig", sectionId: ID, template: str
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(template, impl.inputs, impl.format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            template=template,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_prompt_section_inputs(
+    p: "ProjectStateSingleConfig", sectionId: ID, inputs: dict[str, str]
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(impl.template, inputs, impl.format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            inputs=inputs,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_prompt_section_format(
+    p: "ProjectStateSingleConfig", sectionId: ID, format: PromptFormat
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, PromptSectionImpl
+    )
+    result = _render_prompt_section(impl.template, impl.inputs, format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            format=format,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_chat_section_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    managed: bool,
+    engineConfigId: ID | None,
+    agentProfileId: ID | None,
+    thinking: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            managed=managed,
+            engineConfigId=engineConfigId,
+            agentProfileId=agentProfileId,
+            thinking=thinking,
+        ),
+    )
+
+
+def set_chat_section_chat_id(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    chatId: ID | None,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            chatId=chatId,
+        ),
+    )
+
+
+def set_chat_section_state(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    state: ChatSectionState,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            messages=state.messages,
+            inputText=state.inputText,
+            waitingForResponse=state.waitingForResponse,
+            toolCallArguments=state.toolCallArguments,
+        ),
     )
 
 
