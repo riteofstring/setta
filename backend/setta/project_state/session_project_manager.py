@@ -12,6 +12,7 @@ from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
+from setta.project_state.secret_values import strip_password_values
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
     RunDetachedRequest,
@@ -99,10 +100,13 @@ class SessionProjectManager(BaseProjectManager):
             )
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
             project_state = self.settings_file.load_settings_project()
+            strip_password_values(project_state)
             return merge_single_config_into_backend(
                 ProjectStateBackend(), project_state
             )
-        return self.dbe.read_project()
+        project_state = self.dbe.read_project()
+        strip_password_values(project_state)
+        return project_state
 
     def get_new_project_state_backend(
         self,
@@ -308,6 +312,7 @@ class SessionProjectManager(BaseProjectManager):
         payload = self.project_state_backend.model_copy(deep=True)
         save_json_source_data(self.dbe, payload)
         remove_json_source_values(payload)
+        strip_password_values(payload)
         maybe_create_backup(
             self.dbe.project,
             self.settings_file.settings.backend.autobackup,
@@ -324,8 +329,10 @@ class SessionProjectManager(BaseProjectManager):
         export_with_variants = backend_settings.exportDbReadableWithVariantsOnSave
         if not export_readable and not export_with_variants:
             return
+        sanitized = self.project_state_backend.model_copy(deep=True)
+        strip_password_values(sanitized)
         payload = build_readable_project_export(
-            self.project_state_backend,
+            sanitized,
             include_variants=export_with_variants,
         )
         output_path = self.dbe.path / "project.readable.yaml"
@@ -343,5 +350,6 @@ class SessionProjectManager(BaseProjectManager):
         )
         save_json_source_data(self.dbe, project_state)
         remove_json_source_values(project_state)
+        strip_password_values(project_state)
         self.dbe.write_settings_project(project_state)
         self.artifacts.save()

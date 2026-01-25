@@ -26,10 +26,10 @@ def _decode_connect_info(output: str) -> dict:
 
 @pytest.fixture
 def status_env(tmp_path):
-    sessions_root = tmp_path / "setta_files" / "run" / "sessions"
+    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
-    original_sessions_root = C.RUN_SESSIONS_FOLDER
-    C.RUN_SESSIONS_FOLDER = sessions_root
+    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    C.RUNTIME_SESSIONS_FOLDER = sessions_root
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -70,7 +70,7 @@ def status_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        C.RUN_SESSIONS_FOLDER = original_sessions_root
+        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
 
 
 @pytest.fixture
@@ -80,8 +80,8 @@ def status_workspace_env(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
 
-    original_sessions_root = C.RUN_SESSIONS_FOLDER
-    C.RUN_SESSIONS_FOLDER = Path("setta_files") / "run" / "sessions"
+    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    C.RUNTIME_SESSIONS_FOLDER = Path("setta_files") / "runtime" / "sessions"
 
     original_cwd = Path.cwd()
 
@@ -120,7 +120,7 @@ def status_workspace_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        C.RUN_SESSIONS_FOLDER = original_sessions_root
+        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
 
 
 def test_status_connect_info_json_emits_payload(status_env) -> None:
@@ -300,7 +300,7 @@ def test_status_connect_info_uses_workspace_from_other_cwd(
 def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     os.chdir(status_workspace_env.workspace)
     session = status_workspace_env.create_session(port=61235)
-    session_dir = status_workspace_env.workspace / C.RUN_SESSIONS_FOLDER / session.id
+    session_dir = status_workspace_env.workspace / C.RUNTIME_SESSIONS_FOLDER / session.id
     assert session_dir.exists()
     os.chdir(status_workspace_env.outside)
 

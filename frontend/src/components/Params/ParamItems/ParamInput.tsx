@@ -16,6 +16,7 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import {
   DependencyKeyTypeEnum,
+  CodeObjTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
@@ -23,7 +24,7 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const baseValue = useProjectState((x) => {
+  const { baseValue, codeObjType } = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
@@ -31,8 +32,9 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    return impl.value;
+    return { baseValue: impl.value, codeObjType: impl.type };
   });
+  const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
     if (!previewState) {
@@ -51,6 +53,9 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
+      if (isPasswordParam) {
+        return;
+      }
       useProjectState.setState((state) => {
         setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
@@ -72,7 +77,11 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
     }
     if (!options?.skipBackendUpdate) {
-      debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+      if (isPasswordParam) {
+        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
+      } else {
+        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+      }
     }
   }
 
@@ -127,6 +136,18 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId, paramInfoId, value) => {
+    route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value,
     });
   },
   50,
