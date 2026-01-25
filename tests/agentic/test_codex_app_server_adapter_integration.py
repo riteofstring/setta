@@ -15,6 +15,7 @@ from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapt
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import (
     CodexSettingsManaged,
@@ -260,6 +261,30 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             f"{label} outputs={outputs} "
             f"cliStderrTail={stderr_tail if stderr_tail else '[]'}{settings_dump}"
         )
+
+    @staticmethod
+    def _find_mcp_server_entry(payload: object, server_id: str) -> dict | None:
+        if isinstance(payload, dict):
+            for key in ("mcp_servers", "mcpServers"):
+                servers = payload.get(key)
+                if isinstance(servers, dict):
+                    entry = servers.get(server_id)
+                    if isinstance(entry, dict):
+                        return entry
+            for value in payload.values():
+                entry = CodexAppServerAdapterIntegrationTests._find_mcp_server_entry(
+                    value, server_id
+                )
+                if entry is not None:
+                    return entry
+        if isinstance(payload, list):
+            for value in payload:
+                entry = CodexAppServerAdapterIntegrationTests._find_mcp_server_entry(
+                    value, server_id
+                )
+                if entry is not None:
+                    return entry
+        return None
 
     @staticmethod
     def _redact_settings_text(text: str) -> str:
@@ -537,6 +562,68 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             payload = self._extract_json_object(final_text)
             self.assertEqual(payload.get("status"), "ok")
             self.assertEqual(payload.get("codeWord"), token)
+
+    async def test_codex_app_server_reads_config(self) -> None:
+        codex_path = self._require_codex_cli()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(codex_path)
+            config.approvalPolicy = "on-request"
+            config.sandboxPolicy = "workspace-write"
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello."},
+            )
+            debug_adapter = None
+            debug_state = None
+            for _ in range(200):
+                run_state = runner._run_state.get(run.id)
+                if run_state is not None:
+                    debug_adapter = run_state.adapter
+                    debug_state = run_state.handle.metadata.get("process_state")
+                    break
+                await asyncio.sleep(0.1)
+
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            metadata = outputs.get("metadata")
+            self.assertIsInstance(metadata, dict)
+            if not isinstance(metadata, dict):
+                raise AssertionError("Expected metadata to be a dict")
+            settings_paths = metadata.get("settingsPaths")
+            self.assertIsInstance(settings_paths, dict)
+            if not isinstance(settings_paths, dict):
+                raise AssertionError("Expected settingsPaths to be a dict")
+            codex_settings_path = settings_paths.get("codex")
+            self.assertIsInstance(codex_settings_path, str)
+            if not isinstance(codex_settings_path, str):
+                raise AssertionError("Expected codex settings path in metadata")
+            self.assertTrue(Path(codex_settings_path).exists())
+
+            if debug_adapter is None or debug_state is None:
+                raise AssertionError("Expected Codex adapter state for config read")
+
+            async with debug_state.lock:
+                config_payload = await debug_adapter._send_request(
+                    debug_state,
+                    "config/read",
+                    {},
+                )
+            entry = self._find_mcp_server_entry(
+                config_payload, SETTA_MCP_SERVER_ID
+            )
+            self.assertIsInstance(entry, dict)
+            if isinstance(entry, dict):
+                url = entry.get("url")
+                self.assertIsInstance(url, str)
+                if isinstance(url, str):
+                    self.assertIn("/mcp/streamable", url)
 
     async def test_codex_app_server_mcp_tool_call(self) -> None:
         codex_path = self._require_codex_cli()
