@@ -37,7 +37,7 @@ pnpm -C frontend kill
 Stop only the CDP/Chrome helpers (repo root):
 
 ```bash
-./scripts/stop-browser-mcp.sh --devtools --playwriter
+./scripts/stop-browser-mcp.sh --devtools
 ```
 
 ## End chat vs. keep running

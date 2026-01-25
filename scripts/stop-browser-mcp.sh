@@ -24,80 +24,29 @@ profile_suffix() {
 PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
 MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
-PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
-PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
 LEGACY_PROFILE_DIR="/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}"
-LEGACY_PLAYWRITER_PROFILE_DIR="/tmp/chrome-profile-playwriter-mcp-${PROFILE_SUFFIX}"
-
-default_playwriter_profile_dir() {
-  echo "${MCP_RUN_DIR}/playwriter-profile"
-}
-
-resolve_playwriter_profile_dir() {
-  if [[ -n "${PLAYWRITER_PROFILE_DIR+x}" ]]; then
-    PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-$(default_playwriter_profile_dir)}"
-    return
-  fi
-
-  case "${PLAYWRITER_PROFILE_MODE}" in
-    shared)
-      PLAYWRITER_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR}"
-      ;;
-    isolated)
-      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
-      ;;
-    *)
-      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
-      ;;
-  esac
-}
-
-resolve_playwriter_profile_dir
-
 TARGET_DEVTOOLS="0"
-TARGET_PLAYWRITER="0"
 
 usage() {
   cat <<'EOF'
-Usage: stop-browser-mcp.sh [--playwriter] [--devtools]
+Usage: stop-browser-mcp.sh [--devtools]
 
-Default behavior stops all browser MCP processes.
+Default behavior stops the devtools browser MCP process.
 
 Environment variables:
   PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
-  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: setta_files/run/mcp/playwriter-profile; overrides mode)
-  PLAYWRITER_PROFILE_MODE  shared|isolated (default: isolated)
-  PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
 
 Flags:
-  --playwriter    Stop the playwriter Chrome profile
-  --playwriter-shared   Target the shared Playwriter profile
-  --playwriter-isolated Target the per-worktree Playwriter profile
   --devtools      Stop the devtools Chrome profile
 EOF
 }
 
 if [[ $# -eq 0 ]]; then
   TARGET_DEVTOOLS="1"
-  TARGET_PLAYWRITER="1"
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --playwriter)
-      TARGET_PLAYWRITER="1"
-      shift
-      ;;
-    --playwriter-shared)
-      TARGET_PLAYWRITER="1"
-      PLAYWRITER_PROFILE_MODE="shared"
-      shift
-      ;;
-    --playwriter-isolated)
-      TARGET_PLAYWRITER="1"
-      PLAYWRITER_PROFILE_MODE="isolated"
-      shift
-      ;;
     --devtools)
       TARGET_DEVTOOLS="1"
       shift
@@ -166,22 +115,6 @@ if [[ "$TARGET_DEVTOOLS" == "1" ]]; then
         fi
       else
         echo "No devtools Chrome process for this repo."
-      fi
-    fi
-  fi
-fi
-
-if [[ "$TARGET_PLAYWRITER" == "1" ]]; then
-  if ! stop_pid_file "playwriter Chrome" "${MCP_RUN_DIR}/playwriter.pid"; then
-    if ! stop_by_profile "playwriter Chrome (profile ${PLAYWRITER_PROFILE_DIR})" "$PLAYWRITER_PROFILE_DIR"; then
-      if [[ "$PLAYWRITER_PROFILE_DIR" != "$LEGACY_PLAYWRITER_PROFILE_DIR" ]]; then
-        if stop_by_profile "playwriter Chrome (profile ${LEGACY_PLAYWRITER_PROFILE_DIR})" "$LEGACY_PLAYWRITER_PROFILE_DIR"; then
-          :
-        else
-          echo "No playwriter Chrome process for this repo."
-        fi
-      else
-        echo "No playwriter Chrome process for this repo."
       fi
     fi
   fi

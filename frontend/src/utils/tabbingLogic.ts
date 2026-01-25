@@ -239,6 +239,9 @@ export function clearPendingSectionTextFocus(sectionId: string) {
 
 export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
   if (attempt === 0) {
+    if (pendingSectionTextFocus.has(sectionId)) {
+      return;
+    }
     pendingSectionTextFocus.add(sectionId);
   }
   const ref =
@@ -254,6 +257,18 @@ export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
       }
       return;
     }
+  }
+  const activeElement = document.activeElement;
+  if (
+    attempt > 0 &&
+    ref &&
+    activeElement instanceof HTMLElement &&
+    !ref.contains(activeElement) &&
+    activeElement !== document.body &&
+    activeElement !== document.documentElement
+  ) {
+    clearPendingSectionTextFocus(sectionId);
+    return;
   }
   if (attempt < MAX_SECTION_TEXT_FOCUS_ATTEMPTS) {
     requestAnimationFrame(() =>

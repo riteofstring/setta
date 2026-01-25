@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import rpack
-from pydantic import BaseModel
-
 from setta.database.utils import create_new_id
 from setta.types.artifact import (
     ChartType,
@@ -431,18 +429,6 @@ def set_project_config_name(
     p.projectConfigs[projectConfigId].name = newName
 
 
-def _text_block_heading_as_section_name_overridden(
-    impl_overrides: BaseSectionImplArgsUnion | None,
-):
-    if impl_overrides is None:
-        return False
-    if isinstance(impl_overrides, dict):
-        return "headingAsSectionName" in impl_overrides
-    if isinstance(impl_overrides, BaseModel):
-        return "headingAsSectionName" in impl_overrides.model_fields_set
-    return False
-
-
 def create_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -456,13 +442,6 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
-    if isinstance(impl, TextBlockSectionImpl):
-        if (
-            impl.format == TextBlockFormat.Markdown
-            and not impl.headingAsSectionName
-            and not _text_block_heading_as_section_name_overridden(impl_overrides)
-        ):
-            impl.headingAsSectionName = True
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {
         "name": get_default_section_core_name(impl_type),

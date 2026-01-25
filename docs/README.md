@@ -2,7 +2,7 @@
 
 ## Guides
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
-- `guides/browser-mcp-quickstart.md` – quickstart for Playwriter + Chrome DevTools MCP.
+- `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
 - `guides/dev-vs-built.md` – differences between dev and built runtime setups.
 - `guides/column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `guides/frontend-performance-profiling.md` – workflow for profiling and fixing UI performance issues.

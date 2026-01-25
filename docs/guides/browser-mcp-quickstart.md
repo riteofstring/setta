@@ -1,53 +1,35 @@
-# Browser MCP Quickstart (Playwriter + Chrome DevTools)
+# Browser MCP Quickstart (Chrome DevTools)
 
-This is the shortest path to a headed browser in Codex + Claude, with optional
-performance profiling.
+This is the shortest path to a headed browser in Codex + Claude for
+chrome-devtools-mcp and performance profiling.
 
 ## Setup once
 
 1) Install frontend deps:
    `cd frontend && pnpm install`
 
-2) Install the Playwriter Chrome extension:
-   https://chromewebstore.google.com/detail/playwriter-mcp/jfeammnjpkecdekppnclgkkffahnhfhe
+2) MCP servers are already configured in Codex and Claude.
 
-3) MCP servers are already configured in Codex and Claude.
-
-## Default use (Playwriter)
+## Default use (Chrome DevTools MCP)
 
 1) Start your app:
    `pnpm start`
 
-   Or use the combined helper:
+   Or use the combined helpers:
    `pnpm -C frontend ai` (adds CDP Chrome + bootstrap/app open)
    `pnpm -C frontend aicdt` (same + auto-open DevTools)
 
-2) Open Chrome normally and load your app (or run `scripts/start-browser-mcp.sh --playwriter`
-   for a dedicated profile; install the extension once in that profile).
-   By default, the script uses a per-worktree profile under `setta_files/run/mcp/playwriter-profile`.
-   Use `--playwriter-shared` (or `PLAYWRITER_PROFILE_MODE=shared`) for a shared profile,
-   or `PLAYWRITER_PROFILE_DIR` for a custom profile path.
-
-3) Click the Playwriter extension icon on the tab you want to control.
-
-4) In Codex or Claude, use the Playwriter tool for actions.
-
-## Performance runs (Chrome DevTools MCP)
-
-1) Start the debug Chrome instance:
+2) Start the debug Chrome instance (if you are not using `pnpm -C frontend ai`):
    `scripts/start-browser-mcp.sh --devtools`
 
-2) Codex auto-connects chrome-devtools-mcp to the per-worktree CDP port via
+3) Codex auto-connects chrome-devtools-mcp to the per-worktree CDP port via
    `.codex/config.toml` + `scripts/chrome-devtools-mcp.sh` (no manual port typing).
    If another client needs the port, run:
    `pnpm -C frontend cdp-port` → `http://127.0.0.1:<port>`
 
-3) In that Chrome window, install the Playwriter extension once (so both tools
-   use the same browser profile).
-
 4) Open your app in the debug Chrome window.
 
-5) Use Chrome DevTools MCP for traces, and Playwriter for scripted actions.
+5) Use Chrome DevTools MCP for traces and visual verification.
 
 ## Minimal perf triage flow
 
@@ -61,16 +43,11 @@ performance profiling.
 
 ## Tips
 
-- If you want lowest context overhead, only enable Playwriter and turn on
-  Chrome DevTools MCP when profiling.
 - Each worktree uses an offset for backend/frontend/CDP ports, so you can run
   multiple Setta instances in parallel without collisions.
-- Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh`
-  (use `--playwriter` or `--devtools` to target one).
+- Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh --devtools`.
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.
-- Future option: add dedicated pnpm scripts for Playwriter-only or DevTools-only
-  startup if the current combined helpers are too heavy for your workflow.
 
 ## Playwright E2E (reliable path)
 

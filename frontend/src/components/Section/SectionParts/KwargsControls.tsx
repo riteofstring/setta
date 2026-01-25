@@ -4,7 +4,6 @@ import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrSectionVariantId,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -12,7 +11,6 @@ import {
   useProjectState,
   useSettings,
   useTemporaryMiscState,
-  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { getKwargsControlsHeightKey } from "utils/constants";
@@ -137,12 +135,6 @@ export function KwargsControls({
             pinnedParams: nextPinnedParams,
           },
         );
-        updateShownParamIdsForPinToggle({
-          state,
-          sectionId,
-          selectedParams,
-          shouldUnpin: shouldUnpinSelected,
-        });
       },
       send: (frontendOpId) =>
         route_set_section_pinned_params({
@@ -340,50 +332,3 @@ const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
       }),
   });
 }, 200);
-
-function updateShownParamIdsForPinToggle({
-  state,
-  sectionId,
-  selectedParams,
-  shouldUnpin,
-}: {
-  state: ZustandProjectState;
-  sectionId: string;
-  selectedParams: string[];
-  shouldUnpin: boolean;
-}) {
-  const variantId = getCurrSectionVariantId(state, sectionId);
-  const shown = state.shownParamIds[variantId];
-  if (!shown) {
-    return;
-  }
-  const from = shouldUnpin ? shown.pinned : shown.unpinned;
-  const to = shouldUnpin ? shown.unpinned : shown.pinned;
-
-  for (const paramId of selectedParams) {
-    if (paramId in to.requiredParamIdsToPaths) {
-      if (paramId in from.requiredParamIdsToPaths) {
-        delete from.requiredParamIdsToPaths[paramId];
-      }
-      if (from.topLevelParamIds.includes(paramId)) {
-        from.topLevelParamIds = from.topLevelParamIds.filter(
-          (id) => id !== paramId,
-        );
-      }
-      continue;
-    }
-    if (paramId in from.requiredParamIdsToPaths) {
-      to.requiredParamIdsToPaths[paramId] =
-        from.requiredParamIdsToPaths[paramId];
-      delete from.requiredParamIdsToPaths[paramId];
-    }
-    if (from.topLevelParamIds.includes(paramId)) {
-      from.topLevelParamIds = from.topLevelParamIds.filter(
-        (id) => id !== paramId,
-      );
-      if (!to.topLevelParamIds.includes(paramId)) {
-        to.topLevelParamIds = [...to.topLevelParamIds, paramId];
-      }
-    }
-  }
-}

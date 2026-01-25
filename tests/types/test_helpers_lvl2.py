@@ -28,7 +28,13 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import BaseDictSectionImpl, SectionSize, SectionType
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    SectionSize,
+    SectionType,
+    TextBlockFormat,
+    TextBlockSectionImpl,
+)
 
 
 class AddKwargTests(unittest.TestCase):
@@ -230,8 +236,6 @@ class SmartLayoutTests(unittest.TestCase):
         assert pan_to is not None
         self.assertAlmostEqual(pan_to.x, position.x + 80.0)
         self.assertAlmostEqual(pan_to.y, position.y + 50.0)
-
-
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -264,18 +268,44 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertIsNone(pan_to)
 
 
-class MarkdownHeadingTests(unittest.TestCase):
-    def test_get_first_markdown_heading_accepts_h2(self) -> None:
-        text = "## Tasks\nSome text"
-        self.assertEqual(get_first_markdown_heading(text), "Tasks")
+class TextBlockDefaultsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
 
-    def test_get_first_markdown_heading_accepts_h3_with_indent(self) -> None:
-        text = "  ### Notes\n- item"
-        self.assertEqual(get_first_markdown_heading(text), "Notes")
+    def test_markdown_respects_heading_as_section_name_default_false(self) -> None:
+        self.settings.textBlockSectionDefault.headingAsSectionName = False
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+            {"format": TextBlockFormat.Markdown},
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertFalse(impl.headingAsSectionName)
 
-    def test_get_first_markdown_heading_rejects_h7(self) -> None:
-        text = "####### Too Deep"
-        self.assertIsNone(get_first_markdown_heading(text))
+    def test_markdown_respects_heading_as_section_name_default_true(self) -> None:
+        self.settings.textBlockSectionDefault.headingAsSectionName = True
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+            {"format": TextBlockFormat.Markdown},
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertTrue(impl.headingAsSectionName)
 
 
 if __name__ == "__main__":  # pragma: no cover

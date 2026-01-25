@@ -42,5 +42,5 @@ stop_dev_processes() {
 }
 
 stop_setta_sessions
-"${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools --playwriter || true
+"${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools || true
 stop_dev_processes

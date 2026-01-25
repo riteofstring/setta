@@ -3,7 +3,6 @@ set -euo pipefail
 
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
-MODE="playwriter"
 CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -62,99 +61,13 @@ INSTANCE_OFFSET="$(instance_offset "${INSTANCE_NAME}")"
 DEFAULT_DEBUG_PORT=$((9222 + INSTANCE_OFFSET))
 DEBUG_PORT="${DEBUG_PORT:-${DEFAULT_DEBUG_PORT}}"
 
-profile_suffix() {
-  local root="$1"
-
-  if command -v shasum >/dev/null 2>&1; then
-    printf "%s" "$root" | shasum -a 256 | awk '{print substr($1,1,12)}'
-    return
-  fi
-
-  if command -v md5 >/dev/null 2>&1; then
-    printf "%s" "$root" | md5 -q 2>/dev/null | awk '{print substr($1,1,12)}'
-    return
-  fi
-
-  basename "$root" | tr ' ' '_'
-}
-
-PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
 MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
-PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
-PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
-PLAYWRITER_BOOTSTRAP="${PLAYWRITER_BOOTSTRAP:-1}"
+BOOTSTRAP_ENABLED="${BOOTSTRAP_ENABLED:-1}"
 BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
 DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
-
-default_playwriter_profile_dir() {
-  echo "${MCP_RUN_DIR}/playwriter-profile"
-}
-
-resolve_playwright_browsers_path() {
-  if [[ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ]]; then
-    return
-  fi
-
-  local os arch binary_suffix
-  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  case "${os}" in
-    darwin) os="mac" ;;
-    linux) os="linux" ;;
-  esac
-  arch="$(uname -m)"
-  case "${arch}" in
-    x86_64|amd64) arch="x64" ;;
-    arm64|aarch64) arch="arm64" ;;
-  esac
-  binary_suffix="${os}-${arch}"
-
-  local candidates=(
-    "${ROOT_DIR}/setta_files/run/playwright-browsers"
-    "${HOME}/Library/Caches/ms-playwright"
-    "${HOME}/.cache/ms-playwright"
-  )
-  local candidate pattern
-  for candidate in "${candidates[@]}"; do
-    if [[ ! -d "${candidate}" ]]; then
-      continue
-    fi
-    pattern="${candidate}/chromium_headless_shell-"*"/chrome-headless-shell-${binary_suffix}/chrome-headless-shell"
-    if compgen -G "${pattern}" >/dev/null 2>&1; then
-      export PLAYWRIGHT_BROWSERS_PATH="${candidate}"
-      return
-    fi
-  done
-}
-
-resolve_playwriter_profile_dir() {
-  if [[ -n "${PLAYWRITER_PROFILE_DIR+x}" ]]; then
-    PLAYWRITER_PROFILE_DIR="${PLAYWRITER_PROFILE_DIR:-$(default_playwriter_profile_dir)}"
-    return
-  fi
-
-  case "${PLAYWRITER_PROFILE_MODE}" in
-    shared)
-      PLAYWRITER_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR}"
-      ;;
-    isolated)
-      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
-      ;;
-    *)
-      PLAYWRITER_PROFILE_DIR="$(default_playwriter_profile_dir)"
-      ;;
-  esac
-}
-
-resolve_playwriter_profile_dir
-resolve_playwright_browsers_path
-if [[ -z "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
-  if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
-    export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="mac-arm64"
-  fi
-fi
 
 CHROME_ARGS=()
 if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
@@ -355,7 +268,7 @@ open_url_in_devtools_profile() {
 }
 
 open_bootstrap_in_devtools() {
-  if [[ "$PLAYWRITER_BOOTSTRAP" != "1" ]]; then
+  if [[ "$BOOTSTRAP_ENABLED" != "1" ]]; then
     return
   fi
 
@@ -394,20 +307,15 @@ open_bootstrap_in_devtools() {
 
 usage() {
   cat <<'EOF'
-Usage: start-browser-mcp.sh [--playwriter] [--devtools] [--foreground]
+Usage: start-browser-mcp.sh [--devtools] [--foreground]
 
-Default mode opens a dedicated Chrome profile for Playwriter (extension-based).
-Use --playwriter for the same behavior when you want to be explicit.
-Use --devtools to start a dedicated Chrome/Chromium instance with remote
-debugging enabled for chrome-devtools-mcp. This is separate from your main profile.
+Starts a dedicated Chrome/Chromium instance with remote debugging enabled for
+chrome-devtools-mcp. This is separate from your main profile.
 
 Environment variables:
   DEBUG_PORT   Remote debugging port (default: 9222 + worktree offset)
   PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
-  PLAYWRITER_PROFILE_DIR  User data dir for playwriter (default: setta_files/run/mcp/playwriter-profile; overrides mode)
-  PLAYWRITER_PROFILE_MODE  shared|isolated (default: isolated)
-  PLAYWRITER_SHARED_PROFILE_DIR  Shared profile dir (default: ~/.setta/playwriter-profile)
-  PLAYWRITER_BOOTSTRAP  Open /__setta__/bootstrap with token when possible (default: 1)
+  BOOTSTRAP_ENABLED  Open /__setta__/bootstrap with token when possible (default: 1)
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
@@ -415,9 +323,6 @@ Environment variables:
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 
 Flags:
-  --playwriter     Open Chrome for Playwriter
-  --playwriter-shared   Use the shared Playwriter profile (default)
-  --playwriter-isolated Use a per-worktree Playwriter profile
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground     Keep the debug browser attached to this terminal (devtools only)
 EOF
@@ -426,21 +331,6 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --devtools)
-      MODE="devtools"
-      shift
-      ;;
-    --playwriter)
-      MODE="playwriter"
-      shift
-      ;;
-    --playwriter-shared)
-      MODE="playwriter"
-      PLAYWRITER_PROFILE_MODE="shared"
-      shift
-      ;;
-    --playwriter-isolated)
-      MODE="playwriter"
-      PLAYWRITER_PROFILE_MODE="isolated"
       shift
       ;;
     --foreground)
@@ -476,31 +366,6 @@ fi
 if [[ -z "$CHROME_BIN" ]]; then
   echo "Could not find Chrome/Chromium. Set CHROME_BIN to the binary path." >&2
   exit 1
-fi
-
-if [[ "$MODE" == "playwriter" ]]; then
-  if [[ "$FOREGROUND" == "1" ]]; then
-    echo "--foreground only applies to --devtools mode." >&2
-    exit 1
-  fi
-  start_url="about:blank"
-  if [[ "$PLAYWRITER_BOOTSTRAP" == "1" ]]; then
-    start_url="$(get_bootstrap_url || true)"
-  fi
-  if [[ -z "$start_url" ]]; then
-    start_url="about:blank"
-  fi
-  mkdir -p "$PLAYWRITER_PROFILE_DIR"
-  "$CHROME_BIN" \
-    --user-data-dir="$PLAYWRITER_PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]}" \
-    "$start_url" >/dev/null 2>&1 &
-  write_pid "${MCP_RUN_DIR}/playwriter.pid" "$!"
-  echo "Playwriter mode: install the extension in ${PLAYWRITER_PROFILE_DIR} and click it on a tab to connect."
-  echo "Use --devtools when you want chrome-devtools-mcp instead."
-  exit 0
 fi
 
 if command -v lsof >/dev/null 2>&1; then

@@ -28,6 +28,12 @@ export function PaneContextMenu() {
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const didNavigateListRef = useRef(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      didNavigateListRef.current = false;
+    }
+  }, [isOpen]);
+
   function handleCreateSection(menuItem: CreateSectionsContextMenuInfo) {
     createTopLevelSectionFromImplSpecs(
       menuItem,
