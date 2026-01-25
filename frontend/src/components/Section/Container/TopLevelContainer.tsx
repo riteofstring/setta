@@ -1,5 +1,5 @@
-import { useDraggable, useDroppable } from "forks/dnd-kit/CustomCore";
-import { useDndState } from "forks/dnd-kit/dndState";
+import { useDraggable, useDroppable } from "forks/dnd-kit/adapter";
+import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
@@ -19,13 +19,16 @@ export function TopLevelContainer({
   isUserView: boolean;
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
+  const { isMovingFree } = useDndMode();
   const dndProps = useDndProps({ sectionId, isTopLevel: true });
   const { setNodeRef: droppableRef } = useDroppable({
     ...dndProps,
     disabled: activeIsSelf,
   });
-  const { listeners: dragListeners, setNodeRef: draggableRef } =
-    useDraggable(dndProps);
+  const { listeners: dragListeners, setNodeRef: draggableRef } = useDraggable({
+    ...dndProps,
+    feedback: isMovingFree ? "none" : undefined,
+  });
 
   return (
     <DndSlotAndDndWatcher

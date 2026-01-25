@@ -99,7 +99,6 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
-          yamlValues: {},
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
@@ -248,6 +247,31 @@ type ZustandNotificationState = { notifications: Array<SettaNotification> };
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
     notifications: [],
+  })),
+);
+
+type FileBrowserState = {
+  rootPath: string | null;
+  selectedPath: string | null;
+  expandedPaths: Record<string, boolean>;
+  filterText: string;
+};
+
+export const useFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+  })),
+);
+
+export const useDropzoneFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
   })),
 );
 
@@ -452,11 +476,6 @@ export const useMisc = withProjectState(
       })),
     ),
   ),
-);
-
-// maps from variantId to yaml metadata
-const useOriginalYamlObj = withProjectState(
-  createWithEqualityFn(withResetFn(() => {})),
 );
 
 export type ChatDetails = {

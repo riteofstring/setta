@@ -3,7 +3,6 @@ import unittest
 
 from setta.llm.chat_store import MemoryChatStore
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 
 
@@ -19,11 +18,9 @@ class MemoryChatStoreTests(unittest.TestCase):
     def test_get_chat_returns_copies(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
-        project_config_id = ID("project-one")
         chat = store.create_new_chat(
             _build_message("hello"),
             config,
-            project_config_id=project_config_id,
         )
 
         fetched = store.get_chat(chat.id)
@@ -43,12 +40,10 @@ class MemoryChatStoreTests(unittest.TestCase):
     def test_save_messages_deduplicates(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
-        project_config_id = ID("project-two")
         first_message = _build_message("first")
         chat = store.create_new_chat(
             first_message,
             config,
-            project_config_id=project_config_id,
         )
 
         updated = store.save_messages(chat.id, [first_message])
@@ -65,16 +60,13 @@ class MemoryChatStoreTests(unittest.TestCase):
     def test_metadata_sorts_by_last_updated(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
-        project_config_id = ID("project-three")
         chat_one = store.create_new_chat(
             _build_message("first"),
             config,
-            project_config_id=project_config_id,
         )
         chat_two = store.create_new_chat(
             _build_message("second"),
             config,
-            project_config_id=project_config_id,
         )
 
         time.sleep(0.01)
@@ -86,11 +78,9 @@ class MemoryChatStoreTests(unittest.TestCase):
     def test_metadata_returns_copies(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
-        project_config_id = ID("project-four")
         chat = store.create_new_chat(
             _build_message("hello"),
             config,
-            project_config_id=project_config_id,
         )
 
         metadata = store.get_all_chat_metadata()
@@ -105,11 +95,9 @@ class MemoryChatStoreTests(unittest.TestCase):
     def test_set_system_prompt_updates_chat(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
-        project_config_id = ID("project-five")
         chat = store.create_new_chat(
             _build_message("hello"),
             config,
-            project_config_id=project_config_id,
         )
 
         updated = store.set_system_prompt(chat.id, "system prompt")

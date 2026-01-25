@@ -1,66 +1,67 @@
 import asyncio
-import copy
-import json
 import logging
-import string
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterator,
-    Iterator,
-    Literal,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Literal
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import ChatCompletionToolParam
-from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
+from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
-from mcp.types import CallToolResult, TextContent
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.chat_store import ChatStore, DBEChatStore
+from setta.llm.chat_toolkit.history import ChatHistory
+from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
+from setta.llm.chat_toolkit.managed.actions import (
+    AppendMessagesAction,
+    EmitChunkAction,
+    ManagedAction,
+    SetSystemPromptAction,
+    UpdateAIFollowAction,
+)
+from setta.llm.chat_toolkit.managed.ai_follow import (
+    build_streaming_follow_ids,
+    build_tool_call_follow_ids,
+    ids_by_type_to_sets,
+    normalize_ids_by_type,
+)
+from setta.llm.chat_toolkit.managed.stream_assembler import (
+    ManagedStreamAssembler,
+    StreamContentEntry,
+)
+from setta.llm.chat_toolkit.managed.tool_argument_preview import (
+    ManagedToolArgumentPreviewState,
+    PartialJsonStringToken,
+    build_preview_event,
+    scan_partial_json_strings,
+)
+from setta.llm.chat_toolkit.managed.tool_calls import (
+    ManagedToolCallAccumulator,
+    ManagedToolCallState,
+)
+from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
+from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import (
     SETTA_MCP_SERVER_ID,
     build_namespaced_tool_name,
-    split_namespaced_tool_name,
 )
-from setta.mcp.tool_metadata import (
-    AIFollowToolArgumentsMetadata,
-    AIFollowToolResultMetadata,
-    FollowIdType,
-    ToolArgumentPreviewIdType,
-    ToolArgumentPreviewMetadata,
-)
-from setta.mcp.tool_search_index import (
-    ToolSearchIndex,
-    build_tool_search_entries_from_llm_definitions,
-)
-from setta.mcp.utils import (
-    convert_canonical_ids_to_temporary,
-    convert_existing_canonical_ids_to_temporary,
-    convert_temporary_ids_to_canonical,
-)
+from setta.mcp.tool_metadata import FollowIdType
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
-    MessageThinkingContent,
     SystemChatMessage,
     ToolCall,
-    ToolCallFunction,
     ToolChatMessage,
-    ToolReferenceContent,
 )
 from setta.types.chat_stream_events import (
     MessageContentDelta,
@@ -68,10 +69,6 @@ from setta.types.chat_stream_events import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    MessageTextDelta,
-    MessageThinkingDelta,
-    ToolArgumentPreviewDeltaEvent,
-    ToolCallDeltaEvent,
     ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
@@ -79,7 +76,6 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
-from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -90,17 +86,7 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 
 
 @dataclass
-class ToolCallStreamState:
-    argument_buffers: dict[int, str] = field(default_factory=dict)
-    preview_values_by_index: dict[int, str] = field(default_factory=dict)
-    preview_target_ids_by_index: dict[
-        int, dict[ToolArgumentPreviewIdType, list[ID]]
-    ] = field(default_factory=dict)
-
-
-@dataclass
 class AIFollowState:
-    project_config_id: ID
     ids_by_type: dict[FollowIdType, list[ID]]
 
 
@@ -109,41 +95,6 @@ class StreamingSession:
     assistant_message: AssistantChatMessage
     stream: CustomStreamWrapper | None = None
     started_at: float = field(default_factory=time.time)
-
-
-@dataclass
-class StreamContentEntry:
-    kind: Literal["text", "thinking"]
-    text: str
-    index: int | None
-    signature: str | None = None
-
-    @property
-    def has_payload(self) -> bool:
-        if self.kind == "text":
-            return bool(self.text)
-        return bool(self.text) or self.signature is not None
-
-
-_ToolIdType = TypeVar("_ToolIdType", bound=str)
-
-
-@dataclass
-class _JsonContainerState:
-    kind: Literal["object", "array"]
-    value_owner_key: str | None
-    object_key_owner: str | None = None
-    expecting_key: bool = False
-    expecting_value: bool = False
-    pending_key: str | None = None
-
-
-@dataclass
-class _PartialJsonStringToken:
-    value: str
-    kind: Literal["key", "value"]
-    owner_key: str | None
-    is_complete: bool
 
 
 @dataclass
@@ -161,6 +112,7 @@ class LLMChatManager:
     ) -> None:
         self.dbe = dbe
         self.chat_store = chat_store or DBEChatStore(dbe)
+        self.history = ChatHistory(self.chat_store)
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
@@ -169,10 +121,18 @@ class LLMChatManager:
         self._raw_env_vars: APIKeys = {}
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
-        self._ai_follow_state: dict[ID, AIFollowState] = {}
-        self._chat_prompt_cache: dict[ID, str] = {}
+        self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
+        self._chat_prompt_cache: dict[tuple[ID, ID], str] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+        )
+        self._action_executor = ManagedActionExecutor(
+            chat_history=self.history,
+            websocket_msg_handler=self.websocket_msg_handler,
+            mcp_client=self.mcp_client,
+            dbe=self.dbe,
+            search_tool_name=self._search_tool_name,
+            logger=logger,
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
@@ -192,7 +152,6 @@ class LLMChatManager:
         chat_id: ID | None,
         message: BaseChatMessageUnion,
         llm_config_id: str,
-        project_config_id: ID,
     ) -> Chat:
         if chat_id:
             chat = self.chat_store.get_chat(chat_id)
@@ -200,28 +159,34 @@ class LLMChatManager:
                 updated = self.chat_store.save_messages(chat.id, [message])
                 return updated or chat
         llm_config = self.config.resolve_config(llm_config_id)
-        return self.chat_store.create_new_chat(
-            message,
-            llm_config,
-            project_config_id=project_config_id,
-        )
+        return self.chat_store.create_new_chat(message, llm_config)
 
     def get_all_chat_metadata(self):
         return self.chat_store.get_all_chat_metadata()
 
     def delete_chat(self, chat_id: ID) -> None:
         self.chat_store.delete_chat(chat_id)
-        self._ai_follow_state.pop(chat_id, None)
-        self._chat_prompt_cache.pop(chat_id, None)
+        self._clear_ai_follow_state(chat_id)
+        self._clear_chat_prompt_cache(chat_id)
+
+    def _clear_ai_follow_state(self, chat_id: ID) -> None:
+        keys_to_drop = [key for key in self._ai_follow_state if key[1] == chat_id]
+        for key in keys_to_drop:
+            del self._ai_follow_state[key]
+
+    def _clear_chat_prompt_cache(self, chat_id: ID) -> None:
+        keys_to_drop = [key for key in self._chat_prompt_cache if key[0] == chat_id]
+        for key in keys_to_drop:
+            del self._chat_prompt_cache[key]
 
     def get_ai_follow_snapshot(
         self, project_config_id: ID
     ) -> list[AIFollowToolArgumentsUpdateContent]:
         snapshot: list[AIFollowToolArgumentsUpdateContent] = []
-        for chat_id, state in self._ai_follow_state.items():
-            if state.project_config_id != project_config_id:
+        for (state_project_config_id, chat_id), state in self._ai_follow_state.items():
+            if state_project_config_id != project_config_id:
                 continue
-            ids_by_type = self._normalize_ai_follow_ids_by_type(state.ids_by_type)
+            ids_by_type = normalize_ids_by_type(state.ids_by_type)
             if not ids_by_type:
                 continue
             snapshot.append(
@@ -247,6 +212,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deepThink: bool,
+        active_project_config_id: ID,
     ) -> None:
         existing = self._tasks.get(chat.id)
         if existing and not existing.done():
@@ -254,11 +220,9 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
-        project_config_id = (
-            str(chat.projectConfigId) if chat.projectConfigId is not None else None
-        )
+        project_config_id = str(active_project_config_id)
         task = spawn_background_task(
-            self.process_query(chat, deepThink),
+            self.process_query(chat, deepThink, active_project_config_id),
             label="llm-chat-stream",
             project_config_id=project_config_id,
             extra_values={"chat_id": str(chat.id)},
@@ -271,14 +235,29 @@ class LLMChatManager:
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
         self._tasks[chat.id] = task
 
-    async def process_query(self, chat: Chat, deepThink: bool):
+    async def process_query(
+        self,
+        chat: Chat,
+        deepThink: bool,
+        active_project_config_id: ID,
+    ):
         while True:
-            payload = await self._build_llm_request_payload(chat, deepThink)
+            payload = await self._build_llm_request_payload(
+                chat,
+                deepThink,
+                active_project_config_id,
+            )
 
             assistant_message = AssistantChatMessage(
                 content=[],
             )
-            tool_call_state = ToolCallStreamState()
+            tool_call_state = ManagedToolCallState()
+            tool_call_accumulator = ManagedToolCallAccumulator(
+                assistant_message,
+                tool_call_state,
+            )
+            preview_state = ManagedToolArgumentPreviewState()
+            stream_assembler = ManagedStreamAssembler(assistant_message)
             session = StreamingSession(assistant_message=assistant_message)
             self._sessions[chat.id] = session
 
@@ -286,9 +265,13 @@ class LLMChatManager:
             tool_results: list[ToolChatMessage] = []
             saved_chat: Chat | None = None
             try:
-                await self.websocket_msg_handler.send_streaming_response(
-                    chat.id,
-                    MessageStartEvent(message=assistant_message),
+                await self._apply_actions(
+                    [
+                        EmitChunkAction(
+                            chat.id,
+                            MessageStartEvent(message=assistant_message),
+                        )
+                    ]
                 )
 
                 try:
@@ -307,28 +290,54 @@ class LLMChatManager:
                     await self._handle_stream_chunk(
                         chat.id,
                         assistant_message,
+                        stream_assembler,
+                        tool_call_accumulator,
+                        preview_state,
                         chunk,
-                        tool_call_state,
-                        chat.projectConfigId,
+                        active_project_config_id,
                     )
 
-                await self.websocket_msg_handler.send_streaming_response(
-                    chat.id,
-                    MessageStopEvent(message_id=assistant_message.id),
+                await self._apply_actions(
+                    [
+                        EmitChunkAction(
+                            chat.id,
+                            MessageStopEvent(message_id=assistant_message.id),
+                        )
+                    ]
                 )
                 stop_event_sent = True
-                await self._finalize_tool_calls(
-                    assistant_message,
-                    tool_call_state,
+                parsed_tool_calls, failures = tool_call_accumulator.finalize()
+                for tool_call_id, error in failures.items():
+                    logger.warning(
+                        "Failed to parse tool call arguments for tool_call_id=%s",
+                        tool_call_id,
+                        exc_info=error,
+                    )
+                await self._maybe_emit_tool_call_follow_update(
+                    active_project_config_id,
                     chat.id,
-                    chat.projectConfigId,
+                    parsed_tool_calls,
                 )
-                tool_results = await self._run_tool_calls(chat, assistant_message)
+                execute_action = build_execute_tool_calls_action(
+                    project_config_id=active_project_config_id,
+                    chat_id=chat.id,
+                    tool_calls=assistant_message.tool_calls or [],
+                    allowed_server_ids=set(
+                        self._resolve_mcp_server_ids(chat.llmConfig)
+                    ),
+                    share_session_id=self.share_session_id,
+                )
+                if execute_action is not None:
+                    tool_results = await self._apply_actions([execute_action])
                 if assistant_message.tool_calls:
-                    await self._update_and_broadcast_ai_follow_update(
-                        chat.projectConfigId,
-                        chat.id,
-                        {},
+                    await self._apply_actions(
+                        [
+                            UpdateAIFollowAction(
+                                project_config_id=active_project_config_id,
+                                chat_id=chat.id,
+                                ids_by_type={},
+                            )
+                        ]
                     )
                 new_messages: list[BaseChatMessageUnion] = [assistant_message]
                 if tool_results:
@@ -338,42 +347,83 @@ class LLMChatManager:
                         len(tool_results),
                         chat.id,
                     )
-                saved_chat = self.chat_store.save_messages(chat.id, new_messages)
+                await self._apply_actions(
+                    [
+                        AppendMessagesAction(
+                            chat_id=chat.id,
+                            messages=new_messages,
+                        )
+                    ]
+                )
+                saved_chat = self.chat_store.get_chat(chat.id)
 
-                await self.websocket_msg_handler.send_streaming_response(
-                    chat.id,
-                    MessageFinalizedEvent(message=assistant_message),
+                await self._apply_actions(
+                    [
+                        EmitChunkAction(
+                            chat.id,
+                            MessageFinalizedEvent(message=assistant_message),
+                        )
+                    ]
                 )
             except asyncio.CancelledError:
                 if not stop_event_sent:
-                    await self.websocket_msg_handler.send_streaming_response(
-                        chat.id,
-                        MessageStopEvent(message_id=assistant_message.id),
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                chat.id,
+                                MessageStopEvent(message_id=assistant_message.id),
+                            )
+                        ]
                     )
                     stop_event_sent = True
                 if self._should_persist_partial_message(assistant_message):
-                    await self._finalize_tool_calls(
-                        assistant_message,
-                        tool_call_state,
+                    parsed_tool_calls, failures = tool_call_accumulator.finalize()
+                    for tool_call_id, error in failures.items():
+                        logger.warning(
+                            "Failed to parse tool call arguments for tool_call_id=%s",
+                            tool_call_id,
+                            exc_info=error,
+                        )
+                    await self._maybe_emit_tool_call_follow_update(
+                        active_project_config_id,
                         chat.id,
-                        chat.projectConfigId,
+                        parsed_tool_calls,
                     )
-                    self.chat_store.save_messages(chat.id, [assistant_message])
-                    await self.websocket_msg_handler.send_streaming_response(
-                        chat.id,
-                        MessageFinalizedEvent(message=assistant_message),
+                    await self._apply_actions(
+                        [
+                            AppendMessagesAction(
+                                chat_id=chat.id,
+                                messages=[assistant_message],
+                            )
+                        ]
                     )
-                await self._update_and_broadcast_ai_follow_update(
-                    chat.projectConfigId,
-                    chat.id,
-                    {},
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                chat.id,
+                                MessageFinalizedEvent(message=assistant_message),
+                            )
+                        ]
+                    )
+                await self._apply_actions(
+                    [
+                        UpdateAIFollowAction(
+                            project_config_id=active_project_config_id,
+                            chat_id=chat.id,
+                            ids_by_type={},
+                        )
+                    ]
                 )
                 raise
             except Exception as exc:
                 if not stop_event_sent:
-                    await self.websocket_msg_handler.send_streaming_response(
-                        chat.id,
-                        MessageStopEvent(message_id=assistant_message.id),
+                    await self._apply_actions(
+                        [
+                            EmitChunkAction(
+                                chat.id,
+                                MessageStopEvent(message_id=assistant_message.id),
+                            )
+                        ]
                     )
                     stop_event_sent = True
                 await self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
@@ -381,14 +431,18 @@ class LLMChatManager:
                     label="llm-chat-stream",
                     message="LLM streaming failed; aborting response",
                     severity=SettaBackendLogEventSeverity.error,
-                    project_config_id=chat.projectConfigId,
+                    project_config_id=active_project_config_id,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
                 )
-                await self._update_and_broadcast_ai_follow_update(
-                    chat.projectConfigId,
-                    chat.id,
-                    {},
+                await self._apply_actions(
+                    [
+                        UpdateAIFollowAction(
+                            project_config_id=active_project_config_id,
+                            chat_id=chat.id,
+                            ids_by_type={},
+                        )
+                    ]
                 )
                 return
             finally:
@@ -442,6 +496,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deep_think: bool,
+        active_project_config_id: ID,
     ) -> dict[str, Any]:
         """
         Normalize a persisted chat into the kwargs expected by the LLM client.
@@ -449,10 +504,21 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        system_prompt = await self._build_system_prompt(chat)
+        system_prompt = await self._build_system_prompt(
+            chat,
+            active_project_config_id=active_project_config_id,
+        )
         if chat.systemPrompt != system_prompt:
             chat.systemPrompt = system_prompt
-            self.chat_store.set_system_prompt(chat.id, system_prompt)
+            if self.chat_store.get_chat(chat.id) is not None:
+                await self._apply_actions(
+                    [
+                        SetSystemPromptAction(
+                            chat_id=chat.id,
+                            system_prompt=system_prompt,
+                        )
+                    ]
+                )
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
@@ -526,18 +592,22 @@ class LLMChatManager:
             values.append(ANTHROPIC_TOOL_SEARCH_BETA_HEADER)
         return ", ".join(values)
 
-    async def _build_system_prompt(self, chat: Chat) -> str:
-        cached = self._chat_prompt_cache.get(chat.id)
+    async def _build_system_prompt(
+        self,
+        chat: Chat,
+        *,
+        active_project_config_id: ID,
+    ) -> str:
+        cache_key = (chat.id, active_project_config_id)
+        cached = self._chat_prompt_cache.get(cache_key)
         if cached:
             return cached
         prompt = self.system_prompt
-        project_config_id = chat.projectConfigId
-        if project_config_id is not None:
-            temporary_project_config_id = self._ensure_temporary_project_id(
-                project_config_id
-            )
-            prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
-        self._chat_prompt_cache[chat.id] = prompt
+        temporary_project_config_id = self._ensure_temporary_project_id(
+            active_project_config_id
+        )
+        prompt = f"{prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
+        self._chat_prompt_cache[cache_key] = prompt
         return prompt
 
     def _ensure_temporary_project_id(self, project_config_id: ID) -> ID:
@@ -833,13 +903,42 @@ class LLMChatManager:
                 type(chunk),
             )
 
+    async def _apply_actions(
+        self,
+        actions: list[ManagedAction],
+    ) -> list[ToolChatMessage]:
+        tool_results: list[ToolChatMessage] = []
+        queue = list(actions)
+        while queue:
+            action = queue.pop(0)
+            if isinstance(action, EmitChunkAction) and isinstance(
+                action.chunk, ToolResultEvent
+            ):
+                tool_results.append(action.chunk.result)
+            next_actions = await self._apply_action(action)
+            if next_actions:
+                queue = next_actions + queue
+        return tool_results
+
+    async def _apply_action(self, action: ManagedAction) -> list[ManagedAction]:
+        if isinstance(action, UpdateAIFollowAction):
+            await self._update_and_broadcast_ai_follow_update(
+                action.project_config_id,
+                action.chat_id,
+                action.ids_by_type,
+            )
+            return []
+        return await self._action_executor.apply(action)
+
     async def _handle_stream_chunk(
         self,
         chat_id: ID,
         assistant_message: AssistantChatMessage,
+        stream_assembler: ManagedStreamAssembler,
+        tool_call_accumulator: ManagedToolCallAccumulator,
+        preview_state: ManagedToolArgumentPreviewState,
         chunk: ModelResponseStream,
-        tool_call_state: ToolCallStreamState,
-        project_config_id: ID,
+        active_project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -850,23 +949,30 @@ class LLMChatManager:
         if not delta:
             return
 
-        await self._handle_text_deltas(chat_id, assistant_message, delta)
+        await self._handle_text_deltas(
+            chat_id,
+            assistant_message,
+            stream_assembler,
+            delta,
+        )
 
         await self._handle_tool_call_deltas(
             chat_id,
             assistant_message,
             delta,
-            tool_call_state,
-            project_config_id,
+            tool_call_accumulator,
+            preview_state,
+            active_project_config_id,
         )
 
     async def _handle_text_deltas(
         self,
         chat_id: ID,
         assistant_message: AssistantChatMessage,
+        stream_assembler: ManagedStreamAssembler,
         delta: Delta,
     ) -> None:
-        text_deltas = self._build_text_deltas(delta, assistant_message)
+        text_deltas = self._build_text_deltas(delta, stream_assembler)
         if not text_deltas:
             return
         if logger.isEnabledFor(logging.DEBUG):
@@ -876,49 +982,27 @@ class LLMChatManager:
                 getattr(delta, "reasoning_content", None),
                 getattr(delta, "thinking_blocks", None),
             )
-        await self.websocket_msg_handler.send_streaming_response(
-            chat_id,
-            MessageDeltaEvent(
-                message_id=assistant_message.id,
-                content=text_deltas,
-            ),
+        await self._apply_actions(
+            [
+                EmitChunkAction(
+                    chat_id,
+                    MessageDeltaEvent(
+                        message_id=assistant_message.id,
+                        content=text_deltas,
+                    ),
+                )
+            ]
         )
 
     def _build_text_deltas(
-        self, delta: Delta, assistant_message: AssistantChatMessage
+        self,
+        delta: Delta,
+        stream_assembler: ManagedStreamAssembler,
     ) -> list[MessageContentDelta]:
         entries = self._collect_stream_entries(delta)
         if not entries:
             return []
-
-        deltas: list[MessageContentDelta] = []
-        for entry in entries:
-            index = self._resolve_content_index(
-                entry.index,
-                assistant_message,
-                entry.kind,
-            )
-
-            if entry.kind == "thinking":
-                block = self._ensure_thinking_content_block(assistant_message, index)
-                if entry.text:
-                    block.thinking += entry.text
-                if entry.signature is not None:
-                    block.signature = entry.signature
-                if entry.has_payload:
-                    deltas.append(
-                        MessageThinkingDelta(
-                            index=index,
-                            thinking=entry.text,
-                            signature=entry.signature,
-                        )
-                    )
-                continue
-
-            block = self._ensure_text_content_block(assistant_message, index)
-            block.text += entry.text
-            deltas.append(MessageTextDelta(index=index, text=entry.text))
-        return deltas
+        return stream_assembler.apply_entries(entries)
 
     def _collect_stream_entries(self, delta: Delta) -> list[StreamContentEntry]:
         primary_entries, has_thinking_payload = self._normalize_primary_entries(delta)
@@ -1064,621 +1148,147 @@ class LLMChatManager:
         chat_id: ID,
         assistant_message: AssistantChatMessage,
         delta: Delta,
-        tool_call_state: ToolCallStreamState,
-        project_config_id: ID,
+        tool_call_accumulator: ManagedToolCallAccumulator,
+        preview_state: ManagedToolArgumentPreviewState,
+        active_project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
             return
 
         for entry in entries:
-            tool_call_event = self._apply_tool_call_delta(
-                assistant_message,
-                entry,
-                tool_call_state,
-            )
+            tool_call_event = tool_call_accumulator.apply_delta(entry)
             if not tool_call_event:
                 continue
-            tokens: list[_PartialJsonStringToken] | None = None
-            buffer = tool_call_state.argument_buffers.get(entry.index, "")
+            arguments_delta = tool_call_event.arguments_delta
+            tokens: list[PartialJsonStringToken] | None = None
+            buffer = tool_call_accumulator.state.argument_buffers.get(entry.index, "")
             tool_name = tool_call_event.tool_name or ""
-            if buffer and tool_name and self._is_setta_tool_name(tool_name):
+            annotations = None
+            if buffer and tool_name and is_setta_tool_name(tool_name):
                 annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
                 if annotations and (
                     annotations.toolArgumentPreview or annotations.aiFollowToolArguments
                 ):
-                    tokens = self._scan_partial_json_strings(buffer)
-            preview_event = self._build_streaming_preview_event(
-                assistant_message,
-                tool_call_state,
-                entry.index,
-                entry.function.arguments,
-                tokens,
+                    tokens = scan_partial_json_strings(buffer)
+            preview_event = build_preview_event(
+                assistant_message=assistant_message,
+                tool_call_state=tool_call_accumulator.state,
+                preview_state=preview_state,
+                tool_call_index=entry.index,
+                arguments_delta=arguments_delta,
+                tokens=tokens,
+                dbe=self.dbe,
+                tool_argument_metadata_by_name=(
+                    {tool_name: annotations.toolArgumentPreview}
+                    if annotations and annotations.toolArgumentPreview
+                    else {}
+                ),
             )
-            await self.websocket_msg_handler.send_streaming_response(
-                chat_id,
-                preview_event or tool_call_event,
+            await self._apply_actions(
+                [EmitChunkAction(chat_id, preview_event or tool_call_event)]
             )
-            await self._maybe_broadcast_streaming_follow_update(
-                project_config_id,
+            await self._maybe_emit_streaming_follow_update(
+                active_project_config_id,
                 chat_id,
                 assistant_message,
-                tool_call_state,
+                tool_call_accumulator.state,
                 {entry.index: tokens} if tokens is not None else None,
             )
 
-    def _apply_tool_call_delta(
+    async def _maybe_emit_streaming_follow_update(
         self,
+        active_project_config_id: ID,
+        chat_id: ID,
         assistant_message: AssistantChatMessage,
-        entry: ChatCompletionDeltaToolCall,
-        tool_call_state: ToolCallStreamState,
-    ) -> ToolCallDeltaEvent | None:
-        index = entry.index
-        if index < 0:
-            raise IndexError
-
-        tool_call = self._ensure_tool_call_entry(assistant_message, index)
-
-        if entry.id:
-            tool_call.id = entry.id
-
-        if entry.function.name:
-            tool_call.function.name = entry.function.name
-
-        buffer = tool_call_state.argument_buffers.get(index, "")
-        buffer += entry.function.arguments
-        tool_call_state.argument_buffers[index] = buffer
-
-        tool_name = tool_call.function.name.strip() or None
-
-        return ToolCallDeltaEvent(
-            message_id=assistant_message.id,
-            tool_call_id=tool_call.id,
-            arguments_delta=entry.function.arguments,
-            tool_name=tool_name,
+        tool_call_state: ManagedToolCallState,
+        tokens_by_index: dict[int, list[PartialJsonStringToken]] | None,
+    ) -> None:
+        ids_by_type = build_streaming_follow_ids(
+            assistant_message=assistant_message,
+            tool_call_state=tool_call_state,
+            tokens_by_index=tokens_by_index,
+            dbe=self.dbe,
+            annotations_by_name=self.mcp_client.tool_annotations_by_name,
+        )
+        if ids_by_type is None:
+            return
+        await self._apply_actions(
+            [
+                UpdateAIFollowAction(
+                    project_config_id=active_project_config_id,
+                    chat_id=chat_id,
+                    ids_by_type=ids_by_type,
+                )
+            ]
         )
 
-    async def _maybe_broadcast_streaming_follow_update(
+    async def _maybe_emit_tool_call_follow_update(
+        self,
+        active_project_config_id: ID,
+        chat_id: ID,
+        tool_calls: list[ToolCall],
+    ) -> None:
+        ids_by_type = build_tool_call_follow_ids(
+            tool_calls=tool_calls,
+            dbe=self.dbe,
+            annotations_by_name=self.mcp_client.tool_annotations_by_name,
+        )
+        if ids_by_type is None:
+            return
+        await self._apply_actions(
+            [
+                UpdateAIFollowAction(
+                    project_config_id=active_project_config_id,
+                    chat_id=chat_id,
+                    ids_by_type=ids_by_type,
+                )
+            ]
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> bool:
+        state = self._ai_follow_state.get((project_config_id, chat_id))
+        if state is None:
+            return False
+        return ids_by_type_to_sets(state.ids_by_type) == ids_by_type_to_sets(
+            ids_by_type
+        )
+
+    async def _update_and_broadcast_ai_follow_update(
         self,
         project_config_id: ID,
         chat_id: ID,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-        tokens_by_index: dict[int, list[_PartialJsonStringToken]] | None,
+        ids_by_type: dict[FollowIdType, list[ID]],
     ) -> None:
-        ids_by_type = self._extract_stream_ids_by_type_from_buffers(
-            assistant_message,
-            tool_call_state,
-            tokens_by_index,
-        )
-        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=True,
-        )
-        if canonical_ids_by_type is None:
-            return
-        await self._update_and_broadcast_ai_follow_update(
-            project_config_id,
+        normalized_ids_by_type = normalize_ids_by_type(ids_by_type)
+        if self._ai_follow_state_matches(
             chat_id,
-            canonical_ids_by_type,
-        )
-
-    def _build_streaming_preview_event(
-        self,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-        tool_call_index: int,
-        arguments_delta: str,
-        tokens: list[_PartialJsonStringToken] | None,
-    ) -> ToolArgumentPreviewDeltaEvent | None:
-        buffer = tool_call_state.argument_buffers.get(tool_call_index)
-        if not buffer:
-            return None
-        tool_calls = assistant_message.tool_calls or []
-        if tool_call_index >= len(tool_calls):
-            return None
-        tool_call = tool_calls[tool_call_index]
-        tool_name = tool_call.function.name.strip()
-        if not tool_name:
-            return None
-        if not self._is_setta_tool_name(tool_name):
-            return None
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.toolArgumentPreview:
-            return None
-        metadata = annotations.toolArgumentPreview
-        if tokens is None:
-            tokens = self._scan_partial_json_strings(buffer)
-        preview_value = self._extract_preview_value_from_tokens(
-            tokens,
-            metadata.previewValuePath,
-        )
-        if preview_value is None:
-            return None
-        target_ids_by_type = self._extract_preview_target_ids_from_tokens(
-            tokens,
-            metadata,
-        )
-        canonical_target_ids_by_type = self._canonicalize_preview_ids_by_type(
-            target_ids_by_type,
-            metadata.targetIdPathsByType,
-        )
-        if canonical_target_ids_by_type is None:
-            return None
-        last_value = tool_call_state.preview_values_by_index.get(tool_call_index, "")
-        preview_value = self._coalesce_preview_value(last_value, preview_value)
-        if last_value and not preview_value.startswith(last_value):
-            return None
-        preview_delta = preview_value[len(last_value) :]
-        last_ids = tool_call_state.preview_target_ids_by_index.get(tool_call_index)
-        ids_match = last_ids is not None and self._preview_ids_by_type_to_sets(
-            last_ids
-        ) == self._preview_ids_by_type_to_sets(canonical_target_ids_by_type)
-        if not preview_delta and ids_match:
-            return None
-        tool_call_state.preview_values_by_index[tool_call_index] = preview_value
-        tool_call_state.preview_target_ids_by_index[tool_call_index] = (
-            canonical_target_ids_by_type
-        )
-        return ToolArgumentPreviewDeltaEvent(
-            message_id=assistant_message.id,
-            tool_call_id=tool_call.id,
-            tool_name=tool_name,
-            arguments_delta=arguments_delta,
-            preview_kind=metadata.previewKind,
-            target_ids_by_type=canonical_target_ids_by_type,
-            preview_value_delta=preview_delta,
-        )
-
-    def _extract_stream_ids_by_type_from_buffers(
-        self,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-        tokens_by_index: dict[int, list[_PartialJsonStringToken]] | None,
-    ) -> dict[FollowIdType, list[ID]]:
-        combined: dict[FollowIdType, set[ID]] = {}
-        tool_calls = assistant_message.tool_calls or []
-        for index, buffer in tool_call_state.argument_buffers.items():
-            if not buffer:
-                continue
-            tool_name = (
-                tool_calls[index].function.name.strip()
-                if index < len(tool_calls)
-                else ""
-            )
-            if not tool_name:
-                continue
-            tokens = tokens_by_index.get(index) if tokens_by_index else None
-            buffer_ids_by_type = self._extract_stream_ids_by_type_from_buffer(
-                buffer,
-                tool_name,
-                tokens,
-            )
-            for id_type, ids in buffer_ids_by_type.items():
-                combined.setdefault(id_type, set()).update(ids)
-        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
-
-    def _extract_stream_ids_by_type_from_paths(
-        self,
-        buffer: str,
-        paths_by_id_type: dict[_ToolIdType, list[str]],
-    ) -> dict[_ToolIdType, set[ID]]:
-        tokens = self._scan_partial_json_strings(buffer)
-        return self._extract_stream_ids_by_type_from_tokens(tokens, paths_by_id_type)
-
-    def _extract_stream_ids_by_type_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        paths_by_id_type: dict[_ToolIdType, list[str]],
-    ) -> dict[_ToolIdType, set[ID]]:
-        keys_by_type: dict[_ToolIdType, set[str]] = {}
-        for id_type, paths in paths_by_id_type.items():
-            for path in paths:
-                if path == "$":
-                    continue
-                segments = [segment for segment in path.split(".") if segment]
-                if not segments:
-                    continue
-                keys_by_type.setdefault(id_type, set()).add(segments[-1])
-        if not keys_by_type:
-            return {}
-        key_to_types: dict[str, set[_ToolIdType]] = {}
-        for id_type, keys in keys_by_type.items():
-            for key in keys:
-                key_to_types.setdefault(key, set()).add(id_type)
-        combined: dict[_ToolIdType, set[ID]] = {}
-        for token in tokens:
-            if not token.is_complete:
-                continue
-            if not token.value:
-                continue
-            owner_key = token.owner_key
-            if not owner_key:
-                continue
-            types_for_key = key_to_types.get(owner_key)
-            if not types_for_key:
-                continue
-            for id_type in types_for_key:
-                combined.setdefault(id_type, set()).add(ID(token.value))
-        return combined
-
-    def _extract_stream_ids_by_type_from_buffer(
-        self,
-        buffer: str,
-        tool_name: str,
-        tokens: list[_PartialJsonStringToken] | None = None,
-    ) -> dict[FollowIdType, set[ID]]:
-        if not self._is_setta_tool_name(tool_name):
-            return {}
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolArguments:
-            return {}
-        metadata = annotations.aiFollowToolArguments
-        if tokens is None:
-            combined = self._extract_stream_ids_by_type_from_paths(
-                buffer,
-                metadata.pathsByIdType,
-            )
-        else:
-            combined = self._extract_stream_ids_by_type_from_tokens(
-                tokens,
-                metadata.pathsByIdType,
-            )
-        return {id_type: ids for id_type, ids in combined.items() if ids}
-
-    def _extract_preview_target_ids_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        metadata: ToolArgumentPreviewMetadata,
-    ) -> dict[ToolArgumentPreviewIdType, list[ID]]:
-        combined = self._extract_stream_ids_by_type_from_tokens(
-            tokens,
-            metadata.targetIdPathsByType,
-        )
-        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
-
-    def _extract_preview_value_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        preview_value_path: str,
-    ) -> str | None:
-        key = self._preview_value_key(preview_value_path)
-        if not key:
-            return None
-        last_value: str | None = None
-        for token in tokens:
-            if token.kind != "value":
-                continue
-            if token.owner_key != key:
-                continue
-            last_value = token.value
-        return last_value
-
-    @staticmethod
-    def _preview_value_key(preview_value_path: str) -> str | None:
-        if preview_value_path == "$":
-            return None
-        segments = [segment for segment in preview_value_path.split(".") if segment]
-        if not segments:
-            return None
-        return segments[-1]
-
-    def _scan_partial_json_strings(
-        self,
-        buffer: str,
-    ) -> list[_PartialJsonStringToken]:
-        tokens: list[_PartialJsonStringToken] = []
-        containers: list[_JsonContainerState] = []
-        # Stateful scan to capture string tokens from partial JSON buffers.
-        i = 0
-        while i < len(buffer):
-            char = buffer[i]
-            if char == '"':
-                value, next_index, is_complete = (
-                    self._parse_partial_json_string_with_end(buffer, i + 1)
-                )
-                container = containers[-1] if containers else None
-                if container and container.kind == "object":
-                    if container.expecting_key:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="key",
-                                owner_key=container.object_key_owner,
-                                is_complete=is_complete,
-                            )
-                        )
-                        if is_complete:
-                            container.pending_key = value
-                            container.expecting_key = False
-                    elif container.expecting_value:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="value",
-                                owner_key=container.pending_key,
-                                is_complete=is_complete,
-                            )
-                        )
-                        if is_complete:
-                            container.pending_key = None
-                            container.expecting_value = False
-                    else:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="value",
-                                owner_key=None,
-                                is_complete=is_complete,
-                            )
-                        )
-                elif container and container.kind == "array":
-                    tokens.append(
-                        _PartialJsonStringToken(
-                            value=value,
-                            kind="value",
-                            owner_key=container.value_owner_key,
-                            is_complete=is_complete,
-                        )
-                    )
-                else:
-                    tokens.append(
-                        _PartialJsonStringToken(
-                            value=value,
-                            kind="value",
-                            owner_key=None,
-                            is_complete=is_complete,
-                        )
-                    )
-                i = next_index
-                if not is_complete:
-                    break
-                continue
-            if char == "{":
-                value_owner_key = None
-                object_key_owner = None
-                if containers:
-                    parent = containers[-1]
-                    if (
-                        parent.kind == "object"
-                        and parent.expecting_value
-                        and parent.pending_key is not None
-                    ):
-                        value_owner_key = parent.pending_key
-                        object_key_owner = parent.pending_key
-                        parent.expecting_value = False
-                        parent.pending_key = None
-                    elif parent.kind == "array":
-                        value_owner_key = parent.value_owner_key
-                containers.append(
-                    _JsonContainerState(
-                        kind="object",
-                        value_owner_key=value_owner_key,
-                        object_key_owner=object_key_owner,
-                        expecting_key=True,
-                    )
-                )
-                i += 1
-                continue
-            if char == "[":
-                value_owner_key = None
-                if containers:
-                    parent = containers[-1]
-                    if (
-                        parent.kind == "object"
-                        and parent.expecting_value
-                        and parent.pending_key is not None
-                    ):
-                        value_owner_key = parent.pending_key
-                        parent.expecting_value = False
-                        parent.pending_key = None
-                    elif parent.kind == "array":
-                        value_owner_key = parent.value_owner_key
-                containers.append(
-                    _JsonContainerState(
-                        kind="array",
-                        value_owner_key=value_owner_key,
-                    )
-                )
-                i += 1
-                continue
-            if char == ":":
-                if containers and containers[-1].kind == "object":
-                    container = containers[-1]
-                    if (
-                        container.pending_key is not None
-                        and not container.expecting_value
-                    ):
-                        container.expecting_value = True
-                i += 1
-                continue
-            if char == ",":
-                if containers and containers[-1].kind == "object":
-                    container = containers[-1]
-                    container.expecting_key = True
-                    container.expecting_value = False
-                    container.pending_key = None
-                i += 1
-                continue
-            if char == "}":
-                if containers and containers[-1].kind == "object":
-                    containers.pop()
-                i += 1
-                continue
-            if char == "]":
-                if containers and containers[-1].kind == "array":
-                    containers.pop()
-                i += 1
-                continue
-            if containers and containers[-1].kind == "object":
-                container = containers[-1]
-                if container.expecting_value and not char.isspace():
-                    i = self._consume_non_string_value(buffer, i, container)
-                    continue
-            i += 1
-        return tokens
-
-    @staticmethod
-    def _consume_non_string_value(
-        buffer: str,
-        start_index: int,
-        container: _JsonContainerState,
-    ) -> int:
-        container.expecting_value = False
-        container.pending_key = None
-        i = start_index
-        while i < len(buffer) and buffer[i] not in ",]}":
-            i += 1
-        return i
-
-    @staticmethod
-    def _parse_partial_json_string_with_end(
-        buffer: str,
-        start_index: int,
-    ) -> tuple[str, int, bool]:
-        parsed: list[str] = []
-        i = start_index
-        while i < len(buffer):
-            char = buffer[i]
-            if char == '"':
-                return "".join(parsed), i + 1, True
-            if char != "\\":
-                parsed.append(char)
-                i += 1
-                continue
-            i += 1
-            if i >= len(buffer):
-                return "".join(parsed), len(buffer), False
-            escape = buffer[i]
-            if escape == '"':
-                parsed.append('"')
-            elif escape == "\\":
-                parsed.append("\\")
-            elif escape == "/":
-                parsed.append("/")
-            elif escape == "b":
-                parsed.append("\b")
-            elif escape == "f":
-                parsed.append("\f")
-            elif escape == "n":
-                parsed.append("\n")
-            elif escape == "r":
-                parsed.append("\r")
-            elif escape == "t":
-                parsed.append("\t")
-            elif escape == "u":
-                if i + 4 >= len(buffer):
-                    return "".join(parsed), len(buffer), False
-                code = buffer[i + 1 : i + 5]
-                if not LLMChatManager._is_hex_digits(code):
-                    return "".join(parsed), len(buffer), False
-                parsed.append(chr(int(code, 16)))
-                i += 5
-                continue
-            else:
-                parsed.append(escape)
-            i += 1
-        return "".join(parsed), len(buffer), False
-
-    @staticmethod
-    def _is_hex_digits(value: str) -> bool:
-        return all(char in string.hexdigits for char in value)
-
-    @staticmethod
-    def _coalesce_preview_value(
-        last_value: str | None,
-        next_value: str,
-    ) -> str:
-        if last_value is None:
-            return next_value
-        if len(next_value) < len(last_value) and last_value.startswith(next_value):
-            return last_value
-        return next_value
-
-    def _preview_ids_by_type_to_sets(
-        self,
-        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
-    ) -> dict[ToolArgumentPreviewIdType, set[ID]]:
-        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
-
-    def _canonicalize_preview_ids_by_type(
-        self,
-        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
-        required_paths_by_type: dict[ToolArgumentPreviewIdType, list[str]],
-    ) -> dict[ToolArgumentPreviewIdType, list[ID]] | None:
-        if not ids_by_type:
-            return None
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        filtered: dict[ToolArgumentPreviewIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            if not ids:
-                continue
-            resolved = [entry for entry in ids if entry in temporary_to_canonical]
-            if resolved:
-                filtered[id_type] = resolved
-        if not filtered:
-            return None
-        for id_type in required_paths_by_type.keys():
-            if id_type not in filtered or not filtered[id_type]:
-                return None
-        return convert_temporary_ids_to_canonical(
-            filtered,
-            temporary_to_canonical,
-        )
-
-    def _ensure_tool_call_entry(
-        self, assistant_message: AssistantChatMessage, index: int
-    ) -> ToolCall:
-        if assistant_message.tool_calls is None:
-            assistant_message.tool_calls = []
-        while len(assistant_message.tool_calls) <= index:
-            assistant_message.tool_calls.append(
-                ToolCall(
-                    function=ToolCallFunction(
-                        name="",
-                        arguments={},
-                    )
-                )
-            )
-        return assistant_message.tool_calls[index]
-
-    async def _finalize_tool_calls(
-        self,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-        chat_id: ID,
-        project_config_id: ID,
-    ) -> None:
-        if not assistant_message.tool_calls:
-            return
-        parsed_tool_calls: list[ToolCall] = []
-        for index, tool_call in enumerate(assistant_message.tool_calls):
-            raw_arguments = tool_call_state.argument_buffers.get(index)
-            if not raw_arguments:
-                continue
-            tool_call.function.arguments = self._parse_tool_call_arguments(
-                raw_arguments, tool_call.id
-            )
-            parsed_tool_calls.append(tool_call)
-        await self._broadcast_ai_follow_update(
             project_config_id,
-            chat_id,
-            parsed_tool_calls,
+            normalized_ids_by_type,
+        ):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        payload_ids_by_type = dict(normalized_ids_by_type)
+        self._ai_follow_state[(project_config_id, chat_id)] = AIFollowState(
+            ids_by_type=payload_ids_by_type
         )
-
-    async def _run_tool_calls(
-        self,
-        chat: Chat,
-        assistant_message: AssistantChatMessage,
-    ) -> list[ToolChatMessage]:
-        if not assistant_message.tool_calls:
-            return []
-
-        results: list[ToolChatMessage] = []
-        for tool_call in assistant_message.tool_calls:
-            result = await self._dispatch_tool_call(chat, tool_call)
-            results.append(result)
-        return results
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
+            chat_id,
+            payload_ids_by_type,
+        )
+        await self._action_executor.apply(
+            UpdateAIFollowAction(
+                project_config_id=project_config_id,
+                chat_id=chat_id,
+                ids_by_type=payload_ids_by_type,
+            )
+        )
 
     def _should_persist_partial_message(
         self,
@@ -1693,629 +1303,3 @@ class LLMChatManager:
         if assistant_message.tool_calls:
             return True
         return False
-
-    async def _dispatch_tool_call(
-        self,
-        chat: Chat,
-        tool_call: ToolCall,
-    ) -> ToolChatMessage:
-        chat_id = chat.id
-        tool_name = tool_call.function.name.strip()
-        if not tool_name:
-            raise ValueError(
-                f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
-            )
-        arguments = dict(tool_call.function.arguments or {})
-        available_tools: dict[str, ChatCompletionToolParam] = {}
-        if tool_name == self._search_tool_name:
-            server_ids = self._resolve_mcp_server_ids(chat.llmConfig)
-            if not server_ids:
-                raise ValueError("Search tool requires configured MCP server IDs.")
-            server_id_set = set(server_ids)
-            available_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
-                server_id_set
-            )
-            annotations_by_name = self.mcp_client.tool_annotations_for_servers(
-                server_id_set
-            )
-            provided_server_ids = arguments.get("serverIds")
-            if provided_server_ids is not None:
-                if not isinstance(provided_server_ids, list):
-                    raise ValueError("serverIds must be a list of strings.")
-                normalized_server_ids: list[str] = []
-                for entry in provided_server_ids:
-                    if not isinstance(entry, str):
-                        raise ValueError("serverIds must be a list of strings.")
-                    normalized = entry.strip()
-                    if not normalized:
-                        raise ValueError("serverIds must be non-empty strings.")
-                    normalized_server_ids.append(normalized)
-                unknown = [
-                    entry for entry in normalized_server_ids if entry not in server_ids
-                ]
-                if unknown:
-                    raise ValueError(
-                        f"serverIds contain unknown MCP servers: {unknown}"
-                    )
-                arguments["serverIds"] = normalized_server_ids
-            else:
-                arguments["serverIds"] = list(server_ids)
-        started_at = get_now_timestamp()
-        if tool_name == self._search_tool_name:
-            call_result = self._run_local_search_tool(
-                arguments=arguments,
-                available_tools=available_tools,
-                annotations_by_name=annotations_by_name,
-            )
-        elif tool_name not in self.mcp_client.routing:
-            logger.warning("MCP tool %s is not registered; skipping call", tool_name)
-            call_result = self._build_missing_tool_result(tool_name)
-        else:
-            try:
-                meta = None
-                if self.share_session_id and self._is_setta_tool_name(tool_name):
-                    meta = {"shareSessionId": self.share_session_id}
-                call_result = await self.mcp_client.call_tool(
-                    tool_name, arguments, meta=meta
-                )
-            except Exception:
-                logger.exception(
-                    "MCP tool invocation failed for chat %s (tool=%s)",
-                    chat_id,
-                    tool_name,
-                )
-                raise
-        completed_at = get_now_timestamp()
-
-        sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        if tool_name == self._search_tool_name and not call_result.isError:
-            tool_chat_message = self._build_search_tool_chat_message(
-                chat_id,
-                tool_name,
-                tool_call,
-                call_result,
-                sanitized_arguments,
-                started_at,
-                completed_at,
-                available_tools,
-            )
-        else:
-            tool_chat_message = ToolChatMessage(
-                tool_call_id=tool_call.id,
-                tool_name=tool_name,
-                arguments=sanitized_arguments,
-                content=call_result.content,
-                is_error=call_result.isError,
-                result=call_result.model_dump(),
-                started_at=started_at,
-                completed_at=completed_at,
-            )
-        await self.websocket_msg_handler.send_streaming_response(
-            chat_id,
-            ToolResultEvent(
-                result=tool_chat_message,
-            ),
-        )
-        await self._maybe_broadcast_ai_follow_tool_result_update(
-            tool_name,
-            call_result,
-            chat.projectConfigId,
-            chat_id,
-        )
-        return tool_chat_message
-
-    def _sanitize_tool_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        _, canonical_to_temporary = self.dbe.read_temporary_id_map()
-        cloned = copy.deepcopy(arguments)
-        converted = convert_existing_canonical_ids_to_temporary(
-            cloned,
-            canonical_to_temporary,
-        )
-        return json.loads(json.dumps(converted))
-
-    def _build_search_tool_chat_message(
-        self,
-        chat_id: ID,
-        tool_name: str,
-        tool_call: ToolCall,
-        call_result: CallToolResult,
-        arguments: dict[str, Any],
-        started_at,
-        completed_at,
-        available_tools: dict[str, ChatCompletionToolParam],
-    ) -> ToolChatMessage:
-        search_results = self._parse_search_tool_results(call_result)
-        definitions = self._build_tool_definitions_from_search_results(
-            search_results,
-            available_tools,
-        )
-        referenced_tool_names = list(definitions.keys())
-        result_payload = call_result.model_dump()
-        result_payload["searchResults"] = search_results
-
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "[chat %s] search tool returned %s tools: %s",
-                chat_id,
-                len(referenced_tool_names),
-                referenced_tool_names,
-            )
-
-        if referenced_tool_names:
-            content_blocks = [
-                ToolReferenceContent(tool_name=name) for name in referenced_tool_names
-            ]
-        else:
-            content_blocks = [
-                TextContent(
-                    type="text",
-                    text=self._format_tool_reference_summary([]),
-                )
-            ]
-
-        return ToolChatMessage(
-            tool_call_id=tool_call.id,
-            tool_name=tool_name,
-            arguments=arguments,
-            content=content_blocks,
-            is_error=call_result.isError,
-            result=result_payload,
-            started_at=started_at,
-            completed_at=completed_at,
-        )
-
-    def _build_missing_tool_result(self, tool_name: str) -> CallToolResult:
-        message = (
-            f"MCP tool '{tool_name}' is not registered. "
-            f"Call '{self._search_tool_name}' to find the correct tool name."
-        )
-        return CallToolResult(
-            content=[TextContent(type="text", text=message)],
-            structuredContent={"error": message, "tool_name": tool_name},
-            isError=True,
-        )
-
-    def _run_local_search_tool(
-        self,
-        *,
-        arguments: dict[str, Any],
-        available_tools: dict[str, ChatCompletionToolParam],
-        annotations_by_name: dict[str, Any],
-    ) -> CallToolResult:
-        query = arguments.get("query", "")
-        if not isinstance(query, str):
-            raise ValueError("query must be a string")
-        normalized_query = query.strip()
-        if normalized_query == "":
-            raise ValueError("query must not be empty")
-        limit = arguments.get("limit")
-        if limit is None:
-            limit = 2
-
-        entries = build_tool_search_entries_from_llm_definitions(
-            available_tools,
-            annotations_by_name,
-        )
-        index = ToolSearchIndex.build(entries)
-        results_payload: list[dict[str, str | None]] = []
-        if index is not None:
-            for result in index.search(normalized_query, limit):
-                results_payload.append(
-                    {
-                        "name": result.name,
-                        "description": result.description,
-                        "category": result.category,
-                    }
-                )
-        structured = {"results": results_payload}
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps(structured))],
-            structuredContent=structured,
-            isError=False,
-        )
-
-    def _parse_search_tool_results(
-        self, call_result: CallToolResult
-    ) -> list[dict[str, str | None]]:
-        payload = call_result.structuredContent
-        if not isinstance(payload, dict):
-            raise ValueError("Search tool must return structured content.")
-
-        results_payload = payload.get("results")
-        if not isinstance(results_payload, list):
-            raise ValueError("Search tool structured content must include results.")
-
-        results: list[dict[str, str | None]] = []
-        for item in results_payload:
-            if not isinstance(item, dict):
-                raise ValueError("Search tool results must be objects.")
-            name = item.get("name")
-            if not isinstance(name, str) or not name.strip():
-                raise ValueError("Search tool result name must be a non-empty string.")
-            description = item.get("description")
-            if not isinstance(description, str):
-                raise ValueError("Search tool result description must be a string.")
-            category = item.get("category")
-            if category is not None and not isinstance(category, str):
-                raise ValueError("Search tool result category must be a string.")
-            results.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "category": category,
-                }
-            )
-        return results
-
-    def _build_tool_definitions_from_search_results(
-        self,
-        search_results: list[dict[str, str | None]],
-        available: dict[str, ChatCompletionToolParam],
-    ) -> dict[str, ChatCompletionToolParam]:
-        definitions: dict[str, ChatCompletionToolParam] = {}
-        for result in search_results:
-            name = result.get("name")
-            if not name:
-                continue
-            definition = available.get(name)
-            if not definition:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "Search tool returned unknown definition '%s'",
-                        name,
-                    )
-                continue
-            definitions[name] = definition
-        return definitions
-
-    def _parse_tool_call_arguments(
-        self, arguments: str, tool_call_id: str
-    ) -> dict[str, Any]:
-        try:
-            data = arguments.strip()
-            if not data:
-                return {}
-            return json.loads(data)
-        except json.JSONDecodeError:
-            logger.warning(
-                "Failed to parse tool call arguments for tool_call_id=%s",
-                tool_call_id,
-                exc_info=True,
-            )
-            return {}
-
-    def _select_values_by_path(self, payload: Any, path: str) -> list[Any]:
-        if path == "$":
-            return [payload]
-        segments = [segment for segment in path.split(".") if segment]
-        current: list[Any] = [payload]
-        for segment in segments:
-            key = segment
-            next_values: list[Any] = []
-            for item in current:
-                if not isinstance(item, dict):
-                    continue
-                if key not in item:
-                    continue
-                value = item[key]
-                next_values.append(value)
-            current = next_values
-            if not current:
-                break
-        return current
-
-    def _collect_ai_follow_ids_from_paths(
-        self,
-        payload: Any,
-        paths_by_id_type: dict[FollowIdType, list[str]],
-        *,
-        allow_dict_keys: bool,
-    ) -> tuple[dict[FollowIdType, set[ID]], set[FollowIdType]]:
-        ids_by_type: dict[FollowIdType, set[ID]] = {}
-        found_types: set[FollowIdType] = set()
-        for id_type, paths in paths_by_id_type.items():
-            for path in paths:
-                values = self._select_values_by_path(payload, path)
-                for value in values:
-                    ids = self._coerce_id_list(value)
-                    if ids is None and allow_dict_keys and isinstance(value, dict):
-                        dict_keys = [
-                            key for key in value.keys() if isinstance(key, str)
-                        ]
-                        ids = self._coerce_id_list(dict_keys)
-                    if ids is None:
-                        continue
-                    found_types.add(id_type)
-                    if ids:
-                        ids_by_type.setdefault(id_type, set()).update(ids)
-        return ids_by_type, found_types
-
-    def _extract_ai_follow_tool_result_ids(
-        self,
-        payload: Any,
-        metadata: AIFollowToolResultMetadata,
-    ) -> dict[FollowIdType, list[ID]]:
-        ids_by_type, _ = self._collect_ai_follow_ids_from_paths(
-            payload,
-            metadata.pathsByIdType,
-            allow_dict_keys=False,
-        )
-        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
-
-    def _extract_ai_follow_tool_argument_ids(
-        self,
-        arguments: dict[str, Any],
-        metadata: AIFollowToolArgumentsMetadata,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        ids_by_type, found_types = self._collect_ai_follow_ids_from_paths(
-            arguments,
-            metadata.pathsByIdType,
-            allow_dict_keys=True,
-        )
-        if not found_types:
-            return None
-        return {
-            id_type: list(ids_by_type.get(id_type, set())) for id_type in found_types
-        }
-
-    def _canonicalize_ai_follow_ids_by_type(
-        self,
-        ids_by_type: dict[FollowIdType, list[ID]],
-        *,
-        filter_to_known: bool,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not ids_by_type:
-            return None
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        if not filter_to_known:
-            return convert_temporary_ids_to_canonical(
-                ids_by_type,
-                temporary_to_canonical,
-            )
-        filtered: dict[FollowIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            resolved = [entry for entry in ids if entry in temporary_to_canonical]
-            if resolved:
-                filtered[id_type] = resolved
-        if not filtered:
-            return None
-        return convert_temporary_ids_to_canonical(
-            filtered,
-            temporary_to_canonical,
-        )
-
-    def _build_ai_follow_tool_result_update(
-        self,
-        tool_name: str,
-        call_result: CallToolResult,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if call_result.isError:
-            return None
-        if not self._is_setta_tool_name(tool_name):
-            return None
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolResult:
-            return None
-        metadata = annotations.aiFollowToolResult
-        text_entry = cast("TextContent", call_result.content[0])
-        text = (text_entry.text or "").strip()
-        payload: Any
-        if all(
-            path == "$" for paths in metadata.pathsByIdType.values() for path in paths
-        ):
-            payload = text
-        else:
-            payload = json.loads(text)
-        ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
-        if not ids_by_type:
-            return None
-        return self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=False,
-        )
-
-    async def _maybe_broadcast_ai_follow_tool_result_update(
-        self,
-        tool_name: str,
-        call_result: CallToolResult,
-        project_config_id: ID,
-        chat_id: ID,
-    ) -> None:
-        canonical_ids_by_type = self._build_ai_follow_tool_result_update(
-            tool_name,
-            call_result,
-        )
-        if canonical_ids_by_type is None:
-            return
-        await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
-            project_config_id,
-            chat_id,
-            canonical_ids_by_type,
-        )
-
-    async def _broadcast_ai_follow_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        tool_calls: list[ToolCall],
-    ) -> None:
-        ids_by_type = self._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
-        if ids_by_type is None:
-            return
-        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=False,
-        )
-        if canonical_ids_by_type is None:
-            return
-        await self._update_and_broadcast_ai_follow_update(
-            project_config_id,
-            chat_id,
-            canonical_ids_by_type,
-        )
-
-    def _normalize_ai_follow_ids_by_type(
-        self, ids_by_type: dict[FollowIdType, list[ID]]
-    ) -> dict[FollowIdType, list[ID]]:
-        normalized: dict[FollowIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            if not ids:
-                continue
-            normalized[id_type] = list(dict.fromkeys(ids))
-        return normalized
-
-    def _ids_by_type_to_sets(
-        self, ids_by_type: dict[FollowIdType, list[ID]]
-    ) -> dict[FollowIdType, set[ID]]:
-        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
-
-    def _ai_follow_state_matches(
-        self,
-        chat_id: ID,
-        project_config_id: ID,
-        ids_by_type: dict[FollowIdType, list[ID]],
-    ) -> bool:
-        if chat_id not in self._ai_follow_state:
-            return False
-        state = self._ai_follow_state[chat_id]
-        if state.project_config_id != project_config_id:
-            return False
-        return self._ids_by_type_to_sets(
-            state.ids_by_type
-        ) == self._ids_by_type_to_sets(ids_by_type)
-
-    async def _update_and_broadcast_ai_follow_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        ids_by_type: dict[FollowIdType, list[ID]],
-    ) -> None:
-        normalized_ids_by_type = self._normalize_ai_follow_ids_by_type(ids_by_type)
-        if self._ai_follow_state_matches(
-            chat_id,
-            project_config_id,
-            normalized_ids_by_type,
-        ):
-            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
-            return
-        payload_ids_by_type = dict(normalized_ids_by_type)
-        self._ai_follow_state[chat_id] = AIFollowState(
-            project_config_id=project_config_id,
-            ids_by_type=payload_ids_by_type,
-        )
-        logger.debug(
-            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
-            chat_id,
-            payload_ids_by_type,
-        )
-        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
-            project_config_id,
-            chat_id,
-            payload_ids_by_type,
-        )
-
-    def _collect_ai_follow_ids_by_type_from_tool_calls(
-        self,
-        tool_calls: list[ToolCall],
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not tool_calls:
-            return None
-        combined: dict[FollowIdType, set[ID]] = {}
-        found_any = False
-        for tool_call in tool_calls:
-            tool_name = tool_call.function.name.strip()
-            if not tool_name:
-                continue
-            arguments = tool_call.function.arguments or {}
-            ids_by_type = self._extract_ai_follow_ids_by_type_for_tool(
-                tool_name,
-                arguments,
-            )
-            if ids_by_type is None:
-                continue
-            found_any = True
-            for id_type, ids in ids_by_type.items():
-                combined.setdefault(id_type, set()).update(ids)
-        if not found_any:
-            return None
-        return {id_type: list(ids) for id_type, ids in combined.items()}
-
-    def _extract_ai_follow_ids_by_type_for_tool(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not self._is_setta_tool_name(tool_name):
-            return None
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolArguments:
-            return None
-        return self._extract_ai_follow_tool_argument_ids(
-            arguments,
-            annotations.aiFollowToolArguments,
-        )
-
-    @staticmethod
-    def _is_setta_tool_name(tool_name: str) -> bool:
-        server_id, _ = split_namespaced_tool_name(tool_name)
-        return server_id == SETTA_MCP_SERVER_ID
-
-    def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
-        if isinstance(raw_value, list):
-            return [
-                ID(value) for value in raw_value if isinstance(value, str) and value
-            ]
-        if isinstance(raw_value, str):
-            return [ID(raw_value)] if raw_value else []
-        return None
-
-    def _resolve_content_index(
-        self,
-        provided_index: Any,
-        assistant_message: AssistantChatMessage,
-        kind: Literal["text", "thinking"],
-    ) -> int:
-        if isinstance(provided_index, int) and provided_index >= 0:
-            return provided_index
-
-        content = assistant_message.content
-        if not content:
-            return 0
-
-        last_index = len(content) - 1
-        last_block = content[last_index]
-
-        # Keep extending the current block when the provider keeps streaming the
-        # same content type; otherwise append and hand back a fresh slot.
-        if kind == "thinking" and isinstance(last_block, MessageThinkingContent):
-            return last_index
-        if kind == "text" and isinstance(last_block, MessageTextContent):
-            return last_index
-
-        return len(content)
-
-    def _ensure_text_content_block(
-        self,
-        assistant_message: AssistantChatMessage,
-        index: int,
-    ) -> MessageTextContent:
-        while len(assistant_message.content) <= index:
-            assistant_message.content.append(MessageTextContent(type="text", text=""))
-        block = assistant_message.content[index]
-        if not isinstance(block, MessageTextContent):
-            block = MessageTextContent(type="text", text="")
-            assistant_message.content[index] = block
-        return block
-
-    def _ensure_thinking_content_block(
-        self,
-        assistant_message: AssistantChatMessage,
-        index: int,
-    ) -> MessageThinkingContent:
-        while len(assistant_message.content) <= index:
-            assistant_message.content.append(MessageThinkingContent())
-        block = assistant_message.content[index]
-        if not isinstance(block, MessageThinkingContent):
-            block = MessageThinkingContent()
-            assistant_message.content[index] = block
-        return block
