@@ -1,4 +1,3 @@
-import argparse
 import base64
 import importlib
 import os
@@ -15,15 +14,13 @@ def _load_pillow_modules():
     return image_module, image_ops_module
 
 
-def resolve_project_name(arg_value: str | None) -> str:
-    if arg_value:
-        return arg_value
-    env_value = os.environ.get("SETTA_PROJECT_NAME")
-    if env_value:
-        return env_value
-    raise ValueError(
-        "Project name is required. Pass --project-name or set SETTA_PROJECT_NAME."
-    )
+def _default_project_name() -> str:
+    project_name = os.environ.get("SETTA_PROJECT_NAME")
+    if not project_name:
+        raise ValueError(
+            "Project name required. Set SETTA_PROJECT_NAME before running."
+        )
+    return project_name
 
 
 def _reverse_image_data(value: str) -> str:
@@ -66,17 +63,7 @@ def _build_listener(project_name: str) -> SettaListener:
 
 def main() -> None:
     configure_listener_logging(level_override="DEBUG")
-    parser = argparse.ArgumentParser(
-        description="Manual listener that mirrors the drawing artifact."
-    )
-    parser.add_argument(
-        "--project-name",
-        default=None,
-        help="Project config name to watch. "
-        "Required unless SETTA_PROJECT_NAME is set.",
-    )
-    args = parser.parse_args()
-    listener = _build_listener(resolve_project_name(args.project_name))
+    listener = _build_listener(_default_project_name())
     listener.start()
 
 

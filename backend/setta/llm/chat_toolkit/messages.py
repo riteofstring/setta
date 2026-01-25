@@ -20,14 +20,9 @@ def message_text(text: str) -> MessageTextContent:
 def message_thinking(
     thinking: str,
     *,
-    summary: str | None = None,
     signature: str | None = None,
 ) -> MessageThinkingContent:
-    return MessageThinkingContent(
-        thinking=thinking,
-        summary=summary,
-        signature=signature,
-    )
+    return MessageThinkingContent(thinking=thinking, signature=signature)
 
 
 def message_image_url(
