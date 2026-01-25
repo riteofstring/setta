@@ -264,3 +264,61 @@ class ExternalAgentSettingsTests(unittest.TestCase):
                     "http://example.com",
                 )
             self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+
+    def test_build_opencode_settings_file_forces_openai_text_verbosity(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            base_path = Path(tmpdir) / "opencode-verbosity.json"
+            base_payload = {
+                "provider": {
+                    "openai": {
+                        "models": {
+                            "gpt-5.2-chat-latest": {
+                                "options": {"text": {"verbosity": "low"}}
+                            }
+                        }
+                    }
+                }
+            }
+            base_path.write_text(json.dumps(base_payload), encoding="utf-8")
+            config = ExternalAgentConfig(
+                id="opencode-verbosity",
+                name="OpenCode",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                settingsMode=ExternalAgentSettingsMode.explicit_path,
+                settingsFilePath=str(base_path),
+                settingsAllowSettaEdits=True,
+            )
+
+            output_path = build_opencode_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+            )
+
+            output_payload = json.loads(output_path.read_text(encoding="utf-8"))
+            provider = output_payload.get("provider")
+            self.assertIsInstance(provider, dict)
+            if not isinstance(provider, dict):
+                self.fail("Expected provider to be a dict.")
+            openai = provider.get("openai")
+            self.assertIsInstance(openai, dict)
+            if not isinstance(openai, dict):
+                self.fail("Expected provider.openai to be a dict.")
+            models = openai.get("models")
+            self.assertIsInstance(models, dict)
+            if not isinstance(models, dict):
+                self.fail("Expected provider.openai.models to be a dict.")
+            model_entry = models.get("gpt-5.2-chat-latest")
+            self.assertIsInstance(model_entry, dict)
+            if not isinstance(model_entry, dict):
+                self.fail("Expected provider.openai.models entry to be a dict.")
+            options = model_entry.get("options")
+            self.assertIsInstance(options, dict)
+            if not isinstance(options, dict):
+                self.fail("Expected provider.openai.models.options to be a dict.")
+            self.assertEqual(options.get("textVerbosity"), "medium")
+            self.assertNotIn("text", options)

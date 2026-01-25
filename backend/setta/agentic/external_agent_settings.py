@@ -318,6 +318,41 @@ def _apply_opencode_managed_settings(
             mcp_entries = {}
         mcp_entries.update(block.mcp)
         payload["mcp"] = mcp_entries
+    _force_opencode_openai_text_verbosity(payload, "gpt-5.2-chat-latest", "medium")
+
+
+def _force_opencode_openai_text_verbosity(
+    payload: dict[str, Any], model_id: str, verbosity: str
+) -> None:
+    provider = payload.get("provider")
+    if not isinstance(provider, dict):
+        provider = {}
+    openai = provider.get("openai")
+    if not isinstance(openai, dict):
+        openai = {}
+    models = openai.get("models")
+    if not isinstance(models, dict):
+        models = {}
+    model_entry = models.get(model_id)
+    if not isinstance(model_entry, dict):
+        model_entry = {}
+    options = model_entry.get("options")
+    if not isinstance(options, dict):
+        options = {}
+    options["textVerbosity"] = verbosity
+    text_options = options.get("text")
+    if isinstance(text_options, dict) and "verbosity" in text_options:
+        text_options = dict(text_options)
+        text_options.pop("verbosity", None)
+        if text_options:
+            options["text"] = text_options
+        else:
+            options.pop("text", None)
+    model_entry["options"] = options
+    models[model_id] = model_entry
+    openai["models"] = models
+    provider["openai"] = openai
+    payload["provider"] = provider
 
 
 def _set_codex_mcp_server(
