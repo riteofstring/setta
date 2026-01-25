@@ -15,6 +15,7 @@ from setta.agentic.external_adapters.base import (
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
+    _PendingApproval,
 )
 from setta.agentic.external_agent_defaults import (
     DEFAULT_CLAUDE_ALLOW_RULES,
@@ -187,6 +188,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 payload_inputs=payload_inputs,
                 env=env,
                 cleanup_paths=cleanup_paths,
+                system_prompt="",
             )
 
             mcp_config = payload_inputs.get("mcpConfig")
@@ -199,8 +201,8 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             permissions = payload.get("permissions")
             self.assertIsInstance(permissions, dict)
-                if isinstance(permissions, dict):
-                    self.assertEqual(permissions.get("ask"), ["Bash(rm:*)"])
+            if isinstance(permissions, dict):
+                self.assertEqual(permissions.get("ask"), ["Bash(rm:*)"])
 
     def test_configure_external_tools_writes_default_claude_allowlist(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -226,6 +228,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 payload_inputs=payload_inputs,
                 env=env,
                 cleanup_paths=cleanup_paths,
+                system_prompt="",
             )
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
@@ -688,6 +691,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
+            dbe.dot_env = Path(tmpdir) / ".env"
             dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
@@ -1019,6 +1023,49 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
                 "approval-1",
             )
 
+    async def test_codex_approval_request_preserves_tool_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            payload = {
+                "type": "approval_request",
+                "approvalId": "approval-codex-1",
+                "toolName": "commandExecution",
+                "tool": "commandExecution",
+                "method": "item/commandExecution/requestApproval",
+                "params": {
+                    "item": {
+                        "type": "commandExecution",
+                        "command": "ls",
+                    }
+                },
+                "command": "ls",
+                "input": {"command": "ls"},
+            }
+
+            await runner._handle_approval_request(context, run, payload)
+
+            messages = run.outputs.get("messages") if run.outputs else None
+            self.assertIsInstance(messages, list)
+            self.assertTrue(messages)
+            tool_calls = messages[-1].get("tool_calls")
+            self.assertIsInstance(tool_calls, list)
+            self.assertTrue(tool_calls)
+            arguments = tool_calls[0]["function"]["arguments"]
+            self.assertEqual(arguments.get("approvalId"), "approval-codex-1")
+            self.assertEqual(arguments.get("toolName"), "commandExecution")
+            self.assertEqual(arguments.get("tool"), "commandExecution")
+            self.assertEqual(arguments.get("input"), {"command": "ls"})
+
     async def test_respond_to_approval_emits_tool_result(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1047,6 +1094,12 @@ class ExternalAgentRunnerApprovalTests(unittest.IsolatedAsyncioTestCase):
             )
             adapter = ClaudeSdkAdapter()
             handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            pending = _PendingApproval(
+                future=asyncio.get_running_loop().create_future(),
+                tool_name="Bash",
+                tool_input={},
+            )
+            handle.metadata["pending_approvals"] = {"approval-1": pending}
             runner._run_state[run.id] = ExternalAgentRunState(
                 handle=handle,
                 adapter=adapter,
@@ -1294,6 +1347,12 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
             adapter = ClaudeSdkAdapter()
             handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            pending = _PendingApproval(
+                future=asyncio.get_running_loop().create_future(),
+                tool_name="AskUserQuestion",
+                tool_input={},
+            )
+            handle.metadata["pending_approvals"] = {"question-1": pending}
             runner._run_state[run.id] = ExternalAgentRunState(
                 handle=handle,
                 adapter=adapter,
@@ -1357,6 +1416,12 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
             adapter = ClaudeSdkAdapter()
             handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            pending = _PendingApproval(
+                future=asyncio.get_running_loop().create_future(),
+                tool_name="AskUserQuestion",
+                tool_input={},
+            )
+            handle.metadata["pending_approvals"] = {"question-1": pending}
             runner._run_state[run.id] = ExternalAgentRunState(
                 handle=handle,
                 adapter=adapter,
@@ -1415,18 +1480,15 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
             save_agent_run(dbe, run)
 
-            output_path = Path(tmpdir) / "tool_response.jsonl"
-            process = await asyncio.create_subprocess_exec(
-                sys.executable,
-                "-c",
-                "import sys; from pathlib import Path; Path(sys.argv[1]).write_text(sys.stdin.read())",
-                str(output_path),
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
             adapter = ClaudeSdkAdapter()
-            handle = ExternalAgentRunHandle(run_id=run.id, process=process)
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            pending_future = asyncio.get_running_loop().create_future()
+            pending = _PendingApproval(
+                future=pending_future,
+                tool_name="AskUserQuestion",
+                tool_input={},
+            )
+            handle.metadata["pending_approvals"] = {"approval-1": pending}
             runner._run_state[run.id] = ExternalAgentRunState(
                 handle=handle,
                 adapter=adapter,
@@ -1440,17 +1502,15 @@ class ExternalAgentRunnerQuestionTests(unittest.IsolatedAsyncioTestCase):
             )
             answers = {"Language": "Python"}
 
-            try:
-                await runner.respond_to_question("question-1", answers)
-            finally:
-                process.terminate()
-                await process.wait()
+            await runner.respond_to_question("question-1", answers)
 
-            payload_lines = output_path.read_text().strip().splitlines()
-            self.assertTrue(payload_lines)
-            payload = json.loads(payload_lines[-1])
-            self.assertEqual(payload.get("type"), "tool_response")
-            self.assertEqual(payload.get("toolCallId"), "approval-1")
+            self.assertTrue(pending_future.done())
+            decision = pending_future.result()
+            self.assertTrue(decision.approved)
+            self.assertEqual(decision.updated_input, {"answers": answers})
+            pending_map = handle.metadata.get("pending_approvals")
+            if isinstance(pending_map, dict):
+                self.assertNotIn("approval-1", pending_map)
 
 
 class ExternalAgentRunnerClaudeCaptureTests(unittest.IsolatedAsyncioTestCase):
@@ -1841,66 +1901,69 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
             if isinstance(cookie, str):
                 self.assertIn(f"{C.AUTH_COOKIE_NAME}=", cookie)
 
-    async def test_assistant_payload_persists_tool_calls(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
+    def test_assistant_payload_persists_tool_calls(self) -> None:
+        async def _run() -> None:
+            with TemporaryDirectory() as tmpdir:
+                dbe = _build_dbe(tmpdir)
+                _write_project_state(dbe)
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Claude SDK",
+                    toolType=ExternalAgentToolType.claude_code,
+                    runMode=ExternalAgentRunMode.sdk,
+                )
+                context = _build_context_for_test(runner, config)
+                run = context.run
 
-            await _apply_claude_payloads(
-                runner,
-                context,
-                run,
-                [
-                    {
-                        "type": "assistant",
-                        "message": {
-                            "id": "msg-full-1",
-                            "content": [
-                                {"type": "text", "text": "Hi"},
-                                {
-                                    "type": "thinking",
-                                    "thinking": "Plan",
-                                    "summary": "Plan summary",
-                                },
-                                {
-                                    "type": "tool_use",
-                                    "id": "toolu-2",
-                                    "name": "Read",
-                                    "input": {"path": "README.md"},
-                                },
-                            ],
-                        },
-                    }
-                ],
-            )
+                await _apply_claude_payloads(
+                    runner,
+                    context,
+                    run,
+                    [
+                        {
+                            "type": "assistant",
+                            "message": {
+                                "id": "msg-full-1",
+                                "content": [
+                                    {"type": "text", "text": "Hi"},
+                                    {
+                                        "type": "thinking",
+                                        "thinking": "Plan",
+                                        "summary": "Plan summary",
+                                    },
+                                    {
+                                        "type": "tool_use",
+                                        "id": "toolu-2",
+                                        "name": "Read",
+                                        "input": {"path": "README.md"},
+                                    },
+                                ],
+                            },
+                        }
+                    ],
+                )
 
-            updated = load_agent_run(dbe, run.id)
-            self.assertIsNotNone(updated)
-            if updated is None:
-                return
-            outputs = updated.outputs
-            self.assertIsInstance(outputs, dict)
-            self.assertEqual(outputs.get("finalText"), "Hi")
-            messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
-            assistant = next(
-                message
-                for message in messages
-                if isinstance(message, dict) and message.get("role") == "assistant"
-            )
-            tool_calls = assistant.get("tool_calls")
-            self.assertIsInstance(tool_calls, list)
-            self.assertEqual(len(tool_calls), 1)
-            self.assertEqual(tool_calls[0].get("id"), "toolu-2")
-            function = tool_calls[0].get("function")
-            self.assertIsInstance(function, dict)
-            self.assertEqual(function.get("name"), "Read")
-            self.assertEqual(function.get("arguments"), {"path": "README.md"})
+                updated = load_agent_run(dbe, run.id)
+                self.assertIsNotNone(updated)
+                if updated is None:
+                    return
+                outputs = updated.outputs
+                self.assertIsInstance(outputs, dict)
+                self.assertEqual(outputs.get("finalText"), "Hi")
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                assistant = next(
+                    message
+                    for message in messages
+                    if isinstance(message, dict) and message.get("role") == "assistant"
+                )
+                tool_calls = assistant.get("tool_calls")
+                self.assertIsInstance(tool_calls, list)
+                self.assertEqual(len(tool_calls), 1)
+                self.assertEqual(tool_calls[0].get("id"), "toolu-2")
+                function = tool_calls[0].get("function")
+                self.assertIsInstance(function, dict)
+                self.assertEqual(function.get("name"), "Read")
+                self.assertEqual(function.get("arguments"), {"path": "README.md"})
+
+        asyncio.run(_run())

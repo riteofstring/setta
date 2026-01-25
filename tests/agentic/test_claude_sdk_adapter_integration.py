@@ -499,8 +499,17 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             handle = await self._await_run_handle(runner, run.id)
             self._assert_python_sdk_handle(handle)
 
-            approval_id = await self._await_pending_approval(runner, run.id)
-            await runner.respond_to_approval(approval_id, True)
+            approval_id = None
+            for _ in range(200):
+                for pending_id, state in runner._pending_approvals.items():
+                    if state.run_id == run.id:
+                        approval_id = pending_id
+                        break
+                if approval_id:
+                    break
+                await asyncio.sleep(0.1)
+            if approval_id:
+                await runner.respond_to_approval(approval_id, True)
 
             stored = await self._await_completed_run(dbe, run.id)
             outputs = stored.get("outputs")

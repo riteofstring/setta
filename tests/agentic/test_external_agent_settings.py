@@ -184,6 +184,42 @@ class ExternalAgentSettingsTests(unittest.TestCase):
             self.assertEqual(output_payload.get("cli_auth_credentials_store"), "file")
             self.assertEqual(output_payload.get("model_reasoning_summary"), "none")
 
+    def test_build_codex_settings_file_appends_system_prompt(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            base_path = Path(tmpdir) / "codex-base.toml"
+            base_path.write_text(
+                'developer_instructions = "Base instructions"\n',
+                encoding="utf-8",
+            )
+            config = ExternalAgentConfig(
+                id="codex-system",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                settingsMode=ExternalAgentSettingsMode.explicit_path,
+                settingsFilePath=str(base_path),
+                settingsAllowSettaEdits=False,
+            )
+            original = base_path.read_text(encoding="utf-8")
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt="Setta instructions",
+            )
+
+            output_path = output_dir / "config.toml"
+            output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                output_payload.get("developer_instructions"),
+                "Setta instructions\n\nBase instructions",
+            )
+            self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+
     def test_build_opencode_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

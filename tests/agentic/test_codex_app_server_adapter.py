@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from setta.agentic.external_adapters.codex_app_server import (
+    CodexAppServerAdapter,
     _CodexAppServerEventParser,
     _build_approval_payload,
     _build_turn_params,
@@ -10,6 +11,12 @@ from setta.agentic.external_adapters.codex_app_server import (
 )
 from setta.agentic.external_adapters.base import ExternalAgentRunContext
 from setta.types.agentic import AgentRun
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    SystemChatMessage,
+    UserChatMessage,
+)
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -74,7 +81,10 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
             }
         )
         events = parser.handle(
-            {"method": "item/completed", "params": {"item": {"id": "msg-3"}}}
+            {
+                "method": "item/completed",
+                "params": {"item": {"id": "msg-3", "type": "agentMessage"}},
+            }
         )
 
         self.assertEqual(len(events), 2)
@@ -302,6 +312,50 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
         self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
 
 
+class CodexAppServerAdapterPromptTests(unittest.TestCase):
+    def test_build_prompt_omits_system_messages(self) -> None:
+        adapter = CodexAppServerAdapter()
+        config = ExternalAgentConfig(
+            name="Codex",
+            toolType=ExternalAgentToolType.codex,
+            runMode=ExternalAgentRunMode.app_server,
+        )
+        messages = [
+            SystemChatMessage(content=[MessageTextContent(text="System message")]),
+            UserChatMessage(content=[MessageTextContent(text="User request")]),
+            AssistantChatMessage(content=[MessageTextContent(text="Assistant reply")]),
+        ]
+        raw_messages = [message.model_dump(mode="json") for message in messages]
+        raw_messages.append(
+            {
+                "role": "developer",
+                "content": [{"type": "text", "text": "Developer note"}],
+            }
+        )
+        inputs = {"messages": raw_messages, "prompt": "Extra prompt."}
+        context = ExternalAgentRunContext(
+            run=AgentRun(),
+            config=config,
+            profile=None,
+            project_config_id=ID("project-1"),
+            chat_id=ID("chat-1"),
+            section_id=None,
+            inputs=inputs,
+            system_prompt="Ignored",
+            working_dir=Path("."),
+            env={},
+        )
+
+        prompt = adapter._build_prompt(context)
+
+        self.assertIn("User:\nUser request", prompt)
+        self.assertIn("Assistant:\nAssistant reply", prompt)
+        self.assertIn("Extra prompt.", prompt)
+        self.assertNotIn("System message", prompt)
+        self.assertNotIn("Developer note", prompt)
+        self.assertNotIn("System:\n", prompt)
+
+
 class CodexAppServerAdapterMappingTests(unittest.TestCase):
     def test_build_turn_params_maps_policy_and_sandbox(self) -> None:
         config = ExternalAgentConfig(
@@ -405,3 +459,38 @@ class CodexAppServerAdapterMappingTests(unittest.TestCase):
         self.assertIsInstance(input_payload, dict)
         if isinstance(input_payload, dict):
             self.assertEqual(input_payload.get("diff"), "---\n+++")
+
+    def test_build_turn_params_includes_effort_summary_and_schema(self) -> None:
+        config = ExternalAgentConfig(
+            name="Codex",
+            toolType=ExternalAgentToolType.codex,
+            runMode=ExternalAgentRunMode.app_server,
+        )
+        output_schema = {
+            "type": "object",
+            "properties": {"status": {"type": "string"}},
+            "required": ["status"],
+        }
+        context = ExternalAgentRunContext(
+            run=AgentRun(),
+            config=config,
+            profile=None,
+            project_config_id=ID("project-1"),
+            chat_id=ID("chat-1"),
+            section_id=None,
+            inputs={
+                "effort": "low",
+                "summary": "auto",
+                "outputSchema": output_schema,
+            },
+            system_prompt="",
+            working_dir=Path("workspace"),
+            env={},
+        )
+
+        params = _build_turn_params(context, "hello", "thread-1")
+
+        self.assertEqual(params.get("effort"), "low")
+        self.assertEqual(params.get("summary"), "auto")
+        self.assertEqual(params.get("outputSchema"), output_schema)
+        self.assertEqual(params.get("cwd"), str(context.working_dir))

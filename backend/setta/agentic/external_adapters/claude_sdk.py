@@ -508,9 +508,11 @@ def _pop_pending_approval(
     pending = handle.metadata.get("pending_approvals")
     if not isinstance(pending, dict):
         return None
-    entry = pending.get(approval_id)
+    entry = pending.pop(approval_id, None)
     if isinstance(entry, _PendingApproval):
         return entry
+    if entry is not None:
+        pending[approval_id] = entry
     return None
 
 
