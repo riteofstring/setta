@@ -442,6 +442,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
+            await self.mcp_server.start_streamable_manager()
             if not self.mcp_client.disabled:
                 spawn_background_task(
                     self.mcp_client.connect_to_servers(),

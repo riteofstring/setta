@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import unittest
 from types import SimpleNamespace
@@ -5,6 +6,7 @@ import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from mcp.server.fastmcp.server import Context
 from setta.llm.chat_toolkit.managed.tool_runner import build_execute_tool_calls_action
 from setta.llm.chat_store import AgentRunChatStore
@@ -155,6 +157,30 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                         "create_top_level_section"
                     ),
                 )
+
+    async def test_streamable_http_manager_initializes_on_startup(self) -> None:
+        async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
+            app = FastAPI()
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+            setta_state = _build_state(fixture, settings_fixture, frontend_sender)
+
+            mcp_server = SettaFastMCP(
+                app,
+                setta_state,
+                "/mcp-test",
+                "Test MCP Server",
+                frontend_sender,
+                fixture.dbe,
+            )
+            setta_state.mcp_server = mcp_server
+
+            def _post_streamable_request() -> int:
+                with TestClient(app) as client:
+                    response = client.post("/mcp-test/streamable/", json={})
+                    return response.status_code
+
+            status_code = await asyncio.to_thread(_post_streamable_request)
+            self.assertLess(status_code, 500)
 
     async def test_chat_manager_returns_tool_references_from_search(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:

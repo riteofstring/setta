@@ -578,35 +578,36 @@ class SettaFastMCP(FastMCP):
         return super().streamable_http_app()
 
     def _register_streamable_manager(self, app: FastAPI) -> None:
+        app.add_event_handler("startup", self.start_streamable_manager)
+        app.add_event_handler("shutdown", self.stop_streamable_manager)
+
+    async def start_streamable_manager(self) -> None:
+        if self._streamable_manager_task is not None:
+            return
         session_manager = self.session_manager
-        stop_event = asyncio.Event()
-        self._streamable_stop_event = stop_event
+        if self._streamable_stop_event is None:
+            self._streamable_stop_event = asyncio.Event()
+        stop_event = self._streamable_stop_event
 
         async def _run_manager() -> None:
             async with session_manager.run():
                 await stop_event.wait()
 
-        async def _start_manager() -> None:
-            if self._streamable_manager_task is not None:
-                return
-            self._streamable_manager_task = asyncio.create_task(_run_manager())
+        self._streamable_manager_task = asyncio.create_task(_run_manager())
 
-        async def _stop_manager() -> None:
-            if self._streamable_stop_event is None:
-                return
-            self._streamable_stop_event.set()
-            await self.terminate_streamable_sessions()
-            if self._streamable_manager_task is not None:
-                try:
-                    await asyncio.wait_for(self._streamable_manager_task, timeout=5)
-                except asyncio.TimeoutError:
-                    self._streamable_manager_task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await self._streamable_manager_task
-            self._streamable_manager_task = None
-
-        app.add_event_handler("startup", _start_manager)
-        app.add_event_handler("shutdown", _stop_manager)
+    async def stop_streamable_manager(self) -> None:
+        if self._streamable_stop_event is None:
+            return
+        self._streamable_stop_event.set()
+        await self.terminate_streamable_sessions()
+        if self._streamable_manager_task is not None:
+            try:
+                await asyncio.wait_for(self._streamable_manager_task, timeout=5)
+            except asyncio.TimeoutError:
+                self._streamable_manager_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._streamable_manager_task
+        self._streamable_manager_task = None
 
     async def terminate_streamable_sessions(self) -> None:
         session_manager = getattr(self, "_session_manager", None)
