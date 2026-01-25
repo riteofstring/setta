@@ -366,6 +366,7 @@ class WatchCodeManager:
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         self._notified_import_failures: set[str] = set()
+        self._pending_moves: dict[tuple[ID, Path], Path] = {}
         self._started = False
         self._handler = WatchCodeEventHandler(
             self._get_loop,
@@ -520,10 +521,13 @@ class WatchCodeManager:
                     dest_path, snapshot.files, snapshot.folders
                 ):
                     continue
+                self._pending_moves[(project_config_id, normalize_path(dest_path))] = (
+                    normalize_path(path)
+                )
                 self._debounce_scan(
                     project_config_id,
                     dest_path,
-                    baseline_only=True,
+                    baseline_only=False,
                 )
             return
 
@@ -572,12 +576,34 @@ class WatchCodeManager:
         if raw is None:
             return
         project_state = self._project_manager.get_single_config_state(project_config_id)
+        did_move_update = False
+        move_key = (project_config_id, normalize_path(path))
+        moved_from = self._pending_moves.pop(move_key, None)
+        if moved_from is not None:
+            project_config = project_state.projectConfig
+            dest_key = str(normalize_path(path))
+            registry = project_config.watchCodeRegistry
+            baseline = project_config.watchCodeBaselineByPath
+            dest_known = dest_key in baseline or any(
+                entry.sourcePath == dest_key for entry in registry.values()
+            )
+            if not dest_known:
+                parsed_callables = parse_python_callables(raw, path)
+                baseline[dest_key] = [entry.identity for entry in parsed_callables]
+                src_key = str(normalize_path(moved_from))
+                if src_key in baseline:
+                    baseline.pop(src_key, None)
+                for entry in registry.values():
+                    if entry.sourcePath == src_key:
+                        entry.sourcePath = dest_key
+                did_move_update = True
         did_update = await self._apply_callable_updates(
             project_state,
             path,
             raw,
             baseline_only=baseline_only,
         )
+        did_update = did_update or did_move_update
         if did_update and not baseline_only:
             await self._project_manager.update_and_broadcast_project_state(
                 project_state

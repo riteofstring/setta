@@ -31,6 +31,7 @@ from setta.types.project_config import (
     ProjectConfig,
     TopLevelSectionLayout,
     WatchCodeCallableKind,
+    WatchCodeFolder,
 )
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -290,6 +291,77 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         callable_name = f"{module_path}.external_added"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+
+    async def test_moved_file_does_not_create_sections_for_existing_callables(
+        self,
+    ) -> None:
+        bulk_path = self.setta_root.parent / "bulk_watch.py"
+        bulk_path.write_text(
+            "def alpha():\n    return 1\n\n"
+            "def beta(value):\n    return value\n\n"
+            "def gamma(value):\n    return value + 1\n"
+        )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(
+                        path=str(self.setta_root.parent),
+                        recursive=True,
+                    )
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        updated_code = (
+            bulk_path.read_text()
+            + "\n\ndef watched(flag):\n    return not flag\n"
+        )
+        bulk_path.write_text(updated_code)
+        await self.manager.watch_code_manager._scan_file(
+            self.project_config_id,
+            bulk_path,
+            baseline_only=False,
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(bulk_path))
+        watched_identity = build_callable_identity(
+            f"{module_path}.watched", WatchCodeCallableKind.function
+        )
+        self.assertIn(watched_identity, state.projectConfig.watchCodeRegistry)
+        self.assertEqual(len(state.projectConfig.watchCodeRegistry), 1)
+
+        moved_path = bulk_path.with_name("bulk_watch_moved.py")
+        bulk_path.replace(moved_path)
+        self.manager.watch_code_manager._handle_event(
+            bulk_path, "moved", moved_path
+        )
+        debouncer_key = (self.project_config_id, normalize_path(moved_path))
+        debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
+        await debouncer.flush(
+            self.project_config_id, normalize_path(moved_path), False
+        )
+
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        moved_module_path = convert_path_to_module_path(
+            normalize_path(moved_path)
+        )
+        moved_identity = build_callable_identity(
+            f"{moved_module_path}.watched", WatchCodeCallableKind.function
+        )
+        self.assertIn(moved_identity, updated_state.projectConfig.watchCodeRegistry)
+        self.assertEqual(len(updated_state.projectConfig.watchCodeRegistry), 1)
+        entry = updated_state.projectConfig.watchCodeRegistry[moved_identity]
+        self.assertEqual(entry.sourcePath, str(normalize_path(moved_path)))
+        baseline = updated_state.projectConfig.watchCodeBaselineByPath
+        self.assertIn(str(normalize_path(moved_path)), baseline)
+        self.assertNotIn(str(normalize_path(bulk_path)), baseline)
 
     async def test_signature_change_updates_registry(self) -> None:
         await self.manager.set_watch_code_enabled(
