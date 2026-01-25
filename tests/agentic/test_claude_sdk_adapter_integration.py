@@ -263,6 +263,120 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             await self._await_completed_run(dbe, run.id)
 
+    async def test_claude_sdk_persists_session_id(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="allow",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+            )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            if not isinstance(outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            session_id = outputs.get("sessionId")
+            self.assertIsInstance(session_id, str)
+            if not isinstance(session_id, str) or not session_id:
+                raise AssertionError("Expected non-empty sessionId in outputs")
+
+    async def test_claude_sdk_reuses_session_id_for_chat(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="allow",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            first_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+            )
+
+            await self._await_run_handle(runner, first_run.id)
+            first_stored = await self._await_completed_run(dbe, first_run.id)
+            first_outputs = first_stored.get("outputs")
+            self.assertIsInstance(first_outputs, dict)
+            if not isinstance(first_outputs, dict):
+                raise AssertionError("Expected outputs to be a dict")
+            session_id = first_outputs.get("sessionId")
+            self.assertIsInstance(session_id, str)
+            if not isinstance(session_id, str) or not session_id:
+                raise AssertionError("Expected non-empty sessionId in outputs")
+
+            second_run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": "Say hello again.",
+                    "chatId": str(first_run.id),
+                    "mcpConfig": mcp_config,
+                },
+            )
+
+            second_inputs = second_run.inputs or {}
+            self.assertEqual(second_inputs.get("sessionId"), session_id)
+
+            await self._await_completed_run(dbe, second_run.id)
+
     async def test_claude_sdk_reads_file_with_tool(self) -> None:
         self._require_claude_sdk()
 

@@ -930,6 +930,115 @@ class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     ]
                     self.assertIn("run_completed", event_types)
 
+    async def test_codex_app_server_runs_file_change_item(self) -> None:
+        codex_path = self._require_codex_cli()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            token = f"setta-codex-file-{secrets.token_hex(8)}"
+            with TemporaryDirectory() as workspace_dir:
+                work_dir = Path(workspace_dir)
+                target_path = work_dir / "target.txt"
+                target_path.write_text("placeholder", encoding="utf-8")
+
+                config = self._build_config(codex_path)
+                config.sandboxPolicy = "workspace-write"
+                config.workingDirStrategy = ExternalAgentWorkingDirStrategy.custom
+                config.workingDir = str(work_dir)
+
+                run = runner.start_run(
+                    config.id,
+                    config,
+                    None,
+                    {
+                        "prompt": (
+                            "Update the file `target.txt` in the current directory "
+                            f"so that its contents are exactly `{token}`. "
+                            "Do not answer until after the file is updated. "
+                            "Then reply with only OK."
+                        ),
+                    },
+                )
+
+                stored = await self._await_completed_run(dbe, run.id, runner=runner)
+                outputs = stored.get("outputs")
+                stderr_lines = None
+                if run.id in runner._run_state:
+                    stderr_lines = runner._run_state[run.id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                self.assertIsInstance(outputs, dict)
+                if not isinstance(outputs, dict):
+                    raise AssertionError("Expected outputs to be a dict")
+                final_text = outputs.get("finalText")
+                self.assertIsInstance(final_text, str)
+                if not isinstance(final_text, str):
+                    raise AssertionError("Expected finalText to be a string")
+                file_text = target_path.read_text(encoding="utf-8")
+                if token not in file_text:
+                    self.fail(
+                        self._debug_dump(
+                            outputs,
+                            stderr_lines,
+                            "File change did not write expected token.",
+                        )
+                    )
+                messages = outputs.get("messages")
+                self.assertIsInstance(messages, list)
+                assistant_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict)
+                    and message.get("role") == "assistant"
+                ]
+                self.assertTrue(assistant_messages)
+                tool_calls: list[dict] = []
+                for message in assistant_messages:
+                    calls = message.get("tool_calls") if isinstance(message, dict) else None
+                    if isinstance(calls, list):
+                        tool_calls.extend(call for call in calls if isinstance(call, dict))
+                self.assertTrue(tool_calls)
+                tool_names = {
+                    call.get("function", {}).get("name")
+                    for call in tool_calls
+                    if isinstance(call, dict)
+                }
+                tool_messages = []
+                if isinstance(messages, list):
+                    tool_messages = [
+                        message
+                        for message in messages
+                        if isinstance(message, dict)
+                        and message.get("role") == "tool"
+                    ]
+                file_tools = [
+                    message
+                    for message in tool_messages
+                    if message.get("tool_name") == "file_change"
+                ]
+                command_tools = [
+                    message
+                    for message in tool_messages
+                    if message.get("tool_name") == "command_execution"
+                ]
+                if file_tools:
+                    self.assertIn("file_change", tool_names)
+                else:
+                    self.assertIn("command_execution", tool_names)
+                    self.assertTrue(command_tools)
+                    command_text = " ".join(
+                        str(message.get("arguments", {}).get("command", ""))
+                        for message in command_tools
+                        if isinstance(message, dict)
+                    )
+                    if str(target_path) not in command_text and "target.txt" not in command_text:
+                        self.fail(
+                            self._debug_dump(
+                                outputs,
+                                stderr_lines,
+                                "Command tool did not reference target.txt.",
+                            )
+                        )
+
     async def test_codex_app_server_approves_command_execution(self) -> None:
         codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:

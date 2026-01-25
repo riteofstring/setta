@@ -186,3 +186,6 @@ Removed: we only need tool coverage in integration tests, so structured output s
 - Added MCP tool call integration tests for Claude + Codex plus local MCP test server harness.
 - Removed Claude structured output schema wiring/tests (not needed for tool coverage).
 - Dropped Codex TodoWrite integration test (TodoWrite not documented in app-server docs).
+- Added Claude sessionId persistence/reuse integration tests.
+- Added Codex fileChange integration test.
+- Updated Codex fileChange integration test to accept command_execution edits when fileChange tool events are not emitted (still enforces file content update).
