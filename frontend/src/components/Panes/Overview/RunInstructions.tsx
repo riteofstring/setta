@@ -85,6 +85,33 @@ const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.MetaControl,
   SectionTypeEnum.Chat,
 ];
+const META_CONTROL_CODE_OBJ_TYPES: CodeObjType[] = [
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.DropzoneParam,
+];
+type MetaControlCodeObjType = (typeof META_CONTROL_CODE_OBJ_TYPES)[number];
+const META_CONTROL_CODE_OBJ_LABELS: Record<MetaControlCodeObjType, string> = {
+  [CodeObjTypeEnum.DropdownParam]: "Dropdown",
+  [CodeObjTypeEnum.SliderParam]: "Slider",
+  [CodeObjTypeEnum.RotaryParam]: "Rotary",
+  [CodeObjTypeEnum.SwitchParam]: "Switch",
+  [CodeObjTypeEnum.TextParam]: "Text Input",
+  [CodeObjTypeEnum.TextAreaParam]: "Text Area",
+  [CodeObjTypeEnum.CodeParam]: "Code Input",
+  [CodeObjTypeEnum.PasswordParam]: "Password Field",
+  [CodeObjTypeEnum.ColorPickerParam]: "Color Picker",
+  [CodeObjTypeEnum.ButtonParam]: "Button",
+  [CodeObjTypeEnum.DropzoneParam]: "Dropzone",
+};
 const CODEGEN_CODE_OBJ_TYPES: CodeObjType[] = [
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
@@ -185,6 +212,8 @@ export function RunInstructions() {
   const sectionPolicy = pythonTarget.sectionPolicy;
   const codeObjValuePolicy = pythonTarget.codeObjValuePolicy;
   const defaultAllowlist = defaultSectionPolicy.allowlist ?? [];
+  const defaultMetaControlAllowlist =
+    defaultSectionPolicy.metaControlAllowlist ?? META_CONTROL_CODE_OBJ_TYPES;
   const [cachedAllowlist, setCachedAllowlist] = React.useState<SectionType[]>(
     sectionPolicy.allowlist ?? defaultAllowlist,
   );
@@ -322,6 +351,8 @@ export function RunInstructions() {
 
   const allowlistEnabled = sectionPolicy.allowlist !== null;
   const allowlist = sectionPolicy.allowlist ?? cachedAllowlist;
+  const metaControlAllowlist =
+    sectionPolicy.metaControlAllowlist ?? defaultMetaControlAllowlist;
   const availableOverrideSections = sectionOptions
     .filter((option) => !sectionPolicy.sectionOverrides[option.id])
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -511,30 +542,110 @@ export function RunInstructions() {
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
                   {CODEGEN_SECTION_TYPES.map((sectionType) => {
                     const isChecked = allowlist.includes(sectionType);
+                    if (sectionType !== SectionTypeEnum.MetaControl) {
+                      return (
+                        <label
+                          key={sectionType}
+                          className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isShareMode}
+                            onChange={(event) => {
+                              const nextAllowlist = event.target.checked
+                                ? Array.from(
+                                    new Set([...allowlist, sectionType]),
+                                  )
+                                : allowlist.filter(
+                                    (item) => item !== sectionType,
+                                  );
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                allowlist: nextAllowlist,
+                              });
+                            }}
+                            className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                          />
+                          <span>{sectionType}</span>
+                        </label>
+                      );
+                    }
+
                     return (
-                      <label
+                      <div
                         key={sectionType}
-                        className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300"
+                        className="col-span-2 flex flex-col gap-1"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={isShareMode}
-                          onChange={(event) => {
-                            const nextAllowlist = event.target.checked
-                              ? Array.from(new Set([...allowlist, sectionType]))
-                              : allowlist.filter(
-                                  (item) => item !== sectionType,
-                                );
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              allowlist: nextAllowlist,
-                            });
-                          }}
-                          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-                        />
-                        <span>{sectionType}</span>
-                      </label>
+                        <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isShareMode}
+                            onChange={(event) => {
+                              const nextAllowlist = event.target.checked
+                                ? Array.from(
+                                    new Set([...allowlist, sectionType]),
+                                  )
+                                : allowlist.filter(
+                                    (item) => item !== sectionType,
+                                  );
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                allowlist: nextAllowlist,
+                              });
+                            }}
+                            className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                          />
+                          <span>{sectionType}</span>
+                        </label>
+                        {isChecked ? (
+                          <div className="ml-6 grid grid-cols-2 gap-x-3 gap-y-1">
+                            {META_CONTROL_CODE_OBJ_TYPES.map((codeObjType) => {
+                              const isTypeChecked =
+                                metaControlAllowlist.includes(codeObjType);
+                              const label =
+                                META_CONTROL_CODE_OBJ_LABELS[codeObjType];
+                              return (
+                                <label
+                                  key={codeObjType}
+                                  className="flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isTypeChecked}
+                                    disabled={isShareMode}
+                                    onChange={(event) => {
+                                      let nextMetaControlAllowlist =
+                                        metaControlAllowlist;
+                                      if (event.target.checked) {
+                                        nextMetaControlAllowlist = Array.from(
+                                          new Set([
+                                            ...metaControlAllowlist,
+                                            codeObjType,
+                                          ]),
+                                        );
+                                      } else {
+                                        nextMetaControlAllowlist =
+                                          metaControlAllowlist.filter(
+                                            (item) => item !== codeObjType,
+                                          );
+                                      }
+                                      updateSectionPolicy({
+                                        ...sectionPolicy,
+                                        metaControlAllowlist:
+                                          nextMetaControlAllowlist,
+                                      });
+                                    }}
+                                    className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                                  />
+                                  <span>{label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>

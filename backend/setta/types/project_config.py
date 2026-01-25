@@ -96,6 +96,22 @@ def default_section_allowlist() -> list[SectionType]:
     ]
 
 
+def default_meta_control_allowlist() -> list[CodeObjType]:
+    return [
+        CodeObjType.CodeParam,
+        CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.SliderParam,
+        CodeObjType.RotaryParam,
+        CodeObjType.SwitchParam,
+        CodeObjType.ColorPickerParam,
+        CodeObjType.DropdownParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.ButtonParam,
+        CodeObjType.DropzoneParam,
+    ]
+
+
 def default_section_representation(
     section_type: SectionType,
 ) -> SectionRepresentationMode:
@@ -116,6 +132,9 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
 class SectionCodegenPolicy(BaseModel, extra="forbid"):
     allowlist: list[SectionType] | None = Field(
         default_factory=default_section_allowlist
+    )
+    metaControlAllowlist: list[CodeObjType] | None = Field(
+        default_factory=default_meta_control_allowlist
     )
     exclude: list[ID] = Field(default_factory=list)
     typePolicies: dict[SectionType, SectionTypeCodegenPolicy] = Field(

@@ -407,6 +407,13 @@ class DependencyGraph:
             control_param_id,
             control_impl.type,
         ).representation
+        include_in_codegen = ctx.codegen_policy.include_in_codegen
+        meta_control_allowlist = self.section_policy.metaControlAllowlist
+        if (
+            meta_control_allowlist is not None
+            and control_impl.type not in meta_control_allowlist
+        ):
+            include_in_codegen = False
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -418,7 +425,7 @@ class DependencyGraph:
             control_code_obj_type=control_impl.type,
             control_value_representation=control_value_representation,
             deps={},
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+            include_in_codegen=include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
 

@@ -129,6 +129,13 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.SliderParam,
     },
     {
+      name: "Rotary",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.RotaryParam,
+    },
+    {
       name: "Switch",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
@@ -141,6 +148,20 @@ export function useCreateSectionsList() {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.TextParam,
+    },
+    {
+      name: "Text Area",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
+    },
+    {
+      name: "Code Input",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.CodeParam,
     },
     {
       name: "Password Field",

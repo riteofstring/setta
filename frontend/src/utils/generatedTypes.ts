@@ -18,8 +18,10 @@ export const ControlCodeObjTypeSet = new Set([
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
+  "RotaryParam",
   "SliderParam",
   "SwitchParam",
+  "TextAreaParam",
   "TextParam",
 ]);
 
@@ -772,7 +774,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/91afdd37-e882-4d15-88ae-211d8af115d2.bin" as const,
+        "setta_files/artifacts/240c66e7-84f3-4064-913d-6b8559c004a5.bin" as const,
     ),
   value: z.string(),
 });
@@ -3305,6 +3307,21 @@ const SectionCodegenPolicySchema = z.object({
       SectionTypeEnum.TextBlock,
       SectionTypeEnum.Draw,
       SectionTypeEnum.MetaControl,
+    ]),
+  metaControlAllowlist: z
+    .union([z.array(z.enum(CodeObjTypeEnum)), z.null()])
+    .default(() => [
+      CodeObjTypeEnum.CodeParam,
+      CodeObjTypeEnum.TextParam,
+      CodeObjTypeEnum.TextAreaParam,
+      CodeObjTypeEnum.SliderParam,
+      CodeObjTypeEnum.RotaryParam,
+      CodeObjTypeEnum.SwitchParam,
+      CodeObjTypeEnum.ColorPickerParam,
+      CodeObjTypeEnum.DropdownParam,
+      CodeObjTypeEnum.PasswordParam,
+      CodeObjTypeEnum.ButtonParam,
+      CodeObjTypeEnum.DropzoneParam,
     ]),
   exclude: z.array(IDSchema).default([]),
   typePolicies: z

@@ -14,7 +14,9 @@ from setta.types.project_config import (
     CodeObjValueOverride,
     CodeObjValueRepresentationMode,
     Position,
+    ProjectCodegenPythonTarget,
     ProjectConfig,
+    SectionCodegenPolicy,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
@@ -75,3 +77,68 @@ class MetaControlDependencyGraphTests(TestCase):
             node.control_value_representation,
             CodeObjValueRepresentationMode.raw,
         )
+
+    def test_meta_control_allowlist_filters_by_control_type(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(
+                name="test-project",
+                codegenTargets=[
+                    ProjectCodegenPythonTarget(
+                        sectionPolicy=SectionCodegenPolicy(
+                            metaControlAllowlist=[CodeObjType.TextParam]
+                        )
+                    )
+                ],
+            )
+        )
+        allowed_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.TextParam,
+        )
+        blocked_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.SliderParam,
+        )
+
+        graph = DependencyGraph(project_state)
+        allowed_node = graph.graph[create_dep_key(sectionId=allowed_section_id)]
+        blocked_node = graph.graph[create_dep_key(sectionId=blocked_section_id)]
+        self.assertTrue(allowed_node.include_in_codegen)
+        self.assertFalse(blocked_node.include_in_codegen)
+
+    def test_meta_control_supports_rotary_and_text_area(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        rotary_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.RotaryParam,
+        )
+        text_area_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(),
+            control_code_obj_type=CodeObjType.TextAreaParam,
+        )
+
+        graph = DependencyGraph(project_state)
+        rotary_node = graph.graph[create_dep_key(sectionId=rotary_section_id)]
+        text_area_node = graph.graph[create_dep_key(sectionId=text_area_section_id)]
+        self.assertEqual(rotary_node.control_code_obj_type, CodeObjType.RotaryParam)
+        self.assertTrue(rotary_node.include_in_codegen)
+        self.assertEqual(
+            text_area_node.control_code_obj_type, CodeObjType.TextAreaParam
+        )
+        self.assertTrue(text_area_node.include_in_codegen)

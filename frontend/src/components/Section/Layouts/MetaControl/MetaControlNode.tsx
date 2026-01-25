@@ -2,6 +2,7 @@ import {
   ConfiguredButtonInput,
   ConfiguredColorPickerInput,
   ConfiguredDropdownInput,
+  ConfiguredRotaryInput,
   ConfiguredSliderInput,
   ParamValueChange,
 } from "components/Params/ParamUIs/ConfiguredParamInputs";
@@ -17,11 +18,20 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import {
-  CodeObjType,
-  CodeObjTypeEnum,
-  DropzoneModeEnum,
-} from "utils/generatedTypes";
+import { CodeObjTypeEnum, DropzoneModeEnum } from "utils/generatedTypes";
+
+type MetaControlCodeObjType =
+  | CodeObjTypeEnum.ButtonParam
+  | CodeObjTypeEnum.CodeParam
+  | CodeObjTypeEnum.ColorPickerParam
+  | CodeObjTypeEnum.DropdownParam
+  | CodeObjTypeEnum.DropzoneParam
+  | CodeObjTypeEnum.PasswordParam
+  | CodeObjTypeEnum.RotaryParam
+  | CodeObjTypeEnum.SliderParam
+  | CodeObjTypeEnum.SwitchParam
+  | CodeObjTypeEnum.TextAreaParam
+  | CodeObjTypeEnum.TextParam;
 
 type MetaControlContentButtonProps = {
   sectionId: string;
@@ -38,12 +48,7 @@ type MetaControlContentValueProps = {
   controlParamId: string;
   sectionName: string;
   paramDisplayName: string;
-  codeObjType: Exclude<
-    CodeObjType,
-    | CodeObjTypeEnum.ButtonParam
-    | CodeObjTypeEnum.TextAreaParam
-    | CodeObjTypeEnum.RotaryParam
-  >;
+  codeObjType: Exclude<MetaControlCodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
   showSectionTitle: boolean;
@@ -112,9 +117,35 @@ export function MetaControlContent(props: MetaControlContentProps) {
           singleLine={false}
         />
       );
+    case CodeObjTypeEnum.TextAreaParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          defaultVal={defaultVal}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          language="python"
+          singleLine={false}
+          minHeightClassName="min-h-24"
+        />
+      );
     case CodeObjTypeEnum.SliderParam:
       return (
         <SliderControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <RotaryControl
           sectionId={sectionId}
           controlParamId={controlParamId}
           sectionName={sectionName}
@@ -302,6 +333,41 @@ function SliderControl({
         sliderThumbClassName={sliderThumbClassName}
         textInputClassName="hidden"
       />
+    </MetaControlTitleStack>
+  );
+}
+
+function RotaryControl({
+  sectionId,
+  controlParamId,
+  sectionName,
+  value,
+  showSectionTitle,
+  onValueChange,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  sectionName: string;
+  value: string;
+  showSectionTitle: boolean;
+  onValueChange: ParamValueChange;
+}) {
+  return (
+    <MetaControlTitleStack
+      showSectionTitle={showSectionTitle}
+      sectionName={sectionName}
+      contentClassName="items-center"
+    >
+      <div
+        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full items-center justify-center`}
+      >
+        <ConfiguredRotaryInput
+          sectionId={sectionId}
+          paramInfoId={controlParamId}
+          value={value}
+          onChange={onValueChange}
+        />
+      </div>
     </MetaControlTitleStack>
   );
 }

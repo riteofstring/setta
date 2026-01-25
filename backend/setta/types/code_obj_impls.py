@@ -164,8 +164,10 @@ ControlCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
         CodeObjType.ButtonParam,
         CodeObjType.SliderParam,
+        CodeObjType.RotaryParam,
         CodeObjType.SwitchParam,
         CodeObjType.ColorPickerParam,
         CodeObjType.DropdownParam,
