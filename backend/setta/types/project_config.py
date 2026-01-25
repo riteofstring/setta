@@ -153,6 +153,8 @@ class CodeObjValueRepresentationMode(str, Enum):
     expression = "expression"
     json_parsed = "json_parsed"
     string = "string"
+    file_path = "file_path"
+    file_read = "file_read"
 
 
 class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
@@ -170,8 +172,25 @@ class CodeObjValueOverride(BaseModel, extra="forbid"):
 def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
     policies: dict[CodeObjType, CodeObjTypeValuePolicy] = {}
     for code_obj_type in CodeObjType:
-        policies[code_obj_type] = CodeObjTypeValuePolicy()
+        policies[code_obj_type] = CodeObjTypeValuePolicy(
+            representation=default_code_obj_representation(code_obj_type)
+        )
     return policies
+
+
+def default_code_obj_representation(
+    code_obj_type: CodeObjType,
+) -> CodeObjValueRepresentationMode:
+    if code_obj_type in (
+        CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.ColorPickerParam,
+    ):
+        return CodeObjValueRepresentationMode.string
+    if code_obj_type is CodeObjType.DropzoneParam:
+        return CodeObjValueRepresentationMode.file_path
+    return CodeObjValueRepresentationMode.expression
 
 
 class CodeObjValuePolicy(BaseModel, extra="forbid"):
@@ -255,7 +274,35 @@ def _is_code_obj_value_representation_supported(
         CodeObjType.NestedParam,
     ):
         return representation is CodeObjValueRepresentationMode.expression
-    return True
+    if code_obj_type is CodeObjType.DropzoneParam:
+        return representation in (
+            CodeObjValueRepresentationMode.file_path,
+            CodeObjValueRepresentationMode.file_read,
+        )
+    if code_obj_type in (
+        CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.ColorPickerParam,
+    ):
+        return representation is CodeObjValueRepresentationMode.string
+    if code_obj_type in (
+        CodeObjType.CodeParam,
+        CodeObjType.RotaryParam,
+        CodeObjType.SwitchParam,
+        CodeObjType.DropdownParam,
+    ):
+        return representation in (
+            CodeObjValueRepresentationMode.expression,
+            CodeObjValueRepresentationMode.string,
+        )
+    if code_obj_type is CodeObjType.SliderParam:
+        return representation in (
+            CodeObjValueRepresentationMode.expression,
+            CodeObjValueRepresentationMode.json_parsed,
+            CodeObjValueRepresentationMode.string,
+        )
+    return representation is CodeObjValueRepresentationMode.expression
 
 
 def resolve_code_obj_value_policy(

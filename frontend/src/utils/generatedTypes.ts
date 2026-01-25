@@ -276,6 +276,8 @@ export const CodeObjValueRepresentationModeEnum = {
   expression: "expression",
   json_parsed: "json_parsed",
   string: "string",
+  file_path: "file_path",
+  file_read: "file_read",
 } as const;
 
 export type CodeObjValueRepresentationMode = ObjectValues<
@@ -774,7 +776,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/03a389ca-96b5-448a-a049-50b5f3a5dc62.bin" as const,
+        "setta_files/artifacts/85904215-f374-4943-8901-45489324c1c3.bin" as const,
     ),
   value: z.string(),
 });
@@ -3391,16 +3393,26 @@ const CodeObjValuePolicySchema = z.object({
     .default(() => ({
       CodeCallable: createCodeObjTypeValuePolicy(),
       CodeParam: createCodeObjTypeValuePolicy(),
-      TextParam: createCodeObjTypeValuePolicy(),
+      TextParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
       ButtonParam: createCodeObjTypeValuePolicy(),
       SliderParam: createCodeObjTypeValuePolicy(),
       RotaryParam: createCodeObjTypeValuePolicy(),
       SwitchParam: createCodeObjTypeValuePolicy(),
-      ColorPickerParam: createCodeObjTypeValuePolicy(),
+      ColorPickerParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
       DropdownParam: createCodeObjTypeValuePolicy(),
-      PasswordParam: createCodeObjTypeValuePolicy(),
-      TextAreaParam: createCodeObjTypeValuePolicy(),
-      DropzoneParam: createCodeObjTypeValuePolicy(),
+      PasswordParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      TextAreaParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      DropzoneParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.file_path,
+      }),
       NestedParam: createCodeObjTypeValuePolicy(),
     })),
   codeObjOverrides: z.record(IDSchema, CodeObjValueOverrideSchema).default({}),

@@ -4,7 +4,7 @@ from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
-    CodeParamCodeObjImpl,
+    SliderParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -54,7 +54,7 @@ def build_project_state(
         defaultVariant=callable_variant.id,
     )
 
-    param_impl = CodeParamCodeObjImpl(
+    param_impl = SliderParamCodeObjImpl(
         id=param_impl_id,
         value="42",
     )
@@ -120,7 +120,7 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         callable_id = ID("callable-1")
         param_id = ID("param-1")
         policy = CodeObjValuePolicy()
-        policy.typePolicies[CodeObjType.CodeParam] = CodeObjTypeValuePolicy(
+        policy.typePolicies[CodeObjType.SliderParam] = CodeObjTypeValuePolicy(
             representation=CodeObjValueRepresentationMode.json_parsed
         )
         project_state = build_project_state(
@@ -144,7 +144,7 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         callable_id = ID("callable-1")
         param_id = ID("param-override")
         policy = CodeObjValuePolicy()
-        policy.typePolicies[CodeObjType.CodeParam] = CodeObjTypeValuePolicy(
+        policy.typePolicies[CodeObjType.SliderParam] = CodeObjTypeValuePolicy(
             representation=CodeObjValueRepresentationMode.string
         )
         policy.codeObjOverrides[param_id] = CodeObjValueOverride(

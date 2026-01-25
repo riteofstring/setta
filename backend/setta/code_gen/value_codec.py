@@ -252,6 +252,8 @@ class PythonValueCodec:
         deps: dict[BaseDependencyKeyUnion, bool] | None,
         representation: CodeObjValueRepresentationMode,
     ) -> str:
+        if param_type == CodeObjType.DropzoneParam:
+            return self._format_dropzone_value(literal_value, representation)
         if representation is CodeObjValueRepresentationMode.string:
             return repr(literal_value)
         if representation is CodeObjValueRepresentationMode.json_parsed:
@@ -315,6 +317,52 @@ class PythonValueCodec:
         if attachments is None:
             return repr(literal_value)
         return repr(attachments)
+
+    def _format_dropzone_value(
+        self,
+        literal_value: str,
+        representation: CodeObjValueRepresentationMode,
+    ) -> str:
+        if representation is CodeObjValueRepresentationMode.file_path:
+            return self._format_dropzone_entries(literal_value, read_files=False)
+        if representation is CodeObjValueRepresentationMode.file_read:
+            return self._format_dropzone_entries(literal_value, read_files=True)
+        raise ValueError(
+            f"Unsupported representation for DropzoneParam: {representation.value}"
+        )
+
+    def _format_dropzone_entries(
+        self,
+        literal_value: str,
+        *,
+        read_files: bool,
+    ) -> str:
+        if literal_value == "":
+            return "[]"
+        attachments = dropzone_value_to_attachments(literal_value)
+        if attachments is None:
+            return repr(literal_value)
+        items: list[str] = []
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                items.append(repr(attachment))
+                continue
+            kind = attachment.get("kind")
+            if kind == "file":
+                path = attachment.get("id")
+                if isinstance(path, str):
+                    if read_files:
+                        items.append(self._format_file_read_value(path))
+                    else:
+                        items.append(repr(path))
+                    continue
+            if kind == "text":
+                text = attachment.get("text")
+                if isinstance(text, str):
+                    items.append(repr(text))
+                    continue
+            items.append(repr(attachment))
+        return self._format_collection("[", "]", items)
 
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]

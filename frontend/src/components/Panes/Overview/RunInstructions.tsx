@@ -668,8 +668,11 @@ export function RunInstructions() {
               <div className="mt-1 space-y-1">
                 {CODEGEN_SECTION_TYPES.map((sectionType) => {
                   const typePolicy = sectionPolicy.typePolicies[sectionType];
-                  const representationOptions =
-                    getRepresentationOptions(sectionType);
+                  const isMetaControl =
+                    sectionType === SectionTypeEnum.MetaControl;
+                  const representationOptions = isMetaControl
+                    ? []
+                    : getRepresentationOptions(sectionType);
                   const representationOptionsWithFallback =
                     representationOptions.includes(typePolicy.representation)
                       ? representationOptions
@@ -706,31 +709,37 @@ export function RunInstructions() {
                           </option>
                         ))}
                       </select>
-                      <select
-                        className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                        disabled={isShareMode || representationDisabled}
-                        value={typePolicy.representation}
-                        onChange={(event) => {
-                          const nextRepresentation = event.target
-                            .value as SectionRepresentationMode;
-                          updateSectionPolicy({
-                            ...sectionPolicy,
-                            typePolicies: {
-                              ...sectionPolicy.typePolicies,
-                              [sectionType]: {
-                                ...typePolicy,
-                                representation: nextRepresentation,
+                      {isMetaControl ? (
+                        <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
+                          code obj policy
+                        </div>
+                      ) : (
+                        <select
+                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                          disabled={isShareMode || representationDisabled}
+                          value={typePolicy.representation}
+                          onChange={(event) => {
+                            const nextRepresentation = event.target
+                              .value as SectionRepresentationMode;
+                            updateSectionPolicy({
+                              ...sectionPolicy,
+                              typePolicies: {
+                                ...sectionPolicy.typePolicies,
+                                [sectionType]: {
+                                  ...typePolicy,
+                                  representation: nextRepresentation,
+                                },
                               },
-                            },
-                          });
-                        }}
-                      >
-                        {representationOptionsWithFallback.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
+                            });
+                          }}
+                        >
+                          {representationOptionsWithFallback.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   );
                 })}
@@ -807,9 +816,11 @@ export function RunInstructions() {
                     <div className="w-6" />
                   </div>
                   {overrideEntries.map((entry) => {
-                    const representationOptions = getRepresentationOptions(
-                      entry.type,
-                    );
+                    const isMetaControl =
+                      entry.type === SectionTypeEnum.MetaControl;
+                    const representationOptions = isMetaControl
+                      ? []
+                      : getRepresentationOptions(entry.type);
                     const overrideRepresentationOptions =
                       representationOptions.includes(
                         entry.override.representation,
@@ -851,31 +862,37 @@ export function RunInstructions() {
                             </option>
                           ))}
                         </select>
-                        <select
-                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isShareMode || representationDisabled}
-                          value={entry.override.representation}
-                          onChange={(event) => {
-                            const nextRepresentation = event.target
-                              .value as SectionRepresentationMode;
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              sectionOverrides: {
-                                ...sectionPolicy.sectionOverrides,
-                                [entry.sectionId]: {
-                                  ...entry.override,
-                                  representation: nextRepresentation,
+                        {isMetaControl ? (
+                          <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
+                            code obj policy
+                          </div>
+                        ) : (
+                          <select
+                            className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                            disabled={isShareMode || representationDisabled}
+                            value={entry.override.representation}
+                            onChange={(event) => {
+                              const nextRepresentation = event.target
+                                .value as SectionRepresentationMode;
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                sectionOverrides: {
+                                  ...sectionPolicy.sectionOverrides,
+                                  [entry.sectionId]: {
+                                    ...entry.override,
+                                    representation: nextRepresentation,
+                                  },
                                 },
-                              },
-                            });
-                          }}
-                        >
-                          {overrideRepresentationOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
+                              });
+                            }}
+                          >
+                            {overrideRepresentationOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <button
                           className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
                           disabled={isShareMode}
@@ -1365,6 +1382,12 @@ function getCodeObjRepresentationOptions(
   if (!codeObjType) {
     return [CodeObjValueRepresentationModeEnum.expression];
   }
+  if (codeObjType === CodeObjTypeEnum.DropzoneParam) {
+    return [
+      CodeObjValueRepresentationModeEnum.file_path,
+      CodeObjValueRepresentationModeEnum.file_read,
+    ];
+  }
   if (
     codeObjType === CodeObjTypeEnum.ButtonParam ||
     codeObjType === CodeObjTypeEnum.CodeCallable ||
@@ -1372,11 +1395,33 @@ function getCodeObjRepresentationOptions(
   ) {
     return [CodeObjValueRepresentationModeEnum.expression];
   }
-  return [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.json_parsed,
-    CodeObjValueRepresentationModeEnum.string,
-  ];
+  if (
+    codeObjType === CodeObjTypeEnum.TextParam ||
+    codeObjType === CodeObjTypeEnum.TextAreaParam ||
+    codeObjType === CodeObjTypeEnum.PasswordParam ||
+    codeObjType === CodeObjTypeEnum.ColorPickerParam
+  ) {
+    return [CodeObjValueRepresentationModeEnum.string];
+  }
+  if (
+    codeObjType === CodeObjTypeEnum.CodeParam ||
+    codeObjType === CodeObjTypeEnum.RotaryParam ||
+    codeObjType === CodeObjTypeEnum.SwitchParam ||
+    codeObjType === CodeObjTypeEnum.DropdownParam
+  ) {
+    return [
+      CodeObjValueRepresentationModeEnum.expression,
+      CodeObjValueRepresentationModeEnum.string,
+    ];
+  }
+  if (codeObjType === CodeObjTypeEnum.SliderParam) {
+    return [
+      CodeObjValueRepresentationModeEnum.expression,
+      CodeObjValueRepresentationModeEnum.json_parsed,
+      CodeObjValueRepresentationModeEnum.string,
+    ];
+  }
+  return [CodeObjValueRepresentationModeEnum.expression];
 }
 
 function getRunnableCodeBlockListingHelper(

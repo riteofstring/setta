@@ -140,13 +140,13 @@ class PythonValueCodecTest(TestCase):
         )
         self.assertEqual(codec.format_param_expression(param_node), "2+2")
 
-    def test_code_param_json_representation_parses_payload(self) -> None:
+    def test_slider_param_json_representation_parses_payload(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         param_node = ParamNode(
             id=ID("param-code"),
             name="code",
             full_path_name="section.code",
-            type=CodeObjType.CodeParam,
+            type=CodeObjType.SliderParam,
             isTopLevel=True,
             deps={},
             value=LiteralDependencyValue("[1,2,3]"),
@@ -176,7 +176,7 @@ class PythonValueCodecTest(TestCase):
             id=ID("param-text"),
             name="text",
             full_path_name="section.text",
-            type=CodeObjType.TextParam,
+            type=CodeObjType.SliderParam,
             isTopLevel=True,
             deps={},
             value=LiteralDependencyValue("{invalid"),
@@ -362,6 +362,7 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue(""),
             passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.file_path,
         )
         self.assertEqual(codec.format_param_expression(param_node), "[]")
 
@@ -394,24 +395,9 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue(json.dumps(payload)),
             passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.file_path,
         )
-        expected = repr(
-            [
-                {
-                    "kind": "file",
-                    "id": "artifacts/test.txt",
-                    "name": "test.txt",
-                    "mimeType": "text/plain",
-                    "size": 12,
-                },
-                {
-                    "kind": "text",
-                    "id": "text:abc",
-                    "name": "Dropped text",
-                    "text": "hello",
-                },
-            ]
-        )
+        expected = repr(["artifacts/test.txt", "hello"])
         self.assertEqual(codec.format_param_expression(param_node), expected)
 
     def test_dropzone_param_invalid_payload_falls_back_to_literal(self) -> None:
@@ -425,5 +411,44 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue("{invalid"),
             passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.file_path,
         )
         self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
+
+    def test_dropzone_param_file_read_uses_helpers(self) -> None:
+        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
+        payload = {
+            "attachments": [
+                {
+                    "kind": "file",
+                    "id": "/tmp/test.txt",
+                    "name": "test.txt",
+                },
+                {
+                    "kind": "text",
+                    "id": "text:abc",
+                    "name": "Dropped text",
+                    "text": "hello",
+                },
+            ],
+        }
+        param_node = ParamNode(
+            id=ID("param-dropzone"),
+            name="dropzone",
+            full_path_name="section.dropzone",
+            type=CodeObjType.DropzoneParam,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue(json.dumps(payload)),
+            passing_style=ParameterPassingStyle.DEFAULT,
+            value_representation=CodeObjValueRepresentationMode.file_read,
+        )
+        rendered = codec.format_param_expression(param_node)
+        self.assertEqual(
+            rendered,
+            "[_helpers.read_file_value('/tmp/test.txt'), 'hello']",
+        )
+        self.assertEqual(
+            codec.required_imports,
+            ("from setta.code_gen.python import value_helpers as _helpers",),
+        )

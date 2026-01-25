@@ -24,7 +24,15 @@ Supported representations:
 - `expression` (default): use the existing type-specific formatting (current behavior).
 - `json_parsed`: parse the stored value as JSON and emit the resulting Python literal.
 - `string`: always emit the stored string via `repr(...)`.
-Some code obj types only support `expression` (ButtonParam, NestedParam, and CodeCallable); other representations raise `ValueError`.
+- `file_path`: for DropzoneParam only, emit a list of attachment file paths (plus dropped text entries).
+- `file_read`: for DropzoneParam only, emit a list where file attachments are read via `read_file_value(...)`.
+Some code obj types only support specific representations; unsupported combinations raise `ValueError`.
+Current limits:
+- Expression only: `ButtonParam`, `NestedParam`, `CodeCallable`.
+- String only: `TextParam`, `TextAreaParam`, `PasswordParam`, `ColorPickerParam`.
+- Expression + string: `CodeParam`, `RotaryParam`, `SwitchParam`, `DropdownParam`.
+- Expression + json_parsed + string: `SliderParam`.
+- File path/read only: `DropzoneParam`.
 
 ## Policy resolution order
 
@@ -56,9 +64,11 @@ Code obj value policies are resolved during dependency graph export:
 - MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
 
 The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
-- `expression` uses the existing per-type formatting (dropzone parsing, switch bools, nested dicts, etc).
+- `expression` uses the existing per-type formatting (switch bools, nested dicts, etc).
 - `json_parsed` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
 - `string` always emits `repr(literal_value)`.
+- `file_path` (DropzoneParam) emits a list of attachment file paths plus dropped text entries.
+- `file_read` (DropzoneParam) emits a list where file attachments are read via `read_file_value(...)` (text entries stay as strings).
 
 Representation determines how section payloads are encoded:
 - `expression` is the only supported representation for most non-Chat/Draw/Image section types; their values are emitted from the dependency graph as literals.
