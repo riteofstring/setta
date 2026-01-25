@@ -273,9 +273,9 @@ export type SettaNotificationType = ObjectValues<
 >;
 
 export const CodeObjValueRepresentationModeEnum = {
-  literal: "literal",
-  json: "json",
-  raw: "raw",
+  expression: "expression",
+  json_parsed: "json_parsed",
+  string: "string",
 } as const;
 
 export type CodeObjValueRepresentationMode = ObjectValues<
@@ -291,9 +291,9 @@ const SectionCodegenModeEnum = {
 } as const;
 
 const SectionRepresentationModeEnum = {
-  json: "json",
-  file: "file",
-  base64: "base64",
+  expression: "expression",
+  file_path: "file_path",
+  file_read: "file_read",
 } as const;
 
 export const CodeFileAccessModeEnum = {
@@ -774,7 +774,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/240c66e7-84f3-4064-913d-6b8559c004a5.bin" as const,
+        "setta_files/artifacts/03a389ca-96b5-448a-a049-50b5f3a5dc62.bin" as const,
     ),
   value: z.string(),
 });
@@ -3277,7 +3277,7 @@ const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
     .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
+    .default(SectionRepresentationModeEnum.expression),
 });
 
 type SectionTypeCodegenPolicy = z.infer<typeof SectionTypeCodegenPolicySchema>;
@@ -3292,7 +3292,7 @@ const SectionCodegenOverrideSchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
     .enum(SectionRepresentationModeEnum)
-    .default(SectionRepresentationModeEnum.json),
+    .default(SectionRepresentationModeEnum.expression),
 });
 
 const SectionCodegenPolicySchema = z.object({
@@ -3332,11 +3332,11 @@ const SectionCodegenPolicySchema = z.object({
       ListRoot: createSectionTypeCodegenPolicy(),
       Group: createSectionTypeCodegenPolicy(),
       Image: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       Chart: createSectionTypeCodegenPolicy(),
       Draw: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       TextBlock: createSectionTypeCodegenPolicy(),
       MetaControl: createSectionTypeCodegenPolicy(),
@@ -3348,7 +3348,7 @@ const SectionCodegenPolicySchema = z.object({
       Terminal: createSectionTypeCodegenPolicy(),
       IFrame: createSectionTypeCodegenPolicy(),
       Chat: createSectionTypeCodegenPolicy({
-        representation: SectionRepresentationModeEnum.file,
+        representation: SectionRepresentationModeEnum.file_read,
       }),
       Browser: createSectionTypeCodegenPolicy(),
     })),
@@ -3368,7 +3368,7 @@ export function createSectionCodegenPolicy(
 const CodeObjTypeValuePolicySchema = z.object({
   representation: z
     .enum(CodeObjValueRepresentationModeEnum)
-    .default(CodeObjValueRepresentationModeEnum.literal),
+    .default(CodeObjValueRepresentationModeEnum.expression),
 });
 
 type CodeObjTypeValuePolicy = z.infer<typeof CodeObjTypeValuePolicySchema>;
@@ -3382,7 +3382,7 @@ function createCodeObjTypeValuePolicy(
 const CodeObjValueOverrideSchema = z.object({
   representation: z
     .enum(CodeObjValueRepresentationModeEnum)
-    .default(CodeObjValueRepresentationModeEnum.literal),
+    .default(CodeObjValueRepresentationModeEnum.expression),
 });
 
 const CodeObjValuePolicySchema = z.object({

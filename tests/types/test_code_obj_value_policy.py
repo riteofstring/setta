@@ -21,14 +21,14 @@ class CodeObjValuePolicyTests(unittest.TestCase):
         )
         self.assertEqual(
             resolved.representation,
-            CodeObjValueRepresentationMode.literal,
+            CodeObjValueRepresentationMode.expression,
         )
 
     def test_type_policy_applies_when_present(self) -> None:
         policy = CodeObjValuePolicy(
             typePolicies={
                 CodeObjType.TextParam: CodeObjTypeValuePolicy(
-                    representation=CodeObjValueRepresentationMode.raw
+                    representation=CodeObjValueRepresentationMode.string
                 )
             }
         )
@@ -39,19 +39,19 @@ class CodeObjValuePolicyTests(unittest.TestCase):
         )
         self.assertEqual(
             resolved.representation,
-            CodeObjValueRepresentationMode.raw,
+            CodeObjValueRepresentationMode.string,
         )
 
     def test_override_takes_precedence_over_type_policy(self) -> None:
         policy = CodeObjValuePolicy(
             typePolicies={
                 CodeObjType.CodeParam: CodeObjTypeValuePolicy(
-                    representation=CodeObjValueRepresentationMode.raw
+                    representation=CodeObjValueRepresentationMode.string
                 )
             },
             codeObjOverrides={
                 ID("param-2"): CodeObjValueOverride(
-                    representation=CodeObjValueRepresentationMode.json
+                    representation=CodeObjValueRepresentationMode.json_parsed
                 )
             },
         )
@@ -62,14 +62,14 @@ class CodeObjValuePolicyTests(unittest.TestCase):
         )
         self.assertEqual(
             resolved.representation,
-            CodeObjValueRepresentationMode.json,
+            CodeObjValueRepresentationMode.json_parsed,
         )
 
     def test_unsupported_representation_raises(self) -> None:
         policy = CodeObjValuePolicy(
             typePolicies={
                 CodeObjType.NestedParam: CodeObjTypeValuePolicy(
-                    representation=CodeObjValueRepresentationMode.raw
+                    representation=CodeObjValueRepresentationMode.string
                 )
             }
         )

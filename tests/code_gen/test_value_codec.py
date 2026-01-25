@@ -16,7 +16,10 @@ from setta.types.dependency_value import (
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
-from setta.types.project_config import CodeObjValueRepresentationMode
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    SectionRepresentationMode,
+)
 from setta.types.section_impls import SectionType
 
 
@@ -148,11 +151,11 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue("[1,2,3]"),
             passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.json,
+            value_representation=CodeObjValueRepresentationMode.json_parsed,
         )
         self.assertEqual(codec.format_param_expression(param_node), "[1, 2, 3]")
 
-    def test_code_param_raw_representation_quotes_literal(self) -> None:
+    def test_code_param_string_representation_quotes_literal(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         param_node = ParamNode(
             id=ID("param-code"),
@@ -163,7 +166,7 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue("2+2"),
             passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.raw,
+            value_representation=CodeObjValueRepresentationMode.string,
         )
         self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
 
@@ -178,7 +181,7 @@ class PythonValueCodecTest(TestCase):
             deps={},
             value=LiteralDependencyValue("{invalid"),
             passing_style=ParameterPassingStyle.DEFAULT,
-            value_representation=CodeObjValueRepresentationMode.json,
+            value_representation=CodeObjValueRepresentationMode.json_parsed,
         )
         self.assertEqual(codec.format_param_expression(param_node), "'{invalid'")
 
@@ -205,6 +208,7 @@ class PythonValueCodecTest(TestCase):
             isTopLevel=True,
             deps={},
             value=FileReadDependencyValue("/tmp/draw.png"),
+            representation=SectionRepresentationMode.file_read,
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
@@ -226,6 +230,7 @@ class PythonValueCodecTest(TestCase):
             isTopLevel=True,
             deps={},
             value=LiteralDependencyValue("artifacts/reversed_image.png"),
+            representation=SectionRepresentationMode.file_path,
         )
         self.assertEqual(
             codec.format_section(section_node),
@@ -242,6 +247,7 @@ class PythonValueCodecTest(TestCase):
             isTopLevel=True,
             deps={},
             value=FileReadDependencyValue("/tmp/image.png"),
+            representation=SectionRepresentationMode.file_read,
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(
@@ -253,7 +259,55 @@ class PythonValueCodecTest(TestCase):
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
 
-    def test_draw_section_without_value_has_placeholder_comment(self) -> None:
+    def test_chat_section_expression_renders_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        payload = "{'messages': [], 'inputText': '', 'waitingForResponse': False, 'toolCallArguments': {}}"
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Chat",
+            full_path_name="chat",
+            type=SectionType.Chat,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue(payload),
+            representation=SectionRepresentationMode.expression,
+        )
+        self.assertEqual(codec.format_section(section_node), payload)
+
+    def test_chat_section_file_path_quotes_literal(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Chat",
+            full_path_name="chat",
+            type=SectionType.Chat,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("/tmp/chat.json"),
+            representation=SectionRepresentationMode.file_path,
+        )
+        self.assertEqual(codec.format_section(section_node), "'/tmp/chat.json'")
+
+    def test_chat_section_file_read_uses_helpers(self) -> None:
+        codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Chat",
+            full_path_name="chat",
+            type=SectionType.Chat,
+            isTopLevel=True,
+            deps={},
+            value=FileReadDependencyValue("/tmp/chat.json"),
+            representation=SectionRepresentationMode.file_read,
+        )
+        rendered = codec.format_section(section_node)
+        self.assertEqual(rendered, "_helpers.read_file_value('/tmp/chat.json')")
+        self.assertEqual(
+            codec.required_imports,
+            ("from setta.code_gen.python import value_helpers as _helpers",),
+        )
+
+    def test_draw_section_without_value_raises(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -263,11 +317,10 @@ class PythonValueCodecTest(TestCase):
             isTopLevel=True,
             deps={},
             value=None,
+            representation=SectionRepresentationMode.file_read,
         )
-        self.assertEqual(
-            codec.format_section(section_node),
-            "None  # draw snapshot pending (run to capture)",
-        )
+        with self.assertRaises(ValueError):
+            codec.format_section(section_node)
 
     def test_packaged_mode_uses_helper_for_file_reads(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)

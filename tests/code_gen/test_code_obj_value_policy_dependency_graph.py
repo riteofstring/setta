@@ -121,7 +121,7 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         param_id = ID("param-1")
         policy = CodeObjValuePolicy()
         policy.typePolicies[CodeObjType.CodeParam] = CodeObjTypeValuePolicy(
-            representation=CodeObjValueRepresentationMode.json
+            representation=CodeObjValueRepresentationMode.json_parsed
         )
         project_state = build_project_state(
             section_id=section_id,
@@ -136,7 +136,7 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         self.assertIsInstance(node, ParamNode)
         self.assertEqual(
             node.value_representation,
-            CodeObjValueRepresentationMode.json,
+            CodeObjValueRepresentationMode.json_parsed,
         )
 
     def test_param_node_override_takes_precedence(self) -> None:
@@ -145,10 +145,10 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         param_id = ID("param-override")
         policy = CodeObjValuePolicy()
         policy.typePolicies[CodeObjType.CodeParam] = CodeObjTypeValuePolicy(
-            representation=CodeObjValueRepresentationMode.raw
+            representation=CodeObjValueRepresentationMode.string
         )
         policy.codeObjOverrides[param_id] = CodeObjValueOverride(
-            representation=CodeObjValueRepresentationMode.json
+            representation=CodeObjValueRepresentationMode.json_parsed
         )
         project_state = build_project_state(
             section_id=section_id,
@@ -163,5 +163,5 @@ class CodeObjValuePolicyDependencyGraphTests(TestCase):
         self.assertIsInstance(node, ParamNode)
         self.assertEqual(
             node.value_representation,
-            CodeObjValueRepresentationMode.json,
+            CodeObjValueRepresentationMode.json_parsed,
         )

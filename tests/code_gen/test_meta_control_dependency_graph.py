@@ -65,7 +65,7 @@ class MetaControlDependencyGraphTests(TestCase):
             0
         ].codeObjValuePolicy
         code_obj_policy.codeObjOverrides[control_param_id] = CodeObjValueOverride(
-            representation=CodeObjValueRepresentationMode.raw
+            representation=CodeObjValueRepresentationMode.string
         )
 
         graph = DependencyGraph(project_state)
@@ -75,7 +75,7 @@ class MetaControlDependencyGraphTests(TestCase):
         self.assertEqual(node.control_code_obj_id, control_param_id)
         self.assertEqual(
             node.control_value_representation,
-            CodeObjValueRepresentationMode.raw,
+            CodeObjValueRepresentationMode.string,
         )
 
     def test_meta_control_allowlist_filters_by_control_type(self) -> None:

@@ -58,7 +58,7 @@ type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 type RunSnapshotModeChoice = RunSnapshotMode | "default";
 type SectionCodegenMode = "inherit" | "include" | "exclude";
-type SectionRepresentationMode = "json" | "file" | "base64";
+type SectionRepresentationMode = "expression" | "file_path" | "file_read";
 type SectionOption = { id: string; name: string; type: SectionType };
 type CodeObjOption = {
   id: string;
@@ -778,7 +778,8 @@ export function RunInstructions() {
                       ...sectionPolicy.sectionOverrides,
                       [pendingOverrideId]: {
                         mode: "inherit",
-                        representation: basePolicy?.representation ?? "json",
+                        representation:
+                          basePolicy?.representation ?? "expression",
                       },
                     };
                     updateSectionPolicy({
@@ -1007,7 +1008,7 @@ export function RunInstructions() {
                       [pendingCodeObjOverrideId]: {
                         representation:
                           basePolicy?.representation ??
-                          CodeObjValueRepresentationModeEnum.literal,
+                          CodeObjValueRepresentationModeEnum.expression,
                       },
                     };
                     updateCodeObjValuePolicy({
@@ -1344,34 +1345,37 @@ function getRepresentationOptions(
   sectionType: SectionType | null,
 ): SectionRepresentationMode[] {
   if (sectionType === SectionTypeEnum.Chat) {
-    return ["json", "file"];
+    return ["expression", "file_path", "file_read"];
   }
   if (sectionType === SectionTypeEnum.Draw) {
-    return ["file"];
+    return ["file_path", "file_read"];
   }
   if (sectionType === SectionTypeEnum.Image) {
-    return ["file"];
+    return ["file_path", "file_read"];
   }
-  return ["json"];
+  if (sectionType === SectionTypeEnum.Chart) {
+    return ["expression", "file_path"];
+  }
+  return ["expression"];
 }
 
 function getCodeObjRepresentationOptions(
   codeObjType: CodeObjType | null,
 ): CodeObjValueRepresentationMode[] {
   if (!codeObjType) {
-    return [CodeObjValueRepresentationModeEnum.literal];
+    return [CodeObjValueRepresentationModeEnum.expression];
   }
   if (
     codeObjType === CodeObjTypeEnum.ButtonParam ||
     codeObjType === CodeObjTypeEnum.CodeCallable ||
     codeObjType === CodeObjTypeEnum.NestedParam
   ) {
-    return [CodeObjValueRepresentationModeEnum.literal];
+    return [CodeObjValueRepresentationModeEnum.expression];
   }
   return [
-    CodeObjValueRepresentationModeEnum.literal,
-    CodeObjValueRepresentationModeEnum.json,
-    CodeObjValueRepresentationModeEnum.raw,
+    CodeObjValueRepresentationModeEnum.expression,
+    CodeObjValueRepresentationModeEnum.json_parsed,
+    CodeObjValueRepresentationModeEnum.string,
   ];
 }
 

@@ -21,10 +21,10 @@ The policy has two levers:
 - `codeObjOverrides`: per-code-obj-id overrides (representation only).
 
 Supported representations:
-- `literal` (default): use the existing type-specific formatting (current behavior).
-- `json`: parse the stored value as JSON and emit the resulting Python literal.
-- `raw`: always emit the stored string via `repr(...)`.
-Some code obj types only support `literal` (ButtonParam, NestedParam, and CodeCallable); other representations raise `ValueError`.
+- `expression` (default): use the existing type-specific formatting (current behavior).
+- `json_parsed`: parse the stored value as JSON and emit the resulting Python literal.
+- `string`: always emit the stored string via `repr(...)`.
+Some code obj types only support `expression` (ButtonParam, NestedParam, and CodeCallable); other representations raise `ValueError`.
 
 ## Policy resolution order
 
@@ -40,7 +40,7 @@ The result is `include_in_codegen` plus the chosen `representation`.
 ## Code obj value policy resolution order
 
 `resolve_code_obj_value_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedCodeObjValuePolicy` in this order:
-- Start with `typePolicies[code_obj_type]` (defaulting to `literal`).
+- Start with `typePolicies[code_obj_type]` (defaulting to `expression`).
 - Apply `codeObjOverrides[code_obj_id]` if present.
 - Validate representation support for the code obj type; unsupported combinations raise a `ValueError`.
 
@@ -56,15 +56,15 @@ Code obj value policies are resolved during dependency graph export:
 - MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
 
 The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
-- `literal` uses the existing per-type formatting (dropzone parsing, switch bools, nested dicts, etc).
-- `json` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
-- `raw` always emits `repr(literal_value)`.
+- `expression` uses the existing per-type formatting (dropzone parsing, switch bools, nested dicts, etc).
+- `json_parsed` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
+- `string` always emits `repr(literal_value)`.
 
 Representation determines how section payloads are encoded:
-- `json` is the only supported representation for most non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
- - Image sections only support `file`. The graph stores a `FileReadDependencyValue` pointing at `imagePath` and the packaged runtime reads it from disk; empty image paths render `None`.
-- Chat sections support `json` or `file`. When `file` is selected and `chatId` is present, the graph stores a `FileReadDependencyValue` pointing at `setta_files/chats/<chatId>.json` and the packaged runtime reads it (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
-- Draw sections only support `file`. Any other representation raises a `ValueError`. When `renderedImagePath` is set, the graph stores a `FileReadDependencyValue` and the packaged runtime reads it from disk; if no snapshot exists, codegen emits `None`.
+- `expression` is the only supported representation for most non-Chat/Draw/Image section types; their values are emitted from the dependency graph as literals.
+- Image sections support `file_path` and `file_read`. The graph stores either a literal path or a `FileReadDependencyValue` pointing at `imagePath`; missing paths raise `ValueError`.
+- Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` and require `chatId` (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
+- Draw sections support `file_path` and `file_read`. File modes require `renderedImagePath` and raise `ValueError` if missing.
 
 ## Generated Python output
 

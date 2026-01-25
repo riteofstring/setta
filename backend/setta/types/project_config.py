@@ -68,19 +68,19 @@ class SectionCodegenMode(str, Enum):
 
 
 class SectionRepresentationMode(str, Enum):
-    json = "json"
-    file = "file"
-    base64 = "base64"
+    expression = "expression"
+    file_path = "file_path"
+    file_read = "file_read"
 
 
 class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
-    representation: SectionRepresentationMode = SectionRepresentationMode.json
+    representation: SectionRepresentationMode = SectionRepresentationMode.expression
 
 
 class SectionCodegenOverride(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
-    representation: SectionRepresentationMode = SectionRepresentationMode.json
+    representation: SectionRepresentationMode = SectionRepresentationMode.expression
 
 
 def default_section_allowlist() -> list[SectionType]:
@@ -116,8 +116,8 @@ def default_section_representation(
     section_type: SectionType,
 ) -> SectionRepresentationMode:
     if section_type in (SectionType.Chat, SectionType.Draw, SectionType.Image):
-        return SectionRepresentationMode.file
-    return SectionRepresentationMode.json
+        return SectionRepresentationMode.file_read
+    return SectionRepresentationMode.expression
 
 
 def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolicy]:
@@ -150,20 +150,20 @@ class ResolvedSectionCodegenPolicy:
 
 
 class CodeObjValueRepresentationMode(str, Enum):
-    literal = "literal"
-    json = "json"
-    raw = "raw"
+    expression = "expression"
+    json_parsed = "json_parsed"
+    string = "string"
 
 
 class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
     representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.literal
+        CodeObjValueRepresentationMode.expression
     )
 
 
 class CodeObjValueOverride(BaseModel, extra="forbid"):
     representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.literal
+        CodeObjValueRepresentationMode.expression
     )
 
 
@@ -199,14 +199,21 @@ def _is_representation_supported(
 ) -> bool:
     if section_type is SectionType.Chat:
         return representation in (
-            SectionRepresentationMode.json,
-            SectionRepresentationMode.file,
+            SectionRepresentationMode.expression,
+            SectionRepresentationMode.file_path,
+            SectionRepresentationMode.file_read,
         )
-    if section_type is SectionType.Draw:
-        return representation is SectionRepresentationMode.file
-    if section_type is SectionType.Image:
-        return representation is SectionRepresentationMode.file
-    return representation is SectionRepresentationMode.json
+    if section_type in (SectionType.Draw, SectionType.Image):
+        return representation in (
+            SectionRepresentationMode.file_path,
+            SectionRepresentationMode.file_read,
+        )
+    if section_type is SectionType.Chart:
+        return representation in (
+            SectionRepresentationMode.expression,
+            SectionRepresentationMode.file_path,
+        )
+    return representation is SectionRepresentationMode.expression
 
 
 def resolve_section_codegen_policy(
@@ -247,7 +254,7 @@ def _is_code_obj_value_representation_supported(
         CodeObjType.CodeCallable,
         CodeObjType.NestedParam,
     ):
-        return representation is CodeObjValueRepresentationMode.literal
+        return representation is CodeObjValueRepresentationMode.expression
     return True
 
 
