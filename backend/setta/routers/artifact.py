@@ -331,10 +331,22 @@ async def route_import_files_to_artifacts(
     for raw_path in x.paths:
         resolved = _resolve_file_path(raw_path)
         if not resolved.exists():
-            raise FileNotFoundError(f"Path does not exist: {raw_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File does not exist: {raw_path}",
+            )
         if not resolved.is_file():
-            raise IsADirectoryError(f"Path is not a file: {raw_path}")
-        content = resolved.read_bytes()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path is not a file: {raw_path}",
+            )
+        try:
+            content = resolved.read_bytes()
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to read file: {raw_path}",
+            ) from exc
         extension = "".join(resolved.suffixes) or ".bin"
         artifact_id = create_file_artifact_id(extension)
         updates.append(

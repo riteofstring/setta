@@ -326,55 +326,58 @@ export function DropzoneInput({
       return;
     }
     setIsUploading(true);
-    const fileIds = allowedFiles.map((file) =>
-      createDropzoneFileArtifactId(file.name),
-    );
-    const base64Payloads = await Promise.all(
-      allowedFiles.map((file) => readFileAsBase64(file)),
-    );
-    if (mode === DropzoneModeEnum.STATELESS) {
-      const attachments: DropzoneStatelessAttachment[] = allowedFiles.map(
+    try {
+      const fileIds = allowedFiles.map((file) =>
+        createDropzoneFileArtifactId(file.name),
+      );
+      const base64Payloads = await Promise.all(
+        allowedFiles.map((file) => readFileAsBase64(file)),
+      );
+      if (mode === DropzoneModeEnum.STATELESS) {
+        const attachments: DropzoneStatelessAttachment[] = allowedFiles.map(
+          (file, index) => ({
+            kind: "file",
+            name: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size,
+            base64: base64Payloads[index],
+          }),
+        );
+        setStatelessAttachments((prev) => [...prev, ...attachments]);
+        onStatelessDrop?.(attachments);
+        return;
+      }
+      if (!onChange) {
+        return;
+      }
+      const artifacts: FileArtifact[] = base64Payloads.map(
+        (payload, index) => ({
+          type: ArtifactTypeEnum.File,
+          id: fileIds[index],
+          value: payload,
+        }),
+      );
+      const res = await route_update_artifacts({ artifacts });
+      if (!res200(res)) {
+        return;
+      }
+      const newAttachments: DropzoneStoredAttachment[] = allowedFiles.map(
         (file, index) => ({
           kind: "file",
+          id: fileIds[index],
           name: file.name,
           mimeType: file.type || "application/octet-stream",
           size: file.size,
-          base64: base64Payloads[index],
         }),
       );
-      setStatelessAttachments((prev) => [...prev, ...attachments]);
-      onStatelessDrop?.(attachments);
+      const updatedValue = serializeDropzoneValue([
+        ...statefulAttachments,
+        ...newAttachments,
+      ]);
+      onChange(updatedValue);
+    } finally {
       setIsUploading(false);
-      return;
     }
-    if (!onChange) {
-      setIsUploading(false);
-      return;
-    }
-    const artifacts: FileArtifact[] = base64Payloads.map((payload, index) => ({
-      type: ArtifactTypeEnum.File,
-      id: fileIds[index],
-      value: payload,
-    }));
-    const res = await route_update_artifacts({ artifacts });
-    setIsUploading(false);
-    if (!res200(res)) {
-      return;
-    }
-    const newAttachments: DropzoneStoredAttachment[] = allowedFiles.map(
-      (file, index) => ({
-        kind: "file",
-        id: fileIds[index],
-        name: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-      }),
-    );
-    const updatedValue = serializeDropzoneValue([
-      ...statefulAttachments,
-      ...newAttachments,
-    ]);
-    onChange(updatedValue);
   }
 
   function handleTextDrop(text: string) {
@@ -432,23 +435,30 @@ export function DropzoneInput({
       return;
     }
     setIsUploading(true);
-    const res = await route_import_files_to_artifacts({ paths: allowedPaths });
-    setIsUploading(false);
-    if (!res200(res)) {
-      return;
+    try {
+      const res = await route_import_files_to_artifacts({
+        paths: allowedPaths,
+      });
+      if (!res200(res)) {
+        return;
+      }
+      const newAttachments: DropzoneStoredAttachment[] = res.data.map(
+        (item) => ({
+          kind: "file",
+          id: item.id,
+          name: item.name,
+          mimeType: item.mimeType,
+          size: item.size,
+        }),
+      );
+      const updatedValue = serializeDropzoneValue([
+        ...statefulAttachments,
+        ...newAttachments,
+      ]);
+      onChange(updatedValue);
+    } finally {
+      setIsUploading(false);
     }
-    const newAttachments: DropzoneStoredAttachment[] = res.data.map((item) => ({
-      kind: "file",
-      id: item.id,
-      name: item.name,
-      mimeType: item.mimeType,
-      size: item.size,
-    }));
-    const updatedValue = serializeDropzoneValue([
-      ...statefulAttachments,
-      ...newAttachments,
-    ]);
-    onChange(updatedValue);
   }
 
   function handleLocalFileInputChange(event: ChangeEvent<HTMLInputElement>) {

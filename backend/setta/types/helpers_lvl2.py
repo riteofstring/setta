@@ -1321,8 +1321,11 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
             | CodeObjType.TextAreaParam
-            | CodeObjType.DropzoneParam
         ):
+            return value
+        case CodeObjType.DropzoneParam:
+            if impl.mode == DropzoneMode.STATELESS:
+                return ""
             return value
         case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:

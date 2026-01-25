@@ -273,9 +273,6 @@ class PythonValueCodec:
         literal_value: str,
         deps: dict[BaseDependencyKeyUnion, bool] | None = None,
     ) -> str:
-        if param_type == CodeObjType.DropzoneParam:
-            return self._format_dropzone_literal(literal_value)
-
         if param_type in (
             CodeObjType.CodeParam,
             CodeObjType.SliderParam,
@@ -309,14 +306,6 @@ class PythonValueCodec:
             return json.loads(literal_value)
         except json.JSONDecodeError:
             return None
-
-    def _format_dropzone_literal(self, literal_value: str) -> str:
-        if literal_value == "":
-            return "[]"
-        attachments = dropzone_value_to_attachments(literal_value)
-        if attachments is None:
-            return repr(literal_value)
-        return repr(attachments)
 
     def _format_dropzone_value(
         self,
