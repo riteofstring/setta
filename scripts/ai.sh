@@ -64,18 +64,16 @@ SETTA_PORT="${SETTA_PORT:-${DEFAULT_BACKEND_PORT}}"
 SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-${DEFAULT_FRONTEND_PORT}}"
 DEBUG_PORT="${DEBUG_PORT:-${DEFAULT_DEBUG_PORT}}"
 RUN_MODE="start"
-OPEN_APP="1"
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload] [--no-open]
+Usage: ai.sh [--reload]
 
-Starts the backend + frontend plus a CDP-enabled Chrome for agent-browser and
-Chrome DevTools MCP. Uses per-worktree ports and profiles by default.
+Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
+Uses per-worktree ports and profiles by default.
 
 Flags:
   --reload   Use backend reload mode (pnpm startr)
-  --no-open  Skip the agent-browser bootstrap/open flow
 EOF
 }
 
@@ -83,10 +81,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --reload)
       RUN_MODE="startr"
-      shift
-      ;;
-    --no-open)
-      OPEN_APP="0"
       shift
       ;;
     -h|--help)
@@ -129,35 +123,11 @@ fi
 DEV_PID=$!
 
 cleanup() {
-  "${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools --agent-browser >/dev/null 2>&1 || true
+  "${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools >/dev/null 2>&1 || true
   kill "${DEV_PID}" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
 "${ROOT_DIR}/scripts/start-browser-mcp.sh" --devtools
-
-wait_for_frontend() {
-  local url="http://${SETTA_HOST}:${SETTA_DEV_FRONTEND_PORT}"
-  local attempts=60
-  if ! command -v curl >/dev/null 2>&1; then
-    return 0
-  fi
-  while [ "${attempts}" -gt 0 ]; do
-    if curl -fs "${url}" >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 0.5
-    attempts=$((attempts - 1))
-  done
-  return 1
-}
-
-if [[ "${OPEN_APP}" == "1" ]]; then
-  if wait_for_frontend; then
-    "${ROOT_DIR}/scripts/ab-cdp.sh" || true
-  else
-    echo "Frontend did not respond on ${SETTA_HOST}:${SETTA_DEV_FRONTEND_PORT}." >&2
-  fi
-fi
 
 wait "${DEV_PID}"

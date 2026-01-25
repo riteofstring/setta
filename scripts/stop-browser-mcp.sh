@@ -56,7 +56,6 @@ resolve_playwriter_profile_dir
 
 TARGET_DEVTOOLS="0"
 TARGET_PLAYWRITER="0"
-TARGET_AGENT_BROWSER="0"
 
 usage() {
   cat <<'EOF'
@@ -75,14 +74,12 @@ Flags:
   --playwriter-shared   Target the shared Playwriter profile
   --playwriter-isolated Target the per-worktree Playwriter profile
   --devtools      Stop the devtools Chrome profile
-  --agent-browser Stop the agent-browser daemon
 EOF
 }
 
 if [[ $# -eq 0 ]]; then
   TARGET_DEVTOOLS="1"
   TARGET_PLAYWRITER="1"
-  TARGET_AGENT_BROWSER="1"
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -103,10 +100,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --devtools)
       TARGET_DEVTOOLS="1"
-      shift
-      ;;
-    --agent-browser)
-      TARGET_AGENT_BROWSER="1"
       shift
       ;;
     -h|--help)
@@ -191,11 +184,5 @@ if [[ "$TARGET_PLAYWRITER" == "1" ]]; then
         echo "No playwriter Chrome process for this repo."
       fi
     fi
-  fi
-fi
-
-if [[ "$TARGET_AGENT_BROWSER" == "1" ]]; then
-  if ! stop_pid_file "agent-browser daemon" "${MCP_RUN_DIR}/agent-browser.pid"; then
-    echo "No agent-browser daemon process for this repo."
   fi
 fi

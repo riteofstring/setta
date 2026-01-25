@@ -37,12 +37,17 @@ performance profiling.
 1) Start the debug Chrome instance:
    `scripts/start-browser-mcp.sh --devtools`
 
-2) In that Chrome window, install the Playwriter extension once (so both tools
+2) Codex auto-connects chrome-devtools-mcp to the per-worktree CDP port via
+   `.codex/config.toml` + `scripts/chrome-devtools-mcp.sh` (no manual port typing).
+   If another client needs the port, run:
+   `pnpm -C frontend cdp-port` → `http://127.0.0.1:<port>`
+
+3) In that Chrome window, install the Playwriter extension once (so both tools
    use the same browser profile).
 
-3) Open your app in the debug Chrome window.
+4) Open your app in the debug Chrome window.
 
-4) Use Chrome DevTools MCP for traces, and Playwriter for scripted actions.
+5) Use Chrome DevTools MCP for traces, and Playwriter for scripted actions.
 
 ## Minimal perf triage flow
 
@@ -58,6 +63,8 @@ performance profiling.
 
 - If you want lowest context overhead, only enable Playwriter and turn on
   Chrome DevTools MCP when profiling.
+- Each worktree uses an offset for backend/frontend/CDP ports, so you can run
+  multiple Setta instances in parallel without collisions.
 - Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh`
   (use `--playwriter` or `--devtools` to target one).
 - If the agent struggles to target elements, add stable `data-testid` or

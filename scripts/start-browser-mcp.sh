@@ -4,9 +4,6 @@ set -euo pipefail
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
 MODE="playwriter"
-AGENT_BROWSER_AUTO_START="${AGENT_BROWSER_AUTO_START:-1}"
-AGENT_BROWSER_URL="${AGENT_BROWSER_URL:-http://${SETTA_HOST:-127.0.0.1}:${SETTA_DEV_FRONTEND_PORT:-3000}}"
-AGENT_BROWSER_BOOTSTRAP="${AGENT_BROWSER_BOOTSTRAP:-1}"
 CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -82,15 +79,11 @@ profile_suffix() {
 }
 
 PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
-AGENT_BROWSER_SESSION_DEFAULT="setta-${PROFILE_SUFFIX}"
-AGENT_BROWSER_SESSION="${AGENT_BROWSER_SESSION:-${AGENT_BROWSER_SESSION_DEFAULT}}"
 MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
 PLAYWRITER_PROFILE_MODE="${PLAYWRITER_PROFILE_MODE:-isolated}"
 PLAYWRITER_SHARED_PROFILE_DIR="${PLAYWRITER_SHARED_PROFILE_DIR:-${HOME}/.setta/playwriter-profile}"
 PLAYWRITER_BOOTSTRAP="${PLAYWRITER_BOOTSTRAP:-1}"
-AGENT_BROWSER_TMPDIR="${AGENT_BROWSER_TMPDIR:-${MCP_RUN_DIR}/agent-browser-tmp}"
-AGENT_BROWSER_SOCKET_PATH_LIMIT="${AGENT_BROWSER_SOCKET_PATH_LIMIT:-100}"
 
 default_playwriter_profile_dir() {
   echo "${MCP_RUN_DIR}/playwriter-profile"
@@ -152,16 +145,6 @@ resolve_playwriter_profile_dir() {
 }
 
 resolve_playwriter_profile_dir
-
-ensure_short_socket_path() {
-  local socket_path="${AGENT_BROWSER_TMPDIR}/agent-browser-${AGENT_BROWSER_SESSION}.sock"
-  if [[ "${#socket_path}" -gt "${AGENT_BROWSER_SOCKET_PATH_LIMIT}" ]]; then
-    local fallback_dir="${AGENT_BROWSER_TMPDIR_FALLBACK:-/tmp/agent-browser-${PROFILE_SUFFIX}}"
-    AGENT_BROWSER_TMPDIR="${fallback_dir}"
-  fi
-}
-
-ensure_short_socket_path
 resolve_playwright_browsers_path
 if [[ -z "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
   if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
@@ -178,91 +161,6 @@ fi
 write_pid() {
   mkdir -p "$MCP_RUN_DIR"
   printf "%s\n" "$2" > "$1"
-}
-
-agent_browser_daemon_path() {
-  local root=""
-
-  if command -v npm >/dev/null 2>&1; then
-    root="$(npm root -g 2>/dev/null || true)"
-    if [[ -n "$root" && -f "${root}/agent-browser/dist/daemon.js" ]]; then
-      echo "${root}/agent-browser/dist/daemon.js"
-      return 0
-    fi
-  fi
-
-  if command -v pnpm >/dev/null 2>&1; then
-    root="$(pnpm root -g 2>/dev/null || true)"
-    if [[ -n "$root" && -f "${root}/agent-browser/dist/daemon.js" ]]; then
-      echo "${root}/agent-browser/dist/daemon.js"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
-start_agent_browser() {
-  if [[ "$AGENT_BROWSER_AUTO_START" != "1" ]]; then
-    return 0
-  fi
-
-  if ! command -v agent-browser >/dev/null 2>&1; then
-    echo "agent-browser not found on PATH. Install with: pnpm add -g agent-browser && agent-browser install" >&2
-    return 0
-  fi
-
-  mkdir -p "$AGENT_BROWSER_TMPDIR"
-
-  local pid_file="${MCP_RUN_DIR}/agent-browser.pid"
-  local daemon_log="${MCP_RUN_DIR}/agent-browser-daemon.log"
-  local socket_path="${AGENT_BROWSER_TMPDIR}/agent-browser-${AGENT_BROWSER_SESSION}.sock"
-  if [[ -f "$pid_file" ]]; then
-    local running_pid=""
-    running_pid="$(cat "$pid_file" 2>/dev/null || true)"
-    if [[ -z "$running_pid" ]] || ! kill -0 "$running_pid" 2>/dev/null; then
-      rm -f "$pid_file"
-    fi
-  fi
-
-  if [[ ! -f "$pid_file" ]]; then
-    local daemon_path=""
-    if daemon_path="$(agent_browser_daemon_path)"; then
-      if command -v node >/dev/null 2>&1; then
-        TMPDIR="$AGENT_BROWSER_TMPDIR" AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" node "$daemon_path" >"$daemon_log" 2>&1 &
-        write_pid "$pid_file" "$!"
-        local attempts=30
-        while [[ $attempts -gt 0 ]]; do
-          if [[ -S "$socket_path" ]]; then
-            break
-          fi
-          sleep 0.1
-          attempts=$((attempts - 1))
-        done
-        if [[ ! -S "$socket_path" ]]; then
-          echo "agent-browser daemon failed to create socket at ${socket_path}." >&2
-          echo "Check ${daemon_log} for details." >&2
-        fi
-      else
-        echo "node is required to start the agent-browser daemon." >&2
-      fi
-    else
-      echo "agent-browser daemon not found. Install with: pnpm add -g agent-browser" >&2
-    fi
-  fi
-
-  local bootstrap_url=""
-  if [[ "$AGENT_BROWSER_BOOTSTRAP" == "1" ]]; then
-    bootstrap_url="$(get_bootstrap_url || true)"
-  fi
-
-  if [[ -n "$bootstrap_url" ]]; then
-    TMPDIR="$AGENT_BROWSER_TMPDIR" AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" agent-browser open "$bootstrap_url" || true
-  fi
-
-  if ! TMPDIR="$AGENT_BROWSER_TMPDIR" AGENT_BROWSER_SESSION="$AGENT_BROWSER_SESSION" agent-browser open "$AGENT_BROWSER_URL"; then
-    echo "agent-browser open failed. You may need to run: agent-browser install" >&2
-  fi
 }
 
 get_bootstrap_url() {
@@ -317,11 +215,6 @@ Environment variables:
   PLAYWRITER_BOOTSTRAP  Open /__setta__/bootstrap with token when possible (default: 1)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
-  AGENT_BROWSER_AUTO_START  Set to 0 to disable auto-starting agent-browser (default: 1)
-  AGENT_BROWSER_SESSION  Session name for agent-browser (default: setta-<worktree-suffix>)
-  AGENT_BROWSER_URL  URL to open in agent-browser (default: http://127.0.0.1:3000)
-  AGENT_BROWSER_BOOTSTRAP  Set to 0 to skip Setta bootstrap token fetch (default: 1)
-  AGENT_BROWSER_TMPDIR  Temp dir for agent-browser sockets (default: setta_files/run/mcp/agent-browser-tmp)
 
 Flags:
   --playwriter     Open Chrome for Playwriter
@@ -329,7 +222,6 @@ Flags:
   --playwriter-isolated Use a per-worktree Playwriter profile
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground     Keep the debug browser attached to this terminal (devtools only)
-  --no-agent-browser  Disable auto-starting agent-browser in playwriter mode
 EOF
 }
 
@@ -355,10 +247,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --foreground)
       FOREGROUND="1"
-      shift
-      ;;
-    --no-agent-browser)
-      AGENT_BROWSER_AUTO_START="0"
       shift
       ;;
     -h|--help)
@@ -412,7 +300,6 @@ if [[ "$MODE" == "playwriter" ]]; then
     "${CHROME_ARGS[@]}" \
     "$start_url" >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/playwriter.pid" "$!"
-  # Direct agent-browser launch disabled; rely on CDP via scripts/ab-cdp.sh.
   echo "Playwriter mode: install the extension in ${PLAYWRITER_PROFILE_DIR} and click it on a tab to connect."
   echo "Use --devtools when you want chrome-devtools-mcp instead."
   exit 0

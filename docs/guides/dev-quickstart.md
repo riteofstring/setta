@@ -16,16 +16,15 @@ pnpm -C frontend aireset
 
 ## Tell the assistant what to use
 
-- “Use agent-browser via CDP” (assistant will use `abcdp-run`).
-- “Use chrome-devtools-mcp” (assistant will use the CDP port).
+- “Use chrome-devtools-mcp” (Codex auto-connects to the per-worktree CDP port).
 
-## CDP helpers (manual)
+## CDP helpers (optional)
 
 ```bash
 pnpm -C frontend cdp-port
-pnpm -C frontend abcdp-run -- tab
-pnpm -C frontend abcdp-run -- snapshot -i
 ```
+
+Use that port to point other MCP clients at `http://127.0.0.1:<port>`.
 
 ## Stop
 
@@ -38,7 +37,7 @@ pnpm -C frontend kill
 Stop only the CDP/Chrome helpers (repo root):
 
 ```bash
-./scripts/stop-browser-mcp.sh --devtools --playwriter --agent-browser
+./scripts/stop-browser-mcp.sh --devtools --playwriter
 ```
 
 ## End chat vs. keep running
