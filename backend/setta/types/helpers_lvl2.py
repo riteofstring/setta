@@ -121,6 +121,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
     TypeErrorIgnoreState,
 )
+from setta.utils.errors import InvalidSectionName
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     validate_project_name,
@@ -1636,7 +1637,10 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
     if impl.headingAsSectionName:
         first_heading = get_first_heading_or_text(text)
         if first_heading:
-            set_section_name(p, sectionId, first_heading)
+            try:
+                set_section_name(p, sectionId, first_heading)
+            except InvalidSectionName:
+                pass
 
 
 def set_text_block_heading_as_section_name(
@@ -1655,7 +1659,10 @@ def set_text_block_heading_as_section_name(
     if headingAsSectionName:
         first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
-            set_section_name(p, sectionId, first_heading)
+            try:
+                set_section_name(p, sectionId, first_heading)
+            except InvalidSectionName:
+                pass
 
 
 def get_first_heading_or_text(markdown: str):

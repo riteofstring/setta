@@ -249,7 +249,6 @@ function resolveSectionFullPathName(
   if (!(sectionId in state.parentSectionMap)) {
     return resolveSectionName(state, sectionId, nameOverrides);
   }
-  const sectionImpl = getCurrEffectiveSectionImpl(state, sectionId);
   let parentId = state.parentSectionMap[sectionId];
   if (!parentId) {
     return resolveSectionName(state, sectionId, nameOverrides);
@@ -257,9 +256,10 @@ function resolveSectionFullPathName(
   let childId = sectionId;
   let output = "";
   while (parentId) {
-    if (sectionImpl.type === SectionTypeEnum.ListRoot) {
+    const childImpl = getCurrEffectiveSectionImpl(state, childId);
+    if (childImpl.type === SectionTypeEnum.ListRoot) {
       const siblings = getSectionChildren(state, parentId);
-      const idx = siblings.indexOf(sectionId);
+      const idx = siblings.indexOf(childId);
       output = `[${idx}]${output}`;
     } else {
       const childName = resolveSectionName(state, childId, nameOverrides);

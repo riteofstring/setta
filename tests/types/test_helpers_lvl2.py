@@ -22,6 +22,8 @@ from setta.types.helpers_lvl2 import (
     indent_params,
     move_params_to_parent,
     move_params_within_parent,
+    set_text_block_heading_as_section_name,
+    set_text_block_text,
     set_chat_section_chat_id,
     set_section_param_filter,
     unindent_params,
@@ -39,6 +41,7 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     SectionSize,
     SectionType,
+    TextBlockSectionImpl,
 )
 
 
@@ -485,6 +488,38 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
+
+
+class TextBlockHeadingAsNameTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_invalid_heading_does_not_block_text_update(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        original_name = self.project_state.sections[section_id].name
+        set_text_block_heading_as_section_name(
+            self.project_state,
+            section_id,
+            True,
+        )
+        text = "# Intro @ 2026\n\nBody content."
+        set_text_block_text(self.project_state, section_id, text)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertEqual(text, section_impl.text)
+        self.assertEqual(original_name, self.project_state.sections[section_id].name)
 
 
 if __name__ == "__main__":  # pragma: no cover

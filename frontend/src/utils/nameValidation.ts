@@ -101,13 +101,22 @@ function validateName(
 }
 
 export function validateProjectNameInput(name: string): string | null {
-  return validateName(name, {
+  const baseError = validateName(name, {
     label: "Project name",
     reservedNames: PROJECT_RESERVED_NAMES,
     allowEmpty: false,
     allowedCharsRegex: SIMPLE_NAME_REGEX,
     requirePythonIdentifier: false,
   });
+  if (baseError) {
+    return baseError;
+  }
+  const normalized = name.trim();
+  const slug = sanitizeNameForSlug(normalized);
+  if (!slug) {
+    return "Project name is invalid after sanitization.";
+  }
+  return null;
 }
 
 export function validateSectionNameInput(name: string): string | null {

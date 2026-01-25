@@ -967,7 +967,7 @@ class BaseProjectManager(ABC):
         """Automatically arrange top-level sections using rectangle packing."""
         project_state = self.get_single_config_state(x.projectConfigId)
         auto_layout_top_level_sections(project_state, margin=x.margin)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -985,7 +985,7 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def load_json_sources(
@@ -1262,7 +1262,10 @@ class BaseProjectManager(ABC):
             x.callableName,
             x.refetchParams,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
         return result
 
     @enqueue_method(require_serialization=False)
@@ -1295,7 +1298,7 @@ class BaseProjectManager(ABC):
             project_state.projectConfig
         )
         python_target.genCodePrefix = x.genCodePrefix
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool()
@@ -1307,7 +1310,7 @@ class BaseProjectManager(ABC):
             project_state.projectConfig
         )
         python_target.genCodeSuffix = x.genCodeSuffix
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool()
@@ -1384,7 +1387,10 @@ class BaseProjectManager(ABC):
                     SectionType.GenPythonMetadata,
                     Position(),
                 )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     @project_state_tool()
@@ -1527,7 +1533,7 @@ class BaseProjectManager(ABC):
         """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_locks(project_state, x.sectionIds)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1539,7 +1545,7 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1551,7 +1557,7 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1563,7 +1569,7 @@ class BaseProjectManager(ABC):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1593,7 +1599,7 @@ class BaseProjectManager(ABC):
             )
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1605,7 +1611,7 @@ class BaseProjectManager(ABC):
         """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
@@ -1616,7 +1622,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.edgeInputParams,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_edge_outputs(self, x: SetSectionEdgeOutputsRequest):
@@ -1641,7 +1647,7 @@ class BaseProjectManager(ABC):
             if target_variant_id != edge.targetVariantId:
                 continue
             self._apply_edge_value(project_state, edge)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
         gen_code = self._require_python_codegen(project_state.projectConfig.id)
@@ -2393,7 +2399,7 @@ class BaseProjectManager(ABC):
         set_meta_control_show_section_title(
             project_state, x.sectionId, x.showSectionTitle
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_heading_as_section_name(
@@ -2409,7 +2415,7 @@ class BaseProjectManager(ABC):
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_meta_control_style(
@@ -2419,14 +2425,14 @@ class BaseProjectManager(ABC):
         set_text_block_meta_control_style(
             project_state, x.sectionId, x.metaControlStyle
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_callable_hide_params(project_state, x.sectionId, x.hideParams)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_hide_unpinned_params(
@@ -2436,7 +2442,7 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
@@ -2446,7 +2452,7 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
@@ -2461,25 +2467,25 @@ class BaseProjectManager(ABC):
             x.columnWidth,
             x.typesColumnWidth,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
@@ -2792,6 +2798,18 @@ class BaseProjectManager(ABC):
         await self._broadcast_project_state_snapshot(project_state)
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
+
+    async def _update_and_broadcast_project_state_no_name_validation(
+        self,
+        project_state: ProjectStateSingleConfig,
+        updateFileWatcher: bool = True,
+    ):
+        await self.update_and_broadcast_project_state(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            broadcast_name_validation_errors=False,
+            validate_name_rules=False,
+        )
 
     async def _broadcast_project_state_snapshot(
         self,

@@ -27,10 +27,12 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
+    BaseParentSectionImpl,
     SectionType,
 )
 from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
 from setta.utils.name_validation import (
+    _resolve_section_full_path_name,
     collect_section_name_conflicts,
     validate_param_name,
 )
@@ -267,6 +269,44 @@ class SectionNameValidationTests(unittest.TestCase):
         self.project_state.validate_parent_section_map()
         with self.assertRaises(InvalidSectionName):
             set_section_name(self.project_state, section_id, "bad#name")
+
+    def test_nested_list_root_path_uses_immediate_parent(self) -> None:
+        parent_group = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+        )
+        child_group = create_child_sections(
+            self.settings,
+            self.project_state,
+            parent_group,
+            SectionType.Group,
+            1,
+            None,
+        )[0]
+        list_root = create_child_sections(
+            self.settings,
+            self.project_state,
+            child_group,
+            SectionType.ListRoot,
+            1,
+            None,
+        )[0]
+        self.project_state.validate_parent_section_map()
+        parent_name = self.project_state.sections[parent_group].name
+        child_name = self.project_state.sections[child_group].name
+        child_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_group,
+            BaseParentSectionImpl,
+        )
+        idx = child_impl.children.index(list_root)
+        full_name = _resolve_section_full_path_name(self.project_state, list_root)
+        self.assertEqual(
+            f'{parent_name}["{child_name}"][{idx}]',
+            full_name,
+        )
 
     def test_move_conflict_marks_invalid_and_clears_bindings(self) -> None:
         parent_a = create_top_level_section(

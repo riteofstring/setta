@@ -18,12 +18,26 @@ from setta.routers.projects import (
     SetProjectConfigNameRequest,
     route_set_project_config_name,
 )
-from setta.types.code_obj_impls import BaseParamCodeObjImpl, ParameterPassingStyle
+from setta.types.code_obj_impls import (
+    BaseParamCodeObjImpl,
+    CodeCallableCodeObjImpl,
+    ParameterPassingStyle,
+)
+from setta.types.core import Core
+from setta.types.generated.impl_args_as_typed_dicts import (
+    CallableSectionImplArgsWithCallable,
+)
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
+    set_curr_effective_section_impl_value,
 )
-from setta.types.helpers_lvl2 import create_top_level_section, get_meta_control_param_id
+from setta.types.helpers_lvl2 import (
+    add_code_obj,
+    add_kwarg,
+    create_top_level_section,
+    get_meta_control_param_id,
+)
 from setta.types.project_config import (
     ProjectCodegenLanguage,
     Position,
@@ -236,8 +250,34 @@ class NameValidationRouteTests(unittest.IsolatedAsyncioTestCase):
                             if param_id is not None:
                                 break
                         if param_id is None or param_section_id is None:
-                            self.skipTest(
-                                "No keyword-style param available for rename test."
+                            param_section_id = create_top_level_section(
+                                state.settings_file.settings,
+                                project_state,
+                                SectionType.Callable,
+                                Position(x=0, y=0),
+                            )
+                            callable_impl = CodeCallableCodeObjImpl()
+                            callable_core = Core(name="callable")
+                            add_code_obj(
+                                project_state,
+                                [param_section_id],
+                                callable_core,
+                                callable_impl,
+                            )
+                            set_curr_effective_section_impl_value(
+                                project_state,
+                                param_section_id,
+                                CallableSectionImplArgsWithCallable(
+                                    callable=callable_core.id
+                                ),
+                            )
+                            param_id = add_kwarg(
+                                state.settings_file.settings,
+                                project_state,
+                                param_section_id,
+                            )
+                            await main_manager.update_and_broadcast_project_state(
+                                project_state
                             )
                         request = SetCodeObjNameRequest(
                             projectConfigId=default_project_config_id,

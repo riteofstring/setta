@@ -215,15 +215,15 @@ def _resolve_section_full_path_name(
         raise KeyError(f"Missing section {section_id}.")
     if section_id not in project_state.parentSectionMap:
         raise KeyError(f"Missing parentSectionMap entry for section {section_id}.")
-    section_impl = get_curr_effective_section_impl(project_state, section_id)
     parent_id = project_state.parentSectionMap[section_id]
     if not parent_id:
         return _resolve_section_name(project_state, section_id, name_overrides)
     child_id = section_id
     output = ""
     while parent_id:
-        if isinstance(section_impl, ListRootSectionImpl):
-            idx = _get_section_children_ids(project_state, parent_id).index(section_id)
+        child_impl = get_curr_effective_section_impl(project_state, child_id)
+        if isinstance(child_impl, ListRootSectionImpl):
+            idx = _get_section_children_ids(project_state, parent_id).index(child_id)
             output = f"[{idx}]{output}"
         else:
             child_name = _resolve_section_name(project_state, child_id, name_overrides)

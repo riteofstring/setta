@@ -1,5 +1,7 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import type { ChangeEvent } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -35,10 +37,12 @@ function ProjectNameOnly() {
     onBlur,
     onKeyDown,
     blurTriggeredByEscapeKey,
+    serverError,
   } = useEditableProjectName();
   const validationError = validateProjectNameInput(localName);
+  const errorMessage = validationError ?? serverError;
   let errorClassName = "";
-  if (validationError) {
+  if (errorMessage) {
     errorClassName = "border-red-400 text-red-600 dark:text-red-300";
   }
 
@@ -55,8 +59,8 @@ function ProjectNameOnly() {
         onKeyDown={onKeyDown}
         blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
       />
-      {validationError && (
-        <p className="mt-1 text-xs text-red-500">{validationError}</p>
+      {errorMessage && (
+        <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
       )}
     </>
   );
@@ -68,16 +72,38 @@ function useEditableProjectName() {
     name: x.projectConfig.name,
   }));
   const navigate = useNavigate();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  function extractErrorDetail(data: unknown): string | null {
+    if (!data || typeof data !== "object") {
+      return null;
+    }
+    if ("detail" in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === "string") {
+        return detail;
+      }
+    }
+    return null;
+  }
+
   async function condition(v: string) {
     const validationError = validateProjectNameInput(v);
     if (validationError) {
+      setServerError(null);
       return false;
     }
     const res = await route_set_project_config_name({
       projectConfigId,
       newName: v,
     });
-    return res200(res);
+    if (res200(res)) {
+      setServerError(null);
+      return true;
+    }
+    const detail = extractErrorDetail(res.data);
+    setServerError(detail ?? "Unable to rename project.");
+    return false;
   }
   async function onSetName(v: string) {
     navigate(pathRelativeToProject(v), {
@@ -85,5 +111,14 @@ function useEditableProjectName() {
     });
   }
 
-  return useEditableOnSubmit(name, onSetName, condition);
+  const editable = useEditableOnSubmit(name, onSetName, condition);
+  function onChange(event: ChangeEvent<HTMLInputElement> | string): void {
+    setServerError(null);
+    editable.onChange(event);
+  }
+  return {
+    ...editable,
+    onChange,
+    serverError,
+  };
 }

@@ -519,10 +519,7 @@ async def route_set_text_block_text(
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
-    try:
-        await manager.set_text_block_text(x)
-    except InvalidSectionName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+    await manager.set_text_block_text(x)
 
 
 @router.post(Route.SET_PROJECT_CONFIG_CODEGEN_TARGETS)
