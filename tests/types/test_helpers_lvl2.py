@@ -19,11 +19,7 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_sections,
     get_curr_top_level_param_ids,
-    set_chat_section_chat_id,
-    set_chat_section_settings,
-    set_prompt_section_format,
-    set_prompt_section_inputs,
-    set_prompt_section_template,
+    get_first_markdown_heading,
 )
 from setta.types.project_config import (
     Position,
@@ -32,14 +28,12 @@ from setta.types.project_config import (
     ViewportBounds,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.id import ID
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
-    ChatSectionImpl,
-    PromptSectionImpl,
     SectionSize,
     SectionType,
+    TextBlockFormat,
+    TextBlockSectionImpl,
 )
 
 
@@ -117,159 +111,6 @@ class DeleteSectionsTests(unittest.TestCase):
         self.project_state.validate_code_file_bindings()
 
 
-class ChatSectionChatIdTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_set_chat_section_chat_id_updates_impl(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        chat_id = ID("chat-1")
-
-        set_chat_section_chat_id(self.project_state, section_id, chat_id)
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            ChatSectionImpl,
-        )
-        self.assertEqual(section_impl.chatId, chat_id)
-
-    def test_set_chat_section_settings_updates_agent_profile(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        agent_profile_id = ID("agent-1")
-        engine_config_id = ID("engine-1")
-
-        set_chat_section_settings(
-            self.project_state,
-            section_id,
-            managed=True,
-            engineConfigId=engine_config_id,
-            agentProfileId=agent_profile_id,
-            thinking=True,
-        )
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            ChatSectionImpl,
-        )
-        self.assertTrue(section_impl.managed)
-        self.assertEqual(section_impl.engineConfigId, engine_config_id)
-        self.assertEqual(section_impl.agentProfileId, agent_profile_id)
-        self.assertTrue(section_impl.thinking)
-
-
-class PromptSectionTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_prompt_section_renders_inputs(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name }}",
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, ["name"])
-        self.assertEqual(impl.renderError, "Missing variables: name")
-
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
-
-    def test_prompt_section_reports_syntax_errors(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name ",
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNotNone(impl.renderError)
-
-    def test_prompt_section_format_updates_rendering(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Prompt,
-            Position(),
-        )
-
-        set_prompt_section_template(
-            self.project_state,
-            section_id,
-            "Hello {{ name }}",
-        )
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
-        set_prompt_section_format(
-            self.project_state,
-            section_id,
-            PromptFormat.Jinja,
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        self.assertEqual(impl.renderedText, "Hello Ada")
-        self.assertEqual(impl.missingVariables, [])
-        self.assertIsNone(impl.renderError)
-
-
 class ChangeParamImplTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
@@ -333,6 +174,23 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
+class MarkdownHeadingTests(unittest.TestCase):
+    def test_get_first_markdown_heading_matches_heading_rules(self) -> None:
+        cases = [
+            ("# Title", "Title"),
+            ("## Tasks", "Tasks"),
+            ("   ### Notes", "Notes"),
+            ("###### Deep", "Deep"),
+            ("####### Too deep", None),
+            ("#   ", None),
+            ("Plain text\n# Heading\nMore", "Heading"),
+        ]
+
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(get_first_markdown_heading(text), expected)
+
+
 class SmartLayoutTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
@@ -378,7 +236,6 @@ class SmartLayoutTests(unittest.TestCase):
         assert pan_to is not None
         self.assertAlmostEqual(pan_to.x, position.x + 80.0)
         self.assertAlmostEqual(pan_to.y, position.y + 50.0)
-
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -409,6 +266,46 @@ class SmartLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(position.x, 24.0)
         self.assertAlmostEqual(position.y, 24.0)
         self.assertIsNone(pan_to)
+
+
+class TextBlockDefaultsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_markdown_respects_heading_as_section_name_default_false(self) -> None:
+        self.settings.textBlockSectionDefault.headingAsSectionName = False
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+            {"format": TextBlockFormat.Markdown},
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertFalse(impl.headingAsSectionName)
+
+    def test_markdown_respects_heading_as_section_name_default_true(self) -> None:
+        self.settings.textBlockSectionDefault.headingAsSectionName = True
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+            {"format": TextBlockFormat.Markdown},
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        self.assertTrue(impl.headingAsSectionName)
 
 
 if __name__ == "__main__":  # pragma: no cover

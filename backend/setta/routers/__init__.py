@@ -1,4 +1,3 @@
-from .agentic import router as agentic_router
 from .ai import router as ai_router
 from .artifact import router as artifact_router
 from .bootstrap import router as bootstrap_router
