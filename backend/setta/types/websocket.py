@@ -9,14 +9,16 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
+from setta.types.agentic import AgentProfileList, EngineConfigList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
+from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.listener import (
-    ListenerActionEventContent,
     ListenerCoverageSnapshot,
+    ListenerDependencyEventContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
@@ -26,7 +28,7 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointResultContent,
-    RealtimeActionEventContent,
+    RealtimeDependencyEventContent,
     RealtimeUIChangeContent,
 )
 from setta.types.llm_config import AllLLMConfigs
@@ -35,6 +37,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
+from setta.types.prompt import PromptTemplateList
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -54,12 +57,16 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
+    AgentProfilesUpdated = "AgentProfilesUpdated"
+    PromptTemplatesUpdated = "PromptTemplatesUpdated"
+    ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
+    EngineConfigsUpdated = "EngineConfigsUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
-    RealtimeActionEvent = "RealtimeActionEvent"
+    RealtimeDependencyEvent = "RealtimeDependencyEvent"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -67,7 +74,7 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
-    ListenerActionEvent = "ListenerActionEvent"
+    ListenerDependencyEvent = "ListenerDependencyEvent"
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
@@ -217,6 +224,34 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     )
 
 
+class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
+    content: AgentProfileList
+    messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
+        WebsocketMsgTypeForFrontend.AgentProfilesUpdated
+    )
+
+
+class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
+    content: PromptTemplateList
+    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
+        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
+    )
+
+
+class WebsocketMsgExternalAgentConfigsUpdated(FrontendWebsocketMsg):
+    content: ExternalAgentConfigList
+    messageType: Literal[WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated] = (
+        WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated
+    )
+
+
+class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
+    content: EngineConfigList
+    messageType: Literal[WebsocketMsgTypeForFrontend.EngineConfigsUpdated] = (
+        WebsocketMsgTypeForFrontend.EngineConfigsUpdated
+    )
+
+
 class AIFollowToolArgumentsUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
@@ -250,10 +285,10 @@ class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
     )
 
 
-class WebsocketMsgRealtimeActionEvent(BackendWebsocketMsg):
-    content: RealtimeActionEventContent
-    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeActionEvent] = (
-        WebsocketMsgTypeForBackend.RealtimeActionEvent
+class WebsocketMsgRealtimeDependencyEvent(BackendWebsocketMsg):
+    content: RealtimeDependencyEventContent
+    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeDependencyEvent] = (
+        WebsocketMsgTypeForBackend.RealtimeDependencyEvent
     )
 
 
@@ -271,10 +306,10 @@ class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
     )
 
 
-class WebsocketMsgListenerActionEvent(PythonScriptWebsocketMsg):
-    content: ListenerActionEventContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerActionEvent] = (
-        WebsocketMsgTypeForPythonScript.ListenerActionEvent
+class WebsocketMsgListenerDependencyEvent(PythonScriptWebsocketMsg):
+    content: ListenerDependencyEventContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerDependencyEvent] = (
+        WebsocketMsgTypeForPythonScript.ListenerDependencyEvent
     )
 
 

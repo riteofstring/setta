@@ -2,7 +2,6 @@ import asyncio
 import json
 import shlex
 import shutil
-import tempfile
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -565,7 +564,7 @@ class ShareRuntimeStateTests(unittest.TestCase):
             self.assertEqual(expected, command)
 
     def test_run_command_ephemeral_outside_cwd_uses_absolute_path(self) -> None:
-        with TemporaryDirectory(dir=Path(tempfile.gettempdir())) as tmpdir:
+        with TemporaryDirectory(dir=Path.cwd().parent) as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")

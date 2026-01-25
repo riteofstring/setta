@@ -34,6 +34,7 @@ class MessageThinkingDelta(BaseModel):
     type: Literal["thinking_delta"] = "thinking_delta"
     index: int
     thinking: str
+    summary: str | None = None
     signature: str | None = None
 
 
@@ -105,3 +106,4 @@ LLMStreamingResponseChunk = (
 class LLMStreamingResponse(BaseModel):
     chatId: ID
     chunk: LLMStreamingResponseChunk
+    sectionId: ID | None = None

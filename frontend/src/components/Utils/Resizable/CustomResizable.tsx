@@ -5,10 +5,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import {
-  adjustSizeToBeAtLeastMin,
-  setSelfParentSiblingChildrenWidths,
-} from "state/actions/sections/sectionSizes";
+import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
   useMisc,
@@ -18,7 +15,6 @@ import {
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -28,8 +24,6 @@ import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
-
-const AUTO_CLAMP_TOLERANCE = 2;
 
 export function CustomResizable({
   sectionId,
@@ -101,7 +95,6 @@ function CustomResizableCore({
 
   const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
-  const { canEditLayout } = useShareCapabilities();
 
   function onResizeStart() {
     useResizeEvent.setState((state) => {
@@ -111,22 +104,9 @@ function CustomResizableCore({
   }
 
   function onResizeStop(...props) {
-    const [event, , , delta] = props;
-    const isZeroDelta = delta.width === 0 && delta.height === 0;
-    const isDoubleClick =
-      typeof event.detail === "number" && event.detail === 2;
-    if (isZeroDelta && !isDoubleClick) {
-      return;
-    }
     const changedSize = getChangedSize({
       props,
       sizeMode,
-      aspectRatio,
-    });
-    const clampedSize = clampChangedSize({
-      changedSize,
-      minHeight,
-      minWidth,
       aspectRatio,
     });
     let updatedSectionSizes: Record<string, SectionSize> = {};
@@ -134,7 +114,7 @@ function CustomResizableCore({
       apply: (state) => {
         updatedSectionSizes = setSelfParentSiblingChildrenWidths(
           sectionId,
-          clampedSize,
+          changedSize,
           state,
         );
       },
@@ -150,65 +130,6 @@ function CustomResizableCore({
     });
     useMisc.setState({ mouseDownDraggingSection: false });
   }
-
-  useEffect(() => {
-    const nextSize: Partial<SectionSize> = {};
-    const heightDelta =
-      typeof size.height === "number" ? minHeight - size.height : null;
-    const widthDelta =
-      typeof size.width === "number" ? minWidth - size.width : null;
-    if (
-      sizeMode.height !== SIZE_MODE.auto_only &&
-      typeof size.height === "number" &&
-      heightDelta !== null &&
-      heightDelta > AUTO_CLAMP_TOLERANCE
-    ) {
-      nextSize.height = minHeight;
-    }
-    if (
-      sizeMode.width !== SIZE_MODE.auto_only &&
-      typeof size.width === "number" &&
-      widthDelta !== null &&
-      widthDelta > AUTO_CLAMP_TOLERANCE
-    ) {
-      nextSize.width = minWidth;
-    }
-    if (_.size(nextSize) === 0) {
-      return;
-    }
-    if (!canEditLayout || positionAndSizeLocked) {
-      useProjectState.setState((state) => {
-        setSelfParentSiblingChildrenWidths(sectionId, nextSize, state);
-      });
-      return;
-    }
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          nextSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: updatedSectionSizes,
-          frontendOpId,
-        }),
-    });
-  }, [
-    minHeight,
-    minWidth,
-    sectionId,
-    size.height,
-    size.width,
-    sizeMode.height,
-    sizeMode.width,
-    canEditLayout,
-    positionAndSizeLocked,
-  ]);
 
   const heightResizable =
     minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
@@ -303,9 +224,9 @@ function CustomResizableSuperCore({
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
-    right: `${handleBaseClassName} section-resize-handle section-resize-handle-right`,
-    bottom: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom`,
-    bottomRight: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom-right`,
+    right: handleBaseClassName,
+    bottom: handleBaseClassName,
+    bottomRight: handleBaseClassName,
   };
   const metaControlHandleBaseClassName =
     "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
@@ -408,50 +329,4 @@ function useAspectRatio(sectionId: string) {
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.resizeEvent[sectionId] = resizeEvent;
-}
-
-export function clampChangedSize({
-  changedSize,
-  minHeight,
-  minWidth,
-  aspectRatio,
-}: {
-  changedSize: Partial<SectionSize>;
-  minHeight: number;
-  minWidth: number;
-  aspectRatio: boolean;
-}) {
-  const clampedSize = { ...changedSize };
-  const hasHeight = typeof changedSize.height === "number";
-  const hasWidth = typeof changedSize.width === "number";
-
-  if (hasHeight && hasWidth) {
-    if (aspectRatio) {
-      const adjusted = adjustSizeToBeAtLeastMin(
-        changedSize.height,
-        changedSize.width,
-        minHeight,
-        minWidth,
-      );
-      clampedSize.height = adjusted.height;
-      clampedSize.width = adjusted.width;
-      return clampedSize;
-    }
-    if (changedSize.height < minHeight) {
-      clampedSize.height = minHeight;
-    }
-    if (changedSize.width < minWidth) {
-      clampedSize.width = minWidth;
-    }
-    return clampedSize;
-  }
-
-  if (hasHeight && changedSize.height < minHeight) {
-    clampedSize.height = minHeight;
-  }
-  if (hasWidth && changedSize.width < minWidth) {
-    clampedSize.width = minWidth;
-  }
-
-  return clampedSize;
 }
