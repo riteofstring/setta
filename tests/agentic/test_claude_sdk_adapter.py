@@ -122,6 +122,87 @@ class ClaudeSdkAdapterParserTests(unittest.TestCase):
             self.assertEqual(events[0].stream_chunk.tool_call_id, "toolu-1")
             self.assertIn("README.md", events[0].stream_chunk.arguments_delta)
 
+    def test_documented_tools_emit_tool_call_and_result(self) -> None:
+        tool_names = [
+            "AskUserQuestion",
+            "Bash",
+            "Edit",
+            "Glob",
+            "Grep",
+            "NotebookEdit",
+            "Read",
+            "Task",
+            "TodoWrite",
+            "WebFetch",
+            "WebSearch",
+            "Write",
+            "BashOutput",
+            "KillBash",
+            "ExitPlanMode",
+            "ListMcpResources",
+            "ReadMcpResource",
+        ]
+        for idx, tool_name in enumerate(tool_names):
+            parser = _ClaudeSdkEventParser()
+            message_id = f"msg-{idx}"
+            tool_id = f"toolu-{idx}"
+            parser.handle(
+                {
+                    "type": "raw_message_stream_event",
+                    "stream_event": {
+                        "type": "message_start",
+                        "message": {"id": message_id, "content": []},
+                    },
+                }
+            )
+
+            events = parser.handle(
+                {
+                    "type": "raw_message_stream_event",
+                    "stream_event": {
+                        "type": "content_block_start",
+                        "index": 0,
+                        "content_block": {
+                            "type": "tool_use",
+                            "id": tool_id,
+                            "name": tool_name,
+                            "input": {"token": tool_name},
+                        },
+                    },
+                }
+            )
+            self.assertEqual(len(events), 1)
+            self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+            if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
+                self.assertEqual(events[0].stream_chunk.tool_call_id, tool_id)
+                self.assertEqual(events[0].stream_chunk.tool_name, tool_name)
+
+            parser.handle(
+                {
+                    "type": "raw_message_stream_event",
+                    "stream_event": {
+                        "type": "content_block_start",
+                        "index": 1,
+                        "content_block": {
+                            "type": "tool_result",
+                            "tool_use_id": tool_id,
+                            "content": [{"type": "text", "text": "ok"}],
+                        },
+                    },
+                }
+            )
+
+            events = parser.handle(
+                {
+                    "type": "raw_message_stream_event",
+                    "stream_event": {"type": "content_block_stop", "index": 1},
+                }
+            )
+            self.assertEqual(len(events), 1)
+            self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+            if isinstance(events[0].stream_chunk, ToolResultEvent):
+                self.assertEqual(events[0].stream_chunk.result.tool_name, tool_name)
+
     def test_stream_event_thinking_deltas(self) -> None:
         parser = _ClaudeSdkEventParser()
         parser.handle(

@@ -435,6 +435,117 @@ class ClaudeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             }
             self.assertIn("Bash", tool_names)
 
+    async def test_claude_sdk_todo_write_tool(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            token = "setta-todo-token"
+            todo_payload = {
+                "todos": [
+                    {"content": f"{token}-one", "status": "pending"},
+                    {"content": f"{token}-two", "status": "in_progress"},
+                ]
+            }
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="allow",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": (
+                        "Before answering, call the TodoWrite tool with this JSON "
+                        "payload exactly:\n"
+                        f"{json.dumps(todo_payload)}\n"
+                        "After the tool call, reply with only OK."
+                    ),
+                    "allowedTools": ["TodoWrite"],
+                    "mcpConfig": mcp_config,
+                    "maxTurns": 2,
+                },
+            )
+
+            handle = await self._await_run_handle(runner, run.id)
+            self._assert_python_sdk_handle(handle)
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            self.assertIsInstance(outputs, dict)
+            messages = outputs.get("messages")
+            self.assertIsInstance(messages, list)
+
+            tool_errors = []
+            for message in messages:
+                if (
+                    isinstance(message, dict)
+                    and message.get("role") == "tool"
+                    and message.get("is_error")
+                ):
+                    tool_errors.append(self._extract_tool_text(message))
+            if tool_errors:
+                self.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
+                    )
+                )
+
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            tool_calls: list[dict] = []
+            for message in assistant_messages:
+                calls = message.get("tool_calls") if isinstance(message, dict) else None
+                if isinstance(calls, list):
+                    tool_calls.extend(call for call in calls if isinstance(call, dict))
+            self.assertTrue(tool_calls)
+            todo_calls = [
+                call
+                for call in tool_calls
+                if call.get("function", {}).get("name") == "TodoWrite"
+            ]
+            self.assertTrue(todo_calls)
+            for call in todo_calls:
+                arguments = call.get("function", {}).get("arguments")
+                self.assertIsInstance(arguments, dict)
+                if isinstance(arguments, dict):
+                    todos = arguments.get("todos")
+                    self.assertIsInstance(todos, list)
+                    if isinstance(todos, list):
+                        todo_text = " ".join(
+                            str(entry.get("content"))
+                            for entry in todos
+                            if isinstance(entry, dict)
+                        )
+                        self.assertIn(token, todo_text)
+
     async def test_claude_sdk_local_settings_prompt_for_echo(self) -> None:
         self._require_claude_sdk()
 

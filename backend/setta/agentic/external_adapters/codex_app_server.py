@@ -51,6 +51,14 @@ _REASONING_ITEM_TYPES = {"reasoning"}
 _COMMAND_EXECUTION_ITEM_TYPE = "commandExecution"
 _FILE_CHANGE_ITEM_TYPE = "fileChange"
 _MCP_TOOL_CALL_ITEM_TYPE = "mcpToolCall"
+_GENERIC_TOOL_ITEM_TYPES = {
+    "collabToolCall",
+    "webSearch",
+    "imageView",
+    "enteredReviewMode",
+    "exitedReviewMode",
+    "compacted",
+}
 _COMMAND_EXECUTION_TOOL_NAME = "command_execution"
 _FILE_CHANGE_TOOL_NAME = "file_change"
 _MAX_CLI_STDERR_LINES = 200
@@ -820,6 +828,7 @@ class _CodexAppServerEventParser:
             _COMMAND_EXECUTION_ITEM_TYPE,
             _FILE_CHANGE_ITEM_TYPE,
             _MCP_TOOL_CALL_ITEM_TYPE,
+            *_GENERIC_TOOL_ITEM_TYPES,
         }:
             return [ExternalAgentStreamEvent(raw=payload)]
 
@@ -853,6 +862,17 @@ class _CodexAppServerEventParser:
                     message_id,
                     item_id,
                     item,
+                    method=method,
+                )
+            )
+        else:
+            events.extend(
+                self._handle_generic_tool_item(
+                    payload,
+                    message_id,
+                    item_id,
+                    item,
+                    item_type=item_type,
                     method=method,
                 )
             )
@@ -963,6 +983,38 @@ class _CodexAppServerEventParser:
                     )
                 )
                 self._completed_items.add(item_id)
+        return events
+
+    def _handle_generic_tool_item(
+        self,
+        payload: dict[str, Any],
+        message_id: str,
+        item_id: str | None,
+        item: dict[str, Any],
+        *,
+        item_type: str | None,
+        method: str,
+    ) -> list[ExternalAgentStreamEvent]:
+        if not item_id or not item_type:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        events: list[ExternalAgentStreamEvent] = []
+        if item_id not in self._emitted_tool_calls:
+            tool_event = _build_generic_tool_call(message_id, item_id, item, item_type)
+            if tool_event is not None:
+                self._emitted_tool_calls.add(item_id)
+                events.append(
+                    ExternalAgentStreamEvent(raw=payload, stream_chunk=tool_event)
+                )
+        if method.endswith("/completed") or _generic_tool_item_is_terminal(item):
+            tool_result = _build_generic_tool_result(item_id, item, item_type)
+            if tool_result is not None:
+                events.append(
+                    ExternalAgentStreamEvent(
+                        raw=payload,
+                        stream_chunk=ToolResultEvent(result=tool_result),
+                    )
+                )
+            self._completed_items.add(item_id)
         return events
 
     def _handle_command_output_delta(
@@ -1701,6 +1753,79 @@ def _build_mcp_tool_result(
         is_error=is_error,
         completed_at=get_now_timestamp(),
     )
+
+
+def _build_generic_tool_call(
+    message_id: str,
+    item_id: str,
+    item: dict[str, Any],
+    item_type: str,
+) -> ToolCallDeltaEvent | None:
+    arguments = _extract_generic_tool_arguments(item)
+    arguments_delta = _stringify_tool_result(arguments)
+    return ToolCallDeltaEvent(
+        message_id=message_id,
+        tool_call_id=item_id,
+        arguments_delta=arguments_delta,
+        tool_name=item_type,
+    )
+
+
+def _generic_tool_item_is_terminal(item: dict[str, Any]) -> bool:
+    status = item.get("status")
+    if isinstance(status, str) and status in {"completed", "failed"}:
+        return True
+    if item.get("output") is not None or item.get("result") is not None:
+        return True
+    if item.get("results") is not None:
+        return True
+    return False
+
+
+def _build_generic_tool_result(
+    item_id: str,
+    item: dict[str, Any],
+    item_type: str,
+) -> ToolChatMessage | None:
+    arguments = _extract_generic_tool_arguments(item)
+    output = _extract_generic_tool_output(item)
+    content_text = _stringify_tool_result(output)
+    content = [TextContent(type="text", text=content_text)] if content_text else []
+    status = item.get("status")
+    is_error = isinstance(status, str) and status == "failed"
+    return ToolChatMessage(
+        tool_call_id=item_id,
+        tool_name=item_type,
+        arguments=arguments,
+        result=output,
+        content=content,
+        is_error=is_error,
+        completed_at=get_now_timestamp(),
+    )
+
+
+def _extract_generic_tool_arguments(item: dict[str, Any]) -> Any:
+    arguments = item.get("input") or item.get("arguments")
+    if arguments is not None:
+        return arguments
+    filtered = {
+        key: value
+        for key, value in item.items()
+        if key not in {"type", "id", "status", "output", "result", "results"}
+    }
+    return filtered
+
+
+def _extract_generic_tool_output(item: dict[str, Any]) -> Any:
+    if item.get("output") is not None:
+        return item.get("output")
+    if item.get("result") is not None:
+        return item.get("result")
+    if item.get("results") is not None:
+        return item.get("results")
+    if item.get("text") is not None:
+        return item.get("text")
+    return item
 
 
 def _stringify_tool_result(value: Any) -> str:

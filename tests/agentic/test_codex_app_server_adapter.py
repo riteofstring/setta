@@ -311,6 +311,58 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
 
+    def test_generic_item_types_emit_tool_call_and_result(self) -> None:
+        generic_types = [
+            "collabToolCall",
+            "webSearch",
+            "imageView",
+            "enteredReviewMode",
+            "exitedReviewMode",
+            "compacted",
+        ]
+        for item_type in generic_types:
+            parser = _CodexAppServerEventParser()
+            item_id = f"{item_type}-1"
+            events = parser.handle(
+                {
+                    "method": "item/started",
+                    "params": {
+                        "item": {
+                            "id": item_id,
+                            "type": item_type,
+                            "input": {"token": item_type},
+                        }
+                    },
+                }
+            )
+
+            self.assertEqual(len(events), 1)
+            self.assertIsInstance(events[0].stream_chunk, ToolCallDeltaEvent)
+            if isinstance(events[0].stream_chunk, ToolCallDeltaEvent):
+                self.assertEqual(events[0].stream_chunk.tool_name, item_type)
+
+            events = parser.handle(
+                {
+                    "method": "item/completed",
+                    "params": {
+                        "item": {
+                            "id": item_id,
+                            "type": item_type,
+                            "input": {"token": item_type},
+                            "output": {"status": "ok"},
+                            "status": "completed",
+                        }
+                    },
+                }
+            )
+            self.assertEqual(len(events), 1)
+            self.assertIsInstance(events[0].stream_chunk, ToolResultEvent)
+            if isinstance(events[0].stream_chunk, ToolResultEvent):
+                self.assertEqual(
+                    events[0].stream_chunk.result.tool_name,
+                    item_type,
+                )
+
 
 class CodexAppServerAdapterPromptTests(unittest.TestCase):
     def test_build_prompt_omits_system_messages(self) -> None:

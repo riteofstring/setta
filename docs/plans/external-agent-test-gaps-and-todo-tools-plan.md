@@ -44,12 +44,38 @@ Tools listed as available to Claude Code:
 - LSP
 
 Notes:
-- The settings docs list does not include TodoWrite; the SDK todo-tracking docs still use TodoWrite (see below).
-- Task is a sub-agent helper; TaskCreate/TaskGet/TaskList/TaskUpdate are task-list tools.
+- AskUserQuestion is explicitly listed in the settings docs (keep UI coverage).
+- We will only build schema-based tests for tools with published schemas (see below). Other tools remain generic/unverified.
 
 ### Claude Code Todo tracking (Claude Code SDK todo-tracking docs)
-- Todo tracking uses `tool_use` events with tool name `TodoWrite`.
-- Payload includes a `todos` array where each item has `content`, `status` (`pending`, `in_progress`, `completed`), and optional fields such as `activeForm`.
+- The Agent SDK reference includes a full TodoWrite input/output schema, even though the settings docs list does not mention TodoWrite.
+- Treat TodoWrite as supported until the docs converge; keep checklist UI compatibility.
+
+### Claude Agent SDK tool schemas (Python reference)
+Tools with explicit input/output schemas in the Agent SDK reference:
+- Task
+- AskUserQuestion
+- Bash
+- Edit
+- Read
+- Write
+- Glob
+- Grep
+- NotebookEdit
+- WebFetch
+- WebSearch
+- TodoWrite
+- BashOutput
+- KillBash
+- ExitPlanMode
+- ListMcpResources
+- ReadMcpResource
+
+Missing from the Agent SDK schema section (need separate docs):
+- TaskCreate / TaskGet / TaskList / TaskUpdate / TaskOutput
+- Skill
+- MCPSearch
+- LSP
 
 ### Codex app-server item types (Codex app-server docs)
 Common item types the server emits:
@@ -79,12 +105,10 @@ The Codex app-server docs also describe an experimental `tool/requestUserInput` 
 
 ## Proposed tests
 
-### 1) Claude tool inventory parsing (unit)
-Add unit tests in `tests/agentic/test_claude_sdk_adapter.py` that assert any `tool_use` block for each documented tool name is captured as a tool call and that a matching `tool_result` block is emitted as a `ToolResultEvent`.
+### 1) Claude schema tool parsing (unit)
+Add unit tests in `tests/agentic/test_claude_sdk_adapter.py` that assert any `tool_use` block for each tool with a published schema is captured as a tool call and that a matching `tool_result` block is emitted as a `ToolResultEvent`.
 
-This ensures all documented Claude Code tools are recognized as generic tool uses (even if we do not run them end-to-end in integration).
-
-### 2) Claude TodoWrite integration (special UI path)
+### 2) Claude TodoWrite integration (checklist UI path)
 Add an integration test to `tests/agentic/test_claude_sdk_adapter_integration.py`.
 
 Test outline:
@@ -96,7 +120,7 @@ Test outline:
   - No tool error messages appear in `outputs.messages`.
 
 Notes:
-- The TodoWrite payload shape is documented in `docs/plans/claude-special-features-frontend-plan.md` (todos array with content/status). Use a minimal list with 2 items.
+- The TodoWrite payload shape is documented in the Agent SDK reference (todos array with content/status).
 
 ### 3) Codex item type parsing (unit)
 Extend `tests/agentic/test_codex_app_server_adapter.py` to cover all documented item types, including:
@@ -151,3 +175,10 @@ If the Claude SDK supports output schemas, mirror the Codex structured output te
 1) Implement the Claude tool inventory unit tests + TodoWrite integration test.
 2) Extend Codex adapter + unit tests for missing item types, then add integration tests for triggerable ones.
 3) Decide on optional follow-ups (approvals, structured output, MCP tool integration).
+
+## Progress (2026-01-26)
+- Added Claude schema-based parser coverage for tool_use/tool_result handling.
+- Added TodoWrite integration test (not yet executed here).
+- Extended Codex app-server adapter to emit generic tool events for collabToolCall/webSearch/imageView/enteredReviewMode/exitedReviewMode/compacted.
+- Added Codex parser tests for the new item types.
+- Ran unit tests: `tests/agentic/test_claude_sdk_adapter.py` and `tests/agentic/test_codex_app_server_adapter.py` (passed).
