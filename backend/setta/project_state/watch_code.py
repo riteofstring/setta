@@ -482,6 +482,12 @@ class WatchCodeManager:
         if binding is None:
             return False
         source_path = normalize_path(binding.canonical_path)
+        logger.debug(
+            "watch_code.handle_code_section_update section_id=%s source_path=%s code_len=%s",
+            section_id,
+            source_path,
+            len(code),
+        )
         return await self._apply_callable_updates(
             project_state,
             source_path,
@@ -702,6 +708,12 @@ class WatchCodeManager:
     ) -> bool:
         project_config = project_state.projectConfig
         callables = parse_python_callables(code, source_path)
+        logger.debug(
+            "watch_code._apply_callable_updates source_path=%s baseline_only=%s callable_count=%s",
+            source_path,
+            baseline_only,
+            len(callables),
+        )
         if baseline_only:
             self._record_baseline(project_config, source_path, callables)
             return True
@@ -727,12 +739,24 @@ class WatchCodeManager:
         for identity, entry in registry.items():
             if entry.sourcePath == source_key:
                 registry_entries_for_file[identity] = entry
+        logger.debug(
+            "watch_code._apply_callable_updates baseline_entries=%s registry_entries=%s source_path=%s",
+            len(baseline_entries),
+            len(registry_entries_for_file),
+            source_key,
+        )
 
         removed_identities = set(registry_entries_for_file.keys()) - set(
             current_by_identity.keys()
         )
         added_identities = set(current_by_identity.keys()) - set(
             registry_entries_for_file.keys()
+        )
+        logger.debug(
+            "watch_code._apply_callable_updates added=%s removed=%s source_path=%s",
+            len(added_identities),
+            len(removed_identities),
+            source_key,
         )
         did_update = False
         if removed_identities and added_identities:
@@ -768,6 +792,12 @@ class WatchCodeManager:
                     registry, new_info, exclude_identity=new_info.identity
                 )
                 if old_reference_name != reference_name:
+                    logger.debug(
+                        "watch_code._apply_callable_updates renaming callable identity=%s old_name=%s new_name=%s",
+                        identity,
+                        old_reference_name,
+                        reference_name,
+                    )
                     self._remove_gen_code_import(
                         project_state,
                         old_module_path,
@@ -795,6 +825,12 @@ class WatchCodeManager:
                 entry.sectionIds = self._prune_section_ids(project_state, entry)
                 entry.sectionsCount = len(entry.sectionIds)
                 if entry.signatureHash != info.signature_hash:
+                    logger.debug(
+                        "watch_code._apply_callable_updates signature change identity=%s callable=%s sections=%s",
+                        identity,
+                        entry.callableName,
+                        entry.sectionIds,
+                    )
                     entry.signatureHash = info.signature_hash
                     entry.bodyHash = info.body_hash
                     entry.sourcePath = info.source_path
@@ -824,6 +860,13 @@ class WatchCodeManager:
                 sourcePath=info.source_path,
                 sectionIds=[section_id],
                 sectionsCount=1,
+            )
+            logger.debug(
+                "watch_code._apply_callable_updates new callable identity=%s callable=%s section_id=%s source_path=%s",
+                identity,
+                reference_name,
+                section_id,
+                info.source_path,
             )
             did_update = True
             await self._update_sections_for_callable(
@@ -856,25 +899,65 @@ class WatchCodeManager:
             project_state.projectConfig
         )
         gen_code = self._project_manager.gen_code.get(project_config_id)
-        needs_refresh = gen_code is None
+        missing_dep_keys: list[ID] = []
+        prefix_mismatch = False
         if gen_code is not None:
-            if gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix:
-                needs_refresh = True
-            elif any(
-                create_dep_key(section_id) not in gen_code.dep_graph.graph
+            prefix_mismatch = (
+                gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix
+            )
+            missing_dep_keys = [
+                section_id
                 for section_id in section_ids
-            ):
-                needs_refresh = True
+                if create_dep_key(section_id) not in gen_code.dep_graph.graph
+            ]
+        needs_refresh = gen_code is None or prefix_mismatch or bool(missing_dep_keys)
+        logger.debug(
+            "watch_code._update_sections_for_callable callable=%s section_ids=%s gen_code=%s prefix_mismatch=%s missing_dep_keys=%s needs_refresh=%s",
+            callable_name,
+            section_ids,
+            gen_code is not None,
+            prefix_mismatch,
+            missing_dep_keys,
+            needs_refresh,
+        )
         if needs_refresh:
             await self._project_manager._refresh_codegen_state(project_state)
             gen_code = self._project_manager._require_python_codegen(project_config_id)
+            missing_after_refresh = [
+                section_id
+                for section_id in section_ids
+                if create_dep_key(section_id) not in gen_code.dep_graph.graph
+            ]
+            if missing_after_refresh:
+                logger.error(
+                    "watch_code._update_sections_for_callable dep_graph missing after refresh callable=%s missing_section_ids=%s graph_size=%s",
+                    callable_name,
+                    missing_after_refresh,
+                    len(gen_code.dep_graph.graph),
+                )
         settings = self._project_manager.settings_file.settings
         for section_id in section_ids:
             if section_id not in project_state.sections:
+                logger.warning(
+                    "watch_code._update_sections_for_callable missing section_id=%s callable=%s",
+                    section_id,
+                    callable_name,
+                )
                 continue
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CallableSectionImpl):
+                logger.debug(
+                    "watch_code._update_sections_for_callable non-callable section_id=%s callable=%s section_type=%s",
+                    section_id,
+                    callable_name,
+                    type(section_impl).__name__,
+                )
                 continue
+            logger.debug(
+                "watch_code._update_sections_for_callable applying callable=%s section_id=%s",
+                callable_name,
+                section_id,
+            )
             response = await gen_code.set_callable(
                 settings,
                 project_state,

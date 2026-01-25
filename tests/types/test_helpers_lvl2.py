@@ -1,17 +1,20 @@
 import unittest
 
 from setta.types.code_obj_impls import (
+    CodeCallableCodeObjImpl,
     CodeObjType,
     CodeParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import (
+    add_children_of_callable,
     add_kwarg,
     apply_top_level_section_layout_snapshot,
     change_param_impl,
@@ -36,10 +39,99 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.id import ID
 from setta.types.section_impls import (
     BaseDictSectionImpl,
+    CallableSectionImpl,
     ChatSectionImpl,
     SectionSize,
     SectionType,
 )
+
+
+def build_callable_project_state(
+    param_value: str,
+) -> tuple[ProjectStateSingleConfig, ID, ID]:
+    section_id = ID("section-1")
+    section_impl_id = ID("section-impl-1")
+    section_variant_id = ID("section-variant-1")
+
+    callable_id = ID("callable-1")
+    callable_impl_id = ID("callable-impl-1")
+    callable_variant_id = ID("callable-variant-1")
+
+    param_id = ID("param-1")
+    param_impl_id = ID("param-impl-1")
+    param_variant_id = ID("param-variant-1")
+
+    callable_impl = CodeCallableCodeObjImpl(
+        id=callable_impl_id,
+        children=[param_id],
+    )
+    callable_variant = Variant(
+        id=callable_variant_id,
+        impl=callable_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(callable_impl),
+    )
+    callable_core = Core(
+        id=callable_id,
+        name="TestCallable",
+        variants=[callable_variant.id],
+        defaultVariant=callable_variant.id,
+    )
+
+    param_impl = CodeParamCodeObjImpl(
+        id=param_impl_id,
+        value=param_value,
+    )
+    param_variant = Variant(
+        id=param_variant_id,
+        impl=param_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
+    )
+    param_core = Core(
+        id=param_id,
+        name="param",
+        variants=[param_variant.id],
+        defaultVariant=param_variant.id,
+    )
+
+    section_impl = CallableSectionImpl(
+        id=section_impl_id,
+        callable=callable_id,
+        codeObjVariantMap={
+            callable_id: callable_variant.id,
+            param_id: param_variant.id,
+        },
+    )
+    section_variant = Variant(
+        id=section_variant_id,
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    section_core = Core(
+        id=section_id,
+        name="CallableSection",
+        variants=[section_variant.id],
+        defaultVariant=section_variant.id,
+    )
+
+    project_config = ProjectConfig(
+        id=ID("project-1"),
+        name="CallableProject",
+        sectionVariantMap={section_id: section_variant.id},
+        topLevelSections={section_id: TopLevelSectionLayout()},
+    )
+    project_state = ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={section_id: section_core},
+        sectionImpls={section_impl.id: section_impl},
+        sectionVariants={section_variant.id: section_variant},
+        codeObjs={callable_id: callable_core, param_id: param_core},
+        codeObjImpls={callable_impl.id: callable_impl, param_impl.id: param_impl},
+        codeObjVariants={
+            callable_variant.id: callable_variant,
+            param_variant.id: param_variant,
+        },
+    )
+    return project_state, section_id, param_id
 
 
 class AddKwargTests(unittest.TestCase):
@@ -203,6 +295,50 @@ class ChangeParamImplTests(unittest.TestCase):
         self.assertTrue(updated_impl.coreNameEditable)
         self.assertEqual(updated_impl.coreNameType, old_core_name_type)
         self.assertEqual(updated_impl.passingStyle, old_passing_style)
+
+
+class AddChildrenOfCallableTests(unittest.TestCase):
+    def test_refetch_preserves_existing_param_value(self) -> None:
+        project_state, section_id, param_id = build_callable_project_state(
+            "original"
+        )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state, section_id, CallableSectionImpl
+        )
+        callable_id = section_impl.callable
+        self.assertIsNotNone(callable_id)
+        assert callable_id is not None
+
+        new_param = Core(id=ID("param-new"), name="param")
+        new_param_impl = CodeParamCodeObjImpl(
+            id=ID("param-new-impl"),
+            value="new-default",
+        )
+
+        add_children_of_callable(
+            project_state,
+            section_id,
+            callable_id,
+            [new_param],
+            {new_param.id: new_param_impl},
+        )
+
+        callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            project_state,
+            section_id,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        self.assertEqual(callable_impl.children, [param_id])
+        self.assertNotIn(new_param.id, project_state.codeObjs)
+
+        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            project_state,
+            section_id,
+            param_id,
+            CodeParamCodeObjImpl,
+        )
+        self.assertEqual(param_impl.value, "original")
 
 
 class ParamMoveTests(unittest.TestCase):

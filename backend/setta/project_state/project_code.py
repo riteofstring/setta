@@ -1,4 +1,5 @@
 import copy
+import logging
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -72,6 +73,8 @@ from setta.types.section_impls import (
 from setta.utils.constants import C
 from setta.utils.utils import GEN_CODE_META_FILENAME
 
+logger = logging.getLogger(__name__)
+
 
 def build_python_code_generator(
     project_state: ProjectStateSingleConfig,
@@ -107,6 +110,7 @@ class ProjectGenPythonCode(PythonCode):
         ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
         *,
         initial_undefined_callable_sections: set[ID] | None = None,
+        initial_callable_mismatch_sections: set[ID] | None = None,
         on_callable_symbols_resolved: Callable[[ID, set[ID]], Awaitable[None]]
         | None = None,
         on_callable_signature_mismatch: Callable[[ID, set[ID]], Awaitable[None]]
@@ -124,7 +128,11 @@ class ProjectGenPythonCode(PythonCode):
         )
         self._on_callable_symbols_resolved = on_callable_symbols_resolved
         self._on_callable_signature_mismatch = on_callable_signature_mismatch
-        self.latest_callable_mismatch_sections: set[ID] = set()
+        self.latest_callable_mismatch_sections = (
+            set(initial_callable_mismatch_sections)
+            if initial_callable_mismatch_sections
+            else set()
+        )
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -187,6 +195,14 @@ class ProjectGenPythonCode(PythonCode):
         self, sectionId: ID, paramInfoId: ID | None, fullText: str, position: int
     ) -> tuple[int, int] | None:
         dep_key = create_dep_key(sectionId, paramInfoId)
+        if dep_key not in self.code_generator.dep_graph.graph:
+            logger.error(
+                "ProjectCode missing dep_key before change_value section_id=%s param_id=%s dep_key=%s graph_size=%s",
+                sectionId,
+                paramInfoId,
+                dep_key,
+                len(self.code_generator.dep_graph.graph),
+            )
         start = self.code_generator.change_value(dep_key, fullText)
         await self.sync_lsp(self.code)
         if start is None:
@@ -474,6 +490,12 @@ class ProjectGenPythonCode(PythonCode):
             self.dep_graph,
             self.ignored_type_errors_by_section,
         )
+        if callable_mismatch_sections:
+            logger.debug(
+                "gen_code diagnostics callable_mismatch_sections=%s project_config_id=%s",
+                sorted(callable_mismatch_sections),
+                self.project_config_id,
+            )
         new_mismatch_sections = (
             callable_mismatch_sections - self.latest_callable_mismatch_sections
         )

@@ -468,6 +468,76 @@ class LspDiagnosticsIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(callback_calls, [{section_id}])
 
+    async def test_existing_callable_mismatch_does_not_trigger_refetch(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dbe = DBE(root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            specific_file_watcher = SpecificFileWatcher()
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            lsps = LSPServers({})
+            lsp_writers = LSPWriters(lsps)
+
+            project_state, section_id, _ = build_project_state("value")
+            dep_graph, code_generator = build_code_generator(project_state)
+
+            binding = CodeFileBinding(
+                canonical_path=root / "code" / "DiagnosticsProject" / "setta_gen.py",
+                access_mode=CodeFileAccessMode.write_only,
+            )
+
+            callback_calls: list[set[ID]] = []
+
+            async def on_callable_signature_mismatch(
+                _project_config_id: ID, section_ids: set[ID]
+            ) -> None:
+                callback_calls.append(set(section_ids))
+
+            gen_code = ProjectGenPythonCode(
+                dbe,
+                code_files,
+                binding,
+                lsp_writers,
+                frontend_sender,
+                project_state.projectConfig.id,
+                dep_graph,
+                code_generator,
+                {},
+                initial_callable_mismatch_sections={section_id},
+                on_callable_signature_mismatch=on_callable_signature_mismatch,
+            )
+
+            dep_key = create_dep_key(sectionId=section_id)
+            line = code_generator.lines[dep_key]
+            value_start = line.pos + line.prefix_len
+            value_end = value_start + line.value_len
+            start = value_start
+            end = min(value_start + 4, value_end)
+            diagnostic = build_diagnostic(
+                code_generator.code,
+                start,
+                end,
+                "Positional argument mismatch",
+                "reportCallIssue",
+            )
+
+            uri = lsp_writers.full.get_uri(binding.canonical_path)
+            gen_code.uri = uri
+            lsp_writers.full.latest_version_numbers[uri] = 0
+
+            notification = LSPTypes.TextDocumentPublishDiagnosticsNotification(
+                params=LSPTypes.PublishDiagnosticsParams(
+                    uri=uri,
+                    diagnostics=[diagnostic],
+                    version=0,
+                )
+            )
+
+            await gen_code.diagnostics_callback(notification)
+
+            self.assertEqual(callback_calls, [])
+
 
 class ProjectGenPythonCodeMutationHookTests(unittest.IsolatedAsyncioTestCase):
     async def test_hook_not_called_on_noop(self):

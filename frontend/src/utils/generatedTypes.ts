@@ -3653,7 +3653,7 @@ const SettingsBackendSchema = z.object({
   defaultTerminalShell: z.union([z.string(), z.null()]).default(null),
   exportDbReadableOnSave: z.boolean().default(false),
   exportDbReadableWithVariantsOnSave: z.boolean().default(false),
-  autoRefetchCallableParamsOnLspMismatch: z.boolean().default(false),
+  autoRefetchCallableParamsOnLspMismatch: z.boolean().default(true),
   renameRefactorMode: z
     .enum(RenameRefactorModeEnum)
     .default(RenameRefactorModeEnum.ALWAYS_ASK),

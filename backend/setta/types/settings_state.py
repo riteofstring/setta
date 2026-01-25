@@ -137,7 +137,7 @@ class SettingsBackend(BaseModel):
     defaultTerminalShell: str | None = None
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False
-    autoRefetchCallableParamsOnLspMismatch: bool = False
+    autoRefetchCallableParamsOnLspMismatch: bool = True
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral

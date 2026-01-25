@@ -1027,9 +1027,13 @@ class BaseProjectManager(ABC):
         if python_codegen_enabled:
             dep_graph = DependencyGraph(projectState)
             prev_undefined_callable_sections: set[ID] = set()
+            prev_callable_mismatch_sections: set[ID] = set()
             if projectConfigId in self.gen_code:
                 prev_undefined_callable_sections = set(
                     self.gen_code[projectConfigId].latest_undefined_callable_sections
+                )
+                prev_callable_mismatch_sections = set(
+                    self.gen_code[projectConfigId].latest_callable_mismatch_sections
                 )
                 await self.maybe_do_rename_refactor(
                     projectState, projectConfigId, dep_graph
@@ -1056,6 +1060,7 @@ class BaseProjectManager(ABC):
                 code_generator,
                 ignore_type_errors_by_section,
                 initial_undefined_callable_sections=prev_undefined_callable_sections,
+                initial_callable_mismatch_sections=prev_callable_mismatch_sections,
                 on_callable_symbols_resolved=self.auto_refetch_callable_params,
                 on_callable_signature_mismatch=(
                     self.auto_refetch_callable_params_on_lsp_mismatch
@@ -1265,6 +1270,11 @@ class BaseProjectManager(ABC):
             return
         if not self.settings_file.settings.backend.autoRefetchCallableParamsOnLspMismatch:
             return
+        logger.debug(
+            "auto_refetch_callable_params_on_lsp_mismatch project_config_id=%s section_ids=%s",
+            projectConfigId,
+            sorted(sectionIds),
+        )
         await self._refetch_callable_params(
             projectConfigId,
             sectionIds,
@@ -2829,6 +2839,15 @@ class BaseProjectManager(ABC):
         self._mark_current_frontend_op_completed_before_broadcast()
         completed_op_ids = self.completed_op_ids_since_last_broadcast
         pending_op_ids = list(self.pending_frontend_ops.keys())
+        logger.debug(
+            "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
+            project_state.projectConfig.id,
+            len(project_state.sections),
+            len(project_state.codeObjs),
+            len(project_state.sectionVariants),
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
             completed_op_ids,
