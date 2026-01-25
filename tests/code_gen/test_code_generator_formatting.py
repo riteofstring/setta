@@ -19,7 +19,6 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
-    get_python_codegen_target_with_type_guard,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import CallableSectionImpl, SectionType
@@ -133,13 +132,10 @@ class CodeGeneratorFormattingTests(TestCase):
             param_ids.append(param_id)
 
         dep_graph = DependencyGraph(project_state)
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
         generator = PythonCodeGenerator(
             dep_graph,
-            python_target.genCodePrefix,
-            python_target.genCodeSuffix,
+            project_state.projectConfig.genCodePrefix,
+            project_state.projectConfig.genCodeSuffix,
         )
         generator.generate_code()
         generated_lines = generator.generated_code.splitlines()
@@ -163,7 +159,7 @@ class CodeGeneratorFormattingTests(TestCase):
         for idx, line in enumerate(item_lines):
             self.assertTrue(line.startswith("            "))
             self.assertIn(
-                f"'param_{idx}': state.config__param_{idx},",
+                f"\"param_{idx}\": state.config__param_{idx},",
                 line,
             )
 
@@ -175,13 +171,10 @@ class CodeGeneratorFormattingTests(TestCase):
         project_state = build_callable_project_state(param_count)
 
         dep_graph = DependencyGraph(project_state)
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
         generator = PythonCodeGenerator(
             dep_graph,
-            python_target.genCodePrefix,
-            python_target.genCodeSuffix,
+            project_state.projectConfig.genCodePrefix,
+            project_state.projectConfig.genCodeSuffix,
         )
         generator.generate_code()
         generated_lines = generator.generated_code.splitlines()
@@ -212,49 +205,3 @@ class CodeGeneratorFormattingTests(TestCase):
 
         closing_line = generated_lines[target_index + 1 + param_count]
         self.assertEqual(closing_line, f"{GEN_CODE_BODY_INDENT})")
-
-    def test_dict_section_escapes_keys_and_sanitizes_var_names(self) -> None:
-        settings = SettingsState()
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Dict,
-            Position(),
-            core_overrides={"name": "config"},
-        )
-
-        cases = [
-            ("user-id", "user_id"),
-            ("123 abc", "_123_abc"),
-            ("class", "_class"),
-            ('quote"key', "quote_key"),
-            ("back\\slash", "back_slash"),
-        ]
-        for name, _ in cases:
-            param_id = add_kwarg(settings, project_state, section_id)
-            project_state.codeObjs[param_id].name = name
-            set_param_entered_value(project_state, section_id, param_id, "1")
-
-        dep_graph = DependencyGraph(project_state)
-        python_target = get_python_codegen_target_with_type_guard(
-            project_state.projectConfig
-        )
-        generator = PythonCodeGenerator(
-            dep_graph,
-            python_target.genCodePrefix,
-            python_target.genCodeSuffix,
-        )
-        generator.generate_code()
-        generated_lines = generator.generated_code.splitlines()
-
-        for raw_name, sanitized in cases:
-            expected_key = repr(raw_name)
-            expected_full_path = f"config__{sanitized}"
-            expected_line = (
-                f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}"
-                f"{expected_key}: state.{expected_full_path},"
-            )
-            self.assertIn(expected_line, generated_lines)

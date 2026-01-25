@@ -49,7 +49,6 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { applyActiveSectionChange } from "./activeSectionController";
 
 function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -348,18 +347,6 @@ export function setCurrEffectiveSectionImplValue<
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
-export function setSectionVariantImplValue<K extends keyof ImplArgsBundleMap>(
-  state: ZustandProjectState,
-  sectionId: string,
-  variantId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
-  const variant = getSectionVariant(state, variantId);
-  const impl = getSectionImpl(state, variant.impl);
-  const core = getSectionCore(state, sectionId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
-}
-
 export function setCurrEffectiveCodeObjImplValue<
   K extends keyof ImplArgsBundleMap,
 >(
@@ -458,33 +445,6 @@ export function getCurrShownParamIds(
 
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
-}
-
-export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
-  const state = useProjectState.getState();
-  const variant = getCurrSectionVariant(state, sectionId);
-  const impl = getSectionImpl(state, variant.impl);
-  if (impl.type !== SectionTypeEnum.Group) {
-    return false;
-  }
-  const core = getSectionCore(state, sectionId);
-  if (
-    Object.prototype.hasOwnProperty.call(
-      variant.modifier,
-      "isHorizontalOrientation",
-    )
-  ) {
-    return Boolean(variant.modifier.isHorizontalOrientation);
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(
-      core.sharedModifier,
-      "isHorizontalOrientation",
-    )
-  ) {
-    return Boolean(core.sharedModifier.isHorizontalOrientation);
-  }
-  return impl.isHorizontalOrientation;
 }
 
 export function getSectionType(state: ZustandProjectState, sectionId: string) {
@@ -975,12 +935,6 @@ function acknowledgePendingOp(opId: string) {
   });
 }
 
-function removePendingOp(opId: string) {
-  usePendingOperations.setState((state) => ({
-    pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
-  }));
-}
-
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -996,11 +950,9 @@ function isResponseDataAndStatus(
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
-  rollback,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
-  rollback?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
@@ -1010,11 +962,6 @@ export function dispatchOptimisticProjectStateUpdate({
       // A 200 response means the backend accepted the op; don't keep reapplying it.
       if (isResponseDataAndStatus(res) && res200(res)) {
         acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (rollback) {
-          useProjectState.setState(rollback);
-        }
       }
     });
   }
@@ -1022,18 +969,6 @@ export function dispatchOptimisticProjectStateUpdate({
 }
 
 export function toggleParamSelected(sectionId: string, paramInfoId: string) {
-  const currentState = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImplWithTypeGuard(
-    currentState,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const wasSelected = impl.selectedParams.includes(paramInfoId);
-  const nextSelectedCount = wasSelected
-    ? impl.selectedParams.length - 1
-    : impl.selectedParams.length + 1;
-  const hasSelectedParams = nextSelectedCount > 0;
-
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -1056,12 +991,6 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
         paramInfoId,
         frontendOpId,
       }),
-  });
-
-  applyActiveSectionChange({
-    interaction: wasSelected ? "param-unselect" : "param-select",
-    sectionId,
-    hasSelectedParams,
   });
 }
 

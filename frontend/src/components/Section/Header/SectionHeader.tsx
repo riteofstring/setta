@@ -5,8 +5,11 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  TextBlockFormatEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -15,6 +18,7 @@ import { MinimizeButton } from "./MinimizeButton";
 import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
+import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 
 type SectionHeaderProps = {
   sectionId: string;
@@ -34,9 +38,6 @@ function _SectionHeader({
   isRoot,
 }: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -68,8 +69,7 @@ function _SectionHeader({
           </StandardPopover>
         )}
         {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
           <>
             <RunButton sectionId={sectionId} />
             <ToggleEntryCodeBlockButton
@@ -77,6 +77,9 @@ function _SectionHeader({
               sectionTypeName={sectionTypeName}
             />
           </>
+        )}
+        {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
+          <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
@@ -119,17 +122,59 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const headingAsSectionName = useProjectState((x) => {
+  const { headingAsSectionName, format } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
-    return impl.headingAsSectionName;
+    return {
+      headingAsSectionName: impl.headingAsSectionName,
+      format: impl.format,
+    };
   }, _.isEqual);
+  const [hasMarkdownHeading, setHasMarkdownHeading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!headingAsSectionName || format !== TextBlockFormatEnum.Markdown) {
+      setHasMarkdownHeading(false);
+      return;
+    }
+    let isFirst = true;
+    const debouncedCompute = _.debounce((text: string) => {
+      setHasMarkdownHeading(hasMarkdownHeadingText(text));
+    }, 150);
+    const unsubscribe = useProjectState.subscribe(
+      (state) => {
+        const impl = getCurrEffectiveSectionImplOfType(
+          state,
+          sectionId,
+          SectionTypeEnum.TextBlock,
+        );
+        return impl.text;
+      },
+      (text) => {
+        if (isFirst) {
+          isFirst = false;
+          setHasMarkdownHeading(hasMarkdownHeadingText(text));
+          return;
+        }
+        debouncedCompute(text);
+      },
+      { fireImmediately: true },
+    );
+    return () => {
+      debouncedCompute.cancel();
+      unsubscribe();
+    };
+  }, [format, headingAsSectionName, sectionId]);
+
+  const useHeadingAsSectionName =
+    headingAsSectionName &&
+    (format !== TextBlockFormatEnum.Markdown || hasMarkdownHeading);
 
   return (
-    !headingAsSectionName && (
+    !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
         titleProps={getTitleStyles({
@@ -142,13 +187,22 @@ function TextBlockCardTitle({
   );
 }
 
+export function hasMarkdownHeadingText(markdown: string) {
+  const trimmed = markdown.trimStart();
+  const match = trimmed.match(/(?:^|\n)\s{0,3}#{1,6}(?!#)\s*(.*?)(?=\n|$)/);
+  if (!match) {
+    return false;
+  }
+  return match[1].trim().length > 0;
+}
+
 function getTitleStyles({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
   const editing =
-    "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
+    "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-3/5 dark:text-white font-bold text-[.7rem] tracking-tight";
 
   const notEditing = getNotEditingStyle({
     isActiveSection,
@@ -158,8 +212,7 @@ function getTitleStyles({
 
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     return { fixed: notEditing };
   }
@@ -200,15 +253,14 @@ function getNotEditingStyle({
   // Handle text case for global variables
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+    sectionTypeName === SectionTypeEnum.GenPythonCode
   ) {
     fontClass = "uppercase font-bold";
   }
 
   // Combine all the classes
   const baseClasses =
-    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+    "px-1 py-0 -ml-1 w-3/5 focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
 
   return `${baseClasses} ${textColorClass} ${fontClass}`;
 }

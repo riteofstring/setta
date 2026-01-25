@@ -1,9 +1,7 @@
 import _ from "lodash";
-import { useEffect } from "react";
 import { FiCheck, FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
-import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -42,10 +40,6 @@ export function ViewingEditingMode() {
   }
   const hasViewModes = viewModeList.length > 0;
   const canDeleteViewModes = viewModeList.length > 1;
-
-  useEffect(() => {
-    pruneActiveSectionIdsForViewMode(activeViewModeId, isEditingViewMode);
-  }, [activeViewModeId, isEditingViewMode]);
 
   const handleModeChange = (modeId: string) => {
     if (!canEditVariants) {

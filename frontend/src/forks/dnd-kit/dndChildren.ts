@@ -2,7 +2,7 @@ import { withProjectState, withResetFn } from "state/utils";
 import { insertIntoArray } from "utils/utils";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import { getDndSectionId, isTempSection } from "./dndState";
+import { getDndSectionId } from "./dndState";
 
 type ZustandDndChildren = {
   x: Record<string, Array<string>>;
@@ -34,8 +34,7 @@ export function addDndChild(
     }
 
     const existingChildren = state.x[newParentId] ?? [];
-    const nextChildren = existingChildren.filter((x) => x !== childId);
-    state.x[newParentId] = insertIntoArray(nextChildren, index, childId);
+    state.x[newParentId] = insertIntoArray(existingChildren, index, childId);
     state.y[childId] = newParentId;
   });
 }
@@ -52,49 +51,19 @@ export function removeDndChild(childId: string) {
   });
 }
 
-export function replaceDndSectionsWithTemp(
-  activeId: string,
-  sectionIds: string[],
-) {
+export function replaceDndSectionWithTemp(id: string) {
   useDndChildren.setState((state) => {
-    if (sectionIds.length === 0) {
-      return;
-    }
-    const parentId = state.y[sectionIds[0]];
-    if (!parentId) {
-      return;
-    }
-    const tempId = getDndSectionId(activeId);
-
-    for (const [key, children] of Object.entries(state.x)) {
-      const nextChildren = children.filter(
-        (childId) => !isTempSection(childId),
-      );
-      if (nextChildren.length !== children.length) {
-        state.x[key] = nextChildren;
+    const parentId = state.y[id];
+    if (parentId) {
+      const currChildren = state.x[parentId] ?? [];
+      const index = currChildren.indexOf(id);
+      if (index === -1) {
+        return;
       }
-    }
-    for (const childId of Object.keys(state.y)) {
-      if (isTempSection(childId)) {
-        delete state.y[childId];
-      }
-    }
-
-    const sectionIdSet = new Set(sectionIds);
-    const currChildren = state.x[parentId] ?? [];
-    const indices = sectionIds
-      .map((sectionId) => currChildren.indexOf(sectionId))
-      .filter((idx) => idx >= 0);
-    const nextChildren = currChildren.filter(
-      (childId) => !sectionIdSet.has(childId),
-    );
-    const insertIndex =
-      indices.length > 0 ? Math.min(...indices) : nextChildren.length;
-
-    state.x[parentId] = insertIntoArray(nextChildren, insertIndex, tempId);
-    state.y[tempId] = parentId;
-    for (const sectionId of sectionIds) {
-      delete state.y[sectionId];
+      const tempId = getDndSectionId(id);
+      currChildren[index] = tempId;
+      state.y[tempId] = parentId;
+      delete state.y[id];
     }
   });
 }

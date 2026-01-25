@@ -68,13 +68,7 @@ function _DndWatcherAndContainer({
   style,
   children,
 }) {
-  const { isDraggingSelection } = useDndState(
-    (state) => ({
-      isDraggingSelection:
-        state.activeId !== null && state.draggingIds.includes(sectionId),
-    }),
-    _.isEqual,
-  );
+  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isSorting, isMovingFree } = useDndMode();
   const ancestorHasSameVisibility = useProjectState((x) =>
     getAncestorSameVisibility(sectionId, x),
@@ -88,11 +82,10 @@ function _DndWatcherAndContainer({
   const fullStyle = {
     ...style,
     ...maybeGetOpacityStyle(
-      isDraggingSelection,
+      activeIsSelf,
       visibility,
       isEditingViewMode,
       ancestorHasSameVisibility,
-      isSorting,
     ),
   };
 
@@ -114,17 +107,16 @@ function _DndWatcherAndContainer({
 }
 
 function maybeGetOpacityStyle(
-  isDraggingSelection,
+  activeIsSelf,
   visibility,
   isEditingViewMode,
   ancestorHasSameVisibility,
-  isSorting,
 ) {
   if (!visibility && isEditingViewMode) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
   }
-  if (isDraggingSelection) {
-    return { opacity: isSorting ? 0.85 : 0.5 };
+  if (activeIsSelf) {
+    return { opacity: 0.5 };
   }
   return {};
 }

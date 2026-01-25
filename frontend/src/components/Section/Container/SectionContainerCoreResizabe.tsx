@@ -9,11 +9,7 @@ import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
-import {
-  CodeArea,
-  GenPythonCodeArea,
-  GenPythonMetadataArea,
-} from "../Layouts/CodeArea";
+import { CodeArea, GenPythonCodeArea } from "../Layouts/CodeArea";
 import { DictArea } from "../Layouts/DictArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
@@ -175,8 +171,6 @@ function AreaSwitch({
       return <CodeArea sectionId={sectionId} />;
     case SectionTypeEnum.GenPythonCode:
       return <GenPythonCodeArea sectionId={sectionId} />;
-    case SectionTypeEnum.GenPythonMetadata:
-      return <GenPythonMetadataArea sectionId={sectionId} />;
     case SectionTypeEnum.Terminal:
       return <TerminalArea sectionId={sectionId} />;
     case SectionTypeEnum.IFrame:

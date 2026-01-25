@@ -15,8 +15,8 @@ from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.listener import (
+    ListenerActionEventContent,
     ListenerCoverageSnapshot,
-    ListenerDependencyEventContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
@@ -26,14 +26,13 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointResultContent,
-    RealtimeDependencyEventContent,
+    RealtimeActionEventContent,
     RealtimeUIChangeContent,
 )
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
-from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
 
@@ -41,7 +40,6 @@ from setta.types.project_state import AllProjectMetadata
 class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
     LSPDiagnostics = "LSPDiagnostics"
-    NameValidationErrors = "NameValidationErrors"
     TerminalMetadata = "TerminalMetadata"
     Notification = "Notification"
     BackendLogEvent = "BackendLogEvent"
@@ -61,7 +59,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
-    RealtimeDependencyEvent = "RealtimeDependencyEvent"
+    RealtimeActionEvent = "RealtimeActionEvent"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -69,7 +67,7 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
-    ListenerDependencyEvent = "ListenerDependencyEvent"
+    ListenerActionEvent = "ListenerActionEvent"
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
@@ -153,13 +151,6 @@ class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     content: SettaProjectConfigDiagnostics
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
-    )
-
-
-class WebsocketMsgNameValidationErrors(FrontendWebsocketMsg):
-    content: SettaProjectNameValidationErrors
-    messageType: Literal[WebsocketMsgTypeForFrontend.NameValidationErrors] = (
-        WebsocketMsgTypeForFrontend.NameValidationErrors
     )
 
 
@@ -259,10 +250,10 @@ class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
     )
 
 
-class WebsocketMsgRealtimeDependencyEvent(BackendWebsocketMsg):
-    content: RealtimeDependencyEventContent
-    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeDependencyEvent] = (
-        WebsocketMsgTypeForBackend.RealtimeDependencyEvent
+class WebsocketMsgRealtimeActionEvent(BackendWebsocketMsg):
+    content: RealtimeActionEventContent
+    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeActionEvent] = (
+        WebsocketMsgTypeForBackend.RealtimeActionEvent
     )
 
 
@@ -280,10 +271,10 @@ class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
     )
 
 
-class WebsocketMsgListenerDependencyEvent(PythonScriptWebsocketMsg):
-    content: ListenerDependencyEventContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerDependencyEvent] = (
-        WebsocketMsgTypeForPythonScript.ListenerDependencyEvent
+class WebsocketMsgListenerActionEvent(PythonScriptWebsocketMsg):
+    content: ListenerActionEventContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerActionEvent] = (
+        WebsocketMsgTypeForPythonScript.ListenerActionEvent
     )
 
 

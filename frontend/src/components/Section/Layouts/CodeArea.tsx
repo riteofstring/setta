@@ -34,13 +34,7 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
-import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { C } from "utils/c";
-import {
-  getPythonCodegenTarget,
-  projectConfigHasPythonCodegen,
-} from "utils/codegenTargets";
-import { CodeLanguage } from "utils/codeLanguage";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -54,7 +48,7 @@ import {
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -288,7 +282,7 @@ function getGenReadOnlyLineDecorations(doc: string, from: number, to: number) {
   });
 }
 
-function _CodeArea({ sectionId }: { sectionId: string }) {
+function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -297,21 +291,18 @@ function _CodeArea({ sectionId }: { sectionId: string }) {
     );
     return impl.codeLanguage;
   });
-  if (language === CodeLanguageEnum.python) {
-    return <PythonCodeArea sectionId={sectionId} language={language} />;
+
+  switch (language) {
+    case "python":
+      return <PythonCodeArea sectionId={sectionId} language={language} />;
+    case "bash":
+      return <BashCodeArea sectionId={sectionId} language={language} />;
   }
-  return <BasicCodeArea sectionId={sectionId} language={language} />;
 }
 
 export const CodeArea = React.memo(_CodeArea);
 
-function PythonCodeArea({
-  sectionId,
-  language,
-}: {
-  sectionId: string;
-  language: CodeLanguage;
-}) {
+function PythonCodeArea({ sectionId, language }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const canUseLsp = !isShareMode;
   const completionsFn = useCallback(
@@ -328,42 +319,21 @@ function PythonCodeArea({
   );
 }
 
-function BasicCodeArea({
-  sectionId,
-  language,
-}: {
-  sectionId: string;
-  language: CodeLanguage;
-}) {
+function BashCodeArea({ sectionId, language }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
 
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
-  const hasPythonCodegen = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
-  if (!hasPythonCodegen) {
-    return <GenPythonCodeAreaDisabled />;
-  }
-  return <GenPythonCodeAreaContent sectionId={sectionId} />;
-}
-
-function GenPythonCodeAreaDisabled() {
-  return null;
-}
-
-function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const { code, prefix, suffix } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.GenPythonCode,
     );
-    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     return {
       code: impl.code,
-      prefix: pythonTarget?.genCodePrefix ?? "",
-      suffix: pythonTarget?.genCodeSuffix ?? "",
+      prefix: x.projectConfig.genCodePrefix,
+      suffix: x.projectConfig.genCodeSuffix,
     };
   });
 
@@ -505,6 +475,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     <article
       ref={wrapperRef}
       className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
@@ -524,73 +495,8 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
 
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
-function _GenPythonMetadataArea({ sectionId }: { sectionId: string }) {
-  const metadataEnabled = useProjectState(
-    (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
-  );
-  if (!metadataEnabled) {
-    return <GenPythonMetadataAreaDisabled />;
-  }
-  return <GenPythonMetadataAreaContent sectionId={sectionId} />;
-}
-
-function GenPythonMetadataAreaDisabled() {
-  return null;
-}
-
-function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
-  const code = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.GenPythonMetadata,
-    );
-    return impl.code;
-  });
-
-  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
-    useCodeAreaHeight({ sectionId });
-  const theme = useCodeMirrorStyle();
-
-  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
-    codeAreaTabOnEnterKeyHandlers(wrapperRef);
-
-  const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
-    language: "python",
-    onEscape: onEscapeFocusOnArticleDiv,
-    isDisabled: true,
-  });
-
-  return (
-    <article
-      ref={wrapperRef}
-      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
-      tabIndex={0}
-      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
-    >
-      <CodeMirror
-        maxHeight={maxHeight}
-        value={code}
-        theme={theme}
-        extensions={extensions}
-        onChange={() => {}}
-        onCreateEditor={handleCreateEditor}
-        indentWithTab={false}
-        basicSetup={{ tabSize: 4 }}
-      />
-    </article>
-  );
-}
-
-export const GenPythonMetadataArea = React.memo(_GenPythonMetadataArea);
-
 function CoreCodeArea({ sectionId, language, completionsFn }) {
-  const {
-    value: baseValue,
-    variantIsFrozen,
-    bindingPath,
-  } = useProjectState((x) => {
+  const { value: baseValue, variantIsFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -599,7 +505,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     return {
       value: impl.code,
       variantIsFrozen: impl.isFrozen,
-      bindingPath: impl.codeFileBinding?.canonical_path ?? null,
     };
   }, _.isEqual);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
@@ -620,19 +525,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const isShareReadOnly = isShareMode;
   const isDisabled = variantIsFrozen || isShareReadOnly;
-  const useJsx = useMemo(() => {
-    if (!bindingPath) {
-      return false;
-    }
-    if (
-      language !== CodeLanguageEnum.typescript &&
-      language !== CodeLanguageEnum.javascript
-    ) {
-      return false;
-    }
-    const normalized = bindingPath.toLowerCase();
-    return normalized.endsWith(".tsx") || normalized.endsWith(".jsx");
-  }, [bindingPath, language]);
 
   function onChange(v) {
     if (isDisabled) {
@@ -652,7 +544,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     tabToAutocomplete: true,
     indentWithTab: true,
     isDisabled,
-    useJsx,
   });
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
@@ -661,6 +552,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     <article
       ref={wrapperRef}
       className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
@@ -684,7 +576,6 @@ export function useCodeAreaHeight({ sectionId }) {
     return impl.size.height;
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
-  const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
@@ -757,15 +648,11 @@ export function useCodeAreaHeight({ sectionId }) {
     }
   }, [readyToBeVisible]);
 
-  const isAutoHeight = height === "auto";
   const maxHeight =
-    resizeEvent === "start"
+    height === "auto" || resizeEvent === "start"
       ? undefined
-      : isAutoHeight
-        ? `${Math.max(0, sectionMaxHeight - 30)}px`
-        : `${height - 30}px`;
-  const overflow =
-    resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
+      : `${height - 30}px`;
+  const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
   const wrapperScrollTop = wrapperRef.current?.scrollTop;
@@ -832,11 +719,7 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
 const debouncedSetGenCodePrefix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodePrefix = value;
+      state.projectConfig.genCodePrefix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_prefix({
@@ -850,11 +733,7 @@ const debouncedSetGenCodePrefix = _.debounce((value: string) => {
 const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodeSuffix = value;
+      state.projectConfig.genCodeSuffix = value;
     },
     send: (frontendOpId) =>
       route_set_gen_code_suffix({
