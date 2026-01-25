@@ -393,7 +393,6 @@ class ShareRuntimeState:
         return CodeFileBinding(
             canonical_path=self._resolve_deployment_path_to_absolute(deployment_path),
             access_mode=CodeFileAccessMode.read_only,
-            autoBinding=True,
         )
 
     def _hydrate_json_sources(
@@ -455,7 +454,6 @@ class ShareRuntimeState:
         return CodeFileBinding(
             canonical_path=resolved,
             access_mode=CodeFileAccessMode.read_only,
-            autoBinding=binding.autoBinding,
         )
 
     def _rebase_deployment_paths(
@@ -491,7 +489,6 @@ class ShareRuntimeState:
         return CodeFileBinding(
             canonical_path=Path(relative_path),
             access_mode=binding.access_mode,
-            autoBinding=binding.autoBinding,
         )
 
     def format_project_state_for_client(

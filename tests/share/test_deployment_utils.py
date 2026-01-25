@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_name
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -19,7 +19,7 @@ from setta.types.section_impls import (
 class ShareDeploymentUtilsTests(unittest.TestCase):
     def test_rewrite_project_state_paths_updates_gen_code_binding(self) -> None:
         project_config = ProjectConfig(name="Share Project")
-        project_slug = sanitize_slug(project_config.name)
+        project_slug = sanitize_name(project_config.name)
         code_root = Path("code") / "sections" / project_slug
         gen_binding = CodeFileBinding(
             canonical_path=code_root / "setta_gen.py",
