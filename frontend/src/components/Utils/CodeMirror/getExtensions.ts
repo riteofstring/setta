@@ -30,17 +30,16 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
 });
 
 type GetExtensionsOptions = {
-  parentDivId?: string;
+  parentDivId?: string | null;
   language?: CodeLanguage | null;
   completionsFn?: CompletionSource;
   singleLine?: boolean;
+  wrapLines?: boolean;
   tabToAutocomplete?: boolean;
   indentWithTab?: boolean;
-  onTab?: (docText: string, completionResult: boolean) => void;
-  onEscape?: (
-    expectingCompletions: ReturnType<typeof completionStatus>,
-  ) => void;
-  keyComboActions?: Record<string, (docText: string) => void>;
+  keyComboActions?: Record<string, (text: string) => boolean | void>;
+  onTab?: (text: string, completionResult: boolean) => void;
+  onEscape?: (status: ReturnType<typeof completionStatus>) => void;
   isDisabled?: boolean;
   useJsx?: boolean;
 };
@@ -50,6 +49,7 @@ export function getExtensions({
   language,
   completionsFn,
   singleLine,
+  wrapLines,
   tabToAutocomplete,
   indentWithTab,
   onTab,
@@ -57,8 +57,13 @@ export function getExtensions({
   keyComboActions,
   isDisabled,
   useJsx,
+  useJsx,
 }: GetExtensionsOptions) {
-  const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const shouldWrap = wrapLines ?? !singleLine;
+  if (shouldWrap) {
+    extensions.push(EditorView.lineWrapping);
+  }
   const enableJsx = useJsx === true;
 
   if (parentDivId) {

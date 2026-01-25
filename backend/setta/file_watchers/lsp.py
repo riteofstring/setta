@@ -8,6 +8,13 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from setta.logging.tasks import spawn_background_task
+from setta.utils.constants import C
+
+
+def _default_ignore_paths() -> list[Path]:
+    return [
+        (C.RUN_FOLDER / "mcp").resolve(),
+    ]
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +30,11 @@ class LSPFileWatcher:
         """
         self.observer = Observer()
         self.watched_paths: set[str] = set()
-        self.handler = LSPEventHandler(notify_callback, asyncio.get_event_loop())
+        self.handler = LSPEventHandler(
+            notify_callback,
+            asyncio.get_event_loop(),
+            _default_ignore_paths(),
+        )
 
     def add_workspace_folder(self, path: str) -> None:
         """
@@ -60,12 +71,24 @@ class LSPFileWatcher:
 
 
 class LSPEventHandler(FileSystemEventHandler):
-    def __init__(self, callback, loop):
+    def __init__(self, callback, loop, ignore_paths: list[Path] | None = None):
         self.callback = callback
         self.loop = loop
+        self.ignore_paths = [path.resolve() for path in (ignore_paths or [])]
+
+    def _should_ignore(self, path: str | bytes) -> bool:
+        if isinstance(path, bytes):
+            path = path.decode("utf-8", errors="replace")
+        target = Path(path).resolve()
+        for ignored_root in self.ignore_paths:
+            if target.is_relative_to(ignored_root):
+                return True
+        return False
 
     def on_created(self, event: FileSystemEvent):
         if event.is_directory:
+            return
+        if self._should_ignore(event.src_path):
             return
         logger.debug("lsp_file_watcher event=created path=%s", event.src_path)
         changes = [{"uri": self._path_to_uri(event.src_path), "type": 1}]
@@ -74,6 +97,8 @@ class LSPEventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent):
         if event.is_directory:
             return
+        if self._should_ignore(event.src_path):
+            return
         logger.debug("lsp_file_watcher event=modified path=%s", event.src_path)
         changes = [{"uri": self._path_to_uri(event.src_path), "type": 2}]
         self._send_changes(changes)
@@ -81,12 +106,16 @@ class LSPEventHandler(FileSystemEventHandler):
     def on_deleted(self, event: FileSystemEvent):
         if event.is_directory:
             return
+        if self._should_ignore(event.src_path):
+            return
         logger.debug("lsp_file_watcher event=deleted path=%s", event.src_path)
         changes = [{"uri": self._path_to_uri(event.src_path), "type": 3}]
         self._send_changes(changes)
 
     def on_moved(self, event: FileSystemEvent):
         if event.is_directory:
+            return
+        if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
             return
         logger.debug(
             "lsp_file_watcher event=moved src=%s dest=%s",

@@ -1,0 +1,7 @@
+[mcp_servers.chrome-devtools]
+command = "bash"
+args = [
+  "-lc",
+  'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); "$ROOT/scripts/chrome-devtools-mcp.sh"'
+]
+startup_timeout_sec = 20

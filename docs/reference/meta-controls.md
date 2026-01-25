@@ -82,4 +82,4 @@ their values and action events propagate, and how they appear in generated code 
 - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
 - `frontend/src/components/Panes/UiEditor/SectionConfig/MetaControlSettings.tsx`
 - `frontend/src/state/actions/sections/createSectionsHelper.ts`
-- `docs/listener-flows.md`
+- `docs/reference/listener-flows.md`

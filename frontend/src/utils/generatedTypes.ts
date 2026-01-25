@@ -243,7 +243,7 @@ export const CodeLanguageEnum = {
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
-const SectionSizeModeEnum = { auto: "auto" } as const;
+export const SectionSizeModeEnum = { auto: "auto" } as const;
 
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
@@ -415,6 +415,7 @@ export const RouteEnum = {
   AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
+  DELETE_SELECTED_PARAMS: "/deleteSelectedParams",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
@@ -457,6 +458,8 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
+  SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
+  SET_SECTION_PINNED_AREA_HEIGHT: "/setSectionPinnedAreaHeight",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
@@ -3864,7 +3867,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       minWidth: 200.0,
       maxWidth: 100000.0,
       hideSearchMinHeight: 78.0,
-      hideParamsMinHeight: 58.0,
+      hideParamsMinHeight: 32.0,
     }),
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
@@ -4132,6 +4135,7 @@ function createMetaControlSizingPolicyByType(
 
 const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
+  unpinnedParamsAreaMinHeight: z.number().default(38),
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),
@@ -6205,6 +6209,17 @@ export type DeleteSectionsRequestInput = z.input<
   typeof DeleteSectionsRequestSchema
 >;
 
+const DeleteSelectedParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramInfoIds: z.array(IDSchema),
+});
+
+export type DeleteSelectedParamsRequestInput = z.input<
+  typeof DeleteSelectedParamsRequestSchema
+>;
+
 const DeleteViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6753,6 +6768,28 @@ const SetSectionParamFilterRequestSchema = z.object({
 
 export type SetSectionParamFilterRequestInput = z.input<
   typeof SetSectionParamFilterRequestSchema
+>;
+
+const SetSectionPinnedAreaHeightRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  pinnedAreaHeight: z.union([z.number(), z.enum(SectionSizeModeEnum)]),
+});
+
+export type SetSectionPinnedAreaHeightRequestInput = z.input<
+  typeof SetSectionPinnedAreaHeightRequestSchema
+>;
+
+const SetSectionPinnedParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  pinnedParams: z.array(IDSchema),
+});
+
+export type SetSectionPinnedParamsRequestInput = z.input<
+  typeof SetSectionPinnedParamsRequestSchema
 >;
 
 const SetSectionSizesRequestSchema = z.object({

@@ -90,6 +90,7 @@
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
     "reset": "cd .. && rm -rf setta_files && cd frontend && pnpm start",
+    "aireset": "cd .. && rm -rf setta_files && ./scripts/ai.sh",
     "build": "vite build --base=/static/",
     "test": "vitest",
     "serve": "vite preview",
@@ -103,7 +104,12 @@
     "gcft": "pnpm gcf && cd .. && ./run_tests.sh",
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
-    "generate": "bash ./generation/generate.sh"
+    "generate": "bash ./generation/generate.sh",
+    "cdp-port": "cd .. && ./scripts/cdp-port.sh",
+    "worktrees": "cd .. && ./scripts/create-worktrees.sh",
+    "ai": "cd .. && ./scripts/ai.sh",
+    "aicdt": "cd .. && ./scripts/aicdt.sh",
+    "kill": "cd .. && ./scripts/kill-setta.sh"
   },
   "browserslist": {
     "production": [
@@ -118,6 +124,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "1.57.0",
     "@types/d3": "7.4.3",
     "@types/lodash": "4.17.17",
     "@types/node": "25.0.2",
@@ -136,6 +143,7 @@
     "prettier-plugin-tailwindcss": "0.5.11",
     "react-scan": "0.4.3",
     "remove-unused-vars": "0.0.11",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "vitest": "2.1.8"
   }
 }

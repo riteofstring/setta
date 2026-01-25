@@ -25,6 +25,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
     ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
@@ -75,6 +76,8 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
+    SetSectionPinnedAreaHeightRequest,
+    SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
@@ -490,6 +493,15 @@ async def route_delete_kwarg(x: DeleteKwargRequest, ctx: RuntimeContextFromReque
     await manager.delete_kwarg(x)
 
 
+@router.post(Route.DELETE_SELECTED_PARAMS)
+async def route_delete_selected_params(
+    x: DeleteSelectedParamsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_selected_params(x)
+
+
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)
 async def route_delete_section_variant_or_ask(
     x: DeleteSectionVariantOrAskRequest, ctx: RuntimeContextFromRequest
@@ -899,6 +911,24 @@ async def route_set_section_hide_unpinned_params(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_hide_unpinned_params(x)
+
+
+@router.post(Route.SET_SECTION_PINNED_PARAMS)
+async def route_set_section_pinned_params(
+    x: SetSectionPinnedParamsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_pinned_params(x)
+
+
+@router.post(Route.SET_SECTION_PINNED_AREA_HEIGHT)
+async def route_set_section_pinned_area_height(
+    x: SetSectionPinnedAreaHeightRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_pinned_area_height(x)
 
 
 @router.post(Route.SET_SECTION_COLUMN_WIDTH)

@@ -71,6 +71,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -264,6 +265,13 @@ class ListenerDeleteSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionIds: list[ID]
+
+
+class ListenerDeleteSelectedParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoIds: list[ID]
 
 
 class ListenerDeleteViewModeRequestPayload(TypedDict):
@@ -652,6 +660,20 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     value: str
 
 
+class ListenerSetSectionPinnedAreaHeightRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    pinnedAreaHeight: float | SectionSizeMode
+
+
+class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    pinnedParams: list[ID]
+
+
 class ListenerSetSectionSizesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -985,6 +1007,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_delete_sections", payload)
 
+    async def delete_selected_params(
+        self, payload: ListenerDeleteSelectedParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_delete_selected_params", payload)
+
     async def delete_view_mode(
         self, payload: ListenerDeleteViewModeRequestPayload
     ) -> None:
@@ -1244,6 +1271,16 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionParamFilterRequestPayload
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
+
+    async def set_section_pinned_area_height(
+        self, payload: ListenerSetSectionPinnedAreaHeightRequestPayload
+    ) -> None:
+        return await self._caller("route_set_section_pinned_area_height", payload)
+
+    async def set_section_pinned_params(
+        self, payload: ListenerSetSectionPinnedParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_section_pinned_params", payload)
 
     async def set_section_sizes(
         self, payload: ListenerSetSectionSizesRequestPayload

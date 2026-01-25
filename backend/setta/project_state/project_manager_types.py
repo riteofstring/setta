@@ -30,6 +30,7 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -490,6 +491,14 @@ class DeleteKwargRequest(ProjectManagerRequestWithSection):
     """Remove the most recently added keyword argument from a section."""
 
 
+class DeleteSelectedParamsRequest(ProjectManagerRequestWithSection):
+    """Remove selected parameters from a section."""
+
+    paramInfoIds: list[ID] = Field(
+        description="Parameter IDs to remove from the section.",
+    )
+
+
 class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
@@ -800,6 +809,14 @@ class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
+
+
+class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
+    pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):

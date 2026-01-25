@@ -52,7 +52,7 @@ Setta has two runtime modes. IDE mode is the full interactive editor. Share mode
   - `allowRun`, `allowLLM`.
   - `runSnapshotMode` (`ephemeral` or `always`; `never` is rejected for share deployments).
 - CodeParam edits are always blocked in share mode.
-- See `docs/share-policy-flags.md` for exact route mapping.
+- See `docs/guides/share-policy-flags.md` for exact route mapping.
 
 ## Runtime behavior in share mode
 - Per-session state is an in-memory copy of the deployment snapshot; updates are scoped to a session and never written back to `project.json`.

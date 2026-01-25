@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
+  getCurrSectionVariantId,
   getSectionType,
 } from "state/actions/sectionInfos";
 import {
@@ -14,14 +15,24 @@ import {
 import {
   useProjectState,
   useSettings,
+  useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
 import {
+  getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+  getParamGroupPaddingKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
+} from "utils/constants";
+import {
+  isBaseSectionWithParamsImpl,
   MetaControlSizingPolicyTypeEntry,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
   SectionTypeEnum,
+  SectionWithParamsDisplayModeEnum,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
@@ -29,6 +40,29 @@ type SizeMode = {
   height: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
+
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const EMPTY_SHOWN_PARAMS: {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+} = {
+  requiredParamIdsToPaths: {},
+  topLevelParamIds: [],
+};
+
+function safeGetCurrShownParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  isPinned: boolean,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(state, sectionId, preview);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return EMPTY_SHOWN_PARAMS;
+  }
+  return isPinned ? shown.pinned : shown.unpinned;
+}
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -179,6 +213,26 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const kwargsControlsHeight = useTemporaryMiscState((x) => {
+    const height = x[getKwargsControlsHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const paramGroupPadding = useTemporaryMiscState((x) => {
+    const padding = x[getParamGroupPaddingKey(sectionId)];
+    return typeof padding === "number" ? padding : 0;
+  });
 
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
@@ -225,6 +279,68 @@ export function useSectionMinMaxDims(sectionId: string) {
       minWidth *= 0.5;
     }
 
+    if (
+      !isMinimized &&
+      isBaseSectionWithParamsImpl(impl) &&
+      impl.displayMode === SectionWithParamsDisplayModeEnum.Gui &&
+      !hideParams
+    ) {
+      let baseMinHeight = minHeight;
+      if (sectionType === SectionTypeEnum.Callable) {
+        baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;
+      }
+      const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
+      const edgeInputSet = new Set(impl.edgeInputParams);
+      const hasPinnedParams = pinned.topLevelParamIds.some(
+        (paramId) => !edgeInputSet.has(paramId),
+      );
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMinHeight > 0
+          ? pinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const baseUnpinnedMinHeight = Number.isFinite(
+        sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+      )
+        ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+        : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMinHeight > 0
+          ? unpinnedParamsMinHeight
+          : baseUnpinnedMinHeight;
+      let requiredParamsHeight = 0;
+      if (hasPinnedParams) {
+        if (typeof impl.pinnedAreaHeight === "number") {
+          requiredParamsHeight += Math.max(
+            impl.pinnedAreaHeight,
+            resolvedPinnedMinHeight,
+          );
+        } else {
+          requiredParamsHeight += resolvedPinnedMinHeight;
+        }
+      }
+      if (hasUnpinnedParams) {
+        requiredParamsHeight += resolvedUnpinnedMinHeight;
+      }
+      if (kwargsControlsHeight > 0) {
+        requiredParamsHeight += kwargsControlsHeight;
+      }
+      if (hasEdges) {
+        requiredParamsHeight += edgesStripHeight;
+      }
+      if (hasPinnedParams || hasUnpinnedParams || hasEdges) {
+        requiredParamsHeight += paramGroupPadding;
+      }
+      if (requiredParamsHeight > 0) {
+        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
+      }
+    }
+
     let metaControlSizeMode: SizeMode | null = null;
     if (sectionType === SectionTypeEnum.MetaControl) {
       const metaControlEntry = getMetaControlSizingPolicyEntry({
@@ -251,10 +367,19 @@ export function useSectionMinMaxDims(sectionId: string) {
   }, _.isEqual);
 }
 
-export function useIsScrollable() {
+type UseIsScrollableOptions = {
+  onMeasure?: (element: HTMLDivElement) => void;
+};
+
+export function useIsScrollable(options: UseIsScrollableOptions = {}) {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
+  const onMeasureRef = useRef<UseIsScrollableOptions["onMeasure"]>(null);
+
+  useEffect(() => {
+    onMeasureRef.current = options.onMeasure ?? null;
+  }, [options.onMeasure]);
 
   useEffect(() => {
     if (!elementRef.current) return;
@@ -267,6 +392,7 @@ export function useIsScrollable() {
         setIsScrollableHorizontal(
           elementRef.current.scrollWidth > elementRef.current.clientWidth,
         );
+        onMeasureRef.current?.(elementRef.current);
       }
     }
 

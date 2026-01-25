@@ -529,6 +529,12 @@ export async function route_delete_kwarg(
   return await post("/deleteKwarg", x);
 }
 
+export async function route_delete_selected_params(
+  x: gt.DeleteSelectedParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteSelectedParams", x);
+}
+
 export async function route_delete_section_variant_or_ask(
   x: gt.DeleteSectionVariantOrAskRequestInput,
 ): Promise<ResponseDataAndStatus<string | null>> {
@@ -797,6 +803,18 @@ export async function route_set_section_hide_unpinned_params(
   x: gt.SetSectionHideUnpinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionHideUnpinnedParams", x);
+}
+
+export async function route_set_section_pinned_params(
+  x: gt.SetSectionPinnedParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionPinnedParams", x);
+}
+
+export async function route_set_section_pinned_area_height(
+  x: gt.SetSectionPinnedAreaHeightRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionPinnedAreaHeight", x);
 }
 
 export async function route_set_section_column_width(
