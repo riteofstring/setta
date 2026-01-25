@@ -6,7 +6,7 @@ import { List, useListRef } from "react-window";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -45,23 +45,6 @@ type FileBrowserRowProps = RowData & {
   index: number;
   style: CSSProperties;
 };
-
-function getErrorDetail(value: unknown): string | null {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const detail = record.detail;
-    if (typeof detail === "string") {
-      return detail;
-    }
-  }
-  return null;
-}
 
 type FileBrowserPaneProps = {
   onFileOpen?: (node: FileNode) => void;

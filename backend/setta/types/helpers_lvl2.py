@@ -1326,7 +1326,7 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
         case CodeObjType.DropzoneParam:
             if impl.mode == DropzoneMode.STATELESS:
                 return ""
-            return value
+            return normalize_dropzone_value(value, impl.maxAttachments)
         case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:
                 x = float(value)

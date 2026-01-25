@@ -339,6 +339,51 @@ class DropzoneParamValueTests(unittest.TestCase):
         )
         self.assertEqual(updated_impl.value, "")
 
+    def test_update_param_impl_config_truncates_dropzone_attachments(self) -> None:
+        self.dropzone_impl.mode = DropzoneMode.STATEFUL
+        payload = {
+            "version": 1,
+            "attachments": [
+                {
+                    "kind": "text",
+                    "id": "text:first",
+                    "name": "Dropped text",
+                    "text": "first",
+                },
+                {
+                    "kind": "text",
+                    "id": "text:second",
+                    "name": "Dropped text",
+                    "text": "second",
+                },
+            ],
+        }
+        set_param_entered_value(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            json.dumps(payload),
+        )
+
+        update_param_impl_config(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            {"maxAttachments": 1},
+        )
+
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_id,
+            DropzoneParamCodeObjImpl,
+        )
+        parsed = parse_dropzone_value(updated_impl.value)
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(len(parsed.attachments), 1)
+        self.assertEqual(parsed.attachments[0].id, "text:first")
+
 
 class ParamMoveTests(unittest.TestCase):
     def setUp(self) -> None:

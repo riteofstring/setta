@@ -28,7 +28,7 @@ import {
   type DropzoneStatelessAttachment,
   type DropzoneStoredAttachment,
 } from "utils/dropzone";
-import { res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_delete_artifacts,
   route_import_files_to_artifacts,
@@ -79,11 +79,15 @@ function formatBytes(bytes: number): string {
 
 const DROPZONE_MAX_FILE_BYTES_STATEFUL = 25 * 1024 * 1024;
 const DROPZONE_MAX_FILE_BYTES_STATELESS = 5 * 1024 * 1024;
+const DROPZONE_MAX_STATELESS_PAYLOAD_BYTES = 16 * 1024 * 1024;
 const DROPZONE_MAX_FILE_LABEL_STATEFUL = formatBytes(
   DROPZONE_MAX_FILE_BYTES_STATEFUL,
 );
 const DROPZONE_MAX_FILE_LABEL_STATELESS = formatBytes(
   DROPZONE_MAX_FILE_BYTES_STATELESS,
+);
+const DROPZONE_MAX_STATELESS_PAYLOAD_LABEL = formatBytes(
+  DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
 );
 
 function getMaxFileLimit(mode: DropzoneModeEnum): {
@@ -100,23 +104,6 @@ function getMaxFileLimit(mode: DropzoneModeEnum): {
     maxBytes: DROPZONE_MAX_FILE_BYTES_STATEFUL,
     label: DROPZONE_MAX_FILE_LABEL_STATEFUL,
   };
-}
-
-function getErrorDetail(value: unknown): string | null {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const detail = record.detail;
-    if (typeof detail === "string") {
-      return detail;
-    }
-  }
-  return null;
 }
 
 function notifyOversizedFiles(files: File[], limitLabel: string): void {
@@ -151,6 +138,24 @@ function notifyReadFailures(files: File[]): void {
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
+function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
+  if (files.length === 0) {
+    return;
+  }
+  const names = files.slice(0, 3).map((file) => file.name);
+  if (files.length === 1) {
+    const message = `File "${names[0]}" would exceed the ${limitLabel} total payload limit.`;
+    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    return;
+  }
+  const suffix =
+    files.length > names.length ? ` +${files.length - names.length} more` : "";
+  const message = `Skipped ${files.length} files to stay under ${limitLabel} total payload: ${names.join(
+    ", ",
+  )}${suffix}.`;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
 function splitFilesBySize(
   files: File[],
   maxBytes: number,
@@ -165,6 +170,32 @@ function splitFilesBySize(
       rejected.push(file);
       continue;
     }
+    accepted.push(file);
+  }
+  return { accepted, rejected };
+}
+
+function estimateBase64Bytes(bytes: number): number {
+  return Math.ceil(bytes / 3) * 4;
+}
+
+function splitFilesByTotalBase64Size(
+  files: File[],
+  maxBytes: number,
+): {
+  accepted: File[];
+  rejected: File[];
+} {
+  const accepted: File[] = [];
+  const rejected: File[] = [];
+  let totalBytes = 0;
+  for (const file of files) {
+    const estimatedBytes = estimateBase64Bytes(file.size);
+    if (totalBytes + estimatedBytes > maxBytes) {
+      rejected.push(file);
+      continue;
+    }
+    totalBytes += estimatedBytes;
     accepted.push(file);
   }
   return { accepted, rejected };
@@ -449,9 +480,26 @@ export function DropzoneInput({
     if (rejected.length > 0) {
       notifyOversizedFiles(rejected, maxLimit.label);
     }
-    const allowedFiles = slots === null ? accepted : accepted.slice(0, slots);
+    let allowedFiles = slots === null ? accepted : accepted.slice(0, slots);
     if (allowedFiles.length === 0) {
       return;
+    }
+    if (mode === DropzoneModeEnum.STATELESS) {
+      const { accepted: sizeAccepted, rejected: sizeRejected } =
+        splitFilesByTotalBase64Size(
+          allowedFiles,
+          DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
+        );
+      if (sizeRejected.length > 0) {
+        notifyStatelessPayloadLimit(
+          sizeRejected,
+          DROPZONE_MAX_STATELESS_PAYLOAD_LABEL,
+        );
+      }
+      allowedFiles = sizeAccepted;
+      if (allowedFiles.length === 0) {
+        return;
+      }
     }
     setIsUploading(true);
     try {
@@ -502,8 +550,9 @@ export function DropzoneInput({
       if (!onChange) {
         return;
       }
+      const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
       const fileIds = successfulFiles.map((file) =>
-        createDropzoneFileArtifactId(file.name),
+        createDropzoneFileArtifactId(file.name, artifactBaseFolder),
       );
       const artifacts: FileArtifact[] = base64Payloads.map(
         (payload, index) => ({

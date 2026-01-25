@@ -100,7 +100,11 @@ def _apply_section_update(
 
     if impl.type is SectionType.Chat:
         literal = _expect_literal_value(dependency_name=section_id, value=value)
-        state = ChatSectionState.model_validate_json(literal.payload)
+        payload = literal.payload
+        if isinstance(payload, str):
+            state = ChatSectionState.model_validate_json(payload)
+        else:
+            state = ChatSectionState.model_validate(payload)
         set_chat_section_state(project_state, section_id, state)
         return None
 

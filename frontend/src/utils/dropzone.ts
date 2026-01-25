@@ -153,10 +153,14 @@ function extractFileExtension(fileName: string): string | null {
   return fileName.slice(lastDot);
 }
 
-export function createDropzoneFileArtifactId(fileName: string): string {
+export function createDropzoneFileArtifactId(
+  fileName: string,
+  baseFolder?: string,
+): string {
   const extension = extractFileExtension(fileName);
   const suffix = extension ?? ".bin";
-  return `${C.ARTIFACTS_FOLDER}/${createNewId()}${suffix}`;
+  const resolvedFolder = baseFolder ?? C.ARTIFACTS_FOLDER;
+  return `${resolvedFolder}/${createNewId()}${suffix}`;
 }
 
 export function createDropzoneTextAttachmentId(): string {
