@@ -7,7 +7,6 @@ import { FileMenu } from "./FileMenu";
 import { FollowAIToggleButton } from "./FollowAIToggleButton";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
-import { WatchCodeToggleButton } from "./WatchCodeToggleButton";
 import { WebsocketConnections } from "./WebsocketConnections";
 
 export function ProjectNav() {
@@ -43,7 +42,6 @@ function ProjectNavSwitch() {
           <EditMenu />
           <WebsocketConnections />
           <FollowAIToggleButton />
-          <WatchCodeToggleButton />
           <RunButton />
         </Menubar.Root>
         <StopButton />

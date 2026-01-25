@@ -1,5 +1,3 @@
-import logging
-
 from fastapi import HTTPException
 
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
@@ -90,8 +88,6 @@ from setta.project_state.project_manager_types import (
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
-    SetWatchCodeEnabledRequest,
-    SetWatchCodeInputsRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -126,8 +122,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
-
-logger = logging.getLogger(__name__)
+from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 router = SettaProjectContextAPIRouter(
     require_project_context_by_default=True,
@@ -414,11 +409,6 @@ async def route_redo(x: RedoRequest, ctx: RuntimeContextFromRequest) -> None:
 async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, ctx: RuntimeContextFromRequest
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
-    logger.debug(
-        "route_get_latest_project_state project_config_id=%s frontend_op_id=%s",
-        x.projectConfigId,
-        x.frontendOpId,
-    )
     manager = ctx.get_project_manager(x.projectConfigId)
     projectState = await manager.get_latest_project_state(x)
     return ProjectStateSingleConfigWithCompletedOpIds(
@@ -456,11 +446,6 @@ async def route_force_refresh_listener(
 async def route_set_top_level_section_layout(
     x: SetTopLevelSectionLayoutRequest, ctx: RuntimeContextFromRequest
 ):
-    logger.debug(
-        "route_set_top_level_section_layout project_config_id=%s section_count=%s",
-        x.projectConfigId,
-        len(x.topLevelSections),
-    )
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_top_level_section_layout(x)
@@ -573,35 +558,10 @@ async def route_set_show_param_display_names(
     await manager.set_show_param_display_names(x)
 
 
-@router.post(Route.SET_WATCH_CODE_ENABLED)
-async def route_set_watch_code_enabled(
-    x: SetWatchCodeEnabledRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_watch_code_enabled(x)
-
-
-@router.post(Route.SET_WATCH_CODE_INPUTS)
-async def route_set_watch_code_inputs(
-    x: SetWatchCodeInputsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_watch_code_inputs(x)
-
-
 @router.post(Route.SET_PARAM_ENTERED_VALUE)
 async def route_set_param_entered_value(
     x: SetParamEnteredValueRequest, ctx: RuntimeContextFromRequest
 ):
-    logger.debug(
-        "route_set_param_entered_value project_config_id=%s section_id=%s param_info_id=%s value_len=%s",
-        x.projectConfigId,
-        x.sectionId,
-        x.paramInfoId,
-        len(x.value),
-    )
     manager = ctx.get_project_manager(x.projectConfigId)
     if ctx.share_mode:
         project_state = manager.get_single_config_state(x.projectConfigId)
@@ -631,7 +591,10 @@ async def route_set_code_obj_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_code_obj_name(x)
+    try:
+        await manager.set_code_obj_name(x)
+    except InvalidParamName as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
@@ -819,7 +782,10 @@ async def route_set_section_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_section_name(x)
+    try:
+        await manager.set_section_name(x)
+    except InvalidSectionName as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)

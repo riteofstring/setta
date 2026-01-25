@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from litellm.types.llms.openai import ChatCompletionToolParam
 from mcp.types import CallToolResult
@@ -7,7 +7,6 @@ from mcp.types import CallToolResult
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.tool_metadata import SettaToolAnnotations
 from setta.types.chat_messages import ToolCall, ToolChatMessage
 from setta.types.chat_stream_events import ToolResultEvent
 from setta.types.id import ID
@@ -28,6 +27,9 @@ from .sanitization import sanitize_tool_arguments
 from .tool_runner import build_disallowed_tool_result, build_missing_tool_result
 from .tool_search import build_search_tool_chat_message, run_local_search_tool
 from .utils import is_setta_tool_name
+
+if TYPE_CHECKING:
+    from setta.mcp.tool_metadata import SettaToolAnnotations
 
 
 class ManagedActionExecutor:
@@ -109,7 +111,7 @@ class ManagedActionExecutor:
         arguments = dict(tool_call.function.arguments or {})
         allowed_server_ids = action.allowed_server_ids
         available_tools: dict[str, ChatCompletionToolParam] = {}
-        annotations_by_name: dict[str, SettaToolAnnotations] = {}
+        annotations_by_name: dict[str, "SettaToolAnnotations"] = {}
         if tool_name == self._search_tool_name:
             if allowed_server_ids is None:
                 server_id_set = set(self._mcp_client.server_configs.keys())
@@ -246,7 +248,6 @@ class ManagedActionExecutor:
     ) -> ToolChatMessage:
         if tool_name == self._search_tool_name and not call_result.isError:
             tool_chat_message, referenced_tool_names = build_search_tool_chat_message(
-                chat_id=chat_id,
                 tool_name=tool_name,
                 tool_call=tool_call,
                 call_result=call_result,

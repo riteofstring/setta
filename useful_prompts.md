@@ -1,4 +1,4 @@
-Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Is there any reason I shouldn't merge the current branch into the main branch? Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD.
+Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Is there any reason I shouldn't merge the current branch into the main branch? Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
 
 
 
