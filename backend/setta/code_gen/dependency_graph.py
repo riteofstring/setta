@@ -1,14 +1,12 @@
-import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from itertools import islice
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     GEN_CODE_INSTANCE_NAME,
     create_unique_name,
-    sanitize_python_identifier,
+    sanitize_name,
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
@@ -18,12 +16,11 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.dependency_key import (
-    DependencyKeyType,
     create_dep_key,
 )
 from setta.types.dependency_value import (
+    Base64DependencyValue,
     DependencyValueType,
-    FileReadDependencyValue,
     LiteralDependencyValue,
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
@@ -40,32 +37,17 @@ from setta.types.helpers_lvl2 import (
     get_meta_control_param_id,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-    ResolvedSectionCodegenPolicy,
-    SectionRepresentationMode,
-    get_code_obj_value_policy,
-    get_section_codegen_policy,
-    resolve_code_obj_value_policy,
-    resolve_section_codegen_policy,
-)
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
-    ChatSectionImpl,
-    ChatSectionState,
     DrawSectionImpl,
-    ImageSectionImpl,
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -87,9 +69,6 @@ class Node(ABC):
 @dataclass
 class SectionNode(Node):
     control_code_obj_type: CodeObjType | None = None
-    control_value_representation: CodeObjValueRepresentationMode | None = None
-    representation: SectionRepresentationMode = SectionRepresentationMode.expression
-    include_in_codegen: bool = True
 
     @property
     def has_name_and_value(self) -> bool:
@@ -99,10 +78,6 @@ class SectionNode(Node):
 @dataclass
 class ParamNode(Node):
     passing_style: ParameterPassingStyle
-    value_representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.expression
-    )
-    include_in_codegen: bool = True
 
     @property
     def has_name_and_value(self):
@@ -130,7 +105,6 @@ class SectionExportContext:
     parent_node: Node | None
     idx: int | None
     dep_key: BaseDependencyKeyUnion
-    codegen_policy: ResolvedSectionCodegenPolicy
 
 
 SectionExporter = Callable[[SectionExportContext], None]
@@ -146,12 +120,8 @@ class DependencyGraph:
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
-            SectionType.Image: self._export_image_section,
             SectionType.MetaControl: self._export_meta_control_section,
-            SectionType.Chat: self._export_chat_section,
         }
-        self.section_policy = get_section_codegen_policy(p.projectConfig)
-        self.code_obj_value_policy = get_code_obj_value_policy(p.projectConfig)
         self.construct_graph(p)
 
     def reset(self):
@@ -197,9 +167,6 @@ class DependencyGraph:
             exporter = self.section_exporters.get(sectionImpl.type)
             if not exporter:
                 return dep_key
-            codegen_policy = resolve_section_codegen_policy(
-                self.section_policy, id, sectionImpl.type
-            )
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             ctx = SectionExportContext(
@@ -212,7 +179,6 @@ class DependencyGraph:
                 parent_node=parent_node,
                 idx=idx,
                 dep_key=dep_key,
-                codegen_policy=codegen_policy,
             )
             exporter(ctx)
         return dep_key
@@ -231,14 +197,9 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(value) if value is not None else None,
             deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         node.deps = self.export_section_params(
-            ctx.project_state,
-            ctx.section_id,
-            parent_node=node,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+            ctx.project_state, ctx.section_id, parent_node=node
         )
         self.add_to_graph(ctx.dep_key, node)
 
@@ -259,8 +220,6 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=None,
             deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         node.deps = self.export_sections(ctx.project_state, children, parent_node=node)
         self.add_to_graph(ctx.dep_key, node)
@@ -274,24 +233,14 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=None,
             deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         node.deps = self.export_section_params(
-            ctx.project_state,
-            ctx.section_id,
-            parent_node=node,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+            ctx.project_state, ctx.section_id, parent_node=node
         )
         self.add_to_graph(ctx.dep_key, node)
 
     def _export_global_variables_section(self, ctx: SectionExportContext):
-        self.export_section_params(
-            ctx.project_state,
-            ctx.section_id,
-            isTopLevel=True,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
+        self.export_section_params(ctx.project_state, ctx.section_id, isTopLevel=True)
 
     def _export_text_block_section(self, ctx: SectionExportContext):
         section_impl = ctx.section_impl
@@ -305,57 +254,6 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(section_impl.text),
             deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_chat_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, ChatSectionImpl):
-            return
-        state_payload = ChatSectionState(
-            messages=section_impl.messages,
-            inputText=section_impl.inputText,
-            waitingForResponse=section_impl.waitingForResponse,
-            toolCallArguments=section_impl.toolCallArguments,
-        )
-        representation = ctx.codegen_policy.representation
-        effective_representation = representation
-        state_literal = LiteralDependencyValue(
-            repr(state_payload.model_dump(mode="json"))
-        )
-        dependency_value: BaseDependencyValueUnion | None
-        if representation is SectionRepresentationMode.file_read:
-            if section_impl.chatId is None:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = state_literal
-            else:
-                chat_path = (
-                    C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
-                )
-                dependency_value = FileReadDependencyValue(str(chat_path))
-        elif representation is SectionRepresentationMode.file_path:
-            if section_impl.chatId is None:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = state_literal
-            else:
-                chat_path = (
-                    C.SETTA_FILES_FOLDER / "chats" / f"{section_impl.chatId}.json"
-                )
-                dependency_value = LiteralDependencyValue(str(chat_path))
-        else:
-            dependency_value = state_literal
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=dependency_value,
-            deps={},
-            representation=effective_representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
 
@@ -363,63 +261,10 @@ class DependencyGraph:
         section_impl = ctx.section_impl
         if not isinstance(section_impl, DrawSectionImpl):
             return
-        representation = ctx.codegen_policy.representation
-        effective_representation = representation
-        if representation is SectionRepresentationMode.file_read:
-            if not section_impl.renderedImagePath:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = LiteralDependencyValue("None")
-            else:
-                dependency_value = FileReadDependencyValue(
-                    section_impl.renderedImagePath
-                )
-        elif representation is SectionRepresentationMode.file_path:
-            if not section_impl.renderedImagePath:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = LiteralDependencyValue("None")
-            else:
-                dependency_value = LiteralDependencyValue(
-                    section_impl.renderedImagePath
-                )
-        else:
-            raise ValueError(
-                f"Unsupported representation {representation.value} for Draw section {ctx.section_id}"
-            )
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=dependency_value,
-            deps={},
-            representation=effective_representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        rendered_value = section_impl.renderedValue
+        dependency_value = (
+            Base64DependencyValue(rendered_value) if rendered_value else None
         )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_image_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, ImageSectionImpl):
-            return
-        representation = ctx.codegen_policy.representation
-        effective_representation = representation
-        if representation is SectionRepresentationMode.file_read:
-            if not section_impl.imagePath:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = LiteralDependencyValue("None")
-            else:
-                dependency_value = FileReadDependencyValue(section_impl.imagePath)
-        elif representation is SectionRepresentationMode.file_path:
-            if not section_impl.imagePath:
-                effective_representation = SectionRepresentationMode.expression
-                dependency_value = LiteralDependencyValue("None")
-            else:
-                dependency_value = LiteralDependencyValue(section_impl.imagePath)
-        else:
-            raise ValueError(
-                f"Unsupported representation {representation.value} for Image section {ctx.section_id}"
-            )
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -428,8 +273,6 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=dependency_value,
             deps={},
-            representation=effective_representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
 
@@ -450,18 +293,6 @@ class DependencyGraph:
         control_value = None
         if isinstance(control_impl, BaseChildlessCodeObjImpl):
             control_value = LiteralDependencyValue(control_impl.value)
-        control_value_representation = resolve_code_obj_value_policy(
-            self.code_obj_value_policy,
-            control_param_id,
-            control_impl.type,
-        ).representation
-        include_in_codegen = ctx.codegen_policy.include_in_codegen
-        meta_control_allowlist = self.section_policy.metaControlAllowlist
-        if (
-            meta_control_allowlist is not None
-            and control_impl.type not in meta_control_allowlist
-        ):
-            include_in_codegen = False
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -470,10 +301,7 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=control_value,
             control_code_obj_type=control_impl.type,
-            control_value_representation=control_value_representation,
             deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
 
@@ -492,7 +320,6 @@ class DependencyGraph:
         sectionId: ID,
         parent_node: Node | None = None,
         isTopLevel=False,
-        include_in_codegen: bool = True,
     ):
         paramIds = get_curr_top_level_param_ids(p, sectionId)
         return self.export_params(
@@ -501,7 +328,6 @@ class DependencyGraph:
             paramIds,
             parent_node=parent_node,
             isTopLevel=isTopLevel,
-            include_in_codegen=include_in_codegen,
         )
 
     def export_params(
@@ -511,7 +337,6 @@ class DependencyGraph:
         paramIds: list[ID],
         parent_node: Node | None = None,
         isTopLevel=False,
-        include_in_codegen: bool = True,
     ):
         output_deps = {}
         for idx, pid in enumerate(paramIds):
@@ -531,11 +356,6 @@ class DependencyGraph:
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[dep_key] = potential_refs
-                value_representation = resolve_code_obj_value_policy(
-                    self.code_obj_value_policy,
-                    pid,
-                    code_obj_impl.type,
-                ).representation
                 param_node = ParamNode(
                     id=pid,
                     name=name,
@@ -546,17 +366,11 @@ class DependencyGraph:
                     if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
                     else None,
                     passing_style=code_obj_impl.passingStyle,
-                    value_representation=value_representation,
-                    include_in_codegen=include_in_codegen,
                     deps={},
                 )
                 if isinstance(code_obj_impl, BaseParentCodeObjImpl):
                     param_node.deps = self.export_params(
-                        p,
-                        sectionId,
-                        code_obj_impl.children,
-                        parent_node=param_node,
-                        include_in_codegen=include_in_codegen,
+                        p, sectionId, code_obj_impl.children, parent_node=param_node
                     )
                 self.add_to_graph(dep_key, param_node)
             output_deps[dep_key] = param_node.has_name_and_value
@@ -567,24 +381,6 @@ class DependencyGraph:
         self.full_path_name_to_dep_key[node.full_path_name] = dep_key
 
     def change_value(self, dep_key: BaseDependencyKeyUnion, value):
-        if dep_key not in self.graph:
-            sample_sections = list(
-                islice(
-                    (
-                        key.sectionId
-                        for key in self.graph
-                        if key.type is DependencyKeyType.Section
-                    ),
-                    5,
-                )
-            )
-            logger.error(
-                "DependencyGraph change_value missing dep_key=%s graph_size=%s sample_section_ids=%s",
-                dep_key,
-                len(self.graph),
-                sample_sections,
-            )
-            raise KeyError(dep_key)
         node = self.graph[dep_key]
         node.value = self._coerce_dependency_value(value)
         is_used = node.has_name_and_value
@@ -599,7 +395,7 @@ class DependencyGraph:
         self, parent_node: Node | None, idx: int | None, name: str
     ):
         if not parent_node:
-            return sanitize_python_identifier(name)
+            return sanitize_name(name)
         if parent_node.type == SectionType.ListRoot:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
@@ -609,11 +405,11 @@ class DependencyGraph:
             or parent_node.type == CodeObjType.NestedParam
         ):
             return create_unique_name(
-                f"{parent_node.full_path_name}__{sanitize_python_identifier(name)}",
+                f"{parent_node.full_path_name}__{sanitize_name(name)}",
                 self.full_path_name_to_dep_key,
             )
 
-        return sanitize_python_identifier(name)
+        return sanitize_name(name)
 
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""

@@ -12,12 +12,10 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParamNameType,
 )
 from setta.types.edges import EdgePort
-from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -26,6 +24,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -45,6 +44,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
@@ -55,7 +55,7 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
     codeFileBinding: CodeFileBinding | None = None
 
 
@@ -96,16 +96,12 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     dataPath: str = ""
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300.0, height=300.0)
+        default_factory=lambda: SectionSize(width=400, height=400)
     )
 
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=402.0, height=100.0)
-    )
     layers: list[DrawAreaLayer] = Field(default_factory=list)
-    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
@@ -118,7 +114,9 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
@@ -150,15 +148,9 @@ class UserDefaultGenPythonCodeSectionImpl(
     pass
 
 
-class UserDefaultGenPythonMetadataSectionImpl(
-    UserDefaultBaseCodeSectionImpl, extra="forbid"
-):
-    pass
-
-
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=250.0, height=150.0)
+        default_factory=lambda: SectionSize(width=700, height=300)
     )
 
 
@@ -168,16 +160,8 @@ class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=400.0, height=200.0)
+        default_factory=lambda: SectionSize(width=405, height=405)
     )
-    managed: bool = False
-    llmConfigId: str | None = None
-    chatId: ID | None = None
-    deepThink: bool = False
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    inputText: str = ""
-    waitingForResponse: bool = False
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
 
 
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -290,9 +274,7 @@ class UserDefaultTextAreaParamCodeObjImpl(
 class UserDefaultDropzoneParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    mode: DropzoneMode = DropzoneMode.STATEFUL
-    maxAttachments: int | None = Field(default=None, gt=0)
-    placeholder: str = "Drop a file here"
+    pass
 
 
 class UserDefaultNestedParamCodeObjImpl(

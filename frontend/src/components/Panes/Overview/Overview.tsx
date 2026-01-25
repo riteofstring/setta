@@ -1,7 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
@@ -10,8 +9,7 @@ import {
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
-import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
-import { TbFolder } from "react-icons/tb";
+import { RiPlayList2Fill } from "react-icons/ri";
 import {
   useBackendLogEvents,
   useLocalStorage,
@@ -23,29 +21,21 @@ import {
   OverviewTabNamePrettified,
   PaneNameEnum,
 } from "utils/constants";
-import { useTabScope } from "utils/focusManager";
+import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
-import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
 export function Overview() {
-  const overviewRef = useRef<HTMLDivElement>(null);
-  useTabScope({
-    scopeId: "overview",
-    order: 10,
-    rootRef: overviewRef,
-  });
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -55,8 +45,6 @@ export function Overview() {
     isShareMode: x.isShareMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
-  const showFileBrowserTab = !isShareMode;
-  const showWatchCodeTab = !isShareMode;
   const showLLMTabs = !isShareMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
@@ -66,15 +54,6 @@ export function Overview() {
     ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
-  }
-  if (
-    !showFileBrowserTab &&
-    selectedTabName === OverviewTabNameEnum.FileBrowser
-  ) {
-    effectiveTabName = OverviewTabNameEnum.Overview;
-  }
-  if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
-    effectiveTabName = OverviewTabNameEnum.Overview;
   }
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
@@ -88,12 +67,12 @@ export function Overview() {
     requiredTabs: null,
   };
 
+  // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
   return (
     <div
       id="OverviewPane"
       className="contents"
-      ref={overviewRef}
-      data-tab-scope="overview"
+      onKeyDown={overviewPaneOnKeyDown}
     >
       <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<OverviewTabName>
@@ -102,22 +81,6 @@ export function Overview() {
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
-        {showFileBrowserTab && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.FileBrowser}
-            {...commonProps}
-            {...getFloatingBoxHandlers({ content: "Explorer" })}
-            icon={<TbFolder size={18} />}
-          />
-        )}
-        {showWatchCodeTab && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.WatchCode}
-            {...commonProps}
-            {...getFloatingBoxHandlers({ content: "Watch Code" })}
-            icon={<RiRadarLine size={18} />}
-          />
-        )}
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ProjectConfigs}
           {...commonProps}
@@ -218,12 +181,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
-    case OverviewTabNameEnum.FileBrowser:
-      return <FileBrowserPane />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
-    case OverviewTabNameEnum.WatchCode:
-      return <WatchCodePane />;
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:

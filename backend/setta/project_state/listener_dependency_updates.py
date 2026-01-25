@@ -1,7 +1,3 @@
-from ast import literal_eval
-
-from pydantic import ValidationError
-
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -10,14 +6,13 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
-    set_chat_section_state,
     set_param_entered_value,
     set_text_block_text,
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionState, SectionType
+from setta.types.section_impls import SectionType
 
 
 class ListenerDependencyUpdateError(ValueError):
@@ -102,12 +97,6 @@ def _apply_section_update(
         set_text_block_text(project_state, section_id, literal.payload)
         return None
 
-    if impl.type is SectionType.Chat:
-        literal = _expect_literal_value(dependency_name=section_id, value=value)
-        state = _parse_chat_section_state(payload=literal.payload)
-        set_chat_section_state(project_state, section_id, state)
-        return None
-
     if impl.type is SectionType.Image:
         raise NotImplementedError(
             "listener dependency updates for Image sections are not supported yet"
@@ -128,12 +117,3 @@ def _expect_literal_value(
         f"listener emit expected literal payload for {dependency_name}, "
         f"received {type(value).__name__}"
     )
-
-
-def _parse_chat_section_state(payload: object) -> ChatSectionState:
-    if isinstance(payload, str):
-        try:
-            return ChatSectionState.model_validate_json(payload)
-        except ValidationError:
-            return ChatSectionState.model_validate(literal_eval(payload))
-    return ChatSectionState.model_validate(payload)

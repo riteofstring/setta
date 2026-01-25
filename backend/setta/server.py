@@ -35,10 +35,8 @@ from setta.routers import (
     listener_router,
     llm_router,
     lsp_router,
-    mcp_tools_router,
     project_manager_router,
     projects_router,
-    runs_router,
     sections_router,
     settings_router,
     share_deployments_router,
@@ -83,7 +81,7 @@ async def lifespan(app: FastAPI):
 
         # {full_path:path} is to catch all paths not explicitly covered here
         @app.get("/{full_path:path}", response_class=HTMLResponse)
-        async def read_root(_full_path: str):
+        async def read_root(full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
@@ -139,11 +137,9 @@ http_router_kwargs = {
 websocket_router_kwargs = {"prefix": Route.PREFIX.value}
 
 app.include_router(bootstrap_router)
-app.include_router(mcp_tools_router)
 app.include_router(projects_router, **http_router_kwargs)
 app.include_router(sections_router, **http_router_kwargs)
 app.include_router(terminals_http_router, **http_router_kwargs)
-app.include_router(runs_router, **http_router_kwargs)
 app.include_router(websocket_router, **websocket_router_kwargs)
 app.include_router(terminals_ws_router, **websocket_router_kwargs)
 app.include_router(code_info_router, **http_router_kwargs)

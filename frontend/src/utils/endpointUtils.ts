@@ -14,23 +14,6 @@ export function res200<T>(
   return res.status === 200;
 }
 
-export function getErrorDetail(value: unknown): string | null {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const detail = record.detail;
-    if (typeof detail === "string") {
-      return detail;
-    }
-  }
-  return null;
-}
-
 function resolveBackendUrl(address: string): string {
   if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;

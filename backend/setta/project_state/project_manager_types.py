@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from enum import Enum
 
 from pydantic import BaseModel, Field
 
@@ -18,19 +17,18 @@ from setta.types.generated.unions import (
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
-    ProjectCodegenTarget,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
-    WatchCodeFolder,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -105,70 +103,6 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional run snapshot mode override for this run.",
     )
-    drawSnapshotsBySectionId: dict[ID, str] | None = Field(
-        default=None,
-        description="Optional base64 PNG payloads for draw sections keyed by section id.",
-    )
-
-
-class RunStatus(str, Enum):
-    queued = "queued"
-    running = "running"
-    exited = "exited"
-    failed = "failed"
-    canceled = "canceled"
-    lost = "lost"
-
-
-class RunDetachedRequest(ProjectManagerRequestWithProjectConfig):
-    entrySectionId: ID | None = Field(
-        default=None,
-        description="Optional section to run; defaults to the entry code block.",
-    )
-    runSnapshotMode: RunSnapshotMode | None = Field(
-        default=None,
-        description="Optional run snapshot mode override for this run.",
-    )
-    sectionVariantOverrides: dict[ID, ID] | None = Field(
-        default=None,
-        description="Optional section variant overrides keyed by section id.",
-    )
-    paramOverrides: dict[str, str] | None = Field(
-        default=None,
-        description='Optional parameter overrides keyed by "sectionId:paramId".',
-    )
-    tags: dict[str, str] | None = Field(
-        default=None,
-        description="Optional tags to associate with the run.",
-    )
-
-
-class RunDetachedResponse(BaseModel):
-    runId: str
-    status: RunStatus
-
-
-class RunStatusResponse(BaseModel):
-    runId: str
-    status: RunStatus
-    createdAtMs: int
-    startedAtMs: int | None
-    exitedAtMs: int | None
-    exitCode: int | None
-    pid: int | None
-    command: str
-    snapshotPath: str
-    projectConfigId: ID
-    entrySectionId: ID | None
-    tags: dict[str, str]
-
-
-class GetRunStatusRequest(BaseModel):
-    runId: str
-
-
-class CancelRunRequest(BaseModel):
-    runId: str
 
 
 class ClearTextFieldCompletionRequest(ProjectManagerRequestWithSection):
@@ -248,58 +182,6 @@ class UpdateParamImplConfigRequest(ProjectManagerRequestWithSectionParam):
 
     newConfig: dict = Field(
         description="Arbitrary dict serialized into the implementation config.",
-    )
-
-
-class MoveParamsRequest(ProjectManagerRequestWithSection):
-    """Reorder or reparent parameters within a section."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to move.",
-    )
-    newParentId: ID = Field(
-        description="Parent code object that will receive the parameters.",
-    )
-    newIndex: int = Field(
-        description="Index within the new parent's children list.",
-    )
-
-
-class MoveParamGroup(BaseModel):
-    """Single ordered move operation for parameters."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to move.",
-    )
-    newParentId: ID = Field(
-        description="Parent code object that will receive the parameters.",
-    )
-    newIndex: int = Field(
-        description="Index within the new parent's children list.",
-    )
-
-
-class MoveParamGroupsRequest(ProjectManagerRequestWithSection):
-    """Apply multiple parameter move operations as a single batch."""
-
-    moves: list[MoveParamGroup] = Field(
-        description="Ordered param move operations to apply.",
-    )
-
-
-class IndentParamsRequest(ProjectManagerRequestWithSection):
-    """Indent parameters under the previous sibling."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to indent.",
-    )
-
-
-class UnindentParamsRequest(ProjectManagerRequestWithSection):
-    """Unindent parameters to the parent's parent."""
-
-    paramIds: list[ID] = Field(
-        description="Ordered parameter identifiers to unindent.",
     )
 
 
@@ -498,12 +380,6 @@ class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
-class SetVariantJsonSourceKeysRequest(ProjectManagerRequestWithSectionVariant):
-    jsonSourceKeys: list[str] = Field(
-        description="Key path within the JSON source to scope this section to.",
-    )
-
-
 class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSectionVariant):
     filepath: str
 
@@ -512,16 +388,8 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
-class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the enabled code generation targets for a project."""
-
-    codegenTargets: list[ProjectCodegenTarget] = Field(
-        description="Ordered list of enabled codegen targets.",
-    )
-
-
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text prepended to generated Python code (python target only)."""
+    """Update the text prepended to generated Python code."""
 
     genCodePrefix: str = Field(
         description="Arbitrary prefix inserted at the start of generated code files.",
@@ -529,7 +397,7 @@ class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
-    """Update the text appended to generated Python code (python target only)."""
+    """Update the text appended to generated Python code."""
 
     genCodeSuffix: str = Field(
         description="Suffix appended to the end of generated code files.",
@@ -541,25 +409,6 @@ class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
 
     showParamDisplayNames: bool = Field(
         description="True to show display names for parameters, false to show canonical names.",
-    )
-
-
-class SetWatchCodeEnabledRequest(ProjectManagerRequestWithProjectConfig):
-    """Enable or disable watch code mode for the project."""
-
-    enabled: bool = Field(
-        description="Whether watch code mode is enabled for this project.",
-    )
-
-
-class SetWatchCodeInputsRequest(ProjectManagerRequestWithProjectConfig):
-    """Update watched file and folder inputs for watch code mode."""
-
-    watchCodeFolders: list[WatchCodeFolder] = Field(
-        description="Folders to watch for new callables.",
-    )
-    watchCodeFiles: list[str] = Field(
-        description="Specific files to watch for new callables.",
     )
 
 
@@ -794,12 +643,24 @@ class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
 
 
+class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
+    displayMode: SectionWithParamsDisplayMode
+
+
 class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
     hideParams: bool
 
 
 class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
+
+
+class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
+    pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
@@ -823,32 +684,14 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
 
 
-class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
-    managed: bool
-    llmConfigId: str | None
-    deepThink: bool
-
-
-class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
-    state: ChatSectionState
-
-
-class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    pass
-
-
-class SetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
-    chatId: ID | None
-
-
 class SetSocialUrlRequest(ProjectManagerRequestWithSection):
     url: str
 
 
-class MoveSectionsRequest(ProjectManagerRequestWithSectionIds):
+class MoveSectionRequest(ProjectManagerRequestWithSection):
     newParentId: ID | None
     newIndex: int | None
-    positionsById: dict[ID, Position] | None
+    position: Position | None
 
 
 class GroupSectionsRequest(ProjectManagerRequestWithSectionIds):

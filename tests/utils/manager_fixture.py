@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -26,10 +27,8 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs, MCPServerConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.utils.constants import C
@@ -174,7 +173,10 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a SessionProjectManager (main) backed by a seeded temp workspace."""
+    """Provision a SessionProjectManager (main) backed by the repo's sample setta_files bundle."""
+
+    sample_root = Path(__file__).resolve().parents[2] / "setta_files"
+
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         setta_root = root / "setta_files"
@@ -187,7 +189,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         for path in (code_folder, artifacts_folder, backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        _seed_minimal_setta_files(setta_root)
+        _populate_project_fixture_files(sample_root, setta_root)
 
         async with AsyncExitStack() as stack:
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
@@ -326,6 +328,11 @@ async def _close_lsp_process(process) -> None:
             await reader.read()
 
 
+REQUIRED_SAMPLE_FILES = (
+    "project.json",
+    "setta-settings.json",
+    "setta-settings-project.json",
+)
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
 DEFAULT_SAMPLE_PROJECT_CONFIG_ID = ID("sample-project-config")
 DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
@@ -338,15 +345,27 @@ state = SettaState()
 """
 
 
-def _populate_project_fixture_files(setta_root: Path) -> None:
+def _populate_project_fixture_files(sample_root: Path, setta_root: Path) -> None:
+    if _has_sample_bundle(sample_root):
+        shutil.copytree(sample_root / "code", setta_root / "code", dirs_exist_ok=True)
+        for filename in REQUIRED_SAMPLE_FILES:
+            shutil.copy2(sample_root / filename, setta_root / filename)
+        return
     _seed_minimal_setta_files(setta_root)
+
+
+def _has_sample_bundle(sample_root: Path) -> bool:
+    if not sample_root.exists():
+        return False
+    if not (sample_root / "code").exists():
+        return False
+    return all((sample_root / file).exists() for file in REQUIRED_SAMPLE_FILES)
 
 
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")
     _write_sample_settings_files(setta_root)
-    _write_sample_llm_configs(setta_root)
     _write_sample_code_files(setta_root)
 
 
@@ -362,22 +381,6 @@ def _write_sample_settings_files(setta_root: Path) -> None:
     settings_path.write_text(settings_state.model_dump_json(indent=2))
     settings_project = create_settings_project_state(settings_path)
     settings_project_path.write_text(settings_project.model_dump_json(indent=2))
-
-
-def _write_sample_llm_configs(setta_root: Path) -> None:
-    dbe = DBE(setta_root)
-    config = AllLLMConfigs(
-        mcpServers={
-            SETTA_MCP_SERVER_ID: MCPServerConfig(
-                transport="sse",
-                url=f"http://{C.DEFAULT_HOST}:{C.DEFAULT_PORT}/mcp",
-            )
-        },
-        defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
-    )
-    payload = config.model_dump(exclude_unset=True)
-    dbe.write_llm_config(payload)
-    dbe.write_llm_config_example(payload)
 
 
 def _write_sample_code_files(setta_root: Path) -> None:

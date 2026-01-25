@@ -1,4 +1,4 @@
-import { useDndMonitor } from "forks/dnd-kit/adapter";
+import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import {
   setDndDisabled,
   useDndMode,
@@ -8,6 +8,7 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
+import colors from "tailwindcss/colors";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
 export function useHighlightDroppable({ sectionId, isGroup }) {
@@ -23,7 +24,7 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
               borderRadius: "1.5rem",
               padding: padding,
               margin: margin,
-              backgroundColor: "rgba(185, 28, 28, 0.2)",
+              backgroundColor: colors.red[600],
             }
           : {},
     };
@@ -73,13 +74,13 @@ export function useDisableSortable(sectionId: string) {
     // Sorting a child of this section
     else if (
       isSorting &&
-      active.data?.current?.sortable?.containerId === sectionId
+      active.data.current.sortable?.containerId === sectionId
     ) {
       setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
   }
 
-  function onDragDone({ active }) {
+  function onDragDone() {
     setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
@@ -95,7 +96,8 @@ export function useDisableSortable(sectionId: string) {
 export function useDndProps({ sectionId, isTopLevel }) {
   // We only want to set disabled if positionAndSizeLocked is true.
   // If positionAndSizeLocked is false, we don't want to set disabled to false,
-  // so we leave it undefined to avoid forcing a value.
+  // so we set it to null instead so that the disabled
+  // status defers to dnd-kit's "global" disabled status.
   // "onlyChildId" is the id of the child if the parent has just 1 child.
   // It is needed to correctly trigger the leftDistCondition in collisionDetection.
   const { hasNested, disabled, onlyChildId } = useProjectState((x) => {
@@ -106,13 +108,13 @@ export function useDndProps({ sectionId, isTopLevel }) {
       onlyChildId: children.length === 1 ? children[0] : null,
       disabled: x.sections[sectionId]?.positionAndSizeLocked
         ? x.sections[sectionId]?.positionAndSizeLocked
-        : undefined,
+        : null,
     };
   }, _.isEqual);
 
   return {
     id: sectionId,
-    data: { type: "section", isTopLevel, hasNested, onlyChildId },
+    data: { isTopLevel, hasNested, onlyChildId },
     disabled,
   };
 }
