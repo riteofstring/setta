@@ -247,6 +247,7 @@ class CodeFiles:
 
         callback = self._build_file_watcher_callback(
             callback_category,
+            project_state_backend_getter_fn,
             reload_code_sections,
         )
         callbacks = {path: callback for path in current_paths}
@@ -397,6 +398,7 @@ class CodeFiles:
     def _build_file_watcher_callback(
         self,
         callback_category: str,
+        project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
         reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:

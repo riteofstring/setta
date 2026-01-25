@@ -6,7 +6,7 @@ from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequ
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.types.helpers_lvl2 import ProjectNotFound
+from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import (
     SettaNotification,
@@ -14,7 +14,6 @@ from setta.types.notifications import (
 )
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
-from setta.utils.errors import InvalidProjectName
 
 router = SettaProjectContextAPIRouter(dependencies=[Depends(require_ide_mode)])
 
@@ -111,10 +110,7 @@ async def route_save_as_new_project_config(
 ):
     project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()
-    try:
-        await project_manager.save_as_new_project_config(x)
-    except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+    await project_manager.save_as_new_project_config(x)
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)
@@ -122,12 +118,9 @@ async def route_create_project_config(
     x: CreateProjectConfigRequest, state: AppStateFromRequest
 ) -> str:
     project_manager = state.project_manager_switcher.main
-    try:
-        newProjectConfigName = await project_manager.create_project_config(
-            x.previewImgColor
-        )
-    except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+    newProjectConfigName = await project_manager.create_project_config(
+        x.previewImgColor
+    )
     project_manager.perform_manual_save()
     return newProjectConfigName
 
@@ -151,8 +144,8 @@ async def route_set_project_config_name(
         project_manager = state.project_manager_switcher.main
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         project_manager.perform_manual_save()
-    except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+    except ProjectNameTaken as e:
+        raise HTTPException(status_code=422, detail=repr(e))
 
 
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)
