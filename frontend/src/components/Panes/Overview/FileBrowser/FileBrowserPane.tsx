@@ -6,7 +6,7 @@ import { List, useListRef } from "react-window";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -19,7 +19,7 @@ const MAX_ENTRIES = 5000;
 
 type NodeKind = "folder" | "file";
 
-type FileNode = {
+export type FileNode = {
   name: string;
   fullPath: string;
   type: NodeKind;
@@ -46,9 +46,20 @@ type FileBrowserRowProps = RowData & {
   style: CSSProperties;
 };
 
-export function FileBrowserPane() {
+type FileBrowserPaneProps = {
+  onFileOpen?: (node: FileNode) => void;
+  onSelectionChange?: (node: FileNode | null) => void;
+  useFileBrowserStateHook?: typeof useFileBrowserState;
+};
+
+export function FileBrowserPane({
+  onFileOpen,
+  onSelectionChange,
+  useFileBrowserStateHook,
+}: FileBrowserPaneProps = {}) {
+  const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
   const { rootPath, expandedPaths, selectedPath, filterText } =
-    useFileBrowserState((state) => ({
+    fileBrowserState((state) => ({
       rootPath: state.rootPath,
       expandedPaths: state.expandedPaths,
       selectedPath: state.selectedPath,
@@ -152,7 +163,10 @@ export function FileBrowserPane() {
         });
       } else {
         let errorMessage = "Failed to load folder contents.";
-        if (res.hasResponse && res.status !== undefined) {
+        const detail = getErrorDetail(res.data);
+        if (detail) {
+          errorMessage = detail;
+        } else if (res.hasResponse && res.status !== undefined) {
           errorMessage = `Failed to load folder contents (${res.status}).`;
         }
         setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
@@ -186,7 +200,7 @@ export function FileBrowserPane() {
       const rootRequestId = rootRequestIdRef.current;
       folderRequestIdRef.current = {};
       setRootError(null);
-      useFileBrowserState.setState({
+      fileBrowserState.setState({
         rootPath: trimmed,
         selectedPath: trimmed,
         expandedPaths: { [trimmed]: true },
@@ -204,7 +218,7 @@ export function FileBrowserPane() {
       setLoadingPaths({});
       void fetchFolderContents(trimmed, ignoreOverride, rootRequestId);
     },
-    [fetchFolderContents, pathSeparator],
+    [fetchFolderContents, fileBrowserState, pathSeparator],
   );
 
   useEffect(() => {
@@ -244,12 +258,12 @@ export function FileBrowserPane() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      useFileBrowserState.setState({ filterText: filterInput });
+      fileBrowserState.setState({ filterText: filterInput });
     }, FILTER_DEBOUNCE_MS);
     return () => {
       clearTimeout(timeout);
     };
-  }, [filterInput]);
+  }, [filterInput, fileBrowserState]);
 
   const flattenedItems = useMemo(() => {
     if (!rootPath) {
@@ -348,7 +362,7 @@ export function FileBrowserPane() {
         return;
       }
       const isExpanded = expandedPaths[path] === true;
-      useFileBrowserState.setState((state) => {
+      fileBrowserState.setState((state) => {
         const next = { ...state.expandedPaths };
         if (isExpanded) {
           delete next[path];
@@ -361,12 +375,26 @@ export function FileBrowserPane() {
         void fetchFolderContents(path);
       }
     },
-    [childrenByPath, expandedPaths, fetchFolderContents, nodesByPath],
+    [
+      childrenByPath,
+      expandedPaths,
+      fetchFolderContents,
+      fileBrowserState,
+      nodesByPath,
+    ],
   );
 
-  const handleSelect = useCallback((path: string) => {
-    useFileBrowserState.setState({ selectedPath: path });
-  }, []);
+  const handleSelect = useCallback(
+    (path: string) => {
+      fileBrowserState.setState({ selectedPath: path });
+      if (!onSelectionChange) {
+        return;
+      }
+      const node = nodesByPath[path];
+      onSelectionChange(node ?? null);
+    },
+    [fileBrowserState, nodesByPath, onSelectionChange],
+  );
 
   const handleOpen = useCallback(
     (path: string) => {
@@ -376,6 +404,10 @@ export function FileBrowserPane() {
       }
       if (node.type === "folder") {
         handleToggle(path);
+        return;
+      }
+      if (onFileOpen) {
+        onFileOpen(node);
         return;
       }
       const codeLanguage = resolveCodeLanguageFromPath(path);

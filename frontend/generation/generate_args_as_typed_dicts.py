@@ -124,6 +124,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ButtonActionMode,
     HttpRequestMethod,
+    DropzoneMode,
 )
 from setta.types.edges import Edge, EdgePort
 from setta.types.chat_messages import (
@@ -132,7 +133,7 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.project_config import ProjectCodegenPythonTarget, ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig, WatchCodeFolder, WatchCodeRegistryEntry
+from setta.types.project_config import ProjectCodegenPythonTarget, ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
 from setta.types.generated.shared_modifier import SharedModifier
 
 """

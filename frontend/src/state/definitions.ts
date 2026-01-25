@@ -266,6 +266,15 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
+export const useDropzoneFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+  })),
+);
+
 type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 

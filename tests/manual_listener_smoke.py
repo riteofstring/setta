@@ -7,9 +7,8 @@ listener receives snapshot refreshes when a control changes in the UI.
 
 import argparse
 import importlib
-import json
 import logging
-from pathlib import Path
+import os
 from typing import Any, Callable
 
 from setta.api import SettaListener
@@ -44,15 +43,15 @@ def _structured_dependency_map(
     return {}
 
 
-def load_default_project_name() -> str:
-    """Read the project name that ships with the repository fixtures."""
-    data = json.loads(Path("setta_files/project.json").read_text())
-    project_config_id = data["defaultProjectConfigId"]
-    try:
-        project_config = data["projectConfigs"][project_config_id]
-    except KeyError as error:
-        raise ValueError("Default project config missing from project.json") from error
-    return project_config["name"]
+def resolve_project_name(explicit_name: str | None) -> str:
+    if explicit_name:
+        return explicit_name
+    env_name = os.environ.get("SETTA_PROJECT_NAME")
+    if env_name:
+        return env_name
+    raise ValueError(
+        "Project name required. Pass --project-name or set SETTA_PROJECT_NAME."
+    )
 
 
 def build_listener(project_name: str) -> SettaListener:
@@ -79,7 +78,7 @@ def main() -> None:
     parser.add_argument(
         "--project-name",
         default=None,
-        help="Override the project config name to watch (defaults to repository fixture).",
+        help="Project config name to watch (falls back to SETTA_PROJECT_NAME).",
     )
     parser.add_argument(
         "--hot-reload",
@@ -123,7 +122,7 @@ def main() -> None:
 
     configure_listener_logging(level_override="INFO")
 
-    project_name = args.project_name or load_default_project_name()
+    project_name = resolve_project_name(args.project_name)
     listener = build_listener(project_name)
 
     if args.hot_reload:

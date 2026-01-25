@@ -41,6 +41,12 @@ their values and action events propagate, and how they appear in generated code 
       "controlParamId": "param-id"
     }
     ```
+- Dropzone controls:
+  - `mode=STATEFUL` behaves like other value controls (RealtimeUIChange +
+    `route_set_param_entered_value`), storing a JSON payload.
+  - `mode=STATELESS` behaves like button controls (no persisted value). Frontend
+    sends `RealtimeDependencyEvent` with the section dependency key and a JSON
+    payload that includes the attachments plus `sectionId`/`paramInfoId`.
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the
@@ -53,13 +59,17 @@ their values and action events propagate, and how they appear in generated code 
   param id.
 - Literal formatting uses the control type (for example,
   `SwitchParam` -> `True`/`False`, `ColorPickerParam` -> quoted string,
-  `TextParam`/`PasswordParam`/`DropzoneParam` -> `repr(...)`).
+  `TextParam`/`PasswordParam` -> `repr(...)`).
+- `DropzoneParam` values render as a list of attachment objects when stateful
+  (or `[]` when empty/ stateless).
 
 ## Listener integration
 - Subscribe to value controls using the section dependency name
   (the `SectionDependencyKey` for the meta control).
 - Subscribe to button controls by including the section dependency and
   `dependency_mode=ListenerDependencyMode.REALTIME_ONLY` (use `deps=[]` for a wildcard).
+- Subscribe to stateless dropzone controls the same way as buttons and decode
+  the JSON payload to access base64 attachments.
 - Listener emits can only update meta controls through the control param id
   (`SectionParamDependencyKey`) or `route_set_param_entered_value`; section-level
   dependency updates are not applied for MetaControl sections.

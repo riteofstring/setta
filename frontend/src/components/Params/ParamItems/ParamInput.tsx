@@ -6,11 +6,19 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeSectionParamLiteral } from "state/actions/websocketReceive";
+import {
+  sendRealtimeDependencyEvent,
+  sendRealtimeSectionParamLiteral,
+} from "state/actions/websocketReceive";
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
+import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
-import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
+import {
+  DependencyKeyTypeEnum,
+  isBaseChildlessCodeObjImpl,
+} from "utils/generatedTypes";
+import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
@@ -57,13 +65,33 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   );
 
   // value and enteredValue should always be string
-  function onChange(v) {
+  function onChange(v, options?: ParamValueChangeOptions) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
     if (value !== vStr) {
       sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
     }
-    debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+    if (!options?.skipBackendUpdate) {
+      debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+    }
+  }
+
+  function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
+    if (attachments.length === 0) {
+      return;
+    }
+    sendRealtimeDependencyEvent({
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.SectionParam,
+        sectionId,
+        codeObjId: paramInfoId,
+      },
+      payload: JSON.stringify({
+        sectionId,
+        paramInfoId,
+        attachments,
+      }),
+    });
   }
 
   return (
@@ -72,6 +100,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onDropzoneStateless={onDropzoneStateless}
       maybeErrorMessage={maybeErrorMessage}
     />
   );
