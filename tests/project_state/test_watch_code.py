@@ -181,7 +181,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(self.watch_file_path)],
+                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -221,7 +221,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(new_file)],
+                watchCodeFiles=[str(normalize_path(new_file))],
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
@@ -239,6 +239,15 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                     watchCodeFiles=[str(outside_file)],
                 )
             )
+        inside_file = self.watch_file_path.resolve()
+        with self.assertRaises(ValueError):
+            await self.manager.set_watch_code_inputs(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=self.project_config_id,
+                    watchCodeFolders=[],
+                    watchCodeFiles=[str(inside_file)],
+                )
+            )
         outside_folder = Path.cwd().parent / "outside_watch_dir"
         with self.assertRaises(ValueError):
             await self.manager.set_watch_code_inputs(
@@ -246,6 +255,17 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                     projectConfigId=self.project_config_id,
                     watchCodeFolders=[
                         WatchCodeFolder(path=str(outside_folder), recursive=False)
+                    ],
+                    watchCodeFiles=[],
+                )
+            )
+        inside_folder = self.watch_file_path.parent.resolve()
+        with self.assertRaises(ValueError):
+            await self.manager.set_watch_code_inputs(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=self.project_config_id,
+                    watchCodeFolders=[
+                        WatchCodeFolder(path=str(inside_folder), recursive=False)
                     ],
                     watchCodeFiles=[],
                 )
@@ -328,7 +348,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(self.watch_file_path)],
+                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -361,7 +381,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(self.watch_file_path)],
+                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -397,7 +417,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
-                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                    WatchCodeFolder(
+                        path=str(normalize_path(watch_root)), recursive=False
+                    )
                 ],
                 watchCodeFiles=[],
             )
@@ -411,7 +433,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
-                    WatchCodeFolder(path=str(watch_root), recursive=True)
+                    WatchCodeFolder(
+                        path=str(normalize_path(watch_root)), recursive=True
+                    )
                 ],
                 watchCodeFiles=[],
             )
@@ -436,7 +460,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
-                    WatchCodeFolder(path=str(missing_dir), recursive=False)
+                    WatchCodeFolder(
+                        path=str(normalize_path(missing_dir)), recursive=False
+                    )
                 ],
                 watchCodeFiles=[],
             )
@@ -484,7 +510,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(self.setta_root.parent),
+                        path=str(normalize_path(self.setta_root.parent)),
                         recursive=True,
                     )
                 ],
@@ -554,7 +580,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
-                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                    WatchCodeFolder(
+                        path=str(normalize_path(watch_root)), recursive=False
+                    )
                 ],
                 watchCodeFiles=[],
             )
@@ -595,7 +623,9 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
-                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                    WatchCodeFolder(
+                        path=str(normalize_path(watch_root)), recursive=False
+                    )
                 ],
                 watchCodeFiles=[],
             )
@@ -634,6 +664,103 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
         )
         self.assertIn(moved_identity, state.projectConfig.watchCodeRegistry)
+
+    async def test_move_between_configs_cleans_source_entries(self) -> None:
+        existing_config_ids = set(
+            self.manager.project_state_backend.projectConfigs.keys()
+        )
+        await self.manager.create_project_config("bg-blue-500/60 dark:bg-blue-600/30")
+        new_config_ids = (
+            set(self.manager.project_state_backend.projectConfigs.keys())
+            - existing_config_ids
+        )
+        self.assertEqual(len(new_config_ids), 1)
+        secondary_config_id = next(iter(new_config_ids))
+
+        source_root = self.setta_root.parent / "watch_root_source"
+        dest_root = self.setta_root.parent / "watch_root_dest"
+        source_root.mkdir(parents=True, exist_ok=True)
+        dest_root.mkdir(parents=True, exist_ok=True)
+
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(
+                        path=str(normalize_path(source_root)), recursive=False
+                    )
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=secondary_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(
+                        path=str(normalize_path(dest_root)), recursive=False
+                    )
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=secondary_config_id,
+                enabled=True,
+            )
+        )
+
+        src_path = source_root / "moved.py"
+        src_path.write_text("def moved():\n    return 1\n")
+        await self.manager.watch_code_manager._scan_file(
+            self.project_config_id,
+            src_path,
+            baseline_only=False,
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        src_module_path = convert_path_to_module_path(normalize_path(src_path))
+        src_identity = build_callable_identity(
+            f"{src_module_path}.moved", WatchCodeCallableKind.function
+        )
+        self.assertIn(src_identity, state.projectConfig.watchCodeRegistry)
+
+        dest_path = dest_root / "moved.py"
+        src_path.replace(dest_path)
+        self.manager.watch_code_manager._handle_event(src_path, "moved", dest_path)
+
+        delete_key = (self.project_config_id, normalize_path(src_path))
+        delete_debouncer = self.manager.watch_code_manager._delete_debouncers[
+            delete_key
+        ]
+        await delete_debouncer.flush(
+            self.project_config_id, normalize_path(src_path)
+        )
+
+        scan_key = (secondary_config_id, normalize_path(dest_path))
+        scan_debouncer = self.manager.watch_code_manager._debouncers[scan_key]
+        await scan_debouncer.flush(
+            secondary_config_id, normalize_path(dest_path), False
+        )
+
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        src_key = str(normalize_path(src_path))
+        self.assertNotIn(src_key, updated_state.projectConfig.watchCodeBaselineByPath)
+        for entry in updated_state.projectConfig.watchCodeRegistry.values():
+            self.assertNotEqual(entry.sourcePath, src_key)
+
+        dest_state = self.manager.get_single_config_state(secondary_config_id)
+        dest_module_path = convert_path_to_module_path(normalize_path(dest_path))
+        dest_identity = build_callable_identity(
+            f"{dest_module_path}.moved", WatchCodeCallableKind.function
+        )
+        self.assertIn(dest_identity, dest_state.projectConfig.watchCodeRegistry)
 
     async def test_signature_change_updates_registry(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -992,7 +1119,7 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(self.watch_file_path)],
+                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(

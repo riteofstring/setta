@@ -151,6 +151,9 @@ def _should_ignore_path(path: Path) -> bool:
 
 
 def _normalize_watch_code_path(raw: str, label: str) -> Path:
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        raise ValueError(f"Watch code {label} paths must be repo-relative: {raw!r}")
     normalized = normalize_path(raw)
     if normalized.is_absolute():
         raise ValueError(f"Watch code {label} paths must be inside the repo: {raw!r}")
@@ -521,14 +524,16 @@ class WatchCodeManager:
         desired_watch_dirs: dict[Path, bool] = {}
         next_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         for project_config_id, config in configs.items():
+            normalized_files = normalize_watch_code_files(config.watchCodeFiles)
+            normalized_folders = normalize_watch_code_folders(config.watchCodeFolders)
             snapshot = WatchCodeConfigSnapshot(
                 enabled=config.watchCodeEnabled,
-                files=tuple(sorted(normalize_watch_code_files(config.watchCodeFiles))),
+                files=tuple(sorted(normalized_files)),
                 folders=tuple(
                     sorted(
                         (
-                            (str(normalize_path(folder.path)), folder.recursive)
-                            for folder in config.watchCodeFolders
+                            (folder.path, folder.recursive)
+                            for folder in normalized_folders
                             if folder.path
                         ),
                         key=lambda item: (item[0], item[1]),
@@ -724,16 +729,24 @@ class WatchCodeManager:
         if event_type == "moved":
             if dest_path is None:
                 return
-            dest_matches = False
-            if not _should_ignore_path(dest_path) and dest_path.suffix == ".py":
-                for project_config_id, snapshot in self._config_snapshots.items():
-                    if not snapshot.enabled:
-                        continue
-                    if not self._path_matches_watch_inputs(
-                        dest_path, snapshot.files, snapshot.folders
-                    ):
-                        continue
+            src_is_py = path.suffix == ".py" and not _should_ignore_path(path)
+            dest_is_py = dest_path.suffix == ".py" and not _should_ignore_path(
+                dest_path
+            )
+            for project_config_id, snapshot in self._config_snapshots.items():
+                if not snapshot.enabled:
+                    continue
+                src_matches = False
+                if src_is_py and self._path_matches_watch_inputs(
+                    path, snapshot.files, snapshot.folders
+                ):
+                    src_matches = True
+                dest_matches = False
+                if dest_is_py and self._path_matches_watch_inputs(
+                    dest_path, snapshot.files, snapshot.folders
+                ):
                     dest_matches = True
+                if dest_matches:
                     self._pending_moves[
                         (project_config_id, normalize_path(dest_path))
                     ] = normalize_path(path)
@@ -742,9 +755,9 @@ class WatchCodeManager:
                         dest_path,
                         baseline_only=False,
                     )
-            if dest_matches:
-                return
-            event_type = "deleted"
+                elif src_matches:
+                    self._debounce_delete(project_config_id, path)
+            return
 
         if _should_ignore_path(path):
             return
@@ -796,12 +809,24 @@ class WatchCodeManager:
         path: Path,
         baseline_only: bool,
     ) -> None:
+        move_key = (project_config_id, normalize_path(path))
+        moved_from = self._pending_moves.pop(move_key, None)
         if project_config_id not in self._config_snapshots:
             return
         if not path.exists():
+            if moved_from is not None:
+                await self._project_manager.apply_watch_code_file_delete(
+                    project_config_id,
+                    normalize_path(moved_from),
+                )
             return
         raw = self._project_manager.dbe.read(path)
         if raw is None:
+            if moved_from is not None:
+                await self._project_manager.apply_watch_code_file_delete(
+                    project_config_id,
+                    normalize_path(moved_from),
+                )
             return
         logger.debug(
             "watch_code._scan_file project_config_id=%s path=%s baseline_only=%s",
@@ -809,8 +834,6 @@ class WatchCodeManager:
             normalize_path(path),
             baseline_only,
         )
-        move_key = (project_config_id, normalize_path(path))
-        moved_from = self._pending_moves.pop(move_key, None)
         await self._project_manager.apply_watch_code_file_update(
             project_config_id,
             normalize_path(path),
