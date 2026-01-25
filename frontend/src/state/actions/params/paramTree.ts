@@ -182,7 +182,7 @@ export function getSharedParentId(
   return firstParent;
 }
 
-function isDescendantOfSelection(
+export function isDescendantOfSelection(
   parentById: Record<string, string | null>,
   candidateId: string,
   selectedSet: Set<string>,
