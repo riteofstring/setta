@@ -1,4 +1,5 @@
 import copy
+import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
@@ -49,6 +50,8 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T", bound=BaseSectionImplUnion | BaseCodeObjImplUnion)
+
+logger = logging.getLogger(__name__)
 
 
 def remove_singleton_sections_if_already_present(
@@ -181,6 +184,11 @@ def prepare_sections_for_copy(
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
     if projectConfigId not in p.projectConfigs:
+        logger.error(
+            "convert_backend_to_single_config unknown project_config_id=%s available_ids=%s",
+            projectConfigId,
+            list(p.projectConfigs.keys()),
+        )
         raise KeyError(f"Unknown project config: {projectConfigId}")
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(

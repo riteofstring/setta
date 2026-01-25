@@ -19,7 +19,6 @@ import {
   BrushStrokeArtifact,
   ChartDataArtifact,
   DrawAreaLayerItemTransformArtifact,
-  FileArtifact,
   ImageArtifact,
   SettaNotificationTypeEnum,
   UpdateArtifactMsgContent,
@@ -29,8 +28,7 @@ type ArtifactByType =
   | ImageArtifact
   | BrushStrokeArtifact
   | DrawAreaLayerItemTransformArtifact
-  | ChartDataArtifact
-  | FileArtifact;
+  | ChartDataArtifact;
 
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
@@ -151,8 +149,6 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
         break;
       case ArtifactTypeEnum.ChartData:
         applyUpdate(chartDataUpdate, artifact, artifactUpdate.updateType);
-        break;
-      case ArtifactTypeEnum.File:
         break;
       default:
         artifact satisfies never;

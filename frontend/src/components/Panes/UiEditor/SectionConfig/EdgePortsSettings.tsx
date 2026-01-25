@@ -23,7 +23,7 @@ import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { usePendingOperations, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_output_accessor_completion,
   route_set_section_edge_inputs,
@@ -58,6 +58,14 @@ function parseJsonSourcePath(value: string) {
     .split(".")
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
+}
+
+function getErrorDetail(data: unknown): string | null {
+  if (typeof data !== "object" || data === null || !("detail" in data)) {
+    return null;
+  }
+  const detail = (data as { detail?: unknown }).detail;
+  return typeof detail === "string" ? detail : null;
 }
 
 function shouldRollbackJsonSourceKeys(
