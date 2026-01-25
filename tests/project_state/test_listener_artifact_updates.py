@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -16,7 +15,6 @@ from setta.types.artifact import (
     DrawAreaLayerItemTransformArtifact,
     ImageArtifact,
 )
-from setta.types.binary_content import BinaryContentRef
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -39,9 +37,6 @@ class _StubSpecificFileWatcher:
 
 
 class _StubDBE:
-    def __init__(self) -> None:
-        self.runtime_root = Path(".")
-
     def read(self, *args, **kwargs):
         raise AssertionError("DBE.read should not be called during listener tests")
 
@@ -64,11 +59,7 @@ class TestApplyListenerArtifactUpdates:
         artifacts = _build_artifacts()
         artifact = ImageArtifact(
             id="artifacts/new-image.png",
-            value=BinaryContentRef(
-                contentId="test-image",
-                byteLength=3,
-                mimeType="image/png",
-            ),
+            value="data:image/png;base64,AAA",
         )
 
         applied = apply_listener_artifact_updates(
@@ -144,14 +135,7 @@ class TestApplyListenerArtifactUpdates:
 
     def test_invalid_path_raises_listener_error(self):
         artifacts = _build_artifacts()
-        artifact = ImageArtifact(
-            id="\x00bad",
-            value=BinaryContentRef(
-                contentId="bad-image",
-                byteLength=1,
-                mimeType="image/png",
-            ),
-        )
+        artifact = ImageArtifact(id="\x00bad", value="data:image/png;base64,AAA")
 
         with pytest.raises(ListenerArtifactUpdateError):
             apply_listener_artifact_updates(artifacts=artifacts, updates=[artifact])

@@ -253,6 +253,7 @@ listener.start()
 ## Dropzone events + attachment access
 Strings: `Uploads` is a dropzone section/param dependency; `report.pdf` is an uploaded filename; `payload=%s` is a log template.
 ```python
+import base64
 import json
 
 from setta.api import SettaListener
@@ -267,22 +268,13 @@ listener = SettaListener(project_name="Demo Project")
 )
 def on_dropzone_event(state, ctx) -> None:
     for event in ctx.events:
-        if not event.payload:
-            continue
-        if event.payload.type == "Literal":
-            payload = json.loads(event.payload.payload)
-            for attachment in payload.get("attachments", []):
-                if attachment.get("kind") == "file":
-                    ctx.log.info(
-                        "received file metadata %s (%d bytes)",
-                        attachment["name"],
-                        attachment["byteLength"],
-                    )
-                if attachment.get("kind") == "text":
-                    ctx.log.info("received text: %s", attachment.get("text"))
-        if event.payload.type == "Binary":
-            binary = event.binaryPayload or b""
-            ctx.log.info("received file bytes (%d bytes)", len(binary))
+        payload = json.loads(event.payload) if event.payload else {}
+        for attachment in payload.get("attachments", []):
+            if attachment.get("kind") == "file":
+                raw = base64.b64decode(attachment["base64"])
+                ctx.log.info("received file %s (%d bytes)", attachment["name"], len(raw))
+            if attachment.get("kind") == "text":
+                ctx.log.info("received text: %s", attachment.get("text"))
 
 
 @listener.listen(deps=["uploads__files"], run_on_refresh=True)
@@ -299,14 +291,10 @@ listener.start()
 ```
 
 ## Emit artifact updates (example: image)
-Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose realtime payload is binary or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
+Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose realtime payload is base64 or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
 ```python
-from pathlib import Path
-
 from setta.api import SettaListener
-from setta.binary import BinaryStore
 from setta.types.artifact import ImageArtifact
-from setta.utils.constants import C
 
 listener = SettaListener(project_name="Demo Project")
 
@@ -315,12 +303,10 @@ listener = SettaListener(project_name="Demo Project")
 async def mirror_image(state, ctx) -> None:
     if not state.input_image:
         return
-    mirrored_bytes = mirror_png_bytes(state.input_image)
-    store = BinaryStore(root=Path("setta_files") / C.BINARY_FOLDER_NAME)
-    ref = store.store_bytes(mirrored_bytes, mime_type="image/png")
+    mirrored = mirror_base64_png(state.input_image)
     await ctx.emit_to_frontend(
         artifact_updates=[
-            ImageArtifact(id="artifacts/mirrored.png", value=ref)
+            ImageArtifact(id="artifacts/mirrored.png", value=mirrored)
         ]
     )
 
