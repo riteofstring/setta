@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from setta.llm.chat_store import ChatStore
+from setta.llm.chat_store import ChatStore
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
@@ -9,7 +6,7 @@ from setta.types.llm_config import LLMConfig
 
 
 class ChatHistory:
-    def __init__(self, chat_store: "ChatStore") -> None:
+    def __init__(self, chat_store: ChatStore) -> None:
         self._chat_store = chat_store
 
     def get(self, chat_id: ID) -> Chat | None:

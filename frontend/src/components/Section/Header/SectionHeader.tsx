@@ -5,6 +5,7 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -33,6 +34,9 @@ function _SectionHeader({
   isRoot,
 }: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -64,7 +68,8 @@ function _SectionHeader({
           </StandardPopover>
         )}
         {(sectionTypeName === SectionTypeEnum.Code ||
-          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
+          (pythonCodegenEnabled &&
+            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
           <>
             <RunButton sectionId={sectionId} />
             <ToggleEntryCodeBlockButton
@@ -143,7 +148,7 @@ function getTitleStyles({
   sectionTypeName,
 }) {
   const editing =
-    "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-3/5 dark:text-white font-bold text-[.7rem] tracking-tight";
+    "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
 
   const notEditing = getNotEditingStyle({
     isActiveSection,
@@ -153,7 +158,8 @@ function getTitleStyles({
 
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
   ) {
     return { fixed: notEditing };
   }
@@ -194,14 +200,15 @@ function getNotEditingStyle({
   // Handle text case for global variables
   if (
     sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
   ) {
     fontClass = "uppercase font-bold";
   }
 
   // Combine all the classes
   const baseClasses =
-    "px-1 py-0 -ml-1 w-3/5 focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
 
   return `${baseClasses} ${textColorClass} ${fontClass}`;
 }

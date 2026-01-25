@@ -37,7 +37,6 @@ class MessageImageUrlContent(BaseModel):
 class MessageThinkingContent(BaseModel):
     type: Literal["thinking"] = "thinking"
     thinking: str = ""
-    summary: str | None = ""
     signature: str | None = ""
 
 
@@ -120,14 +119,3 @@ class ToolChatMessage(BaseChatMessage):
     is_error: bool = False
     started_at: datetime = Field(default_factory=get_now_timestamp)
     completed_at: datetime | None = None
-
-    def to_openai_format(self) -> dict[str, Any]:
-        output = self.model_dump(mode="json", exclude_none=True)
-        output.pop("id", None)
-        output.pop("arguments", None)
-        output.pop("result", None)
-        output.pop("is_error", None)
-        output.pop("started_at", None)
-        output.pop("completed_at", None)
-        output.pop("tool_name", None)
-        return output
