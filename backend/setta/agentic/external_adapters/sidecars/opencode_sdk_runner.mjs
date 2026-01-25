@@ -2,6 +2,8 @@ import readline from "node:readline";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createOpencode, createOpencodeClient } from "@opencode-ai/sdk";
+import { createQuestionIdMapper } from "./opencode_question_map.mjs";
+import { buildQuestionReplyBodies } from "./opencode_question_reply.mjs";
 
 function writeEvent(event) {
   process.stdout.write(`${JSON.stringify(event)}\n`);
@@ -23,6 +25,9 @@ function logDebug(message, extra) {
   }
   process.stderr.write(`[${timestamp}] [opencode] ${message}\n`);
 }
+
+const { recordQuestionMapping, resolveQuestionId, resolveQuestionOrder } =
+  createQuestionIdMapper({ logDebug });
 
 function parseJsonLine(raw) {
   try {
@@ -405,75 +410,11 @@ function resolveApproval(payload) {
 }
 
 function extractQuestionId(payload) {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const candidates = [
-    payload.toolCallId,
-    payload.tool_call_id,
-    payload.questionId,
-    payload.question_id,
-    payload.id,
-  ];
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-  return null;
+  return resolveQuestionId(payload);
 }
 
-function buildQuestionReplyBody(rawAnswers) {
-  const body = {};
-  if (typeof rawAnswers === "string") {
-    const trimmed = rawAnswers.trim();
-    if (trimmed) {
-      body.answer = trimmed;
-    }
-    return body;
-  }
-  if (Array.isArray(rawAnswers)) {
-    const values = rawAnswers
-      .map((entry) => (entry == null ? "" : String(entry).trim()))
-      .filter((entry) => entry.length > 0);
-    if (values.length === 1) {
-      body.answer = values[0];
-    }
-    if (values.length > 0) {
-      body.answers = values;
-    }
-    return body;
-  }
-  if (rawAnswers && typeof rawAnswers === "object") {
-    const answers = {};
-    for (const [key, value] of Object.entries(rawAnswers)) {
-      if (typeof value === "string") {
-        const trimmed = value.trim();
-        if (trimmed) {
-          answers[key] = trimmed;
-        }
-        continue;
-      }
-      if (value != null) {
-        const stringValue = String(value).trim();
-        if (stringValue) {
-          answers[key] = stringValue;
-        }
-      }
-    }
-    const values = Object.values(answers);
-    if (values.length === 1) {
-      body.answer = values[0];
-    }
-    if (values.length > 0) {
-      body.answers = answers;
-    }
-  }
-  return body;
-}
-
-async function sendQuestionResponse(requestId, rawAnswers) {
-  const body = buildQuestionReplyBody(rawAnswers);
+async function sendQuestionResponse(requestId, rawAnswers, questionOrder) {
+  const bodies = buildQuestionReplyBodies(rawAnswers, questionOrder);
   const path = {
     id: requestId,
     requestID: requestId,
@@ -481,35 +422,130 @@ async function sendQuestionResponse(requestId, rawAnswers) {
     questionId: requestId,
   };
   if (client?.question && typeof client.question.reply === "function") {
-    await client.question.reply({ path, body });
-    return;
+    let lastError = null;
+    for (const body of bodies) {
+      try {
+        await client.question.reply({
+          path,
+          body,
+          query: workingDir ? { directory: workingDir } : undefined,
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("400") && !message.toLowerCase().includes("bad request")) {
+          throw err;
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
   }
   if (typeof client?.postQuestionByIdReply === "function") {
-    await client.postQuestionByIdReply({ path, body });
-    return;
+    let lastError = null;
+    for (const body of bodies) {
+      try {
+        await client.postQuestionByIdReply({
+          path,
+          body,
+          query: workingDir ? { directory: workingDir } : undefined,
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("400") && !message.toLowerCase().includes("bad request")) {
+          throw err;
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
   }
   if (typeof client?.postQuestionByRequestIdReply === "function") {
-    await client.postQuestionByRequestIdReply({ path, body });
-    return;
+    let lastError = null;
+    for (const body of bodies) {
+      try {
+        await client.postQuestionByRequestIdReply({
+          path,
+          body,
+          query: workingDir ? { directory: workingDir } : undefined,
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("400") && !message.toLowerCase().includes("bad request")) {
+          throw err;
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
   }
   if (typeof client?.postQuestionByQuestionIdReply === "function") {
-    await client.postQuestionByQuestionIdReply({ path, body });
-    return;
+    let lastError = null;
+    for (const body of bodies) {
+      try {
+        await client.postQuestionByQuestionIdReply({
+          path,
+          body,
+          query: workingDir ? { directory: workingDir } : undefined,
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("400") && !message.toLowerCase().includes("bad request")) {
+          throw err;
+        }
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
   }
   if (!resolvedBaseUrl) {
     throw new Error("OpenCode baseUrl unavailable for question response");
   }
   const normalizedBase = resolvedBaseUrl.replace(/\/+$/, "");
-  const url = `${normalizedBase}/question/${encodeURIComponent(requestId)}/reply`;
-  const result = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!result.ok) {
-    throw new Error(
-      `OpenCode question response failed (${result.status} ${result.statusText})`,
+  const url = new URL(
+    `${normalizedBase}/question/${encodeURIComponent(requestId)}/reply`,
+  );
+  if (workingDir) {
+    url.searchParams.set("directory", workingDir);
+  }
+  let lastError = null;
+  for (const body of bodies) {
+    const result = await fetch(url.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (result.ok) {
+      return;
+    }
+    let errorDetail = "";
+    try {
+      errorDetail = (await result.text()).trim();
+    } catch {
+      errorDetail = "";
+    }
+    lastError = new Error(
+      `OpenCode question response failed (${result.status} ${result.statusText})${
+        errorDetail ? `: ${errorDetail}` : ""
+      }`,
     );
+    if (result.status !== 400) {
+      break;
+    }
+  }
+  if (lastError) {
+    throw lastError;
   }
 }
 
@@ -521,12 +557,13 @@ async function handleQuestionResponse(payload) {
   }
   const rawAnswers =
     payload.answers ?? payload.answer ?? payload.response ?? payload.responses ?? null;
+  const questionOrder = resolveQuestionOrder(payload);
   try {
     logDebug("sending question response", {
       questionId,
       hasAnswers: rawAnswers != null,
     });
-    await sendQuestionResponse(questionId, rawAnswers);
+    await sendQuestionResponse(questionId, rawAnswers, questionOrder);
     logDebug("question response sent", { questionId });
   } catch (err) {
     writeEvent({
@@ -559,11 +596,14 @@ rl.on("line", (line) => {
 });
 
 process.on("unhandledRejection", (err) => {
+  const message = err instanceof Error ? err.message : String(err);
   writeEvent({
     type: "error",
-    message: err instanceof Error ? err.message : String(err),
+    message,
   });
-  process.exit(1);
+  sawError = true;
+  errorMessage = message;
+  process.exitCode = 1;
 });
 
 const input = await startPayloadPromise;
@@ -581,10 +621,25 @@ const model = parseModel(input.model);
 const requestedSessionId =
   typeof input.sessionId === "string" ? input.sessionId : null;
 const runId = typeof input.runId === "string" ? input.runId : null;
+const requestedHostname =
+  typeof input.hostname === "string" && input.hostname.trim()
+    ? input.hostname.trim()
+    : null;
+let requestedPort = null;
+if (typeof input.port === "number" && Number.isFinite(input.port)) {
+  requestedPort = Math.trunc(input.port);
+} else if (typeof input.port === "string" && input.port.trim()) {
+  const parsed = Number(input.port);
+  if (Number.isFinite(parsed)) {
+    requestedPort = Math.trunc(parsed);
+  }
+}
 
 logDebug("start payload", {
   runId,
   baseUrl,
+  hostname: requestedHostname,
+  port: requestedPort,
   workingDir,
   model,
   promptLength: prompt.length,
@@ -599,6 +654,7 @@ if (baseUrl) {
   client = createOpencodeClient({ baseUrl });
   logDebug("using existing opencode server", { baseUrl });
 } else {
+  const createOptions = {};
   let config = null;
   const envConfigPath = process.env.OPENCODE_CONFIG;
   if (envConfigPath) {
@@ -617,7 +673,19 @@ if (baseUrl) {
       });
     }
   }
-  const opencode = config ? await createOpencode({ config }) : await createOpencode();
+  if (config) {
+    createOptions.config = config;
+  }
+  if (requestedHostname) {
+    createOptions.hostname = requestedHostname;
+  }
+  if (requestedPort !== null) {
+    createOptions.port = requestedPort;
+  }
+  const opencode =
+    Object.keys(createOptions).length > 0
+      ? await createOpencode(createOptions)
+      : await createOpencode();
   client = opencode.client ?? opencode;
   serverHandle = opencode.server ?? opencode.process ?? null;
   resolvedBaseUrl =
@@ -865,6 +933,7 @@ try {
       });
       continue;
     }
+    recordQuestionMapping(event);
     if (await maybeHandlePermissionEvent(event)) {
       continue;
     }

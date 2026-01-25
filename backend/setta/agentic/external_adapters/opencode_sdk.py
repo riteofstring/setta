@@ -85,6 +85,12 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
                 "model": context.config.defaultModel,
                 "workingDir": str(context.working_dir),
             }
+            opencode_port = _extract_opencode_port(context.inputs)
+            if opencode_port is not None:
+                payload["port"] = opencode_port
+            opencode_host = _extract_opencode_hostname(context.inputs)
+            if opencode_host:
+                payload["hostname"] = opencode_host
             system_prompt = _normalize_opencode_system_prompt(context.system_prompt)
             if system_prompt:
                 payload["systemPrompt"] = system_prompt
@@ -722,6 +728,28 @@ def _extract_session_id(inputs: dict[str, Any] | None) -> str | None:
     raw = inputs.get("sessionId")
     if isinstance(raw, str) and raw:
         return raw
+    return None
+
+
+def _extract_opencode_port(inputs: dict[str, Any] | None) -> int | None:
+    if not inputs:
+        return None
+    raw = inputs.get("opencodePort")
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str) and raw.strip().isdigit():
+        return int(raw.strip())
+    return None
+
+
+def _extract_opencode_hostname(inputs: dict[str, Any] | None) -> str | None:
+    if not inputs:
+        return None
+    raw = inputs.get("opencodeHostname")
+    if isinstance(raw, str):
+        normalized = raw.strip()
+        if normalized:
+            return normalized
     return None
 
 

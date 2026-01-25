@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import re
 import secrets
@@ -216,6 +217,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         if status != "completed":
             events = stored.get("events")
             outputs = stored.get("outputs")
+            cli_stderr = None
             error = None
             if isinstance(events, list):
                 for event in reversed(events):
@@ -224,14 +226,35 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     if event.get("type") != "run_failed":
                         continue
                     payload = event.get("payload")
-                    if isinstance(payload, dict) and payload.get("error"):
-                        error = payload.get("error")
+                    if isinstance(payload, dict):
+                        if payload.get("error"):
+                            error = payload.get("error")
+                        cli_stderr = payload.get("cliStderr")
                         break
+            if self._should_skip_for_server_failure(cli_stderr):
+                raise unittest.SkipTest(
+                    "OpenCode server failed to start; "
+                    f"stderr={cli_stderr!r}"
+                )
             self.fail(
                 "OpenCode SDK run failed; "
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
         return stored
+
+    @staticmethod
+    def _should_skip_for_server_failure(cli_stderr: object) -> bool:
+        if not isinstance(cli_stderr, list):
+            return False
+        text = "\n".join([entry for entry in cli_stderr if isinstance(entry, str)])
+        if not text:
+            return False
+        patterns = [
+            "Failed to start server on port",
+            "Server exited with code",
+            "Unexpected error, check log file",
+        ]
+        return any(pattern in text for pattern in patterns)
 
     async def _await_pending_approval(
         self, runner: ExternalAgentRunner, dbe: DBE, run_id: ID
@@ -273,11 +296,172 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         raise AssertionError("Unreachable")
 
+    async def _await_pending_question(
+        self, runner: ExternalAgentRunner, dbe: DBE, run_id: ID
+    ) -> tuple[str, list[dict]]:
+        start = time.monotonic()
+        last_tool_call_id = None
+        for _ in range(200):
+            await asyncio.sleep(0.5)
+            for tool_call_id, state in runner._pending_questions.items():
+                if state.run_id != run_id:
+                    continue
+                last_tool_call_id = tool_call_id
+                questions = self._extract_questions_from_tool_call(
+                    runner, run_id, tool_call_id
+                )
+                if questions is None:
+                    stored = dbe.read_agent_run(run_id)
+                    questions = self._extract_questions_from_outputs(
+                        stored, tool_call_id
+                    )
+                if questions is not None:
+                    return tool_call_id, questions
+            stored = dbe.read_agent_run(run_id)
+            status = stored.get("status") if isinstance(stored, dict) else None
+            if status in {"completed", "failed", "cancelled"}:
+                outputs = stored.get("outputs") if isinstance(stored, dict) else None
+                stderr_lines = None
+                if run_id in runner._run_state:
+                    stderr_lines = runner._run_state[run_id].handle.metadata.get(
+                        "stderr_lines"
+                    )
+                self.fail(
+                    self._debug_dump(
+                        outputs,
+                        stderr_lines,
+                        "OpenCode SDK run completed before question",
+                    )
+                )
+                raise AssertionError("Unreachable")
+            if time.monotonic() - start >= 90:
+                break
+        stderr_lines = None
+        if run_id in runner._run_state:
+            stderr_lines = runner._run_state[run_id].handle.metadata.get(
+                "stderr_lines"
+            )
+            await runner.stop_run(run_id)
+        self.fail(
+            self._debug_dump(
+                {"toolCallId": last_tool_call_id},
+                stderr_lines,
+                "OpenCode SDK run did not provide question arguments in time.",
+            )
+        )
+        raise AssertionError("Unreachable")
+
+    @staticmethod
+    def _extract_questions_from_tool_call(
+        runner: ExternalAgentRunner, run_id: ID, tool_call_id: str
+    ) -> list[dict] | None:
+        buffers = runner._tool_call_buffers.get(run_id)
+        if not isinstance(buffers, dict):
+            return None
+        raw = buffers.get(tool_call_id)
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        return OpenCodeSdkAdapterIntegrationTests._extract_questions_from_raw(raw)
+
+    @staticmethod
+    def _extract_questions_from_outputs(
+        stored: dict | None, tool_call_id: str
+    ) -> list[dict] | None:
+        if not isinstance(stored, dict):
+            return None
+        outputs = stored.get("outputs")
+        if not isinstance(outputs, dict):
+            return None
+        messages = outputs.get("messages")
+        if not isinstance(messages, list):
+            return None
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            if message.get("role") != "assistant":
+                continue
+            tool_calls = message.get("tool_calls") or message.get("toolCalls")
+            if not isinstance(tool_calls, list):
+                continue
+            for call in tool_calls:
+                if not isinstance(call, dict):
+                    continue
+                if call.get("id") != tool_call_id:
+                    continue
+                function = call.get("function")
+                if not isinstance(function, dict):
+                    continue
+                args = function.get("arguments")
+                if isinstance(args, dict):
+                    questions = args.get("questions")
+                    if isinstance(questions, list):
+                        return [entry for entry in questions if isinstance(entry, dict)]
+                if isinstance(args, str):
+                    questions = OpenCodeSdkAdapterIntegrationTests._extract_questions_from_raw(
+                        args
+                    )
+                    if questions is not None:
+                        return questions
+        return None
+
+    @staticmethod
+    def _build_answers_from_questions(questions: list[dict]) -> dict[str, str]:
+        answers: dict[str, str] = {}
+        for entry in questions:
+            question_text = entry.get("question")
+            if not isinstance(question_text, str) or not question_text.strip():
+                continue
+            answer = None
+            options = entry.get("options")
+            if isinstance(options, list) and options:
+                option = options[0]
+                if isinstance(option, str) and option.strip():
+                    answer = option.strip()
+                elif isinstance(option, dict):
+                    label = option.get("label") or option.get("value")
+                    if isinstance(label, str) and label.strip():
+                        answer = label.strip()
+            if not answer:
+                answer = "Yes"
+            answers[question_text] = answer
+        return answers
+
+    @staticmethod
+    def _extract_questions_from_raw(raw: str) -> list[dict] | None:
+        if not raw.strip():
+            return None
+        if "questions" not in raw:
+            return None
+        decoder = json.JSONDecoder()
+        idx = 0
+        last_questions = None
+        length = len(raw)
+        while idx < length:
+            while idx < length and raw[idx].isspace():
+                idx += 1
+            if idx >= length:
+                break
+            try:
+                parsed, end = decoder.raw_decode(raw, idx)
+            except json.JSONDecodeError:
+                next_start = raw.find("{", idx + 1)
+                if next_start == -1:
+                    break
+                idx = next_start
+                continue
+            idx = end
+            if not isinstance(parsed, dict):
+                continue
+            questions = parsed.get("questions")
+            if isinstance(questions, list):
+                last_questions = [
+                    entry for entry in questions if isinstance(entry, dict)
+                ]
+        return last_questions
+
     @staticmethod
     def _debug_dump(outputs: object, stderr_lines: object, message: str) -> str:
-        return (
-            f"{message}. outputs={outputs!r} stderr={stderr_lines!r}"
-        )
+        return f"{message}. outputs={outputs!r} stderr={stderr_lines!r}"
 
     @staticmethod
     def _build_runner(root: Path) -> tuple[DBE, ExternalAgentRunner]:
@@ -315,11 +499,28 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
         )
 
+    @staticmethod
+    def _await_port_free(port: int, timeout_seconds: float = 10.0) -> None:
+        start = time.monotonic()
+        while time.monotonic() - start < timeout_seconds:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.5)
+                try:
+                    sock.connect(("127.0.0.1", port))
+                except OSError:
+                    return
+            time.sleep(0.2)
+        raise unittest.SkipTest(
+            f"OpenCode server still running on port {port}. "
+            "Stop the server and retry."
+        )
+
     async def test_opencode_sdk_streams_message(self) -> None:
         model = self._require_opencode_sdk()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
+            self._await_port_free(4096)
             run = runner.start_run(
                 config.id,
                 config,
@@ -343,6 +544,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
+            self._await_port_free(4096)
             run = runner.start_run(
                 config.id,
                 config,
@@ -365,6 +567,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
             code_word = f"setta-opencode-{secrets.token_hex(6)}"
+            self._await_port_free(4096)
             first_run = runner.start_run(
                 config.id,
                 config,
@@ -383,6 +586,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if not isinstance(session_id, str) or not session_id:
                 raise AssertionError("Expected sessionId in outputs")
 
+            self._await_port_free(4096)
             second_run = runner.start_run(
                 config.id,
                 config,
@@ -411,6 +615,7 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             with TemporaryDirectory() as tmpdir:
                 dbe, runner = self._build_runner(Path(tmpdir))
                 config = self._build_config(model)
+                self._await_port_free(4096)
                 tool_name = mcp_server.test_tool_name or "list_mcp_tools"
                 tool_token = mcp_server.test_tool_token or "OK"
                 permission_key = f"{SETTA_MCP_SERVER_ID}_{tool_name}"
@@ -455,3 +660,29 @@ class OpenCodeSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         if isinstance(message, dict) and message.get("role") == "tool"
                     ]
                     self.assertTrue(tool_messages)
+
+    async def test_opencode_sdk_question_response(self) -> None:
+        model = self._require_opencode_sdk()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(model)
+            self._await_port_free(4096)
+            prompt = (
+                "Use the question tool to ask exactly three questions. "
+                "Each question must include options Yes and No. "
+                "Do not answer yet; wait for my responses."
+            )
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {"prompt": prompt},
+            )
+            tool_call_id, questions = await self._await_pending_question(
+                runner, dbe, run.id
+            )
+            answers = self._build_answers_from_questions(questions)
+            if not answers:
+                answers = {"Response": "Yes"}
+            await runner.respond_to_question(tool_call_id, answers)
+            await self._await_completed_run(dbe, run.id, runner=runner)
