@@ -72,8 +72,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     ":scope > article.section-args-nested-key-value",
   );
   const edgeRowIds = [
-    await setRowNameByIndex(page, editableRows, 0, "a"),
-    await setRowNameByIndex(page, editableRows, 1, "b"),
+    await setRowNameByIndex(page, editableRows, 0, "a", testInfo),
+    await setRowNameByIndex(page, editableRows, 1, "b", testInfo),
   ];
   await selectArgRowsById(page, edgeRowIds);
   const convertEdgesButton = callableSection.getByRole("button", {
@@ -1124,6 +1124,7 @@ async function setRowNameByIndex(
   rows: Locator,
   index: number,
   name: string,
+  testInfo?: TestInfo,
 ): Promise<string> {
   const row = rows.nth(index);
   const rowId = await row.getAttribute("id");
@@ -1132,6 +1133,20 @@ async function setRowNameByIndex(
   }
   const nameInput = row.locator('[class*="peer/nameinput"]').first();
   await nameInput.scrollIntoViewIfNeeded();
+  const rowInfo = await row.evaluate((el) => ({
+    tag: el.tagName.toLowerCase(),
+    id: el.id || null,
+    className: el.getAttribute("class"),
+    ariaDisabled: el.getAttribute("aria-disabled"),
+    disabled: el.hasAttribute("disabled"),
+    role: el.getAttribute("role"),
+    outerHTML: el.outerHTML.slice(0, 400),
+  }));
+  await logLocatorDiagnostics(page, nameInput, `param-name-${name}`, {
+    rowId,
+    rowIndex: index,
+    rowInfo,
+  }, testInfo);
   await nameInput.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(name);
@@ -1141,6 +1156,117 @@ async function setRowNameByIndex(
     return text?.includes(name) ?? false;
   }).toBe(true);
   return rowId;
+}
+
+async function logLocatorDiagnostics(
+  page: Page,
+  locator: Locator,
+  label: string,
+  extra: Record<string, unknown>,
+  testInfo?: TestInfo,
+): Promise<void> {
+  const [isVisible, isEnabled, boundingBox, elementInfo] = await Promise.all([
+    locator.isVisible(),
+    locator.isEnabled(),
+    locator.boundingBox(),
+    locator.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const chain: Array<Record<string, unknown>> = [];
+      let current: HTMLElement | null = el;
+      for (let i = 0; i < 6 && current; i += 1) {
+        const currentStyle = window.getComputedStyle(current);
+        chain.push({
+          tag: current.tagName.toLowerCase(),
+          id: current.id || null,
+          className: current.getAttribute("class"),
+          role: current.getAttribute("role"),
+          ariaDisabled: current.getAttribute("aria-disabled"),
+          disabled: current.hasAttribute("disabled"),
+          pointerEvents: currentStyle.pointerEvents,
+          opacity: currentStyle.opacity,
+        });
+        current = current.parentElement;
+      }
+      const closestDisabled = el.closest('[disabled], [aria-disabled="true"]');
+      return {
+        tag: el.tagName.toLowerCase(),
+        id: el.id || null,
+        className: el.getAttribute("class"),
+        role: el.getAttribute("role"),
+        ariaDisabled: el.getAttribute("aria-disabled"),
+        disabled: el.hasAttribute("disabled"),
+        pointerEvents: style.pointerEvents,
+        visibility: style.visibility,
+        display: style.display,
+        opacity: style.opacity,
+        rect: {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        },
+        outerHTML: el.outerHTML.slice(0, 400),
+        closestDisabled: closestDisabled
+          ? {
+              tag: closestDisabled.tagName.toLowerCase(),
+              id: closestDisabled.id || null,
+              className: closestDisabled.getAttribute("class"),
+              role: closestDisabled.getAttribute("role"),
+              ariaDisabled: closestDisabled.getAttribute("aria-disabled"),
+              disabled: closestDisabled.hasAttribute("disabled"),
+            }
+          : null,
+        ancestorChain: chain,
+      };
+    }),
+  ]);
+
+  const storageInfo = await page.evaluate(() => {
+    const rawCookies = document.cookie.split(";").map((cookie) => cookie.trim());
+    const cookieNames = rawCookies
+      .map((cookie) => cookie.split("=")[0])
+      .filter(Boolean);
+    const shareSessionRaw =
+      window.sessionStorage?.getItem("settaShareSession") ?? null;
+    return {
+      url: window.location.href,
+      cookieNames,
+      shareSessionStoragePresent: Boolean(shareSessionRaw),
+      shareSessionStorageLength: shareSessionRaw ? shareSessionRaw.length : 0,
+    };
+  });
+
+  const payload = {
+    label,
+    isVisible,
+    isEnabled,
+    boundingBox,
+    elementInfo,
+    storageInfo,
+    ...extra,
+  };
+  const serialized = JSON.stringify(payload, null, 2);
+  console.log(`[e2e-debug] ${serialized}`);
+
+  if (testInfo) {
+    await testInfo.attach(`e2e-debug-${label}.json`, {
+      body: serialized,
+      contentType: "application/json",
+    });
+    if (process.env.SETTA_E2E_DEBUG_SCREENSHOT === "1") {
+      const pageShot = await page.screenshot({ fullPage: true });
+      const elementShot = await locator.screenshot();
+      await testInfo.attach(`e2e-debug-${label}-page.png`, {
+        body: pageShot,
+        contentType: "image/png",
+      });
+      await testInfo.attach(`e2e-debug-${label}-element.png`, {
+        body: elementShot,
+        contentType: "image/png",
+      });
+    }
+  }
 }
 
 async function dragResize(
