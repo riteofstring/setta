@@ -1335,9 +1335,15 @@ class ExternalAgentRunner:
     def _normalize_tool_name(tool_name: str | None) -> str | None:
         if not tool_name:
             return None
-        if tool_name.startswith("mcp__"):
-            return tool_name[len("mcp__") :]
-        return tool_name
+        normalized = tool_name
+        if normalized.startswith("mcp__"):
+            normalized = normalized[len("mcp__") :]
+        setta_prefix = f"{SETTA_MCP_SERVER_ID}_"
+        if normalized.startswith(setta_prefix) and not normalized.startswith(
+            f"{SETTA_MCP_SERVER_ID}__"
+        ):
+            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix):]}"
+        return normalized
 
     def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:
         normalized_calls: list[ToolCall] = []

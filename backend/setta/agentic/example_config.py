@@ -42,6 +42,13 @@ _DEFAULT_ENGINE_CONFIGS: list[EngineConfig] = [
         settaLlmConfigId=None,
         externalAgentConfigId="external-codex",
     ),
+    EngineConfig(
+        id="engine-opencode",
+        name="OpenCode (SDK)",
+        engineType=EngineType.external_agent,
+        settaLlmConfigId=None,
+        externalAgentConfigId="external-opencode",
+    ),
 ]
 
 _DEFAULT_EXTERNAL_AGENT_CONFIGS: list[ExternalAgentConfig] = [
@@ -132,6 +139,15 @@ _DEFAULT_AGENT_PROFILES: list[AgentProfile] = [
         description="External agent via Codex app-server",
         systemPrompt="",
         engineConfigId="engine-codex",
+        toolAllowlist=[],
+        memoryScope=None,
+    ),
+    AgentProfile(
+        id="agent-opencode",
+        name="OpenCode",
+        description="External agent via OpenCode SDK",
+        systemPrompt="",
+        engineConfigId="engine-opencode",
         toolAllowlist=[],
         memoryScope=None,
     ),

@@ -487,6 +487,24 @@ class ExternalAgentRunnerTests(unittest.TestCase):
 
             self.assertEqual(normalized[0].function.name, "setta__create_section")
 
+    def test_normalize_tool_calls_opencode_prefix(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            tool_calls = [
+                ToolCall(
+                    id="call-2",
+                    function=ToolCallFunction(
+                        name="setta_create_section", arguments={}
+                    ),
+                )
+            ]
+
+            normalized = runner._normalize_tool_calls(tool_calls)
+
+            self.assertEqual(normalized[0].function.name, "setta__create_section")
+
     def test_persist_external_session_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

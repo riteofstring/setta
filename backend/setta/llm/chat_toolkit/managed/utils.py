@@ -6,4 +6,6 @@ def is_setta_tool_name(tool_name: str) -> bool:
     if normalized.startswith("mcp__"):
         normalized = normalized[len("mcp__") :]
     server_id, _ = split_namespaced_tool_name(normalized)
-    return server_id == SETTA_MCP_SERVER_ID
+    if server_id == SETTA_MCP_SERVER_ID:
+        return True
+    return normalized.startswith(f"{SETTA_MCP_SERVER_ID}_")

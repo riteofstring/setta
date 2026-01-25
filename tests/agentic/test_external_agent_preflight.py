@@ -81,6 +81,20 @@ class ExternalAgentPreflightTests(unittest.TestCase):
         self.assertTrue(any("Run mode" in issue for issue in status.issues))
         self.assertTrue(any("baseUrl is required" in issue for issue in status.issues))
 
+    def test_opencode_server_run_mode_supported(self) -> None:
+        tmp = self._temp_cwd()
+        dbe = DBE(tmp / "setta_files")
+        config = self._build_config(
+            tool_type=ExternalAgentToolType.opencode,
+            run_mode=ExternalAgentRunMode.server,
+        )
+        config.baseUrl = "http://localhost:4096"
+        status = build_external_agent_preflight_status(dbe, config)
+
+        self.assertTrue(status.supported)
+        self.assertEqual(status.baseUrl, "http://localhost:4096")
+        self.assertFalse(any("Run mode" in issue for issue in status.issues))
+
     def test_missing_codex_cli_reports_issue(self) -> None:
         tmp = self._temp_cwd()
         dbe = DBE(tmp / "setta_files")

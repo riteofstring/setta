@@ -42,12 +42,13 @@ def build_external_agent_preflight_status(
     node_version = None
     sdk_version = None
     cli_version = None
-    if config.runMode == ExternalAgentRunMode.sdk:
+    if config.runMode in (ExternalAgentRunMode.sdk, ExternalAgentRunMode.server):
         if config.toolType == ExternalAgentToolType.claude_code:
-            sdk_version, sdk_issue = _check_claude_python_sdk()
-            if sdk_issue:
-                issues.append(sdk_issue)
-        else:
+            if config.runMode == ExternalAgentRunMode.sdk:
+                sdk_version, sdk_issue = _check_claude_python_sdk()
+                if sdk_issue:
+                    issues.append(sdk_issue)
+        elif config.toolType == ExternalAgentToolType.opencode:
             node_path, node_version, node_issue = _check_node(config.commandPath)
             if node_issue:
                 issues.append(node_issue)
@@ -61,7 +62,10 @@ def build_external_agent_preflight_status(
             if sdk_issue:
                 issues.append(sdk_issue)
 
-            if config.toolType == ExternalAgentToolType.opencode and not config.baseUrl:
+            if (
+                config.runMode == ExternalAgentRunMode.sdk
+                and not config.baseUrl
+            ):
                 cli_version, cli_issue = _check_opencode_cli()
                 if cli_issue:
                     issues.append(cli_issue)
@@ -110,8 +114,10 @@ def _is_run_mode_supported(
 ) -> bool:
     if tool_type == ExternalAgentToolType.codex:
         return run_mode == ExternalAgentRunMode.app_server
-    if tool_type in (ExternalAgentToolType.claude_code, ExternalAgentToolType.opencode):
+    if tool_type == ExternalAgentToolType.claude_code:
         return run_mode == ExternalAgentRunMode.sdk
+    if tool_type == ExternalAgentToolType.opencode:
+        return run_mode in (ExternalAgentRunMode.sdk, ExternalAgentRunMode.server)
     return False
 
 

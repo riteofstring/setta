@@ -47,7 +47,7 @@ _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_run
 
 class OpenCodeSdkAdapter(ExternalAgentAdapter):
     tool_type = ExternalAgentToolType.opencode
-    supported_run_modes = {ExternalAgentRunMode.sdk}
+    supported_run_modes = {ExternalAgentRunMode.sdk, ExternalAgentRunMode.server}
 
     async def start_run(
         self, context: ExternalAgentRunContext
