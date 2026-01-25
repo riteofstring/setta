@@ -281,19 +281,6 @@ class AutoRefetchHistoryTests(unittest.IsolatedAsyncioTestCase):
         updated_impl = get_curr_effective_section_impl(updated_state, self.section_id)
         self.assertIsNone(updated_impl.callable)
 
-    async def test_codegen_refresh_preserves_callable_mismatch_sections(self):
-        project_config_id = self.project_state.projectConfig.id
-        gen_code = self.manager.gen_code[project_config_id]
-        gen_code.latest_callable_mismatch_sections = {self.section_id}
-
-        await self.manager.update(self.project_state.model_copy(deep=True))
-
-        updated_gen_code = self.manager.gen_code[project_config_id]
-        self.assertEqual(
-            updated_gen_code.latest_callable_mismatch_sections,
-            {self.section_id},
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,7 @@ def _build_project_state_with_duplicate_names():
     )
     second_child_impl = TextBlockSectionImpl(
         id=ID("impl-child-2"),
-        name="Data   Source",
+        name="Data-Source",
         text="World",
     )
 
@@ -44,7 +44,7 @@ def _build_project_state_with_duplicate_names():
     )
     second_child_variant = Variant(
         id=ID("variant-child-2"),
-        name="Data   Source",
+        name="Data-Source",
         impl=second_child_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(second_child_impl),
     )
@@ -63,7 +63,7 @@ def _build_project_state_with_duplicate_names():
     )
     second_child_core = Core(
         id=ID("section-child-2"),
-        name="Data   Source",
+        name="Data-Source",
         variants=[second_child_variant.id],
         defaultVariant=second_child_variant.id,
     )

@@ -13,7 +13,6 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
 )
 from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -123,6 +122,10 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.name_validation import (
+    validate_project_name,
+    validate_section_name,
+)
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 if TYPE_CHECKING:
@@ -395,15 +398,6 @@ def add_children_of_callable(
         existing = existing_param_core.get(new_param.name)
         new_param_impl = new_param_impl_map[new_param.id]
         if existing:
-            existing_impl = get_curr_effective_code_obj_impl_with_type_guard(
-                p, section_id, existing.id, BaseParamCodeObjImpl
-            )
-            if isinstance(existing_impl, BaseChildlessCodeObjImpl) and isinstance(
-                new_param_impl, BaseChildlessCodeObjImpl
-            ):
-                new_param_impl = new_param_impl.model_copy(
-                    update={"value": existing_impl.value}
-                )
             update_variant_impl_props(p, existing.variants, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:
@@ -439,10 +433,11 @@ def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
 def set_project_config_name(
     p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
+    normalized = validate_project_name(p, projectConfigId, newName)
     for k, v in p.projectConfigs.items():
-        if k != projectConfigId and v.name == newName:
-            raise ProjectNameTaken(f"{newName} is already taken")
-    p.projectConfigs[projectConfigId].name = newName
+        if k != projectConfigId and v.name == normalized:
+            raise ProjectNameTaken(f"{normalized} is already taken")
+    p.projectConfigs[projectConfigId].name = normalized
 
 
 def create_section(
@@ -1644,7 +1639,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
     if impl.headingAsSectionName:
         first_heading = get_first_heading_or_text(text)
         if first_heading:
-            p.sections[sectionId].name = first_heading
+            set_section_name(p, sectionId, first_heading)
 
 
 def set_text_block_heading_as_section_name(
@@ -1663,7 +1658,7 @@ def set_text_block_heading_as_section_name(
     if headingAsSectionName:
         first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
-            p.sections[sectionId].name = first_heading
+            set_section_name(p, sectionId, first_heading)
 
 
 def get_first_heading_or_text(markdown: str):
@@ -2021,8 +2016,8 @@ def set_section_sizes(
 
 
 def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
-    if name:
-        p.sections[sectionId].name = name
+    normalized = validate_section_name(p, sectionId, name)
+    p.sections[sectionId].name = normalized
 
 
 def set_meta_control_show_section_title(

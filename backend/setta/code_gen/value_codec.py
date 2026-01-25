@@ -69,7 +69,7 @@ class PythonValueCodec:
             node = self.dep_graph.graph[dep_key]
             if not self._node_in_codegen(node):
                 continue
-            parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
+            parts.append(f"{repr(node.name)}: {self.var_lookup(dep_key)}")
         return self._format_collection("{", "}", parts)
 
     def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
