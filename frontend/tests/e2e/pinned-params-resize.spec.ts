@@ -72,8 +72,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     ":scope > article.section-args-nested-key-value",
   );
   const edgeRowIds = [
-    await setRowNameByIndex(page, editableRows, 0, "a", testInfo),
-    await setRowNameByIndex(page, editableRows, 1, "b", testInfo),
+    await setRowNameByIndex(page, editableRows, 0, "a"),
+    await setRowNameByIndex(page, editableRows, 1, "b"),
   ];
   await selectArgRowsById(page, edgeRowIds);
   const convertEdgesButton = callableSection.getByRole("button", {
@@ -204,9 +204,15 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     },
   });
   expect(pinnedMaxResult.didReach).toBe(true);
-  const expectedPinnedMaxAtLayout = resolveExpectedPinnedMax(layoutMetrics);
+  const availableHeight = Math.max(
+    layoutMetrics.paramGroupHeight -
+      layoutMetrics.paramGroupPadding -
+      layoutMetrics.edgesHeight -
+      (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
+    0,
+  );
   const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > expectedPinnedMaxAtLayout + 1;
+    layoutMetrics.pinnedContentHeight > availableHeight + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -265,8 +271,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     unpinnedArea,
     edgesStrip,
   );
-  const expectedPinnedMaxAfterManual = resolveExpectedPinnedMax(
-    layoutMetricsAfterManual,
+  const availableHeightAfterManual = Math.max(
+    layoutMetricsAfterManual.paramGroupHeight -
+      layoutMetricsAfterManual.paramGroupPadding -
+      layoutMetricsAfterManual.edgesHeight -
+      (layoutMetricsAfterManual.unpinnedRowHeight +
+        layoutMetricsAfterManual.unpinnedPadding),
+    0,
+  );
+  const expectedPinnedMaxAfterManual = Math.min(
+    availableHeightAfterManual,
+    layoutMetricsAfterManual.pinnedContentHeight,
   );
   const canGrowAfterManual =
     expectedPinnedMaxAfterManual - pinnedHeightManual > 6;
@@ -379,8 +394,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   expect(layoutMetricsAfterReload.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMinAfterReloadCheck + 4,
   );
-  const expectedPinnedMaxAfterReload = resolveExpectedPinnedMax(
-    layoutMetricsAfterReload,
+  const availableHeightAfterReload = Math.max(
+    layoutMetricsAfterReload.paramGroupHeight -
+      layoutMetricsAfterReload.paramGroupPadding -
+      layoutMetricsAfterReload.edgesHeight -
+      (layoutMetricsAfterReload.unpinnedRowHeight +
+        layoutMetricsAfterReload.unpinnedPadding),
+    0,
+  );
+  const expectedPinnedMaxAfterReload = Math.min(
+    availableHeightAfterReload,
+    layoutMetricsAfterReload.pinnedContentHeight,
   );
   const expectedPinnedMinAfterReload =
     pinnedRowHeightAfterReload +
@@ -473,21 +497,14 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     pinnedRows.first(),
     "pinned",
   );
-  if (
-    (await unpinnedRows.count()) > 1 &&
-    unpinnedMetrics.scrollHeight > unpinnedMetrics.clientHeight + 1
-  ) {
+  if ((await unpinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       unpinnedArea,
       unpinnedRows.nth(1),
       "unpinned-secondary",
     );
   }
-  if (
-    (await pinnedRows.count()) > 1 &&
-    pinnedMetricsAfterShrink.scrollHeight >
-      pinnedMetricsAfterShrink.clientHeight + 1
-  ) {
+  if ((await pinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       pinnedList,
       pinnedRows.nth(1),
@@ -571,7 +588,7 @@ async function ensureAppReady(page: Page): Promise<void> {
     );
   }
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
-  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(PROJECT_URL);
   await page.waitForSelector(".react-flow__pane");
 }
 
@@ -1107,7 +1124,6 @@ async function setRowNameByIndex(
   rows: Locator,
   index: number,
   name: string,
-  testInfo?: TestInfo,
 ): Promise<string> {
   const row = rows.nth(index);
   const rowId = await row.getAttribute("id");
@@ -1116,22 +1132,7 @@ async function setRowNameByIndex(
   }
   const nameInput = row.locator('[class*="peer/nameinput"]').first();
   await nameInput.scrollIntoViewIfNeeded();
-  const rowInfo = await row.evaluate((el) => ({
-    tag: el.tagName.toLowerCase(),
-    id: el.id || null,
-    className: el.getAttribute("class"),
-    ariaDisabled: el.getAttribute("aria-disabled"),
-    disabled: el.hasAttribute("disabled"),
-    role: el.getAttribute("role"),
-    outerHTML: el.outerHTML.slice(0, 400),
-  }));
-  await logLocatorDiagnostics(page, nameInput, `param-name-${name}`, {
-    rowId,
-    rowIndex: index,
-    rowInfo,
-  }, testInfo);
-  // Drag-and-drop marks rows aria-disabled; force click to trigger CodeMirror.
-  await nameInput.click({ force: true });
+  await nameInput.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(name);
   await page.keyboard.press("Enter");
@@ -1140,119 +1141,6 @@ async function setRowNameByIndex(
     return text?.includes(name) ?? false;
   }).toBe(true);
   return rowId;
-}
-
-async function logLocatorDiagnostics(
-  page: Page,
-  locator: Locator,
-  label: string,
-  extra: Record<string, unknown>,
-  testInfo?: TestInfo,
-): Promise<void> {
-  const [isVisible, isEnabled, boundingBox, elementInfo] = await Promise.all([
-    locator.isVisible(),
-    locator.isEnabled(),
-    locator.boundingBox(),
-    locator.evaluate((el) => {
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      const chain: Array<Record<string, unknown>> = [];
-      let current: HTMLElement | null = el;
-      for (let i = 0; i < 6 && current; i += 1) {
-        const currentStyle = window.getComputedStyle(current);
-        chain.push({
-          tag: current.tagName.toLowerCase(),
-          id: current.id || null,
-          className: current.getAttribute("class"),
-          role: current.getAttribute("role"),
-          ariaDisabled: current.getAttribute("aria-disabled"),
-          disabled: current.hasAttribute("disabled"),
-          pointerEvents: currentStyle.pointerEvents,
-          opacity: currentStyle.opacity,
-        });
-        current = current.parentElement;
-      }
-      const closestDisabled = el.closest('[disabled], [aria-disabled="true"]');
-      return {
-        tag: el.tagName.toLowerCase(),
-        id: el.id || null,
-        className: el.getAttribute("class"),
-        role: el.getAttribute("role"),
-        ariaDisabled: el.getAttribute("aria-disabled"),
-        disabled: el.hasAttribute("disabled"),
-        pointerEvents: style.pointerEvents,
-        visibility: style.visibility,
-        display: style.display,
-        opacity: style.opacity,
-        rect: {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        },
-        outerHTML: el.outerHTML.slice(0, 400),
-        closestDisabled: closestDisabled
-          ? {
-              tag: closestDisabled.tagName.toLowerCase(),
-              id: closestDisabled.id || null,
-              className: closestDisabled.getAttribute("class"),
-              role: closestDisabled.getAttribute("role"),
-              ariaDisabled: closestDisabled.getAttribute("aria-disabled"),
-              disabled: closestDisabled.hasAttribute("disabled"),
-            }
-          : null,
-        ancestorChain: chain,
-      };
-    }),
-  ]);
-
-  const storageInfo = await page.evaluate(() => {
-    const rawCookies = document.cookie.split(";").map((cookie) => cookie.trim());
-    const cookieNames = rawCookies
-      .map((cookie) => cookie.split("=")[0])
-      .filter(Boolean);
-    const shareSessionRaw =
-      window.sessionStorage?.getItem("settaShareSession") ?? null;
-    return {
-      url: window.location.href,
-      cookieNames,
-      shareSessionStoragePresent: Boolean(shareSessionRaw),
-      shareSessionStorageLength: shareSessionRaw ? shareSessionRaw.length : 0,
-    };
-  });
-
-  const payload = {
-    label,
-    isVisible,
-    isEnabled,
-    boundingBox,
-    elementInfo,
-    storageInfo,
-    ...extra,
-  };
-  const serialized = JSON.stringify(payload, null, 2);
-  if (process.env.SETTA_E2E_DEBUG_LOG === "1") {
-    console.log(`[e2e-debug] ${serialized}`);
-  }
-
-  if (testInfo) {
-    await testInfo.attach(`e2e-debug-${label}.json`, {
-      body: serialized,
-      contentType: "application/json",
-    });
-    if (process.env.SETTA_E2E_DEBUG_SCREENSHOT === "1") {
-      const pageShot = await page.screenshot({ fullPage: true });
-      const elementShot = await locator.screenshot();
-      await testInfo.attach(`e2e-debug-${label}-page.png`, {
-        body: pageShot,
-        contentType: "image/png",
-      });
-      await testInfo.attach(`e2e-debug-${label}-element.png`, {
-        body: elementShot,
-        contentType: "image/png",
-      });
-    }
-  }
 }
 
 async function dragResize(
@@ -1589,22 +1477,7 @@ async function getPinnedLayoutMetrics(
 }
 
 type LayoutSnapshotMetrics = Record<string, number | boolean>;
-type PinnedLayoutMetrics = Awaited<ReturnType<typeof getPinnedLayoutMetrics>>;
-type PinnedMaxResult = { metrics: PinnedLayoutMetrics; didReach: boolean };
-
-function resolveExpectedPinnedMax(metrics: PinnedLayoutMetrics): number {
-  if (metrics.pinnedMaxHeight > 0) {
-    return metrics.pinnedMaxHeight;
-  }
-  const availableHeight = Math.max(
-    metrics.paramGroupHeight -
-      metrics.paramGroupPadding -
-      metrics.edgesHeight -
-      (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
-    0,
-  );
-  return Math.min(availableHeight, metrics.pinnedContentHeight);
-}
+type PinnedMaxResult = { metrics: Record<string, number>; didReach: boolean };
 
 async function attachLayoutSnapshot({
   testInfo,
@@ -1658,7 +1531,17 @@ async function waitForPinnedMax(
       edgesStrip,
     );
     lastMetrics = metrics;
-    const expectedPinnedMax = resolveExpectedPinnedMax(metrics);
+    const availableHeight = Math.max(
+      metrics.paramGroupHeight -
+        metrics.paramGroupPadding -
+        metrics.edgesHeight -
+        (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
+      0,
+    );
+    const expectedPinnedMax = Math.min(
+      availableHeight,
+      metrics.pinnedContentHeight,
+    );
     if (Math.abs(metrics.pinnedHeight - expectedPinnedMax) <= 2) {
       didReach = true;
       break;
