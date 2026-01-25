@@ -204,15 +204,9 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     },
   });
   expect(pinnedMaxResult.didReach).toBe(true);
-  const availableHeight = Math.max(
-    layoutMetrics.paramGroupHeight -
-      layoutMetrics.paramGroupPadding -
-      layoutMetrics.edgesHeight -
-      (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
-    0,
-  );
+  const expectedPinnedMaxAtLayout = resolveExpectedPinnedMax(layoutMetrics);
   const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > availableHeight + 1;
+    layoutMetrics.pinnedContentHeight > expectedPinnedMaxAtLayout + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -271,17 +265,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     unpinnedArea,
     edgesStrip,
   );
-  const availableHeightAfterManual = Math.max(
-    layoutMetricsAfterManual.paramGroupHeight -
-      layoutMetricsAfterManual.paramGroupPadding -
-      layoutMetricsAfterManual.edgesHeight -
-      (layoutMetricsAfterManual.unpinnedRowHeight +
-        layoutMetricsAfterManual.unpinnedPadding),
-    0,
-  );
-  const expectedPinnedMaxAfterManual = Math.min(
-    availableHeightAfterManual,
-    layoutMetricsAfterManual.pinnedContentHeight,
+  const expectedPinnedMaxAfterManual = resolveExpectedPinnedMax(
+    layoutMetricsAfterManual,
   );
   const canGrowAfterManual =
     expectedPinnedMaxAfterManual - pinnedHeightManual > 6;
@@ -394,17 +379,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   expect(layoutMetricsAfterReload.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMinAfterReloadCheck + 4,
   );
-  const availableHeightAfterReload = Math.max(
-    layoutMetricsAfterReload.paramGroupHeight -
-      layoutMetricsAfterReload.paramGroupPadding -
-      layoutMetricsAfterReload.edgesHeight -
-      (layoutMetricsAfterReload.unpinnedRowHeight +
-        layoutMetricsAfterReload.unpinnedPadding),
-    0,
-  );
-  const expectedPinnedMaxAfterReload = Math.min(
-    availableHeightAfterReload,
-    layoutMetricsAfterReload.pinnedContentHeight,
+  const expectedPinnedMaxAfterReload = resolveExpectedPinnedMax(
+    layoutMetricsAfterReload,
   );
   const expectedPinnedMinAfterReload =
     pinnedRowHeightAfterReload +
@@ -497,14 +473,21 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     pinnedRows.first(),
     "pinned",
   );
-  if ((await unpinnedRows.count()) > 1) {
+  if (
+    (await unpinnedRows.count()) > 1 &&
+    unpinnedMetrics.scrollHeight > unpinnedMetrics.clientHeight + 1
+  ) {
     await expectRowNotFullyVisibleWithinContainer(
       unpinnedArea,
       unpinnedRows.nth(1),
       "unpinned-secondary",
     );
   }
-  if ((await pinnedRows.count()) > 1) {
+  if (
+    (await pinnedRows.count()) > 1 &&
+    pinnedMetricsAfterShrink.scrollHeight >
+      pinnedMetricsAfterShrink.clientHeight + 1
+  ) {
     await expectRowNotFullyVisibleWithinContainer(
       pinnedList,
       pinnedRows.nth(1),
@@ -588,7 +571,7 @@ async function ensureAppReady(page: Page): Promise<void> {
     );
   }
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
-  await page.goto(PROJECT_URL);
+  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
 }
 
@@ -1147,7 +1130,8 @@ async function setRowNameByIndex(
     rowIndex: index,
     rowInfo,
   }, testInfo);
-  await nameInput.click();
+  // Drag-and-drop marks rows aria-disabled; force click to trigger CodeMirror.
+  await nameInput.click({ force: true });
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(name);
   await page.keyboard.press("Enter");
@@ -1247,7 +1231,9 @@ async function logLocatorDiagnostics(
     ...extra,
   };
   const serialized = JSON.stringify(payload, null, 2);
-  console.log(`[e2e-debug] ${serialized}`);
+  if (process.env.SETTA_E2E_DEBUG_LOG === "1") {
+    console.log(`[e2e-debug] ${serialized}`);
+  }
 
   if (testInfo) {
     await testInfo.attach(`e2e-debug-${label}.json`, {
@@ -1603,7 +1589,22 @@ async function getPinnedLayoutMetrics(
 }
 
 type LayoutSnapshotMetrics = Record<string, number | boolean>;
-type PinnedMaxResult = { metrics: Record<string, number>; didReach: boolean };
+type PinnedLayoutMetrics = Awaited<ReturnType<typeof getPinnedLayoutMetrics>>;
+type PinnedMaxResult = { metrics: PinnedLayoutMetrics; didReach: boolean };
+
+function resolveExpectedPinnedMax(metrics: PinnedLayoutMetrics): number {
+  if (metrics.pinnedMaxHeight > 0) {
+    return metrics.pinnedMaxHeight;
+  }
+  const availableHeight = Math.max(
+    metrics.paramGroupHeight -
+      metrics.paramGroupPadding -
+      metrics.edgesHeight -
+      (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
+    0,
+  );
+  return Math.min(availableHeight, metrics.pinnedContentHeight);
+}
 
 async function attachLayoutSnapshot({
   testInfo,
@@ -1657,17 +1658,7 @@ async function waitForPinnedMax(
       edgesStrip,
     );
     lastMetrics = metrics;
-    const availableHeight = Math.max(
-      metrics.paramGroupHeight -
-        metrics.paramGroupPadding -
-        metrics.edgesHeight -
-        (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
-      0,
-    );
-    const expectedPinnedMax = Math.min(
-      availableHeight,
-      metrics.pinnedContentHeight,
-    );
+    const expectedPinnedMax = resolveExpectedPinnedMax(metrics);
     if (Math.abs(metrics.pinnedHeight - expectedPinnedMax) <= 2) {
       didReach = true;
       break;

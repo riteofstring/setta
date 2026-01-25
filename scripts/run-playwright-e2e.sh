@@ -118,16 +118,50 @@ cleanup() {
   local exit_code=$?
   log "Cleaning up (exit code ${exit_code}). Logs: ${LOG_DIR}"
   set +e
-  if [[ -n "${FRONTEND_PID}" ]] && kill -0 "${FRONTEND_PID}" 2>/dev/null; then
-    log "Stopping frontend (pid ${FRONTEND_PID})."
-    kill "${FRONTEND_PID}" 2>/dev/null
-    wait "${FRONTEND_PID}" 2>/dev/null
-  fi
-  if [[ -n "${BACKEND_PID}" ]] && kill -0 "${BACKEND_PID}" 2>/dev/null; then
-    log "Stopping backend (pid ${BACKEND_PID})."
-    kill "${BACKEND_PID}" 2>/dev/null
-    wait "${BACKEND_PID}" 2>/dev/null
-  fi
+  local self_pgid
+  self_pgid="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
+  kill_process_tree() {
+    local pid="$1"
+    if [[ -z "${pid}" ]] || ! kill -0 "${pid}" 2>/dev/null; then
+      return
+    fi
+    local children
+    children="$(pgrep -P "${pid}" 2>/dev/null || true)"
+    if [[ -n "${children}" ]]; then
+      for child in ${children}; do
+        kill_process_tree "${child}"
+      done
+    fi
+    kill -TERM "${pid}" 2>/dev/null
+    sleep 0.3
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill -KILL "${pid}" 2>/dev/null
+    fi
+  }
+  stop_process_group() {
+    local pid="$1"
+    local label="$2"
+    if [[ -z "${pid}" ]] || ! kill -0 "${pid}" 2>/dev/null; then
+      return
+    fi
+    local pgid
+    pgid="$(ps -o pgid= -p "${pid}" 2>/dev/null | tr -d ' ')"
+    if [[ -n "${pgid}" ]] && [[ "${pgid}" != "${self_pgid}" ]]; then
+      log "Stopping ${label} process group (pgid ${pgid})."
+      kill -TERM "-${pgid}" 2>/dev/null
+      sleep 0.5
+      if kill -0 "${pid}" 2>/dev/null; then
+        log "Force stopping ${label} process group (pgid ${pgid})."
+        kill -KILL "-${pgid}" 2>/dev/null
+      fi
+    else
+      log "Stopping ${label} process tree (pid ${pid})."
+      kill_process_tree "${pid}"
+    fi
+    wait "${pid}" 2>/dev/null
+  }
+  stop_process_group "${FRONTEND_PID}" "frontend"
+  stop_process_group "${BACKEND_PID}" "backend"
   if [[ -n "${TEMP_WORKSPACE_ROOT}" ]] && [[ -d "${TEMP_WORKSPACE_ROOT}" ]]; then
     log "Removing temp workspace ${TEMP_WORKSPACE_ROOT}."
     rm -rf "${TEMP_WORKSPACE_ROOT}"
@@ -174,34 +208,58 @@ fi
 
 start_backend() {
   log "Starting backend at ${SETTA_BACKEND_ORIGIN} (workspace: ${SETTA_WORKSPACE_ROOT})."
-  (
-    cd "${ROOT_DIR}"
-    if ! source "./activate.sh"; then
-      echo "Failed to source ${ROOT_DIR}/activate.sh. Ensure .venv exists in ${ROOT_DIR}." >&2
-      exit 1
-    fi
-    cd "${SETTA_WORKSPACE_ROOT}"
-    exec env \
-      SETTA_DEV_MODE="true" \
-      SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
-      SETTA_NO_OPEN=1 \
-      setta --host "${SETTA_HOST}" --port "${SETTA_PORT}" --no-open --log-level info \
-        >"${LOG_DIR}/backend.log" 2>&1
-  ) &
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash -c "
+      cd \"${ROOT_DIR}\" || exit 1
+      source \"${ROOT_DIR}/activate.sh\" || exit 1
+      cd \"${SETTA_WORKSPACE_ROOT}\" || exit 1
+      exec env \
+        SETTA_DEV_MODE=\"true\" \
+        SETTA_DEV_FRONTEND_PORT=\"${SETTA_DEV_FRONTEND_PORT}\" \
+        SETTA_NO_OPEN=1 \
+        setta --host \"${SETTA_HOST}\" --port \"${SETTA_PORT}\" --no-open --log-level info
+    " >"${LOG_DIR}/backend.log" 2>&1 &
+  else
+    (
+      cd "${ROOT_DIR}"
+      if ! source "./activate.sh"; then
+        echo "Failed to source ${ROOT_DIR}/activate.sh. Ensure .venv exists in ${ROOT_DIR}." >&2
+        exit 1
+      fi
+      cd "${SETTA_WORKSPACE_ROOT}"
+      exec env \
+        SETTA_DEV_MODE="true" \
+        SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
+        SETTA_NO_OPEN=1 \
+        setta --host "${SETTA_HOST}" --port "${SETTA_PORT}" --no-open --log-level info \
+          >"${LOG_DIR}/backend.log" 2>&1
+    ) &
+  fi
   BACKEND_PID=$!
   log "Backend pid: ${BACKEND_PID}. Logs: ${LOG_DIR}/backend.log"
 }
 
 start_frontend() {
   log "Starting frontend at ${PLAYWRIGHT_BASE_URL} (backend origin: ${SETTA_BACKEND_ORIGIN})."
-  (
-    cd "${ROOT_DIR}/frontend"
-    exec env \
-      VITE_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
-      SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
-      SETTA_DEV_FRONTEND_HOST="${SETTA_DEV_FRONTEND_HOST}" \
-      pnpm exec vite >"${LOG_DIR}/frontend.log" 2>&1
-  ) &
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash -c "
+      cd \"${ROOT_DIR}/frontend\" || exit 1
+      exec env \
+        VITE_BACKEND_ORIGIN=\"${SETTA_BACKEND_ORIGIN}\" \
+        SETTA_DEV_FRONTEND_PORT=\"${SETTA_DEV_FRONTEND_PORT}\" \
+        SETTA_DEV_FRONTEND_HOST=\"${SETTA_DEV_FRONTEND_HOST}\" \
+        pnpm exec vite
+    " >"${LOG_DIR}/frontend.log" 2>&1 &
+  else
+    (
+      cd "${ROOT_DIR}/frontend"
+      exec env \
+        VITE_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
+        SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
+        SETTA_DEV_FRONTEND_HOST="${SETTA_DEV_FRONTEND_HOST}" \
+        pnpm exec vite >"${LOG_DIR}/frontend.log" 2>&1
+    ) &
+  fi
   FRONTEND_PID=$!
   log "Frontend pid: ${FRONTEND_PID}. Logs: ${LOG_DIR}/frontend.log"
 }
