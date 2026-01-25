@@ -14,7 +14,9 @@ def additional_args_generic_type_callback():
     return "defaults: Any, overrides: Any = None"
 
 
-def implementation_callback(c, additiona_args):
+def implementation_callback(
+    c: ImplClassInfoForGeneration, _additional_args: str
+) -> str:
     return f"""
                     if overrides is None:
                         overrides = {{}}

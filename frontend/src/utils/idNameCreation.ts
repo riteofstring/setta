@@ -10,7 +10,7 @@ export function createNewId() {
   return uuidv4();
 }
 
-function createArtifactId(extension = ".json") {
+function createArtifactId(extension: string = ".json") {
   return `${C.ARTIFACTS_FOLDER}/${createNewId()}${extension}`;
 }
 
@@ -24,6 +24,10 @@ export function createCsvArtifactId() {
 
 export function createPngArtifactId() {
   return createArtifactId(".png");
+}
+
+export function createFileArtifactId(extension: string = ".bin") {
+  return createArtifactId(extension);
 }
 
 export function createRandomName() {

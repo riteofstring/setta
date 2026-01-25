@@ -1,7 +1,7 @@
 import asyncio
 import json
-import shlex
 import shutil
+import tempfile
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,6 +13,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.code import build_python_snapshot_module_run_command
 from setta.project_state.project_manager_types import RunCodeRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_runtime_state import ShareRuntimeState
@@ -32,7 +33,11 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    TopLevelSectionLayout,
+    get_python_codegen_target_with_type_guard,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
@@ -47,7 +52,7 @@ from setta.types.section_impls import (
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
-from setta.utils.utils import normalize_path
+from setta.utils.utils import GEN_CODE_META_FILENAME, normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -557,14 +562,24 @@ class ShareRuntimeStateTests(unittest.TestCase):
             run_dir = run_dirs[0]
             runner_path = run_dir / "runner.py"
             gen_path = run_dir / "setta_gen.py"
+            meta_path = run_dir / GEN_CODE_META_FILENAME
             self.assertTrue(runner_path.exists())
             self.assertTrue(gen_path.exists())
+            python_target = get_python_codegen_target_with_type_guard(
+                project_state.projectConfig
+            )
+            if python_target.generateMetadata:
+                self.assertTrue(meta_path.exists())
+            else:
+                self.assertFalse(meta_path.exists())
             self.assertEqual("print('hello')", runner_path.read_text(encoding="utf-8"))
-            expected = f"python {shlex.quote(str(runner_path.resolve()))}"
+            expected = build_python_snapshot_module_run_command(
+                run_root, runner_path
+            )
             self.assertEqual(expected, command)
 
     def test_run_command_ephemeral_outside_cwd_uses_absolute_path(self) -> None:
-        with TemporaryDirectory(dir=Path.cwd().parent) as tmpdir:
+        with TemporaryDirectory(dir=Path(tempfile.gettempdir())) as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -596,8 +611,18 @@ class ShareRuntimeStateTests(unittest.TestCase):
             run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
             self.assertEqual(1, len(run_dirs))
             runner_path = run_dirs[0] / "runner.py"
+            meta_path = run_dirs[0] / GEN_CODE_META_FILENAME
             self.assertTrue(runner_path.is_absolute())
-            expected = f"python {shlex.quote(str(runner_path.resolve()))}"
+            python_target = get_python_codegen_target_with_type_guard(
+                project_state.projectConfig
+            )
+            if python_target.generateMetadata:
+                self.assertTrue(meta_path.exists())
+            else:
+                self.assertFalse(meta_path.exists())
+            expected = build_python_snapshot_module_run_command(
+                run_root, runner_path
+            )
             self.assertEqual(expected, command)
 
     def test_json_source_values_are_rehydrated(self) -> None:

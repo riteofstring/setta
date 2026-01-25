@@ -9,11 +9,9 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPServers, LSPWriters
-from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
-from setta.agentic.store import save_agent_run
-from setta.llm.chat_store import AgentRunChatStore
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.chats.save import create_new_chat
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
@@ -26,10 +24,13 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_g
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    ProjectConfig,
+    SectionRepresentationMode,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
-from setta.types.section_impls import ChatSectionImpl
+from setta.types.section_impls import ChatSectionImpl, SectionType
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -176,6 +177,10 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},
         )
+        python_target = project_config.codegenTargets[0]
+        python_target.sectionPolicy.typePolicies[
+            SectionType.Chat
+        ].representation = SectionRepresentationMode.expression
 
         self.project_config_id = project_config.id
         self.section_id = section.id
@@ -191,8 +196,8 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
         return UserChatMessage(content=[MessageTextContent(text=text)])
 
     async def test_get_chat_section_chat_id_returns_existing(self) -> None:
-        store = AgentRunChatStore(self.dbe)
-        chat = store.create_new_chat(
+        chat = create_new_chat(
+            self.dbe,
             self._create_message("Hello"),
             LLMConfig(id="test-llm", model="gpt-test"),
             project_config_id=self.project_config_id,
@@ -220,43 +225,6 @@ class ChatSectionChatIdTests(unittest.IsolatedAsyncioTestCase):
             ChatSectionImpl,
         )
         self.assertEqual(impl_after.chatId, chat.id)
-
-    async def test_get_chat_section_chat_id_returns_external_run(self) -> None:
-        chat_id = ID("external-chat")
-        run = AgentRun(
-            status=AgentRunStatus.completed,
-            inputs={
-                "runType": EXTERNAL_AGENT_RUN_TYPE,
-                "chatId": str(chat_id),
-                "projectConfigId": str(self.project_config_id),
-            },
-            events=[
-                RunEvent(
-                    type="run_started",
-                    payload={
-                        "chatId": str(chat_id),
-                        "projectConfigId": str(self.project_config_id),
-                    },
-                )
-            ],
-        )
-        save_agent_run(self.dbe, run)
-        await self.manager.set_chat_section_chat_id(
-            SetChatSectionChatIdRequest(
-                projectConfigId=self.project_config_id,
-                sectionId=self.section_id,
-                chatId=chat_id,
-            )
-        )
-
-        resolved = await self.manager.get_chat_section_chat_id(
-            GetChatSectionChatIdRequest(
-                projectConfigId=self.project_config_id,
-                sectionId=self.section_id,
-            )
-        )
-
-        self.assertEqual(resolved, chat_id)
 
     async def test_get_chat_section_chat_id_clears_missing(self) -> None:
         missing_chat_id = ID("missing-chat")
