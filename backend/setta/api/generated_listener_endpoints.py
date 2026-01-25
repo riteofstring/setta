@@ -65,6 +65,7 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
+    WatchCodeFolder,
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -754,6 +755,19 @@ class ListenerSetViewportRequestPayload(TypedDict):
     viewport: Viewport | None
 
 
+class ListenerSetWatchCodeEnabledRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    enabled: bool
+
+
+class ListenerSetWatchCodeInputsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    watchCodeFolders: list[WatchCodeFolder]
+    watchCodeFiles: list[str]
+
+
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1303,6 +1317,16 @@ class RouterEndpointAPI:
 
     async def set_viewport(self, payload: ListenerSetViewportRequestPayload) -> None:
         return await self._caller("route_set_viewport", payload)
+
+    async def set_watch_code_enabled(
+        self, payload: ListenerSetWatchCodeEnabledRequestPayload
+    ) -> None:
+        return await self._caller("route_set_watch_code_enabled", payload)
+
+    async def set_watch_code_inputs(
+        self, payload: ListenerSetWatchCodeInputsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_watch_code_inputs", payload)
 
     async def text_field_completion(
         self, payload: ListenerTextFieldCompletionRequestPayload

@@ -6,18 +6,11 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import {
-  sendRealtimeDependencyEvent,
-  sendRealtimeSectionParamLiteral,
-} from "state/actions/websocketReceive";
+import { sendRealtimeSectionParamLiteral } from "state/actions/websocketReceive";
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
-import {
-  DependencyKeyTypeEnum,
-  isBaseChildlessCodeObjImpl,
-} from "utils/generatedTypes";
+import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
@@ -73,31 +66,12 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
   }
 
-  function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (attachments.length === 0) {
-      return;
-    }
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.SectionParam,
-        sectionId,
-        codeObjId: paramInfoId,
-      },
-      payload: JSON.stringify({
-        sectionId,
-        paramInfoId,
-        attachments,
-      }),
-    });
-  }
-
   return (
     <ParamUI
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      onDropzoneStateless={onDropzoneStateless}
       maybeErrorMessage={maybeErrorMessage}
     />
   );

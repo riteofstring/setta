@@ -18,6 +18,7 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 export const OverviewTabNameEnum = {
   Overview: "Overview",
   FileBrowser: "FileBrowser",
+  WatchCode: "WatchCode",
   RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
@@ -32,6 +33,7 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
+  [OverviewTabNameEnum.WatchCode]: "Watch Code",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",

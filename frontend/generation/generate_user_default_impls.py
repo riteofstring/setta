@@ -216,7 +216,6 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
-    DropzoneMode,
 )
 
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
