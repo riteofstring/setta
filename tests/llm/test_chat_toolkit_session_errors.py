@@ -37,7 +37,6 @@ def _build_chat_project_state(project_config_id: ID) -> ProjectStateSingleConfig
     section_impl = ChatSectionImpl(
         id=ID(f"{project_config_id}-chat-impl"),
         name="Chat Section",
-        chatId=ID(f"{project_config_id}-chat-id"),
     )
     section_variant = Variant(
         id=ID(f"{project_config_id}-chat-variant"),

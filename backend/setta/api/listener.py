@@ -1500,16 +1500,9 @@ class SettaListener:
             result = await future
         finally:
             self._pending_router_endpoint_calls.pop(call_id, None)
-        runtime_state = self._runtime_state
-        updates = (
-            build_local_router_endpoint_updates(
-                endpoint_name=endpoint_name,
-                payload=serialized_payload,
-                dependency_graph=runtime_state.dependency_graph,
-                project_state=runtime_state.project_state,
-            )
-            if runtime_state is not None
-            else []
+        updates = build_local_router_endpoint_updates(
+            endpoint_name=endpoint_name,
+            payload=serialized_payload,
         )
         self._apply_local_dependency_updates(updates=updates)
         return result

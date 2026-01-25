@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -178,8 +178,8 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
             topLevelSections={section.id: TopLevelSectionLayout()},
         )
 
-        project_slug = sanitize_name(project_config.name)
-        section_slug = sanitize_name(section.name)
+        project_slug = sanitize_slug(project_config.name)
+        section_slug = sanitize_slug(section.name)
         canonical_path = normalize_path(
             self.code_folder / "sections" / project_slug / f"{section_slug}.py"
         )
