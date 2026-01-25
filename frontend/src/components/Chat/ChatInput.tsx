@@ -5,6 +5,7 @@ import {
   KeyboardEvent,
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -17,7 +18,10 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { openDropzoneFilePickerModal } from "state/actions/modal";
-import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  addTemporaryNotification,
+  DEFAULT_TEMP_TIMEOUT,
+} from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
 import {
   CHAT_ATTACHMENT_MAX_FILE_BYTES,
@@ -67,8 +71,12 @@ export const ChatInput = memo(function ChatInput({
   const [attachments, setAttachments] = useState<ChatFileAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [attachmentWarning, setAttachmentWarning] = useState<string | null>(
+    null,
+  );
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const warningTimeoutRef = useRef<number | null>(null);
   const { isShareMode } = useShareSession((state) => ({
     isShareMode: state.isShareMode,
   }));
@@ -107,6 +115,14 @@ export const ChatInput = memo(function ChatInput({
 
   const notifyAttachmentWarning = useCallback((message: string) => {
     addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    setAttachmentWarning(message);
+    if (warningTimeoutRef.current !== null) {
+      window.clearTimeout(warningTimeoutRef.current);
+    }
+    warningTimeoutRef.current = window.setTimeout(() => {
+      setAttachmentWarning(null);
+      warningTimeoutRef.current = null;
+    }, DEFAULT_TEMP_TIMEOUT);
   }, []);
 
   const readFileAsBase64 = useCallback(async (file: File): Promise<string> => {
@@ -426,6 +442,14 @@ export const ChatInput = memo(function ChatInput({
     return `${base} ${dragClass} cursor-auto opacity-100`;
   }, [isDisabled, isDragActive]);
 
+  useEffect(() => {
+    return () => {
+      if (warningTimeoutRef.current !== null) {
+        window.clearTimeout(warningTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <form onSubmit={handleSubmit} className="flex justify-center">
       <div className="flex w-full max-w-xl gap-2">
@@ -517,6 +541,14 @@ export const ChatInput = memo(function ChatInput({
                   Clear all
                 </button>
               ) : null}
+            </div>
+          ) : null}
+          {attachmentWarning ? (
+            <div
+              className="mb-2 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200"
+              role="alert"
+            >
+              {attachmentWarning}
             </div>
           ) : null}
         </div>
