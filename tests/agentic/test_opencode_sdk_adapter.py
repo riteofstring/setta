@@ -1,3 +1,8 @@
+import asyncio
+import io
+import logging
+import os
+import sys
 import unittest
 from pathlib import Path
 
@@ -102,3 +107,45 @@ class OpenCodeSdkAdapterParserTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         chunk = events[0].stream_chunk
         self.assertIsInstance(chunk, ToolResultEvent)
+
+
+class OpenCodeSdkAdapterStderrTests(unittest.TestCase):
+    def test_flush_stderr_queue_does_not_write_to_stderr(self) -> None:
+        read_fd, write_fd = os.pipe()
+        os.set_blocking(write_fd, False)
+        payload = b"x" * 4096
+        while True:
+            try:
+                os.write(write_fd, payload)
+            except BlockingIOError:
+                break
+
+        raw_stream = os.fdopen(write_fd, "wb", buffering=0)
+        stderr_stream = io.TextIOWrapper(
+            raw_stream, encoding="utf-8", write_through=True
+        )
+        original_stderr = sys.stderr
+
+        logger = logging.getLogger("setta.agentic.external_adapters.opencode_sdk")
+        original_handlers = list(logger.handlers)
+        original_propagate = logger.propagate
+
+        async def _run_flush() -> bool:
+            queue: asyncio.Queue[str] = asyncio.Queue()
+            queue.put_nowait("stderr line")
+            await OpenCodeSdkAdapter._flush_stderr_queue(queue)
+            return queue.empty()
+
+        try:
+            sys.stderr = stderr_stream
+            logger.handlers = [logging.NullHandler()]
+            logger.propagate = False
+            queue_drained = asyncio.run(_run_flush())
+        finally:
+            logger.handlers = original_handlers
+            logger.propagate = original_propagate
+            sys.stderr = original_stderr
+            stderr_stream.close()
+            os.close(read_fd)
+
+        self.assertTrue(queue_drained)

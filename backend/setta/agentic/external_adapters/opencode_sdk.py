@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import sys
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -159,7 +158,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             except asyncio.QueueEmpty:
                 return
             logger.info("OpenCode SDK stderr: %s", line)
-            print(f"[opencode stderr] {line}", file=sys.stderr)
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
         process = handle.process
