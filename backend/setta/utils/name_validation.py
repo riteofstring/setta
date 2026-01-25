@@ -2,7 +2,7 @@ import keyword
 import re
 from typing import TYPE_CHECKING
 
-from setta.code_gen.utils import sanitize_slug
+from setta.code_gen.utils import sanitize_python_identifier, sanitize_slug
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
@@ -243,6 +243,19 @@ def validate_section_name(
                 f'Section name "{normalized}" already exists under this parent.',
                 InvalidSectionName,
             )
+    if parent_id is None:
+        normalized_identifier = sanitize_python_identifier(normalized)
+        for sibling_id in sibling_ids:
+            if sibling_id == section_id:
+                continue
+            sibling_name = project_state.sections[sibling_id].name.strip()
+            if not sibling_name:
+                continue
+            if sanitize_python_identifier(sibling_name) == normalized_identifier:
+                _raise_invalid_name(
+                    "Section name conflicts with another top-level name after Python identifier sanitization.",
+                    InvalidSectionName,
+                )
 
     slug_by_section_id, slug_to_section_ids = _collect_section_slug_map(
         project_state, {section_id: normalized}
@@ -440,6 +453,24 @@ def collect_section_name_conflicts(
                 message = f'Duplicate sibling name "{name}".'
                 for child_id in ids:
                     add_error(child_id, message)
+
+    top_level_ids = siblings_by_parent.get(None, [])
+    if top_level_ids:
+        identifier_to_ids: dict[str, list["ID"]] = {}
+        for section_id in top_level_ids:
+            name = project_state.sections[section_id].name.strip()
+            if not name:
+                continue
+            identifier = sanitize_python_identifier(name)
+            identifier_to_ids.setdefault(identifier, []).append(section_id)
+        for ids in identifier_to_ids.values():
+            if len(ids) > 1:
+                message = (
+                    "Section name conflicts with another top-level name after Python "
+                    "identifier sanitization."
+                )
+                for section_id in ids:
+                    add_error(section_id, message)
 
     _, slug_to_section_ids = _collect_section_slug_map(project_state)
     for slug, ids in slug_to_section_ids.items():

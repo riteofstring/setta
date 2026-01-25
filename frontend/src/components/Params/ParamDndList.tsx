@@ -3,14 +3,17 @@ import _ from "lodash";
 import React, { useMemo } from "react";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
-import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { GetParamSwitch } from "./GetParamSwitch";
 import {
   ParamDndProvider,
@@ -35,24 +38,41 @@ export function ParamDndList({
   isTopLevel,
   listKey,
 }: ParamDndListProps) {
-  const duplicateIndexDeps = useProjectState(
-    (state) => ({
-      codeObjs: state.codeObjs,
-      codeObjImpls: state.codeObjImpls,
-      codeObjVariants: state.codeObjVariants,
-      sectionImpls: state.sectionImpls,
-      sectionVariants: state.sectionVariants,
-    }),
-    shallow,
-  );
+  const duplicateIndexDeps = useProjectState((state) => {
+    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const paramIds = Object.keys(sectionImpl.codeObjVariantMap).sort();
+    const paramNames = paramIds.map((paramId) => {
+      return state.codeObjs[paramId]?.name ?? "";
+    });
+    const paramChildren = paramIds.map((paramId) => {
+      const impl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
+      if (!isBaseParentCodeObjImpl(impl)) {
+        return [];
+      }
+      return impl.children;
+    });
+    let rootId: string | null = null;
+    if (sectionImpl.type === SectionTypeEnum.Callable) {
+      rootId = sectionImpl.callable ?? null;
+    } else if (
+      sectionImpl.type === SectionTypeEnum.Dict ||
+      sectionImpl.type === SectionTypeEnum.GlobalVariables
+    ) {
+      rootId = sectionImpl.topLevelParamId ?? null;
+    }
+    return { paramIds, paramNames, paramChildren, rootId };
+  }, _.isEqual);
   const duplicateIndex = useMemo(
     () => buildParamDuplicateIndex(useProjectState.getState(), sectionId),
     [
-      duplicateIndexDeps.codeObjs,
-      duplicateIndexDeps.codeObjImpls,
-      duplicateIndexDeps.codeObjVariants,
-      duplicateIndexDeps.sectionImpls,
-      duplicateIndexDeps.sectionVariants,
+      duplicateIndexDeps.paramIds,
+      duplicateIndexDeps.paramNames,
+      duplicateIndexDeps.paramChildren,
+      duplicateIndexDeps.rootId,
       sectionId,
     ],
   );

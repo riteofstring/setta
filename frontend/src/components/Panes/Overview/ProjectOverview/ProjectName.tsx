@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { C } from "utils/c";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_set_project_config_name } from "utils/generatedEndpoints";
@@ -38,9 +39,12 @@ function ProjectNameOnly() {
     onKeyDown,
     blurTriggeredByEscapeKey,
     serverError,
+    allowReserved,
   } = useEditableProjectName();
   const backendErrors = useNameValidationErrors((state) => state.projectErrors);
-  const validationError = validateProjectNameInput(localName);
+  const validationError = validateProjectNameInput(localName, {
+    allowReserved,
+  });
   const backendErrorMessage = backendErrors?.join("\n") ?? null;
   const errorMessage = validationError ?? serverError ?? backendErrorMessage;
   let errorClassName = "";
@@ -73,6 +77,8 @@ function useEditableProjectName() {
     projectConfigId: x.projectConfig.id,
     name: x.projectConfig.name,
   }));
+  const allowReserved =
+    name.trim().toLowerCase() === C.SETTINGS_PROJECT_NAME.toLowerCase();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const normalizeName = (value: string) => value.trim();
@@ -92,7 +98,9 @@ function useEditableProjectName() {
 
   async function condition(v: string) {
     const normalized = normalizeName(v);
-    const validationError = validateProjectNameInput(normalized);
+    const validationError = validateProjectNameInput(normalized, {
+      allowReserved,
+    });
     if (validationError) {
       setServerError(null);
       return false;
@@ -131,5 +139,6 @@ function useEditableProjectName() {
     ...editable,
     onChange,
     serverError,
+    allowReserved,
   };
 }

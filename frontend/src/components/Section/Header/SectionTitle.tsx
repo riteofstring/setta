@@ -19,6 +19,7 @@ import { useShareCapabilities } from "state/hooks/share";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import {
+  sanitizeNameForPythonIdentifier,
   sanitizeNameForSlug,
   validateSectionNameInput,
 } from "utils/nameValidation";
@@ -42,6 +43,9 @@ type SectionSlugIndex = {
 let cachedSectionSlugIndex: {
   sectionsRef: ZustandProjectState["sections"];
   parentMapRef: ZustandProjectState["parentSectionMap"];
+  sectionImplsRef: ZustandProjectState["sectionImpls"];
+  sectionVariantsRef: ZustandProjectState["sectionVariants"];
+  sectionVariantMapRef: ZustandProjectState["projectConfig"]["sectionVariantMap"];
   index: SectionSlugIndex;
 } | null = null;
 
@@ -161,9 +165,13 @@ function EditableTitle({
   if (!formatError && getSiblingHasName(sectionId, inputValue)) {
     siblingError = "Duplicate sibling name.";
   }
+  const identifierError =
+    !formatError && !siblingError
+      ? getTopLevelPythonIdentifierConflictError(sectionId, inputValue)
+      : null;
   const [slugError, setSlugError] = useState<string | null>(null);
   useEffect(() => {
-    if (formatError || siblingError) {
+    if (formatError || siblingError || identifierError) {
       setSlugError(null);
       return;
     }
@@ -177,8 +185,9 @@ function EditableTitle({
     return () => {
       window.clearTimeout(handle);
     };
-  }, [formatError, inputValue, sectionId, siblingError]);
-  const validationError = formatError ?? siblingError ?? slugError;
+  }, [formatError, identifierError, inputValue, sectionId, siblingError]);
+  const validationError =
+    formatError ?? siblingError ?? identifierError ?? slugError;
   let localErrorClassName = "";
   if (validationError) {
     localErrorClassName = "text-red-500 dark:text-red-300 border-red-400";
@@ -348,11 +357,43 @@ function getSectionSlugConflictError(sectionId: string, value: string) {
   return null;
 }
 
+function getTopLevelPythonIdentifierConflictError(
+  sectionId: string,
+  value: string,
+) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  if (state.parentSectionMap[sectionId]) {
+    return null;
+  }
+  const candidate = sanitizeNameForPythonIdentifier(normalized);
+  for (const [id, parentId] of Object.entries(state.parentSectionMap)) {
+    if (parentId || id === sectionId) {
+      continue;
+    }
+    const siblingName = state.sections[id]?.name?.trim();
+    if (!siblingName) {
+      continue;
+    }
+    if (sanitizeNameForPythonIdentifier(siblingName) === candidate) {
+      return "Section name conflicts with another top-level name after Python identifier sanitization.";
+    }
+  }
+  return null;
+}
+
 function getSectionSlugIndex(state: ZustandProjectState): SectionSlugIndex {
   if (
     cachedSectionSlugIndex &&
     cachedSectionSlugIndex.sectionsRef === state.sections &&
-    cachedSectionSlugIndex.parentMapRef === state.parentSectionMap
+    cachedSectionSlugIndex.parentMapRef === state.parentSectionMap &&
+    cachedSectionSlugIndex.sectionImplsRef === state.sectionImpls &&
+    cachedSectionSlugIndex.sectionVariantsRef === state.sectionVariants &&
+    cachedSectionSlugIndex.sectionVariantMapRef ===
+      state.projectConfig.sectionVariantMap
   ) {
     return cachedSectionSlugIndex.index;
   }
@@ -379,6 +420,9 @@ function getSectionSlugIndex(state: ZustandProjectState): SectionSlugIndex {
   cachedSectionSlugIndex = {
     sectionsRef: state.sections,
     parentMapRef: state.parentSectionMap,
+    sectionImplsRef: state.sectionImpls,
+    sectionVariantsRef: state.sectionVariants,
+    sectionVariantMapRef: state.projectConfig.sectionVariantMap,
     index,
   };
   return index;
@@ -436,6 +480,13 @@ function getSectionNameValidationError(
   }
   if (getSiblingHasName(sectionId, value)) {
     return "Duplicate sibling name.";
+  }
+  const identifierError = getTopLevelPythonIdentifierConflictError(
+    sectionId,
+    value,
+  );
+  if (identifierError) {
+    return identifierError;
   }
   const slugError = getSectionSlugConflictError(sectionId, value);
   if (slugError) {

@@ -89,6 +89,7 @@ export function ParamNameInput({
     isKwarg,
     pythonCodegenEnabled,
     showParamDisplayNames,
+    topLevelParamId,
     // variantIsFrozen,
   } = useProjectState((x) => {
     // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
@@ -111,6 +112,9 @@ export function ParamNameInput({
       // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
       isDictSection: isBaseDictSectionImpl(impl),
+      topLevelParamId: isBaseDictSectionImpl(impl)
+        ? impl.topLevelParamId
+        : null,
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
       isKwarg: codeObjImpl.coreNameEditable,
@@ -127,7 +131,8 @@ export function ParamNameInput({
   const backendErrors = useNameValidationErrors(
     (state) => state.paramErrors[paramInfoId],
   );
-  const allowEmpty = isKwarg;
+  const allowEmpty =
+    isKwarg || (isDictSection && topLevelParamId === paramInfoId);
   const requirePythonIdentifier = !isDictSection && pythonCodegenEnabled;
   const validationOptions = {
     allowEmpty,

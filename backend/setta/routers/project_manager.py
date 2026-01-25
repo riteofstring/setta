@@ -594,7 +594,7 @@ async def route_set_code_obj_name(
     try:
         await manager.set_code_obj_name(x)
     except InvalidParamName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
@@ -785,7 +785,7 @@ async def route_set_section_name(
     try:
         await manager.set_section_name(x)
     except InvalidSectionName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)

@@ -81,7 +81,7 @@ async def route_load_project_config(
         project_manager = state.project_manager_switcher.get(projectConfigId)
         return await project_manager.load_project_config(projectConfigId)
     except ProjectNotFound as exc:
-        raise HTTPException(status_code=404, detail=repr(exc)) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post(Route.SAVE_PROJECT)
@@ -114,7 +114,7 @@ async def route_save_as_new_project_config(
     try:
         await project_manager.save_as_new_project_config(x)
     except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)
@@ -127,7 +127,7 @@ async def route_create_project_config(
             x.previewImgColor
         )
     except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     project_manager.perform_manual_save()
     return newProjectConfigName
 
@@ -152,7 +152,7 @@ async def route_set_project_config_name(
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         project_manager.perform_manual_save()
     except InvalidProjectName as exc:
-        raise HTTPException(status_code=422, detail=repr(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)

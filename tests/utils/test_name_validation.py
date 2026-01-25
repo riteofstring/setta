@@ -257,6 +257,24 @@ class SectionNameValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidSectionName):
             set_section_name(self.project_state, second, "foo")
 
+    def test_top_level_python_identifier_conflict_rejected(self) -> None:
+        first = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        second = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, first, "Foo-Bar")
+        with self.assertRaises(InvalidSectionName):
+            set_section_name(self.project_state, second, "Foo Bar")
+
     def test_collect_section_name_format_errors_flags_invalid(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -338,6 +356,32 @@ class SectionNameValidationTests(unittest.TestCase):
         self.project_state.validate_parent_section_map()
         with self.assertRaises(InvalidSectionName):
             set_section_name(self.project_state, section_id, "bad#name")
+
+    def test_collect_section_name_conflicts_flags_python_identifier_collision(
+        self,
+    ) -> None:
+        first = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        second = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        self.project_state.sections[first].name = "Foo-Bar"
+        self.project_state.sections[second].name = "Foo Bar"
+        conflicts = collect_section_name_conflicts(self.project_state)
+        self.assertIn(first, conflicts)
+        self.assertIn(second, conflicts)
+        self.assertIn(
+            "Section name conflicts with another top-level name after Python identifier sanitization.",
+            conflicts[first],
+        )
 
     def test_nested_list_root_path_uses_immediate_parent(self) -> None:
         parent_group = create_top_level_section(
