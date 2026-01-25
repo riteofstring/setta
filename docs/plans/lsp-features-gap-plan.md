@@ -101,9 +101,7 @@ Key references:
   ingestion.
 
 ### Phase 5: Multi-language LSP (future)
-- Add LSP servers for TS/JS/JSON/YAML (or wire to an external LSP bridge).
-- Route diagnostics and completions through the same payload shape.
-- Gate by language and project settings.
+- Not planned; out of scope for this plan.
 
 ## Testing plan
 - Backend unit tests:

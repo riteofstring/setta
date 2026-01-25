@@ -1,4 +1,4 @@
-import { Diagnostic, lintGutter, linter } from "@codemirror/lint";
+import { Diagnostic, linter } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { SettaLspDiagnostic } from "utils/generatedTypes";
 
@@ -60,8 +60,5 @@ export function buildLspDiagnosticsExtensions(
   if (diagnostics.length === 0) {
     return [];
   }
-  return [
-    lintGutter(),
-    linter((view) => toCodeMirrorDiagnostics(view, diagnostics)),
-  ];
+  return [linter((view) => toCodeMirrorDiagnostics(view, diagnostics))];
 }

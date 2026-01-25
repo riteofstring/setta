@@ -373,8 +373,10 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const [value, setValue] = useState<string>(combinedDoc);
   const [generatedCodeForValue, setGeneratedCodeForValue] =
     useState<string>(code);
+  const skipNextChangeRef = useRef<string | null>(null);
 
   useEffect(() => {
+    skipNextChangeRef.current = combinedDoc;
     setValue(combinedDoc);
     setGeneratedCodeForValue(code);
   }, [combinedDoc, code]);
@@ -396,6 +398,13 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   );
 
   function onChange(nextValue: string) {
+    if (skipNextChangeRef.current === nextValue) {
+      skipNextChangeRef.current = null;
+      return;
+    }
+    if (skipNextChangeRef.current) {
+      skipNextChangeRef.current = null;
+    }
     if (isShareReadOnly) {
       return;
     }

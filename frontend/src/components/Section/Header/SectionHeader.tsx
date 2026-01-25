@@ -75,7 +75,7 @@ function _SectionHeader({
           codeSectionDiagnostics.length > 0 && (
             <DiagnosticsPopover
               diagnostics={codeSectionDiagnostics}
-              label={`${codeSectionDiagnostics.length}`}
+              label={`Issues ${codeSectionDiagnostics.length}`}
               title="Problems"
             />
           )}
@@ -84,7 +84,7 @@ function _SectionHeader({
           genCodeDiagnostics.length > 0 && (
             <DiagnosticsPopover
               diagnostics={genCodeDiagnostics}
-              label={`Gen issues ${genCodeDiagnostics.length}`}
+              label={`Issues ${genCodeDiagnostics.length}`}
               title="Generated code issues"
             />
           )}
@@ -141,7 +141,7 @@ function DiagnosticsPopover({
       contentClasses="z-20"
       trigger={
         <button
-          className={`nodrag ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeClassName}`}
+          className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm backdrop-blur-sm ${badgeClassName}`}
           type="button"
         >
           {label}
@@ -205,12 +205,12 @@ function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
     }
   }
   if (hasError) {
-    return "bg-red-500 text-white";
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200";
   }
   if (hasWarning) {
-    return "bg-amber-400 text-slate-900";
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200";
   }
-  return "bg-sky-500 text-white";
+  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600/40 dark:bg-slate-700/30 dark:text-slate-200";
 }
 
 function getSeverityMeta(severity: number | null | undefined) {
