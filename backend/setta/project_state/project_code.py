@@ -1,5 +1,4 @@
 import copy
-import logging
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -73,8 +72,6 @@ from setta.types.section_impls import (
 from setta.utils.constants import C
 from setta.utils.utils import GEN_CODE_META_FILENAME
 
-logger = logging.getLogger(__name__)
-
 
 def build_python_code_generator(
     project_state: ProjectStateSingleConfig,
@@ -110,10 +107,7 @@ class ProjectGenPythonCode(PythonCode):
         ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
         *,
         initial_undefined_callable_sections: set[ID] | None = None,
-        initial_callable_mismatch_sections: set[ID] | None = None,
         on_callable_symbols_resolved: Callable[[ID, set[ID]], Awaitable[None]]
-        | None = None,
-        on_callable_signature_mismatch: Callable[[ID, set[ID]], Awaitable[None]]
         | None = None,
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
@@ -127,12 +121,6 @@ class ProjectGenPythonCode(PythonCode):
             else set()
         )
         self._on_callable_symbols_resolved = on_callable_symbols_resolved
-        self._on_callable_signature_mismatch = on_callable_signature_mismatch
-        self.latest_callable_mismatch_sections = (
-            set(initial_callable_mismatch_sections)
-            if initial_callable_mismatch_sections
-            else set()
-        )
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -195,14 +183,6 @@ class ProjectGenPythonCode(PythonCode):
         self, sectionId: ID, paramInfoId: ID | None, fullText: str, position: int
     ) -> tuple[int, int] | None:
         dep_key = create_dep_key(sectionId, paramInfoId)
-        if dep_key not in self.code_generator.dep_graph.graph:
-            logger.error(
-                "ProjectCode missing dep_key before change_value section_id=%s param_id=%s dep_key=%s graph_size=%s",
-                sectionId,
-                paramInfoId,
-                dep_key,
-                len(self.code_generator.dep_graph.graph),
-            )
         start = self.code_generator.change_value(dep_key, fullText)
         await self.sync_lsp(self.code)
         if start is None:
@@ -278,12 +258,6 @@ class ProjectGenPythonCode(PythonCode):
     ) -> SetCallableResponse:
         current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
         current_callable_id = current_callable.id if current_callable else None
-        logger.debug(
-            "project_code.set_callable start section_id=%s callable=%s refetch=%s",
-            sectionId,
-            callableName,
-            refetchParams,
-        )
         did_invoke_before_mutation = False
 
         def maybe_invoke_before_mutation() -> None:
@@ -296,11 +270,6 @@ class ProjectGenPythonCode(PythonCode):
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
         ):
-            logger.debug(
-                "project_code.set_callable skip already selected section_id=%s callable=%s",
-                sectionId,
-                callableName,
-            )
             return self._build_set_callable_response(
                 project_state,
                 sectionId,
@@ -309,9 +278,6 @@ class ProjectGenPythonCode(PythonCode):
             )
 
         if callableName == "":
-            logger.debug(
-                "project_code.set_callable clear callable section_id=%s", sectionId
-            )
             maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
@@ -325,20 +291,8 @@ class ProjectGenPythonCode(PythonCode):
         prev_selected = callable_has_been_selected_before(
             project_state, sectionId, callableName
         )
-        logger.debug(
-            "project_code.set_callable prev_selected section_id=%s callable=%s prev_selected_id=%s",
-            sectionId,
-            callableName,
-            prev_selected,
-        )
 
         if prev_selected and not refetchParams:
-            logger.debug(
-                "project_code.set_callable reuse previous selection section_id=%s callable=%s callable_id=%s",
-                sectionId,
-                callableName,
-                prev_selected,
-            )
             maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
@@ -353,11 +307,6 @@ class ProjectGenPythonCode(PythonCode):
             sectionId, None, callableName, len(callableName)
         )
         if line_col is None:
-            logger.debug(
-                "project_code.set_callable missing line_col section_id=%s callable=%s",
-                sectionId,
-                callableName,
-            )
             return self._build_set_callable_response(
                 project_state,
                 sectionId,
@@ -367,68 +316,25 @@ class ProjectGenPythonCode(PythonCode):
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
-        logger.debug(
-            "project_code.set_callable signature_help_request section_id=%s callable=%s line=%s col=%s",
-            sectionId,
-            callableName,
-            line,
-            col,
+        request_id = create_new_id()
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_signature_help_request(
+                filepath=self.binding.canonical_path,
+                line=line,
+                character=col,
+                request_id=request_id,
+            ),
+            request_id,
         )
-        response = None
-        if self.lsp_writer is not None:
-            request_id = create_new_id()
-            response = await self.lsp_writer.send_and_wait(
-                self.lsp_writer.send_signature_help_request(
-                    filepath=self.binding.canonical_path,
-                    line=line,
-                    character=col,
-                    request_id=request_id,
-                ),
-                request_id,
-            )
 
-        result = (
-            process_signature_help_response(settings, response)
-            if response is not None
-            else None
-        )
+        result = process_signature_help_response(settings, response)
         documentation = None
         codeObjs: list[Core] = []
         codeObjImplMap = {}
         lsp_status = SignatureHelpStatus.NO_MATCH
-        if response is None:
-            logger.debug(
-                "project_code.set_callable lsp_response missing section_id=%s callable=%s",
-                sectionId,
-                callableName,
-            )
-        else:
-            signature_label = ""
-            signature_param_labels: list[str] = []
-            if response.result and response.result.signatures:
-                signature = response.result.signatures[0]
-                signature_label = signature.label
-                if signature.parameters:
-                    signature_param_labels = [
-                        param.label for param in signature.parameters
-                    ]
-            logger.debug(
-                "project_code.set_callable lsp_signature section_id=%s callable=%s signature_label=%s param_labels=%s",
-                sectionId,
-                callableName,
-                signature_label,
-                signature_param_labels,
-            )
         if result is not None:
             documentation, codeObjs, codeObjImplMap = result
             lsp_status = SignatureHelpStatus.MATCHED
-        logger.debug(
-            "project_code.set_callable lsp_status section_id=%s callable=%s status=%s parsed_params=%s",
-            sectionId,
-            callableName,
-            lsp_status,
-            [obj.name for obj in codeObjs],
-        )
 
         maybe_invoke_before_mutation()
         if not prev_selected:
@@ -481,15 +387,6 @@ class ProjectGenPythonCode(PythonCode):
                     callable_code_obj.id: callable_code_obj_variant.id,
                 },
             ),
-        )
-        applied_children = self._collect_child_code_objs(
-            project_state, sectionId, callable_code_obj.id
-        )
-        logger.debug(
-            "project_code.set_callable applied section_id=%s callable=%s child_params=%s",
-            sectionId,
-            callableName,
-            [child.name for child in applied_children],
         )
         return self._build_set_callable_response(
             project_state, sectionId, callable_code_obj.id, lsp_status
@@ -557,26 +454,14 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response.params
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
-        (
-            errors,
-            undefined_callable_sections,
-            callable_mismatch_sections,
-        ) = process_gen_code_diagnostics_with_undefined_symbols(
-            params.diagnostics,
-            self.code_generator,
-            self.dep_graph,
-            self.ignored_type_errors_by_section,
-        )
-        if callable_mismatch_sections:
-            logger.debug(
-                "gen_code diagnostics callable_mismatch_sections=%s project_config_id=%s",
-                sorted(callable_mismatch_sections),
-                self.project_config_id,
+        errors, undefined_callable_sections = (
+            process_gen_code_diagnostics_with_undefined_symbols(
+                params.diagnostics,
+                self.code_generator,
+                self.dep_graph,
+                self.ignored_type_errors_by_section,
             )
-        new_mismatch_sections = (
-            callable_mismatch_sections - self.latest_callable_mismatch_sections
         )
-        self.latest_callable_mismatch_sections = callable_mismatch_sections
         resolved_sections: set[ID] = set()
         if self.latest_undefined_callable_sections:
             for section_id in self.latest_undefined_callable_sections:
@@ -600,10 +485,6 @@ class ProjectGenPythonCode(PythonCode):
         if resolved_sections and self._on_callable_symbols_resolved:
             await self._on_callable_symbols_resolved(
                 self.project_config_id, resolved_sections
-            )
-        if new_mismatch_sections and self._on_callable_signature_mismatch:
-            await self._on_callable_signature_mismatch(
-                self.project_config_id, new_mismatch_sections
             )
 
     def get_gen_python_code_path(self):

@@ -569,18 +569,6 @@ export async function route_set_show_param_display_names(
   return await post("/setShowParamDisplayNames", x);
 }
 
-export async function route_set_watch_code_enabled(
-  x: gt.SetWatchCodeEnabledRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setWatchCodeEnabled", x);
-}
-
-export async function route_set_watch_code_inputs(
-  x: gt.SetWatchCodeInputsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setWatchCodeInputs", x);
-}
-
 export async function route_set_param_entered_value(
   x: gt.SetParamEnteredValueRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

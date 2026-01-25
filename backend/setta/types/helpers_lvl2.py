@@ -13,7 +13,6 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
 )
 from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -395,15 +394,6 @@ def add_children_of_callable(
         existing = existing_param_core.get(new_param.name)
         new_param_impl = new_param_impl_map[new_param.id]
         if existing:
-            existing_impl = get_curr_effective_code_obj_impl_with_type_guard(
-                p, section_id, existing.id, BaseParamCodeObjImpl
-            )
-            if isinstance(existing_impl, BaseChildlessCodeObjImpl) and isinstance(
-                new_param_impl, BaseChildlessCodeObjImpl
-            ):
-                new_param_impl = new_param_impl.model_copy(
-                    update={"value": existing_impl.value}
-                )
             update_variant_impl_props(p, existing.variants, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:

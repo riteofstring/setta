@@ -278,12 +278,6 @@ const SectionRepresentationModeEnum = {
   base64: "base64",
 } as const;
 
-const WatchCodeCallableKindEnum = {
-  function: "function",
-  async_function: "async_function",
-  class_init: "class_init",
-} as const;
-
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
   read_write: "read_write",
@@ -402,8 +396,6 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
-  SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
-  SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
@@ -3358,23 +3350,6 @@ const EdgeSchema = z.object({
   selected: z.boolean().default(false),
 });
 
-const WatchCodeFolderSchema = z.object({
-  path: z.string(),
-  recursive: z.boolean().default(true),
-});
-
-export type WatchCodeFolder = z.infer<typeof WatchCodeFolderSchema>;
-
-const WatchCodeRegistryEntrySchema = z.object({
-  callableName: z.string(),
-  kind: z.enum(WatchCodeCallableKindEnum),
-  signatureHash: z.string(),
-  bodyHash: z.string(),
-  sourcePath: z.string(),
-  sectionIds: z.array(IDSchema).default([]),
-  sectionsCount: z.int().default(0),
-});
-
 const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -3395,15 +3370,6 @@ const ProjectConfigSchema = z.object({
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
   activeIds: z.array(IDSchema).default([]),
   edges: z.array(EdgeSchema).default([]),
-  watchCodeEnabled: z.boolean().default(false),
-  watchCodeFolders: z.array(WatchCodeFolderSchema).default([]),
-  watchCodeFiles: z.array(z.string()).default([]),
-  watchCodeRegistry: z
-    .record(z.string(), WatchCodeRegistryEntrySchema)
-    .default({}),
-  watchCodeBaselineByPath: z
-    .record(z.string(), z.array(z.string()))
-    .default({}),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
@@ -3653,7 +3619,6 @@ const SettingsBackendSchema = z.object({
   defaultTerminalShell: z.union([z.string(), z.null()]).default(null),
   exportDbReadableOnSave: z.boolean().default(false),
   exportDbReadableWithVariantsOnSave: z.boolean().default(false),
-  autoRefetchCallableParamsOnLspMismatch: z.boolean().default(true),
   renameRefactorMode: z
     .enum(RenameRefactorModeEnum)
     .default(RenameRefactorModeEnum.ALWAYS_ASK),
@@ -6609,27 +6574,6 @@ const SetViewportRequestSchema = z.object({
 });
 
 export type SetViewportRequestInput = z.input<typeof SetViewportRequestSchema>;
-
-const SetWatchCodeEnabledRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  enabled: z.boolean(),
-});
-
-export type SetWatchCodeEnabledRequestInput = z.input<
-  typeof SetWatchCodeEnabledRequestSchema
->;
-
-const SetWatchCodeInputsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  watchCodeFolders: z.array(WatchCodeFolderSchema),
-  watchCodeFiles: z.array(z.string()),
-});
-
-export type SetWatchCodeInputsRequestInput = z.input<
-  typeof SetWatchCodeInputsRequestSchema
->;
 
 const TextFieldCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

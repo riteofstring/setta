@@ -19,9 +19,8 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     import uvicorn
+    from types import TracebackType
 
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0

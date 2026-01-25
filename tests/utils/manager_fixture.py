@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -174,7 +175,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a SessionProjectManager (main) backed by a seeded temp setta_files bundle."""
+    """Provision a SessionProjectManager (main) backed by the repo's sample setta_files bundle."""
+
+    sample_root = Path(__file__).resolve().parents[2] / "setta_files"
 
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -188,7 +191,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         for path in (code_folder, artifacts_folder, backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        _seed_minimal_setta_files(setta_root)
+        _populate_project_fixture_files(sample_root, setta_root)
 
         async with AsyncExitStack() as stack:
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
@@ -327,6 +330,11 @@ async def _close_lsp_process(process) -> None:
             await reader.read()
 
 
+REQUIRED_SAMPLE_FILES = (
+    "project.json",
+    "setta-settings.json",
+    "setta-settings-project.json",
+)
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
 DEFAULT_SAMPLE_PROJECT_CONFIG_ID = ID("sample-project-config")
 DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
@@ -337,6 +345,23 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 
 state = SettaState()
 """
+
+
+def _populate_project_fixture_files(sample_root: Path, setta_root: Path) -> None:
+    if _has_sample_bundle(sample_root):
+        shutil.copytree(sample_root / "code", setta_root / "code", dirs_exist_ok=True)
+        for filename in REQUIRED_SAMPLE_FILES:
+            shutil.copy2(sample_root / filename, setta_root / filename)
+        return
+    _seed_minimal_setta_files(setta_root)
+
+
+def _has_sample_bundle(sample_root: Path) -> bool:
+    if not sample_root.exists():
+        return False
+    if not (sample_root / "code").exists():
+        return False
+    return all((sample_root / file).exists() for file in REQUIRED_SAMPLE_FILES)
 
 
 def _seed_minimal_setta_files(setta_root: Path) -> None:
