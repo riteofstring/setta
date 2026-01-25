@@ -148,7 +148,7 @@ class TestEnqueueMethod:
         task2 = asyncio.create_task(manager_hooks.non_serialized_blocking(payload2))
         await asyncio.sleep(0)
 
-        assert set(manager_hooks.non_serialized_started) == {"op1", "op2"}
+        assert sorted(manager_hooks.non_serialized_started) == ["op1", "op2"]
         assert set(manager.pending_frontend_ops.keys()) == {"op1", "op2"}
 
         event1.set()
