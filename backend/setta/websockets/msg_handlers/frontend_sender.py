@@ -29,9 +29,7 @@ from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
-from setta.types.lsp import (
-    SettaProjectConfigDiagnostics,
-)
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEvent,
@@ -278,7 +276,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
 
     async def broadcast_lsp_diagnostics(
         self,
-        content: SettaProjectConfigDiagnostics,
+        content: SettaLspDiagnosticsPayload,
         *,
         share_session_id: str | None = None,
     ):

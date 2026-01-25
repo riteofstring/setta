@@ -460,7 +460,7 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
 
 
 class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
-    """Request the latest parsed LSP diagnostics for generated code."""
+    """Request the latest parsed LSP diagnostics payload for a project config."""
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):

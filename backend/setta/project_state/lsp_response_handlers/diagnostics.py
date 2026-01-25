@@ -14,7 +14,13 @@ from setta.types.dependency_key import (
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
-from setta.types.lsp import SettaLSPPosition, SettaSectionTypeErrors
+from setta.types.lsp import (
+    SettaLSPPosition,
+    SettaLspDiagnostic,
+    SettaLspDiagnosticPosition,
+    SettaLspDiagnosticRange,
+    SettaSectionTypeErrors,
+)
 from setta.types.section_impls import TypeErrorIgnoreState
 
 RangeIndex = tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]]
@@ -44,7 +50,7 @@ def process_gen_code_diagnostics(
     dep_graph: DependencyGraph,
     ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
 ):
-    output, _, _ = process_gen_code_diagnostics_with_undefined_symbols(
+    output, _, _, _ = process_gen_code_diagnostics_with_undefined_symbols(
         diagnostics,
         code_generator,
         dep_graph,
@@ -58,6 +64,8 @@ def process_gen_code_diagnostics_with_undefined_symbols(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
     ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
+    *,
+    uri: str | None = None,
 ):
     positions = convert_diagnostic_line_cols_to_positions(
         code_generator.code, diagnostics
@@ -66,6 +74,7 @@ def process_gen_code_diagnostics_with_undefined_symbols(
     output: dict[ID, SettaSectionTypeErrors] = {}
     undefined_callable_sections: set[ID] = set()
     callable_mismatch_sections: set[ID] = set()
+    unmapped_diagnostics: list[SettaLspDiagnostic] = []
     for i, d in enumerate(diagnostics):
         position = positions[i]
         is_undefined_symbol = is_undefined_symbol_diagnostic(d)
@@ -74,14 +83,16 @@ def process_gen_code_diagnostics_with_undefined_symbols(
             section_id = get_section_id_for_dep_key(dep_key)
             if section_id is not None:
                 callable_mismatch_sections.add(section_id)
-        for section_id, param_id, message in process_gen_code_diagnostic(
+        results = process_gen_code_diagnostic(
             d,
             position,
             code_generator,
             dep_graph,
             range_index,
             is_undefined_symbol,
-        ):
+        )
+        mapped = bool(results)
+        for section_id, param_id, message in results:
             if is_undefined_symbol and param_id is None:
                 undefined_callable_sections.add(section_id)
             if should_ignore_type_error(
@@ -91,7 +102,14 @@ def process_gen_code_diagnostics_with_undefined_symbols(
             ):
                 continue
             add_error_message(output, section_id, param_id, message)
-    return output, undefined_callable_sections, callable_mismatch_sections
+        if not mapped:
+            unmapped_diagnostics.append(build_setta_lsp_diagnostic(d, uri=uri))
+    return (
+        output,
+        undefined_callable_sections,
+        callable_mismatch_sections,
+        unmapped_diagnostics,
+    )
 
 
 def should_ignore_type_error(
@@ -362,3 +380,31 @@ def convert_diagnostic_line_cols_to_positions(
     for i in range(0, len(positions), 2):
         output.append(SettaLSPPosition(start=positions[i], end=positions[i + 1]))
     return output
+
+
+def build_setta_lsp_diagnostic(
+    diagnostic: LSPTypes.Diagnostic,
+    *,
+    uri: str | None = None,
+) -> SettaLspDiagnostic:
+    code_value = diagnostic.code
+    if not isinstance(code_value, (str, int)):
+        code_value = None
+    severity = int(diagnostic.severity) if diagnostic.severity is not None else None
+    return SettaLspDiagnostic(
+        message=diagnostic.message,
+        severity=severity,
+        code=code_value,
+        source=diagnostic.source,
+        range=SettaLspDiagnosticRange(
+            start=SettaLspDiagnosticPosition(
+                line=diagnostic.range.start.line,
+                character=diagnostic.range.start.character,
+            ),
+            end=SettaLspDiagnosticPosition(
+                line=diagnostic.range.end.line,
+                character=diagnostic.range.end.character,
+            ),
+        ),
+        uri=uri,
+    )
