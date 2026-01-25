@@ -732,6 +732,9 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
       2,
     ),
   );
+  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
+    return;
+  }
   if (sectionId) {
     applyChatSectionStreamDelta(sectionId, chunk);
     if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
@@ -784,6 +787,31 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     default:
       return chunk satisfies never;
   }
+}
+
+function isResponsePlaceholderId(messageId: string | null | undefined): boolean {
+  if (!messageId) {
+    return false;
+  }
+  return messageId.startsWith("rs_") || messageId.startsWith("resp_");
+}
+
+function shouldIgnoreResponsePlaceholderChunk(
+  chunk: LLMStreamingResponse["chunk"],
+): boolean {
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
+    return isResponsePlaceholderId(chunk.message.id);
+  }
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+    return isResponsePlaceholderId(chunk.message.id);
+  }
+  if (
+    chunk.type === StreamingEventTypeEnum.DELTA ||
+    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP
+  ) {
+    return isResponsePlaceholderId(chunk.message_id);
+  }
+  return false;
 }
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];

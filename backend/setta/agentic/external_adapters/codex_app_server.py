@@ -613,6 +613,9 @@ class _CodexAppServerEventParser:
     def _handle_message_start(
         self, payload: dict[str, Any], _item: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        message_id = _extract_message_id(payload)
+        if _is_response_message_id(message_id):
+            return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
         if not is_new:
             return [ExternalAgentStreamEvent(raw=payload)]
@@ -628,6 +631,9 @@ class _CodexAppServerEventParser:
     ) -> list[ExternalAgentStreamEvent]:
         role = _extract_message_role(payload)
         if role is not None and role.lower() not in {"assistant", "agent"}:
+            return [ExternalAgentStreamEvent(raw=payload)]
+        message_id = _extract_message_id(payload)
+        if _is_response_message_id(message_id):
             return [ExternalAgentStreamEvent(raw=payload)]
         delta_text = _extract_delta_text(payload)
         if not delta_text:
@@ -657,6 +663,9 @@ class _CodexAppServerEventParser:
     def _handle_message_complete(
         self, payload: dict[str, Any], _item: dict[str, Any]
     ) -> list[ExternalAgentStreamEvent]:
+        message_id = _extract_message_id(payload)
+        if _is_response_message_id(message_id):
+            return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(payload)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
@@ -1069,6 +1078,8 @@ class _CodexAppServerEventParser:
         if isinstance(role, str) and role.lower() not in {"assistant", "agent"}:
             return [ExternalAgentStreamEvent(raw=payload)]
         message_id = _extract_item_id(payload) or create_new_id()
+        if _is_response_message_id(message_id):
+            return [ExternalAgentStreamEvent(raw=payload)]
         content = item.get("content")
         text_parts: list[str] = []
         if isinstance(content, list):
@@ -1205,6 +1216,12 @@ def _extract_message_id(payload: dict[str, Any]) -> str | None:
     if isinstance(raw, str) and raw:
         return raw
     return None
+
+
+def _is_response_message_id(message_id: str | None) -> bool:
+    if not message_id:
+        return False
+    return message_id.startswith("rs_") or message_id.startswith("resp_")
 
 
 def _extract_message_role(payload: dict[str, Any]) -> str | None:

@@ -4,6 +4,7 @@ from typing import Any
 from setta.agentic.chat_names import create_new_chat_name
 from setta.llm.chat_toolkit.section_sync import build_chat_section_state
 from setta.types.agentic import AgentRun, AgentRunStatus
+from setta.types.chat_messages import AssistantChatMessage
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -97,6 +98,7 @@ def build_chat_state_from_run(run: AgentRun) -> ChatSectionState:
     messages = (
         output_messages if output_messages is not None else _parse_input_messages(run)
     )
+    messages = _filter_response_placeholder_messages(messages)
     return build_chat_section_state(
         messages=messages,
         waiting_for_response=run.status == AgentRunStatus.running,
@@ -129,6 +131,23 @@ def _parse_output_messages(run: AgentRun) -> list[BaseChatMessageUnion] | None:
 
 def _parse_raw_messages(raw_messages: list[Any]) -> list[BaseChatMessageUnion]:
     return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
+
+
+def _filter_response_placeholder_messages(
+    messages: list[BaseChatMessageUnion],
+) -> list[BaseChatMessageUnion]:
+    filtered: list[BaseChatMessageUnion] = []
+    for message in messages:
+        if isinstance(message, AssistantChatMessage):
+            if _is_response_message_id(message.id):
+                if not message.content and not message.tool_calls:
+                    continue
+        filtered.append(message)
+    return filtered
+
+
+def _is_response_message_id(message_id: str) -> bool:
+    return message_id.startswith("rs_") or message_id.startswith("resp_")
 
 
 def _get_input_id(run: AgentRun, key: str) -> ID | None:

@@ -155,6 +155,43 @@ class ChatViewTests(unittest.TestCase):
         self.assertEqual(assistant_message.content[0].text, "Final")
         self.assertFalse(state.waitingForResponse)
 
+    def test_build_chat_state_filters_response_placeholders(self) -> None:
+        user_message = UserChatMessage(
+            content=[MessageTextContent(text="Hello")],
+        )
+        response_placeholder = AssistantChatMessage(
+            id="rs_123",
+            content=[],
+            tool_calls=None,
+        )
+        assistant_message = AssistantChatMessage(
+            id="msg_123",
+            content=[MessageTextContent(text="Hi!")],
+        )
+        run = AgentRun(
+            status=AgentRunStatus.completed,
+            inputs={
+                "runType": LLM_CHAT_RUN_TYPE,
+                "chatId": "chat-1",
+                "projectConfigId": "project-1",
+                "engineConfigId": "engine-1",
+                "messages": [user_message.model_dump(mode="json")],
+            },
+            outputs={
+                "messages": [
+                    user_message.model_dump(mode="json"),
+                    response_placeholder.model_dump(mode="json"),
+                    assistant_message.model_dump(mode="json"),
+                ],
+            },
+        )
+
+        state = build_chat_state_from_run(run)
+
+        self.assertEqual(len(state.messages), 2)
+        self.assertEqual(state.messages[0].id, user_message.id)
+        self.assertEqual(state.messages[1].id, assistant_message.id)
+
     def test_derive_chat_name_from_first_message(self) -> None:
         message_text = "0123456789" * 4
         message = UserChatMessage(content=[MessageTextContent(text=message_text)])

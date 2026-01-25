@@ -156,6 +156,35 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
                 break
         self.assertEqual(finalized_text, "Hello world")
 
+    def test_response_message_id_is_ignored(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "method": "item/assistantMessage/delta",
+                "params": {"itemId": "rs_123", "delta": {"text": "Hello"}},
+            }
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertIsNone(events[0].stream_chunk)
+
+        completion_events = parser.handle(
+            {
+                "method": "item/completed",
+                "params": {
+                    "item": {
+                        "id": "rs_123",
+                        "type": "assistantMessage",
+                        "role": "assistant",
+                        "content": [{"text": "Hello world"}],
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(len(completion_events), 1)
+        self.assertIsNone(completion_events[0].stream_chunk)
+
     def test_item_completed_appends_missing_suffix_after_partial_deltas(self) -> None:
         parser = _CodexAppServerEventParser()
         parser.handle(
