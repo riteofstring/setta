@@ -436,7 +436,7 @@ class WatchCodeManager:
         self._project_manager = project_manager
         self._loop = loop
         self._observer = Observer()
-        self._watched_dirs: dict[Path, "ObservedWatch"] = {}
+        self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
@@ -475,7 +475,17 @@ class WatchCodeManager:
 
     def sync_from_backend(self, backend: ProjectStateBackend) -> None:
         configs = backend.projectConfigs
+        existing_config_ids = set(self._config_snapshots.keys())
+        next_config_ids = set(configs.keys())
+        removed_config_ids = existing_config_ids - next_config_ids
+        if removed_config_ids:
+            for config_id in removed_config_ids:
+                self._config_snapshots.pop(config_id, None)
+            self._cancel_debouncers_for_configs(removed_config_ids)
+            self._clear_pending_moves_for_configs(removed_config_ids)
+
         desired_watch_dirs: dict[Path, bool] = {}
+        next_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         for project_config_id, config in configs.items():
             snapshot = WatchCodeConfigSnapshot(
                 enabled=config.watchCodeEnabled,
@@ -491,21 +501,76 @@ class WatchCodeManager:
                     )
                 ),
             )
-            self._config_snapshots[project_config_id] = snapshot
+            next_snapshots[project_config_id] = snapshot
             if not snapshot.enabled:
                 continue
             for file_path in snapshot.files:
                 parent = normalize_path(Path(file_path)).parent
                 desired_watch_dirs[parent] = desired_watch_dirs.get(parent, False)
             for folder_path, recursive in snapshot.folders:
-                desired = desired_watch_dirs.get(normalize_path(Path(folder_path)))
+                resolved = normalize_path(Path(folder_path))
+                desired = desired_watch_dirs.get(resolved)
                 if desired is None:
-                    desired_watch_dirs[normalize_path(Path(folder_path))] = recursive
+                    desired_watch_dirs[resolved] = recursive
                 else:
-                    desired_watch_dirs[normalize_path(Path(folder_path))] = (
-                        desired or recursive
-                    )
+                    desired_watch_dirs[resolved] = desired or recursive
+        self._config_snapshots = next_snapshots
+
+        disabled_config_ids = {
+            project_config_id
+            for project_config_id, snapshot in next_snapshots.items()
+            if not snapshot.enabled
+        }
+        if disabled_config_ids:
+            self._cancel_debouncers_for_configs(disabled_config_ids)
+            self._clear_pending_moves_for_configs(disabled_config_ids)
+
+        stale_debouncer_keys: list[tuple[ID, Path]] = []
+        for key in list(self._debouncers.keys()):
+            project_config_id, path = key
+            if project_config_id not in next_snapshots:
+                continue
+            snapshot = next_snapshots[project_config_id]
+            if not snapshot.enabled:
+                continue
+            if not self._path_matches_watch_inputs(
+                path, snapshot.files, snapshot.folders
+            ):
+                stale_debouncer_keys.append(key)
+        for key in stale_debouncer_keys:
+            debouncer = self._debouncers.pop(key, None)
+            if debouncer is None:
+                continue
+            debouncer.cancel()
+
+        for key in list(self._pending_moves.keys()):
+            project_config_id, dest_path = key
+            if project_config_id not in next_snapshots:
+                continue
+            snapshot = next_snapshots[project_config_id]
+            if not snapshot.enabled:
+                continue
+            if not self._path_matches_watch_inputs(
+                dest_path, snapshot.files, snapshot.folders
+            ):
+                self._pending_moves.pop(key, None)
+
         self._sync_watch_dirs(desired_watch_dirs)
+
+    def _cancel_debouncers_for_configs(self, config_ids: set[ID]) -> None:
+        for key in list(self._debouncers.keys()):
+            project_config_id, _ = key
+            if project_config_id not in config_ids:
+                continue
+            debouncer = self._debouncers.pop(key)
+            debouncer.cancel()
+
+    def _clear_pending_moves_for_configs(self, config_ids: set[ID]) -> None:
+        for key in list(self._pending_moves.keys()):
+            project_config_id, _ = key
+            if project_config_id not in config_ids:
+                continue
+            self._pending_moves.pop(key, None)
 
     def baseline_on_enable(self, project_state: ProjectStateSingleConfig) -> None:
         project_config = project_state.projectConfig
@@ -645,72 +710,28 @@ class WatchCodeManager:
         path: Path,
         baseline_only: bool,
     ) -> None:
+        if project_config_id not in self._config_snapshots:
+            return
         if not path.exists():
             return
         raw = self._project_manager.dbe.read(path)
         if raw is None:
             return
-        project_state = self._project_manager.get_single_config_state(project_config_id)
         logger.debug(
             "watch_code._scan_file project_config_id=%s path=%s baseline_only=%s",
             project_config_id,
             normalize_path(path),
             baseline_only,
         )
-        did_move_update = False
         move_key = (project_config_id, normalize_path(path))
         moved_from = self._pending_moves.pop(move_key, None)
-        if moved_from is not None:
-            project_config = project_state.projectConfig
-            dest_key = str(normalize_path(path))
-            registry = project_config.watchCodeRegistry
-            baseline = project_config.watchCodeBaselineByPath
-            dest_known = dest_key in baseline or any(
-                entry.sourcePath == dest_key for entry in registry.values()
-            )
-            logger.debug(
-                "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s dest_known=%s registry_size=%s baseline_paths=%s",
-                project_config_id,
-                normalize_path(moved_from),
-                normalize_path(path),
-                dest_known,
-                len(registry),
-                len(baseline),
-            )
-            if not dest_known:
-                parsed_callables = parse_python_callables(raw, path)
-                baseline[dest_key] = [entry.identity for entry in parsed_callables]
-                src_key = str(normalize_path(moved_from))
-                if src_key in baseline:
-                    baseline.pop(src_key, None)
-                moved_registry_entries = 0
-                for entry in registry.values():
-                    if entry.sourcePath == src_key:
-                        entry.sourcePath = dest_key
-                        moved_registry_entries += 1
-                did_move_update = True
-                logger.debug(
-                    "watch_code._scan_file move_baseline_only project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
-                    project_config_id,
-                    normalize_path(path),
-                    len(parsed_callables),
-                    moved_registry_entries,
-                )
-        did_update = await self._apply_callable_updates(
-            project_state,
-            path,
+        await self._project_manager.apply_watch_code_file_update(
+            project_config_id,
+            normalize_path(path),
             raw,
             baseline_only=baseline_only,
+            moved_from=moved_from,
         )
-        did_update = did_update or did_move_update
-        if did_update and not baseline_only:
-            await self._project_manager.update_and_broadcast_project_state(
-                project_state
-            )
-        if did_update and baseline_only:
-            await self._project_manager.update_and_broadcast_project_state(
-                project_state
-            )
 
     def _path_matches_watch_inputs(
         self,
@@ -756,8 +777,9 @@ class WatchCodeManager:
         desired_paths = set(desired_watch_dirs.keys())
         to_remove = existing_watches - desired_paths
         for path in to_remove:
-            watch = self._watched_dirs.pop(path, None)
-            if watch is not None:
+            entry = self._watched_dirs.pop(path, None)
+            if entry is not None:
+                watch, _ = entry
                 self._observer.unschedule(watch)
         to_add = desired_paths - existing_watches
         for path in to_add:
@@ -765,10 +787,84 @@ class WatchCodeManager:
                 pending_dirs.add(path)
                 continue
             recursive = desired_watch_dirs[path]
-            self._watched_dirs[path] = self._observer.schedule(
-                self._handler, str(path), recursive=recursive
+            self._watched_dirs[path] = (
+                self._observer.schedule(self._handler, str(path), recursive=recursive),
+                recursive,
+            )
+        for path in desired_paths & existing_watches:
+            entry = self._watched_dirs.get(path)
+            if entry is None:
+                continue
+            watch, current_recursive = entry
+            desired_recursive = desired_watch_dirs[path]
+            if current_recursive == desired_recursive:
+                continue
+            self._observer.unschedule(watch)
+            if not path.exists():
+                self._watched_dirs.pop(path, None)
+                pending_dirs.add(path)
+                continue
+            self._watched_dirs[path] = (
+                self._observer.schedule(
+                    self._handler, str(path), recursive=desired_recursive
+                ),
+                desired_recursive,
             )
         self._pending_dirs = pending_dirs
+
+    async def apply_scan_update(
+        self,
+        project_state: ProjectStateSingleConfig,
+        path: Path,
+        raw: str,
+        *,
+        baseline_only: bool,
+        moved_from: Path | None,
+    ) -> bool:
+        did_move_update = False
+        if moved_from is not None:
+            project_config = project_state.projectConfig
+            dest_key = str(normalize_path(path))
+            registry = project_config.watchCodeRegistry
+            baseline = project_config.watchCodeBaselineByPath
+            dest_known = dest_key in baseline or any(
+                entry.sourcePath == dest_key for entry in registry.values()
+            )
+            logger.debug(
+                "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s dest_known=%s registry_size=%s baseline_paths=%s",
+                project_config.id,
+                normalize_path(moved_from),
+                normalize_path(path),
+                dest_known,
+                len(registry),
+                len(baseline),
+            )
+            if not dest_known:
+                parsed_callables = parse_python_callables(raw, path)
+                baseline[dest_key] = [entry.identity for entry in parsed_callables]
+                src_key = str(normalize_path(moved_from))
+                if src_key in baseline:
+                    baseline.pop(src_key, None)
+                moved_registry_entries = 0
+                for entry in registry.values():
+                    if entry.sourcePath == src_key:
+                        entry.sourcePath = dest_key
+                        moved_registry_entries += 1
+                did_move_update = True
+                logger.debug(
+                    "watch_code._scan_file move_baseline_only project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
+                    project_config.id,
+                    normalize_path(path),
+                    len(parsed_callables),
+                    moved_registry_entries,
+                )
+        did_update = await self._apply_callable_updates(
+            project_state,
+            path,
+            raw,
+            baseline_only=baseline_only,
+        )
+        return did_update or did_move_update
 
     def _baseline_watch_inputs(self, project_config) -> None:
         for file_path in normalize_watch_code_files(project_config.watchCodeFiles):

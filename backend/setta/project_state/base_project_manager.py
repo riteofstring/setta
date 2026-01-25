@@ -1488,6 +1488,38 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def apply_watch_code_file_update(
+        self,
+        project_config_id: ID,
+        path: Path,
+        raw: str,
+        *,
+        baseline_only: bool,
+        moved_from: Path | None,
+    ) -> None:
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            return
+        normalized_path = normalize_path(path)
+        project_state = self.get_single_config_state(project_config_id)
+        project_config = project_state.projectConfig
+        if not baseline_only and not project_config.watchCodeEnabled:
+            return
+        snapshot = build_watch_code_snapshot(project_state)
+        if not self.watch_code_manager._path_matches_watch_inputs(
+            normalized_path, snapshot.files, snapshot.folders
+        ):
+            return
+        did_update = await self.watch_code_manager.apply_scan_update(
+            project_state,
+            normalized_path,
+            raw,
+            baseline_only=baseline_only,
+            moved_from=moved_from,
+        )
+        if did_update:
+            await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -2240,6 +2272,7 @@ class BaseProjectManager(ABC):
         for id in project_config_ids:
             del self.project_state_backend.projectConfigs[id]
         self.project_state_backend.validate_default_project_id()
+        self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
 
     @enqueue_method

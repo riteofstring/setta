@@ -297,6 +297,123 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         self.assertIn(identity, state.projectConfig.watchCodeRegistry)
 
+    async def test_scan_skips_when_watch_code_disabled(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(self.watch_file_path)],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        updated_code = (
+            "def existing(a):\n    return a\n\n"
+            "def added(value):\n    return value\n"
+        )
+        self.watch_file_path.write_text(updated_code)
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=False,
+            )
+        )
+        await self.manager.watch_code_manager._scan_file(
+            self.project_config_id,
+            self.watch_file_path,
+            baseline_only=False,
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        self.assertEqual(state.projectConfig.watchCodeRegistry, {})
+
+    async def test_disable_cancels_pending_watch_code_scans(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(self.watch_file_path)],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        self.manager.watch_code_manager._debounce_scan(
+            self.project_config_id,
+            self.watch_file_path,
+            baseline_only=False,
+        )
+        debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
+        self.assertIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=False,
+            )
+        )
+        self.assertNotIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+
+    async def test_recursive_toggle_reschedules_watch_dirs(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        watch_root = self.setta_root.parent
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(watch_root), recursive=False)
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        normalized_root = normalize_path(watch_root)
+        entry = self.manager.watch_code_manager._watched_dirs.get(normalized_root)
+        self.assertIsNotNone(entry)
+        self.assertFalse(entry[1])
+
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(watch_root), recursive=True)
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        updated_entry = self.manager.watch_code_manager._watched_dirs.get(
+            normalized_root
+        )
+        self.assertIsNotNone(updated_entry)
+        self.assertTrue(updated_entry[1])
+
+    async def test_delete_project_configs_syncs_watch_code_state(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        self.manager.watch_code_manager._debounce_scan(
+            self.project_config_id,
+            self.watch_file_path,
+            baseline_only=False,
+        )
+        debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
+        self.assertIn(debouncer_key, self.manager.watch_code_manager._debouncers)
+        await self.manager.delete_project_configs([self.project_config_id])
+        self.assertEqual(self.manager.watch_code_manager._config_snapshots, {})
+        self.assertEqual(self.manager.watch_code_manager._debouncers, {})
+
     async def test_moved_file_does_not_create_sections_for_existing_callables(
         self,
     ) -> None:
