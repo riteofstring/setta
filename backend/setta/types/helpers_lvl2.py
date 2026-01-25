@@ -23,6 +23,7 @@ from setta.types.code_obj_impls import (
     ControlCodeObjTypeSet,
     DropzoneMode,
     DropzoneParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
@@ -101,6 +102,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
+from setta.secrets.password_store import set_password_secret
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
@@ -433,6 +435,9 @@ def set_param_entered_value(
     value: str,
 ):
     impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
+    if isinstance(impl, PasswordParamCodeObjImpl):
+        set_password_secret(str(paramId), value)
+        value = ""
     if isinstance(impl, DropzoneParamCodeObjImpl):
         if impl.mode == DropzoneMode.STATELESS:
             value = ""

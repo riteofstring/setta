@@ -3380,43 +3380,9 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
-const SettaLspDiagnosticPositionSchema = z.object({
-  line: z.int(),
-  character: z.int(),
-});
-
-const SettaLspDiagnosticRangeSchema = z.object({
-  start: SettaLspDiagnosticPositionSchema,
-  end: SettaLspDiagnosticPositionSchema,
-});
-
-const SettaLspDiagnosticSchema = z.object({
-  message: z.string(),
-  severity: z.union([z.int(), z.null()]).default(null),
-  code: z.union([z.string(), z.int(), z.null()]).default(null),
-  source: z.union([z.string(), z.null()]).default(null),
-  range: SettaLspDiagnosticRangeSchema,
-  uri: z.union([z.string(), z.null()]).default(null),
-});
-
-export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
-
-const SettaLspDiagnosticsPayloadSchema = z.object({
-  projectConfigId: IDSchema,
-  genCode: SettaProjectConfigDiagnosticsSchema,
-  codeSections: z
-    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
-    .default({}),
-  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
-});
-
-export type SettaLspDiagnosticsPayload = z.infer<
-  typeof SettaLspDiagnosticsPayloadSchema
->;
-
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaLspDiagnosticsPayloadSchema,
+  content: SettaProjectConfigDiagnosticsSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),

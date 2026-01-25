@@ -94,8 +94,8 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
   hand-edit code objects. Use `set_param_name_and_value` when you need to set both
   a param name and value.
-- For diagnostics, call `get_latest_lsp_diagnostics` to get the unified payload with
-  generated-code type errors plus code-section diagnostics (line/col ranges).
+- For type errors, call `get_latest_lsp_diagnostics` to get parsed diagnostics with
+  `sectionId`/`paramInfoId` instead of line/col data from generated code.
 - If `setta__search_mcp_tools` is available, use it when you do not know the tool name.
 - It returns entries with `name`, `description`, and `category` (or tool references when tool search is enabled); always use the tool name when calling a tool.
 
