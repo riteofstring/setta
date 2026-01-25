@@ -5051,7 +5051,18 @@ const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z.record(z.string(), z.any()).default({}),
+  languageServer: z.record(z.string(), z.any()).default(() => ({
+    basedpyright: {
+      analysis: {
+        diagnosticSeverityOverrides: {
+          reportUnknownVariableType: "none" as const,
+          reportUnknownMemberType: "none" as const,
+          reportUnannotatedClassAttribute: "none" as const,
+          reportSelfClsParameterName: "none" as const,
+        },
+      },
+    },
+  })),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
