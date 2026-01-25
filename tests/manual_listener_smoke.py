@@ -43,15 +43,13 @@ def _structured_dependency_map(
     return {}
 
 
+DEFAULT_PROJECT_NAME = "sample_project"
+
+
 def resolve_project_name(explicit_name: str | None) -> str:
     if explicit_name:
         return explicit_name
-    env_name = os.environ.get("SETTA_PROJECT_NAME")
-    if env_name:
-        return env_name
-    raise ValueError(
-        "Project name required. Pass --project-name or set SETTA_PROJECT_NAME."
-    )
+    return os.environ.get("SETTA_PROJECT_NAME", DEFAULT_PROJECT_NAME)
 
 
 def build_listener(project_name: str) -> SettaListener:
@@ -78,7 +76,7 @@ def main() -> None:
     parser.add_argument(
         "--project-name",
         default=None,
-        help="Project config name to watch (falls back to SETTA_PROJECT_NAME).",
+        help="Override the project config name to watch (defaults to SETTA_PROJECT_NAME or sample_project).",
     )
     parser.add_argument(
         "--hot-reload",

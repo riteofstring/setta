@@ -133,12 +133,16 @@ def _render_sections_by_key(
         raise ValueError(f"Unsupported key for metadata render: {key}")
     if key == "path":
         lines = ["sections = {"]
-        sorted_entries = sorted(entries, key=lambda entry: entry.full_path_name)
-        key_fn = lambda entry: entry.full_path_name
+
+        def key_fn(entry: SectionMetadataEntry) -> str:
+            return entry.full_path_name
     else:
         lines = ["sections_by_id = {"]
-        sorted_entries = sorted(entries, key=lambda entry: str(entry.section_id))
-        key_fn = lambda entry: entry.section_id
+
+        def key_fn(entry: SectionMetadataEntry) -> str:
+            return str(entry.section_id)
+
+    sorted_entries = sorted(entries, key=key_fn)
     for entry in sorted_entries:
         key_literal = repr(str(key_fn(entry)))
         lines.append(f"    {key_literal}: SectionMetadata(")
