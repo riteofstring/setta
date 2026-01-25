@@ -17,7 +17,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 ## Scripts and When to Use Them
 - `dev_install.sh`: install deps for local dev (Python + pnpm), then clean build artifacts.
 - `build.sh`: build the frontend bundle and package the backend (`python -m build`).
-- `verify_install.sh`: packaging smoke test (builds, installs the sdist into the venv with `uv pip`, then cleans).
+- `test_install.sh`: packaging smoke test (builds, installs the sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to validate the distribution packaging, not for normal dev.
   - sdist installs catch missing files/packaging errors; wheel installs match end-user installs but can skip sdist-only issues.
 

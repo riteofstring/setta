@@ -3,13 +3,13 @@ from typing import Annotated
 from pydantic import Field
 
 from setta.types.dependency_value import (
-    BinaryDependencyValue,
+    Base64DependencyValue,
     FileReadDependencyValue,
     LiteralDependencyValue,
 )
 
 BaseDependencyValueUnion = (
-    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue
+    LiteralDependencyValue | Base64DependencyValue | FileReadDependencyValue
 )
 
 BaseDependencyValueUnionWithDiscriminator = Annotated[
