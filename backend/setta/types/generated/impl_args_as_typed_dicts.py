@@ -93,7 +93,6 @@ class CoreArgs(TypedDict):
                 "eraserBrushSize",
                 "folder",
                 "format",
-                "hasSecret",
                 "headingAsSectionName",
                 "hideColumn",
                 "hideParams",
@@ -868,7 +867,6 @@ class DropdownParamCodeObjImplArgsWithCallable(
 
 class PasswordParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.PasswordParam]]
-    hasSecret: NotRequired[bool]
 
 
 class PasswordParamCodeObjImplArgsWithCallable(
@@ -880,7 +878,6 @@ class PasswordParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.PasswordParam]], Literal[CodeObjType.PasswordParam]
         ]
     ]
-    hasSecret: NotRequired[bool | Callable[[bool], bool]]
 
 
 class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):

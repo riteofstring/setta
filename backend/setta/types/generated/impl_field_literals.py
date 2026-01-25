@@ -36,7 +36,6 @@ AllImplFields = Literal[
     "eraserBrushSize",
     "folder",
     "format",
-    "hasSecret",
     "headingAsSectionName",
     "hideColumn",
     "hideParams",

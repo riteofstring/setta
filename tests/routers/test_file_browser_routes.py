@@ -87,36 +87,27 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         "CODE_FOLDER": C.CODE_FOLDER,
         "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
         "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
-        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
-        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
-        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
-        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
-        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
+        "RUN_FOLDER": C.RUN_FOLDER,
+        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
+        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
         "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
     C.SETTA_FILES_FOLDER = root / "setta_files"
     C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
     C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
     C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
-    C.RUNTIME_FOLDER = C.SETTA_FILES_FOLDER / "runtime"
-    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
-    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
-    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
-    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
-    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
+    C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
+    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
+    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
     C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
         C.DB_BACKUP_FOLDER,
         C.ARTIFACTS_FOLDER,
-        C.RUNTIME_FOLDER,
-        C.RUNTIME_SESSIONS_FOLDER,
-        C.RUNTIME_LOGS_FOLDER,
-        C.RUNTIME_MCP_FOLDER,
-        C.RUNTIME_SECRETS_FOLDER,
-        C.DETACHED_RUNS_FOLDER,
+        C.RUN_FOLDER,
+        C.RUN_SESSIONS_FOLDER,
+        C.RUN_LOGS_FOLDER,
         C.SHARE_DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)
@@ -129,12 +120,9 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.CODE_FOLDER = previous["CODE_FOLDER"]
     C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
     C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
-    C.RUNTIME_FOLDER = previous["RUNTIME_FOLDER"]
-    C.RUNTIME_SESSIONS_FOLDER = previous["RUNTIME_SESSIONS_FOLDER"]
-    C.RUNTIME_LOGS_FOLDER = previous["RUNTIME_LOGS_FOLDER"]
-    C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
-    C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
-    C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
+    C.RUN_FOLDER = previous["RUN_FOLDER"]
+    C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
+    C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
     C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
 
 
@@ -171,7 +159,7 @@ class TestFileBrowserRoutes:
             code_folder = setta_root / "code"
             artifacts_folder = setta_root / "artifacts"
             backup_folder = setta_root / "backups"
-            run_folder = setta_root / "runtime"
+            run_folder = setta_root / "run"
             run_sessions_folder = run_folder / "sessions"
             run_logs_folder = run_folder / "logs"
             share_deployments_folder = setta_root / "share_deployments"
@@ -188,9 +176,9 @@ class TestFileBrowserRoutes:
             C.CODE_FOLDER = code_folder
             C.ARTIFACTS_FOLDER = artifacts_folder
             C.DB_BACKUP_FOLDER = backup_folder
-            C.RUNTIME_FOLDER = run_folder
-            C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
-            C.RUNTIME_LOGS_FOLDER = run_logs_folder
+            C.RUN_FOLDER = run_folder
+            C.RUN_SESSIONS_FOLDER = run_sessions_folder
+            C.RUN_LOGS_FOLDER = run_logs_folder
             C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
         app = FastAPI()
         state = SettaFastAPIState(
@@ -496,3 +484,4 @@ class TestFileBrowserRoutes:
                     runtime_ctx,
                 )
         assert ctx.value.status_code == 403
+

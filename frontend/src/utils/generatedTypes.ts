@@ -509,7 +509,6 @@ export const RouteEnum = {
   SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
-  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
@@ -1366,7 +1365,6 @@ const SharedModifierSchema = z.object({
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
     .optional(),
-  hasSecret: z.boolean().optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1490,7 +1488,6 @@ const CoreSchema = z.object({
         "eraserBrushSize",
         "folder",
         "format",
-        "hasSecret",
         "headingAsSectionName",
         "hideColumn",
         "hideParams",
@@ -2229,7 +2226,6 @@ const PasswordParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  hasSecret: z.boolean().default(false),
 });
 
 type PasswordParamCodeObjImpl = z.infer<typeof PasswordParamCodeObjImplSchema>;
@@ -2714,7 +2710,6 @@ const PasswordParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
-  hasSecret: z.boolean().optional(),
 });
 
 type PasswordParamCodeObjImplArgs = z.infer<
@@ -3385,9 +3380,43 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
+const SettaLspDiagnosticPositionSchema = z.object({
+  line: z.int(),
+  character: z.int(),
+});
+
+const SettaLspDiagnosticRangeSchema = z.object({
+  start: SettaLspDiagnosticPositionSchema,
+  end: SettaLspDiagnosticPositionSchema,
+});
+
+const SettaLspDiagnosticSchema = z.object({
+  message: z.string(),
+  severity: z.union([z.int(), z.null()]).default(null),
+  code: z.union([z.string(), z.int(), z.null()]).default(null),
+  source: z.union([z.string(), z.null()]).default(null),
+  range: SettaLspDiagnosticRangeSchema,
+  uri: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
+
+const SettaLspDiagnosticsPayloadSchema = z.object({
+  projectConfigId: IDSchema,
+  genCode: SettaProjectConfigDiagnosticsSchema,
+  codeSections: z
+    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
+    .default({}),
+  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
+});
+
+export type SettaLspDiagnosticsPayload = z.infer<
+  typeof SettaLspDiagnosticsPayloadSchema
+>;
+
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaProjectConfigDiagnosticsSchema,
+  content: SettaLspDiagnosticsPayloadSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -4912,7 +4941,6 @@ const UserDefaultPasswordParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  hasSecret: z.boolean().default(false),
 });
 
 type UserDefaultPasswordParamCodeObjImpl = z.infer<
@@ -6974,25 +7002,6 @@ const GetLatestProjectStateRequestSchema = z.object({
 
 export type GetLatestProjectStateRequestInput = z.input<
   typeof GetLatestProjectStateRequestSchema
->;
-
-const GetPasswordParamValueRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramInfoId: IDSchema,
-});
-
-export type GetPasswordParamValueRequestInput = z.input<
-  typeof GetPasswordParamValueRequestSchema
->;
-
-const GetPasswordParamValueResponseSchema = z.object({
-  value: z.string(),
-});
-
-export type GetPasswordParamValueResponse = z.infer<
-  typeof GetPasswordParamValueResponseSchema
 >;
 
 const GroupSectionsRequestSchema = z.object({
