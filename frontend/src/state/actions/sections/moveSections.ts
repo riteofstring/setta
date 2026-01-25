@@ -29,13 +29,6 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
-  console.log("[dnd-debug] moveSectionsWithBackend", {
-    sectionIds,
-    newParentId,
-    newIndex,
-    positionsById,
-    projectConfigId: getCurrProjectConfigId(),
-  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({

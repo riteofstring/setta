@@ -1,6 +1,6 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import React, { useEffect } from "react";
+import React from "react";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
@@ -49,25 +49,6 @@ export function ParamDndList({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { canEditStructure } = useShareCapabilities();
   const enabled = isSelectingParams && canEditStructure && !paramFilterActive;
-  useEffect(() => {
-    console.log("[dnd-debug] ParamDndList", {
-      sectionId,
-      listKey,
-      enabled,
-      isSelectingParams,
-      canEditStructure,
-      paramFilterActive,
-      paramIdsCount: paramIds.length,
-    });
-  }, [
-    sectionId,
-    listKey,
-    enabled,
-    isSelectingParams,
-    canEditStructure,
-    paramFilterActive,
-    paramIds.length,
-  ]);
   const tree = useProjectState((state) => {
     if (!enabled) {
       return null;

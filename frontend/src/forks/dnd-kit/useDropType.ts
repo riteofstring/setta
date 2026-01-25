@@ -78,16 +78,10 @@ function resetLastResolvedOverState() {
 }
 
 export function onDragStart({ active, activeRect }: DragStartEvent) {
-  console.log("[dnd-debug] section:onDragStart", {
-    activeId: String(active.id),
-    activeData: active.data?.current ?? null,
-    activeRect,
-  });
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
   if (!active.data || !active.data.current) {
-    console.log("[dnd-debug] section:onDragStart:no-active-data");
     return;
   }
   const activeId = String(active.id);
@@ -139,11 +133,6 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, collisions, over }: DragMoveEvent) {
-  console.log("[dnd-debug] section:onDragMove", {
-    activeId: String(active.id),
-    overId: over ? String(over.id) : null,
-    collisionCount: collisions?.length ?? 0,
-  });
   const dndState = useDndState.getState();
   const overCandidate = collisions?.[0] ?? over;
   const overCandidateId = overCandidate ? String(overCandidate.id) : null;
@@ -210,14 +199,7 @@ function onDragOver({
   collisions,
   calledFromOnDragMove,
 }: DragOverEvent & { calledFromOnDragMove?: boolean }) {
-  console.log("[dnd-debug] section:onDragOver", {
-    activeId: String(active.id),
-    overId: over ? String(over.id) : null,
-    collisionCount: collisions?.length ?? 0,
-    calledFromOnDragMove: Boolean(calledFromOnDragMove),
-  });
   if (!collisions) {
-    console.log("[dnd-debug] section:onDragOver:no-collisions");
     return;
   }
 
@@ -229,13 +211,6 @@ function onDragOver({
   // There can be discrepancy between over and collisions due to the way state updates in DndContext.
   // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
   if (collisions.length === 0) {
-    console.log("[dnd-debug] section:onDragOver:empty-collisions", {
-      lastResolvedOverId,
-      lastResolvedPastHalfway,
-      lastResolvedTriggerDistCondition,
-      dndOverId: dndState.overId,
-      behaviorDropType: dndState.behaviorDropType,
-    });
     if (
       lastResolvedOverId === null &&
       lastResolvedPastHalfway === null &&

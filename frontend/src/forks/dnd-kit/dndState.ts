@@ -73,13 +73,6 @@ export function setActiveDnd(
   height: number,
   activeRect: ZustandDndState["activeRect"],
 ) {
-  console.log("[dnd-debug] setActiveDnd", {
-    id,
-    isTopLevel,
-    width,
-    height,
-    activeRect,
-  });
   useDndState.setState({
     activeId: id,
     activeIsTopLevel: isTopLevel,
@@ -90,7 +83,6 @@ export function setActiveDnd(
 }
 
 export function activateDndSortingMode() {
-  console.log("[dnd-debug] activateDndSortingMode");
   useDndState.setState({
     isSorting: true,
     isMovingFree: false,
@@ -99,7 +91,6 @@ export function activateDndSortingMode() {
 }
 
 export function activateDndMovingFreeMode() {
-  console.log("[dnd-debug] activateDndMovingFreeMode");
   useDndState.setState({
     isSorting: false,
     isMovingFree: true,
@@ -108,7 +99,6 @@ export function activateDndMovingFreeMode() {
 }
 
 function resetDndState() {
-  console.log("[dnd-debug] resetDndState");
   const initialState = useDndState.getInitialState();
   useDndState.setState((state) => ({
     ...initialState,
@@ -120,28 +110,23 @@ function resetDndState() {
 export function deactivateDnd() {
   const { isMovingFree, isSorting } = useDndState.getState();
   if (!isMovingFree && !isSorting) {
-    console.log("[dnd-debug] deactivateDnd:noop");
     return;
   }
 
-  console.log("[dnd-debug] deactivateDnd");
   useDndState.setState({ pendingDeactivation: true });
 }
 
 export function forceDeactivateDnd() {
-  console.log("[dnd-debug] forceDeactivateDnd");
   resetDndState();
 }
 
 export function setDndDisabled(sectionId: string, disabled: Disabled) {
-  console.log("[dnd-debug] setDndDisabled", { sectionId, disabled });
   useDndState.setState((state) => {
     state.disabled[sectionId] = disabled;
   });
 }
 
 export function setDndTime(sectionId: string) {
-  console.log("[dnd-debug] setDndTime", { sectionId });
   useDndState.setState((state) => {
     state.times[sectionId] = getNowDate();
   });

@@ -11,7 +11,7 @@ import {
 } from "forks/dnd-kit/paramDndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -171,27 +171,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const dndId = getParamDndItemId(paramInfoId, listKey);
   const hasNested = paramChildren.length > 0;
   const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
-  useEffect(() => {
-    console.log("[dnd-debug] RealParamSwitch", {
-      sectionId,
-      paramInfoId,
-      listKey,
-      dndEnabled,
-      hasNested,
-      isKwarg,
-      isNestedParam,
-      selected: paramIsSelected,
-    });
-  }, [
-    sectionId,
-    paramInfoId,
-    listKey,
-    dndEnabled,
-    hasNested,
-    isKwarg,
-    isNestedParam,
-    paramIsSelected,
-  ]);
   const {
     attributes,
     listeners,

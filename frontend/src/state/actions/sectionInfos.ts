@@ -137,38 +137,11 @@ export function getCurrSectionVariantId(
   sectionId: string,
   preview = false,
 ) {
-  const previewVariant = p.previewSectionVariantMap[sectionId];
-  const projectVariant = p.projectConfig.sectionVariantMap[sectionId];
-  console.log("[dnd-debug] getCurrSectionVariantId", {
-    sectionId,
-    preview,
-    previewVariant,
-    projectVariant,
-    hasPreview: Object.prototype.hasOwnProperty.call(
-      p.previewSectionVariantMap,
-      sectionId,
-    ),
-    hasProject: Object.prototype.hasOwnProperty.call(
-      p.projectConfig.sectionVariantMap,
-      sectionId,
-    ),
-    previewCount: Object.keys(p.previewSectionVariantMap).length,
-    projectCount: Object.keys(p.projectConfig.sectionVariantMap).length,
-    sectionCount: Object.keys(p.sections).length,
-  });
   const variantId = preview
-    ? previewVariant ?? projectVariant
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
     : p.projectConfig.sectionVariantMap[sectionId];
   if (variantId === undefined) {
-    console.log("[dnd-debug] getCurrSectionVariantId:missing", {
-      sectionId,
-      preview,
-      previewVariant,
-      projectVariant,
-      previewKeys: Object.keys(p.previewSectionVariantMap),
-      projectKeys: Object.keys(p.projectConfig.sectionVariantMap),
-      sectionKeys: Object.keys(p.sections),
-    });
     throw new Error();
   }
   return variantId;
@@ -180,11 +153,6 @@ export function getCurrSectionVariant(
   preview = false,
 ) {
   const variantId = getCurrSectionVariantId(p, sectionId, preview);
-  console.log("[dnd-debug] getCurrSectionVariant", {
-    sectionId,
-    preview,
-    variantId,
-  });
   return getSectionVariant(p, variantId);
 }
 
@@ -409,10 +377,6 @@ export function setCurrEffectiveCodeObjImplValue<
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   const section = p.sections[sectionId];
   if (!section) {
-    console.log("[dnd-debug] getSectionCore:missing", {
-      sectionId,
-      sectionKeys: Object.keys(p.sections),
-    });
     throw new Error();
   }
   return section;
@@ -421,10 +385,6 @@ export function getSectionCore(p: ZustandProjectState, sectionId: string) {
 function getSectionImpl(p: ZustandProjectState, implId: string) {
   const impl = p.sectionImpls[implId];
   if (!impl) {
-    console.log("[dnd-debug] getSectionImpl:missing", {
-      implId,
-      implKeys: Object.keys(p.sectionImpls),
-    });
     throw new Error();
   }
   return impl;
@@ -433,10 +393,6 @@ function getSectionImpl(p: ZustandProjectState, implId: string) {
 export function getSectionVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.sectionVariants[variantId];
   if (!variant) {
-    console.log("[dnd-debug] getSectionVariant:missing", {
-      variantId,
-      variantKeys: Object.keys(p.sectionVariants),
-    });
     throw new Error();
   }
   return variant;
@@ -569,19 +525,9 @@ export function getSectionInfo(sectionId) {
 
 export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
   const state = useProjectState.getState();
-  console.log("[dnd-debug] getSectionIsHorizontalOrientation", {
-    sectionId,
-    sectionCount: Object.keys(state.sections).length,
-    variantCount: Object.keys(state.sectionVariants).length,
-    implCount: Object.keys(state.sectionImpls).length,
-  });
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
   if (impl.type !== SectionTypeEnum.Group) {
-    console.log("[dnd-debug] getSectionIsHorizontalOrientation:not-group", {
-      sectionId,
-      implType: impl.type,
-    });
     return false;
   }
   const core = getSectionCore(state, sectionId);
@@ -1146,12 +1092,6 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
     isBaseSectionWithParamsImpl,
   );
   const wasSelected = impl.selectedParams.includes(paramInfoId);
-  console.log("[dnd-debug] toggleParamSelected", {
-    sectionId,
-    paramInfoId,
-    wasSelected,
-    selectedCount: impl.selectedParams.length,
-  });
   const nextSelectedCount = wasSelected
     ? impl.selectedParams.length - 1
     : impl.selectedParams.length + 1;

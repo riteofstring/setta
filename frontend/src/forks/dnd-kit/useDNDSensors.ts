@@ -36,9 +36,6 @@ export function useSectionDndSensors() {
   const { canEditLayout } = useShareCapabilities();
   return useMemo(() => {
     if (!canEditLayout) {
-      console.log("[dnd-debug] useSectionDndSensors:disabled", {
-        canEditLayout,
-      });
       return [];
     }
 
@@ -89,23 +86,15 @@ export function useSectionDndSensors() {
       },
     });
 
-    console.log("[dnd-debug] useSectionDndSensors:enabled", {
-      canEditLayout,
-      sensorCount: 2,
-    });
     return [pointerSensor, keyboardSensor];
   }, [canEditLayout]);
 }
 
-export function useParamDndSensors() {
+function useParamDndSensors() {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   return useMemo(() => {
     if (!canEditStructure || !isSelectingParams) {
-      console.log("[dnd-debug] useParamDndSensors:disabled", {
-        canEditStructure,
-        isSelectingParams,
-      });
       return [];
     }
 
@@ -144,11 +133,6 @@ export function useParamDndSensors() {
       },
     });
 
-    console.log("[dnd-debug] useParamDndSensors:enabled", {
-      canEditStructure,
-      isSelectingParams,
-      sensorCount: 2,
-    });
     return [pointerSensor, keyboardSensor];
   }, [canEditStructure, isSelectingParams]);
 }

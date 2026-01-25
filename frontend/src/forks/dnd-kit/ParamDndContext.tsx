@@ -8,7 +8,7 @@ import {
   type CollisionTracker,
 } from "forks/dnd-kit/adapter/collision";
 import type { SettaCollision } from "forks/dnd-kit/adapter/types";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
@@ -16,9 +16,7 @@ import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";
 import { useParamDndSensors } from "./useDNDSensors";
 
-function debugParamDnd(message: string, details?: Record<string, unknown>) {
-  console.log("[dnd-debug] ParamDndContext", message, details ?? {});
-}
+function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 
 export function ParamDndContext({ children }: { children: ReactNode }) {
   const { canEditStructure } = useShareCapabilities();
@@ -29,23 +27,6 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
   );
   const shouldRenderHelpers = paramDndEnabled || paramDndActive;
   const sensors = useParamDndSensors();
-  useEffect(() => {
-    console.log("[dnd-debug] ParamDndContext", {
-      canEditStructure,
-      isSelectingParams,
-      paramDndEnabled,
-      paramDndActive,
-      shouldRenderHelpers,
-      sensorCount: sensors.length,
-    });
-  }, [
-    canEditStructure,
-    isSelectingParams,
-    paramDndEnabled,
-    paramDndActive,
-    shouldRenderHelpers,
-    sensors.length,
-  ]);
   const collisionTracker = useMemo<CollisionTracker>(() => {
     const baseTracker = createCollisionTracker({
       mode: "param",
