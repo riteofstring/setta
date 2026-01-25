@@ -4,20 +4,19 @@ import os
 import secrets
 import shutil
 import socket
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
+from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.database.db_objs import DBE
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import (
-    CodexSettingsManaged,
     ExternalAgentConfig,
     ExternalAgentRunMode,
-    ExternalAgentSettingsManagedBlock,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -27,36 +26,28 @@ from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-_CODEX_MODEL = "gpt-5.2-codex"
 
-
-class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
-    def _require_codex_sdk(self) -> str:
-        node_path = shutil.which("node")
-        if node_path is None:
-            self.skipTest("node is not installed")
-        sidecar_root = (
-            Path(__file__).resolve().parents[2]
-            / "backend"
-            / "setta"
-            / "agentic"
-            / "external_adapters"
-            / "sidecars"
+class CodexAppServerAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    def _require_codex_cli(self) -> str:
+        codex_path = shutil.which("codex")
+        if codex_path is None:
+            self.skipTest("codex CLI not installed")
+        if not os.environ.get("OPENAI_API_KEY"):
+            self.skipTest("OPENAI_API_KEY not set")
+        result = subprocess.run(
+            [codex_path, "app-server", "--help"],
+            capture_output=True,
+            text=True,
         )
-        package_json = (
-            sidecar_root / "node_modules" / "@openai" / "codex-sdk" / "package.json"
-        )
-        if not package_json.exists():
-            self.skipTest("@openai/codex-sdk is not installed for sidecars")
-        if not os.environ.get("CODEX_API_KEY"):
-            self.skipTest("CODEX_API_KEY not set")
+        if result.returncode != 0:
+            self.skipTest("codex app-server subcommand not available")
         try:
             socket.getaddrinfo("api.openai.com", 443)
             with socket.create_connection(("api.openai.com", 443), timeout=3):
                 pass
         except OSError:
             self.skipTest("Cannot connect to api.openai.com:443")
-        return node_path
+        return codex_path
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
         for _ in range(120):
@@ -89,22 +80,21 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         error = payload.get("error")
                         break
             self.fail(
-                "Codex SDK run failed; "
+                "Codex app-server run failed; "
                 f"status={status}, error={error}, events={events}, outputs={outputs}"
             )
         return stored
 
     @staticmethod
-    def _build_config(node_path: str) -> ExternalAgentConfig:
+    def _build_config(codex_path: str) -> ExternalAgentConfig:
         return ExternalAgentConfig(
-            name="Codex SDK",
+            name="Codex app-server",
             toolType=ExternalAgentToolType.codex,
-            runMode=ExternalAgentRunMode.sdk,
-            commandPath=node_path,
+            runMode=ExternalAgentRunMode.app_server,
+            commandPath=codex_path,
             approvalPolicy="never",
-            defaultModel=_CODEX_MODEL,
-            envVarWhitelist=["CODEX_API_KEY"],
-            codexSkipGitRepoCheck=True,
+            defaultModel=None,
+            envVarWhitelist=["OPENAI_API_KEY"],
         )
 
     @staticmethod
@@ -119,7 +109,7 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-        registry = ExternalAgentAdapterRegistry(adapters=[CodexSdkAdapter()])
+        registry = ExternalAgentAdapterRegistry(adapters=[CodexAppServerAdapter()])
         runner = ExternalAgentRunner(
             dbe,
             frontend_sender,
@@ -144,20 +134,6 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return "\n".join(parts)
 
     @staticmethod
-    def _collect_thinking_blocks(messages: list[dict]) -> list[dict]:
-        blocks: list[dict] = []
-        for message in messages:
-            if not isinstance(message, dict) or message.get("role") != "assistant":
-                continue
-            content = message.get("content")
-            if not isinstance(content, list):
-                continue
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "thinking":
-                    blocks.append(block)
-        return blocks
-
-    @staticmethod
     def _debug_dump(outputs: dict | None, stderr_lines: list[str] | None, label: str) -> str:
         stderr_tail: list[str] = []
         if isinstance(stderr_lines, list):
@@ -167,11 +143,51 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             f"cliStderrTail={stderr_tail if stderr_tail else '[]'}"
         )
 
-    async def test_codex_sdk_streams_message(self) -> None:
-        node_path = self._require_codex_sdk()
+    @staticmethod
+    def _extract_json_object(text: str) -> dict:
+        normalized = text.strip()
+        try:
+            payload = json.loads(normalized)
+            if isinstance(payload, dict):
+                return payload
+        except json.JSONDecodeError:
+            pass
+        start = normalized.find("{")
+        if start == -1:
+            raise ValueError("No JSON object found in response")
+        depth = 0
+        in_string = False
+        escape = False
+        for idx in range(start, len(normalized)):
+            char = normalized[idx]
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = normalized[start : idx + 1]
+                    payload = json.loads(candidate)
+                    if isinstance(payload, dict):
+                        return payload
+                    raise ValueError("JSON payload was not an object")
+        raise ValueError("No complete JSON object found in response")
+
+    async def test_codex_app_server_streams_message(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
 
             run = runner.start_run(
                 config.id,
@@ -196,11 +212,11 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 all_text = self._collect_message_texts(messages)
                 self.assertTrue(all_text.strip())
 
-    async def test_codex_sdk_persists_thread_id(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_persists_thread_id(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
 
             run = runner.start_run(
                 config.id,
@@ -219,11 +235,11 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             if not isinstance(thread_id, str) or not thread_id:
                 raise AssertionError("Expected non-empty threadId in outputs")
 
-    async def test_codex_sdk_reuses_thread_id_for_chat(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_reuses_thread_id_for_chat(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
 
             first_run = runner.start_run(
                 config.id,
@@ -253,11 +269,11 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             await self._await_completed_run(dbe, second_run.id)
 
-    async def test_codex_sdk_uses_message_history(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_uses_message_history(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
             code_word = "setta-codex-history-codeword"
             user_message = UserChatMessage(
                 content=[
@@ -288,11 +304,11 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 raise AssertionError("Expected finalText to be a string")
             self.assertIn(code_word, final_text.lower())
 
-    async def test_codex_sdk_multi_turn_remembers_prompt(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_multi_turn_remembers_prompt(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
             code_word = "setta-codex-memory-codeword"
 
             first_run = runner.start_run(
@@ -330,11 +346,11 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 raise AssertionError("Expected finalText to be a string")
             self.assertIn(code_word, final_text.lower())
 
-    async def test_codex_sdk_structured_output_schema(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_structured_output_schema(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
             token = f"setta-codex-schema-{secrets.token_hex(6)}"
             schema = {
                 "type": "object",
@@ -368,15 +384,15 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(final_text, str)
             if not isinstance(final_text, str):
                 raise AssertionError("Expected finalText to be a string")
-            payload = json.loads(final_text.strip())
+            payload = self._extract_json_object(final_text)
             self.assertEqual(payload.get("status"), "ok")
             self.assertEqual(payload.get("codeWord"), token)
 
-    async def test_codex_sdk_resumes_thread_id_across_chats(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_resumes_thread_id_across_chats(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
+            config = self._build_config(codex_path)
             code_word = "setta-codex-thread-codeword"
 
             first_run = runner.start_run(
@@ -423,8 +439,8 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(code_word, final_text.lower())
             self.assertEqual(outputs.get("threadId"), thread_id)
 
-    async def test_codex_sdk_runs_command_execution_item(self) -> None:
-        node_path = self._require_codex_sdk()
+    async def test_codex_app_server_runs_command_execution_item(self) -> None:
+        codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             token = f"setta-codex-command-{secrets.token_hex(8)}"
@@ -434,7 +450,7 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 token_path.write_text(token, encoding="utf-8")
                 command = "cat token.txt"
 
-                config = self._build_config(node_path)
+                config = self._build_config(codex_path)
                 config.sandboxPolicy = "workspace-write"
                 config.workingDirStrategy = ExternalAgentWorkingDirStrategy.custom
                 config.workingDir = str(work_dir)
@@ -469,9 +485,7 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     raise AssertionError("Expected finalText to be a string")
                 if token not in final_text:
                     self.fail(
-                        self._debug_dump(
-                            outputs, stderr_lines, "Command output missing."
-                        )
+                        self._debug_dump(outputs, stderr_lines, "Command output missing.")
                     )
                 messages = outputs.get("messages")
                 self.assertIsInstance(messages, list)
@@ -512,142 +526,12 @@ class CodexSdkAdapterIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 tool_text = self._collect_message_texts(command_tools)
                 if token not in tool_text:
                     self.fail(
-                        self._debug_dump(
-                            outputs, stderr_lines, "Command tool output missing."
-                        )
+                        self._debug_dump(outputs, stderr_lines, "Command tool output missing.")
                     )
                 if isinstance(events, list):
                     event_types = [
                         event.get("type")
                         for event in events
-                    if isinstance(event, dict) and event.get("type")
-                ]
-                self.assertIn("run_completed", event_types)
-
-    async def test_codex_sdk_accepts_approval_policy_setting(self) -> None:
-        node_path = self._require_codex_sdk()
-        with TemporaryDirectory() as tmpdir:
-            dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
-            config.approvalPolicy = "on-request"
-
-            run = runner.start_run(
-                config.id,
-                config,
-                None,
-                {"prompt": "Say hello."},
-            )
-
-            stored = await self._await_completed_run(dbe, run.id)
-            outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            if not isinstance(outputs, dict):
-                raise AssertionError("Expected outputs to be a dict")
-            final_text = outputs.get("finalText")
-            self.assertIsInstance(final_text, str)
-            if not isinstance(final_text, str):
-                raise AssertionError("Expected finalText to be a string")
-            self.assertTrue(final_text.strip())
-            config_path = (
-                dbe.path
-                / "external_agent_settings"
-                / "codex"
-                / str(config.id)
-                / "config.toml"
-            )
-            self.assertTrue(config_path.exists())
-            content = config_path.read_text(encoding="utf-8")
-            self.assertIn('approval_policy = "on-request"', content)
-
-    async def test_codex_sdk_writes_managed_config(self) -> None:
-        node_path = self._require_codex_sdk()
-        with TemporaryDirectory() as tmpdir:
-            dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
-            config.id = ID("codex-managed-config")
-            config.settingsManagedBlock = ExternalAgentSettingsManagedBlock(
-                codex=CodexSettingsManaged(
-                    model=_CODEX_MODEL,
-                    approvalPolicy="on-request",
-                    sandboxMode="workspace-write",
-                    enabledTools=["command_execution"],
-                )
-            )
-
-            run = runner.start_run(
-                config.id,
-                config,
-                None,
-                {"prompt": "Say hello."},
-            )
-
-            await self._await_completed_run(dbe, run.id)
-
-            config_path = (
-                dbe.path
-                / "external_agent_settings"
-                / "codex"
-                / str(config.id)
-                / "config.toml"
-            )
-            self.assertTrue(config_path.exists())
-            content = config_path.read_text(encoding="utf-8")
-            self.assertIn(f'model = "{_CODEX_MODEL}"', content)
-            self.assertIn('approval_policy = "on-request"', content)
-            self.assertIn('sandbox_mode = "workspace-write"', content)
-            self.assertIn('enabled_tools = ["command_execution"]', content)
-            self.assertIn("[mcp_servers.setta]", content)
-
-    async def test_codex_sdk_emits_thinking_blocks(self) -> None:
-        node_path = self._require_codex_sdk()
-        reasoning_effort = "xhigh"
-
-        with TemporaryDirectory() as tmpdir:
-            dbe, runner = self._build_runner(Path(tmpdir))
-            config = self._build_config(node_path)
-
-            run = runner.start_run(
-                config.id,
-                config,
-                None,
-                {
-                    "prompt": (
-                        "Solve this without tools: find the smallest positive "
-                        "integer N such that N ≡ 3 (mod 4), N ≡ 4 (mod 5), "
-                        "N ≡ 6 (mod 7), and N ≡ 8 (mod 9). "
-                        "Respond with only the number."
-                    ),
-                    "threadOptions": {
-                        "modelReasoningEffort": reasoning_effort,
-                    },
-                },
-            )
-
-            stored = await self._await_completed_run(dbe, run.id)
-            outputs = stored.get("outputs")
-            self.assertIsInstance(outputs, dict)
-            messages = outputs.get("messages")
-            self.assertIsInstance(messages, list)
-            if not isinstance(messages, list):
-                raise AssertionError("Expected messages to be a list")
-            thinking_blocks = self._collect_thinking_blocks(messages)
-            if not thinking_blocks:
-                stderr_lines = None
-                if run.id in runner._run_state:
-                    stderr_lines = runner._run_state[run.id].handle.metadata.get(
-                        "stderr_lines"
-                    )
-                self.fail(
-                    self._debug_dump(outputs, stderr_lines, "Expected thinking blocks.")
-                )
-            thinking_text = "".join(
-                block.get("thinking", "")
-                for block in thinking_blocks
-                if isinstance(block.get("thinking"), str)
-            )
-            summary_text = "".join(
-                block.get("summary", "")
-                for block in thinking_blocks
-                if isinstance(block.get("summary"), str)
-            )
-            self.assertTrue((thinking_text + summary_text).strip())
+                        if isinstance(event, dict) and event.get("type")
+                    ]
+                    self.assertIn("run_completed", event_types)

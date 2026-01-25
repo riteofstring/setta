@@ -1045,6 +1045,23 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       if (!prev) {
         return prev;
       }
+      if (key === "toolType") {
+        const toolType = value as ExternalAgentToolTypeValue;
+        let nextRunMode = prev.runMode;
+        if (
+          toolType === ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.sdk
+        ) {
+          nextRunMode = ExternalAgentRunModeEnum.app_server;
+        }
+        if (
+          toolType !== ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.app_server
+        ) {
+          nextRunMode = ExternalAgentRunModeEnum.sdk;
+        }
+        return { ...prev, toolType, runMode: nextRunMode };
+      }
       return { ...prev, [key]: value };
     });
   };
@@ -1054,6 +1071,12 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const isCancelDisabled = !draft;
   const isClaudeTool =
     draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
+  const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
+  const commandPathPlaceholder =
+    draft?.toolType === ExternalAgentToolTypeEnum.codex &&
+    draft?.runMode === ExternalAgentRunModeEnum.app_server
+      ? "codex"
+      : "node";
   const isExplicitSettingsPath =
     draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
 
@@ -1190,21 +1213,25 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   }
                   className={INPUT_CLASS_NAME}
                   disabled={!canEdit}
-                  placeholder="node"
+                  placeholder={commandPathPlaceholder}
                 />
               </Field>
               <div className="grid gap-3 @[40rem]:grid-cols-2">
-                <Field label="Base URL">
-                  <input
-                    value={draft.baseUrl}
-                    onChange={(event) =>
-                      handleFieldChange("baseUrl", event.target.value)
-                    }
-                    className={INPUT_CLASS_NAME}
-                    disabled={!canEdit}
-                    placeholder="http://localhost:3000"
-                  />
-                </Field>
+                {needsBaseUrl ? (
+                  <Field label="Base URL">
+                    <input
+                      value={draft.baseUrl}
+                      onChange={(event) =>
+                        handleFieldChange("baseUrl", event.target.value)
+                      }
+                      className={INPUT_CLASS_NAME}
+                      disabled={!canEdit}
+                      placeholder="http://localhost:3000"
+                    />
+                  </Field>
+                ) : (
+                  <div />
+                )}
                 <Field label="Default Model">
                   <input
                     value={draft.defaultModel}

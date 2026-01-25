@@ -600,6 +600,7 @@ async def route_create_external_agent_config(
             allowlist=None,
             mcp_url=f"{C.BACKEND}/mcp",
             auth_headers=None,
+            system_prompt=None,
         )
     elif config.toolType == ExternalAgentToolType.opencode:
         build_opencode_settings_file(

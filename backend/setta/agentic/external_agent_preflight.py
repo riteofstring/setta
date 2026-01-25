@@ -23,13 +23,10 @@ _SIDECAR_ROOT = Path(__file__).resolve().parent / "external_adapters" / "sidecar
 _SIDECAR_NODE_MODULES = _SIDECAR_ROOT / "node_modules"
 
 _SDK_PACKAGE_BY_TOOL = {
-    ExternalAgentToolType.codex: "@openai/codex-sdk",
     ExternalAgentToolType.opencode: "@opencode-ai/sdk",
 }
 
-_NODE_MIN_MAJOR = {
-    ExternalAgentToolType.codex: 18,
-}
+_NODE_MIN_MAJOR: dict[ExternalAgentToolType, int] = {}
 
 
 def build_external_agent_preflight_status(
@@ -63,6 +60,13 @@ def build_external_agent_preflight_status(
             sdk_version, sdk_issue = _check_sdk_version(config.toolType)
             if sdk_issue:
                 issues.append(sdk_issue)
+    elif (
+        config.runMode == ExternalAgentRunMode.app_server
+        and config.toolType == ExternalAgentToolType.codex
+    ):
+        cli_version, cli_issue = _check_codex_cli(config.commandPath)
+        if cli_issue:
+            issues.append(cli_issue)
 
     working_dir, working_dir_issue = _resolve_working_dir(config)
     if working_dir_issue:
@@ -99,11 +103,9 @@ def build_external_agent_preflight_status(
 def _is_run_mode_supported(
     tool_type: ExternalAgentToolType, run_mode: ExternalAgentRunMode
 ) -> bool:
-    if tool_type in (
-        ExternalAgentToolType.claude_code,
-        ExternalAgentToolType.codex,
-        ExternalAgentToolType.opencode,
-    ):
+    if tool_type == ExternalAgentToolType.codex:
+        return run_mode == ExternalAgentRunMode.app_server
+    if tool_type in (ExternalAgentToolType.claude_code, ExternalAgentToolType.opencode):
         return run_mode == ExternalAgentRunMode.sdk
     return False
 
@@ -155,6 +157,40 @@ def _check_node_version_requirement(
     if major < min_major:
         return f"{tool_type.value} SDK requires Node {min_major}+"
     return None
+
+
+def _check_codex_cli(
+    command_path: str | None,
+) -> tuple[str | None, str | None]:
+    command = command_path or "codex"
+    if Path(command).is_file():
+        cli_path = command
+    else:
+        cli_path = shutil.which(command)
+    if not cli_path:
+        return None, f"codex CLI not found ({command})"
+    result = subprocess.run(
+        [cli_path, "--version"],
+        capture_output=True,
+        text=True,
+        cwd=str(CWD),
+    )
+    raw = (result.stdout or result.stderr).strip()
+    if result.returncode != 0 or not raw:
+        return None, "Failed to read codex CLI version"
+    if not _codex_app_server_available(cli_path):
+        return raw, "codex app-server subcommand not available"
+    return raw, None
+
+
+def _codex_app_server_available(cli_path: str) -> bool:
+    result = subprocess.run(
+        [cli_path, "app-server", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=str(CWD),
+    )
+    return result.returncode == 0
 
 
 def _check_sdk_version(

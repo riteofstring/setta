@@ -236,6 +236,7 @@ export const ExternalAgentRunModeEnum = {
   mcp: "mcp",
   server: "server",
   sdk: "sdk",
+  app_server: "app_server",
 } as const;
 
 export const ExternalAgentSettingsModeEnum = {
@@ -4864,6 +4865,7 @@ const ExternalAgentConfigSchema = z.object({
     .enum(ExternalAgentWorkingDirStrategyEnum)
     .default(ExternalAgentWorkingDirStrategyEnum.project_root),
   workingDir: z.union([z.string(), z.null()]).default(null),
+  codexSkipGitRepoCheck: z.union([z.boolean(), z.null()]).default(null),
 });
 
 export type ExternalAgentConfig = z.infer<typeof ExternalAgentConfigSchema>;

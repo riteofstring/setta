@@ -4,6 +4,7 @@
 - `ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `dnd-kit.md` – how the forked dnd-kit integration powers drag, sort, and reparenting in the UI.
+- `external-agents.md` – how external agent adapters work and how Codex uses app-server.
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `chat-toolkit.md` – listener toolkit for custom LLM providers, streaming deltas, tool calls, and sync helpers.
 - `chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.

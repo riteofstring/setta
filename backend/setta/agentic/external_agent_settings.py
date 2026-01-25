@@ -110,6 +110,7 @@ def build_codex_settings_file(
     allowlist: ExternalToolAllowlist | None,
     mcp_url: str,
     auth_headers: dict[str, str] | None,
+    system_prompt: str | None,
 ) -> Path:
     settings_path = resolve_codex_settings_path(dbe, config)
     if settings_path is None:
@@ -122,6 +123,9 @@ def build_codex_settings_file(
     _set_codex_mcp_server(payload, mcp_url, auth_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
+        _apply_codex_auth_settings(payload, config)
+        _apply_codex_reasoning_settings(payload)
+    _apply_codex_system_prompt(payload, system_prompt)
     settings_path.write_text(_dump_toml(payload), encoding="utf-8")
     return settings_path.parent
 
@@ -234,6 +238,53 @@ def _apply_codex_managed_settings(
         payload["sandbox_mode"] = sandbox_mode
     if enabled_tools is not None:
         payload["enabled_tools"] = enabled_tools
+
+
+def _apply_codex_system_prompt(
+    payload: dict[str, Any], system_prompt: str | None
+) -> None:
+    if system_prompt is None:
+        return
+    normalized = system_prompt.strip()
+    if not normalized:
+        return
+    existing = payload.get("developer_instructions")
+    if isinstance(existing, str) and existing.strip():
+        payload["developer_instructions"] = f"{normalized}\n\n{existing.strip()}"
+        return
+    payload["developer_instructions"] = normalized
+
+
+def _apply_codex_auth_settings(
+    payload: dict[str, Any], config: ExternalAgentConfig
+) -> None:
+    if "OPENAI_API_KEY" not in config.envVarWhitelist:
+        return
+    forced = payload.get("forced_login_method")
+    if not (isinstance(forced, str) and forced.strip()):
+        payload["forced_login_method"] = "api"
+    preferred = payload.get("preferred_auth_method")
+    if not (isinstance(preferred, str) and preferred.strip()):
+        payload["preferred_auth_method"] = "apikey"
+    credentials_store = payload.get("cli_auth_credentials_store")
+    if not (isinstance(credentials_store, str) and credentials_store.strip()):
+        payload["cli_auth_credentials_store"] = "file"
+    features = payload.get("features")
+    if not isinstance(features, dict):
+        features = {}
+    if "remote_models" not in features:
+        features["remote_models"] = False
+    if "remote_compaction" not in features:
+        features["remote_compaction"] = False
+    if features:
+        payload["features"] = features
+
+
+def _apply_codex_reasoning_settings(payload: dict[str, Any]) -> None:
+    summary = payload.get("model_reasoning_summary")
+    if isinstance(summary, str) and summary.strip():
+        return
+    payload["model_reasoning_summary"] = "none"
 
 
 def _apply_opencode_managed_settings(

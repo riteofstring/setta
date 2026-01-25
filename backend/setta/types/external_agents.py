@@ -17,6 +17,7 @@ class ExternalAgentRunMode(str, Enum):
     mcp = "mcp"
     server = "server"
     sdk = "sdk"
+    app_server = "app_server"
 
 
 class ExternalAgentWorkingDirStrategy(str, Enum):

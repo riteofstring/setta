@@ -128,7 +128,7 @@ class ExternalAgentSettingsTests(unittest.TestCase):
                 id="codex-explicit",
                 name="Codex",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 settingsMode=ExternalAgentSettingsMode.explicit_path,
                 settingsFilePath=str(base_path),
                 settingsAllowSettaEdits=False,
@@ -141,6 +141,7 @@ class ExternalAgentSettingsTests(unittest.TestCase):
                 allowlist=None,
                 mcp_url="http://localhost:8000/mcp",
                 auth_headers=None,
+                system_prompt=None,
             )
 
             output_path = output_dir / "config.toml"
@@ -155,6 +156,33 @@ class ExternalAgentSettingsTests(unittest.TestCase):
                     "http://localhost:8000/mcp",
                 )
             self.assertEqual(base_path.read_text(encoding="utf-8"), original)
+
+    def test_build_codex_settings_file_sets_preferred_auth_method(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            config = ExternalAgentConfig(
+                id="codex-auth",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                envVarWhitelist=["OPENAI_API_KEY"],
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_path = output_dir / "config.toml"
+            output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(output_payload.get("forced_login_method"), "api")
+            self.assertEqual(output_payload.get("preferred_auth_method"), "apikey")
+            self.assertEqual(output_payload.get("cli_auth_credentials_store"), "file")
+            self.assertEqual(output_payload.get("model_reasoning_summary"), "none")
 
     def test_build_opencode_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:

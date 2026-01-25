@@ -268,15 +268,15 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state) as ctx:
                 created = await route_create_external_agent_config(
                     CreateExternalAgentConfigRequest(
-                        name="Codex SDK",
+                        name="Codex app-server",
                         description="SDK-based Codex",
                         toolType=ExternalAgentToolType.codex,
-                        runMode=ExternalAgentRunMode.sdk,
+                        runMode=ExternalAgentRunMode.app_server,
                         commandPath="/usr/local/bin/node",
                         defaultModel="o1-mini",
                         sandboxPolicy="read-only",
                         approvalPolicy="on-failure",
-                        envVarWhitelist=["CODEX_API_KEY"],
+                        envVarWhitelist=["OPENAI_API_KEY"],
                         workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
                     ),
                     ctx,
@@ -290,14 +290,14 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
                     GetExternalAgentConfigRequest(configId=created.id),
                     ctx,
                 )
-                self.assertEqual(fetched.name, "Codex SDK")
+                self.assertEqual(fetched.name, "Codex app-server")
 
-                updated = created.model_copy(update={"name": "Codex SDK v2"})
+                updated = created.model_copy(update={"name": "Codex app-server v2"})
                 updated_config = await route_update_external_agent_config(
                     UpdateExternalAgentConfigRequest(config=updated),
                     ctx,
                 )
-                self.assertEqual(updated_config.name, "Codex SDK v2")
+                self.assertEqual(updated_config.name, "Codex app-server v2")
 
                 await route_delete_external_agent_config(
                     DeleteExternalAgentConfigRequest(configId=updated.id),
@@ -364,9 +364,9 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state) as ctx:
                 created = await route_create_external_agent_config(
                     CreateExternalAgentConfigRequest(
-                        name="Codex SDK",
+                        name="Codex app-server",
                         toolType=ExternalAgentToolType.codex,
-                        runMode=ExternalAgentRunMode.sdk,
+                        runMode=ExternalAgentRunMode.app_server,
                     ),
                     ctx,
                 )
@@ -460,9 +460,9 @@ class AgenticRoutesTests(unittest.IsolatedAsyncioTestCase):
             with runtime_context(state) as ctx:
                 created = await route_create_external_agent_config(
                     CreateExternalAgentConfigRequest(
-                        name="Codex SDK",
+                        name="Codex app-server",
                         toolType=ExternalAgentToolType.codex,
-                        runMode=ExternalAgentRunMode.sdk,
+                        runMode=ExternalAgentRunMode.app_server,
                     ),
                     ctx,
                 )

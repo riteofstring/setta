@@ -35,13 +35,14 @@ class ExternalAgentPreflightTests(unittest.TestCase):
     def _build_config(
         self,
         *,
+        tool_type: ExternalAgentToolType = ExternalAgentToolType.codex,
         run_mode: ExternalAgentRunMode,
         command_path: str | None = None,
         env_vars: list[str] | None = None,
     ) -> ExternalAgentConfig:
         return ExternalAgentConfig(
             name="Test config",
-            toolType=ExternalAgentToolType.codex,
+            toolType=tool_type,
             runMode=run_mode,
             commandPath=command_path,
             envVarWhitelist=env_vars or [],
@@ -60,8 +61,8 @@ class ExternalAgentPreflightTests(unittest.TestCase):
 
         dbe.write_dot_env({key_present: "yes"})
         config = self._build_config(
-            run_mode=ExternalAgentRunMode.sdk,
-            command_path="definitely_not_a_node_executable",
+            run_mode=ExternalAgentRunMode.app_server,
+            command_path="definitely_not_a_codex_executable",
             env_vars=[key_present, key_missing],
         )
         status = build_external_agent_preflight_status(dbe, config)
@@ -80,17 +81,17 @@ class ExternalAgentPreflightTests(unittest.TestCase):
         self.assertTrue(any("Run mode" in issue for issue in status.issues))
         self.assertTrue(any("baseUrl is required" in issue for issue in status.issues))
 
-    def test_missing_node_reports_issue(self) -> None:
+    def test_missing_codex_cli_reports_issue(self) -> None:
         tmp = self._temp_cwd()
         dbe = DBE(tmp / "setta_files")
         config = self._build_config(
-            run_mode=ExternalAgentRunMode.sdk,
-            command_path="definitely_not_a_node_executable",
+            run_mode=ExternalAgentRunMode.app_server,
+            command_path="definitely_not_a_codex_executable",
         )
         status = build_external_agent_preflight_status(dbe, config)
 
         self.assertTrue(
-            any("Node executable not found" in issue for issue in status.issues)
+            any("codex CLI not found" in issue for issue in status.issues)
         )
 
     def test_check_node_uses_command_path(self) -> None:
@@ -111,20 +112,23 @@ class ExternalAgentPreflightTests(unittest.TestCase):
     def test_sdk_version_reflects_sidecar_install(self) -> None:
         tmp = self._temp_cwd()
         dbe = DBE(tmp / "setta_files")
-        config = self._build_config(run_mode=ExternalAgentRunMode.sdk)
+        config = self._build_config(
+            tool_type=ExternalAgentToolType.opencode,
+            run_mode=ExternalAgentRunMode.sdk,
+        )
         status = build_external_agent_preflight_status(dbe, config)
 
         package_json = (
             preflight._SIDECAR_NODE_MODULES
-            / "@openai"
-            / "codex-sdk"
+            / "@opencode-ai"
+            / "sdk"
             / "package.json"
         )
         if not package_json.exists():
             self.assertIsNone(status.sdkVersion)
             self.assertTrue(
                 any(
-                    "@openai/codex-sdk is not installed" in issue
+                    "@opencode-ai/sdk is not installed" in issue
                     for issue in status.issues
                 )
             )
@@ -141,22 +145,3 @@ class ExternalAgentPreflightTests(unittest.TestCase):
             self.assertEqual(status.sdkVersion, version.strip())
         else:
             self.assertIsNone(status.sdkVersion)
-
-    def test_codex_approval_policy_no_longer_reports_issue(self) -> None:
-        tmp = self._temp_cwd()
-        dbe = DBE(tmp / "setta_files")
-        config = ExternalAgentConfig(
-            name="Codex SDK",
-            toolType=ExternalAgentToolType.codex,
-            runMode=ExternalAgentRunMode.sdk,
-            approvalPolicy="on-request",
-        )
-
-        status = build_external_agent_preflight_status(dbe, config)
-
-        self.assertFalse(
-            any(
-                "Codex SDK approvals are not supported" in issue
-                for issue in status.issues
-            )
-        )

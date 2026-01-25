@@ -124,9 +124,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
 
             context = _build_context_for_test(
@@ -145,9 +145,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
 
             context = _build_context_for_test(
@@ -246,9 +246,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
                 id="config-1",
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
             previous = create_agent_run(
                 profile_id=None,
@@ -513,9 +513,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
             run = create_agent_run(
                 profile_id=None,
@@ -559,9 +559,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-123")
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 defaultModel="gpt-4o-mini",
                 approvalPolicy="never",
                 sandboxPolicy="restricted",
@@ -627,9 +627,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-1")
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
             profile = AgentProfile(name="Agent")
 
@@ -651,9 +651,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-2")
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
 
             with self.assertRaises(TypeError):
@@ -673,7 +673,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             config = ExternalAgentConfig(
                 name="Custom",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
                 workingDir=str(working_dir),
             )
@@ -687,18 +687,18 @@ class ExternalAgentRunnerTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.write_dot_env({"CODEX_API_KEY": "secret"})
+            dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=["CODEX_API_KEY"],
+                runMode=ExternalAgentRunMode.app_server,
+                envVarWhitelist=["OPENAI_API_KEY"],
             )
 
             env = runner._build_env(config)
 
-            self.assertEqual(env.get("CODEX_API_KEY"), "secret")
+            self.assertEqual(env.get("OPENAI_API_KEY"), "secret")
 
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -780,9 +780,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 id="codex-config",
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
 
             context = _build_context_for_test(runner, config)
@@ -808,9 +808,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 defaultModel="gpt-5-codex",
                 sandboxPolicy="workspace-write",
                 approvalPolicy="on-failure",
@@ -841,9 +841,9 @@ class ExternalAgentRunnerTests(unittest.TestCase):
                 toolAllowlist=["setta__getProjectState", "runTool"],
             )
             config = ExternalAgentConfig(
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 settingsMode=ExternalAgentSettingsMode.managed_project,
             )
 
@@ -954,7 +954,7 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             config = ExternalAgentConfig(
                 name="TempDir",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
                 workingDirStrategy=ExternalAgentWorkingDirStrategy.temp_dir,
             )
 
@@ -1798,9 +1798,9 @@ class ExternalAgentRunnerMcpAuthTests(unittest.TestCase):
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(
                 id="codex-auth",
-                name="Codex SDK",
+                name="Codex app-server",
                 toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.sdk,
+                runMode=ExternalAgentRunMode.app_server,
             )
             context = _build_context_for_test(runner, config)
             codex_home = Path(str(context.env.get("CODEX_HOME")))

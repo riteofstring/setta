@@ -22,7 +22,7 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunHandle,
 )
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
-from setta.agentic.external_adapters.codex_sdk import CodexSdkAdapter
+from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_settings import (
@@ -145,7 +145,11 @@ class ExternalAgentRunner:
         self.share_session_id = share_session_id
         self.mcp_client = mcp_client
         self._adapter_registry = adapter_registry or ExternalAgentAdapterRegistry(
-            adapters=[ClaudeSdkAdapter(), CodexSdkAdapter(), OpenCodeSdkAdapter()]
+            adapters=[
+                ClaudeSdkAdapter(),
+                CodexAppServerAdapter(),
+                OpenCodeSdkAdapter(),
+            ]
         )
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
@@ -304,6 +308,9 @@ class ExternalAgentRunner:
             stderr_lines = None
             if handle is not None:
                 stderr_lines = handle.metadata.get("stderr_lines")
+                app_server_errors = handle.metadata.get("app_server_errors")
+                if isinstance(app_server_errors, list) and app_server_errors:
+                    error_payload["appServerErrors"] = app_server_errors
             if isinstance(stderr_lines, list) and stderr_lines:
                 error_payload["cliStderr"] = stderr_lines[-50:]
             self._persist_external_session_metadata(run, handle)
@@ -372,6 +379,7 @@ class ExternalAgentRunner:
             payload_inputs=payload_inputs,
             env=env,
             cleanup_paths=cleanup_paths,
+            system_prompt=system_prompt,
         )
         return ExternalAgentRunContext(
             run=run,
@@ -627,6 +635,7 @@ class ExternalAgentRunner:
         payload_inputs: dict[str, Any],
         env: dict[str, str],
         cleanup_paths: list[Path],
+        system_prompt: str,
     ) -> None:
         allowlist = self._resolve_external_tool_allowlist(profile)
         mcp_url = self._build_setta_mcp_url()
@@ -652,14 +661,32 @@ class ExternalAgentRunner:
             env["OPENCODE_CONFIG"] = str(config_path)
             return
         if config.toolType == ExternalAgentToolType.codex:
+            codex_prompt = self._resolve_codex_developer_instructions(
+                profile, payload_inputs
+            )
             codex_home = build_codex_settings_file(
                 self.dbe,
                 config,
                 allowlist=allowlist,
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
+                system_prompt=codex_prompt,
             )
             env["CODEX_HOME"] = str(codex_home)
+
+    @staticmethod
+    def _resolve_codex_developer_instructions(
+        profile: AgentProfile | None, payload_inputs: dict[str, Any]
+    ) -> str | None:
+        raw = payload_inputs.get("systemPrompt")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        if profile is None:
+            return None
+        normalized = profile.systemPrompt.strip()
+        if normalized:
+            return normalized
+        return None
 
     @staticmethod
     def _build_setta_mcp_url() -> str:
