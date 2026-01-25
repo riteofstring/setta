@@ -1,0 +1,520 @@
+import keyword
+from typing import TYPE_CHECKING
+
+from setta.code_gen.utils import sanitize_name
+from setta.types.code_obj_impls import (
+    BaseParamCodeObjImpl,
+    ParameterPassingStyle,
+)
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl_with_type_guard,
+    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
+)
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    project_config_has_codegen_language,
+)
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    BaseParentSectionImpl,
+    BaseSectionWithParamsImpl,
+    CallableSectionImpl,
+    ListRootSectionImpl,
+)
+from setta.utils.constants import C
+from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
+
+if TYPE_CHECKING:
+    from setta.types.id import ID
+    from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+
+
+PROJECT_RESERVED_NAMES: frozenset[str] = frozenset(
+    {
+        "home",
+        C.SETTINGS_PROJECT_NAME.lower(),
+    }
+)
+SECTION_RESERVED_NAMES: frozenset[str] = frozenset()
+PARAM_RESERVED_NAMES: frozenset[str] = frozenset()
+ALLOWED_SIMPLE_NAME_CHARS: frozenset[str] = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-"
+)
+
+
+def _normalize_name(name: str) -> str:
+    return name.strip()
+
+
+def _contains_control_chars(name: str) -> bool:
+    for char in name:
+        codepoint = ord(char)
+        if codepoint < 32 or codepoint == 127:
+            return True
+    return False
+
+
+def _raise_invalid_name(message: str, exc_type: type[ValueError]) -> None:
+    raise exc_type(message)
+
+
+def _ensure_non_empty(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    if not name:
+        _raise_invalid_name(f"{label} cannot be empty.", exc_type)
+
+
+def _ensure_no_control_chars(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    if _contains_control_chars(name):
+        _raise_invalid_name(
+            f"{label} cannot include control characters.",
+            exc_type,
+        )
+
+
+def _ensure_no_path_separators(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    if "/" in name or "\\" in name:
+        _raise_invalid_name(
+            f"{label} cannot include path separators.",
+            exc_type,
+        )
+
+
+def _ensure_no_dotdot(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    if ".." in name:
+        _raise_invalid_name(
+            f"{label} cannot include '..' path segments.",
+            exc_type,
+        )
+
+
+def _ensure_allowed_chars(
+    name: str,
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    for char in name:
+        if char not in ALLOWED_SIMPLE_NAME_CHARS:
+            _raise_invalid_name(
+                f"{label} can only contain letters, numbers, spaces, '_' and '-'.",
+                exc_type,
+            )
+
+
+def _ensure_not_reserved(
+    name: str,
+    reserved_names: frozenset[str],
+    exc_type: type[ValueError],
+    label: str,
+) -> None:
+    if name.lower() in reserved_names:
+        _raise_invalid_name(
+            f"{label} '{name}' is reserved.",
+            exc_type,
+        )
+
+
+def validate_project_name_format(
+    name: str,
+    *,
+    allow_reserved: bool = False,
+) -> str:
+    normalized = _normalize_name(name)
+    _ensure_non_empty(normalized, InvalidProjectName, "Project name")
+    _ensure_no_control_chars(normalized, InvalidProjectName, "Project name")
+    _ensure_no_path_separators(normalized, InvalidProjectName, "Project name")
+    _ensure_no_dotdot(normalized, InvalidProjectName, "Project name")
+    _ensure_allowed_chars(normalized, InvalidProjectName, "Project name")
+    if not allow_reserved:
+        _ensure_not_reserved(
+            normalized, PROJECT_RESERVED_NAMES, InvalidProjectName, "Project name"
+        )
+    slug = sanitize_name(normalized)
+    if not slug:
+        _raise_invalid_name(
+            "Project name is invalid after sanitization.",
+            InvalidProjectName,
+        )
+    return normalized
+
+
+def validate_project_name(
+    project_state: "ProjectStateBackend",
+    project_config_id: "ID | None",
+    name: str,
+) -> str:
+    normalized = validate_project_name_format(name)
+    slug = sanitize_name(normalized)
+    for existing_id, config in project_state.projectConfigs.items():
+        if project_config_id is not None and existing_id == project_config_id:
+            continue
+        existing_slug = sanitize_name(config.name)
+        if slug == existing_slug:
+            _raise_invalid_name(
+                f"Project name '{normalized}' conflicts with existing project '{config.name}'.",
+                InvalidProjectName,
+            )
+    return normalized
+
+
+def validate_section_name_format(name: str) -> str:
+    normalized = _normalize_name(name)
+    _ensure_non_empty(normalized, InvalidSectionName, "Section name")
+    _ensure_no_control_chars(normalized, InvalidSectionName, "Section name")
+    _ensure_no_path_separators(normalized, InvalidSectionName, "Section name")
+    _ensure_no_dotdot(normalized, InvalidSectionName, "Section name")
+    _ensure_allowed_chars(normalized, InvalidSectionName, "Section name")
+    _ensure_not_reserved(
+        normalized, SECTION_RESERVED_NAMES, InvalidSectionName, "Section name"
+    )
+    return normalized
+
+
+def _get_section_children_ids(
+    project_state: "ProjectStateSingleConfig", section_id: "ID"
+) -> list["ID"]:
+    impl = get_curr_effective_section_impl_with_type_guard(
+        project_state, section_id, BaseParentSectionImpl
+    )
+    return impl.children
+
+
+def _resolve_section_name(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    name_overrides: dict["ID", str] | None,
+) -> str:
+    if name_overrides and section_id in name_overrides:
+        return name_overrides[section_id]
+    return project_state.sections[section_id].name
+
+
+def _resolve_section_full_path_name(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    name_overrides: dict["ID", str] | None = None,
+) -> str:
+    if section_id not in project_state.sections:
+        raise KeyError(f"Missing section {section_id}.")
+    if section_id not in project_state.parentSectionMap:
+        raise KeyError(f"Missing parentSectionMap entry for section {section_id}.")
+    parent_id = project_state.parentSectionMap[section_id]
+    if not parent_id:
+        return _resolve_section_name(project_state, section_id, name_overrides)
+    child_id = section_id
+    output = ""
+    while parent_id:
+        child_impl = get_curr_effective_section_impl(project_state, child_id)
+        if isinstance(child_impl, ListRootSectionImpl):
+            idx = _get_section_children_ids(project_state, parent_id).index(child_id)
+            output = f"[{idx}]{output}"
+        else:
+            child_name = _resolve_section_name(project_state, child_id, name_overrides)
+            output = f'["{child_name}"]{output}'
+        child_id = parent_id
+        parent_id = project_state.parentSectionMap[parent_id]
+    child_name = _resolve_section_name(project_state, child_id, name_overrides)
+    return f"{child_name}{output}"
+
+
+def _collect_section_slug_map(
+    project_state: "ProjectStateSingleConfig",
+    name_overrides: dict["ID", str] | None = None,
+) -> tuple[dict["ID", str], dict[str, list["ID"]]]:
+    slug_by_section_id: dict["ID", str] = {}
+    slug_to_section_ids: dict[str, list["ID"]] = {}
+    for section_id in project_state.sections:
+        full_name = _resolve_section_full_path_name(
+            project_state, section_id, name_overrides
+        )
+        slug = sanitize_name(full_name)
+        slug_by_section_id[section_id] = slug
+        slug_to_section_ids.setdefault(slug, []).append(section_id)
+    return slug_by_section_id, slug_to_section_ids
+
+
+def validate_section_name(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    name: str,
+) -> str:
+    normalized = validate_section_name_format(name)
+    if section_id not in project_state.parentSectionMap:
+        raise KeyError(f"Missing parentSectionMap entry for section {section_id}.")
+    parent_id = project_state.parentSectionMap[section_id]
+    if parent_id is None:
+        sibling_ids = list(project_state.projectConfig.topLevelSections.keys())
+    else:
+        sibling_ids = _get_section_children_ids(project_state, parent_id)
+    for sibling_id in sibling_ids:
+        if sibling_id == section_id:
+            continue
+        sibling_name = project_state.sections[sibling_id].name.strip()
+        if sibling_name == normalized:
+            _raise_invalid_name(
+                f'Section name "{normalized}" already exists under this parent.',
+                InvalidSectionName,
+            )
+
+    slug_by_section_id, slug_to_section_ids = _collect_section_slug_map(
+        project_state, {section_id: normalized}
+    )
+    section_slug = slug_by_section_id.get(section_id, "")
+    if not section_slug:
+        _raise_invalid_name(
+            "Section name is invalid after sanitization.",
+            InvalidSectionName,
+        )
+    if len(slug_to_section_ids.get(section_slug, [])) > 1:
+        _raise_invalid_name(
+            f'Section path slug "{section_slug}" conflicts with another section.',
+            InvalidSectionName,
+        )
+    return normalized
+
+
+def _get_section_param_root_id(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    section_impl: BaseSectionWithParamsImpl,
+) -> "ID":
+    if isinstance(section_impl, CallableSectionImpl):
+        root_id = section_impl.callable
+        if root_id is None:
+            raise KeyError(f"Section {section_id} missing callable root.")
+        if root_id not in project_state.codeObjs:
+            raise KeyError(f"Callable root {root_id} missing from project state.")
+        return root_id
+    if isinstance(section_impl, BaseDictSectionImpl):
+        root_id = section_impl.topLevelParamId
+        if root_id is None:
+            raise KeyError(f"Section {section_id} missing top level param root.")
+        if root_id not in project_state.codeObjs:
+            raise KeyError(
+                f"Top level param root {root_id} missing from project state."
+            )
+        return root_id
+    raise TypeError(f"Section {section_id} does not support params.")
+
+
+def _is_dict_param(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+) -> bool:
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    return isinstance(section_impl, BaseDictSectionImpl)
+
+
+def _collect_param_hierarchy(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    section_impl: BaseSectionWithParamsImpl,
+) -> tuple["ID", dict["ID", "ID | None"], dict["ID", list["ID"]]]:
+    root_id = _get_section_param_root_id(project_state, section_id, section_impl)
+    if root_id not in section_impl.codeObjVariantMap:
+        raise KeyError(f"Section {section_id} missing root param variant mapping.")
+    hierarchy = traverse_hierarchy(
+        project_state.codeObjs,
+        project_state.codeObjImpls,
+        project_state.codeObjVariants,
+        section_impl.codeObjVariantMap,
+        top_level_ids=[],
+        root_id=root_id,
+        options=TraversalOptions(build_parent_map=True, build_children_map=True),
+    )
+    return root_id, hierarchy.parent_map, hierarchy.children_map
+
+
+def validate_param_name_format(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    code_obj_id: "ID",
+    name: str,
+) -> str:
+    normalized = _normalize_name(name)
+    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state, section_id, code_obj_id, BaseParamCodeObjImpl
+    )
+    if not normalized:
+        if code_obj_impl.coreNameEditable:
+            return normalized
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if isinstance(section_impl, BaseDictSectionImpl):
+            if section_impl.topLevelParamId == code_obj_id:
+                return normalized
+    _ensure_non_empty(normalized, InvalidParamName, "Param name")
+    _ensure_no_control_chars(normalized, InvalidParamName, "Param name")
+    if not _is_dict_param(project_state, section_id):
+        _ensure_no_path_separators(normalized, InvalidParamName, "Param name")
+        _ensure_no_dotdot(normalized, InvalidParamName, "Param name")
+        _ensure_not_reserved(
+            normalized, PARAM_RESERVED_NAMES, InvalidParamName, "Param name"
+        )
+        python_codegen_enabled = project_config_has_codegen_language(
+            project_state.projectConfig, ProjectCodegenLanguage.python
+        )
+        if python_codegen_enabled and code_obj_impl.passingStyle in (
+            ParameterPassingStyle.DEFAULT,
+            ParameterPassingStyle.KEYWORD_ONLY,
+        ):
+            if not normalized.isidentifier():
+                _raise_invalid_name(
+                    "Param name must be a valid Python identifier.",
+                    InvalidParamName,
+                )
+            if keyword.iskeyword(normalized):
+                _raise_invalid_name(
+                    "Param name cannot be a Python keyword.",
+                    InvalidParamName,
+                )
+    return normalized
+
+
+def validate_param_name(
+    project_state: "ProjectStateSingleConfig",
+    section_id: "ID",
+    code_obj_id: "ID",
+    name: str,
+) -> str:
+    normalized = validate_param_name_format(
+        project_state, section_id, code_obj_id, name
+    )
+    if not normalized:
+        return normalized
+    section_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state, section_id, BaseSectionWithParamsImpl
+    )
+    _, parent_map, children_map = _collect_param_hierarchy(
+        project_state, section_id, section_impl
+    )
+    if code_obj_id not in parent_map:
+        raise KeyError(f"Param {code_obj_id} not found in section {section_id}.")
+    parent_id = parent_map[code_obj_id]
+    if parent_id is None:
+        return normalized
+    siblings = children_map.get(parent_id, [])
+    for sibling_id in siblings:
+        if sibling_id == code_obj_id:
+            continue
+        sibling_name = project_state.codeObjs[sibling_id].name.strip()
+        if sibling_name == normalized:
+            _raise_invalid_name(
+                f'Param name "{normalized}" already exists under this parent.',
+                InvalidParamName,
+            )
+    return normalized
+
+
+def collect_section_name_conflicts(
+    project_state: "ProjectStateSingleConfig",
+) -> dict["ID", list[str]]:
+    errors: dict["ID", list[str]] = {}
+
+    def add_error(section_id: "ID", message: str) -> None:
+        errors.setdefault(section_id, []).append(message)
+
+    siblings_by_parent: dict["ID | None", list["ID"]] = {}
+    for section_id in project_state.sections:
+        if section_id not in project_state.parentSectionMap:
+            raise KeyError(f"Missing parentSectionMap entry for section {section_id}.")
+        parent_id = project_state.parentSectionMap[section_id]
+        siblings_by_parent.setdefault(parent_id, []).append(section_id)
+
+    for child_ids in siblings_by_parent.values():
+        name_to_ids: dict[str, list["ID"]] = {}
+        for child_id in child_ids:
+            name = project_state.sections[child_id].name.strip()
+            if not name:
+                continue
+            name_to_ids.setdefault(name, []).append(child_id)
+        for name, ids in name_to_ids.items():
+            if len(ids) > 1:
+                message = f'Duplicate sibling name "{name}".'
+                for child_id in ids:
+                    add_error(child_id, message)
+
+    _, slug_to_section_ids = _collect_section_slug_map(project_state)
+    for slug, ids in slug_to_section_ids.items():
+        if not slug:
+            message = "Section name is invalid after sanitization."
+            for section_id in ids:
+                add_error(section_id, message)
+            continue
+        if len(ids) > 1:
+            message = f'Section path slug "{slug}" conflicts with another section.'
+            for section_id in ids:
+                add_error(section_id, message)
+
+    return errors
+
+
+def collect_param_name_conflicts(
+    project_state: "ProjectStateSingleConfig",
+) -> dict["ID", list[str]]:
+    errors: dict["ID", list[str]] = {}
+
+    def add_error(param_id: "ID", message: str) -> None:
+        errors.setdefault(param_id, []).append(message)
+
+    for section_id in project_state.sections:
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            continue
+        if (
+            isinstance(section_impl, CallableSectionImpl)
+            and section_impl.callable is None
+        ):
+            continue
+        if (
+            isinstance(section_impl, BaseDictSectionImpl)
+            and section_impl.topLevelParamId is None
+        ):
+            continue
+        _, _, children_map = _collect_param_hierarchy(
+            project_state, section_id, section_impl
+        )
+        for child_ids in children_map.values():
+            name_to_ids: dict[str, list["ID"]] = {}
+            for param_id in child_ids:
+                name = project_state.codeObjs[param_id].name.strip()
+                if not name:
+                    continue
+                name_to_ids.setdefault(name, []).append(param_id)
+            for name, ids in name_to_ids.items():
+                if len(ids) > 1:
+                    message = f'Duplicate param name "{name}".'
+                    for param_id in ids:
+                        add_error(param_id, message)
+    return errors
+
+
+def get_section_slug_conflict_ids(
+    project_state: "ProjectStateSingleConfig",
+) -> set["ID"]:
+    conflict_ids: set["ID"] = set()
+    slug_by_section_id, slug_to_section_ids = _collect_section_slug_map(project_state)
+    for slug, ids in slug_to_section_ids.items():
+        if not slug or len(ids) > 1:
+            conflict_ids.update(ids)
+            continue
+    for section_id, slug in slug_by_section_id.items():
+        if not slug:
+            conflict_ids.add(section_id)
+    return conflict_ids

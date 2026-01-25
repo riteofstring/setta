@@ -12,28 +12,6 @@ The policy has four levers:
 - `typePolicies`: per-section-type defaults (mode + representation).
 - `sectionOverrides`: per-section-id overrides (mode + representation).
 
-## Code obj value policy model
-
-Code obj value policy lives on the Python codegen target as `ProjectCodegenPythonTarget.codeObjValuePolicy` (`backend/setta/types/project_config.py`). It controls how code object (param) values are formatted in generated Python and in MetaControl section outputs.
-
-The policy has two levers:
-- `typePolicies`: per-code-obj-type defaults (representation only).
-- `codeObjOverrides`: per-code-obj-id overrides (representation only).
-
-Supported representations:
-- `expression` (default): use the existing type-specific formatting (current behavior).
-- `json_parsed`: parse the stored value as JSON and emit the resulting Python literal.
-- `string`: always emit the stored string via `repr(...)`.
-- `file_path`: for DropzoneParam only, emit a list of attachment file paths (plus dropped text entries).
-- `file_read`: for DropzoneParam only, emit a list where file attachments are read via `read_file_value(...)`.
-Some code obj types only support specific representations; unsupported combinations raise `ValueError`.
-Current limits:
-- Expression only: `ButtonParam`, `NestedParam`, `CodeCallable`.
-- String only: `TextParam`, `TextAreaParam`, `PasswordParam`, `ColorPickerParam`.
-- Expression + string: `CodeParam`, `RotaryParam`, `SwitchParam`, `DropdownParam`.
-- Expression + json_parsed + string: `SliderParam`.
-- File path/read only: `DropzoneParam`.
-
 ## Policy resolution order
 
 `resolve_section_codegen_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedSectionCodegenPolicy` in this order:
@@ -45,13 +23,6 @@ Current limits:
 
 The result is `include_in_codegen` plus the chosen `representation`.
 
-## Code obj value policy resolution order
-
-`resolve_code_obj_value_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedCodeObjValuePolicy` in this order:
-- Start with `typePolicies[code_obj_type]` (defaulting to `expression`).
-- Apply `codeObjOverrides[code_obj_id]` if present.
-- Validate representation support for the code obj type; unsupported combinations raise a `ValueError`.
-
 ## How policy affects codegen
 
 The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
@@ -59,22 +30,11 @@ The dependency graph uses the resolved policy when exporting nodes (`backend/set
 - The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
 - Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat).
 
-Code obj value policies are resolved during dependency graph export:
-- Each `ParamNode` stores `value_representation`, resolved from `codeObjValuePolicy`.
-- MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
-
-The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
-- `expression` uses the existing per-type formatting (switch bools, nested dicts, etc).
-- `json_parsed` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
-- `string` always emits `repr(literal_value)`.
-- `file_path` (DropzoneParam) emits a list of attachment file paths plus dropped text entries.
-- `file_read` (DropzoneParam) emits a list where file attachments are read via `read_file_value(...)` (text entries stay as strings).
-
 Representation determines how section payloads are encoded:
-- `expression` is the only supported representation for most non-Chat/Draw/Image section types; their values are emitted from the dependency graph as literals.
-- Image sections support `file_path` and `file_read`. The graph stores either a literal path or a `FileReadDependencyValue` pointing at `imagePath`; missing paths raise `ValueError`.
-- Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` and require `chatId` (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
-- Draw sections support `file_path` and `file_read`. File modes require `renderedImagePath` and raise `ValueError` if missing.
+- `json` is the only supported representation for most non-Chat/Draw section types; their values are emitted from the dependency graph as literals.
+ - Image sections only support `file`. The graph stores a `FileReadDependencyValue` pointing at `imagePath` and the packaged runtime reads it from disk; empty image paths render `None`.
+- Chat sections support `json` or `file`. When `file` is selected and `chatId` is present, the graph stores a `FileReadDependencyValue` pointing at `setta_files/chats/<chatId>.json` and the packaged runtime reads it (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
+- Draw sections only support `file`. Any other representation raises a `ValueError`. When `renderedImagePath` is set, the graph stores a `FileReadDependencyValue` and the packaged runtime reads it from disk; if no snapshot exists, codegen emits `None`.
 
 ## Generated Python output
 

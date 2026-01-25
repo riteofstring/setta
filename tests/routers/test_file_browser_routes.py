@@ -16,9 +16,8 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
-from setta.utils.constants import C, CWD
+from setta.utils.constants import CWD
 from tests.utils.runtime_context import runtime_context
-from tests.utils.manager_fixture import _seed_minimal_setta_files
 
 
 def _build_share_deployment_root(
@@ -70,62 +69,13 @@ async def _shutdown_state(state: SettaFastAPIState) -> None:
         stop_file_watcher(state.lsp_writers)
 
 
-def _set_temp_constants(root: Path) -> dict[str, Path]:
-    previous = {
-        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-        "CODE_FOLDER": C.CODE_FOLDER,
-        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "RUN_FOLDER": C.RUN_FOLDER,
-        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
-        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
-    }
-    C.SETTA_FILES_FOLDER = root / "setta_files"
-    C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
-    C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
-    C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
-    C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
-    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
-    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
-    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
-    for path in (
-        C.SETTA_FILES_FOLDER,
-        C.CODE_FOLDER,
-        C.DB_BACKUP_FOLDER,
-        C.ARTIFACTS_FOLDER,
-        C.RUN_FOLDER,
-        C.RUN_SESSIONS_FOLDER,
-        C.RUN_LOGS_FOLDER,
-        C.SHARE_DEPLOYMENTS_FOLDER,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-    _seed_minimal_setta_files(C.SETTA_FILES_FOLDER)
-    return previous
-
-
-def _restore_constants(previous: dict[str, Path]) -> None:
-    C.SETTA_FILES_FOLDER = previous["SETTA_FILES_FOLDER"]
-    C.CODE_FOLDER = previous["CODE_FOLDER"]
-    C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
-    C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
-    C.RUN_FOLDER = previous["RUN_FOLDER"]
-    C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
-    C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
-    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
-
-
 class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self._states: list[SettaFastAPIState] = []
-        self._temp_dir = TemporaryDirectory()
-        self._previous_constants = _set_temp_constants(Path(self._temp_dir.name))
 
     async def asyncTearDown(self) -> None:
         for state in self._states:
             await _shutdown_state(state)
-        _restore_constants(self._previous_constants)
-        self._temp_dir.cleanup()
 
     async def _build_state(
         self,
