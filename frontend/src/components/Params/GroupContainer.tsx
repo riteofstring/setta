@@ -33,7 +33,6 @@ import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
-  getKwargsControlsHeightKey,
   getParamGroupPaddingKey,
   getPinnedParamsMinHeightKey,
   getUnpinnedParamsMinHeightKey,
@@ -490,9 +489,6 @@ function ResizablePinnedArea({
   const edgesStripHeight = useTemporaryMiscState(
     (x) => x[getEdgesStripHeightKey(sectionId)] ?? 0,
   );
-  const kwargsControlsHeight = useTemporaryMiscState(
-    (x) => x[getKwargsControlsHeightKey(sectionId)] ?? 0,
-  );
   const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
   const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
   const cachedUnpinnedMinHeight = useTemporaryMiscState(
@@ -757,7 +753,6 @@ function ResizablePinnedArea({
     Math.ceil(
       containerHeight -
         containerPadding -
-        kwargsControlsHeight -
         edgesStripHeight -
         reservedUnpinnedHeight,
     ),
