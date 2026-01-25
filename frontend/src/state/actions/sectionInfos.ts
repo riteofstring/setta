@@ -975,12 +975,6 @@ function acknowledgePendingOp(opId: string) {
   });
 }
 
-function removePendingOp(opId: string) {
-  usePendingOperations.setState((state) => ({
-    pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
-  }));
-}
-
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -996,11 +990,9 @@ function isResponseDataAndStatus(
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
-  rollback,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
-  rollback?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
@@ -1010,11 +1002,6 @@ export function dispatchOptimisticProjectStateUpdate({
       // A 200 response means the backend accepted the op; don't keep reapplying it.
       if (isResponseDataAndStatus(res) && res200(res)) {
         acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (rollback) {
-          useProjectState.setState(rollback);
-        }
       }
     });
   }

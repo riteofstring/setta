@@ -174,7 +174,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a SessionProjectManager (main) backed by a seeded temp workspace."""
+    """Provision a SessionProjectManager (main) backed by a seeded temp setta_files bundle."""
 
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -337,10 +337,6 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 
 state = SettaState()
 """
-
-
-def _populate_project_fixture_files(setta_root: Path) -> None:
-    _seed_minimal_setta_files(setta_root)
 
 
 def _seed_minimal_setta_files(setta_root: Path) -> None:
