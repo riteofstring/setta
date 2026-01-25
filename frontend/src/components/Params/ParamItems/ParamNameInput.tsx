@@ -147,11 +147,8 @@ export function ParamNameInput({
       return;
     }
     const anchorEl =
-      document.getElementById(realDivId) ??
-      document.getElementById(dummyDivId);
-    const containerEl = document.getElementById(
-      `${sectionId}-CustomResizable`,
-    );
+      document.getElementById(realDivId) ?? document.getElementById(dummyDivId);
+    const containerEl = document.getElementById(`${sectionId}-CustomResizable`);
     const bubbleEl = bubbleRef.current;
     if (!anchorEl || !bubbleEl || !containerEl) {
       return;
@@ -287,9 +284,7 @@ export function ParamNameInput({
               opacity: bubblePosition.visible ? 1 : 0,
             }}
           >
-            <span
-              className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]"
-            />
+            <span className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]" />
             {combinedErrorMessage}
           </div>,
           document.getElementById(`${sectionId}-CustomResizable`) ??
