@@ -287,11 +287,24 @@ class AgentRunner:
 
     async def stop_run(self, run_id: ID) -> AgentRun:
         task = self._tasks.get(run_id)
-        if task and not task.done():
-            task.cancel()
         run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
         if run is None:
             raise KeyError(f"Agent run {run_id} not found")
+        if task is not None and task.done():
+            return run
+        if run.status in (
+            AgentRunStatus.completed,
+            AgentRunStatus.failed,
+            AgentRunStatus.cancelled,
+        ):
+            return run
+        if task and not task.done():
+            run.status = AgentRunStatus.cancelled
+            run.finishedAt = get_now_timestamp()
+            save_agent_run(self.dbe, run)
+            self._record_event(run, "run_cancelled", {})
+            task.cancel()
+            return run
         run.status = AgentRunStatus.cancelled
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
@@ -452,10 +465,22 @@ class AgentRunner:
                         ],
                         context,
                     )
-                    run.status = AgentRunStatus.cancelled
-                    run.finishedAt = get_now_timestamp()
+                    metadata = self._build_run_metadata(context)
+                    run.outputs = self._build_outputs(
+                        messages,
+                        metadata=metadata,
+                        usage=usage_summary,
+                        cost=cost_value,
+                    )
+                    if cost_value is not None:
+                        run.cost = cost_value
+                    was_cancelled = run.status == AgentRunStatus.cancelled
+                    if not was_cancelled:
+                        run.status = AgentRunStatus.cancelled
+                        run.finishedAt = get_now_timestamp()
                     save_agent_run(self.dbe, run)
-                    self._record_event(run, "run_cancelled", {})
+                    if not was_cancelled:
+                        self._record_event(run, "run_cancelled", {})
                     raise
                 except Exception as exc:
                     if not stop_event_sent:
@@ -464,6 +489,29 @@ class AgentRunner:
                                 EmitChunkAction(
                                     context.chat_id,
                                     MessageStopEvent(message_id=assistant_message.id),
+                                )
+                            ],
+                            context,
+                        )
+                        stop_event_sent = True
+                    if self._should_persist_partial_message(assistant_message):
+                        parsed_tool_calls, failures = tool_call_accumulator.finalize()
+                        for tool_call_id, error in failures.items():
+                            logger.warning(
+                                "Failed to parse tool call arguments for tool_call_id=%s",
+                                tool_call_id,
+                                exc_info=error,
+                            )
+                        await self._maybe_emit_tool_call_follow_update(
+                            context,
+                            parsed_tool_calls,
+                        )
+                        messages.append(assistant_message)
+                        await self._apply_actions(
+                            [
+                                EmitChunkAction(
+                                    context.chat_id,
+                                    MessageFinalizedEvent(message=assistant_message),
                                 )
                             ],
                             context,
@@ -487,6 +535,15 @@ class AgentRunner:
                         ],
                         context,
                     )
+                    metadata = self._build_run_metadata(context)
+                    run.outputs = self._build_outputs(
+                        messages,
+                        metadata=metadata,
+                        usage=usage_summary,
+                        cost=cost_value,
+                    )
+                    if cost_value is not None:
+                        run.cost = cost_value
                     run.status = AgentRunStatus.failed
                     run.finishedAt = get_now_timestamp()
                     save_agent_run(self.dbe, run)
@@ -1216,17 +1273,6 @@ class AgentRunner:
                         action.chunk,
                         section_id=context.section_id,
                     )
-                self._record_event(
-                    context.run,
-                    "stream_chunk",
-                    {
-                        "chatId": str(action.chat_id),
-                        "sectionId": str(context.section_id)
-                        if context.section_id
-                        else None,
-                        "chunk": action.chunk.model_dump(mode="json"),
-                    },
-                )
                 continue
             if isinstance(action, UpdateAIFollowAction):
                 if context.emit_ai_follow:

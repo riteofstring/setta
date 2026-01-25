@@ -16,6 +16,7 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
+    _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
     route_get_llm_response,
@@ -416,6 +417,54 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(exc.exception.status_code, 404)
             self.assertEqual(exc.exception.detail, "Chat not found")
+
+    async def test_external_agent_prior_messages_use_external_runs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("external-chat-2")
+            project_config_id = ID("project-ext-2")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external")],
+            )
+            external_reply = AssistantChatMessage(
+                id="assistant-external",
+                content=[MessageTextContent(text="External reply")],
+            )
+            llm_reply = AssistantChatMessage(
+                id="assistant-llm",
+                content=[MessageTextContent(text="LLM reply")],
+            )
+            external_run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                started_at=datetime(2024, 1, 6, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, external_reply],
+            )
+            llm_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-primary"),
+                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, llm_reply],
+            )
+            save_agent_run(dbe, external_run)
+            save_agent_run(dbe, llm_run)
+
+            prior_messages = _get_prior_messages_for_engine(
+                dbe=dbe,
+                engine_type=EngineType.external_agent,
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+            )
+
+            self.assertEqual(2, len(prior_messages))
+            self.assertEqual(
+                "External reply", prior_messages[1].content[0].text
+            )
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:

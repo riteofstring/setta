@@ -5,9 +5,11 @@ from tempfile import TemporaryDirectory
 from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
 from setta.mcp.client import MultiMCPClient
 from setta.types.agentic import (
     AgentProfile,
+    AgentRun,
     AgentRunStatus,
     EngineConfig,
     EngineType,
@@ -18,6 +20,7 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
+from setta.types.chat_stream_events import MessageStartEvent
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.types.project_config import ProjectConfig
@@ -420,6 +423,82 @@ class AgentRunnerSubAgentTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("run_started", event_types)
             self.assertIn("snapshot", event_types)
             self.assertIn("run_completed", event_types)
+
+
+class AgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stop_run_does_not_override_completed(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            now = get_now_timestamp()
+            run = AgentRun(
+                status=AgentRunStatus.completed,
+                startedAt=now,
+                finishedAt=now,
+                inputs={"runType": "llm_chat"},
+            )
+            save_agent_run(dbe, run)
+
+            stopped = await runner.stop_run(run.id)
+
+            self.assertEqual(stopped.status, AgentRunStatus.completed)
+            loaded = load_agent_run(dbe, run.id)
+            if loaded is None:
+                raise AssertionError("Expected agent run to be persisted")
+            self.assertEqual(loaded.status, AgentRunStatus.completed)
+            event_types = [event.type for event in loaded.events]
+            self.assertNotIn("run_cancelled", event_types)
+
+
+class AgentRunnerStreamEventTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stream_chunks_are_not_persisted(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = ProjectConfig()
+            _write_project_state(dbe, [project_config])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+            context = runner._build_context(profile, inputs=None, emit_stream=False)
+            assistant_message = AssistantChatMessage(content=[])
+
+            await runner._apply_actions(
+                [
+                    EmitChunkAction(
+                        context.chat_id,
+                        MessageStartEvent(message=assistant_message),
+                    )
+                ],
+                context,
+            )
+
+            self.assertEqual([], context.run.events)
 
 
 if __name__ == "__main__":

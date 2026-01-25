@@ -634,8 +634,9 @@ class SettaFastMCP(FastMCP):
     async def start_streamable_manager(self) -> None:
         if self._streamable_manager_task is not None:
             return
+        self.streamable_http_app()
         session_manager = self.session_manager
-        if self._streamable_stop_event is None:
+        if self._streamable_stop_event is None or self._streamable_stop_event.is_set():
             self._streamable_stop_event = asyncio.Event()
         stop_event = self._streamable_stop_event
 
@@ -658,6 +659,8 @@ class SettaFastMCP(FastMCP):
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._streamable_manager_task
         self._streamable_manager_task = None
+        self._session_manager = None
+        self._streamable_stop_event = None
 
     async def terminate_streamable_sessions(self) -> None:
         session_manager = getattr(self, "_session_manager", None)

@@ -318,13 +318,13 @@ class LLMChatManagerAnthropicIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 stream_text, delta_count = _collect_stream_text_from_events(
                     loaded_first.events
                 )
-                self.assertGreater(delta_count, 0)
-                self.assertTrue(stream_text.strip().endswith(final_text.strip()))
+                self.assertEqual(delta_count, 0)
+                self.assertEqual(stream_text, "")
+                self.assertFalse(
+                    any(event.type == "stream_chunk" for event in loaded_first.events)
+                )
                 finalized_text = _extract_finalized_assistant_text(loaded_first.events)
-                self.assertIsInstance(finalized_text, str)
-                if not isinstance(finalized_text, str):
-                    raise AssertionError("Expected finalized assistant text in stream")
-                self.assertEqual(finalized_text.strip(), final_text.strip())
+                self.assertIsNone(finalized_text)
 
     async def test_claude_sonnet_45_tool_call_integration(self) -> None:
         with warnings.catch_warnings():

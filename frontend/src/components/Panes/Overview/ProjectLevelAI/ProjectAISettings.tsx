@@ -1007,10 +1007,14 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setOpencodePermissionError(null);
       setOpencodeMcpError(null);
     }
-    const settingsManagedBlock = buildSettingsManagedBlock(draft, activeConfig, {
-      opencodePermission,
-      opencodeMcp,
-    });
+    const settingsManagedBlock = buildSettingsManagedBlock(
+      draft,
+      activeConfig,
+      {
+        opencodePermission,
+        opencodeMcp,
+      },
+    );
     const payloadBase = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -1110,8 +1114,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const isCancelDisabled = !draft;
   const isClaudeTool =
     draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
-  const isOpenCodeTool =
-    draft?.toolType === ExternalAgentToolTypeEnum.opencode;
+  const isOpenCodeTool = draft?.toolType === ExternalAgentToolTypeEnum.opencode;
   const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
   const commandPathPlaceholder =
     draft?.toolType === ExternalAgentToolTypeEnum.codex &&
@@ -1458,7 +1461,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                           "opencodePermissionText",
                           event.target.value,
                         );
-                        const result = parseOpenCodePermission(event.target.value);
+                        const result = parseOpenCodePermission(
+                          event.target.value,
+                        );
                         setOpencodePermissionError(result.error);
                       }}
                       className={TEXTAREA_CLASS_NAME}
@@ -1477,7 +1482,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                           "opencodeMcpText",
                           event.target.value,
                         );
-                        const result = parseOptionalJsonObject(event.target.value);
+                        const result = parseOptionalJsonObject(
+                          event.target.value,
+                        );
                         setOpencodeMcpError(result.error);
                       }}
                       className={TEXTAREA_CLASS_NAME}
@@ -1635,7 +1642,9 @@ function buildSettingsManagedBlock(
 ): ExternalAgentConfig["settingsManagedBlock"] | null {
   const existingBlock = existing?.settingsManagedBlock ?? null;
   const baseBlock: NonNullable<ExternalAgentConfig["settingsManagedBlock"]> =
-    existingBlock && typeof existingBlock === "object" ? { ...existingBlock } : {};
+    existingBlock && typeof existingBlock === "object"
+      ? { ...existingBlock }
+      : {};
   if (draft.toolType === ExternalAgentToolTypeEnum.claude_code) {
     const claudePermissions = {
       allow: parseListInput(draft.claudeAllowText),

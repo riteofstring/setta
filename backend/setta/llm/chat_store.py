@@ -9,7 +9,12 @@ from setta.agentic.chat_view import (
     get_run_last_updated,
     is_scriptable_chat_run,
 )
-from setta.agentic.store import list_agent_runs, load_agent_run, save_agent_run
+from setta.agentic.store import (
+    delete_agent_run,
+    list_agent_runs,
+    load_agent_run,
+    save_agent_run,
+)
 from setta.types.agentic import AgentRun, AgentRunStatus
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.generated.chat_messages import (
@@ -71,18 +76,10 @@ class AgentRunChatStore(ChatStore):
         runs = [run for run in list_agent_runs(self.dbe) if is_scriptable_chat_run(run)]
         output: list[ChatMetadata] = []
         for run in runs:
-            chat = _build_chat_from_run(run)
-            if chat is None:
+            metadata = _build_chat_metadata_from_run(run)
+            if metadata is None:
                 continue
-            output.append(
-                ChatMetadata(
-                    id=chat.id,
-                    name=chat.name,
-                    lastUpdated=chat.lastUpdated,
-                    llmConfig=chat.llmConfig.model_copy(deep=True),
-                    projectConfigId=chat.projectConfigId,
-                )
-            )
+            output.append(metadata)
         output.sort(key=lambda entry: entry.lastUpdated)
         return output
 
@@ -159,7 +156,7 @@ class AgentRunChatStore(ChatStore):
         return _build_chat_from_run(run)
 
     def delete_chat(self, chat_id: ID) -> None:
-        self.dbe.delete_agent_run_file(chat_id)
+        delete_agent_run(self.dbe, chat_id)
 
 
 class MemoryChatStore(ChatStore):
@@ -263,6 +260,25 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
         projectConfigId=project_config_id,
         messages=messages,
         systemPrompt=system_prompt,
+    )
+
+
+def _build_chat_metadata_from_run(run: AgentRun) -> ChatMetadata | None:
+    llm_config = _parse_llm_config(run)
+    if llm_config is None:
+        return None
+    name = _parse_output_text(run, "name")
+    if name is None:
+        messages = _parse_run_messages(run)
+        name = derive_chat_name(messages)
+    last_updated = _parse_last_updated(run)
+    project_config_id = _parse_project_config_id(run)
+    return ChatMetadata(
+        id=run.id,
+        name=name,
+        lastUpdated=last_updated,
+        llmConfig=llm_config.model_copy(deep=True),
+        projectConfigId=project_config_id,
     )
 
 

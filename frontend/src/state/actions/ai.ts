@@ -516,20 +516,6 @@ export async function getLLMChat(chatId: string) {
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
     const { messages, waitingForResponse, llmConfig } = res.data;
-    console.log(
-      "[ai] getLLMChat response",
-      JSON.stringify(
-        {
-          chatId,
-          projectConfigId,
-          waitingForResponse,
-          messageIds: messages.map((message) => message.id),
-          messageCount: messages.length,
-        },
-        null,
-        2,
-      ),
-    );
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const nextWaitingForResponse = waitingForResponse
@@ -565,21 +551,6 @@ export async function getExternalAgentChat(
   });
   if (res200(res)) {
     const { messages, waitingForResponse, toolCallArguments } = res.data;
-    console.log(
-      "[ai] getExternalAgentChat response",
-      JSON.stringify(
-        {
-          chatId,
-          projectConfigId,
-          waitingForResponse,
-          messageIds: messages.map((message) => message.id),
-          messageCount: messages.length,
-          toolCallArgumentIds: Object.keys(toolCallArguments ?? {}),
-        },
-        null,
-        2,
-      ),
-    );
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const nextWaitingForResponse = waitingForResponse
@@ -720,18 +691,6 @@ export async function findLatestRunningExternalRunId(
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const sectionId = msg.sectionId;
-  console.log(
-    "[ai] receiveLLMResponseChunk",
-    JSON.stringify(
-      {
-        chatId,
-        sectionId,
-        chunk,
-      },
-      null,
-      2,
-    ),
-  );
   if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
     return;
   }

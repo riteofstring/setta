@@ -236,14 +236,29 @@ class ExternalAgentRunner:
 
     async def stop_run(self, run_id: ID) -> AgentRun:
         task = self._tasks.get(run_id)
-        if task and not task.done():
-            task.cancel()
-        state = self._run_state.get(run_id)
-        if state is not None:
-            await state.adapter.cancel_run(state.handle)
         run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
         if run is None:
             raise KeyError(f"External agent run {run_id} not found")
+        if task is not None and task.done():
+            return run
+        if run.status in (
+            AgentRunStatus.completed,
+            AgentRunStatus.failed,
+            AgentRunStatus.cancelled,
+        ):
+            return run
+        state = self._run_state.get(run_id)
+        if task and not task.done():
+            run.status = AgentRunStatus.cancelled
+            run.finishedAt = get_now_timestamp()
+            save_agent_run(self.dbe, run)
+            self._record_event(run, "run_cancelled", {})
+            task.cancel()
+            if state is not None:
+                await self._cancel_external_run(state.adapter, state.handle)
+            return run
+        if state is not None:
+            await self._cancel_external_run(state.adapter, state.handle)
         run.status = AgentRunStatus.cancelled
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
@@ -265,6 +280,7 @@ class ExternalAgentRunner:
     async def _run_external_agent(self, context: ExternalAgentRunContext) -> None:
         run = context.run
         handle: ExternalAgentRunHandle | None = None
+        adapter: ExternalAgentAdapter | None = None
         try:
             adapter = self._adapter_registry.lookup(
                 context.config.toolType,
@@ -296,14 +312,19 @@ class ExternalAgentRunner:
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
         except asyncio.CancelledError:
-            run.status = AgentRunStatus.cancelled
-            run.finishedAt = get_now_timestamp()
+            await self._cancel_external_run(adapter, handle)
             self._persist_external_session_metadata(run, handle)
             self._persist_outputs_from_state(run, context.config)
+            was_cancelled = run.status == AgentRunStatus.cancelled
+            if not was_cancelled:
+                run.status = AgentRunStatus.cancelled
+                run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
-            self._record_event(run, "run_cancelled", {})
+            if not was_cancelled:
+                self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
+            await self._cancel_external_run(adapter, handle)
             error_payload: dict[str, Any] = {"error": str(exc)}
             stderr_lines = None
             if handle is not None:
@@ -332,6 +353,22 @@ class ExternalAgentRunner:
             self._record_event(run, "run_failed", error_payload)
         finally:
             self._cleanup_context(context)
+
+    async def _cancel_external_run(
+        self,
+        adapter: ExternalAgentAdapter | None,
+        handle: ExternalAgentRunHandle | None,
+    ) -> None:
+        if adapter is None or handle is None:
+            return
+        try:
+            await adapter.cancel_run(handle)
+        except Exception as exc:
+            logger.warning(
+                "Failed to cancel external agent run %s",
+                handle.run_id,
+                exc_info=exc,
+            )
 
     def _build_context(
         self,
@@ -1347,7 +1384,7 @@ class ExternalAgentRunner:
         if normalized.startswith(setta_prefix) and not normalized.startswith(
             f"{SETTA_MCP_SERVER_ID}__"
         ):
-            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix):]}"
+            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix) :]}"
         return normalized
 
     def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:

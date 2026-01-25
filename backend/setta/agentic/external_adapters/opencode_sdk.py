@@ -42,6 +42,7 @@ from setta.utils.timestamps import get_now_timestamp
 
 logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
+_OPENCODE_STDERR_MAX_LINES = 200
 
 
 class OpenCodeSdkAdapter(ExternalAgentAdapter):
@@ -140,8 +141,11 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
     @staticmethod
     def _build_env(base_env: dict[str, str]) -> dict[str, str]:
         env = dict(base_env)
-        env["SETTA_OPENCODE_DEBUG"] = "1"
-        env["SETTA_OPENCODE_DEBUG_RAW"] = "1"
+        debug_value = env.get("SETTA_OPENCODE_DEBUG")
+        raw_value = env.get("SETTA_OPENCODE_DEBUG_RAW")
+        if _is_truthy_env(debug_value) or _is_truthy_env(raw_value):
+            env["SETTA_OPENCODE_DEBUG"] = "1"
+            env["SETTA_OPENCODE_DEBUG_RAW"] = "1"
         return env
 
     @staticmethod
@@ -154,6 +158,8 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             if not line:
                 continue
             stderr_lines.append(line)
+            if len(stderr_lines) > _OPENCODE_STDERR_MAX_LINES:
+                del stderr_lines[: len(stderr_lines) - _OPENCODE_STDERR_MAX_LINES]
             await queue.put(line)
 
     @staticmethod
@@ -223,6 +229,13 @@ def _normalize_opencode_system_prompt(system_prompt: str) -> str:
     if needle in normalized:
         return normalized.replace(needle, replacement)
     return f"{normalized}\n\n{replacement}"
+
+
+def _is_truthy_env(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized not in {"", "0", "false", "no"}
 
 
 class _OpenCodeSdkEventParser:

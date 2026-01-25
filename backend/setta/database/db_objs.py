@@ -44,6 +44,7 @@ class DBE:
         self.engine_configs = self.path / "engine_configs.json"
         self.agent_profiles = self.path / "agent_profiles.json"
         self.agent_runs = self.path / "agent_runs"
+        self.agent_run_index = self.path / "agent_run_index.json"
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
         self.share_manifest = self.path / "manifest.json"
@@ -239,6 +240,17 @@ class DBE:
 
     def write_engine_configs(self, payload: list[dict]) -> None:
         self.write_json(self.engine_configs, payload)
+
+    def read_agent_run_index(self) -> dict[str, Any]:
+        payload = self.read_json(self.agent_run_index)
+        if not payload:
+            return {}
+        if not isinstance(payload, dict):
+            raise ValueError("agent_run_index.json must contain an object")
+        return payload
+
+    def write_agent_run_index(self, payload: dict[str, Any]) -> None:
+        self.write_json(self.agent_run_index, payload)
 
     def read_prompts_example(self) -> Any:
         return self.read_json(self.prompts_example)

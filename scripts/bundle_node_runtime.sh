@@ -45,32 +45,15 @@ fi
 
 NODE_VERSION="${SETTA_NODE_VERSION:-${NODE_VERSION:-}}"
 if [[ -z "${NODE_VERSION}" ]]; then
-  NODE_VERSION="$(python - <<'PY'
-import json
-import sys
-import urllib.request
+  VERSION_FILE="${ROOT_DIR}/scripts/node_version.txt"
+  if [[ -f "${VERSION_FILE}" ]]; then
+    NODE_VERSION="$(tr -d '[:space:]' < "${VERSION_FILE}")"
+  fi
+fi
 
-url = "https://nodejs.org/dist/index.json"
-try:
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        data = json.load(resp)
-except Exception as exc:
-    sys.stderr.write(f"Failed to fetch Node index: {exc}\n")
-    sys.exit(1)
-
-version = None
-for entry in data:
-    if entry.get("lts"):
-        version = entry.get("version")
-        break
-if not version and data:
-    version = data[0].get("version")
-if not version:
-    sys.stderr.write("Unable to resolve Node version from index\n")
-    sys.exit(1)
-print(version.lstrip("v"))
-PY
-)"
+if [[ -z "${NODE_VERSION}" ]]; then
+  echo "Node version not specified. Set SETTA_NODE_VERSION or add scripts/node_version.txt." >&2
+  exit 1
 fi
 
 NODE_VERSION="${NODE_VERSION#v}"

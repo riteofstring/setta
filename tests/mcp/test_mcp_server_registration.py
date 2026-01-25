@@ -182,6 +182,34 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             status_code = await asyncio.to_thread(_post_streamable_request)
             self.assertLess(status_code, 500)
 
+    async def test_streamable_manager_restarts_after_stop(self) -> None:
+        async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
+            app = FastAPI()
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+            setta_state = _build_state(fixture, settings_fixture, frontend_sender)
+
+            mcp_server = SettaFastMCP(
+                app,
+                setta_state,
+                "/mcp-test",
+                "Test MCP Server",
+                frontend_sender,
+                fixture.dbe,
+            )
+            setta_state.mcp_server = mcp_server
+
+            await mcp_server.start_streamable_manager()
+            await mcp_server.stop_streamable_manager()
+            await mcp_server.start_streamable_manager()
+
+            task = mcp_server._streamable_manager_task
+            self.assertIsNotNone(task)
+            if task is not None:
+                await asyncio.sleep(0)
+                self.assertFalse(task.done())
+
+            await mcp_server.stop_streamable_manager()
+
     async def test_chat_manager_returns_tool_references_from_search(self) -> None:
         async with real_project_manager() as fixture, real_settings_manager() as settings_fixture:
             app = FastAPI()

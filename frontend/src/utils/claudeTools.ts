@@ -7,7 +7,7 @@ import {
 export const APPROVAL_TOOL_NAME = "setta.approval";
 export const TODO_TOOL_NAME = "TodoWrite";
 export const QUESTION_TOOL_NAME = "AskUserQuestion";
-export const OPENCODE_QUESTION_TOOL_NAME = "question";
+const OPENCODE_QUESTION_TOOL_NAME = "question";
 
 export type TodoStatus = "pending" | "in_progress" | "completed";
 
@@ -61,7 +61,10 @@ export function normalizeToolName(
   if (hasMcpPrefix) {
     normalized = trimmed.slice("mcp__".length);
   }
-  if (!hasMcpPrefix && normalized.toLowerCase() === OPENCODE_QUESTION_TOOL_NAME) {
+  if (
+    !hasMcpPrefix &&
+    normalized.toLowerCase() === OPENCODE_QUESTION_TOOL_NAME
+  ) {
     return QUESTION_TOOL_NAME;
   }
   return normalized;

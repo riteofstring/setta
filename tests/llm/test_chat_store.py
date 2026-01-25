@@ -3,11 +3,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from setta.agentic.chat_view import SCRIPTABLE_CHAT_RUN_TYPE
+from setta.agentic.store import save_agent_run
 from setta.database.db_objs import DBE
 from setta.llm.chat_store import AgentRunChatStore, MemoryChatStore
+from setta.types.agentic import AgentRun, AgentRunStatus
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
+from setta.utils.timestamps import get_now_timestamp
 
 
 def _build_message(text: str) -> UserChatMessage:
@@ -185,6 +189,36 @@ class AgentRunChatStoreTests(unittest.TestCase):
             if fetched is None:
                 raise AssertionError("expected chat to be returned")
             self.assertEqual("system prompt", fetched.systemPrompt)
+
+    def test_metadata_uses_cached_name_without_parsing_messages(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            store = AgentRunChatStore(dbe)
+            config = _build_config("primary")
+            now = get_now_timestamp()
+            chat_id = ID("chat-cached")
+            run = AgentRun(
+                id=chat_id,
+                status=AgentRunStatus.completed,
+                startedAt=now,
+                finishedAt=now,
+                inputs={
+                    "runType": SCRIPTABLE_CHAT_RUN_TYPE,
+                    "llmConfig": config.model_dump(mode="json"),
+                    "chatId": str(chat_id),
+                },
+                outputs={
+                    "name": "Cached Chat",
+                    "lastUpdated": now.isoformat(),
+                    "messages": [{"unexpected": "payload"}],
+                },
+            )
+            save_agent_run(dbe, run)
+
+            metadata = store.get_all_chat_metadata()
+
+            self.assertEqual(1, len(metadata))
+            self.assertEqual("Cached Chat", metadata[0].name)
 
 
 if __name__ == "__main__":

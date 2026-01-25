@@ -8,12 +8,8 @@ if [[ ! -d "${SIDECAR_DIR}" ]]; then
   exit 1
 fi
 
-if [[ -d "${SIDECAR_DIR}/node_modules" ]]; then
-  exit 0
-fi
-
 echo "Installing external agent sidecar SDK dependencies..."
 (
   cd "${SIDECAR_DIR}"
-  pnpm install
+  pnpm install --frozen-lockfile --prefer-offline
 )

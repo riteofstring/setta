@@ -60,6 +60,7 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.constants import C
+from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -102,6 +103,31 @@ def _build_context_for_test(
         inputs,
     )
     return context
+
+
+class ExternalAgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stop_run_does_not_override_completed(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None, inputs={"runType": EXTERNAL_AGENT_RUN_TYPE}
+            )
+            now = get_now_timestamp()
+            run.status = AgentRunStatus.completed
+            run.finishedAt = now
+            save_agent_run(dbe, run)
+
+            stopped = await runner.stop_run(run.id)
+
+            self.assertEqual(stopped.status, AgentRunStatus.completed)
+            loaded = load_agent_run(dbe, run.id)
+            if loaded is None:
+                raise AssertionError("Expected external agent run to be persisted")
+            self.assertEqual(loaded.status, AgentRunStatus.completed)
+            event_types = [event.type for event in loaded.events]
+            self.assertNotIn("run_cancelled", event_types)
 
 
 async def _apply_claude_payloads(
