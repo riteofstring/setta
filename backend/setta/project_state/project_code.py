@@ -662,9 +662,7 @@ class ProjectBasicCode(Code):
         return CODE_LANGUAGE_EXTENSIONS[self.code_language]
 
     def get_run_command(self, path: Path):
-        raise ValueError(
-            f"Run is not supported for language {self.code_language} (path={path})"
-        )
+        raise ValueError(f"Run is not supported for language {self.code_language}")
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)

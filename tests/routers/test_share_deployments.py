@@ -535,7 +535,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     transformId=str(draw_transform_path),
                 )
                 draw_impl = DrawSectionImpl(
-                    layers=[DrawAreaLayer(name="Layer", elements=[draw_item])]
+                    layers=[DrawAreaLayer(name="Layer", elements=[draw_item])],
+                    renderedImagePath=str(draw_data_path),
                 )
                 draw_section_id, draw_core, draw_variant = _create_section(draw_impl)
 

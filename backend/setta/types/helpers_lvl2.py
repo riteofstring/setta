@@ -19,6 +19,8 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
     ControlCodeObjTypeSet,
+    DropzoneMode,
+    DropzoneParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
@@ -28,6 +30,7 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
+from setta.types.dropzone import normalize_dropzone_value
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
@@ -121,12 +124,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
     TypeErrorIgnoreState,
 )
-from setta.utils.errors import InvalidSectionName
 from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.name_validation import (
-    validate_project_name,
-    validate_section_name,
-)
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 if TYPE_CHECKING:
@@ -138,6 +136,10 @@ if TYPE_CHECKING:
 
 
 class ProjectNotFound(Exception):
+    pass
+
+
+class ProjectNameTaken(Exception):
     pass
 
 
@@ -252,6 +254,7 @@ def get_top_level_param_ids(
 
 
 def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
+    section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = p.parentSectionMap[section_id]
     if not parent_id:
         return p.sections[section_id].name
@@ -259,9 +262,8 @@ def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
     child_id = section_id
     output = ""
     while parent_id:
-        child_impl = get_curr_effective_section_impl(p, child_id)
-        if isinstance(child_impl, ListRootSectionImpl):
-            idx = get_curr_section_children_ids(p, parent_id).index(child_id)
+        if isinstance(section_impl, ListRootSectionImpl):
+            idx = get_curr_section_children_ids(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name
@@ -415,6 +417,12 @@ def set_param_entered_value(
     paramId: ID,
     value: str,
 ):
+    impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
+    if isinstance(impl, DropzoneParamCodeObjImpl):
+        if impl.mode == DropzoneMode.STATELESS:
+            value = ""
+        else:
+            value = normalize_dropzone_value(value, impl.maxAttachments)
     set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
     )
@@ -430,8 +438,10 @@ def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
 def set_project_config_name(
     p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
-    normalized = validate_project_name(p, projectConfigId, newName)
-    p.projectConfigs[projectConfigId].name = normalized
+    for k, v in p.projectConfigs.items():
+        if k != projectConfigId and v.name == newName:
+            raise ProjectNameTaken(f"{newName} is already taken")
+    p.projectConfigs[projectConfigId].name = newName
 
 
 def create_section(
@@ -1311,9 +1321,12 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
             | CodeObjType.TextAreaParam
-            | CodeObjType.DropzoneParam
         ):
             return value
+        case CodeObjType.DropzoneParam:
+            if impl.mode == DropzoneMode.STATELESS:
+                return ""
+            return normalize_dropzone_value(value, impl.maxAttachments)
         case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:
                 x = float(value)
@@ -1633,10 +1646,7 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
     if impl.headingAsSectionName:
         first_heading = get_first_heading_or_text(text)
         if first_heading:
-            try:
-                set_section_name(p, sectionId, first_heading)
-            except InvalidSectionName:
-                pass
+            p.sections[sectionId].name = first_heading
 
 
 def set_text_block_heading_as_section_name(
@@ -1655,10 +1665,7 @@ def set_text_block_heading_as_section_name(
     if headingAsSectionName:
         first_heading = get_first_heading_or_text(impl.text)
         if first_heading:
-            try:
-                set_section_name(p, sectionId, first_heading)
-            except InvalidSectionName:
-                pass
+            p.sections[sectionId].name = first_heading
 
 
 def get_first_heading_or_text(markdown: str):
@@ -1728,7 +1735,6 @@ def set_code_file_binding(
     normalized_binding = CodeFileBinding(
         canonical_path=normalize_path(binding.canonical_path),
         access_mode=binding.access_mode,
-        autoBinding=binding.autoBinding,
     )
     set_curr_effective_section_impl_value(
         p,
@@ -2017,9 +2023,8 @@ def set_section_sizes(
 
 
 def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
-    normalized = validate_section_name(p, sectionId, name)
-    p.sections[sectionId].name = normalized
-    p._section_slug_cache = None
+    if name:
+        p.sections[sectionId].name = name
 
 
 def set_meta_control_show_section_title(

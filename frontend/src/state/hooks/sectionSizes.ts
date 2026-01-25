@@ -17,7 +17,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
-  CodeObjTypeEnum,
+  MetaControlSizingPolicyTypeEntry,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
@@ -30,15 +30,17 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
-function getMetaControlSizeMode({
+function getMetaControlSizingPolicyEntry({
   projectState,
   sectionId,
   controlParamId,
+  sizingPolicy,
 }: {
   projectState: ZustandProjectState;
   sectionId: string;
   controlParamId: string | null | undefined;
-}): SizeMode | null {
+  sizingPolicy: SectionSizingPolicy;
+}): MetaControlSizingPolicyTypeEntry | null {
   if (!controlParamId) {
     return null;
   }
@@ -48,42 +50,26 @@ function getMetaControlSizeMode({
     sectionId,
     controlParamId,
   );
-
-  if (
-    controlImpl.type === CodeObjTypeEnum.DropdownParam ||
-    controlImpl.type === CodeObjTypeEnum.SliderParam ||
-    controlImpl.type === CodeObjTypeEnum.PasswordParam
-  ) {
-    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
-  }
-
-  return null;
+  const policyByType = sizingPolicy.metaControlByType;
+  const entry = policyByType[controlImpl.type as keyof typeof policyByType];
+  return entry ?? null;
 }
 
-function getMetaControlMinHeight({
-  projectState,
-  sectionId,
-  controlParamId,
-}: {
-  projectState: ZustandProjectState;
-  sectionId: string;
-  controlParamId: string | null | undefined;
-}): number | null {
-  if (!controlParamId) {
+function resolveMetaControlSizeMode(
+  entry: MetaControlSizingPolicyTypeEntry | null,
+): SizeMode | null {
+  if (!entry) {
     return null;
   }
-
-  const controlImpl = getCurrEffectiveCodeObjImpl(
-    projectState,
-    sectionId,
-    controlParamId,
-  );
-
-  if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-    return 32;
+  const heightMode = entry.sizeModeHeight;
+  const widthMode = entry.sizeModeWidth;
+  if (!heightMode && !widthMode) {
+    return null;
   }
-
-  return null;
+  return {
+    height: heightMode ?? SIZE_MODE.any,
+    width: widthMode ?? SIZE_MODE.any,
+  };
 }
 
 function getMinSectionHeight({
@@ -241,19 +227,17 @@ export function useSectionMinMaxDims(sectionId: string) {
 
     let metaControlSizeMode: SizeMode | null = null;
     if (sectionType === SectionTypeEnum.MetaControl) {
-      const metaControlMinHeight = getMetaControlMinHeight({
+      const metaControlEntry = getMetaControlSizingPolicyEntry({
         projectState: x,
         sectionId,
         controlParamId: impl.metaControlParamId,
+        sizingPolicy,
       });
-      if (metaControlMinHeight !== null) {
-        minHeight = Math.max(minHeight, metaControlMinHeight);
+      if (metaControlEntry) {
+        minHeight = Math.max(minHeight, metaControlEntry.minHeight);
+        minWidth = Math.max(minWidth, metaControlEntry.minWidth);
       }
-      metaControlSizeMode = getMetaControlSizeMode({
-        projectState: x,
-        sectionId,
-        controlParamId: impl.metaControlParamId,
-      });
+      metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
     }
 
     const sizeMode = getSizeMode({

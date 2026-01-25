@@ -29,7 +29,6 @@ import {
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaNotification,
-  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
   WebsocketConnectionInfo,
@@ -267,6 +266,15 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
+export const useDropzoneFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+  })),
+);
+
 type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
@@ -425,26 +433,6 @@ export const useTypeErrors = withProjectState(
       withResetFn<ZustandTypeErrors>(() => ({
         userRequested: false,
         errors: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandNameValidationErrors = {
-  pendingByProjectId: Record<string, SettaProjectNameValidationErrors>;
-  projectErrors: Array<string>;
-  sectionErrors: Record<string, Array<string>>;
-  paramErrors: Record<string, Array<string>>;
-};
-
-export const useNameValidationErrors = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandNameValidationErrors>(() => ({
-        pendingByProjectId: {},
-        projectErrors: [],
-        sectionErrors: {},
-        paramErrors: {},
       })),
     ),
   ),

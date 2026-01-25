@@ -103,7 +103,7 @@ async def route_set_chat_system_prompt(
 
 @router.post(Route.GET_ALL_CHAT_METADATA)
 async def route_get_all_chat_metadata(
-    _request: GetAllChatMetadataRequest,
+    x: GetAllChatMetadataRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ChatMetadata]:
     await ctx.enforce_llm_allowed()

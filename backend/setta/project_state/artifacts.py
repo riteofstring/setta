@@ -23,6 +23,8 @@ from setta.types.artifact import (
     DrawAreaLayerItemTransform,
     DrawAreaLayerItemTransformArtifact,
     DrawAreaLayerItemTransformMapping,
+    FileArtifact,
+    FileMapping,
     ImageArtifact,
     ImageMapping,
 )
@@ -101,11 +103,13 @@ class Artifacts:
         self.chart_data: ChartDataMapping = {}
         self.brush_strokes: BrushStrokeMapping = {}
         self.draw_area_layer_item_transforms: DrawAreaLayerItemTransformMapping = {}
+        self.files: FileMapping = {}
 
         self.image_metadata: dict[Path, ArtifactMetadata] = {}
         self.chart_data_metadata: dict[Path, ArtifactMetadata] = {}
         self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
         self.transform_metadata: dict[Path, ArtifactMetadata] = {}
+        self.file_metadata: dict[Path, ArtifactMetadata] = {}
         self._image_section_refs_by_path: dict[Path, list[tuple[ID, ID]]] = {}
 
     def normalize_artifact_id(self, path: Path | str) -> str:
@@ -171,6 +175,8 @@ class Artifacts:
                         )
                     case ArtifactType.DrawAreaLayerItemTransform:
                         artifact = self.read_transform_from_disk(coreUpdate.fileToRead)
+                    case ArtifactType.File:
+                        artifact = self.read_file_from_disk(coreUpdate.fileToRead)
                     case _:
                         assert_never(t)
                 if artifact:
@@ -323,6 +329,23 @@ class Artifacts:
             return artifact
         raise ValueError
 
+    def read_file_from_disk(self, path: Path):
+        normalized_path = self._resolve_path(path)
+        content = self.dbe.read(normalized_path, "rb")
+        if content is not None:
+            b64_str = base64.b64encode(content).decode("utf-8")
+            artifact = FileArtifact(
+                id=self.normalize_artifact_id(path),
+                value=b64_str,
+            )
+            self.files[normalized_path] = artifact
+            self.file_metadata[normalized_path] = ArtifactMetadata(
+                last_read_hash=compute_md5_hex(content),
+                is_dirty=False,
+            )
+            return artifact
+        raise ValueError
+
     def get_cached_image(self, path: Path | str):
         return self.images.get(self._resolve_path(path))
 
@@ -334,6 +357,9 @@ class Artifacts:
 
     def get_cached_draw_area_layer_item_transform(self, path: Path | str):
         return self.draw_area_layer_item_transforms.get(self._resolve_path(path))
+
+    def get_cached_file(self, path: Path | str):
+        return self.files.get(self._resolve_path(path))
 
     async def emit_realtime_image_updates(
         self, artifacts: list["BaseArtifactUnion"]
@@ -414,6 +440,8 @@ class Artifacts:
                 return self.brush_stroke_metadata
             case ArtifactType.DrawAreaLayerItemTransform:
                 return self.transform_metadata
+            case ArtifactType.File:
+                return self.file_metadata
             case _:
                 assert_never(artifact_type)
 
@@ -427,6 +455,8 @@ class Artifacts:
                 return self.brush_strokes
             case ArtifactType.DrawAreaLayerItemTransform:
                 return self.draw_area_layer_item_transforms
+            case ArtifactType.File:
+                return self.files
             case _:
                 assert_never(x)
 
@@ -503,6 +533,13 @@ class Artifacts:
                 payload=json_content,
                 mode="w",
                 hash=compute_md5_hex(encoded),
+            )
+        if isinstance(artifact, FileArtifact):
+            binary_data = base64.b64decode(artifact.value)
+            return PreparedArtifact(
+                payload=binary_data,
+                mode="wb",
+                hash=compute_md5_hex(binary_data),
             )
         raise TypeError
 
@@ -634,6 +671,32 @@ class Artifacts:
         return self._write_prepared_artifact(
             path, artifact, metadata, prepared, conflict_strategy
         )
+
+    def delete_file_artifacts(
+        self,
+        artifact_ids: list[str],
+        *,
+        artifacts_root: Path,
+    ) -> list[str]:
+        deleted_ids: list[str] = []
+        root_resolved = artifacts_root.resolve()
+        for artifact_id in artifact_ids:
+            if not artifact_id or not artifact_id.strip():
+                raise ValueError("Artifact id must be a non-empty string.")
+            normalized_path = self._resolve_path(artifact_id)
+            resolved_path = normalized_path.resolve()
+            if not resolved_path.is_relative_to(root_resolved):
+                raise PermissionError(
+                    f"Artifact path must be within {root_resolved.as_posix()}."
+                )
+            if resolved_path.exists() and resolved_path.is_dir():
+                raise ValueError(f"Artifact path is a directory: {artifact_id}")
+            self.files.pop(normalized_path, None)
+            self.file_metadata.pop(normalized_path, None)
+            if resolved_path.exists():
+                resolved_path.unlink()
+            deleted_ids.append(self.normalize_artifact_id(normalized_path))
+        return deleted_ids
 
     def save(self, conflict_strategy: SaveConflictStrategy = SaveConflictStrategy.skip):
         results: list[ArtifactSaveResult] = []

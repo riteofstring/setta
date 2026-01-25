@@ -154,7 +154,6 @@ class CodeFileAccessMode(str, Enum):
 class CodeFileBinding(BaseModel, extra="forbid"):
     canonical_path: Path
     access_mode: CodeFileAccessMode
-    autoBinding: bool = False
 
     @property
     def snapshot_dir(self) -> Path:

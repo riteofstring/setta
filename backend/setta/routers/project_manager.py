@@ -122,7 +122,6 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
-from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 router = SettaProjectContextAPIRouter(
     require_project_context_by_default=True,
@@ -591,10 +590,7 @@ async def route_set_code_obj_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_code_obj_name(x)
-    except InvalidParamName as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await manager.set_code_obj_name(x)
 
 
 @router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
@@ -782,10 +778,7 @@ async def route_set_section_name(
 ):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_section_name(x)
-    except InvalidSectionName as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await manager.set_section_name(x)
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)
