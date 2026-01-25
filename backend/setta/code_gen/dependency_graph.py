@@ -1,6 +1,8 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from itertools import islice
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -16,6 +18,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.dependency_key import (
+    DependencyKeyType,
     create_dep_key,
 )
 from setta.types.dependency_value import (
@@ -58,6 +61,8 @@ from setta.types.section_impls import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -490,6 +495,24 @@ class DependencyGraph:
         self.full_path_name_to_dep_key[node.full_path_name] = dep_key
 
     def change_value(self, dep_key: BaseDependencyKeyUnion, value):
+        if dep_key not in self.graph:
+            sample_sections = list(
+                islice(
+                    (
+                        key.sectionId
+                        for key in self.graph
+                        if key.type is DependencyKeyType.Section
+                    ),
+                    5,
+                )
+            )
+            logger.error(
+                "DependencyGraph change_value missing dep_key=%s graph_size=%s sample_section_ids=%s",
+                dep_key,
+                len(self.graph),
+                sample_sections,
+            )
+            raise KeyError(dep_key)
         node = self.graph[dep_key]
         node.value = self._coerce_dependency_value(value)
         is_used = node.has_name_and_value
