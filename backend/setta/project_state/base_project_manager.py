@@ -1476,7 +1476,10 @@ class BaseProjectManager(ABC):
             x.codeObjId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -1506,7 +1509,10 @@ class BaseProjectManager(ABC):
         if normalized_name is None:
             raise KeyError(f"Code obj {x.codeObjId} not found in any section.")
         project_state.codeObjs[x.codeObjId].name = normalized_name
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -2392,7 +2398,10 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
 
     @enqueue_method
     @project_state_tool(

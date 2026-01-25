@@ -1,8 +1,13 @@
 import unittest
 
-from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    CodeCallableCodeObjImpl,
+    CodeParamCodeObjImpl,
+    ParameterPassingStyle,
+)
 from setta.types.core import Core
 from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseParamCodeObjImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
 )
@@ -559,6 +564,40 @@ class ParamNameValidationTests(unittest.TestCase):
                 param_id,
                 "invalid name",
             )
+
+    def test_param_name_requires_identifier_for_non_default_passing_styles(
+        self,
+    ) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        for passing_style in (
+            ParameterPassingStyle.ARGS,
+            ParameterPassingStyle.KWARGS,
+            ParameterPassingStyle.POSITIONAL_ONLY,
+        ):
+            with self.subTest(passing_style=passing_style):
+                set_curr_effective_code_obj_impl_value(
+                    self.project_state,
+                    section_id,
+                    param_id,
+                    BaseParamCodeObjImplArgsWithCallable(
+                        passingStyle=passing_style,
+                    ),
+                )
+                with self.assertRaises(InvalidParamName):
+                    validate_param_name(
+                        self.project_state,
+                        section_id,
+                        param_id,
+                        "invalid name",
+                    )
 
     def test_param_name_rejects_python_keyword(self) -> None:
         section_id = create_top_level_section(

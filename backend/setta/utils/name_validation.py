@@ -3,10 +3,7 @@ import re
 from typing import TYPE_CHECKING
 
 from setta.code_gen.utils import sanitize_slug
-from setta.types.code_obj_impls import (
-    BaseParamCodeObjImpl,
-    ParameterPassingStyle,
-)
+from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -325,10 +322,7 @@ def _param_name_format_error(
         python_codegen_enabled = project_config_has_codegen_language(
             project_state.projectConfig, ProjectCodegenLanguage.python
         )
-        if python_codegen_enabled and code_obj_impl.passingStyle in (
-            ParameterPassingStyle.DEFAULT,
-            ParameterPassingStyle.KEYWORD_ONLY,
-        ):
+        if python_codegen_enabled:
             if PYTHON_IDENTIFIER_REGEX.fullmatch(normalized) is None:
                 return "Param name must be a valid Python identifier."
             if keyword.iskeyword(normalized):

@@ -8,7 +8,6 @@ export function processNameValidationErrors(
   if (content.projectConfigId !== currentProjectId) {
     return;
   }
-  useNameValidationErrors.getState().reset();
   useNameValidationErrors.setState({
     projectErrors: content.projectErrors,
     sectionErrors: content.sectionErrors,

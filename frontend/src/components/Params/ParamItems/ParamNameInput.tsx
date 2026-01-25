@@ -87,7 +87,6 @@ export function ParamNameInput({
     displayName,
     name,
     isKwarg,
-    passingStyle,
     pythonCodegenEnabled,
     showParamDisplayNames,
     // variantIsFrozen,
@@ -115,7 +114,6 @@ export function ParamNameInput({
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
       isKwarg: codeObjImpl.coreNameEditable,
-      passingStyle: codeObjImpl.passingStyle,
       pythonCodegenEnabled,
       showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
@@ -130,12 +128,7 @@ export function ParamNameInput({
     (state) => state.paramErrors[paramInfoId],
   );
   const allowEmpty = isKwarg;
-  const requirePythonIdentifier =
-    !isDictSection &&
-    pythonCodegenEnabled &&
-    (passingStyle === "DEFAULT" ||
-      passingStyle === "KEYWORD_ONLY" ||
-      !passingStyle);
+  const requirePythonIdentifier = !isDictSection && pythonCodegenEnabled;
   const validationOptions = {
     allowEmpty,
     requirePythonIdentifier,
@@ -150,14 +143,15 @@ export function ParamNameInput({
       ? null
       : getParamNameDuplicateError(paramInfoId, inputValue, duplicateIndex);
   const errorMessages: Array<string> = [];
-  if (validationError) {
-    errorMessages.push(validationError);
-  }
-  if (duplicateError) {
-    errorMessages.push(duplicateError);
-  }
-  if (backendErrors) {
+  if (backendErrors && backendErrors.length > 0) {
     errorMessages.push(...backendErrors);
+  } else {
+    if (validationError) {
+      errorMessages.push(validationError);
+    }
+    if (duplicateError) {
+      errorMessages.push(duplicateError);
+    }
   }
   const combinedErrorMessage = errorMessages.join("\n");
   const hasError = combinedErrorMessage.length > 0;
@@ -275,8 +269,9 @@ export function ParamNameInput({
     if (useDisplayName) {
       return;
     }
+    const normalizedValue = inputValue.trim();
     const nextValidationError = validateParamNameInput(
-      inputValue,
+      normalizedValue,
       validationOptions,
     );
     if (nextValidationError) {
@@ -285,15 +280,17 @@ export function ParamNameInput({
     }
     const nextDuplicateError = getParamNameDuplicateError(
       paramInfoId,
-      inputValue,
+      normalizedValue,
       duplicateIndex,
     );
     if (nextDuplicateError) {
       setInputValue(value);
       return;
     }
-    if (inputValue !== value) {
+    if (normalizedValue !== value) {
       debouncedSetParamName.flush?.();
+    } else if (inputValue !== value) {
+      setInputValue(value);
     }
   }
 
@@ -352,6 +349,7 @@ export function ParamNameInput({
 }
 
 const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
+  const normalizedName = name.trim();
   const previousName =
     useProjectState.getState().codeObjs[codeObjId]?.name ?? "";
   dispatchOptimisticProjectStateUpdate({
@@ -360,14 +358,14 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
       if (!codeObj) {
         return;
       }
-      codeObj.name = name;
+      codeObj.name = normalizedName;
     },
     rollback: (state) => {
       const codeObj = state.codeObjs[codeObjId];
       if (!codeObj) {
         return;
       }
-      if (codeObj.name !== name) {
+      if (codeObj.name !== normalizedName) {
         return;
       }
       codeObj.name = previousName;
@@ -376,7 +374,7 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
       route_set_code_obj_name({
         projectConfigId: getCurrProjectConfigId(),
         codeObjId,
-        name,
+        name: normalizedName,
         frontendOpId,
       }),
   });
