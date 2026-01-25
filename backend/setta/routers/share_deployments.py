@@ -227,7 +227,6 @@ def _copy_code_file_binding(
     new_binding = CodeFileBinding(
         canonical_path=Path(rebased),
         access_mode=binding.access_mode,
-        autoBinding=binding.autoBinding,
     )
     path_map[path_key] = new_binding
     return new_binding

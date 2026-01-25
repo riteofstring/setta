@@ -1,6 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useNavigate } from "react-router-dom";
-import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
   useAllProjectMetadata,
   useNodeInternals,
@@ -49,7 +48,6 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
     });
   }
   useProjectState.setState(p);
-  applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),
