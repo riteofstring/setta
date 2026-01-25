@@ -263,7 +263,7 @@ open_url_in_devtools_profile() {
     --user-data-dir="$PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
-    "${CHROME_ARGS[@]}" \
+    "${CHROME_ARGS[@]:-}" \
     "$target_url" >/dev/null 2>&1 &
 }
 
@@ -386,7 +386,7 @@ if [[ "$FOREGROUND" == "1" ]]; then
     --user-data-dir="$PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
-    "${CHROME_ARGS[@]}" \
+    "${CHROME_ARGS[@]:-}" \
     about:blank
 else
   "$CHROME_BIN" \
@@ -394,7 +394,7 @@ else
     --user-data-dir="$PROFILE_DIR" \
     --no-first-run \
     --no-default-browser-check \
-    "${CHROME_ARGS[@]}" \
+    "${CHROME_ARGS[@]:-}" \
     about:blank >/dev/null 2>&1 &
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
   open_bootstrap_in_devtools
