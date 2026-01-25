@@ -110,7 +110,7 @@ html.dark {
   }
 
   .section-row-pin-main {
-    grid-row: pin-lg / left-gutter-end;
+    grid-row: pin-lg / left-gutter;
   }
 
   .section-left-gutter {

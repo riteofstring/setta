@@ -20,40 +20,7 @@ from setta.types.section_impls import TypeErrorIgnoreState
 RangeIndex = tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]]
 
 
-def is_call_mismatch_diagnostic(d: LSPTypes.Diagnostic) -> bool:
-    code = d.code if isinstance(d.code, str) else ""
-    if code != "reportCallIssue":
-        return False
-    message = d.message.lower()
-    return "positional argument" in message or "parameter" in message
-
-
-def get_section_id_for_dep_key(dep_key: BaseDependencyKeyUnion | None) -> ID | None:
-    if dep_key is None:
-        return None
-    if isinstance(dep_key, SectionParamDependencyKey):
-        return dep_key.sectionId
-    if isinstance(dep_key, SectionDependencyKey):
-        return dep_key.sectionId
-    return None
-
-
 def process_gen_code_diagnostics(
-    diagnostics: list[LSPTypes.Diagnostic],
-    code_generator: PythonCodeGenerator,
-    dep_graph: DependencyGraph,
-    ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
-):
-    output, _, _ = process_gen_code_diagnostics_with_undefined_symbols(
-        diagnostics,
-        code_generator,
-        dep_graph,
-        ignored_type_errors_by_section,
-    )
-    return output
-
-
-def process_gen_code_diagnostics_with_undefined_symbols(
     diagnostics: list[LSPTypes.Diagnostic],
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
@@ -64,26 +31,10 @@ def process_gen_code_diagnostics_with_undefined_symbols(
     )
     range_index = build_dep_key_range_index(code_generator)
     output: dict[ID, SettaSectionTypeErrors] = {}
-    undefined_callable_sections: set[ID] = set()
-    callable_mismatch_sections: set[ID] = set()
     for i, d in enumerate(diagnostics):
-        position = positions[i]
-        is_undefined_symbol = is_undefined_symbol_diagnostic(d)
-        if is_call_mismatch_diagnostic(d):
-            dep_key = find_dep_key_for_range(position, code_generator, range_index)
-            section_id = get_section_id_for_dep_key(dep_key)
-            if section_id is not None:
-                callable_mismatch_sections.add(section_id)
         for section_id, param_id, message in process_gen_code_diagnostic(
-            d,
-            position,
-            code_generator,
-            dep_graph,
-            range_index,
-            is_undefined_symbol,
+            d, positions[i], code_generator, dep_graph, range_index
         ):
-            if is_undefined_symbol and param_id is None:
-                undefined_callable_sections.add(section_id)
             if should_ignore_type_error(
                 section_id,
                 param_id,
@@ -91,7 +42,7 @@ def process_gen_code_diagnostics_with_undefined_symbols(
             ):
                 continue
             add_error_message(output, section_id, param_id, message)
-    return output, undefined_callable_sections, callable_mismatch_sections
+    return output
 
 
 def should_ignore_type_error(
@@ -117,7 +68,6 @@ def process_gen_code_diagnostic(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
     range_index: RangeIndex,
-    is_undefined_symbol: bool,
 ):
     message = d.message
     if d.code == "reportArgumentType":
@@ -128,7 +78,7 @@ def process_gen_code_diagnostic(
         return process_report_call_issue(
             position.start, message, code_generator, dep_graph, range_index
         )
-    elif is_undefined_symbol:
+    elif is_undefined_symbol_diagnostic(d):
         return process_undefined_symbol(position, message, code_generator, range_index)
     return []
 

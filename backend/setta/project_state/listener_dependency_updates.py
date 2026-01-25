@@ -1,7 +1,3 @@
-from ast import literal_eval
-
-from pydantic import ValidationError
-
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -104,7 +100,7 @@ def _apply_section_update(
 
     if impl.type is SectionType.Chat:
         literal = _expect_literal_value(dependency_name=section_id, value=value)
-        state = _parse_chat_section_state(payload=literal.payload)
+        state = ChatSectionState.model_validate_json(literal.payload)
         set_chat_section_state(project_state, section_id, state)
         return None
 
@@ -128,12 +124,3 @@ def _expect_literal_value(
         f"listener emit expected literal payload for {dependency_name}, "
         f"received {type(value).__name__}"
     )
-
-
-def _parse_chat_section_state(payload: object) -> ChatSectionState:
-    if isinstance(payload, str):
-        try:
-            return ChatSectionState.model_validate_json(payload)
-        except ValidationError:
-            return ChatSectionState.model_validate(literal_eval(payload))
-    return ChatSectionState.model_validate(payload)
