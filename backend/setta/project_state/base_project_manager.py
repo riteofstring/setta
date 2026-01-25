@@ -1006,7 +1006,7 @@ class BaseProjectManager(ABC):
         for configId in p.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(p, configId)
             # Don't update file watcher here because otherwise it'll be an infinite loop
-            await self.update_and_broadcast_project_state(
+            await self._update_and_broadcast_project_state_no_name_validation(
                 singleConfig, updateFileWatcher=False
             )
 
@@ -1401,7 +1401,7 @@ class BaseProjectManager(ABC):
         """Toggle whether parameter display names are shown in the UI."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1446,7 +1446,7 @@ class BaseProjectManager(ABC):
         set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -1530,7 +1530,7 @@ class BaseProjectManager(ABC):
             access_mode=x.binding.access_mode,
         )
         set_code_file_binding(project_state, x.sectionId, updated_binding)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -2165,7 +2165,7 @@ class BaseProjectManager(ABC):
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
@@ -2226,7 +2226,7 @@ class BaseProjectManager(ABC):
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_frozen(project_state, x.variantId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_json_source_file_and_variant(
@@ -2261,13 +2261,13 @@ class BaseProjectManager(ABC):
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_text(project_state, x.sectionId, x.text)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
@@ -2301,7 +2301,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         project_state.projectConfig.activeViewModeId = view_mode.id
         project_state.projectConfig.isEditingViewMode = True
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return view_mode.id
 
     @enqueue_method
@@ -2310,7 +2310,7 @@ class BaseProjectManager(ABC):
         if x.activeViewModeId not in project_state.projectConfig.viewModes:
             raise KeyError(f"View mode {x.activeViewModeId} not found")
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_is_editing_view_mode(
@@ -2320,7 +2320,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = (
             not project_state.projectConfig.isEditingViewMode
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_section_visibility(
@@ -2350,7 +2350,7 @@ class BaseProjectManager(ABC):
         next_visibility = not all_visible
         for section_id in x.sectionIds:
             visibility_by_section_id[section_id] = next_visibility
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_user_facing(
@@ -2359,14 +2359,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.name = x.name
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
@@ -2380,7 +2380,7 @@ class BaseProjectManager(ABC):
         del view_modes[x.viewModeId]
         if project_state.projectConfig.activeViewModeId == x.viewModeId:
             project_state.projectConfig.activeViewModeId = next(iter(view_modes))
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -2506,25 +2506,25 @@ class BaseProjectManager(ABC):
             x.llmConfigId,
             x.deepThink,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def get_chat_section_chat_id(
@@ -2542,14 +2542,14 @@ class BaseProjectManager(ABC):
         if load_chat(self.dbe, chat_id) is not None:
             return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return None
 
     @enqueue_method
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     async def _apply_listener_emit_updates_to_state(
         self,
@@ -2572,7 +2572,9 @@ class BaseProjectManager(ABC):
             )
 
         if dependency_updates:
-            await self.update_and_broadcast_project_state(project_state)
+            await self._update_and_broadcast_project_state_no_name_validation(
+                project_state
+            )
 
         if artifact_payloads:
             await self.websocket_msg_handler.broadcast_artifacts_update(
@@ -2602,19 +2604,19 @@ class BaseProjectManager(ABC):
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_image_area_image_path(project_state, x.sectionId, x.imagePath)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_area_data_path(self, x: SetChartAreaDataPathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_area_data_path(project_state, x.sectionId, x.dataPath)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_type(self, x: SetChartTypeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_type(project_state, x.sectionId, x.chartType)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_settings(self, x: SetChartSettingsRequest):
@@ -2622,7 +2624,7 @@ class BaseProjectManager(ABC):
         set_chart_settings(
             project_state, x.sectionId, x.chartSettings, x.changedSettings
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def move_sections(self, x: MoveSectionsRequest):
@@ -2724,13 +2726,13 @@ class BaseProjectManager(ABC):
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_param_selected(project_state, x.sectionId, x.paramInfoId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def unselect_all_params(self, x: UnselectAllParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         unselect_all_params(project_state)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
