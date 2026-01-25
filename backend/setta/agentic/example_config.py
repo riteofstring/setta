@@ -101,7 +101,7 @@ _DEFAULT_EXTERNAL_AGENT_CONFIGS: list[ExternalAgentConfig] = [
         settingsFilePath=None,
         settingsAllowSettaEdits=True,
         settingsManagedBlock=build_default_opencode_settings_block(),
-        envVarWhitelist=[],
+        envVarWhitelist=["ANTHROPIC_API_KEY", "OPENAI_API_KEY"],
         workingDirStrategy=ExternalAgentWorkingDirStrategy.project_root,
         workingDir=None,
     ),

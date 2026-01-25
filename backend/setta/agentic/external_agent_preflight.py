@@ -60,6 +60,14 @@ def build_external_agent_preflight_status(
             sdk_version, sdk_issue = _check_sdk_version(config.toolType)
             if sdk_issue:
                 issues.append(sdk_issue)
+
+            if (
+                config.toolType == ExternalAgentToolType.opencode
+                and not config.baseUrl
+            ):
+                cli_version, cli_issue = _check_opencode_cli()
+                if cli_issue:
+                    issues.append(cli_issue)
     elif (
         config.runMode == ExternalAgentRunMode.app_server
         and config.toolType == ExternalAgentToolType.codex
@@ -180,6 +188,22 @@ def _check_codex_cli(
         return None, "Failed to read codex CLI version"
     if not _codex_app_server_available(cli_path):
         return raw, "codex app-server subcommand not available"
+    return raw, None
+
+
+def _check_opencode_cli() -> tuple[str | None, str | None]:
+    cli_path = shutil.which("opencode")
+    if not cli_path:
+        return None, "opencode CLI not found (install opencode CLI)"
+    result = subprocess.run(
+        [cli_path, "--version"],
+        capture_output=True,
+        text=True,
+        cwd=str(CWD),
+    )
+    raw = (result.stdout or result.stderr).strip()
+    if result.returncode != 0 or not raw:
+        return None, "Failed to read opencode CLI version"
     return raw, None
 
 

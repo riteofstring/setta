@@ -6,6 +6,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "1.1.28"
+    "@opencode-ai/sdk": "1.1.36"
   }
 }

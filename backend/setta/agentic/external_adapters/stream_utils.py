@@ -16,11 +16,21 @@ def parse_json_line(line: str) -> dict[str, Any] | None:
 
 
 async def iter_stream_lines(reader: asyncio.StreamReader) -> AsyncIterator[str]:
+    buffer = bytearray()
     while True:
-        line = await reader.readline()
-        if not line:
+        chunk = await reader.read(65536)
+        if not chunk:
+            if buffer:
+                yield buffer.decode("utf-8", errors="ignore").strip()
             break
-        yield line.decode("utf-8", errors="ignore").strip()
+        buffer.extend(chunk)
+        while True:
+            newline_index = buffer.find(b"\n")
+            if newline_index == -1:
+                break
+            line = bytes(buffer[:newline_index])
+            del buffer[: newline_index + 1]
+            yield line.decode("utf-8", errors="ignore").strip()
 
 
 async def collect_stream_lines(reader: asyncio.StreamReader) -> list[str]:

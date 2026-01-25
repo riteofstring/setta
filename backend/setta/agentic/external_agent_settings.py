@@ -467,8 +467,7 @@ def _merge_opencode_permissions(
     merged = dict(permission)
     merged[f"{SETTA_MCP_SERVER_ID}_*"] = "deny"
     for tool_name in allowlist.tool_names:
-        merged.setdefault(
-            f"{SETTA_MCP_SERVER_ID}_{tool_name}",
-            default_policy or "allow",
-        )
+        key = f"{SETTA_MCP_SERVER_ID}_{tool_name}"
+        value = merged.pop(key, None) or default_policy or "allow"
+        merged[key] = value
     return merged
