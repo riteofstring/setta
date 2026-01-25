@@ -378,23 +378,26 @@ class _OpenCodeSdkEventParser:
         pending_parts = []
         if message_id:
             pending_parts = self._pending_parts.pop(message_id, [])
-        message, is_new = self._get_or_create_message(payload, message_id=message_id)
         events: list[ExternalAgentStreamEvent] = []
-        if is_new:
-            events.append(
-                ExternalAgentStreamEvent(
-                    raw=payload,
-                    stream_chunk=MessageStartEvent(message=message),
-                )
-            )
         for pending in pending_parts:
             events.extend(self._handle_part_updated(pending))
         time_info = info.get("time")
         completed = None
         if isinstance(time_info, dict):
             completed = time_info.get("completed")
-        if completed and message.id not in self._finalized_messages:
-            self._finalized_messages.add(message.id)
+        if completed:
+            message, is_new = self._get_or_create_message(
+                payload, message_id=message_id
+            )
+            if is_new:
+                events.append(
+                    ExternalAgentStreamEvent(
+                        raw=payload,
+                        stream_chunk=MessageStartEvent(message=message),
+                    )
+                )
+            if message.id not in self._finalized_messages:
+                self._finalized_messages.add(message.id)
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
