@@ -11,6 +11,7 @@ from watchdog.observers import Observer
 
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.utils import convert_path_to_module_path
+from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.dependency_key import create_dep_key
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
@@ -62,6 +63,14 @@ class WatchCodeCallableInfo:
     signature_hash: str
     body_hash: str
     source_path: str
+    param_proposals: tuple["WatchCodeParamProposal", ...]
+
+
+@dataclass(frozen=True)
+class WatchCodeParamProposal:
+    name: str
+    default: str
+    passing_style: ParameterPassingStyle
 
 
 @dataclass(frozen=True)
@@ -209,6 +218,65 @@ def _body_hash(node: ast.AST) -> str:
     return compute_md5_hex(dumped)
 
 
+def _build_param_proposals(
+    args: ast.arguments, *, drop_first_arg: bool
+) -> tuple[WatchCodeParamProposal, ...]:
+    posonly = list(args.posonlyargs)
+    normal_args = list(args.args)
+    if drop_first_arg and normal_args:
+        normal_args = normal_args[1:]
+    positional = [*posonly, *normal_args]
+    defaults = list(args.defaults)
+    default_offset = len(positional) - len(defaults)
+    output: list[WatchCodeParamProposal] = []
+    for idx, arg in enumerate(positional):
+        default_repr = ""
+        default_index = idx - default_offset
+        if default_index >= 0:
+            default_repr = _dump_default(defaults[default_index])
+        passing_style = (
+            ParameterPassingStyle.POSITIONAL_ONLY
+            if idx < len(posonly)
+            else ParameterPassingStyle.DEFAULT
+        )
+        output.append(
+            WatchCodeParamProposal(
+                name=arg.arg,
+                default=default_repr,
+                passing_style=passing_style,
+            )
+        )
+    if args.vararg is not None:
+        output.append(
+            WatchCodeParamProposal(
+                name=args.vararg.arg,
+                default="",
+                passing_style=ParameterPassingStyle.ARGS,
+            )
+        )
+    kwonly_defaults = list(args.kw_defaults)
+    for idx, arg in enumerate(args.kwonlyargs):
+        default_repr = ""
+        if idx < len(kwonly_defaults) and kwonly_defaults[idx] is not None:
+            default_repr = _dump_default(kwonly_defaults[idx])
+        output.append(
+            WatchCodeParamProposal(
+                name=arg.arg,
+                default=default_repr,
+                passing_style=ParameterPassingStyle.KEYWORD_ONLY,
+            )
+        )
+    if args.kwarg is not None:
+        output.append(
+            WatchCodeParamProposal(
+                name=args.kwarg.arg,
+                default="",
+                passing_style=ParameterPassingStyle.KWARGS,
+            )
+        )
+    return tuple(output)
+
+
 def _build_callable_info(
     module_path: str,
     name: str,
@@ -216,6 +284,7 @@ def _build_callable_info(
     signature_hash: str,
     body_hash: str,
     source_path: Path,
+    param_proposals: tuple[WatchCodeParamProposal, ...],
 ) -> WatchCodeCallableInfo:
     canonical_name = f"{module_path}.{name}" if module_path else name
     identity = build_callable_identity(canonical_name, kind)
@@ -228,6 +297,7 @@ def _build_callable_info(
         signature_hash=signature_hash,
         body_hash=body_hash,
         source_path=str(normalize_path(source_path)),
+        param_proposals=param_proposals,
     )
 
 
@@ -250,6 +320,7 @@ def parse_python_callables(code: str, source_path: Path) -> list[WatchCodeCallab
                     _signature_hash(node.args, drop_first_arg=False),
                     _body_hash(node),
                     source_path,
+                    _build_param_proposals(node.args, drop_first_arg=False),
                 )
             )
         elif isinstance(node, ast.AsyncFunctionDef):
@@ -261,6 +332,7 @@ def parse_python_callables(code: str, source_path: Path) -> list[WatchCodeCallab
                     _signature_hash(node.args, drop_first_arg=False),
                     _body_hash(node),
                     source_path,
+                    _build_param_proposals(node.args, drop_first_arg=False),
                 )
             )
         elif isinstance(node, ast.ClassDef):
@@ -274,8 +346,10 @@ def parse_python_callables(code: str, source_path: Path) -> list[WatchCodeCallab
                     break
             if init_def is None:
                 signature_hash = compute_md5_hex("")
+                proposals: tuple[WatchCodeParamProposal, ...] = ()
             else:
                 signature_hash = _signature_hash(init_def.args, drop_first_arg=True)
+                proposals = _build_param_proposals(init_def.args, drop_first_arg=True)
             output.append(
                 _build_callable_info(
                     module_path,
@@ -284,6 +358,7 @@ def parse_python_callables(code: str, source_path: Path) -> list[WatchCodeCallab
                     signature_hash,
                     _body_hash(node),
                     source_path,
+                    proposals,
                 )
             )
     return output
@@ -576,6 +651,12 @@ class WatchCodeManager:
         if raw is None:
             return
         project_state = self._project_manager.get_single_config_state(project_config_id)
+        logger.debug(
+            "watch_code._scan_file project_config_id=%s path=%s baseline_only=%s",
+            project_config_id,
+            normalize_path(path),
+            baseline_only,
+        )
         did_move_update = False
         move_key = (project_config_id, normalize_path(path))
         moved_from = self._pending_moves.pop(move_key, None)
@@ -587,16 +668,34 @@ class WatchCodeManager:
             dest_known = dest_key in baseline or any(
                 entry.sourcePath == dest_key for entry in registry.values()
             )
+            logger.debug(
+                "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s dest_known=%s registry_size=%s baseline_paths=%s",
+                project_config_id,
+                normalize_path(moved_from),
+                normalize_path(path),
+                dest_known,
+                len(registry),
+                len(baseline),
+            )
             if not dest_known:
                 parsed_callables = parse_python_callables(raw, path)
                 baseline[dest_key] = [entry.identity for entry in parsed_callables]
                 src_key = str(normalize_path(moved_from))
                 if src_key in baseline:
                     baseline.pop(src_key, None)
+                moved_registry_entries = 0
                 for entry in registry.values():
                     if entry.sourcePath == src_key:
                         entry.sourcePath = dest_key
+                        moved_registry_entries += 1
                 did_move_update = True
+                logger.debug(
+                    "watch_code._scan_file move_baseline_only project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
+                    project_config_id,
+                    normalize_path(path),
+                    len(parsed_callables),
+                    moved_registry_entries,
+                )
         did_update = await self._apply_callable_updates(
             project_state,
             path,
@@ -734,11 +833,14 @@ class WatchCodeManager:
     ) -> bool:
         project_config = project_state.projectConfig
         callables = parse_python_callables(code, source_path)
+        code_hash = compute_md5_hex(code)
         logger.debug(
-            "watch_code._apply_callable_updates source_path=%s baseline_only=%s callable_count=%s",
+            "watch_code._apply_callable_updates source_path=%s baseline_only=%s callable_count=%s code_len=%s code_hash=%s",
             source_path,
             baseline_only,
             len(callables),
+            len(code),
+            code_hash,
         )
         if baseline_only:
             self._record_baseline(project_config, source_path, callables)
@@ -802,6 +904,13 @@ class WatchCodeManager:
                 if not candidates:
                     continue
                 new_info = candidates.pop(0)
+                logger.debug(
+                    "watch_code._apply_callable_updates rename_detected identity=%s new_identity=%s callable=%s section_ids=%s",
+                    identity,
+                    new_info.identity,
+                    entry.callableName,
+                    entry.sectionIds,
+                )
                 self._update_registry_identity(
                     registry,
                     identity,
@@ -857,11 +966,20 @@ class WatchCodeManager:
                         entry.callableName,
                         entry.sectionIds,
                     )
+                    logger.debug(
+                        "watch_code._apply_callable_updates signature details identity=%s old_hash=%s new_hash=%s param_names=%s",
+                        identity,
+                        entry.signatureHash,
+                        info.signature_hash,
+                        [proposal.name for proposal in info.param_proposals],
+                    )
                     entry.signatureHash = info.signature_hash
                     entry.bodyHash = info.body_hash
                     entry.sourcePath = info.source_path
                     await self._update_sections_for_callable(
-                        project_state, entry.sectionIds, entry.callableName
+                        project_state,
+                        entry.sectionIds,
+                        entry.callableName,
                     )
                     did_update = True
                 else:
@@ -869,6 +987,11 @@ class WatchCodeManager:
                         entry.bodyHash = info.body_hash
                 continue
             if identity in baseline_entries:
+                logger.debug(
+                    "watch_code._apply_callable_updates baseline_skip identity=%s callable=%s",
+                    identity,
+                    info.canonical_name,
+                )
                 continue
             reference_name = self._resolve_reference_name(registry, info)
             self._ensure_gen_code_import(
@@ -894,9 +1017,16 @@ class WatchCodeManager:
                 section_id,
                 info.source_path,
             )
+            logger.debug(
+                "watch_code._apply_callable_updates new callable params identity=%s param_names=%s",
+                identity,
+                [proposal.name for proposal in info.param_proposals],
+            )
             did_update = True
             await self._update_sections_for_callable(
-                project_state, [section_id], reference_name
+                project_state,
+                [section_id],
+                reference_name,
             )
         return did_update
 
@@ -990,6 +1120,12 @@ class WatchCodeManager:
                 section_id,
                 callable_name,
                 True,
+            )
+            logger.debug(
+                "watch_code._update_sections_for_callable set_callable_result callable=%s section_id=%s lsp_status=%s",
+                callable_name,
+                section_id,
+                response.lspStatus,
             )
             if (
                 response.lspStatus is SignatureHelpStatus.NO_MATCH

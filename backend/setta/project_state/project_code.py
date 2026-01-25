@@ -278,6 +278,12 @@ class ProjectGenPythonCode(PythonCode):
     ) -> SetCallableResponse:
         current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
         current_callable_id = current_callable.id if current_callable else None
+        logger.debug(
+            "project_code.set_callable start section_id=%s callable=%s refetch=%s",
+            sectionId,
+            callableName,
+            refetchParams,
+        )
         did_invoke_before_mutation = False
 
         def maybe_invoke_before_mutation() -> None:
@@ -290,6 +296,11 @@ class ProjectGenPythonCode(PythonCode):
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
         ):
+            logger.debug(
+                "project_code.set_callable skip already selected section_id=%s callable=%s",
+                sectionId,
+                callableName,
+            )
             return self._build_set_callable_response(
                 project_state,
                 sectionId,
@@ -298,6 +309,9 @@ class ProjectGenPythonCode(PythonCode):
             )
 
         if callableName == "":
+            logger.debug(
+                "project_code.set_callable clear callable section_id=%s", sectionId
+            )
             maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
@@ -311,8 +325,20 @@ class ProjectGenPythonCode(PythonCode):
         prev_selected = callable_has_been_selected_before(
             project_state, sectionId, callableName
         )
+        logger.debug(
+            "project_code.set_callable prev_selected section_id=%s callable=%s prev_selected_id=%s",
+            sectionId,
+            callableName,
+            prev_selected,
+        )
 
         if prev_selected and not refetchParams:
+            logger.debug(
+                "project_code.set_callable reuse previous selection section_id=%s callable=%s callable_id=%s",
+                sectionId,
+                callableName,
+                prev_selected,
+            )
             maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
@@ -327,6 +353,11 @@ class ProjectGenPythonCode(PythonCode):
             sectionId, None, callableName, len(callableName)
         )
         if line_col is None:
+            logger.debug(
+                "project_code.set_callable missing line_col section_id=%s callable=%s",
+                sectionId,
+                callableName,
+            )
             return self._build_set_callable_response(
                 project_state,
                 sectionId,
@@ -336,6 +367,13 @@ class ProjectGenPythonCode(PythonCode):
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
+        logger.debug(
+            "project_code.set_callable signature_help_request section_id=%s callable=%s line=%s col=%s",
+            sectionId,
+            callableName,
+            line,
+            col,
+        )
         response = None
         if self.lsp_writer is not None:
             request_id = create_new_id()
@@ -358,9 +396,39 @@ class ProjectGenPythonCode(PythonCode):
         codeObjs: list[Core] = []
         codeObjImplMap = {}
         lsp_status = SignatureHelpStatus.NO_MATCH
+        if response is None:
+            logger.debug(
+                "project_code.set_callable lsp_response missing section_id=%s callable=%s",
+                sectionId,
+                callableName,
+            )
+        else:
+            signature_label = ""
+            signature_param_labels: list[str] = []
+            if response.result and response.result.signatures:
+                signature = response.result.signatures[0]
+                signature_label = signature.label
+                if signature.parameters:
+                    signature_param_labels = [
+                        param.label for param in signature.parameters
+                    ]
+            logger.debug(
+                "project_code.set_callable lsp_signature section_id=%s callable=%s signature_label=%s param_labels=%s",
+                sectionId,
+                callableName,
+                signature_label,
+                signature_param_labels,
+            )
         if result is not None:
             documentation, codeObjs, codeObjImplMap = result
             lsp_status = SignatureHelpStatus.MATCHED
+        logger.debug(
+            "project_code.set_callable lsp_status section_id=%s callable=%s status=%s parsed_params=%s",
+            sectionId,
+            callableName,
+            lsp_status,
+            [obj.name for obj in codeObjs],
+        )
 
         maybe_invoke_before_mutation()
         if not prev_selected:
@@ -413,6 +481,15 @@ class ProjectGenPythonCode(PythonCode):
                     callable_code_obj.id: callable_code_obj_variant.id,
                 },
             ),
+        )
+        applied_children = self._collect_child_code_objs(
+            project_state, sectionId, callable_code_obj.id
+        )
+        logger.debug(
+            "project_code.set_callable applied section_id=%s callable=%s child_params=%s",
+            sectionId,
+            callableName,
+            [child.name for child in applied_children],
         )
         return self._build_set_callable_response(
             project_state, sectionId, callable_code_obj.id, lsp_status

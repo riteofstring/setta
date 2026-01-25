@@ -1667,10 +1667,52 @@ class BaseProjectManager(ABC):
             )
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
+        await self._sync_code_section_lsp_for_watch_code(
+            project_state,
+            x.sectionId,
+            x.code,
+        )
         await self.watch_code_manager.handle_code_section_update(
             project_state, x.sectionId, x.code
         )
         await self.update_and_broadcast_project_state(project_state)
+
+    async def _sync_code_section_lsp_for_watch_code(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        code: str,
+    ) -> None:
+        project_config = project_state.projectConfig
+        if not project_config.watchCodeEnabled:
+            return
+        if not project_config_has_codegen_language(
+            project_config, ProjectCodegenLanguage.python
+        ):
+            return
+        if self.lsp_writers.full is None:
+            return
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, CodeSectionImpl):
+            return
+        if section_impl.codeLanguage is not CodeLanguage.python:
+            return
+        code_entries = self.code_dict.setdefault(project_config.id, {})
+        section_code = code_entries.get(section_id)
+        if not isinstance(section_code, ProjectPythonCode):
+            section_code = self.create_project_code(
+                project_state, section_id, section_impl
+            )
+            if not isinstance(section_code, ProjectPythonCode):
+                return
+            code_entries[section_id] = section_code
+        section_code.code = code
+        logger.debug(
+            "sync_code_section_lsp_for_watch_code section_id=%s code_len=%s",
+            section_id,
+            len(code),
+        )
+        await section_code.sync_lsp(code)
 
     @enqueue_method
     @project_state_tool(

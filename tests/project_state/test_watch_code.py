@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,6 +9,7 @@ from unittest.mock import patch
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps, stop_file_watcher, stop_lsps
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFileReloadPlan, RegisteredCodeFileBinding
 from setta.project_state.code_files import CodeFiles
@@ -49,6 +52,8 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.manager_fixture import _shutdown_manager
+
+logger = logging.getLogger(__name__)
 
 
 class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
@@ -402,6 +407,48 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         updated_entry = updated_state.projectConfig.watchCodeRegistry[identity]
         self.assertNotEqual(updated_entry.signatureHash, previous_hash)
 
+    async def test_signature_change_without_lsp_keeps_params(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        first_code = (
+            "def existing(a):\n    return a\n\n"
+            "def watched(a, b, c):\n    return a + b + c\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=first_code,
+            )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        callable_name = f"{module_path}.watched"
+        identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
+        entry = state.projectConfig.watchCodeRegistry[identity]
+        section_id = entry.sectionIds[0]
+        param_ids_before = get_curr_top_level_param_ids(state, section_id)
+        self.assertEqual(len(param_ids_before), 0)
+
+        second_code = (
+            "def existing(a):\n    return a\n\n"
+            "def watched(a):\n    return a\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=second_code,
+            )
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        param_ids_after = get_curr_top_level_param_ids(updated_state, section_id)
+        self.assertEqual(len(param_ids_after), 0)
+
     async def test_rename_reuses_section_ids(self) -> None:
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
@@ -536,3 +583,175 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(identity, state.projectConfig.watchCodeRegistry)
         entry = state.projectConfig.watchCodeRegistry[identity]
         self.assertEqual(entry.kind, WatchCodeCallableKind.class_init)
+
+
+class WatchCodeLspOrderingTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self._tmp_dir = TemporaryDirectory()
+        self.addCleanup(self._tmp_dir.cleanup)
+        root = Path(self._tmp_dir.name)
+        self.setta_root = root / "setta_files"
+        self.code_folder = self.setta_root / "code"
+        self.artifacts_folder = self.setta_root / "artifacts"
+        self.backup_folder = self.setta_root / "backups"
+        for path in (
+            self.setta_root,
+            self.code_folder,
+            self.artifacts_folder,
+            self.backup_folder,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
+
+        self._patchers = [
+            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
+            patch.object(C, "CODE_FOLDER", self.code_folder),
+            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
+            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
+        ]
+        for patcher in self._patchers:
+            patcher.start()
+
+        self.dbe = DBE(self.setta_root)
+        self.websocket_manager = WebsocketManager()
+        self.frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.listener_registry = ListenerRegistry()
+        self.python_script_sender = WMHPythonScriptSender(
+            self.websocket_manager, self.listener_registry
+        )
+        self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
+        loop = asyncio.get_running_loop()
+        self.specific_file_watcher = SpecificFileWatcher(loop=loop)
+        self.artifacts = Artifacts(
+            self.frontend_sender, self.specific_file_watcher, self.dbe
+        )
+        self.code_files = CodeFiles(
+            self.frontend_sender, self.specific_file_watcher, self.dbe
+        )
+        self.json_source = JSONSource(
+            self.frontend_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+        )
+
+        self.watch_file_path = root / "watched.py"
+        self.watch_file_path.write_text("def existing(a):\n    return a\n")
+        self.code_section_path = root / "section.py"
+        self.code_section_path.write_text("def existing(a):\n    return a\n")
+
+        project_state, self.project_config_id, self.code_section_id = (
+            self._build_project_state()
+        )
+        backend = ProjectStateBackend(
+            projectConfigs={project_state.projectConfig.id: project_state.projectConfig},
+            defaultProjectConfigId=project_state.projectConfig.id,
+            sections=project_state.sections,
+            sectionImpls=project_state.sectionImpls,
+            sectionVariants=project_state.sectionVariants,
+            codeObjs=project_state.codeObjs,
+            codeObjImpls=project_state.codeObjImpls,
+            codeObjVariants=project_state.codeObjVariants,
+        )
+        self.dbe.write_project(backend)
+
+        self.lsp_servers = LSPServers(self.settings_file.settings.languageServer)
+        self.lsp_writers = LSPWriters(self.lsp_servers)
+        self.lsp_readers = LSPReaders(self.lsp_servers, self.frontend_sender)
+        self.manager = SessionProjectManager(
+            persistence_mode=SessionPersistenceMode.ide_main,
+            frontend_sender=self.frontend_sender,
+            python_script_sender=self.python_script_sender,
+            settings_file=self.settings_file,
+            specific_file_watcher=self.specific_file_watcher,
+            dbe=self.dbe,
+            artifacts=self.artifacts,
+            json_source=self.json_source,
+            code_files=self.code_files,
+            lsp_writers=self.lsp_writers,
+        )
+        await self.manager._process_queue_task_started.wait()
+        if shutil.which("basedpyright-langserver") is None:
+            raise unittest.SkipTest(
+                "basedpyright-langserver is required for LSP ordering tests"
+            )
+        await start_lsps(self.lsp_servers, self.lsp_readers, self.lsp_writers)
+
+    async def asyncTearDown(self) -> None:
+        self.manager.shutdown()
+        await _shutdown_manager(self.manager)
+        await stop_lsps(self.lsp_servers, self.lsp_readers)
+        stop_file_watcher(self.lsp_writers)
+        for patcher in reversed(self._patchers):
+            patcher.stop()
+
+    def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
+        code_impl = CodeSectionImpl(id=ID("code-impl"))
+        code_impl.code = "def existing(a):\n    return a\n"
+        code_impl.codeFileBinding = CodeFileBinding(
+            canonical_path=self.code_section_path,
+            access_mode=CodeFileAccessMode.read_write,
+        )
+        variant = Variant(
+            id=ID("variant-main"),
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            id=ID("section-main"),
+            name="Main Section",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            id=ID("config"),
+            name="Demo Project",
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        return project_state, project_config.id, section.id
+
+    async def test_syncs_lsp_before_watch_code_update(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        updated_code = "def hello(a, b, c):\n    return a + b + c\n"
+        logger.debug("test_syncs_lsp_before_watch_code_update start")
+        with self.assertLogs("setta.project_state", level="DEBUG") as logs:
+            logging.getLogger("setta.project_state").debug(
+                "test_syncs_lsp_before_watch_code_update set_code_begin"
+            )
+            await asyncio.wait_for(
+                self.manager.set_code(
+                    SetCodeRequest(
+                        projectConfigId=self.project_config_id,
+                        sectionId=self.code_section_id,
+                        code=updated_code,
+                    )
+                ),
+                timeout=10,
+            )
+            logging.getLogger("setta.project_state").debug(
+                "test_syncs_lsp_before_watch_code_update set_code_end"
+            )
+        messages = logs.output
+        sync_idx = next(
+            idx
+            for idx, msg in enumerate(messages)
+            if "sync_code_section_lsp_for_watch_code" in msg
+        )
+        watch_idx = next(
+            idx
+            for idx, msg in enumerate(messages)
+            if "watch_code.handle_code_section_update" in msg
+        )
+        self.assertLess(sync_idx, watch_idx)
+        logger.debug("test_syncs_lsp_before_watch_code_update done")
