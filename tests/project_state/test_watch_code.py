@@ -400,6 +400,36 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(updated_entry)
         self.assertTrue(updated_entry[1])
 
+    async def test_missing_watch_dir_watches_parent_until_created(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        missing_dir = self.setta_root.parent / "future_watch_dir"
+        if missing_dir.exists():
+            shutil.rmtree(missing_dir)
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(missing_dir), recursive=False)
+                ],
+                watchCodeFiles=[],
+            )
+        )
+        normalized_missing = normalize_path(missing_dir)
+        watch_manager = self.manager.watch_code_manager
+        self.assertIn(normalized_missing, watch_manager._pending_dirs)
+        ancestor = normalize_path(missing_dir.parent)
+        self.assertIn(ancestor, watch_manager._watched_dirs)
+
+        missing_dir.mkdir(parents=True, exist_ok=True)
+        watch_manager._handle_directory_created(normalize_path(missing_dir))
+        self.assertNotIn(normalized_missing, watch_manager._pending_dirs)
+        self.assertIn(normalized_missing, watch_manager._watched_dirs)
+
     async def test_delete_project_configs_syncs_watch_code_state(self) -> None:
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
@@ -527,6 +557,42 @@ class WatchCodeTests(unittest.IsolatedAsyncioTestCase):
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         updated_entry = updated_state.projectConfig.watchCodeRegistry[identity]
         self.assertNotEqual(updated_entry.signatureHash, previous_hash)
+
+    async def test_syntax_error_keeps_watch_registry(self) -> None:
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+        first_code = (
+            "def existing(a):\n    return a\n\n"
+            "def watched(value):\n    return value\n"
+        )
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=first_code,
+            )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        identity = build_callable_identity(
+            f"{module_path}.watched", WatchCodeCallableKind.function
+        )
+        self.assertIn(identity, state.projectConfig.watchCodeRegistry)
+
+        invalid_code = "def existing(a):\n    return a\n\n" "def watched("
+        await self.manager.set_code(
+            SetCodeRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                code=invalid_code,
+            )
+        )
+        updated_state = self.manager.get_single_config_state(self.project_config_id)
+        self.assertIn(identity, updated_state.projectConfig.watchCodeRegistry)
 
     async def test_signature_change_without_lsp_keeps_params(self) -> None:
         await self.manager.set_watch_code_enabled(

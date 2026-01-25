@@ -306,13 +306,19 @@ def _build_callable_info(
     )
 
 
-def parse_python_callables(code: str, source_path: Path) -> list[WatchCodeCallableInfo]:
+def parse_python_callables(
+    code: str, source_path: Path
+) -> list[WatchCodeCallableInfo] | None:
     if not code.strip():
         return []
     try:
         tree = ast.parse(code)
     except SyntaxError:
-        return []
+        logger.debug(
+            "watch_code.parse_python_callables syntax_error source_path=%s",
+            normalize_path(source_path),
+        )
+        return None
     module_path = convert_path_to_module_path(normalize_path(source_path))
     output: list[WatchCodeCallableInfo] = []
     for node in tree.body:
@@ -821,9 +827,19 @@ class WatchCodeManager:
                     return True
         return False
 
+    def _find_existing_ancestor(self, path: Path) -> Path | None:
+        current = normalize_path(path)
+        while True:
+            if current.exists():
+                return current
+            parent = current.parent
+            if parent == current:
+                return None
+            current = parent
+
     def _sync_watch_dirs(self, desired: dict[Path, bool]) -> None:
         if desired:
-            desired_watch_dirs = desired
+            desired_watch_dirs = dict(desired)
         else:
             desired_watch_dirs: dict[Path, bool] = {}
             for snapshot in self._config_snapshots.values():
@@ -841,6 +857,15 @@ class WatchCodeManager:
                             desired_watch_dirs[resolved] or recursive
                         )
         pending_dirs: set[Path] = set()
+        for path in list(desired_watch_dirs):
+            if path.exists():
+                continue
+            pending_dirs.add(path)
+            ancestor = self._find_existing_ancestor(path)
+            if ancestor is None:
+                continue
+            if ancestor not in desired_watch_dirs:
+                desired_watch_dirs[ancestor] = False
         existing_watches = set(self._watched_dirs.keys())
         desired_paths = set(desired_watch_dirs.keys())
         to_remove = existing_watches - desired_paths
@@ -909,8 +934,12 @@ class WatchCodeManager:
             )
             if not dest_known:
                 parsed_callables = parse_python_callables(raw, path)
-                baseline[dest_key] = [entry.identity for entry in parsed_callables]
                 src_key = str(normalize_path(moved_from))
+                if parsed_callables is None:
+                    if src_key in baseline:
+                        baseline[dest_key] = list(baseline[src_key])
+                else:
+                    baseline[dest_key] = [entry.identity for entry in parsed_callables]
                 if src_key in baseline:
                     baseline.pop(src_key, None)
                 moved_registry_entries = 0
@@ -923,7 +952,7 @@ class WatchCodeManager:
                     "watch_code._scan_file move_baseline_only project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
                     project_config.id,
                     normalize_path(path),
-                    len(parsed_callables),
+                    0 if parsed_callables is None else len(parsed_callables),
                     moved_registry_entries,
                 )
         did_update = await self._apply_callable_updates(
@@ -979,10 +1008,15 @@ class WatchCodeManager:
             binding = section_impl.codeFileBinding
             if binding is None:
                 continue
+            callables = parse_python_callables(
+                section_impl.code, binding.canonical_path
+            )
+            if callables is None:
+                continue
             self._record_baseline(
                 project_state.projectConfig,
                 normalize_path(binding.canonical_path),
-                parse_python_callables(section_impl.code, binding.canonical_path),
+                callables,
             )
 
     def _baseline_folder(
@@ -1002,6 +1036,8 @@ class WatchCodeManager:
         if raw is None:
             return
         callables = parse_python_callables(raw, normalized)
+        if callables is None:
+            return
         self._record_baseline(project_config, normalized, callables)
 
     def _record_baseline(
@@ -1024,15 +1060,24 @@ class WatchCodeManager:
     ) -> bool:
         project_config = project_state.projectConfig
         callables = parse_python_callables(code, source_path)
-        code_hash = compute_md5_hex(code)
-        logger.debug(
-            "watch_code._apply_callable_updates source_path=%s baseline_only=%s callable_count=%s code_len=%s code_hash=%s",
-            source_path,
-            baseline_only,
-            len(callables),
-            len(code),
-            code_hash,
-        )
+        if callables is None:
+            logger.debug(
+                "watch_code._apply_callable_updates parse_failed source_path=%s baseline_only=%s code_len=%s",
+                source_path,
+                baseline_only,
+                len(code),
+            )
+            return False
+        if logger.isEnabledFor(logging.DEBUG):
+            code_hash = compute_md5_hex(code)
+            logger.debug(
+                "watch_code._apply_callable_updates source_path=%s baseline_only=%s callable_count=%s code_len=%s code_hash=%s",
+                source_path,
+                baseline_only,
+                len(callables),
+                len(code),
+                code_hash,
+            )
         if baseline_only:
             self._record_baseline(project_config, source_path, callables)
             return True
@@ -1164,6 +1209,7 @@ class WatchCodeManager:
             if self._remove_watch_code_identities(project_state, removed_identities):
                 did_update = True
 
+        signature_updates: list[tuple[str, list[ID]]] = []
         new_section_updates: list[tuple[str, list[ID]]] = []
         for identity, info in current_by_identity.items():
             if identity in registry:
@@ -1187,11 +1233,7 @@ class WatchCodeManager:
                     entry.signatureHash = info.signature_hash
                     entry.bodyHash = info.body_hash
                     entry.sourcePath = info.source_path
-                    await self._update_sections_for_callable(
-                        project_state,
-                        entry.sectionIds,
-                        entry.callableName,
-                    )
+                    signature_updates.append((entry.callableName, entry.sectionIds))
                     did_update = True
                 else:
                     if entry.bodyHash != info.body_hash:
@@ -1235,10 +1277,9 @@ class WatchCodeManager:
             )
             did_update = True
             new_section_updates.append((reference_name, [section_id]))
-        if new_section_updates:
-            await self._update_sections_for_callables(
-                project_state, new_section_updates
-            )
+        combined_updates = signature_updates + new_section_updates
+        if combined_updates:
+            await self._update_sections_for_callables(project_state, combined_updates)
         return did_update
 
     def _update_registry_identity(

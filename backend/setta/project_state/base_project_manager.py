@@ -1754,6 +1754,8 @@ class BaseProjectManager(ABC):
             return
         if section_impl.codeLanguage is not CodeLanguage.python:
             return
+        if section_impl.codeFileBinding is None:
+            return
         code_entries = self.code_dict.setdefault(project_config.id, {})
         section_code = code_entries.get(section_id)
         if not isinstance(section_code, ProjectPythonCode):
