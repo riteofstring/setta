@@ -53,11 +53,6 @@ class HttpRequestMethod(str, Enum):
     OPTIONS = "OPTIONS"
 
 
-class DropzoneMode(str, Enum):
-    STATEFUL = "STATEFUL"
-    STATELESS = "STATELESS"
-
-
 class ColorPickerChoice(BaseModel):
     color: str
     description: str
@@ -151,9 +146,6 @@ class TextAreaParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class DropzoneParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DropzoneParam] = CodeObjType.DropzoneParam
-    mode: DropzoneMode = DropzoneMode.STATEFUL
-    maxAttachments: int | None = Field(default=None, gt=0)
-    placeholder: str = "Drop a file here"
 
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
@@ -164,10 +156,8 @@ ControlCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
-        CodeObjType.TextAreaParam,
         CodeObjType.ButtonParam,
         CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
         CodeObjType.SwitchParam,
         CodeObjType.ColorPickerParam,
         CodeObjType.DropdownParam,

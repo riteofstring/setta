@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, model_validator
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
@@ -83,6 +82,27 @@ class SectionCodegenOverride(BaseModel, extra="forbid"):
     representation: SectionRepresentationMode = SectionRepresentationMode.json
 
 
+class WatchCodeCallableKind(str, Enum):
+    function = "function"
+    async_function = "async_function"
+    class_init = "class_init"
+
+
+class WatchCodeFolder(BaseModel, extra="forbid"):
+    path: str
+    recursive: bool = True
+
+
+class WatchCodeRegistryEntry(BaseModel, extra="forbid"):
+    callableName: str
+    kind: WatchCodeCallableKind
+    signatureHash: str
+    bodyHash: str
+    sourcePath: str
+    sectionIds: list[ID] = Field(default_factory=list)
+    sectionsCount: int = 0
+
+
 def default_section_allowlist() -> list[SectionType]:
     return [
         SectionType.Callable,
@@ -93,22 +113,6 @@ def default_section_allowlist() -> list[SectionType]:
         SectionType.TextBlock,
         SectionType.Draw,
         SectionType.MetaControl,
-    ]
-
-
-def default_meta_control_allowlist() -> list[CodeObjType]:
-    return [
-        CodeObjType.CodeParam,
-        CodeObjType.TextParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
-        CodeObjType.SwitchParam,
-        CodeObjType.ColorPickerParam,
-        CodeObjType.DropdownParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.ButtonParam,
-        CodeObjType.DropzoneParam,
     ]
 
 
@@ -133,9 +137,6 @@ class SectionCodegenPolicy(BaseModel, extra="forbid"):
     allowlist: list[SectionType] | None = Field(
         default_factory=default_section_allowlist
     )
-    metaControlAllowlist: list[CodeObjType] | None = Field(
-        default_factory=default_meta_control_allowlist
-    )
     exclude: list[ID] = Field(default_factory=list)
     typePolicies: dict[SectionType, SectionTypeCodegenPolicy] = Field(
         default_factory=default_section_type_policies
@@ -147,43 +148,6 @@ class SectionCodegenPolicy(BaseModel, extra="forbid"):
 class ResolvedSectionCodegenPolicy:
     include_in_codegen: bool
     representation: SectionRepresentationMode
-
-
-class CodeObjValueRepresentationMode(str, Enum):
-    literal = "literal"
-    json = "json"
-    raw = "raw"
-
-
-class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
-    representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.literal
-    )
-
-
-class CodeObjValueOverride(BaseModel, extra="forbid"):
-    representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.literal
-    )
-
-
-def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
-    policies: dict[CodeObjType, CodeObjTypeValuePolicy] = {}
-    for code_obj_type in CodeObjType:
-        policies[code_obj_type] = CodeObjTypeValuePolicy()
-    return policies
-
-
-class CodeObjValuePolicy(BaseModel, extra="forbid"):
-    typePolicies: dict[CodeObjType, CodeObjTypeValuePolicy] = Field(
-        default_factory=default_code_obj_type_value_policies
-    )
-    codeObjOverrides: dict[ID, CodeObjValueOverride] = Field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class ResolvedCodeObjValuePolicy:
-    representation: CodeObjValueRepresentationMode
 
 
 def _apply_codegen_mode(include_in_codegen: bool, mode: SectionCodegenMode) -> bool:
@@ -239,49 +203,11 @@ def resolve_section_codegen_policy(
     )
 
 
-def _is_code_obj_value_representation_supported(
-    code_obj_type: CodeObjType, representation: CodeObjValueRepresentationMode
-) -> bool:
-    if code_obj_type in (
-        CodeObjType.ButtonParam,
-        CodeObjType.CodeCallable,
-        CodeObjType.NestedParam,
-    ):
-        return representation is CodeObjValueRepresentationMode.literal
-    return True
-
-
-def resolve_code_obj_value_policy(
-    value_policy: CodeObjValuePolicy,
-    code_obj_id: ID,
-    code_obj_type: CodeObjType,
-) -> ResolvedCodeObjValuePolicy:
-    type_policy = value_policy.typePolicies.get(code_obj_type)
-    if type_policy is None:
-        type_policy = CodeObjTypeValuePolicy()
-    representation = type_policy.representation
-    override = value_policy.codeObjOverrides.get(code_obj_id)
-    if override is not None:
-        representation = override.representation
-    if not _is_code_obj_value_representation_supported(code_obj_type, representation):
-        raise ValueError(
-            f"Unsupported representation {representation.value} for code obj type {code_obj_type.value}"
-        )
-    return ResolvedCodeObjValuePolicy(representation=representation)
-
-
 def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodegenPolicy:
     python_target = get_python_codegen_target(project_config)
     if python_target is None:
         return SectionCodegenPolicy()
     return python_target.sectionPolicy
-
-
-def get_code_obj_value_policy(project_config: "ProjectConfig") -> CodeObjValuePolicy:
-    python_target = get_python_codegen_target(project_config)
-    if python_target is None:
-        return CodeObjValuePolicy()
-    return python_target.codeObjValuePolicy
 
 
 class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
@@ -290,7 +216,6 @@ class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
     generateMetadata: bool = False
     sectionPolicy: SectionCodegenPolicy = Field(default_factory=SectionCodegenPolicy)
-    codeObjValuePolicy: CodeObjValuePolicy = Field(default_factory=CodeObjValuePolicy)
 
 
 ProjectCodegenTarget = ProjectCodegenPythonTarget
@@ -345,6 +270,11 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
+    watchCodeEnabled: bool = False
+    watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
+    watchCodeFiles: list[str] = Field(default_factory=list)
+    watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
+    watchCodeBaselineByPath: dict[str, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_codegen_targets(self):

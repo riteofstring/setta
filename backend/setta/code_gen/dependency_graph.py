@@ -38,12 +38,9 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.id import ID
 from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
     ResolvedSectionCodegenPolicy,
     SectionRepresentationMode,
-    get_code_obj_value_policy,
     get_section_codegen_policy,
-    resolve_code_obj_value_policy,
     resolve_section_codegen_policy,
 )
 from setta.types.project_state import (
@@ -81,9 +78,7 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
-    control_code_obj_id: ID | None = None
     control_code_obj_type: CodeObjType | None = None
-    control_value_representation: CodeObjValueRepresentationMode | None = None
     include_in_codegen: bool = True
 
     @property
@@ -94,9 +89,6 @@ class SectionNode(Node):
 @dataclass
 class ParamNode(Node):
     passing_style: ParameterPassingStyle
-    value_representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.literal
-    )
     include_in_codegen: bool = True
 
     @property
@@ -146,7 +138,6 @@ class DependencyGraph:
             SectionType.Chat: self._export_chat_section,
         }
         self.section_policy = get_section_codegen_policy(p.projectConfig)
-        self.code_obj_value_policy = get_code_obj_value_policy(p.projectConfig)
         self.construct_graph(p)
 
     def reset(self):
@@ -402,18 +393,6 @@ class DependencyGraph:
         control_value = None
         if isinstance(control_impl, BaseChildlessCodeObjImpl):
             control_value = LiteralDependencyValue(control_impl.value)
-        control_value_representation = resolve_code_obj_value_policy(
-            self.code_obj_value_policy,
-            control_param_id,
-            control_impl.type,
-        ).representation
-        include_in_codegen = ctx.codegen_policy.include_in_codegen
-        meta_control_allowlist = self.section_policy.metaControlAllowlist
-        if (
-            meta_control_allowlist is not None
-            and control_impl.type not in meta_control_allowlist
-        ):
-            include_in_codegen = False
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -421,11 +400,9 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=control_value,
-            control_code_obj_id=control_param_id,
             control_code_obj_type=control_impl.type,
-            control_value_representation=control_value_representation,
             deps={},
-            include_in_codegen=include_in_codegen,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
 
@@ -483,11 +460,6 @@ class DependencyGraph:
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[dep_key] = potential_refs
-                value_representation = resolve_code_obj_value_policy(
-                    self.code_obj_value_policy,
-                    pid,
-                    code_obj_impl.type,
-                ).representation
                 param_node = ParamNode(
                     id=pid,
                     name=name,
@@ -498,7 +470,6 @@ class DependencyGraph:
                     if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
                     else None,
                     passing_style=code_obj_impl.passingStyle,
-                    value_representation=value_representation,
                     include_in_codegen=include_in_codegen,
                     deps={},
                 )
