@@ -372,6 +372,14 @@ class DeleteKwargRequest(ProjectManagerRequestWithSection):
     """Remove the most recently added keyword argument from a section."""
 
 
+class DeleteSelectedParamsRequest(ProjectManagerRequestWithSection):
+    """Remove selected parameters from a section."""
+
+    paramInfoIds: list[ID] = Field(
+        description="Parameter IDs to remove from the section.",
+    )
+
+
 class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithSectionVariant):
     pass
 

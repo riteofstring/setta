@@ -13,6 +13,10 @@ describe("hasMarkdownHeadingText", () => {
     expect(hasMarkdownHeadingText("  ## Indented")).toBe(true);
   });
 
+  it("rejects four-space code block headings", () => {
+    expect(hasMarkdownHeadingText("    # Not a heading")).toBe(false);
+  });
+
   it("detects headings after leading text", () => {
     expect(hasMarkdownHeadingText("Intro\n# Heading\nMore")).toBe(true);
   });

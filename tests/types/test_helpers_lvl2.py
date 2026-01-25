@@ -10,6 +10,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
@@ -17,9 +18,13 @@ from setta.types.helpers_lvl2 import (
     change_param_impl,
     compute_smart_top_level_section_position,
     create_top_level_section,
+    delete_selected_params,
     delete_sections,
     get_curr_top_level_param_ids,
     get_first_markdown_heading,
+)
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseSectionWithParamsImplArgsWithCallable,
 )
 from setta.types.project_config import (
     Position,
@@ -183,12 +188,65 @@ class MarkdownHeadingTests(unittest.TestCase):
             ("###### Deep", "Deep"),
             ("####### Too deep", None),
             ("#   ", None),
+            ("    # Not a heading", None),
             ("Plain text\n# Heading\nMore", "Heading"),
         ]
 
         for text, expected in cases:
             with self.subTest(text=text):
                 self.assertEqual(get_first_markdown_heading(text), expected)
+
+
+class DeleteSelectedParamsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_delete_selected_params_removes_children_and_selection(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        param_one = add_kwarg(self.settings, self.project_state, section_id)
+        param_two = add_kwarg(self.settings, self.project_state, section_id)
+
+        set_curr_effective_section_impl_value(
+            self.project_state,
+            section_id,
+            BaseSectionWithParamsImplArgsWithCallable(
+                pinnedParams=[param_one, param_two],
+                selectedParams=[param_one],
+            ),
+        )
+
+        delete_selected_params(
+            self.settings, self.project_state, section_id, [param_one]
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseDictSectionImpl,
+        )
+        self.assertNotIn(param_one, section_impl.pinnedParams)
+        self.assertNotIn(param_one, section_impl.selectedParams)
+        self.assertIn(param_two, section_impl.pinnedParams)
+
+        top_level_param_id = section_impl.topLevelParamId
+        self.assertIsNotNone(top_level_param_id)
+        assert top_level_param_id is not None
+        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            top_level_param_id,
+            NestedParamCodeObjImpl,
+        )
+        self.assertNotIn(param_one, top_level_impl.children)
+        self.assertIn(param_two, top_level_impl.children)
 
 
 class SmartLayoutTests(unittest.TestCase):

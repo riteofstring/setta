@@ -188,12 +188,11 @@ function TextBlockCardTitle({
 }
 
 export function hasMarkdownHeadingText(markdown: string) {
-  const trimmed = markdown.trimStart();
-  const match = trimmed.match(/(?:^|\n)\s{0,3}#{1,6}(?!#)\s*(.*?)(?=\n|$)/);
+  const match = markdown.match(/(^ {0,3}#{1,6}(?!#)\s*(\S.*)$)/m);
   if (!match) {
     return false;
   }
-  return match[1].trim().length > 0;
+  return match[2].trim().length > 0;
 }
 
 function getTitleStyles({

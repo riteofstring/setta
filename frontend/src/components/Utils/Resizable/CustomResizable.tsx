@@ -152,34 +152,62 @@ function CustomResizableCore({
   }
 
   useEffect(() => {
-    const nextSize: Partial<SectionSize> = {};
-    const heightDelta =
-      typeof size.height === "number" ? minHeight - size.height : null;
-    const widthDelta =
-      typeof size.width === "number" ? minWidth - size.width : null;
-    if (
+    const hasHeight = typeof size.height === "number";
+    const hasWidth = typeof size.width === "number";
+    const heightDelta = hasHeight ? minHeight - size.height : null;
+    const widthDelta = hasWidth ? minWidth - size.width : null;
+    const shouldClampHeight =
       sizeMode.height !== SIZE_MODE.auto_only &&
-      typeof size.height === "number" &&
       heightDelta !== null &&
-      heightDelta > AUTO_CLAMP_TOLERANCE
-    ) {
-      nextSize.height = minHeight;
-    }
-    if (
+      heightDelta > AUTO_CLAMP_TOLERANCE;
+    const shouldClampWidth =
       sizeMode.width !== SIZE_MODE.auto_only &&
-      typeof size.width === "number" &&
       widthDelta !== null &&
-      widthDelta > AUTO_CLAMP_TOLERANCE
-    ) {
-      nextSize.width = minWidth;
+      widthDelta > AUTO_CLAMP_TOLERANCE;
+
+    if (!shouldClampHeight && !shouldClampWidth) {
+      return;
     }
+
+    const nextSize: Partial<SectionSize> = {};
+    if (
+      aspectRatio &&
+      hasHeight &&
+      hasWidth &&
+      sizeMode.height !== SIZE_MODE.auto_only &&
+      sizeMode.width !== SIZE_MODE.auto_only
+    ) {
+      const adjusted = adjustSizeToBeAtLeastMin(
+        size.height,
+        size.width,
+        minHeight,
+        minWidth,
+      );
+      if (
+        sizeMode.height !== SIZE_MODE.auto_only &&
+        adjusted.height !== size.height
+      ) {
+        nextSize.height = adjusted.height;
+      }
+      if (
+        sizeMode.width !== SIZE_MODE.auto_only &&
+        adjusted.width !== size.width
+      ) {
+        nextSize.width = adjusted.width;
+      }
+    } else {
+      if (shouldClampHeight) {
+        nextSize.height = minHeight;
+      }
+      if (shouldClampWidth) {
+        nextSize.width = minWidth;
+      }
+    }
+
     if (_.size(nextSize) === 0) {
       return;
     }
     if (!canEditLayout || positionAndSizeLocked) {
-      useProjectState.setState((state) => {
-        setSelfParentSiblingChildrenWidths(sectionId, nextSize, state);
-      });
       return;
     }
     let updatedSectionSizes: Record<string, SectionSize> = {};
@@ -206,6 +234,7 @@ function CustomResizableCore({
     size.width,
     sizeMode.height,
     sizeMode.width,
+    aspectRatio,
     canEditLayout,
     positionAndSizeLocked,
   ]);

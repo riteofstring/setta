@@ -227,6 +227,13 @@ class ListenerDeleteSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
+class ListenerDeleteSelectedParamsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoIds: list[ID]
+
+
 class ListenerDeleteViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -836,6 +843,11 @@ class RouterEndpointAPI:
         self, payload: ListenerDeleteSectionsRequestPayload
     ) -> None:
         return await self._caller("route_delete_sections", payload)
+
+    async def delete_selected_params(
+        self, payload: ListenerDeleteSelectedParamsRequestPayload
+    ) -> None:
+        return await self._caller("route_delete_selected_params", payload)
 
     async def delete_view_mode(
         self, payload: ListenerDeleteViewModeRequestPayload

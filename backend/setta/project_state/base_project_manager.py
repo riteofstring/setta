@@ -87,6 +87,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -201,6 +202,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
+    delete_selected_params,
     get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
@@ -1423,6 +1425,21 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
+        """Remove selected parameters from the section."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_selected_params(
+            self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     def create_project_code(

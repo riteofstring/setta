@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
+import { describe, expect, it } from "vitest";
 import { clampChangedSize } from "./CustomResizable";
 
 describe("clampChangedSize", () => {

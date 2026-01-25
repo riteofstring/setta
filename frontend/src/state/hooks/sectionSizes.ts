@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
-  getCurrShownParamIds,
+  getCurrSectionVariantId,
   getSectionType,
 } from "state/actions/sectionInfos";
 import {
@@ -42,6 +42,27 @@ type SizeMode = {
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const EMPTY_SHOWN_PARAMS: {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+} = {
+  requiredParamIdsToPaths: {},
+  topLevelParamIds: [],
+};
+
+function safeGetCurrShownParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  isPinned: boolean,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(state, sectionId, preview);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return EMPTY_SHOWN_PARAMS;
+  }
+  return isPinned ? shown.pinned : shown.unpinned;
+}
 
 function getMetaControlSizeMode({
   projectState,
@@ -277,8 +298,8 @@ export function useSectionMinMaxDims(sectionId: string) {
       if (sectionType === SectionTypeEnum.Callable) {
         baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;
       }
-      const pinned = getCurrShownParamIds(x, sectionId, true, true);
-      const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+      const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
       const edgeInputSet = new Set(impl.edgeInputParams);
       const hasPinnedParams = pinned.topLevelParamIds.some(
         (paramId) => !edgeInputSet.has(paramId),

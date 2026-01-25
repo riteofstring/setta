@@ -15,13 +15,21 @@ export class C_ADDRESSES {
   static normalizeOrigin(origin: string) {
     let normalizedOrigin = origin.trim();
     if (!normalizedOrigin) {
-      return normalizedOrigin;
+      return undefined;
     }
     const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
     if (!hasProtocol) {
       normalizedOrigin = `http://${normalizedOrigin}`;
     }
-    return new URL(normalizedOrigin).origin;
+    try {
+      return new URL(normalizedOrigin).origin;
+    } catch (error) {
+      console.error(
+        `Invalid VITE_BACKEND_ORIGIN value "${origin}". Falling back to default origin.`,
+        error,
+      );
+      return undefined;
+    }
   }
 
   // Computed properties that mirror the Python class

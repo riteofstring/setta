@@ -630,6 +630,9 @@ function ResizablePinnedArea({
   }
 
   useEffect(() => {
+    if (!outerRef.current) {
+      return;
+    }
     setInitialMaxHeight(outerRef.current.clientHeight);
   }, []);
 
@@ -712,14 +715,34 @@ function ResizablePinnedArea({
       });
     };
     update();
-    const observer = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver(() => {
       update();
     });
-    observer.observe(list);
+    resizeObserver.observe(list);
     if (headerRef.current) {
-      observer.observe(headerRef.current);
+      resizeObserver.observe(headerRef.current);
     }
-    return () => observer.disconnect();
+    const mutationObserver = new MutationObserver(() => {
+      update();
+    });
+    mutationObserver.observe(list, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+    if (headerRef.current) {
+      mutationObserver.observe(headerRef.current, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+      });
+    }
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
   }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
 
   const containerHeight =
@@ -898,8 +921,8 @@ function GetUnpinnedParams({
         return;
       }
       const observedRow =
-        (node.querySelector(":scope > article.section-args-nested-key-value") ??
-          node.querySelector(":scope > article.section-lg-value")) ??
+        node.querySelector(":scope > article.section-args-nested-key-value") ??
+        node.querySelector(":scope > article.section-lg-value") ??
         null;
       const underlineBuffer = 2;
       const getHeaderHeight = (row: Element) => {

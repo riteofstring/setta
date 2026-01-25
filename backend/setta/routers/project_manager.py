@@ -23,6 +23,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
     ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
@@ -464,6 +465,15 @@ async def route_delete_kwarg(x: DeleteKwargRequest, ctx: RuntimeContextFromReque
     await _deny_share_mode_param_metadata(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.delete_kwarg(x)
+
+
+@router.post(Route.DELETE_SELECTED_PARAMS)
+async def route_delete_selected_params(
+    x: DeleteSelectedParamsRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_param_metadata(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_selected_params(x)
 
 
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)

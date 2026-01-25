@@ -3,9 +3,11 @@ import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
+  updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
 import {
   useProjectState,
@@ -17,11 +19,13 @@ import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   route_add_kwarg,
   route_delete_kwarg,
+  route_delete_selected_params,
   route_set_section_edge_inputs,
   route_set_section_param_filter,
   route_set_section_pinned_params,
 } from "utils/generatedEndpoints";
 import {
+  isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -91,23 +95,28 @@ export function KwargsControls({
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
 
-  const onClickDeleteSelectedKwargs = () => {};
-
-  const { selectedParams, edgeInputParams, pinnedParams } = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        x,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      return {
-        selectedParams: impl.selectedParams,
-        edgeInputParams: impl.edgeInputParams,
-        pinnedParams: impl.pinnedParams,
-      };
-    },
-    _.isEqual,
-  );
+  const {
+    selectedParams,
+    edgeInputParams,
+    pinnedParams,
+    deletableSelectedParamIds,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const deletableSelectedParamIds = impl.selectedParams.filter((paramId) => {
+      const paramImpl = getCurrEffectiveCodeObjImpl(x, sectionId, paramId);
+      return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
+    });
+    return {
+      selectedParams: impl.selectedParams,
+      edgeInputParams: impl.edgeInputParams,
+      pinnedParams: impl.pinnedParams,
+      deletableSelectedParamIds,
+    };
+  }, _.isEqual);
 
   const canPinParams =
     selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
@@ -135,6 +144,7 @@ export function KwargsControls({
             pinnedParams: nextPinnedParams,
           },
         );
+        updateShownParamIdsForPinnedParams(state, sectionId, nextPinnedParams);
       },
       send: (frontendOpId) =>
         route_set_section_pinned_params({
@@ -149,6 +159,23 @@ export function KwargsControls({
   const canConvertToEdge =
     selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
   const convertToEdgeDisabled = !canConvertToEdge;
+
+  const canDeleteSelected =
+    deletableSelectedParamIds.length > 0 &&
+    !variantIsFrozen &&
+    canEditStructure;
+  const deleteSelectedDisabled = !canDeleteSelected;
+
+  function onClickDeleteSelectedKwargs() {
+    if (!canDeleteSelected) {
+      return;
+    }
+    route_delete_selected_params({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoIds: deletableSelectedParamIds,
+    });
+  }
 
   function onClickConvertToEdgeInputs() {
     if (!canConvertToEdge) {
@@ -246,7 +273,8 @@ export function KwargsControls({
               className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
               onClick={onClickDeleteSelectedKwargs}
               tabIndex={0}
-              disabled={variantIsFrozen}
+              disabled={deleteSelectedDisabled}
+              aria-disabled={deleteSelectedDisabled}
               aria-label="Delete selected args"
               {...getFloatingBoxHandlers({ content: "Delete selected args" })}
             >

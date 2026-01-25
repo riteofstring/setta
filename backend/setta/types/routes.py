@@ -91,6 +91,7 @@ class Route(str, Enum):
     AUTO_LAYOUT_TOP_LEVEL_SECTIONS = "/autoLayoutTopLevelSections"
     ADD_KWARG = "/addKwarg"
     DELETE_KWARG = "/deleteKwarg"
+    DELETE_SELECTED_PARAMS = "/deleteSelectedParams"
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
     TOGGLE_VARIANT_JSON_SOURCE = "/toggleVariantJsonSource"
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
