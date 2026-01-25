@@ -475,6 +475,7 @@ export const RouteEnum = {
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
+  DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
@@ -777,7 +778,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/e2f45441-f41a-4930-9277-a49e4027a41c.bin" as const,
+        "setta_files/artifacts/7d01fa10-68d6-46e2-972c-334434a86684.bin" as const,
     ),
   value: z.string(),
 });
@@ -5765,6 +5766,14 @@ const CheckIfFileExistsRequestsSchema = z.object({
 
 export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
+>;
+
+const DeleteArtifactsRequestSchema = z.object({
+  artifactIds: z.array(z.string()),
+});
+
+export type DeleteArtifactsRequestInput = z.input<
+  typeof DeleteArtifactsRequestSchema
 >;
 
 const GetFileBrowserRootResponseSchema = z.object({

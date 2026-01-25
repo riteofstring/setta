@@ -6,6 +6,7 @@ import {
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { useState } from "react";
 import { closeModal, useModalData } from "state/actions/modal";
+import { useDropzoneFileBrowserState } from "state/definitions";
 
 export function DropzoneFilePickerModal({ open }: { open: boolean }) {
   const { title, remainingSlots, onPickPaths } = useModalData(
@@ -39,6 +40,7 @@ export function DropzoneFilePickerModal({ open }: { open: boolean }) {
       )}
       <div className="min-h-0 flex-1">
         <FileBrowserPane
+          useFileBrowserStateHook={useDropzoneFileBrowserState}
           onSelectionChange={setSelectedNode}
           onFileOpen={(node) => attachFile(node)}
         />

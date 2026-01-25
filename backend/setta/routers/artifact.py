@@ -28,7 +28,7 @@ from setta.types.artifact import (
 )
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
-from setta.utils.constants import CWD
+from setta.utils.constants import CWD, C
 from setta.utils.utils import normalize_path
 
 router = SettaAPIRouter()
@@ -94,6 +94,10 @@ class ImportFilesToArtifactsResponseItem(BaseModel):
     name: str
     mimeType: str
     size: int
+
+
+class DeleteArtifactsRequest(BaseModel):
+    artifactIds: list[str]
 
 
 def _get_share_session_artifacts(
@@ -261,9 +265,15 @@ def route_get_folder_contents(
 
     # Check if path exists and is a directory
     if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {x.folderPath}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Path does not exist: {x.folderPath}",
+        )
     if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {x.folderPath}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path is not a directory: {x.folderPath}",
+        )
 
     ignore_patterns = (
         x.ignorePatterns
@@ -480,3 +490,57 @@ async def route_update_artifacts(
     conflict_strategy = x.conflictStrategy or SaveConflictStrategy.backup
     results = await artifacts.apply_updates(x.artifacts, conflict_strategy)
     return results
+
+
+@router.post(Route.DELETE_ARTIFACTS)
+async def route_delete_artifacts(
+    x: DeleteArtifactsRequest,
+    ctx: RuntimeContextFromRequest,
+) -> list[str]:
+    if not x.artifactIds:
+        return []
+    if ctx.share_mode:
+        await ctx.enforce_policy(
+            policy_flag="allowParamChanges",
+            denied_message="Share policy disallows parameter changes.",
+        )
+        if ctx.deployment_root is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Share deployment root is not available.",
+            )
+        artifacts_root = (ctx.deployment_root / "artifacts").resolve()
+        artifacts = ctx.state.share_runtime_state.get_session_artifacts(ctx.session_id)
+    else:
+        artifacts_root = (CWD / C.ARTIFACTS_FOLDER).resolve()
+        artifacts = _get_artifacts(ctx)
+    try:
+        deleted_ids = artifacts.delete_file_artifacts(
+            x.artifactIds, artifacts_root=artifacts_root
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete artifact: {exc}",
+        ) from exc
+
+    if deleted_ids:
+        payloads = [
+            FileArtifact(id=artifact_id, value="") for artifact_id in deleted_ids
+        ]
+        await ctx.state.wmh_frontend_sender.broadcast_artifacts_update(
+            artifacts=payloads,
+            updateType="delete",
+            share_session_id=ctx.session_id if ctx.share_mode else None,
+        )
+    return deleted_ids

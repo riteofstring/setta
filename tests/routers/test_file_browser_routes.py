@@ -9,16 +9,21 @@ from fastapi import FastAPI, HTTPException
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
+    DeleteArtifactsRequest,
     GetFolderContentsRequest,
     ImportFilesToArtifactsRequest,
+    UpdateArtifactsRequest,
+    route_delete_artifacts,
     route_get_file_browser_root,
     route_get_folder_contents,
     route_import_files_to_artifacts,
+    route_update_artifacts,
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.artifact import FileArtifact
 from setta.utils.constants import C, CWD
 from tests.utils.runtime_context import runtime_context
 from tests.utils.manager_fixture import _seed_minimal_setta_files
@@ -279,16 +284,18 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             file_path.write_text("hi", encoding="utf-8")
             missing_path = root_path / "missing"
             with runtime_context(state) as runtime_ctx:
-                with self.assertRaises(FileNotFoundError):
+                with self.assertRaises(HTTPException) as missing_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(missing_path)),
                         runtime_ctx,
                     )
-                with self.assertRaises(NotADirectoryError):
+                self.assertEqual(404, missing_ctx.exception.status_code)
+                with self.assertRaises(HTTPException) as directory_ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(file_path)),
                         runtime_ctx,
                     )
+                self.assertEqual(400, directory_ctx.exception.status_code)
 
     async def test_import_files_to_artifacts_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -357,6 +364,37 @@ class FileBrowserRouteTests(unittest.IsolatedAsyncioTestCase):
             base64.b64encode(contents).decode("utf-8"),
             cached.value,
         )
+
+    async def test_delete_artifacts_removes_file(self) -> None:
+        state = await self._build_state()
+        artifact_id = (C.ARTIFACTS_FOLDER / "dropzone.txt").as_posix()
+        expected_id = Path(artifact_id).resolve().as_posix()
+        artifact = FileArtifact(id=artifact_id, value=base64.b64encode(b"data").decode("utf-8"))
+        with runtime_context(state) as runtime_ctx:
+            await route_update_artifacts(
+                UpdateArtifactsRequest(artifacts=[artifact]),
+                runtime_ctx,
+            )
+            file_path = (CWD / artifact_id).resolve()
+            self.assertTrue(file_path.exists())
+            deleted = await route_delete_artifacts(
+                DeleteArtifactsRequest(artifactIds=[artifact_id]),
+                runtime_ctx,
+            )
+        self.assertIn(expected_id, deleted)
+        self.assertFalse(file_path.exists())
+        self.assertIsNone(state.artifacts.get_cached_file(artifact_id))
+
+    async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:
+        state = await self._build_state()
+        outside_id = "setta_files/code/should-not-delete.txt"
+        with runtime_context(state) as runtime_ctx:
+            with self.assertRaises(HTTPException) as ctx:
+                await route_delete_artifacts(
+                    DeleteArtifactsRequest(artifactIds=[outside_id]),
+                    runtime_ctx,
+                )
+        self.assertEqual(403, ctx.exception.status_code)
 
 
 if __name__ == "__main__":

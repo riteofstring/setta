@@ -30,6 +30,7 @@ import {
 } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_delete_artifacts,
   route_import_files_to_artifacts,
   route_update_artifacts,
   route_update_param_impl_config,
@@ -76,8 +77,30 @@ function formatBytes(bytes: number): string {
   return `${rounded} KB`;
 }
 
-const DROPZONE_MAX_FILE_BYTES = 25 * 1024 * 1024;
-const DROPZONE_MAX_FILE_LABEL = formatBytes(DROPZONE_MAX_FILE_BYTES);
+const DROPZONE_MAX_FILE_BYTES_STATEFUL = 25 * 1024 * 1024;
+const DROPZONE_MAX_FILE_BYTES_STATELESS = 5 * 1024 * 1024;
+const DROPZONE_MAX_FILE_LABEL_STATEFUL = formatBytes(
+  DROPZONE_MAX_FILE_BYTES_STATEFUL,
+);
+const DROPZONE_MAX_FILE_LABEL_STATELESS = formatBytes(
+  DROPZONE_MAX_FILE_BYTES_STATELESS,
+);
+
+function getMaxFileLimit(mode: DropzoneModeEnum): {
+  maxBytes: number;
+  label: string;
+} {
+  if (mode === DropzoneModeEnum.STATELESS) {
+    return {
+      maxBytes: DROPZONE_MAX_FILE_BYTES_STATELESS,
+      label: DROPZONE_MAX_FILE_LABEL_STATELESS,
+    };
+  }
+  return {
+    maxBytes: DROPZONE_MAX_FILE_BYTES_STATEFUL,
+    label: DROPZONE_MAX_FILE_LABEL_STATEFUL,
+  };
+}
 
 function getErrorDetail(value: unknown): string | null {
   if (!value) {
@@ -96,34 +119,49 @@ function getErrorDetail(value: unknown): string | null {
   return null;
 }
 
-function notifyOversizedFiles(files: File[]): void {
+function notifyOversizedFiles(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
   }
   const names = files.slice(0, 3).map((file) => file.name);
   let message = "";
   if (files.length === 1) {
-    message = `File "${names[0]}" exceeds the ${DROPZONE_MAX_FILE_LABEL} limit.`;
+    message = `File "${names[0]}" exceeds the ${limitLabel} limit.`;
   } else {
     const suffix =
       files.length > names.length
         ? ` +${files.length - names.length} more`
         : "";
-    message = `Skipped ${files.length} files over ${DROPZONE_MAX_FILE_LABEL}: ${names.join(
+    message = `Skipped ${files.length} files over ${limitLabel}: ${names.join(
       ", ",
     )}${suffix}.`;
   }
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
-function splitFilesBySize(files: File[]): {
+function notifyReadFailures(files: File[]): void {
+  if (files.length === 0) {
+    return;
+  }
+  const names = files.slice(0, 3).map((file) => file.name);
+  const suffix =
+    files.length > names.length ? ` +${files.length - names.length} more` : "";
+  const noun = files.length === 1 ? "file" : "files";
+  const message = `Failed to read ${files.length} ${noun}: ${names.join(", ")}${suffix}.`;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+function splitFilesBySize(
+  files: File[],
+  maxBytes: number,
+): {
   accepted: File[];
   rejected: File[];
 } {
   const accepted: File[] = [];
   const rejected: File[] = [];
   for (const file of files) {
-    if (file.size > DROPZONE_MAX_FILE_BYTES) {
+    if (file.size > maxBytes) {
       rejected.push(file);
       continue;
     }
@@ -406,9 +444,10 @@ export function DropzoneInput({
     if (slots === 0) {
       return;
     }
-    const { accepted, rejected } = splitFilesBySize(files);
+    const maxLimit = getMaxFileLimit(mode);
+    const { accepted, rejected } = splitFilesBySize(files, maxLimit.maxBytes);
     if (rejected.length > 0) {
-      notifyOversizedFiles(rejected);
+      notifyOversizedFiles(rejected, maxLimit.label);
     }
     const allowedFiles = slots === null ? accepted : accepted.slice(0, slots);
     if (allowedFiles.length === 0) {
@@ -416,11 +455,32 @@ export function DropzoneInput({
     }
     setIsUploading(true);
     try {
-      const base64Payloads = await Promise.all(
+      const results = await Promise.allSettled(
         allowedFiles.map((file) => readFileAsBase64(file)),
       );
+      const successfulFiles: File[] = [];
+      const base64Payloads: string[] = [];
+      const failedFiles: File[] = [];
+      results.forEach((result, index) => {
+        const file = allowedFiles[index];
+        if (!file) {
+          return;
+        }
+        if (result.status === "fulfilled") {
+          successfulFiles.push(file);
+          base64Payloads.push(result.value);
+        } else {
+          failedFiles.push(file);
+        }
+      });
+      if (failedFiles.length > 0) {
+        notifyReadFailures(failedFiles);
+      }
+      if (successfulFiles.length === 0) {
+        return;
+      }
       if (mode === DropzoneModeEnum.STATELESS) {
-        const attachments: DropzoneStatelessAttachment[] = allowedFiles.map(
+        const attachments: DropzoneStatelessAttachment[] = successfulFiles.map(
           (file, index) => ({
             kind: "file",
             name: file.name,
@@ -430,7 +490,7 @@ export function DropzoneInput({
           }),
         );
         const displayAttachments: DropzoneStatelessDisplayAttachment[] =
-          allowedFiles.map((file) => ({
+          successfulFiles.map((file) => ({
             kind: "file",
             name: file.name,
             size: file.size,
@@ -442,7 +502,7 @@ export function DropzoneInput({
       if (!onChange) {
         return;
       }
-      const fileIds = allowedFiles.map((file) =>
+      const fileIds = successfulFiles.map((file) =>
         createDropzoneFileArtifactId(file.name),
       );
       const artifacts: FileArtifact[] = base64Payloads.map(
@@ -454,9 +514,12 @@ export function DropzoneInput({
       );
       const res = await route_update_artifacts({ artifacts });
       if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        const message = detail ?? "Failed to upload attachments.";
+        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
         return;
       }
-      const newAttachments: DropzoneStoredAttachment[] = allowedFiles.map(
+      const newAttachments: DropzoneStoredAttachment[] = successfulFiles.map(
         (file, index) => ({
           kind: "file",
           id: fileIds[index],
@@ -562,6 +625,15 @@ export function DropzoneInput({
       onChange(updatedValue);
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function deleteFileAttachment(artifactId: string) {
+    const res = await route_delete_artifacts({ artifactIds: [artifactId] });
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      const message = detail ?? "Failed to delete attachment.";
+      addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
     }
   }
 
@@ -747,6 +819,9 @@ export function DropzoneInput({
                   );
                   const updatedValue = serializeDropzoneValue(nextAttachments);
                   onChange(updatedValue);
+                  if (attachment.kind === "file" && attachment.id) {
+                    void deleteFileAttachment(attachment.id);
+                  }
                 }}
                 disabled={isDisabled}
               >

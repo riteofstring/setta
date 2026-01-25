@@ -672,6 +672,32 @@ class Artifacts:
             path, artifact, metadata, prepared, conflict_strategy
         )
 
+    def delete_file_artifacts(
+        self,
+        artifact_ids: list[str],
+        *,
+        artifacts_root: Path,
+    ) -> list[str]:
+        deleted_ids: list[str] = []
+        root_resolved = artifacts_root.resolve()
+        for artifact_id in artifact_ids:
+            if not artifact_id or not artifact_id.strip():
+                raise ValueError("Artifact id must be a non-empty string.")
+            normalized_path = self._resolve_path(artifact_id)
+            resolved_path = normalized_path.resolve()
+            if not resolved_path.is_relative_to(root_resolved):
+                raise PermissionError(
+                    f"Artifact path must be within {root_resolved.as_posix()}."
+                )
+            if resolved_path.exists() and resolved_path.is_dir():
+                raise ValueError(f"Artifact path is a directory: {artifact_id}")
+            self.files.pop(normalized_path, None)
+            self.file_metadata.pop(normalized_path, None)
+            if resolved_path.exists():
+                resolved_path.unlink()
+            deleted_ids.append(self.normalize_artifact_id(normalized_path))
+        return deleted_ids
+
     def save(self, conflict_strategy: SaveConflictStrategy = SaveConflictStrategy.skip):
         results: list[ArtifactSaveResult] = []
         for artifact_type in ArtifactType:

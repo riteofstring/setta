@@ -46,17 +46,37 @@ type FileBrowserRowProps = RowData & {
   style: CSSProperties;
 };
 
+function getErrorDetail(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const detail = record.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+  return null;
+}
+
 type FileBrowserPaneProps = {
   onFileOpen?: (node: FileNode) => void;
   onSelectionChange?: (node: FileNode | null) => void;
+  useFileBrowserStateHook?: typeof useFileBrowserState;
 };
 
 export function FileBrowserPane({
   onFileOpen,
   onSelectionChange,
+  useFileBrowserStateHook,
 }: FileBrowserPaneProps = {}) {
+  const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
   const { rootPath, expandedPaths, selectedPath, filterText } =
-    useFileBrowserState((state) => ({
+    fileBrowserState((state) => ({
       rootPath: state.rootPath,
       expandedPaths: state.expandedPaths,
       selectedPath: state.selectedPath,
@@ -160,7 +180,10 @@ export function FileBrowserPane({
         });
       } else {
         let errorMessage = "Failed to load folder contents.";
-        if (res.hasResponse && res.status !== undefined) {
+        const detail = getErrorDetail(res.data);
+        if (detail) {
+          errorMessage = detail;
+        } else if (res.hasResponse && res.status !== undefined) {
           errorMessage = `Failed to load folder contents (${res.status}).`;
         }
         setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
@@ -194,7 +217,7 @@ export function FileBrowserPane({
       const rootRequestId = rootRequestIdRef.current;
       folderRequestIdRef.current = {};
       setRootError(null);
-      useFileBrowserState.setState({
+      fileBrowserState.setState({
         rootPath: trimmed,
         selectedPath: trimmed,
         expandedPaths: { [trimmed]: true },
@@ -212,7 +235,7 @@ export function FileBrowserPane({
       setLoadingPaths({});
       void fetchFolderContents(trimmed, ignoreOverride, rootRequestId);
     },
-    [fetchFolderContents, pathSeparator],
+    [fetchFolderContents, fileBrowserState, pathSeparator],
   );
 
   useEffect(() => {
@@ -252,12 +275,12 @@ export function FileBrowserPane({
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      useFileBrowserState.setState({ filterText: filterInput });
+      fileBrowserState.setState({ filterText: filterInput });
     }, FILTER_DEBOUNCE_MS);
     return () => {
       clearTimeout(timeout);
     };
-  }, [filterInput]);
+  }, [filterInput, fileBrowserState]);
 
   const flattenedItems = useMemo(() => {
     if (!rootPath) {
@@ -356,7 +379,7 @@ export function FileBrowserPane({
         return;
       }
       const isExpanded = expandedPaths[path] === true;
-      useFileBrowserState.setState((state) => {
+      fileBrowserState.setState((state) => {
         const next = { ...state.expandedPaths };
         if (isExpanded) {
           delete next[path];
@@ -369,19 +392,25 @@ export function FileBrowserPane({
         void fetchFolderContents(path);
       }
     },
-    [childrenByPath, expandedPaths, fetchFolderContents, nodesByPath],
+    [
+      childrenByPath,
+      expandedPaths,
+      fetchFolderContents,
+      fileBrowserState,
+      nodesByPath,
+    ],
   );
 
   const handleSelect = useCallback(
     (path: string) => {
-      useFileBrowserState.setState({ selectedPath: path });
+      fileBrowserState.setState({ selectedPath: path });
       if (!onSelectionChange) {
         return;
       }
       const node = nodesByPath[path];
       onSelectionChange(node ?? null);
     },
-    [nodesByPath, onSelectionChange],
+    [fileBrowserState, nodesByPath, onSelectionChange],
   );
 
   const handleOpen = useCallback(
