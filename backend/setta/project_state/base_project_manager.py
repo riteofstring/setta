@@ -328,8 +328,7 @@ from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.name_validation import (
-    collect_param_name_conflicts,
-    collect_param_name_format_errors,
+    collect_param_name_errors,
     collect_project_name_format_errors,
     collect_section_name_conflicts,
     collect_section_name_format_errors,
@@ -1007,8 +1006,9 @@ class BaseProjectManager(ABC):
         for configId in p.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(p, configId)
             # Don't update file watcher here because otherwise it'll be an infinite loop
-            await self._update_and_broadcast_project_state_no_name_validation(
-                singleConfig, updateFileWatcher=False
+            await self.update_and_broadcast_project_state(
+                singleConfig,
+                updateFileWatcher=False,
             )
 
     async def _refresh_codegen_state(
@@ -2852,10 +2852,9 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
     ) -> None:
         section_errors = collect_section_name_conflicts(project_state)
-        param_errors = collect_param_name_conflicts(project_state)
+        param_errors, param_format_errors = collect_param_name_errors(project_state)
         section_format_errors = collect_section_name_format_errors(project_state)
         heading_name_errors = collect_text_block_heading_name_errors(project_state)
-        param_format_errors = collect_param_name_format_errors(project_state)
         for section_id, errors in section_format_errors.items():
             section_errors.setdefault(section_id, []).extend(errors)
         for section_id, errors in heading_name_errors.items():

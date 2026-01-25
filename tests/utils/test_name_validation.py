@@ -1,8 +1,10 @@
 import unittest
 from pathlib import Path
 
+from setta.code_gen.utils import sanitize_slug
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
+    CodeObjType,
     CodeParamCodeObjImpl,
     ParameterPassingStyle,
 )
@@ -22,6 +24,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_code_obj,
     add_kwarg,
+    add_meta_control_code_obj,
     create_child_sections,
     create_top_level_section,
     get_section_path_full_name,
@@ -33,13 +36,18 @@ from setta.types.helpers_lvl2 import (
     set_text_block_text,
 )
 from setta.types.project_config import Position, ProjectConfig
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.project_state import (
+    CODE_LANGUAGE_EXTENSIONS,
+    ProjectStateBackend,
+    ProjectStateSingleConfig,
+)
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
+    MetaControlSectionImpl,
     SectionType,
 )
 from setta.utils.constants import C
@@ -53,6 +61,7 @@ from setta.utils.name_validation import (
     collect_text_block_heading_name_errors,
     validate_param_name,
 )
+from setta.utils.utils import build_project_sections_dir, normalize_path
 
 
 def _ensure_callable_root(
@@ -660,6 +669,44 @@ class SectionNameValidationTests(unittest.TestCase):
             impl_b_after.codeFileBinding.canonical_path,
         )
 
+    def test_validate_code_file_bindings_promotes_legacy_autobinding(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Code,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseCodeSectionImpl,
+        )
+        section_full_name = get_section_path_full_name(self.project_state, section_id)
+        section_slug = sanitize_slug(section_full_name)
+        extension = CODE_LANGUAGE_EXTENSIONS[impl.codeLanguage]
+        code_root = normalize_path(C.CODE_FOLDER)
+        canonical_sections_dir = build_project_sections_dir(
+            code_root, self.project_state.projectConfig.name
+        )
+        canonical_path = normalize_path(
+            canonical_sections_dir / f"{section_slug}.{extension}"
+        )
+        legacy_binding = CodeFileBinding(
+            canonical_path=canonical_path,
+            access_mode=CodeFileAccessMode.read_write,
+            autoBinding=False,
+        )
+        set_code_file_binding(self.project_state, section_id, legacy_binding)
+        self.project_state.validate_code_file_bindings()
+        impl_after = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseCodeSectionImpl,
+        )
+        self.assertIsNotNone(impl_after.codeFileBinding)
+        self.assertTrue(impl_after.codeFileBinding.autoBinding)
+
 
 class ParamNameValidationTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -779,6 +826,24 @@ class ParamNameValidationTests(unittest.TestCase):
                 "class",
             )
 
+    def test_param_name_rejects_python_soft_keyword(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        _ensure_callable_root(self.project_state, section_id)
+        param_id = add_kwarg(self.settings, self.project_state, section_id)
+        with self.assertRaises(InvalidParamName):
+            validate_param_name(
+                self.project_state,
+                section_id,
+                param_id,
+                "type",
+            )
+
     def test_param_name_rejects_unicode_identifier(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -807,6 +872,35 @@ class ParamNameValidationTests(unittest.TestCase):
         self.project_state.validate_parent_section_map()
         _ensure_callable_root(self.project_state, section_id)
         param_id = add_kwarg(self.settings, self.project_state, section_id)
+        self.project_state.codeObjs[param_id].name = "invalid name"
+        errors = collect_param_name_format_errors(self.project_state)
+        self.assertIn(param_id, errors)
+        self.assertIn(
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
+        )
+
+    def test_collect_param_name_format_errors_flags_meta_control(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.MetaControl,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        add_meta_control_code_obj(
+            self.settings,
+            self.project_state,
+            section_id,
+            CodeObjType.SliderParam,
+        )
+        meta_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            MetaControlSectionImpl,
+        )
+        param_id = meta_impl.metaControlParamId
+        self.assertIsNotNone(param_id)
         self.project_state.codeObjs[param_id].name = "invalid name"
         errors = collect_param_name_format_errors(self.project_state)
         self.assertIn(param_id, errors)

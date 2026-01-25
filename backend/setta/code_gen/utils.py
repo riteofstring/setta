@@ -32,13 +32,19 @@ def sanitize_slug(name: str) -> str:
 _PYTHON_IDENTIFIER_INVALID_CHARS = re.compile(r"\W", flags=re.UNICODE)
 
 
+def _is_python_keyword(name: str) -> bool:
+    if name == "_":
+        return False
+    return keyword.iskeyword(name) or keyword.issoftkeyword(name)
+
+
 def sanitize_python_identifier(name: str) -> str:
     sanitized = _PYTHON_IDENTIFIER_INVALID_CHARS.sub("_", name)
     if not sanitized:
         sanitized = "_"
     if sanitized[0].isdigit():
         sanitized = f"_{sanitized}"
-    if keyword.iskeyword(sanitized):
+    if _is_python_keyword(sanitized):
         sanitized = f"_{sanitized}"
     if not sanitized.isidentifier():
         sanitized = "".join(c if (c == "_" or c.isalnum()) else "_" for c in sanitized)
@@ -46,7 +52,7 @@ def sanitize_python_identifier(name: str) -> str:
             sanitized = "_"
         if sanitized[0].isdigit():
             sanitized = f"_{sanitized}"
-        if keyword.iskeyword(sanitized):
+        if _is_python_keyword(sanitized):
             sanitized = f"_{sanitized}"
     return sanitized
 

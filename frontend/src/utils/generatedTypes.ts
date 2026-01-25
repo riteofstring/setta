@@ -1115,6 +1115,7 @@ export function createBaseChartSettingsUnionWithDiscriminator(
 const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
+  autoBinding: z.boolean().default(false),
 });
 
 const ColorPickerChoiceSchema = z.object({

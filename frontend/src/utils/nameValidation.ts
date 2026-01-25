@@ -38,6 +38,7 @@ const PYTHON_KEYWORDS = new Set([
   "case",
   "raise",
   "return",
+  "type",
   "try",
   "while",
   "with",

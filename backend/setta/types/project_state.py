@@ -41,6 +41,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
+    MetaControlSectionImpl,
     SectionType,
 )
 from setta.types.shown_params import (
@@ -257,24 +258,45 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         for section_id, section in self.sections.items():
             validate_section_name_format(section.name)
             section_impl = get_curr_effective_section_impl(self, section_id)
-            if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            if isinstance(section_impl, BaseSectionWithParamsImpl):
+                for code_obj_id in section_impl.codeObjVariantMap:
+                    if code_obj_id not in self.codeObjs:
+                        raise KeyError(
+                            f"Missing code obj {code_obj_id} in project state."
+                        )
+                    code_obj_impl = get_curr_effective_code_obj_impl(
+                        self,
+                        section_id,
+                        code_obj_id,
+                    )
+                    if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
+                        continue
+                    validate_param_name_format(
+                        self,
+                        section_id,
+                        code_obj_id,
+                        self.codeObjs[code_obj_id].name,
+                    )
                 continue
-            for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id not in self.codeObjs:
-                    raise KeyError(f"Missing code obj {code_obj_id} in project state.")
-                code_obj_impl = get_curr_effective_code_obj_impl(
-                    self,
-                    section_id,
-                    code_obj_id,
-                )
-                if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
-                    continue
-                validate_param_name_format(
-                    self,
-                    section_id,
-                    code_obj_id,
-                    self.codeObjs[code_obj_id].name,
-                )
+            if isinstance(section_impl, MetaControlSectionImpl):
+                for code_obj_id in section_impl.codeObjVariantMap:
+                    if code_obj_id not in self.codeObjs:
+                        raise KeyError(
+                            f"Missing code obj {code_obj_id} in project state."
+                        )
+                    code_obj_impl = get_curr_effective_code_obj_impl(
+                        self,
+                        section_id,
+                        code_obj_id,
+                    )
+                    if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
+                        continue
+                    validate_param_name_format(
+                        self,
+                        section_id,
+                        code_obj_id,
+                        self.codeObjs[code_obj_id].name,
+                    )
         return self
 
     def validate_code_file_bindings(self):
@@ -317,11 +339,32 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 canonical_binding_path = normalize_path(
                     canonical_sections_dir / f"{section_slug}.{extension}"
                 )
-            if section_id in conflicting_section_ids and not is_gen_section:
+            if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                expected_binding_path = normalize_path(gen_code_path)
+            elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
+                expected_binding_path = normalize_path(gen_meta_path)
+            else:
+                expected_binding_path = canonical_binding_path
+            binding = effective_impl.codeFileBinding
+            if binding is not None and expected_binding_path is not None:
+                normalized_binding_path = normalize_path(binding.canonical_path)
                 if (
-                    effective_impl.codeFileBinding is not None
-                    and effective_impl.codeFileBinding.autoBinding
+                    normalized_binding_path == expected_binding_path
+                    and not binding.autoBinding
                 ):
+                    binding = CodeFileBinding(
+                        canonical_path=normalized_binding_path,
+                        access_mode=binding.access_mode,
+                        autoBinding=True,
+                    )
+                    set_effective_impl_value(
+                        base_impl,
+                        core,
+                        variant,
+                        BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
+                    )
+            if section_id in conflicting_section_ids and not is_gen_section:
+                if binding is not None and binding.autoBinding:
                     set_effective_impl_value(
                         base_impl,
                         core,
@@ -329,10 +372,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                         BaseCodeSectionImplArgsWithCallable(codeFileBinding=None),
                     )
                 continue
-            if effective_impl.codeFileBinding is not None:
+            if binding is not None:
                 if isinstance(effective_impl, GenPythonCodeSectionImpl):
                     if python_codegen_enabled:
-                        gen_code_binding = effective_impl.codeFileBinding
+                        gen_code_binding = binding
                     else:
                         set_effective_impl_value(
                             base_impl,

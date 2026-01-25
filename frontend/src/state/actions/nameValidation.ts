@@ -29,6 +29,11 @@ export function applyPendingNameValidationErrors(projectConfigId: string) {
   const pending =
     useNameValidationErrors.getState().pendingByProjectId[projectConfigId];
   if (!pending) {
+    useNameValidationErrors.setState((state) => {
+      state.projectErrors = [];
+      state.sectionErrors = {};
+      state.paramErrors = {};
+    });
     return;
   }
   applyNameValidationErrors(pending);
