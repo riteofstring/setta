@@ -285,7 +285,7 @@ function ScriptableChatArea({
   const handleSubmit = useCallback(
     async (message: string) => {
       if (!message.trim()) {
-        return;
+        return false;
       }
       const messageId = createNewId();
       const timestampMs = Date.now();
@@ -313,6 +313,7 @@ function ScriptableChatArea({
         managed: false,
         timestampMs,
       });
+      return true;
     },
     [applyChatStateWithAck, messages, sectionId, toolCallArguments],
   );
@@ -603,16 +604,16 @@ function ManagedChatArea({
   const handleSubmit = useCallback(
     async (message: string) => {
       if (!message.trim()) {
-        return;
+        return false;
       }
       if (!hasEngineConfig) {
-        return;
+        return false;
       }
       if (!isExternalEngine && !hasLLMConfig) {
-        return;
+        return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
-        return;
+        return false;
       }
       const messageId = createNewId();
       const timestampMs = Date.now();
@@ -633,7 +634,7 @@ function ManagedChatArea({
       let succeeded = false;
       try {
         if (!effectiveEngineConfigId) {
-          return;
+          return false;
         }
         submittedChatId = await submitMessage(
           chatId,
@@ -652,6 +653,7 @@ function ManagedChatArea({
           handleNewChatSettled(submittedChatId, succeeded);
         }
       }
+      return succeeded;
     },
     [
       chatId,

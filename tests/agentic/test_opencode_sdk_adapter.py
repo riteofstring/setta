@@ -23,13 +23,12 @@ class OpenCodeSdkStderrTests(unittest.IsolatedAsyncioTestCase):
     async def test_stream_stderr_caps_lines(self) -> None:
         reader = asyncio.StreamReader()
         stderr_lines: list[str] = []
-        queue: asyncio.Queue[str] = asyncio.Queue()
         total_lines = _OPENCODE_STDERR_MAX_LINES + 5
         for idx in range(total_lines):
             reader.feed_data(f"line-{idx}\n".encode("utf-8"))
         reader.feed_eof()
 
-        await OpenCodeSdkAdapter._stream_stderr(reader, queue, stderr_lines)
+        await OpenCodeSdkAdapter._stream_stderr(reader, stderr_lines)
 
         self.assertEqual(len(stderr_lines), _OPENCODE_STDERR_MAX_LINES)
         expected_start = f"line-{total_lines - _OPENCODE_STDERR_MAX_LINES}"

@@ -117,15 +117,25 @@ function formatToolArgs(args: unknown) {
   }
 }
 
-function getStreamActivityKey(content: ChatContentItem[]): string {
+type StreamActivitySummary = {
+  activityKey: string;
+  lastTextIndex: number;
+};
+
+function getStreamActivitySummary(
+  content: ChatContentItem[],
+): StreamActivitySummary {
   let textLength = 0;
   let thinkingLength = 0;
   let summaryLength = 0;
   let signatureLength = 0;
   let imageCount = 0;
-  for (const item of content) {
+  let lastTextIndex = -1;
+  for (let index = 0; index < content.length; index += 1) {
+    const item = content[index];
     if (item.type === C.LLM_TEXT) {
       textLength += item.text.length;
+      lastTextIndex = index;
       continue;
     }
     if (item.type === C.LLM_THINKING) {
@@ -142,7 +152,10 @@ function getStreamActivityKey(content: ChatContentItem[]): string {
       imageCount += 1;
     }
   }
-  return `${textLength}-${thinkingLength}-${summaryLength}-${signatureLength}-${imageCount}`;
+  return {
+    activityKey: `${textLength}-${thinkingLength}-${summaryLength}-${signatureLength}-${imageCount}`,
+    lastTextIndex,
+  };
 }
 
 function useIdleStreamSpinner(
@@ -286,13 +299,14 @@ function ToolCallAccordionStatus({
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
   }
-  if (isStreaming) {
-    return (
-      <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
-    );
-  }
   return (
-    <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-300/70" />
+    <i
+      className={`gg-spinner mr-1.5 !scale-75 self-center justify-self-end ${
+        isStreaming
+          ? "text-setta-400 dark:text-setta-300/70"
+          : "text-setta-300/70"
+      }`}
+    />
   );
 }
 
@@ -468,8 +482,8 @@ const ChatMessage = memo(function ChatMessage({
   const assistantContent = isAssistant
     ? message.content
     : EMPTY_ASSISTANT_CONTENT;
-  const activityKey = useMemo(
-    () => getStreamActivityKey(assistantContent),
+  const { activityKey, lastTextIndex } = useMemo(
+    () => getStreamActivitySummary(assistantContent),
     [assistantContent],
   );
   const spinnerDelayMs =
@@ -480,16 +494,6 @@ const ChatMessage = memo(function ChatMessage({
     activityKey,
     spinnerDelayMs,
   );
-  const lastTextIndex = useMemo(() => {
-    let lastIndex = -1;
-    for (let i = 0; i < assistantContent.length; i += 1) {
-      if (assistantContent[i].type === C.LLM_TEXT) {
-        lastIndex = i;
-      }
-    }
-    return lastIndex;
-  }, [assistantContent]);
-
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
     return (

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import unittest
 
 from setta.agentic.chat_view import (
@@ -8,6 +9,7 @@ from setta.agentic.chat_view import (
     get_run_chat_id,
     get_run_engine_config_id,
     get_run_project_config_id,
+    get_run_sort_key,
     get_run_type,
     is_chat_run,
     is_llm_chat_run,
@@ -27,6 +29,37 @@ from setta.types.id import ID
 
 
 class ChatViewTests(unittest.TestCase):
+    def test_sort_key_prefers_latest_updates(self) -> None:
+        earlier = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
+        later = datetime(2024, 1, 1, 10, 5, tzinfo=timezone.utc)
+        middle = datetime(2024, 1, 1, 10, 3, tzinfo=timezone.utc)
+        earlier_finish = datetime(2024, 1, 1, 10, 4, tzinfo=timezone.utc)
+
+        run_a = AgentRun(
+            startedAt=earlier,
+            finishedAt=later,
+            events=[
+                RunEvent(
+                    type="run_completed",
+                    payload={},
+                    timestamp=later,
+                )
+            ],
+        )
+        run_b = AgentRun(
+            startedAt=middle,
+            finishedAt=earlier_finish,
+            events=[
+                RunEvent(
+                    type="run_completed",
+                    payload={},
+                    timestamp=earlier_finish,
+                )
+            ],
+        )
+
+        self.assertGreater(get_run_sort_key(run_a), get_run_sort_key(run_b))
+
     def test_run_type_and_ids(self) -> None:
         run = AgentRun(
             inputs={

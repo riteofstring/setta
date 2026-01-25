@@ -1,9 +1,7 @@
-export function createQuestionIdMapper(options = {}) {
+export function createQuestionIdMapper() {
   const questionIdByToolCallId = new Map();
   const questionListByToolCallId = new Map();
   const questionListByQuestionId = new Map();
-  const logDebug =
-    options && typeof options.logDebug === "function" ? options.logDebug : null;
 
   function normalizeString(value) {
     if (typeof value !== "string") {
@@ -64,9 +62,6 @@ export function createQuestionIdMapper(options = {}) {
         questionListByToolCallId.set(toolCallId, ordered);
         questionListByQuestionId.set(questionId, ordered);
       }
-    }
-    if (logDebug) {
-      logDebug("tracked question mapping", { toolCallId, questionId });
     }
   }
 

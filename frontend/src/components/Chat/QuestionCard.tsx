@@ -11,6 +11,8 @@ const OTHER_OPTION_VALUE = "__other__";
 const OTHER_OPTION_LABEL = "Type something else";
 const OTHER_OPTION_LABELS = new Set(["other", "type something else"]);
 
+type QuestionKey = string;
+
 type RenderQuestionOption = {
   value: string;
   label: string;
@@ -24,6 +26,8 @@ type QuestionCardProps = {
   resolvedAnswers: Record<string, string> | null;
 };
 
+const buildQuestionKey = (index: number): QuestionKey => `q_${index}`;
+
 export function QuestionCard({
   toolCallId,
   payload,
@@ -31,8 +35,12 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selections, setSelections] = useState<Record<string, string[]>>({});
-  const [otherValues, setOtherValues] = useState<Record<string, string>>({});
+  const [selections, setSelections] = useState<Record<QuestionKey, string[]>>(
+    {},
+  );
+  const [otherValues, setOtherValues] = useState<Record<QuestionKey, string>>(
+    {},
+  );
   const [activeIndex, setActiveIndex] = useState(0);
   const [submittedAnswers, setSubmittedAnswers] = useState<Record<
     string,
@@ -90,19 +98,26 @@ export function QuestionCard({
     if (payload.questions.length === 0) {
       return false;
     }
-    return payload.questions.every((question) => {
-      const answer = buildAnswerForQuestion(question, selections, otherValues);
+    return payload.questions.every((question, index) => {
+      const questionKey = buildQuestionKey(index);
+      const answer = buildAnswerForQuestion(
+        question,
+        questionKey,
+        selections,
+        otherValues,
+      );
       return Boolean(answer);
     });
   }, [answered, payload.questions, selections, otherValues]);
 
   const hasMissingOtherValue = useMemo(() => {
-    for (const question of payload.questions) {
-      const selection = selections[question.question] ?? [];
+    for (const [index, question] of payload.questions.entries()) {
+      const questionKey = buildQuestionKey(index);
+      const selection = selections[questionKey] ?? [];
       if (!selection.includes(OTHER_OPTION_VALUE)) {
         continue;
       }
-      const otherValue = (otherValues[question.question] ?? "").trim();
+      const otherValue = (otherValues[questionKey] ?? "").trim();
       if (!otherValue) {
         return true;
       }
@@ -111,26 +126,28 @@ export function QuestionCard({
   }, [payload.questions, selections, otherValues]);
 
   const questionCompletion = useMemo(() => {
-    const output: Record<string, boolean> = {};
-    for (const question of payload.questions) {
-      const selection = selections[question.question] ?? [];
+    const output: Record<QuestionKey, boolean> = {};
+    for (const [index, question] of payload.questions.entries()) {
+      const questionKey = buildQuestionKey(index);
+      const selection = selections[questionKey] ?? [];
       const otherSelected = selection.includes(OTHER_OPTION_VALUE);
-      const otherValue = (otherValues[question.question] ?? "").trim();
+      const otherValue = (otherValues[questionKey] ?? "").trim();
       const needsOther = otherSelected && !otherValue;
-      output[question.question] = selection.length > 0 && !needsOther;
+      output[questionKey] = selection.length > 0 && !needsOther;
     }
     return output;
   }, [payload.questions, selections, otherValues]);
 
   const handleToggle = (
     question: AskUserQuestionPrompt,
+    questionKey: QuestionKey,
     option: RenderQuestionOption,
   ) => {
     if (answered) {
       return;
     }
     setSelections((current) => {
-      const existing = current[question.question] ?? [];
+      const existing = current[questionKey] ?? [];
       let nextSelections = existing;
       if (question.multiSelect) {
         if (existing.includes(option.value)) {
@@ -141,20 +158,17 @@ export function QuestionCard({
       } else {
         nextSelections = [option.value];
       }
-      return { ...current, [question.question]: nextSelections };
+      return { ...current, [questionKey]: nextSelections };
     });
   };
 
-  const handleOtherChange = (
-    question: AskUserQuestionPrompt,
-    value: string,
-  ) => {
+  const handleOtherChange = (questionKey: QuestionKey, value: string) => {
     if (answered) {
       return;
     }
     setOtherValues((current) => ({
       ...current,
-      [question.question]: value,
+      [questionKey]: value,
     }));
   };
 
@@ -181,6 +195,10 @@ export function QuestionCard({
 
   const activeQuestion =
     activeIndex < questionCount ? payload.questions[activeIndex] : null;
+  const activeQuestionKey =
+    activeQuestion && activeIndex < questionCount
+      ? buildQuestionKey(activeIndex)
+      : null;
   const showSubmit = !answered && (!hasSummary || isSummaryTab);
 
   let helperText = "Select an option for each question.";
@@ -234,11 +252,12 @@ export function QuestionCard({
         {hasSummary ? (
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
             {payload.questions.map((question, index) => {
+              const questionKey = buildQuestionKey(index);
               const isActive = activeIndex === index;
               const tabLabel = question.header
                 ? question.header
                 : `Q${index + 1}`;
-              const isComplete = questionCompletion[question.question];
+              const isComplete = questionCompletion[questionKey];
               const tabClass = isActive
                 ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/70 dark:bg-blue-900/40 dark:text-blue-200"
                 : "border-setta-200 text-setta-500 hover:bg-setta-50 dark:border-setta-800 dark:text-setta-400 dark:hover:bg-setta-800/40";
@@ -247,7 +266,7 @@ export function QuestionCard({
                 : "bg-setta-300 dark:bg-setta-600";
               return (
                 <button
-                  key={question.question}
+                  key={questionKey}
                   type="button"
                   onClick={() => setActiveIndex(index)}
                   className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition ${tabClass}`}
@@ -297,7 +316,10 @@ export function QuestionCard({
             {displayedAnswers?.[activeQuestion.question] ? null : (
               <div className="flex flex-col gap-2">
                 {buildQuestionOptions(activeQuestion).map((option) => {
-                  const selected = selections[activeQuestion.question] ?? [];
+                  const selected =
+                    activeQuestionKey && selections[activeQuestionKey]
+                      ? selections[activeQuestionKey]
+                      : [];
                   const isSelected = selected.includes(option.value);
                   return (
                     <label
@@ -310,9 +332,18 @@ export function QuestionCard({
                     >
                       <input
                         type={activeQuestion.multiSelect ? "checkbox" : "radio"}
-                        name={activeQuestion.question}
+                        name={activeQuestionKey ?? activeQuestion.question}
                         checked={isSelected}
-                        onChange={() => handleToggle(activeQuestion, option)}
+                        onChange={() => {
+                          if (!activeQuestionKey) {
+                            return;
+                          }
+                          handleToggle(
+                            activeQuestion,
+                            activeQuestionKey,
+                            option,
+                          );
+                        }}
                         disabled={answered || pending}
                         className="mt-1 h-3 w-3"
                       />
@@ -326,13 +357,20 @@ export function QuestionCard({
                         {option.isOther && isSelected ? (
                           <input
                             type="text"
-                            value={otherValues[activeQuestion.question] ?? ""}
-                            onChange={(event) =>
-                              handleOtherChange(
-                                activeQuestion,
-                                event.target.value,
-                              )
+                            value={
+                              activeQuestionKey
+                                ? otherValues[activeQuestionKey] ?? ""
+                                : ""
                             }
+                            onChange={(event) => {
+                              if (!activeQuestionKey) {
+                                return;
+                              }
+                              handleOtherChange(
+                                activeQuestionKey,
+                                event.target.value,
+                              );
+                            }}
                             disabled={answered || pending}
                             placeholder="Type your answer"
                             className="mt-2 w-full rounded-md border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 focus:border-blue-400 focus:outline-none dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200"
@@ -348,8 +386,10 @@ export function QuestionCard({
         ) : (
           <div className="flex flex-col gap-3">
             {payload.questions.map((question, index) => {
+              const questionKey = buildQuestionKey(index);
               const draftAnswer = buildAnswerForQuestion(
                 question,
+                questionKey,
                 selections,
                 otherValues,
               );
@@ -359,9 +399,9 @@ export function QuestionCard({
               if (!summaryValue) {
                 summaryValue = draftAnswer;
               }
-              const selection = selections[question.question] ?? [];
+              const selection = selections[questionKey] ?? [];
               const otherSelected = selection.includes(OTHER_OPTION_VALUE);
-              const otherValue = (otherValues[question.question] ?? "").trim();
+              const otherValue = (otherValues[questionKey] ?? "").trim();
               const needsOther = otherSelected && !otherValue;
               const isComplete = Boolean(summaryValue) && !needsOther;
               const label = question.header ? question.header : `Q${index + 1}`;
@@ -383,7 +423,7 @@ export function QuestionCard({
               }
               return (
                 <div
-                  key={question.question}
+                  key={questionKey}
                   className="rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs dark:border-setta-800 dark:bg-setta-900/60"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -465,16 +505,17 @@ function buildSelectionsFromAnswers(
   questions: AskUserQuestionPrompt[],
   answers: Record<string, string>,
 ): {
-  selections: Record<string, string[]>;
-  otherValues: Record<string, string>;
+  selections: Record<QuestionKey, string[]>;
+  otherValues: Record<QuestionKey, string>;
 } {
-  const selections: Record<string, string[]> = {};
-  const otherValues: Record<string, string> = {};
-  for (const question of questions) {
+  const selections: Record<QuestionKey, string[]> = {};
+  const otherValues: Record<QuestionKey, string> = {};
+  for (const [index, question] of questions.entries()) {
     const answer = answers[question.question];
     if (!answer) {
       continue;
     }
+    const questionKey = buildQuestionKey(index);
     const values = answer
       .split(",")
       .map((entry) => entry.trim())
@@ -494,21 +535,27 @@ function buildSelectionsFromAnswers(
     }
     if (otherEntries.length > 0) {
       nextSelections.push(OTHER_OPTION_VALUE);
-      otherValues[question.question] = otherEntries.join(", ");
+      otherValues[questionKey] = otherEntries.join(", ");
     }
-    selections[question.question] = nextSelections;
+    selections[questionKey] = nextSelections;
   }
   return { selections, otherValues };
 }
 
 function buildAnswers(
   questions: AskUserQuestionPrompt[],
-  selections: Record<string, string[]>,
-  otherValues: Record<string, string>,
+  selections: Record<QuestionKey, string[]>,
+  otherValues: Record<QuestionKey, string>,
 ): Record<string, string> {
   const answers: Record<string, string> = {};
-  for (const question of questions) {
-    const answer = buildAnswerForQuestion(question, selections, otherValues);
+  for (const [index, question] of questions.entries()) {
+    const questionKey = buildQuestionKey(index);
+    const answer = buildAnswerForQuestion(
+      question,
+      questionKey,
+      selections,
+      otherValues,
+    );
     if (answer) {
       answers[question.question] = answer;
     }
@@ -518,15 +565,16 @@ function buildAnswers(
 
 function buildAnswerForQuestion(
   question: AskUserQuestionPrompt,
-  selections: Record<string, string[]>,
-  otherValues: Record<string, string>,
+  questionKey: QuestionKey,
+  selections: Record<QuestionKey, string[]>,
+  otherValues: Record<QuestionKey, string>,
 ): string | null {
-  const selected = selections[question.question] ?? [];
+  const selected = selections[questionKey] ?? [];
   if (selected.length === 0) {
     return null;
   }
   const otherSelected = selected.includes(OTHER_OPTION_VALUE);
-  const otherValue = (otherValues[question.question] ?? "").trim();
+  const otherValue = (otherValues[questionKey] ?? "").trim();
   const selectedLabels = selected.filter(
     (value) => value !== OTHER_OPTION_VALUE,
   );

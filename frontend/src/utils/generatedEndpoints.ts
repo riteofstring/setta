@@ -459,7 +459,7 @@ async function route_get_engine_config(
   return await post("/getEngineConfig", x);
 }
 
-export async function route_create_engine_config(
+async function route_create_engine_config(
   x: gt.CreateEngineConfigRequestInput,
 ): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post("/createEngineConfig", x);
@@ -471,7 +471,7 @@ export async function route_update_engine_config(
   return await post("/updateEngineConfig", x);
 }
 
-export async function route_delete_engine_config(
+async function route_delete_engine_config(
   x: gt.DeleteEngineConfigRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteEngineConfig", x);

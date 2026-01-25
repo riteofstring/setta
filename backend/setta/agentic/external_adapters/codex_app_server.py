@@ -109,6 +109,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     tool_type = ExternalAgentToolType.codex
     supported_run_modes = {ExternalAgentRunMode.app_server}
     _process_states: dict[str, _CodexAppServerState] = {}
+    _process_state_by_process: dict[int, _CodexAppServerState] = {}
     _process_lock = asyncio.Lock()
 
     async def start_run(
@@ -318,7 +319,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         stderr_task = None
         if process.stderr is not None:
             stderr_task = asyncio.create_task(cls._read_stderr(process, stderr_lines))
-        return _CodexAppServerState(
+        state = _CodexAppServerState(
             process=process,
             queue=queue,
             stderr_lines=stderr_lines,
@@ -330,6 +331,8 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             env_signature=cls._env_signature(context.env),
             system_prompt=cls._resolve_developer_instructions(context),
         )
+        cls._process_state_by_process[id(process)] = state
+        return state
 
     @classmethod
     async def _ensure_api_key_login(cls, context: ExternalAgentRunContext) -> None:
@@ -383,6 +386,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         if state.stderr_task is not None:
             with contextlib.suppress(Exception):
                 await state.stderr_task
+        cls._process_state_by_process.pop(id(state.process), None)
 
     @classmethod
     def _state_matches(
@@ -459,10 +463,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     def _find_state_for_process(
         cls, process: asyncio.subprocess.Process
     ) -> _CodexAppServerState | None:
-        for state in cls._process_states.values():
-            if state.process is process:
-                return state
-        return None
+        return cls._process_state_by_process.get(id(process))
 
     @staticmethod
     async def _read_stderr(

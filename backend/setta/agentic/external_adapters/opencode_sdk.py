@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -40,7 +39,6 @@ from setta.types.chat_stream_events import (
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
 from setta.utils.timestamps import get_now_timestamp
 
-logger = logging.getLogger(__name__)
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
 _OPENCODE_STDERR_MAX_LINES = 200
 
@@ -54,16 +52,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
     ) -> ExternalAgentRunHandle:
         prompt = self._build_prompt(context)
         command = self._build_command(context)
-        logger.info("Starting OpenCode SDK run: %s", " ".join(command))
-        logger.info(
-            "OpenCode SDK payload run_id=%s base_url=%s model=%s prompt_length=%s system_length=%s working_dir=%s",
-            context.run.id,
-            context.config.baseUrl,
-            context.config.defaultModel,
-            len(prompt),
-            len(context.system_prompt or ""),
-            context.working_dir,
-        )
         process = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE,
@@ -113,10 +101,9 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
         if not isinstance(stderr_lines, list):
             stderr_lines = []
             handle.metadata["stderr_lines"] = stderr_lines
-        stderr_queue: asyncio.Queue[str] = asyncio.Queue()
         if process.stderr is not None:
             stderr_task = asyncio.create_task(
-                self._stream_stderr(process.stderr, stderr_queue, stderr_lines)
+                self._stream_stderr(process.stderr, stderr_lines)
             )
         parser = _OpenCodeSdkEventParser()
         async for line in iter_stream_lines(process.stdout):
@@ -124,18 +111,13 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
                 continue
             raw = parse_json_line(line)
             if raw is None:
-                logger.info("OpenCode SDK raw stdout: %s", line)
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
-                await self._flush_stderr_queue(stderr_queue)
                 continue
-            logger.info("OpenCode SDK event type=%s", raw.get("type"))
             _maybe_set_session_id(handle, raw)
             for event in parser.handle(raw):
                 yield event
-            await self._flush_stderr_queue(stderr_queue)
         if stderr_task is not None:
             await stderr_task
-            await self._flush_stderr_queue(stderr_queue)
         handle.return_code = await process.wait()
 
     @staticmethod
@@ -151,7 +133,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
     @staticmethod
     async def _stream_stderr(
         stream: asyncio.StreamReader,
-        queue: asyncio.Queue[str],
         stderr_lines: list[str],
     ) -> None:
         async for line in iter_stream_lines(stream):
@@ -160,16 +141,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             stderr_lines.append(line)
             if len(stderr_lines) > _OPENCODE_STDERR_MAX_LINES:
                 del stderr_lines[: len(stderr_lines) - _OPENCODE_STDERR_MAX_LINES]
-            await queue.put(line)
-
-    @staticmethod
-    async def _flush_stderr_queue(queue: asyncio.Queue[str]) -> None:
-        while not queue.empty():
-            try:
-                line = queue.get_nowait()
-            except asyncio.QueueEmpty:
-                return
-            logger.info("OpenCode SDK stderr: %s", line)
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
         process = handle.process

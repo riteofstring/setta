@@ -120,16 +120,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const handleSubmit = useCallback(
     async (message: string) => {
       if (!message.trim()) {
-        return;
+        return false;
       }
       if (!engineConfigId) {
-        return;
+        return false;
       }
       if (!isExternalEngine && !hasLLMConfig) {
-        return;
+        return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
-        return;
+        return false;
       }
       const isFirstMessage = chatId === undefined;
       if (isFirstMessage) {
@@ -156,6 +156,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           handleNewChatSettled(submittedChatId, succeeded);
         }
       }
+      return succeeded;
     },
     [
       chatId,
@@ -166,7 +167,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       externalEngineAvailable,
       hasLLMConfig,
-      messages,
     ],
   );
 

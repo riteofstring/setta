@@ -393,7 +393,13 @@ class ExternalAgentRunner:
 
         payload_inputs = dict(inputs or {})
         payload_inputs.setdefault("projectConfigId", str(project_config_id))
-        payload_inputs.setdefault("engineConfigId", str(engine_config_id))
+        if "engineConfigId" in payload_inputs:
+            raw_engine_config_id = payload_inputs["engineConfigId"]
+            if not isinstance(raw_engine_config_id, str):
+                raise TypeError("engineConfigId must be a string")
+            if raw_engine_config_id != str(engine_config_id):
+                raise KeyError("engineConfigId does not match resolved engine config")
+        payload_inputs["engineConfigId"] = str(engine_config_id)
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)

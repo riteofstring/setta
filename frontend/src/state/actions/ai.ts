@@ -14,11 +14,9 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
-  route_create_engine_config,
   route_create_external_agent_config,
   route_create_prompt_template,
   route_delete_agent_profile,
-  route_delete_engine_config,
   route_delete_external_agent_config,
   route_delete_prompt_template,
   route_get_agent_profiles,
@@ -50,13 +48,11 @@ import {
   ChatRoleEnum,
   ChatSectionState,
   CreateAgentProfileRequestInput,
-  CreateEngineConfigRequestInput,
   CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
   createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
   DeleteAgentProfileRequestInput,
-  DeleteEngineConfigRequestInput,
   DeleteExternalAgentConfigRequestInput,
   DeletePromptTemplateRequestInput,
   EngineConfig,
@@ -371,25 +367,6 @@ export async function deleteAgentProfile(
   return true;
 }
 
-async function createEngineConfig(
-  payload: CreateEngineConfigRequestInput,
-): Promise<EngineConfig | null> {
-  const res = await route_create_engine_config(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      engineConfigsLoadError: "Failed to create engine config",
-    });
-    return null;
-  }
-  const config = res.data;
-  useAIStore.setState((state) => ({
-    engineConfigs: upsertById(state.engineConfigs, config),
-    engineConfigsInitialLoadComplete: true,
-    engineConfigsLoadError: null,
-  }));
-  return config;
-}
-
 export async function updateEngineConfig(
   payload: UpdateEngineConfigRequestInput,
 ): Promise<EngineConfig | null> {
@@ -407,24 +384,6 @@ export async function updateEngineConfig(
     engineConfigsLoadError: null,
   }));
   return config;
-}
-
-async function deleteEngineConfig(
-  payload: DeleteEngineConfigRequestInput,
-): Promise<boolean> {
-  const res = await route_delete_engine_config(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      engineConfigsLoadError: "Failed to delete engine config",
-    });
-    return false;
-  }
-  useAIStore.setState((state) => ({
-    engineConfigs: removeById(state.engineConfigs, payload.configId),
-    engineConfigsInitialLoadComplete: true,
-    engineConfigsLoadError: null,
-  }));
-  return true;
 }
 
 export async function createPromptTemplate(
@@ -705,11 +664,15 @@ export async function findLatestRunningExternalRunId(
   chatId: string,
   projectConfigId: string | null,
 ): Promise<string | null> {
-  const res = await route_get_agent_runs();
-  if (!res200(res)) {
+  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (!agentRunsInitialLoadComplete) {
+    await loadAgentRuns();
+    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
+  }
+  if (!agentRunsInitialLoadComplete) {
     return null;
   }
-  const runs = res.data.filter((run) => {
+  const runs = agentRuns.filter((run) => {
     if (run.status !== AgentRunStatusEnum.running) {
       return false;
     }

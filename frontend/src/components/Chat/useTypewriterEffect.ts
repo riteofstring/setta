@@ -12,7 +12,15 @@ export const useTypewriterEffect = (
   const firstRenderRef = useRef(true);
 
   useEffect(() => {
+    const stopAnimation = () => {
+      if (animationRef.current !== null) {
+        clearInterval(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+
     if (!fullText) {
+      stopAnimation();
       setDisplayedText("");
       previousTextRef.current = "";
       indexRef.current = 0;
@@ -20,6 +28,7 @@ export const useTypewriterEffect = (
     }
 
     if (!isStreaming) {
+      stopAnimation();
       setDisplayedText(fullText);
       previousTextRef.current = fullText;
       indexRef.current = fullText.length;
@@ -59,27 +68,19 @@ export const useTypewriterEffect = (
 
       setDisplayedText(fullText.substring(0, indexRef.current));
 
-      if (animationRef.current) {
-        clearInterval(animationRef.current);
-      }
-
+      stopAnimation();
       animationRef.current = setInterval(() => {
         if (indexRef.current < fullText.length) {
           indexRef.current++;
           setDisplayedText(fullText.substring(0, indexRef.current));
           return;
         }
-        if (animationRef.current !== null) {
-          clearInterval(animationRef.current);
-        }
-        animationRef.current = null;
+        stopAnimation();
       }, typingSpeed);
     }
 
     return () => {
-      if (animationRef.current) {
-        clearInterval(animationRef.current);
-      }
+      stopAnimation();
     };
   }, [fullText, isStreaming, typingSpeed]);
 

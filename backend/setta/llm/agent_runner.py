@@ -710,7 +710,13 @@ class AgentRunner:
             thinking = raw_thinking
         payload_inputs = dict(inputs or {})
         engine_config_id, llm_config = self._resolve_engine_llm_config(profile)
-        payload_inputs.setdefault("engineConfigId", str(engine_config_id))
+        if "engineConfigId" in payload_inputs:
+            raw_engine_config_id = payload_inputs["engineConfigId"]
+            if not isinstance(raw_engine_config_id, str):
+                raise TypeError("engineConfigId must be a string")
+            if raw_engine_config_id != str(engine_config_id):
+                raise KeyError("engineConfigId does not match resolved engine config")
+        payload_inputs["engineConfigId"] = str(engine_config_id)
         run = create_agent_run(profile_id=profile.id, inputs=payload_inputs)
         system_prompt = self._build_system_prompt(profile, project_config_id)
         allowlist = self._normalize_tool_allowlist(profile)

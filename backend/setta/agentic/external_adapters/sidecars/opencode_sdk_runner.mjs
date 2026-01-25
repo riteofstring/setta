@@ -9,25 +9,8 @@ function writeEvent(event) {
   process.stdout.write(`${JSON.stringify(event)}\n`);
 }
 
-const DEBUG = process.env.SETTA_OPENCODE_DEBUG === "1";
-const DEBUG_RAW = process.env.SETTA_OPENCODE_DEBUG_RAW === "1";
-
-function logDebug(message, extra) {
-  if (!DEBUG) {
-    return;
-  }
-  const timestamp = new Date().toISOString();
-  if (extra !== undefined) {
-    process.stderr.write(
-      `[${timestamp}] [opencode] ${message} ${JSON.stringify(extra)}\n`,
-    );
-    return;
-  }
-  process.stderr.write(`[${timestamp}] [opencode] ${message}\n`);
-}
-
 const { recordQuestionMapping, resolveQuestionId, resolveQuestionOrder } =
-  createQuestionIdMapper({ logDebug });
+  createQuestionIdMapper();
 
 function parseJsonLine(raw) {
   try {
@@ -292,38 +275,6 @@ function readConfigFile(configPath) {
   return null;
 }
 
-function summarizeConfig(config) {
-  if (!config || typeof config !== "object") {
-    return null;
-  }
-  const mcp = config.mcp && typeof config.mcp === "object" ? config.mcp : {};
-  const mcpKeys = Object.keys(mcp);
-  const mcpSummary = mcpKeys.map((key) => {
-    const entry = mcp[key];
-    if (!entry || typeof entry !== "object") {
-      return key;
-    }
-    return {
-      id: key,
-      type: entry.type,
-      enabled: entry.enabled,
-      url: entry.url,
-      hasHeaders: Boolean(entry.headers),
-    };
-  });
-  const permissionKeys =
-    config.permission && typeof config.permission === "object"
-      ? Object.keys(config.permission)
-      : [];
-  return {
-    model: config.model,
-    logLevel: config.logLevel,
-    mcpKeys,
-    mcp: mcpSummary,
-    permissionKeys,
-  };
-}
-
 function extractToolDetails(event, permission) {
   const tool =
     permission?.tool ??
@@ -552,19 +503,13 @@ async function sendQuestionResponse(requestId, rawAnswers, questionOrder) {
 async function handleQuestionResponse(payload) {
   const questionId = extractQuestionId(payload);
   if (!questionId) {
-    logDebug("question response missing id", payload);
     return;
   }
   const rawAnswers =
     payload.answers ?? payload.answer ?? payload.response ?? payload.responses ?? null;
   const questionOrder = resolveQuestionOrder(payload);
   try {
-    logDebug("sending question response", {
-      questionId,
-      hasAnswers: rawAnswers != null,
-    });
     await sendQuestionResponse(questionId, rawAnswers, questionOrder);
-    logDebug("question response sent", { questionId });
   } catch (err) {
     writeEvent({
       type: "error",
@@ -635,42 +580,21 @@ if (typeof input.port === "number" && Number.isFinite(input.port)) {
   }
 }
 
-logDebug("start payload", {
-  runId,
-  baseUrl,
-  hostname: requestedHostname,
-  port: requestedPort,
-  workingDir,
-  model,
-  promptLength: prompt.length,
-  systemPromptLength: systemPrompt.length,
-  hasSessionId: Boolean(requestedSessionId),
-});
-
 let client;
 let serverHandle = null;
 let resolvedBaseUrl = baseUrl;
 if (baseUrl) {
   client = createOpencodeClient({ baseUrl });
-  logDebug("using existing opencode server", { baseUrl });
 } else {
   const createOptions = {};
   let config = null;
   const envConfigPath = process.env.OPENCODE_CONFIG;
   if (envConfigPath) {
     config = readConfigFile(envConfigPath);
-    logDebug("loaded config from OPENCODE_CONFIG", {
-      path: envConfigPath,
-      summary: summarizeConfig(config),
-    });
   }
   if (!config) {
     config = readConfigFile(`${workingDir}/opencode.json`);
     if (config) {
-      logDebug("loaded config from working dir", {
-        path: `${workingDir}/opencode.json`,
-        summary: summarizeConfig(config),
-      });
     }
   }
   if (config) {
@@ -695,10 +619,6 @@ if (baseUrl) {
     client?.baseUrl ??
     client?.config?.baseUrl ??
     resolvedBaseUrl;
-  logDebug("spawned opencode server", {
-    baseUrl: resolvedBaseUrl,
-    hasServerHandle: Boolean(serverHandle),
-  });
 }
 
 let sessionId = requestedSessionId;
@@ -708,7 +628,6 @@ if (!sessionId) {
     query: { directory: workingDir },
   });
   sessionId = extractSessionId(created);
-  logDebug("created session", { sessionId });
 }
 
 if (!sessionId) {
@@ -725,9 +644,7 @@ async function sendPermissionResponse(permissionId, approved) {
   const path = { id: sessionId, permissionID: permissionId };
   const options = { path, body, query: { directory: workingDir } };
   if (typeof client?.postSessionIdPermissionsPermissionId === "function") {
-    logDebug("sending permission response", { permissionId, response });
     await client.postSessionIdPermissionsPermissionId(options);
-    logDebug("permission response sent", { permissionId });
     return;
   }
   if (!resolvedBaseUrl) {
@@ -763,13 +680,6 @@ async function maybeHandlePermissionEvent(event) {
     event,
     permission,
   );
-  logDebug("permission request", {
-    approvalId,
-    permissionId,
-    tool,
-    toolName,
-    toolType,
-  });
   writeEvent({
     type: "approval_request",
     approvalId,
@@ -817,12 +727,6 @@ if (systemPrompt) {
 if (model) {
   promptPayload.body.model = model;
 }
-logDebug("sending prompt", {
-  sessionId,
-  hasSystem: Boolean(systemPrompt),
-  model,
-  parts: promptPayload.body.parts.length,
-});
 let promptResult = null;
 let promptError = null;
 let promptDone = false;
@@ -859,11 +763,6 @@ function trackAssistantEvent(event) {
     const info = event?.properties?.info;
     if (info && info.role === "assistant" && typeof info.id === "string") {
       assistantMessageIds.add(info.id);
-      logDebug("assistant message updated", {
-        messageId: info.id,
-        sessionId: info.sessionID,
-        completed: info?.time?.completed ?? null,
-      });
       if (info.error && typeof info.error === "object") {
         const message =
           info.error?.data?.message ??
@@ -916,21 +815,8 @@ try {
     if (!event || typeof event !== "object") {
       continue;
     }
-    if (DEBUG) {
-      logDebug("event", {
-        type: event.type,
-        sessionId: extractSessionIdFromEvent(event),
-      });
-      if (DEBUG_RAW) {
-        logDebug("event.raw", event);
-      }
-    }
     const eventSessionId = extractSessionIdFromEvent(event);
     if (eventSessionId && eventSessionId !== sessionId) {
-      logDebug("skipping event (session mismatch)", {
-        eventSessionId,
-        sessionId,
-      });
       continue;
     }
     recordQuestionMapping(event);
@@ -950,11 +836,9 @@ try {
     }
     writeEvent(event);
     if (isAssistantMessageCompleted(event, sessionId)) {
-      logDebug("breaking on assistant completion", { sessionId });
       break;
     }
     if (isSessionIdleEvent(event, sessionId)) {
-      logDebug("breaking on session idle", { sessionId });
       break;
     }
   }
@@ -963,9 +847,6 @@ try {
 }
 await promptPromise;
 if (promptError) {
-  logDebug("prompt error", {
-    message: promptError instanceof Error ? promptError.message : String(promptError),
-  });
   writeEvent({
     type: "error",
     message: promptError instanceof Error ? promptError.message : String(promptError),
@@ -974,10 +855,6 @@ if (promptError) {
   errorMessage =
     promptError instanceof Error ? promptError.message : String(promptError);
 } else if ((!sawAssistantEvent || !sawAssistantContent) && promptResult) {
-  logDebug("emitting assistant_message fallback", {
-    sawAssistantEvent,
-    sawAssistantContent,
-  });
   writeEvent({
     type: "assistant_message",
     sessionId,
@@ -994,9 +871,7 @@ if (sawError && errorMessage) {
 rl.close();
 
 if (serverHandle && typeof serverHandle.stop === "function") {
-  logDebug("closing server handle (stop)");
   await serverHandle.stop();
 } else if (serverHandle && typeof serverHandle.close === "function") {
-  logDebug("closing server handle (close)");
   await serverHandle.close();
 }

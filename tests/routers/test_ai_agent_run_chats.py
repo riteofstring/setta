@@ -7,7 +7,13 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
-from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
+from setta.agentic.external_agent_runner import ExternalAgentRunner
+from setta.agentic.store import (
+    load_agent_run,
+    save_agent_run,
+    save_engine_configs,
+    save_external_agent_configs,
+)
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -29,6 +35,11 @@ from setta.types.agentic import (
     EngineConfig,
     EngineType,
     RunEvent,
+)
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentToolType,
 )
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -213,6 +224,7 @@ class TestState:
     dbe: DBE
     agent_runner: AgentRunner
     wmh_frontend_sender: WMHFrontendSender
+    external_agent_runner: ExternalAgentRunner | None = None
     share_mode: bool = False
     share_runtime_state: None = None
     chat_manager: None = None
@@ -353,6 +365,83 @@ class AgentRunChatRoutesTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message.content[0].text, "Second chat message")
             self.assertFalse(response.waitingForResponse)
             self.assertEqual(response.llmConfig.id, "primary")
+
+    async def test_external_engine_rejects_llm_chat_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={project_config.id: project_config},
+                defaultProjectConfigId=project_config.id,
+            )
+            dbe.write_project(project_state)
+            runner = _build_runner(dbe)
+            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
+            state = TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+                external_agent_runner=external_runner,
+            )
+            internal_engine_config_id = ID("engine-primary")
+            external_engine_config_id = ID("engine-external")
+            external_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            internal_engine_config = EngineConfig(
+                id=internal_engine_config_id,
+                name="Default Engine",
+                engineType=EngineType.setta_llm,
+                settaLlmConfigId="primary",
+            )
+            external_engine_config = EngineConfig(
+                id=external_engine_config_id,
+                name="External Engine",
+                engineType=EngineType.external_agent,
+                externalAgentConfigId=external_config.id,
+            )
+            save_external_agent_configs(dbe, [external_config])
+            save_engine_configs(
+                dbe, [internal_engine_config, external_engine_config]
+            )
+            chat_id = ID("chat-external-mismatch")
+            project_config_id = ID("project-llm-1")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello")],
+            )
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=internal_engine_config_id,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with self.assertRaises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=external_engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                        ),
+                        ctx,
+                    )
+
+            self.assertEqual(exc.exception.status_code, 409)
+            self.assertEqual(
+                exc.exception.detail, "Chat engine mismatch; start a new chat."
+            )
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:

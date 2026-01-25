@@ -229,6 +229,33 @@ class AgentRunnerTests(unittest.TestCase):
             with self.assertRaises(TypeError):
                 runner._build_context(profile, inputs={"thinking": "yes"})
 
+    def test_context_rejects_mismatched_engine_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+
+            with self.assertRaises(KeyError):
+                runner._build_context(
+                    profile,
+                    inputs={"engineConfigId": "engine-mismatch"},
+                )
+
     def test_system_prompt_includes_profile_and_project(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

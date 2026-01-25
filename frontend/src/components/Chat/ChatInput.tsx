@@ -16,7 +16,7 @@ type ChatInputProps = {
   submitDisabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
-  onSubmit: (message: string) => Promise<void> | void;
+  onSubmit: (message: string) => Promise<boolean | void> | boolean | void;
   onStop?: () => Promise<void> | void;
 };
 
@@ -77,8 +77,10 @@ export const ChatInput = memo(function ChatInput({
       }
 
       const submittedValue = inputValue;
-      clearInput();
-      await onSubmit(submittedValue);
+      const result = await onSubmit(submittedValue);
+      if (result !== false) {
+        clearInput();
+      }
     },
     [
       clearInput,

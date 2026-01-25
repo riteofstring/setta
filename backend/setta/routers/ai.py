@@ -6,14 +6,20 @@ from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_engine_config_id,
+    get_run_project_config_id,
     get_run_sort_key,
+    is_external_agent_run,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
-from setta.agentic.store import list_agent_runs_by_metadata, require_agent_profile
+from setta.agentic.store import (
+    list_agent_runs_by_metadata,
+    load_agent_run,
+    require_agent_profile,
+)
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
@@ -69,6 +75,37 @@ def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
     if not runs:
         return None
     return max(runs, key=get_run_sort_key)
+
+
+def _ensure_external_chat_id_compatible(
+    *,
+    dbe,
+    chat_id: ID | None,
+    engine_config_id: ID,
+    project_config_id: ID,
+) -> None:
+    if chat_id is None:
+        return
+    existing = load_agent_run(dbe, chat_id)
+    if existing is None:
+        return
+    if not is_external_agent_run(existing):
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine mismatch; start a new chat.",
+        )
+    existing_engine = get_run_engine_config_id(existing)
+    if existing_engine and existing_engine != engine_config_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine mismatch; start a new chat.",
+        )
+    existing_project = get_run_project_config_id(existing)
+    if existing_project and existing_project != project_config_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Chat project config mismatch; start a new chat.",
+        )
 
 
 def _get_prior_messages_for_engine(
@@ -212,6 +249,12 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=503, detail="External agent runner is not available"
             )
+        _ensure_external_chat_id_compatible(
+            dbe=ctx.state.dbe,
+            chat_id=x.chatId,
+            engine_config_id=x.engineConfigId,
+            project_config_id=x.projectConfigId,
+        )
         external_config = resolved.external_agent_config
         if external_config is None:
             raise HTTPException(
@@ -240,7 +283,13 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        runner.start_run(x.engineConfigId, external_config, profile, inputs)
+        try:
+            runner.start_run(x.engineConfigId, external_config, profile, inputs)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat engine mismatch; start a new chat.",
+            ) from exc
         return chat_id
     raise HTTPException(status_code=400, detail="Unsupported engine config")
     return chat_id

@@ -130,6 +130,27 @@ class ExternalAgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("run_cancelled", event_types)
 
 
+class ExternalAgentRunnerContextTests(unittest.TestCase):
+    def test_context_rejects_mismatched_engine_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            with self.assertRaises(KeyError):
+                _build_context_for_test(
+                    runner,
+                    config,
+                    engine_config_id=ID("engine-1"),
+                    inputs={"engineConfigId": "engine-2"},
+                )
+
+
 async def _apply_claude_payloads(
     runner: ExternalAgentRunner,
     context: ExternalAgentRunContext,

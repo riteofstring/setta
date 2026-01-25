@@ -14,10 +14,7 @@ def build_prompt_from_inputs(system_prompt: str, inputs: dict[str, Any] | None) 
         raw_messages = inputs.get("messages")
         if isinstance(raw_messages, list):
             for raw in raw_messages:
-                try:
-                    message = BaseChatMessageTypeAdapter.validate_python(raw)
-                except Exception:
-                    continue
+                message = BaseChatMessageTypeAdapter.validate_python(raw)
                 role = getattr(message, "role", "user")
                 role_label = role.value if hasattr(role, "value") else str(role)
                 text = _extract_message_text(message)

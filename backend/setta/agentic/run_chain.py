@@ -317,7 +317,15 @@ class RunChainRunner:
             payload_inputs["chainName"] = chain_inputs["chainName"]
         if step.inputs:
             payload_inputs.update(step.inputs)
-        payload_inputs.setdefault("engineConfigId", str(step.engineConfigId))
+        if "engineConfigId" in payload_inputs:
+            raw_engine_config_id = payload_inputs["engineConfigId"]
+            if not isinstance(raw_engine_config_id, str):
+                raise TypeError("engineConfigId must be a string")
+            if raw_engine_config_id != str(step.engineConfigId):
+                raise KeyError(
+                    "engineConfigId does not match run chain step engine config"
+                )
+        payload_inputs["engineConfigId"] = str(step.engineConfigId)
         payload_inputs["runType"] = _CHAIN_STEP_RUN_TYPE
         payload_inputs["chainRunId"] = str(chain_run_id)
         payload_inputs["parentRunId"] = str(chain_run_id)

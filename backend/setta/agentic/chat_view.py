@@ -72,14 +72,7 @@ def get_run_engine_config_id(run: AgentRun) -> ID | None:
 
 
 def get_run_sort_key(run: AgentRun) -> datetime:
-    if run.startedAt:
-        return run.startedAt
-    if run.finishedAt:
-        return run.finishedAt
-    timestamps = [event.timestamp for event in run.events if event.timestamp]
-    if timestamps:
-        return max(timestamps)
-    return datetime.min.replace(tzinfo=timezone.utc)
+    return get_run_last_updated(run)
 
 
 def get_run_last_updated(run: AgentRun) -> datetime:
