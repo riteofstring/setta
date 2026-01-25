@@ -681,7 +681,7 @@ class ExternalAgentRunner:
                 allowlist.tool_names if allowlist is not None else None,
             )
             codex_prompt = self._resolve_codex_developer_instructions(
-                profile, payload_inputs
+                system_prompt, payload_inputs
             )
             codex_home = build_codex_settings_file(
                 self.dbe,
@@ -695,16 +695,20 @@ class ExternalAgentRunner:
 
     @staticmethod
     def _resolve_codex_developer_instructions(
-        profile: AgentProfile | None, payload_inputs: dict[str, Any]
+        system_prompt: str, payload_inputs: dict[str, Any] | None
     ) -> str | None:
-        raw = payload_inputs.get("systemPrompt")
-        if isinstance(raw, str) and raw.strip():
-            return raw.strip()
-        if profile is None:
-            return None
-        normalized = profile.systemPrompt.strip()
-        if normalized:
-            return normalized
+        base_prompt = system_prompt.strip()
+        extra_prompt = ""
+        if payload_inputs is not None:
+            raw = payload_inputs.get("systemPrompt")
+            if isinstance(raw, str) and raw.strip():
+                extra_prompt = raw.strip()
+        if base_prompt and extra_prompt:
+            return f"{base_prompt}\n\n{extra_prompt}"
+        if base_prompt:
+            return base_prompt
+        if extra_prompt:
+            return extra_prompt
         return None
 
     @staticmethod

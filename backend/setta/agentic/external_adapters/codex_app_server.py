@@ -384,15 +384,18 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     def _resolve_developer_instructions(
         context: ExternalAgentRunContext,
     ) -> str | None:
+        base_prompt = context.system_prompt.strip()
+        extra_prompt = ""
         inputs = context.inputs or {}
         raw = inputs.get("systemPrompt")
         if isinstance(raw, str) and raw.strip():
-            return raw.strip()
-        if context.profile is None:
-            return None
-        normalized = context.profile.systemPrompt.strip()
-        if normalized:
-            return normalized
+            extra_prompt = raw.strip()
+        if base_prompt and extra_prompt:
+            return f"{base_prompt}\n\n{extra_prompt}"
+        if base_prompt:
+            return base_prompt
+        if extra_prompt:
+            return extra_prompt
         return None
 
     @staticmethod

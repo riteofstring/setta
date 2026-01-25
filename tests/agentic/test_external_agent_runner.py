@@ -835,6 +835,44 @@ class ExternalAgentRunnerTests(unittest.TestCase):
             runner._cleanup_context(context)
             self.assertTrue(config_path.exists())
 
+    def test_codex_config_includes_setta_system_prompt(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                id="codex-system-prompt",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={"systemPrompt": "Extra Codex guidance"},
+            )
+
+            codex_home = context.env.get("CODEX_HOME")
+            self.assertIsInstance(codex_home, str)
+            if not isinstance(codex_home, str):
+                raise AssertionError("Expected CODEX_HOME to be a string")
+            config_path = Path(codex_home) / "config.toml"
+            payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+            developer_instructions = payload.get("developer_instructions")
+            self.assertIsInstance(developer_instructions, str)
+            if isinstance(developer_instructions, str):
+                self.assertIn("Setta MCP System Prompt", developer_instructions)
+                self.assertIn("## Active project config", developer_instructions)
+                self.assertIn("Extra Codex guidance", developer_instructions)
+                self.assertLess(
+                    developer_instructions.find("Setta MCP System Prompt"),
+                    developer_instructions.find("Extra Codex guidance"),
+                )
+
+            runner._cleanup_context(context)
+            self.assertTrue(config_path.exists())
+
     def test_codex_config_writes_tool_allowlist(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
