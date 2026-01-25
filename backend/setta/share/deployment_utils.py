@@ -14,6 +14,7 @@ from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseSectionWithParamsImpl,
     ChartSectionImpl,
+    ChatSectionImpl,
     CodeFileBinding,
     DrawSectionImpl,
     ImageSectionImpl,
@@ -171,6 +172,42 @@ def rewrite_project_state_paths(
                                 code_obj_variant,
                                 {"value": updated_value},
                             )
+
+            if isinstance(impl, ChatSectionImpl):
+                if impl.messages:
+                    updated_messages = []
+                    messages_changed = False
+                    for message in impl.messages:
+                        attachments = getattr(message, "attachments", None)
+                        if not attachments:
+                            updated_messages.append(message)
+                            continue
+                        updated_attachments = []
+                        attachment_changed = False
+                        for attachment in attachments:
+                            new_id = resolve_artifact_path(attachment.id)
+                            if new_id != attachment.id:
+                                attachment = attachment.model_copy(
+                                    update={"id": new_id}
+                                )
+                                attachment_changed = True
+                            updated_attachments.append(attachment)
+                        if attachment_changed:
+                            messages_changed = True
+                            updated_messages.append(
+                                message.model_copy(
+                                    update={"attachments": updated_attachments}
+                                )
+                            )
+                        else:
+                            updated_messages.append(message)
+                    if messages_changed:
+                        set_effective_impl_value(
+                            base_impl,
+                            section,
+                            variant,
+                            {"messages": updated_messages},
+                        )
 
     gen_binding = getattr(project_state, "genCodeBinding", None)
     if gen_binding is not None:

@@ -408,6 +408,8 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
+  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
@@ -939,6 +941,15 @@ export function createMessageThinkingContent(
   return MessageThinkingContentSchema.parse(options);
 }
 
+const ChatFileAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  size: z.union([z.int(), z.null()]).default(null),
+});
+
+export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
+
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
@@ -951,6 +962,7 @@ const SystemChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -978,6 +990,7 @@ const AssistantChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -995,6 +1008,7 @@ const UserChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -6595,6 +6609,23 @@ const UpdateArtifactsRequestSchema = z.object({
 
 export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
+>;
+
+const GetAttachmentDownloadUrlRequestSchema = z.object({
+  artifactId: z.string(),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetAttachmentDownloadUrlRequestInput = z.input<
+  typeof GetAttachmentDownloadUrlRequestSchema
+>;
+
+const GetAttachmentDownloadUrlResponseSchema = z.object({
+  url: z.string(),
+});
+
+export type GetAttachmentDownloadUrlResponse = z.infer<
+  typeof GetAttachmentDownloadUrlResponseSchema
 >;
 
 const BootstrapConsumeRequestSchema = z.object({
