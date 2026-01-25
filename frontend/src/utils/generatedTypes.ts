@@ -474,6 +474,7 @@ export const RouteEnum = {
   PASTE_SECTIONS: "/pasteSections",
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
+  IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
@@ -776,7 +777,7 @@ const FileArtifactSchema = z.object({
     .string()
     .default(
       () =>
-        "setta_files/artifacts/85904215-f374-4943-8901-45489324c1c3.bin" as const,
+        "setta_files/artifacts/cd32b4d1-c33e-41f7-89b2-eef6fe7e03e9.bin" as const,
     ),
   value: z.string(),
 });
@@ -5787,6 +5788,26 @@ const GetFolderContentsRequestSchema = z.object({
 
 export type GetFolderContentsRequestInput = z.input<
   typeof GetFolderContentsRequestSchema
+>;
+
+const ImportFilesToArtifactsRequestSchema = z.object({
+  paths: z.array(z.string()),
+});
+
+export type ImportFilesToArtifactsRequestInput = z.input<
+  typeof ImportFilesToArtifactsRequestSchema
+>;
+
+const ImportFilesToArtifactsResponseItemSchema = z.object({
+  kind: z.literal("file").default("file" as const),
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+  size: z.int(),
+});
+
+export type ImportFilesToArtifactsResponseItem = z.infer<
+  typeof ImportFilesToArtifactsResponseItemSchema
 >;
 
 const LoadCachedPathsRequestSchema = z.object({

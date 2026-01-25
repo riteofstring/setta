@@ -173,6 +173,14 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
+export async function route_import_files_to_artifacts(
+  x: gt.ImportFilesToArtifactsRequestInput,
+): Promise<
+  ResponseDataAndStatus<Array<gt.ImportFilesToArtifactsResponseItem>>
+> {
+  return await post("/importFilesToArtifacts", x);
+}
+
 export async function route_load_cached_image_artifacts(
   x: gt.LoadCachedPathsRequestInput,
 ): Promise<ResponseDataAndStatus<Array<gt.ImageArtifact | null>>> {

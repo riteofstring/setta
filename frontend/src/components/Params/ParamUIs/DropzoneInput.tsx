@@ -6,11 +6,13 @@ import {
   type DragEvent,
 } from "react";
 import { FiUploadCloud } from "react-icons/fi";
+import { openDropzoneFilePickerModal } from "state/actions/modal";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
+import { useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   DropzoneConfigForFrontend,
@@ -27,6 +29,7 @@ import {
 } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_import_files_to_artifacts,
   route_update_artifacts,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
@@ -214,6 +217,10 @@ export function DropzoneInput({
   const [isUploading, setIsUploading] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const dragDepth = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { isShareMode } = useShareSession((state) => ({
+    isShareMode: state.isShareMode,
+  }));
 
   const parsedStatefulValue = useMemo(() => {
     return parseDropzoneValue(value);
@@ -268,6 +275,17 @@ export function DropzoneInput({
     return attachmentLimit - currentCount;
   }
 
+  function getCurrentCount(): number {
+    if (mode === DropzoneModeEnum.STATELESS) {
+      return statelessAttachments.length;
+    }
+    return statefulAttachments.length;
+  }
+
+  const remainingSlots = getRemainingSlots(getCurrentCount());
+  const canAttachMore = remainingSlots === null || remainingSlots > 0;
+  const canUseServerPicker = !isShareMode && mode === DropzoneModeEnum.STATEFUL;
+
   async function readFileAsBase64(file: File): Promise<string> {
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -291,6 +309,177 @@ export function DropzoneInput({
     });
   }
 
+  async function handleLocalFiles(files: File[]) {
+    if (isDisabled || isUploading) {
+      return;
+    }
+    if (files.length === 0) {
+      return;
+    }
+    const currentCount = getCurrentCount();
+    const slots = getRemainingSlots(currentCount);
+    if (slots === 0) {
+      return;
+    }
+    const allowedFiles = slots === null ? files : files.slice(0, slots);
+    if (allowedFiles.length === 0) {
+      return;
+    }
+    setIsUploading(true);
+    const fileIds = allowedFiles.map((file) =>
+      createDropzoneFileArtifactId(file.name),
+    );
+    const base64Payloads = await Promise.all(
+      allowedFiles.map((file) => readFileAsBase64(file)),
+    );
+    if (mode === DropzoneModeEnum.STATELESS) {
+      const attachments: DropzoneStatelessAttachment[] = allowedFiles.map(
+        (file, index) => ({
+          kind: "file",
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          base64: base64Payloads[index],
+        }),
+      );
+      setStatelessAttachments((prev) => [...prev, ...attachments]);
+      onStatelessDrop?.(attachments);
+      setIsUploading(false);
+      return;
+    }
+    if (!onChange) {
+      setIsUploading(false);
+      return;
+    }
+    const artifacts: FileArtifact[] = base64Payloads.map((payload, index) => ({
+      type: ArtifactTypeEnum.File,
+      id: fileIds[index],
+      value: payload,
+    }));
+    const res = await route_update_artifacts({ artifacts });
+    setIsUploading(false);
+    if (!res200(res)) {
+      return;
+    }
+    const newAttachments: DropzoneStoredAttachment[] = allowedFiles.map(
+      (file, index) => ({
+        kind: "file",
+        id: fileIds[index],
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      }),
+    );
+    const updatedValue = serializeDropzoneValue([
+      ...statefulAttachments,
+      ...newAttachments,
+    ]);
+    onChange(updatedValue);
+  }
+
+  function handleTextDrop(text: string) {
+    if (isDisabled || isUploading) {
+      return;
+    }
+    const currentCount = getCurrentCount();
+    const slots = getRemainingSlots(currentCount);
+    if (slots === 0) {
+      return;
+    }
+    if (mode === DropzoneModeEnum.STATELESS) {
+      const attachment: DropzoneStatelessAttachment = {
+        kind: "text",
+        name: "Dropped text",
+        text,
+      };
+      setStatelessAttachments((prev) => [...prev, attachment]);
+      onStatelessDrop?.([attachment]);
+      return;
+    }
+    if (!onChange) {
+      return;
+    }
+    const attachment: DropzoneStoredAttachment = {
+      kind: "text",
+      id: createDropzoneTextAttachmentId(),
+      name: "Dropped text",
+      text,
+    };
+    const updatedValue = serializeDropzoneValue([
+      ...statefulAttachments,
+      attachment,
+    ]);
+    onChange(updatedValue);
+  }
+
+  async function handleServerFilePaths(paths: string[]) {
+    if (isDisabled || isUploading) {
+      return;
+    }
+    if (mode === DropzoneModeEnum.STATELESS) {
+      return;
+    }
+    if (!onChange) {
+      return;
+    }
+    const currentCount = getCurrentCount();
+    const slots = getRemainingSlots(currentCount);
+    if (slots === 0) {
+      return;
+    }
+    const allowedPaths = slots === null ? paths : paths.slice(0, slots);
+    if (allowedPaths.length === 0) {
+      return;
+    }
+    setIsUploading(true);
+    const res = await route_import_files_to_artifacts({ paths: allowedPaths });
+    setIsUploading(false);
+    if (!res200(res)) {
+      return;
+    }
+    const newAttachments: DropzoneStoredAttachment[] = res.data.map((item) => ({
+      kind: "file",
+      id: item.id,
+      name: item.name,
+      mimeType: item.mimeType,
+      size: item.size,
+    }));
+    const updatedValue = serializeDropzoneValue([
+      ...statefulAttachments,
+      ...newAttachments,
+    ]);
+    onChange(updatedValue);
+  }
+
+  function handleLocalFileInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    event.target.value = "";
+    void handleLocalFiles(files);
+  }
+
+  function openLocalFilePicker() {
+    if (isDisabled || isUploading || !canAttachMore) {
+      return;
+    }
+    fileInputRef.current?.click();
+  }
+
+  function openServerFilePicker() {
+    if (!canUseServerPicker) {
+      return;
+    }
+    if (isDisabled || isUploading || !canAttachMore) {
+      return;
+    }
+    openDropzoneFilePickerModal({
+      title: "Attach Server File",
+      remainingSlots,
+      onPickPaths: (paths) => {
+        void handleServerFilePaths(paths);
+      },
+    });
+  }
+
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     dragDepth.current = 0;
@@ -299,103 +488,14 @@ export function DropzoneInput({
       return;
     }
     const files = Array.from(event.dataTransfer.files);
-    const text = event.dataTransfer.getData("text/plain");
-    const fallbackText = text ? text : event.dataTransfer.getData("text");
-    const currentCount =
-      mode === DropzoneModeEnum.STATELESS
-        ? statelessAttachments.length
-        : statefulAttachments.length;
-    const remainingSlots = getRemainingSlots(currentCount);
-
     if (files.length > 0) {
-      if (remainingSlots === 0) {
-        return;
-      }
-      const allowedFiles =
-        remainingSlots === null ? files : files.slice(0, remainingSlots);
-      setIsUploading(true);
-      const fileIds = allowedFiles.map((file) =>
-        createDropzoneFileArtifactId(file.name),
-      );
-      const base64Payloads = await Promise.all(
-        allowedFiles.map((file) => readFileAsBase64(file)),
-      );
-      if (mode === DropzoneModeEnum.STATELESS) {
-        const attachments: DropzoneStatelessAttachment[] = allowedFiles.map(
-          (file, index) => ({
-            kind: "file",
-            name: file.name,
-            mimeType: file.type || "application/octet-stream",
-            size: file.size,
-            base64: base64Payloads[index],
-          }),
-        );
-        setStatelessAttachments((prev) => [...prev, ...attachments]);
-        onStatelessDrop?.(attachments);
-        setIsUploading(false);
-        return;
-      }
-      if (!onChange) {
-        setIsUploading(false);
-        return;
-      }
-      const artifacts: FileArtifact[] = base64Payloads.map(
-        (payload, index) => ({
-          type: ArtifactTypeEnum.File,
-          id: fileIds[index],
-          value: payload,
-        }),
-      );
-      const res = await route_update_artifacts({ artifacts });
-      setIsUploading(false);
-      if (!res200(res)) {
-        return;
-      }
-      const newAttachments: DropzoneStoredAttachment[] = allowedFiles.map(
-        (file, index) => ({
-          kind: "file",
-          id: fileIds[index],
-          name: file.name,
-          mimeType: file.type || "application/octet-stream",
-          size: file.size,
-        }),
-      );
-      const updatedValue = serializeDropzoneValue([
-        ...statefulAttachments,
-        ...newAttachments,
-      ]);
-      onChange(updatedValue);
+      await handleLocalFiles(files);
       return;
     }
-
+    const text = event.dataTransfer.getData("text/plain");
+    const fallbackText = text ? text : event.dataTransfer.getData("text");
     if (fallbackText) {
-      if (remainingSlots === 0) {
-        return;
-      }
-      if (mode === DropzoneModeEnum.STATELESS) {
-        const attachment: DropzoneStatelessAttachment = {
-          kind: "text",
-          name: "Dropped text",
-          text: fallbackText,
-        };
-        setStatelessAttachments((prev) => [...prev, attachment]);
-        onStatelessDrop?.([attachment]);
-        return;
-      }
-      if (!onChange) {
-        return;
-      }
-      const attachment: DropzoneStoredAttachment = {
-        kind: "text",
-        id: createDropzoneTextAttachmentId(),
-        name: "Dropped text",
-        text: fallbackText,
-      };
-      const updatedValue = serializeDropzoneValue([
-        ...statefulAttachments,
-        attachment,
-      ]);
-      onChange(updatedValue);
+      handleTextDrop(fallbackText);
     }
   }
 
@@ -442,6 +542,14 @@ export function DropzoneInput({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        onChange={handleLocalFileInputChange}
+        disabled={isDisabled || isUploading || !canAttachMore}
+      />
       <div
         className={wrapperClassName}
         onDrop={(event) => {
@@ -454,6 +562,31 @@ export function DropzoneInput({
       >
         <FiUploadCloud className="text-base" />
         <span className="break-all">{label}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400">
+        <button
+          type="button"
+          className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300"
+          onClick={openLocalFilePicker}
+          disabled={isDisabled || isUploading || !canAttachMore}
+        >
+          Local file...
+        </button>
+        {canUseServerPicker && (
+          <button
+            type="button"
+            className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300"
+            onClick={openServerFilePicker}
+            disabled={isDisabled || isUploading || !canAttachMore}
+          >
+            Server file...
+          </button>
+        )}
+        {isUploading && (
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-setta-300">
+            Uploading...
+          </span>
+        )}
       </div>
       {displayAttachments.length > 0 && (
         <div className="flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/60 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400">
