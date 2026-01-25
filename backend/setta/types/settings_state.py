@@ -9,11 +9,6 @@ ROOT_SECTION_HEIGHT = 50
 MINIMIZED_SECTION_HEIGHT = 32
 PINNED_PARAMS_AREA_MIN_HEIGHT = 64
 AUTO_SECTION_MAX_HEIGHT = 350.0
-META_CONTROL_DEFAULT_MIN_HEIGHT = 32
-META_CONTROL_TEXTAREA_MIN_HEIGHT = 80
-META_CONTROL_DROPZONE_MIN_HEIGHT = 120
-META_CONTROL_DEFAULT_MIN_WIDTH = DEFAULT_MIN_WIDTH
-META_CONTROL_DROPZONE_MIN_WIDTH = 240
 
 
 class RenameRefactorMode(str, Enum):
@@ -142,6 +137,7 @@ class SettingsBackend(BaseModel):
     defaultTerminalShell: str | None = None
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False
+    autoRefetchCallableParamsOnLspMismatch: bool = False
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
@@ -157,106 +153,6 @@ class SectionSizingPolicyTypeEntry(BaseModel):
 class SectionSizingPolicyCallableTypeEntry(SectionSizingPolicyTypeEntry):
     hideSearchMinHeight: float
     hideParamsMinHeight: float
-
-
-class MetaControlSizeMode(str, Enum):
-    any = "any"
-    auto_only = "auto_only"
-    manual_only = "manual_only"
-
-
-class MetaControlSizingPolicyTypeEntry(BaseModel):
-    minHeight: float
-    minWidth: float
-    sizeModeHeight: MetaControlSizeMode = MetaControlSizeMode.any
-    sizeModeWidth: MetaControlSizeMode = MetaControlSizeMode.any
-
-
-class MetaControlSizingPolicyByType(BaseModel):
-    CodeCallable: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    CodeParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    TextParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    ButtonParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    SliderParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-            sizeModeHeight=MetaControlSizeMode.auto_only,
-            sizeModeWidth=MetaControlSizeMode.any,
-        )
-    )
-    RotaryParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    SwitchParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    ColorPickerParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    DropdownParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-            sizeModeHeight=MetaControlSizeMode.auto_only,
-            sizeModeWidth=MetaControlSizeMode.any,
-        )
-    )
-    PasswordParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-            sizeModeHeight=MetaControlSizeMode.auto_only,
-            sizeModeWidth=MetaControlSizeMode.any,
-        )
-    )
-    TextAreaParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_TEXTAREA_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    DropzoneParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DROPZONE_MIN_HEIGHT,
-            minWidth=META_CONTROL_DROPZONE_MIN_WIDTH,
-        )
-    )
-    NestedParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
 
 
 class SectionSizingPolicyGlobals(BaseModel):
@@ -418,9 +314,6 @@ class SectionSizingPolicyByType(BaseModel):
 
 class SectionSizingPolicy(BaseModel):
     byType: SectionSizingPolicyByType = Field(default_factory=SectionSizingPolicyByType)
-    metaControlByType: MetaControlSizingPolicyByType = Field(
-        default_factory=MetaControlSizingPolicyByType
-    )
     globals: SectionSizingPolicyGlobals = Field(
         default_factory=SectionSizingPolicyGlobals
     )

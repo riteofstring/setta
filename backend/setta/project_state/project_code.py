@@ -109,6 +109,8 @@ class ProjectGenPythonCode(PythonCode):
         initial_undefined_callable_sections: set[ID] | None = None,
         on_callable_symbols_resolved: Callable[[ID, set[ID]], Awaitable[None]]
         | None = None,
+        on_callable_signature_mismatch: Callable[[ID, set[ID]], Awaitable[None]]
+        | None = None,
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.project_config_id = project_config_id
@@ -121,6 +123,8 @@ class ProjectGenPythonCode(PythonCode):
             else set()
         )
         self._on_callable_symbols_resolved = on_callable_symbols_resolved
+        self._on_callable_signature_mismatch = on_callable_signature_mismatch
+        self.latest_callable_mismatch_sections: set[ID] = set()
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -316,18 +320,24 @@ class ProjectGenPythonCode(PythonCode):
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
-        request_id = create_new_id()
-        response = await self.lsp_writer.send_and_wait(
-            self.lsp_writer.send_signature_help_request(
-                filepath=self.binding.canonical_path,
-                line=line,
-                character=col,
-                request_id=request_id,
-            ),
-            request_id,
-        )
+        response = None
+        if self.lsp_writer is not None:
+            request_id = create_new_id()
+            response = await self.lsp_writer.send_and_wait(
+                self.lsp_writer.send_signature_help_request(
+                    filepath=self.binding.canonical_path,
+                    line=line,
+                    character=col,
+                    request_id=request_id,
+                ),
+                request_id,
+            )
 
-        result = process_signature_help_response(settings, response)
+        result = (
+            process_signature_help_response(settings, response)
+            if response is not None
+            else None
+        )
         documentation = None
         codeObjs: list[Core] = []
         codeObjImplMap = {}
@@ -454,14 +464,20 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response.params
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
-        errors, undefined_callable_sections = (
-            process_gen_code_diagnostics_with_undefined_symbols(
-                params.diagnostics,
-                self.code_generator,
-                self.dep_graph,
-                self.ignored_type_errors_by_section,
-            )
+        (
+            errors,
+            undefined_callable_sections,
+            callable_mismatch_sections,
+        ) = process_gen_code_diagnostics_with_undefined_symbols(
+            params.diagnostics,
+            self.code_generator,
+            self.dep_graph,
+            self.ignored_type_errors_by_section,
         )
+        new_mismatch_sections = (
+            callable_mismatch_sections - self.latest_callable_mismatch_sections
+        )
+        self.latest_callable_mismatch_sections = callable_mismatch_sections
         resolved_sections: set[ID] = set()
         if self.latest_undefined_callable_sections:
             for section_id in self.latest_undefined_callable_sections:
@@ -485,6 +501,10 @@ class ProjectGenPythonCode(PythonCode):
         if resolved_sections and self._on_callable_symbols_resolved:
             await self._on_callable_symbols_resolved(
                 self.project_config_id, resolved_sections
+            )
+        if new_mismatch_sections and self._on_callable_signature_mismatch:
+            await self._on_callable_signature_mismatch(
+                self.project_config_id, new_mismatch_sections
             )
 
     def get_gen_python_code_path(self):
