@@ -1,14 +1,11 @@
+import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 
-import { RouteEnum } from "utils/generatedTypes"
-import { C } from "utils/c"
-    
 export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
 
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {
-    const override = import.meta.env?.VITE_BACKEND_ORIGIN as
-      | string
-      | undefined;
+    const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
     if (!override) {
       return undefined;
     }
@@ -20,9 +17,7 @@ export class C_ADDRESSES {
     if (!normalizedOrigin) {
       return undefined;
     }
-    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(
-      normalizedOrigin,
-    );
+    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
     if (!hasProtocol) {
       normalizedOrigin = `http://${normalizedOrigin}`;
     }

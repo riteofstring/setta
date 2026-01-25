@@ -3,7 +3,11 @@ import _ from "lodash";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useLspDiagnostics, useProjectState, useShareSession } from "state/definitions";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {

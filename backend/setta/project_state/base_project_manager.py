@@ -534,9 +534,9 @@ class BaseProjectManager(ABC):
                 project_config_id=project_config_id,
                 websocket_msg_handler=self.websocket_msg_handler,
             )
-            self.lsp_diagnostics_state_by_project_config[
-                project_config_id
-            ] = diagnostics_state
+            self.lsp_diagnostics_state_by_project_config[project_config_id] = (
+                diagnostics_state
+            )
         return diagnostics_state
 
     @abstractmethod

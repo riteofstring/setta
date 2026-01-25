@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
+import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,

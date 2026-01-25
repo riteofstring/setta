@@ -3,7 +3,12 @@
 // Run the meta-script to regenerate this file
 
 export class C {
-  static ALLOWED_ARTIFACT_TYPES = {"DRAW": ["img", "brushStrokes"], "IMAGE": ["img"], "CHART": ["list"], "CHAT": ["chatHistory"]};
+  static ALLOWED_ARTIFACT_TYPES = {
+    DRAW: ["img", "brushStrokes"],
+    IMAGE: ["img"],
+    CHART: ["list"],
+    CHAT: ["chatHistory"],
+  };
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_NAME = "setta_auth";

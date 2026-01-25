@@ -45,8 +45,7 @@ function toCodeMirrorDiagnostics(
         from,
         to,
         severity:
-          (diagnostic.severity &&
-            LSP_SEVERITY_MAP[diagnostic.severity]) ||
+          (diagnostic.severity && LSP_SEVERITY_MAP[diagnostic.severity]) ||
           "error",
         message: diagnostic.message,
         source: diagnostic.source ?? undefined,

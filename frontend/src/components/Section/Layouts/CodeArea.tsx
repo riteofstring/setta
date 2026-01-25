@@ -29,8 +29,8 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
-  useMisc,
   useLspDiagnostics,
+  useMisc,
   useProjectState,
   useResizeEvent,
   useShareSession,

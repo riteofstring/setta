@@ -15,10 +15,10 @@ from setta.types.dependency_key import (
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
 from setta.types.lsp import (
-    SettaLSPPosition,
     SettaLspDiagnostic,
     SettaLspDiagnosticPosition,
     SettaLspDiagnosticRange,
+    SettaLSPPosition,
     SettaSectionTypeErrors,
 )
 from setta.types.section_impls import TypeErrorIgnoreState

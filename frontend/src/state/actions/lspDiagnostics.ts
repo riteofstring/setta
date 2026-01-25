@@ -1,4 +1,8 @@
-import { useLspDiagnostics, useProjectState, useShareSession } from "state/definitions";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { SettaLspDiagnosticsPayload } from "utils/generatedTypes";
 import { processTypeErrors } from "./typeCheck";
 

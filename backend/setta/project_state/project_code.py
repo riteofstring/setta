@@ -18,6 +18,7 @@ from setta.project_state.code_files import (
     GEN_CODE_VARIANT_ID,
     RegisteredCodeFileBinding,
 )
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
@@ -25,7 +26,6 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     build_setta_lsp_diagnostic,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
-from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     SignatureHelpStatus,
     process_signature_help_response,
@@ -710,8 +710,7 @@ class ProjectPythonCode(PythonCode):
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
         diagnostics = [
-            build_setta_lsp_diagnostic(d, uri=params.uri)
-            for d in params.diagnostics
+            build_setta_lsp_diagnostic(d, uri=params.uri) for d in params.diagnostics
         ]
         await self.diagnostics_state.update_code_section(
             self.sectionId,
