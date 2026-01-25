@@ -17,7 +17,6 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
-    DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
@@ -30,6 +29,8 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -110,19 +111,16 @@ class CoreArgs(TypedDict):
                 "llmConfigId",
                 "managed",
                 "max",
-                "maxAttachments",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
                 "min",
-                "mode",
                 "name",
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
                 "pinnedAreaHeight",
                 "pinnedParams",
-                "placeholder",
                 "positionAndSizeLocked",
                 "renderedImagePath",
                 "requestBody",
@@ -165,6 +163,11 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
+    watchCodeEnabled: NotRequired[bool]
+    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
+    watchCodeFiles: NotRequired[list[str]]
+    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
+    watchCodeBaselineByPath: NotRequired[dict[str, list[str]]]
 
 
 class BaseSectionImplArgs(TypedDict):
@@ -858,9 +861,6 @@ class TextAreaParamCodeObjImplArgsWithCallable(
 
 class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.DropzoneParam]]
-    mode: NotRequired[DropzoneMode]
-    maxAttachments: NotRequired[int | None]
-    placeholder: NotRequired[str]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -872,9 +872,6 @@ class DropzoneParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.DropzoneParam]], Literal[CodeObjType.DropzoneParam]
         ]
     ]
-    mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
-    maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
-    placeholder: NotRequired[str | Callable[[str], str]]
 
 
 class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):
