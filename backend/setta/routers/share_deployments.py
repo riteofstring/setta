@@ -43,7 +43,6 @@ from setta.types.share_deployment import (
     SharePolicy,
 )
 from setta.utils.constants import CWD, C
-from setta.utils.structured_data import write_json_source_payload
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 logger = logging.getLogger(__name__)
@@ -671,7 +670,7 @@ async def route_publish_share_deployment(
     json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():
         target_path = _resolve_deployment_relative_path(filename, deployment_root)
-        write_json_source_payload(target_path, data, state.dbe)
+        state.dbe.write_json(target_path, data)
 
     manifest = ShareDeploymentManifest(
         version=1,

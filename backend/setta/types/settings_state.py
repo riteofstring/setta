@@ -8,7 +8,6 @@ DEFAULT_MIN_WIDTH = 200
 ROOT_SECTION_HEIGHT = 50
 MINIMIZED_SECTION_HEIGHT = 32
 PINNED_PARAMS_AREA_MIN_HEIGHT = 64
-AUTO_SECTION_MAX_HEIGHT = 350.0
 
 
 class RenameRefactorMode(str, Enum):
@@ -82,19 +81,9 @@ class SettingsShortcuts(BaseModel):
     showVersionsTabShortcut: str = "V"
     showParamUITypeTabShortcut: str = "P"
     showProjectOverviewTabShortcut: str = "O"
-    focusHeaderShortcut: str = "Ctrl + Shift + 1"
-    focusOverviewShortcut: str = "Ctrl + Shift + 2"
-    focusCanvasShortcut: str = "Ctrl + Shift + 3"
-    focusUiEditorShortcut: str = "Ctrl + Shift + 4"
-    nextTopLevelSectionShortcut: str = "Alt + J"
-    prevTopLevelSectionShortcut: str = "Alt + K"
     runCodeShortcut: str = "Mod + Enter"
     runEntryCodeBlockShortcut: str = "Mod + Shift + Enter"
     paramSelect: str = "Mod + Shift"
-    paramIndentShortcut: str = "Tab"
-    paramUnindentShortcut: str = "Shift + Tab"
-    paramMoveUpShortcut: str = "Alt + ArrowUp"
-    paramMoveDownShortcut: str = "Alt + ArrowDown"
     formatCode: str = "Shift + Alt + F"
     selectionKeyCode: str = "Shift"
     multiSelectionKeyCode: str = "Mod"
@@ -137,7 +126,6 @@ class SettingsBackend(BaseModel):
     defaultTerminalShell: str | None = None
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False
-    autoRefetchCallableParamsOnLspMismatch: bool = True
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
@@ -160,7 +148,6 @@ class SectionSizingPolicyGlobals(BaseModel):
     minimizedHeight: float = MINIMIZED_SECTION_HEIGHT
     infiniteMaxHeight: float = INFINITE_MAX_HEIGHT
     infiniteMaxWidth: float = INFINITE_MAX_WIDTH
-    autoMaxHeight: float = AUTO_SECTION_MAX_HEIGHT
 
 
 class SectionSizingPolicyByType(BaseModel):
@@ -263,14 +250,6 @@ class SectionSizingPolicyByType(BaseModel):
         )
     )
     GenPythonCode: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=0,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    GenPythonMetadata: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
