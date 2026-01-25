@@ -1,7 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
@@ -22,6 +22,7 @@ export function TextInputCodeMirror({
   dummyCodeClassName,
   realCodeClassName,
   singleLine,
+  wrapLines,
   keyComboActions,
   onEscape,
   onTab,
@@ -58,7 +59,7 @@ export function TextInputCodeMirror({
     }
     if (event.button === 0) {
       setActivationEvent(event);
-      setActiveSectionIdAndUpdateZIndex(sectionId);
+      applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
   }
@@ -82,6 +83,8 @@ export function TextInputCodeMirror({
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
           className={dummyCodeClassName}
+          singleLine={singleLine}
+          wrapLines={wrapLines}
           theme={theme}
           placeholder={defaultVal}
           language={language}
@@ -96,6 +99,7 @@ export function TextInputCodeMirror({
           onChange={onChange}
           className={realCodeClassName}
           singleLine={singleLine}
+          wrapLines={wrapLines}
           keyComboActions={keyComboActions}
           onEscape={onEscape}
           onTab={onTab}
@@ -123,6 +127,7 @@ function CoreCodeMirror({
   onChange,
   className,
   singleLine,
+  wrapLines,
   keyComboActions,
   onEscape,
   onBlur,
@@ -158,6 +163,7 @@ function CoreCodeMirror({
     language,
     completionsFn: resolvedCompletionsFn,
     singleLine,
+    wrapLines,
     tabToAutocomplete: true,
     keyComboActions,
     onTab,
@@ -190,7 +196,7 @@ function CoreCodeMirror({
       onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
-      tabIndex={0} // need this for tabbingLogic to work
+      tabIndex={0} // keep focusable for tab navigation
     />
   );
 }

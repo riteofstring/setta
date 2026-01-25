@@ -19,7 +19,6 @@ from setta.types.generated.chart_settings_unions import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -32,12 +31,12 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
-    Prompt = "Prompt"
     MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
     Code = "Code"
     GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
     Terminal = "Terminal"
     IFrame = "IFrame"
     Chat = "Chat"
@@ -64,16 +63,17 @@ class SectionSize(BaseModel, extra="forbid"):
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
+    javascript = "javascript"
+    typescript = "typescript"
+    json = "json"
+    yaml = "yaml"
+    markdown = "markdown"
+    plaintext = "plaintext"
 
 
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
-
-
-class SectionWithParamsDisplayMode(str, Enum):
-    Gui = "Gui"
-    Yaml = "Yaml"
 
 
 class TypeErrorIgnoreState(BaseModel, extra="forbid"):
@@ -137,13 +137,12 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
-    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    renderedValue: str | None = None
+    pass
 
 
 class CodeFileAccessMode(str, Enum):
@@ -155,6 +154,7 @@ class CodeFileAccessMode(str, Enum):
 class CodeFileBinding(BaseModel, extra="forbid"):
     canonical_path: Path
     access_mode: CodeFileAccessMode
+    autoBinding: bool = False
 
     @property
     def snapshot_dir(self) -> Path:
@@ -163,7 +163,7 @@ class CodeFileBinding(BaseModel, extra="forbid"):
 
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
 
 
@@ -210,13 +210,17 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
         default_factory=LineChartSettings
     )
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=400, height=400)
+        default_factory=lambda: SectionSize(width=300.0, height=300.0)
     )
 
 
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=402.0, height=100.0)
+    )
     layers: list[DrawAreaLayer] = Field(default_factory=list)
+    renderedImagePath: str | None = None
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
@@ -230,27 +234,12 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
 
 class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
-
-
-class PromptSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Prompt] = SectionType.Prompt
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=300, height=150)
-    )
-    template: str = ""
-    format: PromptFormat = PromptFormat.Jinja
-    inputs: dict[str, str] = Field(default_factory=dict)
-    renderedText: str = ""
-    missingVariables: list[str] = Field(default_factory=list)
-    renderError: str | None = None
 
 
 class MetaControlSectionImpl(BaseSectionImpl):
@@ -278,10 +267,14 @@ class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
 
 
+class GenPythonMetadataSectionImpl(BaseCodeSectionImpl):
+    type: Literal[SectionType.GenPythonMetadata] = SectionType.GenPythonMetadata
+
+
 class TerminalSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=700, height=300)
+        default_factory=lambda: SectionSize(width=250.0, height=150.0)
     )
 
 
@@ -299,13 +292,12 @@ class ChatSectionState(BaseModel, extra="forbid"):
 class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Chat] = SectionType.Chat
     size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=405, height=405)
+        default_factory=lambda: SectionSize(width=400.0, height=200.0)
     )
     managed: bool = False
-    engineConfigId: ID | None = None
-    agentProfileId: ID | None = None
+    llmConfigId: str | None = None
     chatId: ID | None = None
-    thinking: bool = True
+    deepThink: bool = False
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

@@ -2,8 +2,9 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
 import { HOME_ROUTER_PATH } from "./constants";
+import { SectionTypeEnum } from "./generatedTypes";
 
-export function overviewPaneOnKeyDown(e) {
+function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
@@ -12,7 +13,7 @@ export function overviewPaneOnKeyDown(e) {
   }
 }
 
-export function uiEditorPaneOnKeyDown(e) {
+function uiEditorPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
     return;
   }
@@ -22,12 +23,7 @@ export function uiEditorPaneOnKeyDown(e) {
   }
 }
 
-export function siteLogoOnKeyDown(
-  e,
-  navigate,
-  location,
-  homePath = HOME_ROUTER_PATH,
-) {
+function siteLogoOnKeyDown(e, navigate, location, homePath = HOME_ROUTER_PATH) {
   if (location.pathname === homePath) {
     return;
   }
@@ -38,7 +34,7 @@ export function siteLogoOnKeyDown(
   }
 }
 
-export function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
+function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
   if (e.code === "Space") {
     if (!projectPath) {
       return;
@@ -52,7 +48,7 @@ function withinSectionTabbingHelper(focusEl) {
   movePaneToIncludeElement(focusEl);
 }
 
-export function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
+function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
   if (e.code !== "Tab") {
     return;
   }
@@ -100,7 +96,7 @@ function getCurrentElementIndex(e, focusableArray) {
     : focusableArray.indexOf(document.activeElement);
 }
 
-export function tabFromDocumentBody(e) {
+function tabFromDocumentBody(e) {
   if (document.activeElement === document.body) {
     focusOnProjectOverviewButton(e);
   }
@@ -150,9 +146,9 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
   }
 }
 
-export function focusOnSection(e, sectionId, focusOnFirstElement = true) {
+function focusOnSection(e, sectionId, focusOnFirstElement = true) {
   e?.preventDefault();
-  if (getSectionType(sectionId) === UITypeNameEnum.GROUP) {
+  if (getSectionType(sectionId) === SectionTypeEnum.Group) {
     useSectionRefs
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });
@@ -208,4 +204,88 @@ const firstFocusableElement = (container) => {
 
 export function focusOnSectionSearch(sectionId: string) {
   document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
+}
+
+const pendingSectionTextFocus = new Set<string>();
+const TERMINAL_INPUT_SELECTOR = ".xterm-helper-textarea, .xterm textarea";
+const TERMINAL_INPUT_SELECTORS = [".xterm-helper-textarea", ".xterm textarea"];
+const SECTION_TEXT_INPUT_SELECTORS = [
+  `[data-section-main-editor] .cm-content`,
+  `[data-section-main-editor] [contenteditable="true"]`,
+  ...TERMINAL_INPUT_SELECTORS.map(
+    (selector) => `[data-section-main-editor] ${selector}`,
+  ),
+  ".section-full-no-title .cm-content",
+  '.section-full-no-title [contenteditable="true"]',
+  ".section-main .cm-content",
+  '.section-main [contenteditable="true"]',
+  ...TERMINAL_INPUT_SELECTORS,
+  `[contenteditable="true"]`,
+  ".cm-content",
+];
+const MAX_SECTION_TEXT_FOCUS_ATTEMPTS = 240;
+
+export function isPendingSectionTextFocus(sectionId: string) {
+  return pendingSectionTextFocus.has(sectionId);
+}
+
+export function clearPendingSectionTextFocus(sectionId: string) {
+  pendingSectionTextFocus.delete(sectionId);
+}
+
+export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
+  if (attempt === 0) {
+    if (pendingSectionTextFocus.has(sectionId)) {
+      return;
+    }
+    pendingSectionTextFocus.add(sectionId);
+  }
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
+  const focusTarget = getSectionTextInputTarget(ref);
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus({ preventScroll: true });
+    const active = document.activeElement;
+    if (ref && active instanceof HTMLElement && ref.contains(active)) {
+      if (!focusTarget.matches(TERMINAL_INPUT_SELECTOR)) {
+        clearPendingSectionTextFocus(sectionId);
+      }
+      return;
+    }
+  }
+  const activeElement = document.activeElement;
+  if (
+    attempt > 0 &&
+    ref &&
+    activeElement instanceof HTMLElement &&
+    !ref.contains(activeElement) &&
+    activeElement !== document.body &&
+    activeElement !== document.documentElement
+  ) {
+    clearPendingSectionTextFocus(sectionId);
+    return;
+  }
+  if (attempt < MAX_SECTION_TEXT_FOCUS_ATTEMPTS) {
+    requestAnimationFrame(() =>
+      focusOnSectionTextInput(sectionId, attempt + 1),
+    );
+  } else {
+    clearPendingSectionTextFocus(sectionId);
+  }
+}
+
+function getSectionTextInputTarget(
+  ref: HTMLElement | null,
+): HTMLElement | null {
+  if (!ref) {
+    return null;
+  }
+  for (const selector of SECTION_TEXT_INPUT_SELECTORS) {
+    const target = ref.querySelector(selector);
+    if (target instanceof HTMLElement) {
+      return target;
+    }
+  }
+  return null;
 }

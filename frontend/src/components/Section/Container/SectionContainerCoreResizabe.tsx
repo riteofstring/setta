@@ -9,14 +9,17 @@ import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
-import { CodeArea, GenPythonCodeArea } from "../Layouts/CodeArea";
+import {
+  CodeArea,
+  GenPythonCodeArea,
+  GenPythonMetadataArea,
+} from "../Layouts/CodeArea";
 import { DictArea } from "../Layouts/DictArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { MetaControlArea } from "../Layouts/MetaControlArea";
-import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -164,8 +167,6 @@ function AreaSwitch({
       return <SocialArea sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
-    case SectionTypeEnum.Prompt:
-      return <PromptArea sectionId={sectionId} />;
     case SectionTypeEnum.MetaControl:
       return <MetaControlArea sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:
@@ -174,6 +175,8 @@ function AreaSwitch({
       return <CodeArea sectionId={sectionId} />;
     case SectionTypeEnum.GenPythonCode:
       return <GenPythonCodeArea sectionId={sectionId} />;
+    case SectionTypeEnum.GenPythonMetadata:
+      return <GenPythonMetadataArea sectionId={sectionId} />;
     case SectionTypeEnum.Terminal:
       return <TerminalArea sectionId={sectionId} />;
     case SectionTypeEnum.IFrame:

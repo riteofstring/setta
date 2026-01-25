@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
+  getCurrSectionVariantId,
   getSectionType,
 } from "state/actions/sectionInfos";
 import {
@@ -14,10 +15,19 @@ import {
 import {
   useProjectState,
   useSettings,
+  useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
 import {
-  CodeObjTypeEnum,
+  getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+  getParamGroupPaddingKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
+} from "utils/constants";
+import {
+  isBaseSectionWithParamsImpl,
+  MetaControlSizingPolicyTypeEntry,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
@@ -30,45 +40,40 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
-function getMetaControlSizeMode({
-  projectState,
-  sectionId,
-  controlParamId,
-}: {
-  projectState: ZustandProjectState;
-  sectionId: string;
-  controlParamId: string | null | undefined;
-}): SizeMode | null {
-  if (!controlParamId) {
-    return null;
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const EMPTY_SHOWN_PARAMS: {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+} = {
+  requiredParamIdsToPaths: {},
+  topLevelParamIds: [],
+};
+
+function safeGetCurrShownParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  isPinned: boolean,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(state, sectionId, preview);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return EMPTY_SHOWN_PARAMS;
   }
-
-  const controlImpl = getCurrEffectiveCodeObjImpl(
-    projectState,
-    sectionId,
-    controlParamId,
-  );
-
-  if (
-    controlImpl.type === CodeObjTypeEnum.DropdownParam ||
-    controlImpl.type === CodeObjTypeEnum.SliderParam ||
-    controlImpl.type === CodeObjTypeEnum.PasswordParam
-  ) {
-    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
-  }
-
-  return null;
+  return isPinned ? shown.pinned : shown.unpinned;
 }
 
-function getMetaControlMinHeight({
+function getMetaControlSizingPolicyEntry({
   projectState,
   sectionId,
   controlParamId,
+  sizingPolicy,
 }: {
   projectState: ZustandProjectState;
   sectionId: string;
   controlParamId: string | null | undefined;
-}): number | null {
+  sizingPolicy: SectionSizingPolicy;
+}): MetaControlSizingPolicyTypeEntry | null {
   if (!controlParamId) {
     return null;
   }
@@ -78,12 +83,26 @@ function getMetaControlMinHeight({
     sectionId,
     controlParamId,
   );
+  const policyByType = sizingPolicy.metaControlByType;
+  const entry = policyByType[controlImpl.type as keyof typeof policyByType];
+  return entry ?? null;
+}
 
-  if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-    return 32;
+function resolveMetaControlSizeMode(
+  entry: MetaControlSizingPolicyTypeEntry | null,
+): SizeMode | null {
+  if (!entry) {
+    return null;
   }
-
-  return null;
+  const heightMode = entry.sizeModeHeight;
+  const widthMode = entry.sizeModeWidth;
+  if (!heightMode && !widthMode) {
+    return null;
+  }
+  return {
+    height: heightMode ?? SIZE_MODE.any,
+    width: widthMode ?? SIZE_MODE.any,
+  };
 }
 
 function getMinSectionHeight({
@@ -193,6 +212,26 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const kwargsControlsHeight = useTemporaryMiscState((x) => {
+    const height = x[getKwargsControlsHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const paramGroupPadding = useTemporaryMiscState((x) => {
+    const padding = x[getParamGroupPaddingKey(sectionId)];
+    return typeof padding === "number" ? padding : 0;
+  });
 
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
@@ -210,11 +249,16 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    const maxHeight = getMaxSectionHeight({
+    const policyMaxHeight = getMaxSectionHeight({
       sectionType,
       isMinimized,
       sizingPolicy,
     });
+    const isAutoHeight = impl.size.height === "auto";
+    const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
+    const maxHeight = isAutoHeight
+      ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
+      : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
@@ -234,21 +278,80 @@ export function useSectionMinMaxDims(sectionId: string) {
       minWidth *= 0.5;
     }
 
+    if (
+      !isMinimized &&
+      isBaseSectionWithParamsImpl(impl) &&
+      !hideParams
+    ) {
+      let baseMinHeight = minHeight;
+      if (sectionType === SectionTypeEnum.Callable) {
+        baseMinHeight = sizingPolicy.byType.Callable.hideParamsMinHeight;
+      }
+      const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
+      const edgeInputSet = new Set(impl.edgeInputParams);
+      const hasPinnedParams = pinned.topLevelParamIds.some(
+        (paramId) => !edgeInputSet.has(paramId),
+      );
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMinHeight > 0
+          ? pinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const baseUnpinnedMinHeight = Number.isFinite(
+        sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+      )
+        ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+        : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMinHeight > 0
+          ? unpinnedParamsMinHeight
+          : baseUnpinnedMinHeight;
+      let requiredParamsHeight = 0;
+      if (hasPinnedParams) {
+        if (typeof impl.pinnedAreaHeight === "number") {
+          requiredParamsHeight += Math.max(
+            impl.pinnedAreaHeight,
+            resolvedPinnedMinHeight,
+          );
+        } else {
+          requiredParamsHeight += resolvedPinnedMinHeight;
+        }
+      }
+      if (hasUnpinnedParams) {
+        requiredParamsHeight += resolvedUnpinnedMinHeight;
+      }
+      if (kwargsControlsHeight > 0) {
+        requiredParamsHeight += kwargsControlsHeight;
+      }
+      if (hasEdges) {
+        requiredParamsHeight += edgesStripHeight;
+      }
+      if (hasPinnedParams || hasUnpinnedParams || hasEdges) {
+        requiredParamsHeight += paramGroupPadding;
+      }
+      if (requiredParamsHeight > 0) {
+        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
+      }
+    }
+
     let metaControlSizeMode: SizeMode | null = null;
     if (sectionType === SectionTypeEnum.MetaControl) {
-      const metaControlMinHeight = getMetaControlMinHeight({
+      const metaControlEntry = getMetaControlSizingPolicyEntry({
         projectState: x,
         sectionId,
         controlParamId: impl.metaControlParamId,
+        sizingPolicy,
       });
-      if (metaControlMinHeight !== null) {
-        minHeight = Math.max(minHeight, metaControlMinHeight);
+      if (metaControlEntry) {
+        minHeight = Math.max(minHeight, metaControlEntry.minHeight);
+        minWidth = Math.max(minWidth, metaControlEntry.minWidth);
       }
-      metaControlSizeMode = getMetaControlSizeMode({
-        projectState: x,
-        sectionId,
-        controlParamId: impl.metaControlParamId,
-      });
+      metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
     }
 
     const sizeMode = getSizeMode({
@@ -262,10 +365,19 @@ export function useSectionMinMaxDims(sectionId: string) {
   }, _.isEqual);
 }
 
-export function useIsScrollable() {
+type UseIsScrollableOptions = {
+  onMeasure?: (element: HTMLDivElement) => void;
+};
+
+export function useIsScrollable(options: UseIsScrollableOptions = {}) {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
+  const onMeasureRef = useRef<UseIsScrollableOptions["onMeasure"]>(null);
+
+  useEffect(() => {
+    onMeasureRef.current = options.onMeasure ?? null;
+  }, [options.onMeasure]);
 
   useEffect(() => {
     if (!elementRef.current) return;
@@ -278,6 +390,7 @@ export function useIsScrollable() {
         setIsScrollableHorizontal(
           elementRef.current.scrollWidth > elementRef.current.clientWidth,
         );
+        onMeasureRef.current?.(elementRef.current);
       }
     }
 

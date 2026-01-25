@@ -1,36 +1,10 @@
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from setta.agentic.chat_view import (
-    EXTERNAL_AGENT_RUN_TYPE,
-    LLM_CHAT_RUN_TYPE,
-    build_chat_state_from_run,
-    get_run_engine_config_id,
-    get_run_project_config_id,
-    get_run_sort_key,
-    is_external_agent_run,
-)
-from setta.agentic.engine_resolver import resolve_engine_config
-from setta.agentic.external_agent_preflight import (
-    build_external_agent_preflight_status,
-)
-from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
-from setta.agentic.store import (
-    list_agent_runs_by_metadata,
-    load_agent_run,
-    require_agent_profile,
-)
-from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.types.agentic import (
-    AgentProfile,
-    AgentRun,
-    AgentRunStatus,
-    EngineType,
-)
+from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
@@ -43,122 +17,22 @@ from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 router = SettaProjectContextAPIRouter()
 
 
-def _get_llm_chat_runs(
-    *,
-    dbe,
-    chat_id: ID | None = None,
-    project_config_id: ID | None = None,
-) -> list[AgentRun]:
-    return list_agent_runs_by_metadata(
-        dbe,
-        run_type=LLM_CHAT_RUN_TYPE,
-        chat_id=chat_id,
-        project_config_id=project_config_id,
-    )
-
-
-def _get_external_agent_chat_runs(
-    *,
-    dbe,
-    chat_id: ID | None = None,
-    project_config_id: ID | None = None,
-) -> list[AgentRun]:
-    return list_agent_runs_by_metadata(
-        dbe,
-        run_type=EXTERNAL_AGENT_RUN_TYPE,
-        chat_id=chat_id,
-        project_config_id=project_config_id,
-    )
-
-
-def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
-    if not runs:
-        return None
-    return max(runs, key=get_run_sort_key)
-
-
-def _ensure_external_chat_id_compatible(
-    *,
-    dbe,
-    chat_id: ID | None,
-    engine_config_id: ID,
-    project_config_id: ID,
-) -> None:
-    if chat_id is None:
-        return
-    existing = load_agent_run(dbe, chat_id)
-    if existing is None:
-        return
-    if not is_external_agent_run(existing):
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
-        )
-    existing_engine = get_run_engine_config_id(existing)
-    if existing_engine and existing_engine != engine_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
-        )
-    existing_project = get_run_project_config_id(existing)
-    if existing_project and existing_project != project_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat project config mismatch; start a new chat.",
-        )
-
-
-def _get_prior_messages_for_engine(
-    *,
-    dbe,
-    engine_type: EngineType,
-    chat_id: ID,
-    project_config_id: ID | None,
-) -> list[BaseChatMessageUnion]:
-    if engine_type == EngineType.external_agent:
-        external_runs = _get_external_agent_chat_runs(
-            dbe=dbe,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        latest_run = _select_latest_run(external_runs)
-        if latest_run is None:
-            llm_runs = _get_llm_chat_runs(
-                dbe=dbe,
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-            )
-            latest_run = _select_latest_run(llm_runs)
-    else:
-        llm_runs = _get_llm_chat_runs(
-            dbe=dbe,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        latest_run = _select_latest_run(llm_runs)
-    if latest_run is None:
-        return []
-    return build_chat_state_from_run(latest_run).messages
-
-
-def _build_inputs_messages(
-    *,
-    prior_messages: list[BaseChatMessageUnion],
-    message: BaseChatMessageUnionWithDiscriminator,
-) -> list[BaseChatMessageUnion]:
-    existing_ids = {entry.id for entry in prior_messages}
-    if message.id in existing_ids:
-        return list(prior_messages)
-    return list(prior_messages) + [message]
+def _chat_manager_kwargs(ctx: RuntimeContextFromRequest) -> dict[str, str]:
+    if ctx.share_mode:
+        return {"share_session_id": ctx.share_session_id}
+    return {}
 
 
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
-    engineConfigId: ID
-    agentProfileId: ID | None = None
-    thinking: bool
+    llmConfigId: str
+    deepThink: bool
     projectConfigId: ID
+
+
+class DeleteLLMChatRequest(BaseModel):
+    chatId: ID
 
 
 class GetLLMChatRequest(BaseModel):
@@ -170,17 +44,6 @@ class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     llmConfig: LLMConfig
-
-
-class GetExternalAgentChatRequest(BaseModel):
-    chatId: ID
-    projectConfigId: ID | None
-
-
-class GetExternalAgentChatResponse(BaseModel):
-    messages: list[BaseChatMessageUnionWithDiscriminator]
-    waitingForResponse: bool
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
 
 
 class StopLLMChatRequest(BaseModel):
@@ -198,101 +61,47 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
-    chat_id = x.chatId or create_new_id()
-    resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
-    )
-    prior_messages: list[BaseChatMessageUnion] = []
-    if x.chatId is not None:
-        prior_messages = _get_prior_messages_for_engine(
-            dbe=ctx.state.dbe,
-            engine_type=resolved.engine_config.engineType,
-            chat_id=chat_id,
-            project_config_id=x.projectConfigId,
+    chat_manager_kwargs = _chat_manager_kwargs(ctx)
+    try:
+        chat = ctx.state.chat_manager.get_or_create_chat(
+            x.chatId,
+            x.message,
+            x.llmConfigId,
+            **chat_manager_kwargs,
         )
-    combined_messages = _build_inputs_messages(
-        prior_messages=prior_messages,
-        message=x.message,
-    )
-    profile: AgentProfile | None = None
-    if x.agentProfileId is not None:
-        try:
-            profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if resolved.engine_config.engineType == EngineType.setta_llm:
-        if ctx.state.agent_runner.disabled:
-            raise HTTPException(status_code=503, detail="Agent runner is not available")
-        if profile is None:
-            profile = AgentProfile(
-                name="Managed chat",
-                description="",
-                systemPrompt="",
-                engineConfigId=x.engineConfigId,
-            )
-        profile = profile.model_copy(update={"engineConfigId": x.engineConfigId})
-        inputs = {
-            "chatId": str(chat_id),
-            "projectConfigId": str(x.projectConfigId),
-            "thinking": x.thinking,
-            "engineConfigId": str(x.engineConfigId),
-            "runType": LLM_CHAT_RUN_TYPE,
-            "messages": [
-                message.model_dump(mode="json") for message in combined_messages
-            ],
-        }
-        ctx.state.agent_runner.start_run(profile, inputs)
-        return chat_id
-    if resolved.engine_config.engineType == EngineType.external_agent:
-        runner = ctx.state.external_agent_runner
-        if runner.disabled:
-            raise HTTPException(
-                status_code=503, detail="External agent runner is not available"
-            )
-        _ensure_external_chat_id_compatible(
-            dbe=ctx.state.dbe,
-            chat_id=x.chatId,
-            engine_config_id=x.engineConfigId,
-            project_config_id=x.projectConfigId,
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail="Failed to enqueue LLM request"
+        ) from exc
+
+    if chat:
+        ctx.state.chat_manager.start_processing_query(
+            chat,
+            x.deepThink,
+            x.projectConfigId,
+            **chat_manager_kwargs,
         )
-        external_config = resolved.external_agent_config
-        if external_config is None:
-            raise HTTPException(
-                status_code=500, detail="External agent config not found"
-            )
-        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
-        if not status.available:
-            issues = "; ".join(status.issues) if status.issues else "preflight failed"
-            raise HTTPException(
-                status_code=503,
-                detail=f"External agent config is not available: {issues}",
-            )
-        if profile is not None and profile.toolAllowlist:
-            _, error = build_external_tool_allowlist(
-                profile.toolAllowlist,
-                server_id=SETTA_MCP_SERVER_ID,
-            )
-            if error:
-                raise HTTPException(status_code=400, detail=error)
-        inputs = {
-            "chatId": str(chat_id),
-            "projectConfigId": str(x.projectConfigId),
-            "thinking": x.thinking,
-            "engineConfigId": str(x.engineConfigId),
-            "messages": [
-                message.model_dump(mode="json") for message in combined_messages
-            ],
-        }
-        try:
-            runner.start_run(x.engineConfigId, external_config, profile, inputs)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=409,
-                detail="Chat engine mismatch; start a new chat.",
-            ) from exc
-        return chat_id
-    raise HTTPException(status_code=400, detail="Unsupported engine config")
-    return chat_id
+        return chat.id
+
+
+@router.post(Route.GET_ALL_LLM_CHAT_METADATA)
+async def route_get_all_llm_chat_metadata(
+    ctx: RuntimeContextFromRequest,
+) -> list[ChatMetadata]:
+    await ctx.enforce_llm_allowed()
+    return ctx.state.chat_manager.get_all_chat_metadata(**_chat_manager_kwargs(ctx))
+
+
+@router.post(Route.DELETE_LLM_CHAT)
+async def route_delete_llm_chat(
+    x: DeleteLLMChatRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    return ctx.state.chat_manager.delete_chat(
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
+    )
 
 
 @router.post(Route.STOP_LLM_CHAT)
@@ -301,13 +110,10 @@ async def route_stop_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> None:
     await ctx.enforce_llm_allowed()
-    runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
-    running_runs = [run for run in runs if run.status == AgentRunStatus.running]
-    latest_run = _select_latest_run(running_runs)
-    if latest_run is None:
-        return None
-    await ctx.state.agent_runner.stop_run(latest_run.id)
-    return None
+    await ctx.state.chat_manager.request_stop_streaming(
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
+    )
 
 
 @router.post(Route.GET_LLM_CHAT)
@@ -316,61 +122,27 @@ async def route_get_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> GetLLMChatRequestResponse:
     await ctx.enforce_llm_allowed()
-    runs = _get_llm_chat_runs(
-        dbe=ctx.state.dbe,
-        chat_id=x.chatId,
-        project_config_id=x.projectConfigId,
+    chat = ctx.state.chat_manager.get_chat(
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
     )
-    latest_run = _select_latest_run(runs)
-    if latest_run is None:
+    if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
-    state = build_chat_state_from_run(latest_run)
-    if latest_run.status == AgentRunStatus.running:
-        live_state = ctx.state.agent_runner.get_live_chat_state(latest_run.id)
-        if live_state is not None:
-            state = live_state
-    engine_config_id = get_run_engine_config_id(latest_run)
-    if not engine_config_id:
-        raise HTTPException(status_code=500, detail="Chat engine config not found")
-    resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, engine_config_id
+
+    waiting_for_response = ctx.state.chat_manager.is_waiting_for_response(
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
     )
-    if resolved.engine_config.engineType != EngineType.setta_llm:
-        raise HTTPException(status_code=500, detail="Chat engine is not internal")
-    if resolved.llm_config is None:
-        raise HTTPException(status_code=500, detail="Chat LLM config not found")
+    current_stream = ctx.state.chat_manager.get_current_stream(
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
+    )
+    messages = chat.messages
+    merge_db_messages_with_current_stream(messages, current_stream)
     return GetLLMChatRequestResponse(
-        messages=state.messages,
-        waitingForResponse=state.waitingForResponse,
-        llmConfig=resolved.llm_config,
-    )
-
-
-@router.post(Route.GET_EXTERNAL_AGENT_CHAT)
-async def route_get_external_agent_chat(
-    x: GetExternalAgentChatRequest,
-    ctx: RuntimeContextFromRequest,
-) -> GetExternalAgentChatResponse:
-    await ctx.enforce_llm_allowed()
-    runs = _get_external_agent_chat_runs(
-        dbe=ctx.state.dbe,
-        chat_id=x.chatId,
-        project_config_id=x.projectConfigId,
-    )
-    latest_run = _select_latest_run(runs)
-    if latest_run is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    state = build_chat_state_from_run(latest_run)
-    if latest_run.status == AgentRunStatus.running:
-        runner = getattr(ctx.state, "external_agent_runner", None)
-        if runner is not None and not runner.disabled:
-            live_state = runner.get_live_chat_state(latest_run.id)
-            if live_state is not None:
-                state = live_state
-    return GetExternalAgentChatResponse(
-        messages=state.messages,
-        waitingForResponse=state.waitingForResponse,
-        toolCallArguments=state.toolCallArguments,
+        messages=messages,
+        waitingForResponse=waiting_for_response,
+        llmConfig=chat.llmConfig,
     )
 
 
@@ -381,8 +153,21 @@ async def route_get_ai_follow_snapshot(
     ctx: RuntimeContextFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
     await ctx.enforce_llm_allowed()
-    snapshot = ctx.state.agent_runner.get_ai_follow_snapshot(x.projectConfigId)
-    external_runner = ctx.state.external_agent_runner
-    if external_runner and not external_runner.disabled:
-        snapshot.extend(external_runner.get_ai_follow_snapshot(x.projectConfigId))
-    return snapshot
+    return ctx.state.chat_manager.get_ai_follow_snapshot(
+        x.projectConfigId,
+        **_chat_manager_kwargs(ctx),
+    )
+
+
+def merge_db_messages_with_current_stream(
+    db_messages: list[BaseChatMessageUnion], current_stream: list[BaseChatMessageUnion]
+):
+    # Create a set of existing message IDs for efficient lookup
+    existing_ids = {message.id for message in db_messages}
+
+    # Loop through current_stream and append messages that aren't already in chat
+    for message in current_stream:
+        if message.id not in existing_ids:
+            db_messages.append(message)
+            # Add to existing_ids to track what we've added
+            existing_ids.add(message.id)

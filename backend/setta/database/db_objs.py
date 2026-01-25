@@ -4,6 +4,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import toml
+import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
@@ -38,15 +40,9 @@ class DBE:
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
+        self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.external_agents = self.path / "external_agents.json"
-        self.engine_configs = self.path / "engine_configs.json"
-        self.agent_profiles = self.path / "agent_profiles.json"
-        self.agent_runs = self.path / "agent_runs"
-        self.agent_run_index = self.path / "agent_run_index.json"
-        self.prompts = self.path / "prompts"
-        self.prompts_example = self.path / "prompts.example.json"
         self.share_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
@@ -106,6 +102,26 @@ class DBE:
             )
 
         self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
+
+    def read_yaml(self, path: Path) -> Any:
+        raw = self.read(path)
+        if raw is None:
+            return {}
+        return yaml.safe_load(raw)
+
+    def write_yaml(self, path: Path, data: Any) -> None:
+        payload = yaml.safe_dump(data, sort_keys=False)
+        self.write(path, payload)
+
+    def read_toml(self, path: Path) -> Any:
+        raw = self.read(path)
+        if raw is None:
+            return {}
+        return toml.loads(raw)
+
+    def write_toml(self, path: Path, data: Any) -> None:
+        payload = toml.dumps(data)
+        self.write(path, payload)
 
     def read_jsonl(self, path: Path) -> list[dict]:
         if not path.exists():
@@ -219,45 +235,6 @@ class DBE:
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
 
-    def read_external_agents(self) -> list[dict]:
-        payload = self.read_json(self.external_agents)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("external_agents.json must contain a list of configs")
-        return payload
-
-    def write_external_agents(self, payload: list[dict]) -> None:
-        self.write_json(self.external_agents, payload)
-
-    def read_engine_configs(self) -> list[dict]:
-        payload = self.read_json(self.engine_configs)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("engine_configs.json must contain a list of configs")
-        return payload
-
-    def write_engine_configs(self, payload: list[dict]) -> None:
-        self.write_json(self.engine_configs, payload)
-
-    def read_agent_run_index(self) -> dict[str, Any]:
-        payload = self.read_json(self.agent_run_index)
-        if not payload:
-            return {}
-        if not isinstance(payload, dict):
-            raise ValueError("agent_run_index.json must contain an object")
-        return payload
-
-    def write_agent_run_index(self, payload: dict[str, Any]) -> None:
-        self.write_json(self.agent_run_index, payload)
-
-    def read_prompts_example(self) -> Any:
-        return self.read_json(self.prompts_example)
-
-    def write_prompts_example(self, payload: Any) -> None:
-        self.write_json(self.prompts_example, payload)
-
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
         if raw is None:
@@ -275,66 +252,25 @@ class DBE:
             content += "\n"
         self.write(self.dot_env, content)
 
-    def read_agent_profiles(self) -> list[dict]:
-        payload = self.read_json(self.agent_profiles)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("agent_profiles.json must contain a list of profiles")
-        return payload
+    def chat_path(self, chat_id: ID) -> Path:
+        return self.chats / f"{chat_id}.json"
 
-    def write_agent_profiles(self, payload: list[dict]) -> None:
-        self.write_json(self.agent_profiles, payload)
-
-    def agent_run_path(self, run_id: ID) -> Path:
-        return self.agent_runs / f"{run_id}.json"
-
-    def read_agent_run(self, run_id: ID) -> dict | None:
-        path = self.agent_run_path(run_id)
+    def read_chat(self, chat_id: ID) -> dict | None:
+        path = self.chat_path(chat_id)
         if not path.exists():
             return None
-        data = self.read_json(path)
-        if not data:
-            return None
-        return data
+        return self.read_json(path)
 
-    def write_agent_run(self, run_id: ID, payload: dict) -> None:
-        self.write_json(self.agent_run_path(run_id), payload)
+    def write_chat(self, chat_id: ID, data: Any):
+        self.write_json(self.chat_path(chat_id), data)
 
-    def list_agent_run_paths(self) -> list[Path]:
-        if not self.agent_runs.exists():
+    def list_chat_paths(self) -> list[Path]:
+        if not self.chats.exists():
             return []
-        return sorted(self.agent_runs.glob("*.json"))
+        return sorted(self.chats.glob("*.json"))
 
-    def delete_agent_run_file(self, run_id: ID) -> None:
-        path = self.agent_run_path(run_id)
-        lock = self.get_file_lock(path)
-        with lock:
-            if path.exists():
-                path.unlink()
-
-    def prompt_path(self, prompt_id: ID) -> Path:
-        return self.prompts / f"{prompt_id}.json"
-
-    def read_prompt(self, prompt_id: ID) -> dict | None:
-        path = self.prompt_path(prompt_id)
-        if not path.exists():
-            return None
-        data = self.read_json(path)
-        if not data:
-            return None
-        return data
-
-    def write_prompt(self, prompt_id: ID, payload: dict) -> None:
-        self.write_json(self.prompt_path(prompt_id), payload)
-
-    def list_prompt_paths(self) -> list[Path]:
-        if not self.prompts.exists():
-            return []
-        return sorted(self.prompts.glob("*.json"))
-
-    def delete_prompt_file(self, prompt_id: ID) -> None:
-        path = self.prompt_path(prompt_id)
+    def delete_chat_file(self, chat_id: ID):
+        path = self.chat_path(chat_id)
         lock = self.get_file_lock(path)
         with lock:
             if path.exists():

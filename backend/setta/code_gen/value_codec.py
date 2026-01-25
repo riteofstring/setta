@@ -1,16 +1,23 @@
+import json
 from collections.abc import Callable
 from typing import assert_never
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
+    Node,
     ParamNode,
     SectionNode,
 )
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
+from setta.types.dropzone import dropzone_value_to_attachments
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    SectionRepresentationMode,
+)
 from setta.types.section_impls import SectionType
 
 VarLookup = Callable[[BaseDependencyKeyUnion], str]
@@ -58,7 +65,12 @@ class PythonValueCodec:
     def format_param_expression(self, node: ParamNode) -> str:
         param_type = node.type
         literal_value = self._expect_literal(node)
-        return self._format_param_literal(param_type, literal_value, node.deps)
+        return self.format_param_value(
+            param_type,
+            literal_value,
+            node.deps,
+            node.value_representation,
+        )
 
     def format_dict(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
         parts: list[str] = []
@@ -66,13 +78,20 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
-            parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
+            if not self._node_in_codegen(node):
+                continue
+            parts.append(f"{repr(node.name)}: {self.var_lookup(dep_key)}")
         return self._format_collection("{", "}", parts)
 
     def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
-        items = [
-            self.var_lookup(dep_key) for dep_key, is_used in deps.items() if is_used
-        ]
+        items = []
+        for dep_key, is_used in deps.items():
+            if not is_used:
+                continue
+            node = self.dep_graph.graph[dep_key]
+            if not self._node_in_codegen(node):
+                continue
+            items.append(self.var_lookup(dep_key))
         return self._format_collection("[", "]", items)
 
     def _format_collection(
@@ -116,18 +135,75 @@ class PythonValueCodec:
                 if node.value:
                     return repr(node.value.payload)
                 return "None"
-            case SectionType.Prompt:
-                if node.value:
-                    return repr(node.value.payload)
-                return "None"
             case SectionType.Chat:
-                if node.value:
+                if not node.value:
+                    raise ValueError(
+                        f"Chat section {node.full_path_name} missing value."
+                    )
+                representation = node.representation
+                if representation is SectionRepresentationMode.expression:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Chat section {node.full_path_name} expected literal expression payload."
+                        )
+                    return node.value.payload
+                if representation is SectionRepresentationMode.file_path:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Chat section {node.full_path_name} expected literal file path payload."
+                        )
                     return repr(node.value.payload)
-                return "None"
-            case SectionType.Draw:
-                if node.value:
+                if representation is SectionRepresentationMode.file_read:
                     return self.format_dependency_value(node.value)
-                return "None"
+                raise ValueError(
+                    f"Unsupported representation {representation} for Chat section {node.full_path_name}"
+                )
+            case SectionType.Image:
+                if not node.value:
+                    raise ValueError(
+                        f"Image section {node.full_path_name} missing value."
+                    )
+                representation = node.representation
+                if representation is SectionRepresentationMode.expression:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Image section {node.full_path_name} expected literal expression payload."
+                        )
+                    return node.value.payload
+                if representation is SectionRepresentationMode.file_path:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Image section {node.full_path_name} expected literal file path payload."
+                        )
+                    return repr(node.value.payload)
+                if representation is SectionRepresentationMode.file_read:
+                    return self.format_dependency_value(node.value)
+                raise ValueError(
+                    f"Unsupported representation {representation} for Image section {node.full_path_name}"
+                )
+            case SectionType.Draw:
+                if not node.value:
+                    raise ValueError(
+                        f"Draw section {node.full_path_name} missing value."
+                    )
+                representation = node.representation
+                if representation is SectionRepresentationMode.expression:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Draw section {node.full_path_name} expected literal expression payload."
+                        )
+                    return node.value.payload
+                if representation is SectionRepresentationMode.file_path:
+                    if node.value.type is not DependencyValueType.Literal:
+                        raise ValueError(
+                            f"Draw section {node.full_path_name} expected literal file path payload."
+                        )
+                    return repr(node.value.payload)
+                if representation is SectionRepresentationMode.file_read:
+                    return self.format_dependency_value(node.value)
+                raise ValueError(
+                    f"Unsupported representation {representation} for Draw section {node.full_path_name}"
+                )
             case _:
                 return None
 
@@ -170,7 +246,38 @@ class PythonValueCodec:
         if control_type is None:
             raise ValueError(f"Missing control code obj type for {node.full_path_name}")
         literal_value = node.value.payload
-        return self._format_param_literal(control_type, literal_value)
+        representation = (
+            node.control_value_representation
+            or CodeObjValueRepresentationMode.expression
+        )
+        return self.format_param_value(
+            control_type,
+            literal_value,
+            None,
+            representation,
+        )
+
+    def format_param_value(
+        self,
+        param_type: CodeObjType,
+        literal_value: str,
+        deps: dict[BaseDependencyKeyUnion, bool] | None,
+        representation: CodeObjValueRepresentationMode,
+    ) -> str:
+        if param_type == CodeObjType.DropzoneParam:
+            return self._format_dropzone_value(literal_value, representation)
+        if representation is CodeObjValueRepresentationMode.string:
+            return repr(literal_value)
+        if representation is CodeObjValueRepresentationMode.json_parsed:
+            parsed = self._parse_json_value(literal_value)
+            if parsed is None:
+                return repr(literal_value)
+            return repr(parsed)
+        if representation is CodeObjValueRepresentationMode.expression:
+            return self._format_param_literal(param_type, literal_value, deps)
+        raise ValueError(
+            f"Unsupported representation {representation} for code obj type {param_type}"
+        )
 
     def _format_param_literal(
         self,
@@ -190,7 +297,6 @@ class PythonValueCodec:
             CodeObjType.TextParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
-            CodeObjType.DropzoneParam,
         ):
             return repr(literal_value)
 
@@ -207,6 +313,58 @@ class PythonValueCodec:
 
         raise ValueError(f"Unsupported CodeObjType {param_type}")
 
+    def _parse_json_value(self, literal_value: str) -> object | None:
+        try:
+            return json.loads(literal_value)
+        except json.JSONDecodeError:
+            return None
+
+    def _format_dropzone_value(
+        self,
+        literal_value: str,
+        representation: CodeObjValueRepresentationMode,
+    ) -> str:
+        if representation is CodeObjValueRepresentationMode.file_path:
+            return self._format_dropzone_entries(literal_value, read_files=False)
+        if representation is CodeObjValueRepresentationMode.file_read:
+            return self._format_dropzone_entries(literal_value, read_files=True)
+        raise ValueError(
+            f"Unsupported representation for DropzoneParam: {representation.value}"
+        )
+
+    def _format_dropzone_entries(
+        self,
+        literal_value: str,
+        *,
+        read_files: bool,
+    ) -> str:
+        if literal_value == "":
+            return "[]"
+        attachments = dropzone_value_to_attachments(literal_value)
+        if attachments is None:
+            return repr(literal_value)
+        items: list[str] = []
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                items.append(repr(attachment))
+                continue
+            kind = attachment.get("kind")
+            if kind == "file":
+                path = attachment.get("id")
+                if isinstance(path, str):
+                    if read_files:
+                        items.append(self._format_file_read_value(path))
+                    else:
+                        items.append(repr(path))
+                    continue
+            if kind == "text":
+                text = attachment.get("text")
+                if isinstance(text, str):
+                    items.append(repr(text))
+                    continue
+            items.append(repr(attachment))
+        return self._format_collection("[", "]", items)
+
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
     ) -> str:
@@ -215,6 +373,8 @@ class PythonValueCodec:
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
+            if not self._node_in_codegen(node):
+                continue
             if not isinstance(node, ParamNode):
                 continue
             var_name = self.var_lookup(dep_key)
@@ -244,6 +404,9 @@ class PythonValueCodec:
             return repr(payload)
         helper_alias = self._require_value_helpers()
         return f"{helper_alias}.read_file_value({repr(payload)})"
+
+    def _node_in_codegen(self, node: Node) -> bool:
+        return getattr(node, "include_in_codegen", True)
 
     def _require_value_helpers(self) -> str:
         import_stmt = (
