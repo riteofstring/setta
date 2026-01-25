@@ -1,6 +1,9 @@
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { shouldEmitRealtimeValue } from "./paramValue";
+import {
+  shouldEmitRealtimeValue,
+  shouldShowPasswordReveal,
+} from "./paramValue";
 
 describe("shouldEmitRealtimeValue", () => {
   it("returns false when the value is unchanged", () => {
@@ -31,5 +34,34 @@ describe("shouldEmitRealtimeValue", () => {
     });
 
     expect(shouldEmit).toBe(true);
+  });
+});
+
+describe("shouldShowPasswordReveal", () => {
+  it("returns true when a secret exists and the value is empty", () => {
+    const shouldShow = shouldShowPasswordReveal({
+      value: "",
+      hasSecret: true,
+    });
+
+    expect(shouldShow).toBe(true);
+  });
+
+  it("returns false when no secret exists", () => {
+    const shouldShow = shouldShowPasswordReveal({
+      value: "",
+      hasSecret: false,
+    });
+
+    expect(shouldShow).toBe(false);
+  });
+
+  it("returns false when a value is already present", () => {
+    const shouldShow = shouldShowPasswordReveal({
+      value: "revealed",
+      hasSecret: true,
+    });
+
+    expect(shouldShow).toBe(false);
   });
 });

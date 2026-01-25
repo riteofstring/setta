@@ -2,6 +2,7 @@ import pytest
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.secrets.password_store import get_password_secret
+from setta.project_state.secret_values import strip_password_values
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
@@ -213,3 +214,18 @@ def test_dependency_graph_uses_secret_presence(runtime_root) -> None:
     section_node_with_secret = graph_with_secret.get_node(section_key)
     assert section_node_with_secret is not None
     assert section_node_with_secret.deps[param_key] is True
+
+
+def test_strip_password_values_sets_has_secret(runtime_root) -> None:
+    project_state, section_id, param_id, _ = build_project_state(
+        param_type=CodeObjType.PasswordParam,
+    )
+    set_param_entered_value(project_state, section_id, param_id, "revealed")
+
+    strip_password_values(project_state)
+
+    impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state, section_id, param_id, PasswordParamCodeObjImpl
+    )
+    assert impl.hasSecret is True
+    assert impl.value == ""

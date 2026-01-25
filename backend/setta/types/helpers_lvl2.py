@@ -436,7 +436,15 @@ def set_param_entered_value(
 ):
     impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
     if isinstance(impl, PasswordParamCodeObjImpl):
-        set_password_secret(str(impl.id), value)
+        variant = get_curr_code_obj_variant(p, sectionId, paramId)
+        core = p.codeObjs[paramId]
+        _, base_impl, effective_impl = (
+            get_variant_base_and_effective_code_obj_impl_with_type_guard(
+                p, core, variant.id, PasswordParamCodeObjImpl
+            )
+        )
+        set_password_secret(str(effective_impl.id), value)
+        base_impl.hasSecret = value != ""
         value = ""
     if isinstance(impl, DropzoneParamCodeObjImpl):
         if impl.mode == DropzoneMode.STATELESS:
@@ -1342,9 +1350,16 @@ def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
             else:
                 set_password_secret(str(old_effective_impl.id), "")
             old_value = ""
+            if (
+                isinstance(old_impl, PasswordParamCodeObjImpl)
+                and new_impl.id != old_effective_impl.id
+            ):
+                old_impl.hasSecret = False
         if new_is_password:
             if not old_is_password and old_value != "":
                 set_password_secret(str(new_impl.id), old_value)
+            if isinstance(new_impl, PasswordParamCodeObjImpl):
+                new_impl.hasSecret = get_password_secret(str(new_impl.id)) != ""
             new_value = ""
         else:
             new_value = convert_code_obj_value(new_impl, old_value)

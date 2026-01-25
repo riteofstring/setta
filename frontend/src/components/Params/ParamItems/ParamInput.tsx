@@ -13,7 +13,11 @@ import {
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { route_set_param_entered_value } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_get_password_param_value,
+  route_set_param_entered_value,
+} from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
@@ -69,6 +73,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       });
     },
   );
+  const [isRevealing, setIsRevealing] = React.useState(false);
 
   // value and enteredValue should always be string
   function onChange(v, options?: ParamValueChangeOptions) {
@@ -90,6 +95,26 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
       }
     }
+  }
+
+  function onRevealPassword() {
+    if (!isPasswordParam || isRevealing || value !== "") {
+      return;
+    }
+    setIsRevealing(true);
+    route_get_password_param_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+    })
+      .then((response) => {
+        if (res200(response)) {
+          setPendingValue(response.data.value);
+        }
+      })
+      .finally(() => {
+        setIsRevealing(false);
+      });
   }
 
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
@@ -117,6 +142,8 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       value={value}
       onChange={onChange}
       onDropzoneStateless={onDropzoneStateless}
+      onRevealPassword={onRevealPassword}
+      isPasswordRevealPending={isRevealing}
       maybeErrorMessage={maybeErrorMessage}
     />
   );

@@ -799,6 +799,12 @@ export async function route_set_param_entered_value(
   return await post("/setParamEnteredValue", x);
 }
 
+export async function route_get_password_param_value(
+  x: gt.GetPasswordParamValueRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
+  return await post("/getPasswordParamValue", x);
+}
+
 export async function route_set_type_error_ignore(
   x: gt.SetTypeErrorIgnoreRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
