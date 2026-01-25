@@ -333,25 +333,26 @@ function getSectionSlugConflictError(sectionId: string, value: string) {
   }
   const nameOverrides = { [sectionId]: normalized };
   const { slugToIds, childrenByParent } = getSectionSlugIndex(state);
-  const sectionSlug = sanitizeNameForSlug(
-    resolveSectionFullPathName(state, sectionId, nameOverrides),
-  );
-  if (!sectionSlug) {
-    return "Section name is invalid after sanitization.";
-  }
   const affectedIds = collectDescendantSectionIds(childrenByParent, sectionId);
-  const existingIds = slugToIds[sectionSlug] ?? [];
-  if (existingIds.some((id) => !affectedIds.has(id))) {
-    return `Section path slug "${sectionSlug}" conflicts with another section.`;
-  }
+  const affectedSlugToIds: Record<string, Array<string>> = {};
   for (const id of affectedIds) {
-    if (id === sectionId) {
-      continue;
-    }
     const fullPathName = resolveSectionFullPathName(state, id, nameOverrides);
     const slug = sanitizeNameForSlug(fullPathName);
-    if (slug === sectionSlug) {
-      return `Section path slug "${sectionSlug}" conflicts with another section.`;
+    if (!slug) {
+      return "Section name is invalid after sanitization.";
+    }
+    if (!affectedSlugToIds[slug]) {
+      affectedSlugToIds[slug] = [];
+    }
+    affectedSlugToIds[slug].push(id);
+  }
+  for (const [slug, ids] of Object.entries(affectedSlugToIds)) {
+    if (ids.length > 1) {
+      return `Section path slug "${slug}" conflicts with another section.`;
+    }
+    const existingIds = slugToIds[slug] ?? [];
+    if (existingIds.some((id) => !affectedIds.has(id))) {
+      return `Section path slug "${slug}" conflicts with another section.`;
     }
   }
   return null;

@@ -308,8 +308,20 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 effective_impl,
                 (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
             )
+            canonical_binding_path = None
+            if not is_gen_section:
+                section_full_name = get_section_path_full_name(self, section_id)
+                section_slug = sanitize_slug(section_full_name)
+                language = effective_impl.codeLanguage
+                extension = CODE_LANGUAGE_EXTENSIONS[language]
+                canonical_binding_path = normalize_path(
+                    canonical_sections_dir / f"{section_slug}.{extension}"
+                )
             if section_id in conflicting_section_ids and not is_gen_section:
-                if effective_impl.codeFileBinding is not None:
+                if (
+                    effective_impl.codeFileBinding is not None
+                    and effective_impl.codeFileBinding.autoBinding
+                ):
                     set_effective_impl_value(
                         base_impl,
                         core,
@@ -341,24 +353,21 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 if not python_codegen_enabled:
                     continue
-                canonical_path = gen_code_path
+                canonical_path = normalize_path(gen_code_path)
                 access_mode = CodeFileAccessMode.write_only
             elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
                 if not (python_codegen_enabled and metadata_enabled):
                     continue
-                canonical_path = gen_meta_path
+                canonical_path = normalize_path(gen_meta_path)
                 access_mode = CodeFileAccessMode.write_only
             else:
-                section_full_name = get_section_path_full_name(self, section_id)
-                section_slug = sanitize_slug(section_full_name)
-                language = effective_impl.codeLanguage
-                extension = CODE_LANGUAGE_EXTENSIONS[language]
-                canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"
+                canonical_path = canonical_binding_path
                 access_mode = CodeFileAccessMode.read_write
 
             binding = CodeFileBinding(
-                canonical_path=normalize_path(canonical_path),
+                canonical_path=canonical_path,
                 access_mode=access_mode,
+                autoBinding=True,
             )
             set_effective_impl_value(
                 base_impl,
@@ -372,6 +381,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             gen_code_binding = CodeFileBinding(
                 canonical_path=normalize_path(gen_code_path),
                 access_mode=CodeFileAccessMode.write_only,
+                autoBinding=True,
             )
         self.genCodeBinding = gen_code_binding
         return self

@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
@@ -25,6 +26,7 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     get_section_path_full_name,
     move_sections_to_parent_section,
+    set_code_file_binding,
     set_project_config_name,
     set_section_name,
     set_text_block_heading_as_section_name,
@@ -36,6 +38,8 @@ from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
+    CodeFileAccessMode,
+    CodeFileBinding,
     SectionType,
 )
 from setta.utils.constants import C
@@ -584,6 +588,77 @@ class SectionNameValidationTests(unittest.TestCase):
         conflicts = collect_section_name_conflicts(self.project_state)
         self.assertIn(child_a, conflicts)
         self.assertIn(child_b, conflicts)
+
+    def test_move_conflict_preserves_manual_binding(self) -> None:
+        parent_a = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+        )
+        parent_b = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, parent_a, "Group A")
+        set_section_name(self.project_state, parent_b, "Group B")
+        child_a = create_child_sections(
+            self.settings,
+            self.project_state,
+            parent_a,
+            SectionType.Code,
+            1,
+            None,
+        )[0]
+        child_b = create_child_sections(
+            self.settings,
+            self.project_state,
+            parent_b,
+            SectionType.Code,
+            1,
+            None,
+        )[0]
+        self.project_state.validate_parent_section_map()
+        set_section_name(self.project_state, child_a, "Foo Bar")
+        set_section_name(self.project_state, child_b, "Foo Bar")
+        self.project_state.validate_parent_section_map()
+        self.project_state.validate_code_file_bindings()
+
+        manual_binding = CodeFileBinding(
+            canonical_path=Path("custom/manual_binding.py"),
+            access_mode=CodeFileAccessMode.read_write,
+            autoBinding=False,
+        )
+        set_code_file_binding(self.project_state, child_b, manual_binding)
+
+        move_sections_to_parent_section(
+            self.project_state,
+            parent_a,
+            [child_b],
+            1,
+        )
+        self.project_state.validate_parent_section_map()
+        self.project_state.validate_code_file_bindings()
+
+        impl_a_after = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_a,
+            BaseCodeSectionImpl,
+        )
+        impl_b_after = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_b,
+            BaseCodeSectionImpl,
+        )
+        self.assertIsNone(impl_a_after.codeFileBinding)
+        self.assertIsNotNone(impl_b_after.codeFileBinding)
+        self.assertEqual(
+            Path("custom/manual_binding.py"),
+            impl_b_after.codeFileBinding.canonical_path,
+        )
 
 
 class ParamNameValidationTests(unittest.TestCase):

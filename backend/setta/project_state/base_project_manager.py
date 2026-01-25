@@ -1536,6 +1536,7 @@ class BaseProjectManager(ABC):
         updated_binding = CodeFileBinding(
             canonical_path=canonical_path,
             access_mode=x.binding.access_mode,
+            autoBinding=False,
         )
         set_code_file_binding(project_state, x.sectionId, updated_binding)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)

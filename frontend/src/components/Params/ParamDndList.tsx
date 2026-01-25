@@ -1,16 +1,12 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import React, { useMemo } from "react";
+import React from "react";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
-import {
-  getCurrEffectiveCodeObjImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -38,43 +34,9 @@ export function ParamDndList({
   isTopLevel,
   listKey,
 }: ParamDndListProps) {
-  const duplicateIndexDeps = useProjectState((state) => {
-    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const paramIds = Object.keys(sectionImpl.codeObjVariantMap).sort();
-    const paramNames = paramIds.map((paramId) => {
-      return state.codeObjs[paramId]?.name ?? "";
-    });
-    const paramChildren = paramIds.map((paramId) => {
-      const impl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
-      if (!isBaseParentCodeObjImpl(impl)) {
-        return [];
-      }
-      return impl.children;
-    });
-    let rootId: string | null = null;
-    if (sectionImpl.type === SectionTypeEnum.Callable) {
-      rootId = sectionImpl.callable ?? null;
-    } else if (
-      sectionImpl.type === SectionTypeEnum.Dict ||
-      sectionImpl.type === SectionTypeEnum.GlobalVariables
-    ) {
-      rootId = sectionImpl.topLevelParamId ?? null;
-    }
-    return { paramIds, paramNames, paramChildren, rootId };
-  }, _.isEqual);
-  const duplicateIndex = useMemo(
-    () => buildParamDuplicateIndex(useProjectState.getState(), sectionId),
-    [
-      duplicateIndexDeps.paramIds,
-      duplicateIndexDeps.paramNames,
-      duplicateIndexDeps.paramChildren,
-      duplicateIndexDeps.rootId,
-      sectionId,
-    ],
+  const duplicateIndex = useProjectState(
+    (state) => buildParamDuplicateIndex(state, sectionId),
+    _.isEqual,
   );
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(

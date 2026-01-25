@@ -1728,6 +1728,7 @@ def set_code_file_binding(
     normalized_binding = CodeFileBinding(
         canonical_path=normalize_path(binding.canonical_path),
         access_mode=binding.access_mode,
+        autoBinding=binding.autoBinding,
     )
     set_curr_effective_section_impl_value(
         p,
