@@ -948,7 +948,7 @@ class BaseProjectManager(ABC):
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
         if run_snapshot_mode == RunSnapshotMode.ephemeral:
-            return C.RUN_FOLDER
+            return C.RUNTIME_FOLDER
         if run_snapshot_mode == RunSnapshotMode.always:
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")

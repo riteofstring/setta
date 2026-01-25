@@ -27,7 +27,7 @@ import {
   DrawAreaModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { serializeLayerStackToBlob } from "./binaryConversion";
+import { serializeLayerStackToBase64 } from "./base64Conversion";
 import {
   drawAllLayers,
   getActiveLayerAndCanvas,
@@ -118,7 +118,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   );
 
   const snapshotProvider = useCallback(() => {
-    return serializeLayerStackToBlob(
+    return serializeLayerStackToBase64(
       layerCanvasRefs.current ?? [],
       draftCanvasRef.current,
     );

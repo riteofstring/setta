@@ -1,6 +1,6 @@
+import base64
 import json
 import logging
-import mimetypes
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Literal, assert_never
 
 from pydantic import BaseModel
 
-from setta.binary import BinaryStore
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
     ArtifactType,
@@ -30,7 +29,7 @@ from setta.types.artifact import (
     ImageMapping,
 )
 from setta.types.dependency_key import SectionDependencyKey
-from setta.types.dependency_value import BinaryDependencyValue
+from setta.types.dependency_value import Base64DependencyValue
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
 from setta.types.id import ID
 from setta.types.listener import ListenerRealtimeDelta
@@ -100,7 +99,6 @@ class Artifacts:
         self._artifact_id_resolver = artifact_id_resolver or self._path_resolver
         self._realtime_event_hub = realtime_event_hub
         self._share_session_id = share_session_id
-        self._binary_store = BinaryStore.from_dbe(dbe)
         self.images: ImageMapping = {}
         self.chart_data: ChartDataMapping = {}
         self.brush_strokes: BrushStrokeMapping = {}
@@ -267,10 +265,10 @@ class Artifacts:
         normalized_path = self._resolve_path(path)
         img = self.dbe.read(normalized_path, "rb")
         if img:
-            ref = self._binary_store.store_bytes(img, mime_type="image/png")
+            b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
                 id=self.normalize_artifact_id(path),
-                value=ref,
+                value=f"data:image/png;base64,{b64_str}",
             )
             self.images[normalized_path] = artifact
             self.image_metadata[normalized_path] = ArtifactMetadata(
@@ -335,13 +333,10 @@ class Artifacts:
         normalized_path = self._resolve_path(path)
         content = self.dbe.read(normalized_path, "rb")
         if content is not None:
-            mime_type, _ = mimetypes.guess_type(normalized_path.name)
-            ref = self._binary_store.store_bytes(
-                content, mime_type=mime_type or "application/octet-stream"
-            )
+            b64_str = base64.b64encode(content).decode("utf-8")
             artifact = FileArtifact(
                 id=self.normalize_artifact_id(path),
-                value=ref,
+                value=b64_str,
             )
             self.files[normalized_path] = artifact
             self.file_metadata[normalized_path] = ArtifactMetadata(
@@ -384,23 +379,21 @@ class Artifacts:
             refs = self._image_section_refs_by_path.get(path)
             if not refs:
                 continue
-            binary_payload = self._binary_store.read_bytes(artifact.value.contentId)
+            payload = self._normalize_image_base64(artifact.value)
             for project_config_id, section_id in refs:
-                delta = ListenerRealtimeDelta(
-                    dependency=SectionDependencyKey(sectionId=section_id),
-                    value=BinaryDependencyValue(payload=artifact.value),
+                deltas_by_project[project_config_id].append(
+                    ListenerRealtimeDelta(
+                        dependency=SectionDependencyKey(sectionId=section_id),
+                        value=Base64DependencyValue(payload),
+                    )
                 )
-                delta.binaryPayload = binary_payload
-                deltas_by_project[project_config_id].append(delta)
 
         for project_config_id, deltas in deltas_by_project.items():
-            for delta in deltas:
-                await self._realtime_event_hub.emit_realtime_delta_binary(
-                    project_config_id=project_config_id,
-                    delta=delta,
-                    binary_payload=delta.binaryPayload or b"",
-                    share_session_id=self._share_session_id,
-                )
+            await self._realtime_event_hub.emit_realtime_delta(
+                project_config_id=project_config_id,
+                deltas=deltas,
+                share_session_id=self._share_session_id,
+            )
 
     def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
         """Return the cached artifact type for a normalized path, if any.
@@ -423,6 +416,14 @@ class Artifacts:
         raise ValueError(
             f"artifact path {normalized} has multiple cached types: {matches}"
         )
+
+    @staticmethod
+    def _normalize_image_base64(value: str) -> str:
+        if value.startswith("data:image/"):
+            _, _, suffix = value.partition(",")
+            if suffix:
+                return suffix
+        return value
 
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
@@ -496,7 +497,12 @@ class Artifacts:
         self, artifact: "BaseArtifactUnion"
     ) -> PreparedArtifact:
         if isinstance(artifact, ImageArtifact):
-            binary_data = self._binary_store.read_bytes(artifact.value.contentId)
+            data = (
+                artifact.value.split(",", 1)[1]
+                if "," in artifact.value
+                else artifact.value
+            )
+            binary_data = base64.b64decode(data)
             return PreparedArtifact(
                 payload=binary_data,
                 mode="wb",
@@ -529,7 +535,7 @@ class Artifacts:
                 hash=compute_md5_hex(encoded),
             )
         if isinstance(artifact, FileArtifact):
-            binary_data = self._binary_store.read_bytes(artifact.value.contentId)
+            binary_data = base64.b64decode(artifact.value)
             return PreparedArtifact(
                 payload=binary_data,
                 mode="wb",
@@ -623,27 +629,9 @@ class Artifacts:
     ) -> ArtifactSaveResult:
         path, metadata = self.cache_artifact_in_memory(artifact)
         prepared = self._prepare_artifact_for_storage(artifact)
-        result = self._write_prepared_artifact(
+        return self._write_prepared_artifact(
             path, artifact, metadata, prepared, conflict_strategy
         )
-        if result.status == "skipped":
-            return result
-        if isinstance(artifact, ImageArtifact):
-            self._binary_store.delete(artifact.value.contentId)
-            ref = self._binary_store.store_bytes(
-                prepared.payload,
-                mime_type="image/png",
-            )
-            self.images[path] = artifact.model_copy(update={"value": ref})
-        elif isinstance(artifact, FileArtifact):
-            self._binary_store.delete(artifact.value.contentId)
-            mime_type, _ = mimetypes.guess_type(path.name)
-            ref = self._binary_store.store_bytes(
-                prepared.payload,
-                mime_type=mime_type or "application/octet-stream",
-            )
-            self.files[path] = artifact.model_copy(update={"value": ref})
-        return result
 
     async def apply_updates(
         self,
