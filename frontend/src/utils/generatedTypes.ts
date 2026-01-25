@@ -1,5 +1,6 @@
 import {
   createCsvArtifactId as create_csv_artifact_id,
+  createFileArtifactId as create_file_artifact_id,
   createJsonArtifactId as create_json_artifact_id,
   createNewId as create_new_id,
   createPngArtifactId as create_png_artifact_id,
@@ -783,12 +784,7 @@ export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
 const FileArtifactSchema = z.object({
   type: z.literal("File").default(ArtifactTypeEnum.File),
-  id: z
-    .string()
-    .default(
-      () =>
-        "setta_files/artifacts/a9eaa08b-f394-413f-9b0f-3b3a85b84d5e.bin" as const,
-    ),
+  id: z.string().default(create_file_artifact_id),
   value: z.string(),
 });
 

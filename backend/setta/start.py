@@ -1236,9 +1236,7 @@ def status(
     else:
         sessions = registry.find_sessions_by_workspace(workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(
-                workspace, prune_stale=False
-            )
+            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1315,9 +1313,7 @@ def auth(
     else:
         sessions = registry.find_sessions_by_workspace(workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(
-                workspace, prune_stale=False
-            )
+            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
