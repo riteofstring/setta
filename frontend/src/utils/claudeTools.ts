@@ -7,6 +7,7 @@ import {
 export const APPROVAL_TOOL_NAME = "setta.approval";
 export const TODO_TOOL_NAME = "TodoWrite";
 export const QUESTION_TOOL_NAME = "AskUserQuestion";
+export const OPENCODE_QUESTION_TOOL_NAME = "question";
 
 export type TodoStatus = "pending" | "in_progress" | "completed";
 
@@ -51,10 +52,19 @@ export function normalizeToolName(
   if (!name) {
     return null;
   }
-  if (name.startsWith("mcp__")) {
-    return name.slice("mcp__".length);
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return null;
   }
-  return name;
+  const hasMcpPrefix = trimmed.startsWith("mcp__");
+  let normalized = trimmed;
+  if (hasMcpPrefix) {
+    normalized = trimmed.slice("mcp__".length);
+  }
+  if (!hasMcpPrefix && normalized.toLowerCase() === OPENCODE_QUESTION_TOOL_NAME) {
+    return QUESTION_TOOL_NAME;
+  }
+  return normalized;
 }
 
 export function resolveToolCallArguments(
@@ -69,7 +79,7 @@ export function resolveToolCallArguments(
   if (typeof pendingArgs !== "string" || !pendingArgs.trim()) {
     return null;
   }
-  const parsed = safeJsonParse(pendingArgs);
+  const parsed = parseToolCallArguments(pendingArgs);
   if (parsed === null) {
     return null;
   }
@@ -112,11 +122,18 @@ export function parseAskUserQuestionPayload(
     return null;
   }
   const questionsValue = value.questions;
-  if (!Array.isArray(questionsValue)) {
+  const fallbackQuestion =
+    typeof value.question === "string" ? value : undefined;
+  const questionEntries = Array.isArray(questionsValue)
+    ? questionsValue
+    : fallbackQuestion
+      ? [fallbackQuestion]
+      : null;
+  if (!questionEntries) {
     return null;
   }
   const questions: AskUserQuestionPrompt[] = [];
-  for (const entry of questionsValue) {
+  for (const entry of questionEntries) {
     if (!isRecord(entry)) {
       continue;
     }
@@ -125,7 +142,10 @@ export function parseAskUserQuestionPayload(
       continue;
     }
     const header = typeof entry.header === "string" ? entry.header : "";
-    const multiSelect = Boolean(entry.multiSelect);
+    const multiSelect =
+      typeof entry.multiSelect === "boolean"
+        ? entry.multiSelect
+        : Boolean(entry.multiple);
     const optionsValue = entry.options;
     const options: AskUserQuestionOption[] = [];
     if (Array.isArray(optionsValue)) {
@@ -141,7 +161,11 @@ export function parseAskUserQuestionPayload(
           continue;
         }
         const label =
-          typeof optionEntry.label === "string" ? optionEntry.label : "";
+          typeof optionEntry.label === "string"
+            ? optionEntry.label
+            : typeof optionEntry.value === "string"
+              ? optionEntry.value
+              : "";
         if (!label) {
           continue;
         }
@@ -273,6 +297,29 @@ function safeJsonParse(value: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function parseToolCallArguments(value: string): unknown | null {
+  const parsed = safeJsonParse(value);
+  if (parsed !== null) {
+    return parsed;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  for (let index = trimmed.length - 1; index >= 0; index -= 1) {
+    const char = trimmed[index];
+    if (char !== "{" && char !== "[") {
+      continue;
+    }
+    const candidate = trimmed.slice(index);
+    const recovered = safeJsonParse(candidate);
+    if (recovered !== null) {
+      return recovered;
+    }
+  }
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

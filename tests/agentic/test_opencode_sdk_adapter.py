@@ -1,12 +1,16 @@
 import asyncio
 import io
+import json
 import logging
 import os
 import sys
 import unittest
 from pathlib import Path
 
-from setta.agentic.external_adapters.base import ExternalAgentRunContext
+from setta.agentic.external_adapters.base import (
+    ExternalAgentRunContext,
+    ExternalAgentRunHandle,
+)
 from setta.agentic.external_adapters.opencode_sdk import (
     OpenCodeSdkAdapter,
     _OpenCodeSdkEventParser,
@@ -149,3 +153,34 @@ class OpenCodeSdkAdapterStderrTests(unittest.TestCase):
             os.close(read_fd)
 
         self.assertTrue(queue_drained)
+
+
+class OpenCodeSdkAdapterResponseTests(unittest.IsolatedAsyncioTestCase):
+    async def test_send_tool_response_writes_question_payload(self) -> None:
+        adapter = OpenCodeSdkAdapter()
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "import sys; line=sys.stdin.readline(); sys.stdout.write(line); "
+            "sys.stdout.flush(); sys.stdin.read()",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        handle = ExternalAgentRunHandle(run_id=ID("run-1"), process=process)
+        try:
+            await adapter.send_tool_response(
+                handle,
+                "tool-1",
+                {"answers": {"Color": "Blue"}},
+            )
+            if process.stdout is None:
+                self.fail("process stdout missing")
+            raw = await asyncio.wait_for(process.stdout.readline(), timeout=2)
+            payload = json.loads(raw.decode("utf-8"))
+            self.assertEqual(payload.get("type"), "question_response")
+            self.assertEqual(payload.get("toolCallId"), "tool-1")
+            self.assertEqual(payload.get("answers"), {"Color": "Blue"})
+        finally:
+            process.terminate()
+            await process.wait()

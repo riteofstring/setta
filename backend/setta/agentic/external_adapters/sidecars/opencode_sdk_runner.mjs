@@ -404,6 +404,138 @@ function resolveApproval(payload) {
   }
 }
 
+function extractQuestionId(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const candidates = [
+    payload.toolCallId,
+    payload.tool_call_id,
+    payload.questionId,
+    payload.question_id,
+    payload.id,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+function buildQuestionReplyBody(rawAnswers) {
+  const body = {};
+  if (typeof rawAnswers === "string") {
+    const trimmed = rawAnswers.trim();
+    if (trimmed) {
+      body.answer = trimmed;
+    }
+    return body;
+  }
+  if (Array.isArray(rawAnswers)) {
+    const values = rawAnswers
+      .map((entry) => (entry == null ? "" : String(entry).trim()))
+      .filter((entry) => entry.length > 0);
+    if (values.length === 1) {
+      body.answer = values[0];
+    }
+    if (values.length > 0) {
+      body.answers = values;
+    }
+    return body;
+  }
+  if (rawAnswers && typeof rawAnswers === "object") {
+    const answers = {};
+    for (const [key, value] of Object.entries(rawAnswers)) {
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed) {
+          answers[key] = trimmed;
+        }
+        continue;
+      }
+      if (value != null) {
+        const stringValue = String(value).trim();
+        if (stringValue) {
+          answers[key] = stringValue;
+        }
+      }
+    }
+    const values = Object.values(answers);
+    if (values.length === 1) {
+      body.answer = values[0];
+    }
+    if (values.length > 0) {
+      body.answers = answers;
+    }
+  }
+  return body;
+}
+
+async function sendQuestionResponse(requestId, rawAnswers) {
+  const body = buildQuestionReplyBody(rawAnswers);
+  const path = {
+    id: requestId,
+    requestID: requestId,
+    requestId: requestId,
+    questionId: requestId,
+  };
+  if (client?.question && typeof client.question.reply === "function") {
+    await client.question.reply({ path, body });
+    return;
+  }
+  if (typeof client?.postQuestionByIdReply === "function") {
+    await client.postQuestionByIdReply({ path, body });
+    return;
+  }
+  if (typeof client?.postQuestionByRequestIdReply === "function") {
+    await client.postQuestionByRequestIdReply({ path, body });
+    return;
+  }
+  if (typeof client?.postQuestionByQuestionIdReply === "function") {
+    await client.postQuestionByQuestionIdReply({ path, body });
+    return;
+  }
+  if (!resolvedBaseUrl) {
+    throw new Error("OpenCode baseUrl unavailable for question response");
+  }
+  const normalizedBase = resolvedBaseUrl.replace(/\/+$/, "");
+  const url = `${normalizedBase}/question/${encodeURIComponent(requestId)}/reply`;
+  const result = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!result.ok) {
+    throw new Error(
+      `OpenCode question response failed (${result.status} ${result.statusText})`,
+    );
+  }
+}
+
+async function handleQuestionResponse(payload) {
+  const questionId = extractQuestionId(payload);
+  if (!questionId) {
+    logDebug("question response missing id", payload);
+    return;
+  }
+  const rawAnswers =
+    payload.answers ?? payload.answer ?? payload.response ?? payload.responses ?? null;
+  try {
+    logDebug("sending question response", {
+      questionId,
+      hasAnswers: rawAnswers != null,
+    });
+    await sendQuestionResponse(questionId, rawAnswers);
+    logDebug("question response sent", { questionId });
+  } catch (err) {
+    writeEvent({
+      type: "error",
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 rl.on("line", (line) => {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -415,6 +547,10 @@ rl.on("line", (line) => {
   }
   if (payload.type === "approval_response") {
     resolveApproval(payload);
+    return;
+  }
+  if (payload.type === "question_response") {
+    void handleQuestionResponse(payload);
     return;
   }
   if (payload.type === "start" || payload.prompt) {

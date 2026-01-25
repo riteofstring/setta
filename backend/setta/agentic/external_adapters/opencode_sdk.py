@@ -186,11 +186,17 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
     async def send_tool_response(
         self, handle: ExternalAgentRunHandle, tool_call_id: str, payload: dict[str, Any]
     ) -> None:
-        payload_keys = ", ".join(payload.keys()) if payload else "none"
-        raise RuntimeError(
-            "OpenCode SDK tool responses are not supported "
-            f"(run_id={handle.run_id}, tool_call_id={tool_call_id}, payload_keys={payload_keys})"
-        )
+        process = handle.process
+        if process is None or process.stdin is None:
+            raise RuntimeError("OpenCode SDK process stdin not available")
+        message: dict[str, Any] = {
+            "type": "question_response",
+            "toolCallId": tool_call_id,
+        }
+        if payload:
+            message.update(payload)
+        process.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
+        await process.stdin.drain()
 
     @staticmethod
     def _build_command(context: ExternalAgentRunContext) -> list[str]:
