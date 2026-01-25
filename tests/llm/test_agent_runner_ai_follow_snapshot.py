@@ -1,6 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
@@ -38,7 +39,9 @@ def _build_runner(dbe: DBE) -> AgentRunner:
     return runner
 
 
-class AgentRunnerAIFollowSnapshotTests(unittest.IsolatedAsyncioTestCase):
+class TestAgentRunnerAIFollowSnapshot:
+    pytestmark = pytest.mark.asyncio
+
     async def test_snapshot_dedupes_and_clears(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -53,13 +56,13 @@ class AgentRunnerAIFollowSnapshotTests(unittest.IsolatedAsyncioTestCase):
             )
 
             snapshot = runner.get_ai_follow_snapshot(project_config_id)
-            self.assertEqual(len(snapshot), 1)
+            assert len(snapshot) == 1
             entry = snapshot[0]
-            self.assertEqual(entry.chatId, chat_id)
-            self.assertEqual(
-                entry.idsByType["section"],
-                [ID("section-1"), ID("section-2")],
-            )
+            assert entry.chatId == chat_id
+            assert entry.idsByType["section"] == [
+                ID("section-1"),
+                ID("section-2"),
+            ]
 
             await runner._update_and_broadcast_ai_follow_update(
                 project_config_id,
@@ -68,4 +71,4 @@ class AgentRunnerAIFollowSnapshotTests(unittest.IsolatedAsyncioTestCase):
             )
 
             snapshot = runner.get_ai_follow_snapshot(project_config_id)
-            self.assertEqual(snapshot, [])
+            assert snapshot == []

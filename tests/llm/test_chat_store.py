@@ -1,5 +1,4 @@
 import time
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -22,7 +21,7 @@ def _build_config(config_id: str) -> LLMConfig:
     return LLMConfig(id=config_id, model="test-model")
 
 
-class MemoryChatStoreTests(unittest.TestCase):
+class TestMemoryChatStore:
     def test_get_chat_returns_copies(self) -> None:
         store = MemoryChatStore()
         config = _build_config("primary")
@@ -35,15 +34,15 @@ class MemoryChatStoreTests(unittest.TestCase):
         if fetched is None:
             raise AssertionError("expected chat to be returned")
         content = fetched.messages[0].content[0]
-        self.assertIsInstance(content, MessageTextContent)
+        assert isinstance(content, MessageTextContent)
         content.text = "changed"
 
         fetched_again = store.get_chat(chat.id)
         if fetched_again is None:
             raise AssertionError("expected chat to be returned")
         updated_content = fetched_again.messages[0].content[0]
-        self.assertIsInstance(updated_content, MessageTextContent)
-        self.assertEqual("hello", updated_content.text)
+        assert isinstance(updated_content, MessageTextContent)
+        assert updated_content.text == "hello"
 
     def test_save_messages_deduplicates(self) -> None:
         store = MemoryChatStore()
@@ -57,13 +56,13 @@ class MemoryChatStoreTests(unittest.TestCase):
         updated = store.save_messages(chat.id, [first_message])
         if updated is None:
             raise AssertionError("expected chat to be returned")
-        self.assertEqual(1, len(updated.messages))
+        assert len(updated.messages) == 1
 
         new_message = _build_message("second")
         updated = store.save_messages(chat.id, [new_message])
         if updated is None:
             raise AssertionError("expected chat to be returned")
-        self.assertEqual(2, len(updated.messages))
+        assert len(updated.messages) == 2
 
     def test_metadata_sorts_by_last_updated(self) -> None:
         store = MemoryChatStore()
@@ -81,7 +80,7 @@ class MemoryChatStoreTests(unittest.TestCase):
         store.save_messages(chat_one.id, [_build_message("follow-up")])
 
         metadata = store.get_all_chat_metadata()
-        self.assertEqual([chat_two.id, chat_one.id], [m.id for m in metadata])
+        assert [m.id for m in metadata] == [chat_two.id, chat_one.id]
 
     def test_metadata_returns_copies(self) -> None:
         store = MemoryChatStore()
@@ -92,13 +91,13 @@ class MemoryChatStoreTests(unittest.TestCase):
         )
 
         metadata = store.get_all_chat_metadata()
-        self.assertEqual(1, len(metadata))
+        assert len(metadata) == 1
         metadata[0].llmConfig.model = "mutated-model"
 
         fetched = store.get_chat(chat.id)
         if fetched is None:
             raise AssertionError("expected chat to be returned")
-        self.assertEqual("test-model", fetched.llmConfig.model)
+        assert fetched.llmConfig.model == "test-model"
 
     def test_set_system_prompt_updates_chat(self) -> None:
         store = MemoryChatStore()
@@ -111,15 +110,15 @@ class MemoryChatStoreTests(unittest.TestCase):
         updated = store.set_system_prompt(chat.id, "system prompt")
         if updated is None:
             raise AssertionError("expected chat to be returned")
-        self.assertEqual("system prompt", updated.systemPrompt)
+        assert updated.systemPrompt == "system prompt"
 
         fetched = store.get_chat(chat.id)
         if fetched is None:
             raise AssertionError("expected chat to be returned")
-        self.assertEqual("system prompt", fetched.systemPrompt)
+        assert fetched.systemPrompt == "system prompt"
 
 
-class AgentRunChatStoreTests(unittest.TestCase):
+class TestAgentRunChatStore:
     def _build_store(self, temp_dir: str) -> AgentRunChatStore:
         dbe = DBE(Path(temp_dir))
         return AgentRunChatStore(dbe)
@@ -139,9 +138,9 @@ class AgentRunChatStoreTests(unittest.TestCase):
             fetched = store.get_chat(chat.id)
             if fetched is None:
                 raise AssertionError("expected chat to be returned")
-            self.assertEqual(chat.id, fetched.id)
-            self.assertEqual(project_config_id, fetched.projectConfigId)
-            self.assertEqual("hello", fetched.messages[0].content[0].text)
+            assert fetched.id == chat.id
+            assert fetched.projectConfigId == project_config_id
+            assert fetched.messages[0].content[0].text == "hello"
 
     def test_save_messages_deduplicates(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -153,13 +152,13 @@ class AgentRunChatStoreTests(unittest.TestCase):
             updated = store.save_messages(chat.id, [first_message])
             if updated is None:
                 raise AssertionError("expected chat to be returned")
-            self.assertEqual(1, len(updated.messages))
+            assert len(updated.messages) == 1
 
             new_message = _build_message("second")
             updated = store.save_messages(chat.id, [new_message])
             if updated is None:
                 raise AssertionError("expected chat to be returned")
-            self.assertEqual(2, len(updated.messages))
+            assert len(updated.messages) == 2
 
     def test_metadata_sorts_by_last_updated(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -172,7 +171,7 @@ class AgentRunChatStoreTests(unittest.TestCase):
             store.save_messages(chat_one.id, [_build_message("follow-up")])
 
             metadata = store.get_all_chat_metadata()
-            self.assertEqual([chat_two.id, chat_one.id], [m.id for m in metadata])
+            assert [m.id for m in metadata] == [chat_two.id, chat_one.id]
 
     def test_set_system_prompt_updates_chat(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -183,12 +182,12 @@ class AgentRunChatStoreTests(unittest.TestCase):
             updated = store.set_system_prompt(chat.id, "system prompt")
             if updated is None:
                 raise AssertionError("expected chat to be returned")
-            self.assertEqual("system prompt", updated.systemPrompt)
+            assert updated.systemPrompt == "system prompt"
 
             fetched = store.get_chat(chat.id)
             if fetched is None:
                 raise AssertionError("expected chat to be returned")
-            self.assertEqual("system prompt", fetched.systemPrompt)
+            assert fetched.systemPrompt == "system prompt"
 
     def test_metadata_uses_cached_name_without_parsing_messages(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -217,9 +216,5 @@ class AgentRunChatStoreTests(unittest.TestCase):
 
             metadata = store.get_all_chat_metadata()
 
-            self.assertEqual(1, len(metadata))
-            self.assertEqual("Cached Chat", metadata[0].name)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert len(metadata) == 1
+            assert metadata[0].name == "Cached Chat"

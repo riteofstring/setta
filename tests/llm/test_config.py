@@ -1,9 +1,9 @@
 import tempfile
-import unittest
 from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
+import pytest
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.llm.example_config import seed_llm_config_example_file
@@ -32,7 +32,7 @@ def _build_chat_metadata(
     )
 
 
-class MergeChatLLMConfigsTests(unittest.TestCase):
+class TestMergeChatLLMConfigs:
     def test_skips_configs_already_in_persisted_set(self) -> None:
         base_config = LLMConfig(
             id="primary",
@@ -52,8 +52,8 @@ class MergeChatLLMConfigsTests(unittest.TestCase):
 
         merged = merge_chat_llm_configs(all_configs, metadata)
 
-        self.assertEqual(set(merged.configs.keys()), {"primary"})
-        self.assertFalse(merged.configs["primary"].temporary)
+        assert set(merged.configs.keys()) == {"primary"}
+        assert not merged.configs["primary"].temporary
 
     def test_collapses_duplicate_chat_configs(self) -> None:
         chat_config = LLMConfig(
@@ -68,10 +68,10 @@ class MergeChatLLMConfigsTests(unittest.TestCase):
 
         merged = merge_chat_llm_configs(AllLLMConfigs(), metadata)
 
-        self.assertEqual(len(merged.configs), 1)
+        assert len(merged.configs) == 1
         merged_config = next(iter(merged.configs.values()))
-        self.assertTrue(merged_config.temporary)
-        self.assertEqual(merged_config.model, "gpt-5.1")
+        assert merged_config.temporary
+        assert merged_config.model == "gpt-5.1"
 
     def test_preserves_distinct_chat_configs(self) -> None:
         persisted = AllLLMConfigs(
@@ -96,13 +96,13 @@ class MergeChatLLMConfigsTests(unittest.TestCase):
 
         merged = merge_chat_llm_configs(persisted, chat_metadata)
 
-        self.assertEqual(len(merged.configs), 2)
+        assert len(merged.configs) == 2
         temporary_configs = [cfg for cfg in merged.configs.values() if cfg.temporary]
-        self.assertEqual(len(temporary_configs), 1)
-        self.assertEqual(temporary_configs[0].model, "claude-3")
+        assert len(temporary_configs) == 1
+        assert temporary_configs[0].model == "claude-3"
 
 
-class AllLLMConfigsValidationTests(unittest.TestCase):
+class TestAllLLMConfigsValidation:
     def test_infers_id_from_config_key(self) -> None:
         config = AllLLMConfigs.model_validate(
             {
@@ -116,10 +116,10 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(config.configs["primary"].id, "primary")
+        assert config.configs["primary"].id == "primary"
 
     def test_rejects_inline_id_field(self) -> None:
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             AllLLMConfigs.model_validate(
                 {
                     "configs": {
@@ -132,25 +132,25 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
             )
 
 
-class ListenerConfigResolutionTests(unittest.TestCase):
+class TestListenerConfigResolution:
     def test_resolves_scriptable_id(self) -> None:
         configs = AllLLMConfigs()
         resolved = configs.resolve_listener_config(SCRIPTABLE_LLM_CONFIG_ID)
 
-        self.assertEqual(resolved.id, SCRIPTABLE_LLM_CONFIG_ID)
-        self.assertEqual(resolved.model, SCRIPTABLE_LLM_CONFIG_ID)
-        self.assertEqual(resolved.mcpServerIds, [])
-        self.assertTrue(resolved.temporary)
-        self.assertIsNone(resolved.provider)
+        assert resolved.id == SCRIPTABLE_LLM_CONFIG_ID
+        assert resolved.model == SCRIPTABLE_LLM_CONFIG_ID
+        assert resolved.mcpServerIds == []
+        assert resolved.temporary
+        assert resolved.provider is None
 
     def test_rejects_empty_listener_id(self) -> None:
         configs = AllLLMConfigs()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             configs.resolve_listener_config("")
 
     def test_rejects_unknown_listener_id(self) -> None:
         configs = AllLLMConfigs()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             configs.resolve_listener_config("missing-config")
 
     def test_resolves_real_config(self) -> None:
@@ -158,13 +158,13 @@ class ListenerConfigResolutionTests(unittest.TestCase):
         configs = AllLLMConfigs(configs={"primary": config})
         resolved = configs.resolve_listener_config("primary")
 
-        self.assertEqual(resolved.id, "primary")
-        self.assertEqual(resolved.model, "gpt-5.1")
+        assert resolved.id == "primary"
+        assert resolved.model == "gpt-5.1"
 
 
-class MCPServerSelectionTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.mcp_servers = {
+class TestMcpServerSelection:
+    def _build_mcp_servers(self) -> dict[str, MCPServerConfig]:
+        return {
             SETTA_MCP_SERVER_ID: MCPServerConfig(
                 transport="sse",
                 url="http://localhost:8000/mcp",
@@ -176,6 +176,7 @@ class MCPServerSelectionTests(unittest.TestCase):
         }
 
     def test_resolves_all_mcp_servers_when_defaults_unset(self) -> None:
+        mcp_servers = self._build_mcp_servers()
         configs = AllLLMConfigs(
             configs={
                 "primary": LLMConfig(
@@ -183,14 +184,15 @@ class MCPServerSelectionTests(unittest.TestCase):
                     model="gpt-5.1",
                 )
             },
-            mcpServers=self.mcp_servers,
+            mcpServers=mcp_servers,
         )
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
 
-        self.assertEqual(resolved, [SETTA_MCP_SERVER_ID, "github"])
+        assert resolved == [SETTA_MCP_SERVER_ID, "github"]
 
     def test_resolves_default_mcp_server_ids(self) -> None:
+        mcp_servers = self._build_mcp_servers()
         configs = AllLLMConfigs(
             configs={
                 "primary": LLMConfig(
@@ -198,15 +200,16 @@ class MCPServerSelectionTests(unittest.TestCase):
                     model="gpt-5.1",
                 )
             },
-            mcpServers=self.mcp_servers,
+            mcpServers=mcp_servers,
             defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
         )
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
 
-        self.assertEqual(resolved, [SETTA_MCP_SERVER_ID])
+        assert resolved == [SETTA_MCP_SERVER_ID]
 
     def test_resolves_empty_mcp_server_ids(self) -> None:
+        mcp_servers = self._build_mcp_servers()
         configs = AllLLMConfigs(
             configs={
                 "primary": LLMConfig(
@@ -215,16 +218,16 @@ class MCPServerSelectionTests(unittest.TestCase):
                     mcpServerIds=[],
                 )
             },
-            mcpServers=self.mcp_servers,
+            mcpServers=mcp_servers,
             defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
         )
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
 
-        self.assertEqual(resolved, [])
+        assert resolved == []
 
 
-class LLMConfigPersistenceTests(unittest.TestCase):
+class TestLLMConfigPersistence:
     def test_save_llm_config_strips_ids_from_disk(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -242,10 +245,10 @@ class LLMConfigPersistenceTests(unittest.TestCase):
             save_llm_config(config, dbe)
             raw = dbe.read_llm_config()
 
-            self.assertNotIn("id", raw["configs"]["primary"])
+            assert "id" not in raw["configs"]["primary"]
 
             loaded = load_llm_config(dbe)
-            self.assertEqual(loaded.configs["primary"].id, "primary")
+            assert loaded.configs["primary"].id == "primary"
 
     def test_save_llm_config_can_write_example_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -263,12 +266,12 @@ class LLMConfigPersistenceTests(unittest.TestCase):
             save_llm_config(config, dbe, is_example=True)
 
             # Default llm_config.json should remain empty until explicitly saved.
-            self.assertEqual(dbe.read_llm_config(), {})
+            assert dbe.read_llm_config() == {}
             payload = dbe.read_llm_config_example()
-            self.assertIn("secondary", payload["configs"])
+            assert "secondary" in payload["configs"]
 
 
-class LLMConfigExampleSeedingTests(unittest.TestCase):
+class TestLLMConfigExampleSeeding:
     def test_seed_llm_config_example_file_writes_default_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -277,8 +280,8 @@ class LLMConfigExampleSeedingTests(unittest.TestCase):
 
             payload = dbe.read_llm_config_example()
             configs = payload.get("configs", {})
-            self.assertIn("claude-sonnet", configs)
-            self.assertNotIn("id", configs["claude-sonnet"])
+            assert "claude-sonnet" in configs
+            assert "id" not in configs["claude-sonnet"]
 
     def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -296,15 +299,9 @@ class LLMConfigExampleSeedingTests(unittest.TestCase):
             seed_llm_config_example_file(dbe)
 
             payload = dbe.read_llm_config_example()
-            self.assertEqual(
-                payload["configs"],
-                {
-                    "existing": {
-                        "model": "custom-model",
-                    }
-                },
-            )
+            assert payload["configs"] == {
+                "existing": {
+                    "model": "custom-model",
+                }
+            }
 
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

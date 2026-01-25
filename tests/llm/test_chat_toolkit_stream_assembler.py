@@ -1,9 +1,7 @@
-import unittest
-
 from setta.llm.chat_toolkit import ChatStreamAssembler
 
 
-class ChatStreamAssemblerTests(unittest.TestCase):
+class TestChatStreamAssembler:
     def test_text_and_tool_call_deltas(self) -> None:
         assembler = ChatStreamAssembler()
         builder = assembler.start_assistant_message(message_id="assistant-1")
@@ -21,10 +19,10 @@ class ChatStreamAssemblerTests(unittest.TestCase):
 
         message = builder.finalize()
 
-        self.assertEqual(message.id, "assistant-1")
-        self.assertEqual(message.content[0].text, "Hello")
-        self.assertIsNotNone(message.tool_calls)
+        assert message.id == "assistant-1"
+        assert message.content[0].text == "Hello"
+        assert message.tool_calls is not None
         tool_call = message.tool_calls[0]
-        self.assertEqual(tool_call.id, "tool-1")
-        self.assertEqual(tool_call.function.name, "setta__search")
-        self.assertEqual(tool_call.function.arguments, {"query": "test"})
+        assert tool_call.id == "tool-1"
+        assert tool_call.function.name == "setta__search"
+        assert tool_call.function.arguments == {"query": "test"}

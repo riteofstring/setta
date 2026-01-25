@@ -1,9 +1,7 @@
-import unittest
-
 from setta.llm.chat_toolkit.tool_calls import ToolCallAccumulator, ToolCallBuilder
 
 
-class ToolCallAccumulatorTests(unittest.TestCase):
+class TestToolCallAccumulator:
     def test_accumulates_and_orders_calls(self) -> None:
         accumulator = ToolCallAccumulator()
         accumulator.apply_delta(
@@ -23,9 +21,9 @@ class ToolCallAccumulatorTests(unittest.TestCase):
 
         calls = accumulator.finalize()
 
-        self.assertEqual([call.id for call in calls], ["call-1", "call-2"])
-        self.assertEqual(calls[0].function.arguments, {"value": "ok"})
-        self.assertEqual(calls[1].function.arguments, {"flag": True})
+        assert [call.id for call in calls] == ["call-1", "call-2"]
+        assert calls[0].function.arguments == {"value": "ok"}
+        assert calls[1].function.arguments == {"flag": True}
 
     def test_finalize_handles_invalid_json(self) -> None:
         accumulator = ToolCallAccumulator()
@@ -37,8 +35,8 @@ class ToolCallAccumulatorTests(unittest.TestCase):
 
         calls = accumulator.finalize()
 
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0].function.arguments, {})
+        assert len(calls) == 1
+        assert calls[0].function.arguments == {}
 
     def test_builder_parses_dict_and_json_string(self) -> None:
         built = ToolCallBuilder.from_name_and_args(
@@ -46,17 +44,13 @@ class ToolCallAccumulatorTests(unittest.TestCase):
             arguments={"value": "ok"},
             tool_call_id="call-1",
         )
-        self.assertEqual(built.function.arguments, {"value": "ok"})
-        self.assertEqual(built.function.name, "setta__alpha")
+        assert built.function.arguments == {"value": "ok"}
+        assert built.function.name == "setta__alpha"
 
         built = ToolCallBuilder.from_name_and_args(
             name="setta__beta",
             arguments='{"flag": true}',
             tool_call_id="call-2",
         )
-        self.assertEqual(built.function.arguments, {"flag": True})
-        self.assertEqual(built.function.name, "setta__beta")
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert built.function.arguments == {"flag": True}
+        assert built.function.name == "setta__beta"

@@ -1,8 +1,8 @@
 import json
 import logging
-import unittest
 
 from mcp.types import CallToolResult, TextContent
+import pytest
 from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
@@ -138,7 +138,9 @@ def _build_call_result_for_metadata(
     )
 
 
-class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
+class TestAIFollowToolResultUpdates:
+    pytestmark = pytest.mark.asyncio
+
     async def test_create_top_level_section_triggers_follow_update(self) -> None:
         async with real_project_manager() as fixture:
             websocket_manager = fixture.websocket_manager
@@ -262,11 +264,11 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                     == "AIFollowToolResultUpdate"
                 ]
 
-                self.assertEqual(1, len(follow_updates))
+                assert len(follow_updates) == 1
                 payload = follow_updates[0]["content"]
-                self.assertEqual(str(project_config_id), payload["projectConfigId"])
-                self.assertEqual(str(chat_id), payload["chatId"])
-                self.assertIn(str(section_id), payload["idsByType"]["section"])
+                assert payload["projectConfigId"] == str(project_config_id)
+                assert payload["chatId"] == str(chat_id)
+                assert str(section_id) in payload["idsByType"]["section"]
             finally:
                 websocket_manager.sockets.pop(websocket_id, None)
                 await websocket.close()
@@ -278,7 +280,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             tool_annotations_by_name = _build_tool_annotations_by_name(
                 SETTA_MCP_SERVER_ID
             )
-            self.assertTrue(tool_annotations_by_name)
+            assert tool_annotations_by_name
             mcp_client.tool_annotations_by_name = tool_annotations_by_name
 
             id_types: set[str] = set()
@@ -336,7 +338,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                         dbe=fixture.dbe,
                         annotations_by_name=tool_annotations_by_name,
                     )
-                    self.assertIsNone(result, tool_name)
+                    assert result is None, tool_name
                     continue
 
                 call_result = _build_call_result_for_metadata(
@@ -349,19 +351,12 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                     dbe=fixture.dbe,
                     annotations_by_name=tool_annotations_by_name,
                 )
-                self.assertIsInstance(result, dict, tool_name)
+                assert isinstance(result, dict), tool_name
                 for id_type, id_list in result.items():
-                    self.assertIsInstance(id_list, list, tool_name)
-                    self.assertTrue(
-                        all(isinstance(item, ID) for item in id_list),
-                        tool_name,
-                    )
+                    assert isinstance(id_list, list), tool_name
+                    assert all(isinstance(item, ID) for item in id_list), tool_name
                     if id_type in canonical_ids_by_type:
-                        self.assertIn(
-                            canonical_ids_by_type[id_type],
-                            id_list,
-                            tool_name,
-                        )
+                        assert canonical_ids_by_type[id_type] in id_list, tool_name
 
     async def test_ignores_non_setta_tool_result_updates(self) -> None:
         async with real_project_manager() as fixture:
@@ -387,8 +382,4 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 annotations_by_name=mcp_client.tool_annotations_by_name,
             )
 
-            self.assertIsNone(result)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert result is None

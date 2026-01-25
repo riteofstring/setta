@@ -1,4 +1,3 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -23,7 +22,7 @@ from setta.types.chat_messages import (
 from setta.types.id import ID
 
 
-class ManagedAIFollowTests(unittest.TestCase):
+class TestManagedAIFollow:
     def test_collects_ids_from_tool_calls(self) -> None:
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "follow_tool")
         annotations_by_name = {
@@ -49,13 +48,13 @@ class ManagedAIFollowTests(unittest.TestCase):
             annotations_by_name,
         )
 
-        self.assertIsNotNone(result)
+        assert result is not None
         if result is None:
             raise AssertionError("Expected ai-follow ids")
-        self.assertEqual(
-            {str(value) for value in result["section"]},
-            {"temp-1", "temp-2"},
-        )
+        assert {str(value) for value in result["section"]} == {
+            "temp-1",
+            "temp-2",
+        }
 
     def test_build_streaming_follow_ids_canonicalizes(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -104,8 +103,4 @@ class ManagedAIFollowTests(unittest.TestCase):
                 annotations_by_name=annotations_by_name,
             )
 
-            self.assertEqual(result, {"section": [canonical_section_id]})
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert result == {"section": [canonical_section_id]}

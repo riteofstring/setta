@@ -1,7 +1,8 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, AsyncIterator, Awaitable, Callable
+
+import pytest
 
 from setta.api.chat_toolkit import (
     ChatHistoryClient,
@@ -83,7 +84,9 @@ def _build_listener_context(
     return listener._build_callback_context(spec, {})
 
 
-class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
+class TestChatSessionErrors:
+    pytestmark = pytest.mark.asyncio
+
     async def test_stream_exception_resets_waiting_state(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -146,10 +149,10 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
                 yield "Hello"
                 raise RuntimeError("stream failure")
 
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 await session.stream_text(provider_stream())
 
-            self.assertFalse(section_states[section_id].waitingForResponse)
+            assert not section_states[section_id].waitingForResponse
 
     async def test_cancel_emits_message_finalized_when_partial_message(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -216,7 +219,7 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
                 yield "Hello"
                 raise RuntimeError("stream failure")
 
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 await session.stream_text(provider_stream())
 
             finalized_chunks = [
@@ -224,17 +227,16 @@ class ChatSessionErrorTests(unittest.IsolatedAsyncioTestCase):
                 for chunk in emitted_chunks
                 if isinstance(chunk, MessageFinalizedEvent)
             ]
-            self.assertTrue(finalized_chunks)
+            assert finalized_chunks
             finalized = finalized_chunks[0].message
-            self.assertIsInstance(finalized, AssistantChatMessage)
-            self.assertTrue(finalized.content)
-            self.assertEqual(
-                finalized.content[0].text,
-                "Hello",
-            )
+            assert isinstance(finalized, AssistantChatMessage)
+            assert finalized.content
+            assert finalized.content[0].text == "Hello"
 
 
-class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
+class TestChatSessionOpenFromEvent:
+    pytestmark = pytest.mark.asyncio
+
     async def test_open_from_event_uses_system_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -282,8 +284,8 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
                 event=event,
             )
 
-            self.assertEqual(len(captured_messages), 1)
-            self.assertIsInstance(captured_messages[0], SystemChatMessage)
+            assert len(captured_messages) == 1
+            assert isinstance(captured_messages[0], SystemChatMessage)
 
     async def test_open_from_event_uses_assistant_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -332,8 +334,8 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
                 event=event,
             )
 
-            self.assertEqual(len(captured_messages), 1)
-            self.assertIsInstance(captured_messages[0], AssistantChatMessage)
+            assert len(captured_messages) == 1
+            assert isinstance(captured_messages[0], AssistantChatMessage)
 
     async def test_open_from_event_rejects_tool_role(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -356,14 +358,10 @@ class ChatSessionOpenFromEventTests(unittest.IsolatedAsyncioTestCase):
                 managed=True,
             )
 
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 await ChatSession.open_from_event(
                     ctx=ctx,
                     section_id=section_id,
                     engine_config_id=engine_config_id,
                     event=event,
                 )
-
-
-if __name__ == "__main__":
-    unittest.main()

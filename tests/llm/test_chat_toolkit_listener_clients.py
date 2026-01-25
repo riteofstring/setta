@@ -1,6 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.database.db_objs import DBE
 from setta.llm.chat_store import AgentRunChatStore
@@ -14,7 +15,9 @@ from setta.api.chat_toolkit import ChatHistoryClient, ChatToolRunnerClient
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
 
 
-class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
+class TestChatToolkitListenerClient:
+    pytestmark = pytest.mark.asyncio
+
     async def test_history_client_coerces_chat_payloads(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -67,33 +70,33 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
                 engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
-            self.assertTrue(created)
+            assert created
 
             chat_id_repeat, created_repeat = await client.ensure_section_chat_id(
                 section_id=section_id,
                 engine_config_id=engine_config_id,
                 first_message=user_message([message_text("Hello listener")]),
             )
-            self.assertEqual(chat_id_repeat, chat_id)
-            self.assertFalse(created_repeat)
+            assert chat_id_repeat == chat_id
+            assert not created_repeat
             chat = await client.get(chat_id=chat_id)
-            self.assertIsNone(chat.projectConfigId)
+            assert chat.projectConfigId is None
 
             updated = await client.append(
                 chat_id=chat_id,
                 messages=[assistant_message([message_text("Reply")])],
             )
-            self.assertEqual(len(updated.messages), 2)
+            assert len(updated.messages) == 2
 
             updated = await client.set_system_prompt(
                 chat_id=chat_id,
                 system_prompt="System prompt",
             )
-            self.assertEqual(updated.systemPrompt, "System prompt")
+            assert updated.systemPrompt == "System prompt"
 
             metadata = await client.get_all_metadata()
-            self.assertTrue(metadata)
-            self.assertIsNone(metadata[0].projectConfigId)
+            assert metadata
+            assert metadata[0].projectConfigId is None
 
     async def test_tool_runner_client_coerces_messages(self) -> None:
         chat_id = ID("chat-1")
@@ -128,9 +131,5 @@ class ChatToolkitListenerClientTests(unittest.IsolatedAsyncioTestCase):
             tool_calls=[tool_call],
         )
 
-        self.assertTrue(messages)
-        self.assertIsInstance(messages[0], ToolChatMessage)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert messages
+        assert isinstance(messages[0], ToolChatMessage)

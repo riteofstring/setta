@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from setta.llm.chat_toolkit.managed.tool_search import (
     build_search_tool_chat_message,
@@ -10,7 +10,7 @@ from setta.types.chat_messages import ToolCall, ToolCallFunction, ToolReferenceC
 from setta.utils.constants import C
 
 
-class ManagedToolSearchTests(unittest.TestCase):
+class TestManagedToolSearch:
     def test_search_tool_emits_tool_references(self) -> None:
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "alpha_tool")
         available_tools = {
@@ -29,7 +29,7 @@ class ManagedToolSearchTests(unittest.TestCase):
             annotations_by_name={},
         )
         results = parse_search_tool_results(call_result)
-        self.assertEqual(results[0]["name"], tool_name)
+        assert results[0]["name"] == tool_name
 
         search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID,
@@ -53,22 +53,18 @@ class ManagedToolSearchTests(unittest.TestCase):
             available_tools=available_tools,
         )
 
-        self.assertIn(tool_name, referenced_names)
+        assert tool_name in referenced_names
         reference_blocks = [
             entry.tool_name
             for entry in tool_message.content
             if isinstance(entry, ToolReferenceContent)
         ]
-        self.assertIn(tool_name, reference_blocks)
+        assert tool_name in reference_blocks
 
     def test_search_tool_rejects_non_integer_limit(self) -> None:
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             run_local_search_tool(
                 arguments={"query": "alpha", "limit": "two"},
                 available_tools={},
                 annotations_by_name={},
             )
-
-
-if __name__ == "__main__":
-    unittest.main()

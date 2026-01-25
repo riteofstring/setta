@@ -1,11 +1,11 @@
 import logging
-import unittest
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
+import pytest
 
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.chat_store import AgentRunChatStore
@@ -116,7 +116,8 @@ def _build_system_prompt(runner: AgentRunner, project_config_id: ID) -> str:
     return runner._build_system_prompt(profile, project_config_id)
 
 
-class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
+class TestToolPayload:
+    pytestmark = pytest.mark.asyncio
     async def test_non_anthropic_payload_includes_all_tools_without_defer_loading(
         self,
     ) -> None:
@@ -154,8 +155,8 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 name for name in expected.keys() if name != runner._search_tool_name
             )
 
-            self.assertEqual(tool_names, expected_names)
-            self.assertTrue(all("defer_loading" not in tool for tool in tools))
+            assert tool_names == expected_names
+            assert all("defer_loading" not in tool for tool in tools)
 
     async def test_anthropic_payload_includes_search_tool_with_defer_loading(
         self,
@@ -192,22 +193,22 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             expected.update(discoverable_tools)
             expected_names = sorted(expected.keys())
 
-            self.assertEqual(tool_names, expected_names)
-            self.assertIn(runner._search_tool_name, tool_names)
-            self.assertTrue(init_tools)
+            assert tool_names == expected_names
+            assert runner._search_tool_name in tool_names
+            assert init_tools
             init_payload = [
                 tool for tool in tools if tool["function"]["name"] in init_tools
             ]
-            self.assertTrue(init_payload)
-            self.assertTrue(
+            assert init_payload
+            assert (
                 all("defer_loading" not in tool for tool in init_payload)
             )
             for tool in tools:
                 name = tool["function"]["name"]
                 if name in discoverable_tools:
-                    self.assertEqual(tool.get("defer_loading"), True)
+                    assert tool.get("defer_loading") is True
                 else:
-                    self.assertNotIn("defer_loading", tool)
+                    assert "defer_loading" not in tool
 
     async def test_anthropic_payload_adds_tool_search_beta_header(
         self,
@@ -232,10 +233,10 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             )
 
             extra_headers = payload.get("extra_headers")
-            self.assertIsInstance(extra_headers, dict)
+            assert isinstance(extra_headers, dict)
             beta_header = extra_headers.get("anthropic-beta")
-            self.assertIsInstance(beta_header, str)
-            self.assertIn("advanced-tool-use-2025-11-20", beta_header)
+            assert isinstance(beta_header, str)
+            assert "advanced-tool-use-2025-11-20" in beta_header
 
     async def test_anthropic_payload_merges_existing_beta_header(
         self,
@@ -265,11 +266,11 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             )
 
             extra_headers = payload.get("extra_headers")
-            self.assertIsInstance(extra_headers, dict)
+            assert isinstance(extra_headers, dict)
             beta_header = extra_headers.get("anthropic-beta")
-            self.assertIsInstance(beta_header, str)
-            self.assertIn("prompt-caching-2024-07-31", beta_header)
-            self.assertIn("advanced-tool-use-2025-11-20", beta_header)
+            assert isinstance(beta_header, str)
+            assert "prompt-caching-2024-07-31" in beta_header
+            assert "advanced-tool-use-2025-11-20" in beta_header
 
     async def test_non_anthropic_payload_strips_tool_reference_content(
         self,
@@ -284,7 +285,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             discoverable_tools = mcp_client.discoverable_tool_definitions_for_servers(
                 {SETTA_MCP_SERVER_ID}
             )
-            self.assertTrue(discoverable_tools)
+            assert discoverable_tools
             referenced_tool = sorted(discoverable_tools.keys())[0]
             messages = _build_messages_with_tool_reference(
                 search_tool_name=runner._search_tool_name,
@@ -307,14 +308,14 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 for message in payload["messages"]
                 if message.get("role") == "tool"
             ]
-            self.assertEqual(len(tool_messages), 1)
+            assert len(tool_messages) == 1
             content = tool_messages[0].get("content")
-            self.assertIsInstance(content, list)
-            self.assertEqual(len(content), 1)
+            assert isinstance(content, list)
+            assert len(content) == 1
             entry = content[0]
-            self.assertIsInstance(entry, dict)
-            self.assertEqual(entry.get("type"), "text")
-            self.assertIn(referenced_tool, entry.get("text", ""))
+            assert isinstance(entry, dict)
+            assert entry.get("type") == "text"
+            assert referenced_tool in entry.get("text", "")
 
     async def test_anthropic_payload_preserves_tool_reference_content(
         self,
@@ -329,7 +330,7 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
             discoverable_tools = mcp_client.discoverable_tool_definitions_for_servers(
                 {SETTA_MCP_SERVER_ID}
             )
-            self.assertTrue(discoverable_tools)
+            assert discoverable_tools
             referenced_tool = sorted(discoverable_tools.keys())[0]
             messages = _build_messages_with_tool_reference(
                 search_tool_name=runner._search_tool_name,
@@ -352,14 +353,14 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 for message in payload["messages"]
                 if message.get("role") == "tool"
             ]
-            self.assertEqual(len(tool_messages), 1)
+            assert len(tool_messages) == 1
             content = tool_messages[0].get("content")
-            self.assertIsInstance(content, list)
-            self.assertEqual(len(content), 1)
+            assert isinstance(content, list)
+            assert len(content) == 1
             entry = content[0]
-            self.assertIsInstance(entry, dict)
-            self.assertEqual(entry.get("type"), "tool_reference")
-            self.assertEqual(entry.get("tool_name"), referenced_tool)
+            assert isinstance(entry, dict)
+            assert entry.get("type") == "tool_reference"
+            assert entry.get("tool_name") == referenced_tool
 
     async def test_bedrock_payload_excludes_search_tool_and_defer_loading(
         self,
@@ -398,11 +399,12 @@ class ToolPayloadTests(unittest.IsolatedAsyncioTestCase):
                 name for name in expected.keys() if name != runner._search_tool_name
             )
 
-            self.assertEqual(tool_names, expected_names)
-            self.assertTrue(all("defer_loading" not in tool for tool in tools))
+            assert tool_names == expected_names
+            assert all("defer_loading" not in tool for tool in tools)
 
 
-class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
+class TestToolSearchResult:
+    pytestmark = pytest.mark.asyncio
     async def test_anthropic_search_returns_tool_reference_blocks(self) -> None:
         async with _build_runner_with_mcp() as (runner, mcp_client, _fixture):
             server_ids = [SETTA_MCP_SERVER_ID]
@@ -410,7 +412,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 set(server_ids)
             )
             annotations = mcp_client.tool_annotations_for_servers(set(server_ids))
-            self.assertTrue(available)
+            assert available
 
             first_tool = sorted(available.keys())[0]
             query = first_tool.split("__", 1)[-1].replace("_", " ")
@@ -420,7 +422,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 annotations_by_name=annotations,
             )
             search_results = parse_search_tool_results(call_result)
-            self.assertTrue(search_results)
+            assert search_results
 
             tool_call = ToolCall(
                 function=ToolCallFunction(
@@ -438,10 +440,10 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 available_tools=available,
             )
 
-            self.assertTrue(tool_message.content)
+            assert tool_message.content
             for entry in tool_message.content:
-                self.assertIsInstance(entry, ToolReferenceContent)
-                self.assertIn(entry.tool_name, available)
+                assert isinstance(entry, ToolReferenceContent)
+                assert entry.tool_name in available
 
     async def test_anthropic_search_no_results_returns_text_summary(self) -> None:
         async with _build_runner_with_mcp() as (runner, _mcp_client, _fixture):
@@ -466,11 +468,11 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 available_tools={},
             )
 
-            self.assertTrue(tool_message.content)
-            self.assertEqual(len(tool_message.content), 1)
+            assert tool_message.content
+            assert len(tool_message.content) == 1
             entry = tool_message.content[0]
-            self.assertIsInstance(entry, TextContent)
-            self.assertIn("Search did not return any MCP tools.", entry.text)
+            assert isinstance(entry, TextContent)
+            assert "Search did not return any MCP tools." in entry.text
 
     async def test_tool_references_exist_in_payload_tools(self) -> None:
         async with _build_runner_with_mcp() as (runner, mcp_client, fixture):
@@ -501,7 +503,7 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
             annotations = mcp_client.tool_annotations_for_servers(
                 {SETTA_MCP_SERVER_ID}
             )
-            self.assertTrue(available)
+            assert available
 
             first_tool = sorted(available.keys())[0]
             query = first_tool.split("__", 1)[-1].replace("_", " ")
@@ -532,12 +534,13 @@ class ToolSearchResultTests(unittest.IsolatedAsyncioTestCase):
                 for entry in tool_message.content
                 if isinstance(entry, ToolReferenceContent)
             ]
-            self.assertTrue(reference_names)
+            assert reference_names
             for name in reference_names:
-                self.assertIn(name, payload_tool_names)
+                assert name in payload_tool_names
 
 
-class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
+class TestToolDispatch:
+    pytestmark = pytest.mark.asyncio
     async def test_missing_tool_returns_error_result(self) -> None:
         async with _build_runner_with_mcp() as (runner, _mcp_client, fixture):
             llm_config = LLMConfig(
@@ -578,17 +581,13 @@ class ToolDispatchTests(unittest.IsolatedAsyncioTestCase):
 
             actions = await executor.apply(execute_action)
             emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
-            self.assertEqual(len(emit_actions), 1)
+            assert len(emit_actions) == 1
             tool_message = emit_actions[0].chunk.result
 
-            self.assertTrue(tool_message.is_error)
-            self.assertEqual(tool_message.tool_name, tool_name)
-            self.assertTrue(tool_message.content)
+            assert tool_message.is_error
+            assert tool_message.tool_name == tool_name
+            assert tool_message.content
             entry = tool_message.content[0]
-            self.assertIsInstance(entry, TextContent)
-            self.assertIn("not registered", entry.text)
-            self.assertIn(runner._search_tool_name, entry.text)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert isinstance(entry, TextContent)
+            assert "not registered" in entry.text
+            assert runner._search_tool_name in entry.text

@@ -1,5 +1,3 @@
-import unittest
-
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.mcp.tool_metadata import ToolArgumentPreviewKind
 from setta.types.chat_messages import (
@@ -18,7 +16,7 @@ from setta.types.chat_stream_events import (
 )
 
 
-class ChatSectionSyncTests(unittest.TestCase):
+class TestChatSectionSync:
     def test_message_start_and_text_delta(self) -> None:
         state = build_chat_section_state(messages=[], input_text="draft")
         assistant = AssistantChatMessage(
@@ -31,9 +29,9 @@ class ChatSectionSyncTests(unittest.TestCase):
             chunk=MessageStartEvent(message=assistant),
         )
 
-        self.assertTrue(started.waitingForResponse)
-        self.assertEqual(started.inputText, "draft")
-        self.assertEqual(started.messages[0].id, "assistant-1")
+        assert started.waitingForResponse
+        assert started.inputText == "draft"
+        assert started.messages[0].id == "assistant-1"
 
         delta = MessageDeltaEvent(
             message_id="assistant-1",
@@ -42,8 +40,8 @@ class ChatSectionSyncTests(unittest.TestCase):
         updated = apply_stream_delta(state=started, chunk=delta)
 
         assistant_message = updated.messages[0]
-        self.assertIsInstance(assistant_message, AssistantChatMessage)
-        self.assertEqual(assistant_message.content[0].text, "Hello")
+        assert isinstance(assistant_message, AssistantChatMessage)
+        assert assistant_message.content[0].text == "Hello"
 
     def test_message_start_clones_assistant_message(self) -> None:
         state = build_chat_section_state(messages=[])
@@ -65,9 +63,9 @@ class ChatSectionSyncTests(unittest.TestCase):
         updated = apply_stream_delta(state=started, chunk=delta)
 
         assistant_message = updated.messages[0]
-        self.assertIsInstance(assistant_message, AssistantChatMessage)
-        self.assertIsNot(assistant_message, assistant)
-        self.assertEqual(assistant_message.content[0].text, "Hi")
+        assert isinstance(assistant_message, AssistantChatMessage)
+        assert assistant_message is not assistant
+        assert assistant_message.content[0].text == "Hi"
 
     def test_tool_call_and_preview_deltas_update_arguments(self) -> None:
         state = build_chat_section_state(messages=[])
@@ -79,8 +77,8 @@ class ChatSectionSyncTests(unittest.TestCase):
         )
         updated = apply_stream_delta(state=state, chunk=tool_delta)
 
-        self.assertIn("tool-1", updated.toolCallArguments)
-        self.assertEqual(updated.toolCallArguments["tool-1"], '{"value":')
+        assert "tool-1" in updated.toolCallArguments
+        assert updated.toolCallArguments["tool-1"] == '{"value":'
 
         preview_delta = ToolArgumentPreviewDeltaEvent(
             message_id="assistant-1",
@@ -93,7 +91,7 @@ class ChatSectionSyncTests(unittest.TestCase):
         )
         updated = apply_stream_delta(state=updated, chunk=preview_delta)
 
-        self.assertEqual(updated.toolCallArguments["tool-1"], '{"value":"ok"}')
+        assert updated.toolCallArguments["tool-1"] == '{"value":"ok"}'
 
     def test_tool_result_and_finalized_clear_waiting_state(self) -> None:
         assistant = AssistantChatMessage(
@@ -119,17 +117,13 @@ class ChatSectionSyncTests(unittest.TestCase):
             chunk=ToolResultEvent(result=tool_message),
         )
 
-        self.assertEqual(len(updated.messages), 2)
-        self.assertTrue(updated.waitingForResponse)
+        assert len(updated.messages) == 2
+        assert updated.waitingForResponse
 
         finalized = apply_stream_delta(
             state=updated,
             chunk=MessageFinalizedEvent(message=assistant),
         )
 
-        self.assertFalse(finalized.waitingForResponse)
-        self.assertEqual(finalized.toolCallArguments, {})
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert not finalized.waitingForResponse
+        assert finalized.toolCallArguments == {}

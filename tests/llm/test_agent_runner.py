@@ -1,6 +1,7 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
@@ -79,7 +80,7 @@ class _StubAgentRunner(AgentRunner):
         self._record_event(context.run, "run_completed", {})
 
 
-class AgentRunnerTests(unittest.TestCase):
+class TestAgentRunner:
     def test_allowlist_parses_names_and_servers(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -116,12 +117,10 @@ class AgentRunnerTests(unittest.TestCase):
 
             allowlist = runner._normalize_tool_allowlist(profile)
 
-            self.assertIsNotNone(allowlist)
-            if allowlist is None:
-                raise AssertionError("Expected allowlist to be returned")
-            self.assertEqual(allowlist.tool_names, {"server-a__tool.alpha"})
-            self.assertEqual(allowlist.tool_basenames, {"tool.beta"})
-            self.assertEqual(allowlist.server_ids, {"server-a", "server-b"})
+            assert allowlist is not None
+            assert allowlist.tool_names == {"server-a__tool.alpha"}
+            assert allowlist.tool_basenames == {"tool.beta"}
+            assert allowlist.server_ids == {"server-a", "server-b"}
 
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -153,7 +152,7 @@ class AgentRunnerTests(unittest.TestCase):
                 toolAllowlist=["unknown__tool.alpha"],
             )
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 runner._normalize_tool_allowlist(profile)
 
     def test_context_selects_default_and_overrides(self) -> None:
@@ -180,10 +179,10 @@ class AgentRunnerTests(unittest.TestCase):
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             default_context = runner._build_context(profile, inputs=None)
-            self.assertEqual(default_context.project_config_id, default_id)
-            self.assertEqual(default_context.chat_id, default_context.run.id)
-            self.assertIsNone(default_context.section_id)
-            self.assertFalse(default_context.thinking)
+            assert default_context.project_config_id == default_id
+            assert default_context.chat_id == default_context.run.id
+            assert default_context.section_id is None
+            assert default_context.thinking is False
 
             override_context = runner._build_context(
                 profile,
@@ -194,10 +193,10 @@ class AgentRunnerTests(unittest.TestCase):
                     "thinking": True,
                 },
             )
-            self.assertEqual(override_context.project_config_id, second_config.id)
-            self.assertEqual(override_context.chat_id, ID("chat-1"))
-            self.assertEqual(override_context.section_id, ID("section-1"))
-            self.assertTrue(override_context.thinking)
+            assert override_context.project_config_id == second_config.id
+            assert override_context.chat_id == ID("chat-1")
+            assert override_context.section_id == ID("section-1")
+            assert override_context.thinking is True
 
     def test_context_validates_input_types(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -220,13 +219,13 @@ class AgentRunnerTests(unittest.TestCase):
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"projectConfigId": 123})
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"chatId": 123})
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"sectionId": 123})
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"thinking": "yes"})
 
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
@@ -250,7 +249,7 @@ class AgentRunnerTests(unittest.TestCase):
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 runner._build_context(
                     profile,
                     inputs={"engineConfigId": "engine-mismatch"},
@@ -287,12 +286,12 @@ class AgentRunnerTests(unittest.TestCase):
             _, canonical_to_temporary = dbe.read_temporary_id_map()
             temporary_id = canonical_to_temporary[project_config.id]
 
-            self.assertIn("## Active project config", prompt)
-            self.assertIn(f"- id: {temporary_id}", prompt)
-            self.assertIn("## Agent profile", prompt)
-            self.assertIn(f"- name: {profile.name}", prompt)
-            self.assertIn(f"- description: {profile.description}", prompt)
-            self.assertIn(profile.systemPrompt, prompt)
+            assert "## Active project config" in prompt
+            assert f"- id: {temporary_id}" in prompt
+            assert "## Agent profile" in prompt
+            assert f"- name: {profile.name}" in prompt
+            assert f"- description: {profile.description}" in prompt
+            assert profile.systemPrompt in prompt
 
     def test_build_outputs_returns_final_text(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -329,9 +328,9 @@ class AgentRunnerTests(unittest.TestCase):
 
             outputs = runner._build_outputs(messages)
 
-            self.assertEqual(outputs["finalText"], "final response")
-            self.assertEqual(len(outputs["messages"]), len(messages))
-            self.assertEqual(outputs["messages"][-1]["role"], "assistant")
+            assert outputs["finalText"] == "final response"
+            assert len(outputs["messages"]) == len(messages)
+            assert outputs["messages"][-1]["role"] == "assistant"
 
     def test_build_outputs_includes_metadata_usage_and_cost(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -365,9 +364,9 @@ class AgentRunnerTests(unittest.TestCase):
                 cost=0.0123,
             )
 
-            self.assertEqual(outputs.get("metadata"), metadata)
-            self.assertEqual(outputs.get("usage"), usage)
-            self.assertEqual(outputs.get("cost"), 0.0123)
+            assert outputs.get("metadata") == metadata
+            assert outputs.get("usage") == usage
+            assert outputs.get("cost") == 0.0123
 
     def test_run_event_persistence_records_start_and_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -401,19 +400,19 @@ class AgentRunnerTests(unittest.TestCase):
             runner._record_snapshot(run, context.project_config_id)
 
             loaded = load_agent_run(dbe, run.id)
-            if loaded is None:
-                raise AssertionError("Expected agent run to be persisted")
+            assert loaded is not None
 
-            self.assertGreaterEqual(len(loaded.events), 2)
-            self.assertEqual(loaded.events[0].type, "run_started")
-            self.assertEqual(loaded.events[1].type, "snapshot")
+            assert len(loaded.events) >= 2
+            assert loaded.events[0].type == "run_started"
+            assert loaded.events[1].type == "snapshot"
             snapshot_payload = loaded.events[1].payload
-            self.assertIn("projectConfigId", snapshot_payload)
-            self.assertIn("projectState", snapshot_payload)
-            self.assertIn("temporaryIdMap", snapshot_payload)
+            assert "projectConfigId" in snapshot_payload
+            assert "projectState" in snapshot_payload
+            assert "temporaryIdMap" in snapshot_payload
 
 
-class AgentRunnerSubAgentTests(unittest.IsolatedAsyncioTestCase):
+class TestAgentRunnerSubAgent:
+    @pytest.mark.asyncio
     async def test_run_sub_agent_records_events_and_completes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -442,17 +441,17 @@ class AgentRunnerSubAgentTests(unittest.IsolatedAsyncioTestCase):
 
             run = await runner.run_sub_agent(profile, inputs={"prompt": "hello"})
 
-            self.assertEqual(run.status, AgentRunStatus.completed)
+            assert run.status == AgentRunStatus.completed
             loaded = load_agent_run(dbe, run.id)
-            if loaded is None:
-                raise AssertionError("Expected agent run to be persisted")
+            assert loaded is not None
             event_types = [event.type for event in loaded.events]
-            self.assertIn("run_started", event_types)
-            self.assertIn("snapshot", event_types)
-            self.assertIn("run_completed", event_types)
+            assert "run_started" in event_types
+            assert "snapshot" in event_types
+            assert "run_completed" in event_types
 
 
-class AgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
+class TestAgentRunnerStopRun:
+    @pytest.mark.asyncio
     async def test_stop_run_does_not_override_completed(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -481,16 +480,16 @@ class AgentRunnerStopRunTests(unittest.IsolatedAsyncioTestCase):
 
             stopped = await runner.stop_run(run.id)
 
-            self.assertEqual(stopped.status, AgentRunStatus.completed)
+            assert stopped.status == AgentRunStatus.completed
             loaded = load_agent_run(dbe, run.id)
-            if loaded is None:
-                raise AssertionError("Expected agent run to be persisted")
-            self.assertEqual(loaded.status, AgentRunStatus.completed)
+            assert loaded is not None
+            assert loaded.status == AgentRunStatus.completed
             event_types = [event.type for event in loaded.events]
-            self.assertNotIn("run_cancelled", event_types)
+            assert "run_cancelled" not in event_types
 
 
-class AgentRunnerStreamEventTests(unittest.IsolatedAsyncioTestCase):
+class TestAgentRunnerStreamEvent:
+    @pytest.mark.asyncio
     async def test_stream_chunks_are_not_persisted(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -525,8 +524,4 @@ class AgentRunnerStreamEventTests(unittest.IsolatedAsyncioTestCase):
                 context,
             )
 
-            self.assertEqual([], context.run.events)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert context.run.events == []

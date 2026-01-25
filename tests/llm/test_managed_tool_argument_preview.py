@@ -1,4 +1,3 @@
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -20,7 +19,7 @@ from setta.types.chat_messages import (
 from setta.types.id import ID
 
 
-class ManagedToolArgumentPreviewTests(unittest.TestCase):
+class TestManagedToolArgumentPreview:
     def test_builds_preview_event_with_canonical_ids(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -70,14 +69,11 @@ class ManagedToolArgumentPreviewTests(unittest.TestCase):
                 tool_argument_metadata_by_name={tool_name: metadata},
             )
 
-            self.assertIsNotNone(event)
+            assert event is not None
             if event is None:
                 raise AssertionError("Expected preview event")
-            self.assertEqual(event.preview_value_delta, "print(")
-            self.assertEqual(
-                event.target_ids_by_type["section"],
-                [canonical_section_id],
-            )
+            assert event.preview_value_delta == "print("
+            assert event.target_ids_by_type["section"] == [canonical_section_id]
 
             repeat_event = build_preview_event(
                 assistant_message=assistant,
@@ -89,8 +85,4 @@ class ManagedToolArgumentPreviewTests(unittest.TestCase):
                 dbe=dbe,
                 tool_argument_metadata_by_name={tool_name: metadata},
             )
-            self.assertIsNone(repeat_event)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert repeat_event is None

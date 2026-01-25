@@ -1,12 +1,11 @@
-import unittest
-
 from litellm.types.utils import ChatCompletionDeltaToolCall, Function
+import pytest
 
 from setta.llm.chat_toolkit.managed.tool_calls import ManagedToolCallAccumulator
 from setta.types.chat_messages import AssistantChatMessage
 
 
-class ManagedToolCallAccumulatorTests(unittest.TestCase):
+class TestManagedToolCallAccumulator:
     def test_accumulates_by_index(self) -> None:
         assistant = AssistantChatMessage(content=[])
         accumulator = ManagedToolCallAccumulator(assistant)
@@ -23,10 +22,10 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
             )
         )
 
-        self.assertIsNotNone(assistant.tool_calls)
-        self.assertEqual(len(assistant.tool_calls), 2)
-        self.assertEqual(assistant.tool_calls[1].id, "tool-call-2")
-        self.assertEqual(assistant.tool_calls[1].function.name, "setta__run_tool")
+        assert assistant.tool_calls is not None
+        assert len(assistant.tool_calls) == 2
+        assert assistant.tool_calls[1].id == "tool-call-2"
+        assert assistant.tool_calls[1].function.name == "setta__run_tool"
 
     def test_finalize_parses_arguments_leniently(self) -> None:
         assistant = AssistantChatMessage(content=[])
@@ -46,9 +45,9 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
 
         parsed, failures = accumulator.finalize()
 
-        self.assertEqual(len(parsed), 1)
-        self.assertIn("tool-call-1", failures)
-        self.assertEqual(parsed[0].function.arguments, {})
+        assert len(parsed) == 1
+        assert "tool-call-1" in failures
+        assert parsed[0].function.arguments == {}
 
     def test_finalize_merges_argument_deltas(self) -> None:
         assistant = AssistantChatMessage(content=[])
@@ -79,9 +78,9 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
 
         parsed, failures = accumulator.finalize()
 
-        self.assertEqual(len(parsed), 1)
-        self.assertEqual(failures, {})
-        self.assertEqual(parsed[0].function.arguments, {"value": "ok"})
+        assert len(parsed) == 1
+        assert failures == {}
+        assert parsed[0].function.arguments == {"value": "ok"}
 
     def test_accepts_non_string_arguments_as_full_payload(self) -> None:
         assistant = AssistantChatMessage(content=[])
@@ -101,8 +100,8 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
 
         parsed, failures = accumulator.finalize()
 
-        self.assertEqual(failures, {})
-        self.assertEqual(parsed[0].function.arguments, {"value": "ok"})
+        assert failures == {}
+        assert parsed[0].function.arguments == {"value": "ok"}
 
     def test_rejects_deltas_after_full_payload(self) -> None:
         assistant = AssistantChatMessage(content=[])
@@ -120,7 +119,7 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
         entry.function.arguments = {"value": "ok"}
         accumulator.apply_delta(entry)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             accumulator.apply_delta(
                 ChatCompletionDeltaToolCall(
                     index=0,
@@ -132,7 +131,3 @@ class ManagedToolCallAccumulatorTests(unittest.TestCase):
                     ),
                 )
             )
-
-
-if __name__ == "__main__":
-    unittest.main()
