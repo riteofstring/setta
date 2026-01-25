@@ -1,4 +1,3 @@
-import os
 from time import perf_counter
 from unittest import TestCase
 
@@ -59,22 +58,21 @@ class CodeGeneratorBenchmarkTests(TestCase):
         change_ms = (change_elapsed / change_iterations) * 1000
         diagnostics_ms = (diagnostics_elapsed / diagnostics_iterations) * 1000
 
-        if os.environ.get("SETTA_BENCHMARK_OUTPUT") == "1":
-            print(
-                "codegen.generate_code:",
-                f"{generate_ms:.2f} ms/iter",
-                f"(iters={generate_iterations}, params={param_count})",
-            )
-            print(
-                "codegen.change_value:",
-                f"{change_ms:.2f} ms/iter",
-                f"(iters={change_iterations}, params={param_count})",
-            )
-            print(
-                "codegen.process_gen_code_diagnostics:",
-                f"{diagnostics_ms:.2f} ms/iter",
-                f"(iters={diagnostics_iterations}, diagnostics={len(diagnostics)})",
-            )
+        print(
+            "codegen.generate_code:",
+            f"{generate_ms:.2f} ms/iter",
+            f"(iters={generate_iterations}, params={param_count})",
+        )
+        print(
+            "codegen.change_value:",
+            f"{change_ms:.2f} ms/iter",
+            f"(iters={change_iterations}, params={param_count})",
+        )
+        print(
+            "codegen.process_gen_code_diagnostics:",
+            f"{diagnostics_ms:.2f} ms/iter",
+            f"(iters={diagnostics_iterations}, diagnostics={len(diagnostics)})",
+        )
 
         self.assertGreaterEqual(generate_elapsed, 0)
         self.assertGreaterEqual(change_elapsed, 0)

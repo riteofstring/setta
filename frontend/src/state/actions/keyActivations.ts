@@ -523,8 +523,8 @@ export function attachKeyEventListeners() {
       activateMoveSectionMode,
       deactivateMoveSectionMode,
     ],
-    [shortcuts.movingFreeShortcut, activateDndMovingFreeMode, deactivateDnd],
     [shortcuts.sortingShortcut, activateDndSortingMode, deactivateDnd],
+    [shortcuts.movingFreeShortcut, activateDndMovingFreeMode, deactivateDnd],
     ["Escape", onEscapeKey],
   ];
 
