@@ -747,12 +747,39 @@ export function DropzoneInput({
     }
   }
 
-  async function deleteFileAttachment(artifactId: string) {
+  async function deleteFileAttachment(artifactId: string): Promise<boolean> {
     const res = await route_delete_artifacts({ artifactIds: [artifactId] });
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachment.";
       addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+      return false;
+    }
+    return true;
+  }
+
+  async function handleDeleteStatefulAttachment(
+    attachmentId: string,
+    attachmentKind: DropzoneStoredAttachment["kind"],
+  ): Promise<void> {
+    if (!onChange) {
+      return;
+    }
+    const nextAttachments = statefulAttachments.filter(
+      (item) => item.id !== attachmentId,
+    );
+    const updatedValue = serializeDropzoneValue(nextAttachments);
+    const previousValue = value;
+    const committed = await commitStatefulValue(
+      updatedValue,
+      previousValue,
+      [],
+    );
+    if (!committed) {
+      return;
+    }
+    if (attachmentKind === "file") {
+      await deleteFileAttachment(attachmentId);
     }
   }
 
@@ -837,7 +864,11 @@ export function DropzoneInput({
   let label = placeholder;
   if (displayAttachments.length > 0) {
     const suffix = displayAttachments.length === 1 ? "" : "s";
-    label = `${displayAttachments.length} attachment${suffix}`;
+    if (mode === DropzoneModeEnum.STATELESS) {
+      label = `Recent drop${suffix}`;
+    } else {
+      label = `${displayAttachments.length} attachment${suffix}`;
+    }
   }
   const disabledClassName = isDisabled ? "opacity-60" : "";
   const dragActiveClassName = isDragActive
@@ -910,42 +941,27 @@ export function DropzoneInput({
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200"
-                onClick={() => {
-                  if (isDisabled) {
-                    return;
-                  }
-                  if (mode === DropzoneModeEnum.STATELESS) {
-                    setStatelessAttachments((prev) => {
-                      const next = [...prev];
-                      const index = prev.findIndex(
-                        (item, idx) => `${item.kind}-${idx}` === attachment.key,
-                      );
-                      if (index >= 0) {
-                        next.splice(index, 1);
-                      }
-                      return next;
-                    });
-                    return;
-                  }
-                  if (!onChange) {
-                    return;
-                  }
-                  const nextAttachments = statefulAttachments.filter(
-                    (item) => item.id !== attachment.id,
-                  );
-                  const updatedValue = serializeDropzoneValue(nextAttachments);
-                  onChange(updatedValue);
-                  if (attachment.kind === "file" && attachment.id) {
-                    void deleteFileAttachment(attachment.id);
-                  }
-                }}
-                disabled={isDisabled}
-              >
-                Delete
-              </button>
+              {mode !== DropzoneModeEnum.STATELESS && (
+                <button
+                  type="button"
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200"
+                  onClick={() => {
+                    if (isDisabled) {
+                      return;
+                    }
+                    if (!attachment.id) {
+                      return;
+                    }
+                    void handleDeleteStatefulAttachment(
+                      attachment.id,
+                      attachment.kind,
+                    );
+                  }}
+                  disabled={isDisabled}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>

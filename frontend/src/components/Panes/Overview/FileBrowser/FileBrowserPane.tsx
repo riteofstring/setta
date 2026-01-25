@@ -418,7 +418,7 @@ export function FileBrowserPane({
         codeLanguage,
       });
     },
-    [handleToggle, nodesByPath],
+    [handleToggle, nodesByPath, onFileOpen],
   );
 
   const handleRowsRendered = useCallback(

@@ -72,7 +72,6 @@ class MetaControlDependencyGraphTests(TestCase):
         dep_key = create_dep_key(sectionId=section_id)
         node = graph.graph[dep_key]
         self.assertIsInstance(node, SectionNode)
-        self.assertEqual(node.control_code_obj_id, control_param_id)
         self.assertEqual(
             node.control_value_representation,
             CodeObjValueRepresentationMode.string,

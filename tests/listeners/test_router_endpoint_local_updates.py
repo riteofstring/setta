@@ -172,6 +172,26 @@ class RouterEndpointLocalUpdateTests(unittest.TestCase):
         )
         self.assertEqual([], updates)
 
+    def test_skips_missing_dependency_graph_entries(self) -> None:
+        project_state, _, dependency_graph = _build_chat_project_state(
+            representation=SectionRepresentationMode.expression,
+        )
+        state = ChatSectionState(
+            messages=[],
+            inputText="",
+            waitingForResponse=False,
+            toolCallArguments={},
+        )
+
+        updates = build_local_router_endpoint_updates(
+            endpoint_name="route_set_chat_section_state",
+            payload={"sectionId": ID("missing-section"), "state": state},
+            dependency_graph=dependency_graph,
+            project_state=project_state,
+        )
+
+        self.assertEqual([], updates)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

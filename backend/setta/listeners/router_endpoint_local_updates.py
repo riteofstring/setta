@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
@@ -10,6 +11,8 @@ from setta.types.project_config import SectionRepresentationMode
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionImpl, ChatSectionState
 from setta.utils.constants import C
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +43,8 @@ def build_local_router_endpoint_updates(
         dependency_graph=dependency_graph,
         project_state=project_state,
     )
+    if dependency_value is None:
+        return []
     return [
         LocalDependencyUpdate(
             dependency_key=SectionDependencyKey(sectionId=section_id),
@@ -54,15 +59,21 @@ def _build_chat_dependency_value(
     state: ChatSectionState,
     dependency_graph: DependencyGraph,
     project_state: ProjectStateSingleConfig,
-) -> BaseDependencyValueUnion:
+) -> BaseDependencyValueUnion | None:
     dep_key = SectionDependencyKey(sectionId=section_id)
     node = dependency_graph.graph.get(dep_key)
     if node is None:
-        raise KeyError(
-            f"Unknown dependency id: sectionId={section_id} paramInfoId=None"
+        logger.warning(
+            "Skipping local chat dependency update; missing graph entry for %s",
+            dep_key,
         )
+        return None
     if not isinstance(node, SectionNode):
-        raise ValueError(f"Expected chat section node for {section_id}")
+        logger.warning(
+            "Skipping local chat dependency update; expected SectionNode for %s",
+            dep_key,
+        )
+        return None
     representation = node.representation
     if representation is SectionRepresentationMode.expression:
         return LiteralDependencyValue(payload=repr(state.model_dump(mode="json")))
