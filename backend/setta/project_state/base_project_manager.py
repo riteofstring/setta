@@ -1057,6 +1057,9 @@ class BaseProjectManager(ABC):
                 ignore_type_errors_by_section,
                 initial_undefined_callable_sections=prev_undefined_callable_sections,
                 on_callable_symbols_resolved=self.auto_refetch_callable_params,
+                on_callable_signature_mismatch=(
+                    self.auto_refetch_callable_params_on_lsp_mismatch
+                ),
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
@@ -1164,11 +1167,12 @@ class BaseProjectManager(ABC):
             gen_code = self._require_python_codegen(projectConfigId)
         await gen_code.type_check()
 
-    @enqueue_method
-    async def auto_refetch_callable_params(
+    async def _refetch_callable_params(
         self,
         projectConfigId: ID,
         sectionIds: set[ID],
+        *,
+        coalesce_key_prefix: str,
     ) -> None:
         if not sectionIds:
             return
@@ -1200,7 +1204,7 @@ class BaseProjectManager(ABC):
         if should_add_history:
             refetch_section_ids = [section_id for section_id, _ in refetch_targets]
             coalesce_key = (
-                f"autoRefetchCallable:{projectConfigId}:"
+                f"{coalesce_key_prefix}:{projectConfigId}:"
                 f"{','.join(map(str, refetch_section_ids))}"
             )
             history_recorded = False
@@ -1238,6 +1242,34 @@ class BaseProjectManager(ABC):
                 did_update = True
         if did_update:
             await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def auto_refetch_callable_params(
+        self,
+        projectConfigId: ID,
+        sectionIds: set[ID],
+    ) -> None:
+        await self._refetch_callable_params(
+            projectConfigId,
+            sectionIds,
+            coalesce_key_prefix="autoRefetchCallable",
+        )
+
+    @enqueue_method
+    async def auto_refetch_callable_params_on_lsp_mismatch(
+        self,
+        projectConfigId: ID,
+        sectionIds: set[ID],
+    ) -> None:
+        if not sectionIds:
+            return
+        if not self.settings_file.settings.backend.autoRefetchCallableParamsOnLspMismatch:
+            return
+        await self._refetch_callable_params(
+            projectConfigId,
+            sectionIds,
+            coalesce_key_prefix="autoRefetchCallableMismatch",
+        )
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
