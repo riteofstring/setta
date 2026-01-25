@@ -664,14 +664,15 @@ class _CodexAppServerEventParser:
                 )
             )
         delta_text = _extract_delta_text(payload)
-        if delta_text:
-            _append_message_text(message, delta_text)
+        resolved_delta = _resolve_completion_delta(message, delta_text, self)
+        if resolved_delta:
+            _append_message_text(message, resolved_delta)
             events.append(
                 ExternalAgentStreamEvent(
                     raw=payload,
                     stream_chunk=MessageDeltaEvent(
                         message_id=message.id,
-                        content=[MessageTextDelta(index=0, text=delta_text)],
+                        content=[MessageTextDelta(index=0, text=resolved_delta)],
                     ),
                 )
             )
@@ -1288,6 +1289,34 @@ def _append_message_text(message: AssistantChatMessage, delta: str) -> None:
         message.content[0].text += delta
         return
     message.content.insert(0, MessageTextContent(text=delta))
+
+
+def _get_message_text(message: AssistantChatMessage) -> str:
+    if message.content and isinstance(message.content[0], MessageTextContent):
+        return message.content[0].text
+    return ""
+
+
+def _resolve_completion_delta(
+    message: AssistantChatMessage,
+    delta_text: str,
+    parser: _CodexAppServerEventParser,
+) -> str | None:
+    if not delta_text:
+        return None
+    if message.id not in parser._message_with_deltas:
+        return delta_text
+    existing_text = _get_message_text(message)
+    if not existing_text:
+        return delta_text
+    if delta_text in existing_text:
+        return None
+    if delta_text.startswith(existing_text):
+        suffix = delta_text[len(existing_text) :]
+        return suffix or None
+    if existing_text.startswith(delta_text):
+        return None
+    return delta_text
 
 
 def _extract_thread_id(inputs: dict[str, Any] | None) -> str | None:

@@ -114,6 +114,84 @@ class CodexAppServerAdapterParserTests(unittest.TestCase):
         if isinstance(events[1].stream_chunk, MessageDeltaEvent):
             self.assertEqual(events[1].stream_chunk.content[0].text, "Done")
 
+    def test_item_completed_with_full_text_after_deltas_does_not_duplicate(self) -> None:
+        parser = _CodexAppServerEventParser()
+        parser.handle(
+            {
+                "method": "item/assistantMessage/delta",
+                "params": {"itemId": "msg-dup-1", "delta": {"text": "Hello"}},
+            }
+        )
+        parser.handle(
+            {
+                "method": "item/assistantMessage/delta",
+                "params": {"itemId": "msg-dup-1", "delta": {"text": " world"}},
+            }
+        )
+        events = parser.handle(
+            {
+                "method": "item/completed",
+                "params": {
+                    "item": {
+                        "id": "msg-dup-1",
+                        "type": "assistantMessage",
+                        "role": "assistant",
+                        "content": [{"text": "Hello world"}],
+                    }
+                },
+            }
+        )
+
+        finalized_text = None
+        for event in events:
+            chunk = event.stream_chunk
+            if isinstance(chunk, MessageFinalizedEvent):
+                message = chunk.message
+                if message.content and isinstance(
+                    message.content[0], MessageTextContent
+                ):
+                    finalized_text = message.content[0].text
+                else:
+                    finalized_text = ""
+                break
+        self.assertEqual(finalized_text, "Hello world")
+
+    def test_item_completed_appends_missing_suffix_after_partial_deltas(self) -> None:
+        parser = _CodexAppServerEventParser()
+        parser.handle(
+            {
+                "method": "item/assistantMessage/delta",
+                "params": {"itemId": "msg-dup-2", "delta": {"text": "Hello"}},
+            }
+        )
+        events = parser.handle(
+            {
+                "method": "item/completed",
+                "params": {
+                    "item": {
+                        "id": "msg-dup-2",
+                        "type": "assistantMessage",
+                        "role": "assistant",
+                        "content": [{"text": "Hello world"}],
+                    }
+                },
+            }
+        )
+
+        finalized_text = None
+        for event in events:
+            chunk = event.stream_chunk
+            if isinstance(chunk, MessageFinalizedEvent):
+                message = chunk.message
+                if message.content and isinstance(
+                    message.content[0], MessageTextContent
+                ):
+                    finalized_text = message.content[0].text
+                else:
+                    finalized_text = ""
+                break
+        self.assertEqual(finalized_text, "Hello world")
+
     def test_reasoning_summary_delta_emits_thinking_delta(self) -> None:
         parser = _CodexAppServerEventParser()
         parser.handle(
