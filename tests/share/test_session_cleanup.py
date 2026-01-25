@@ -12,14 +12,11 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_runtime_state import ShareRuntimeState
-from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
 from setta.server_state import cleanup_expired_share_sessions
 from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import build_terminal_id
 from setta.terminals.terminals import Terminals
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -150,27 +147,6 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             session = session_store.create_session()
             share_runtime_state.create_session_backend(session.id)
 
-            llm_config = AllLLMConfigs(
-                configs={"primary": LLMConfig(id="primary", model="test-model")}
-            )
-            chat_manager = ShareChatManager(
-                dbe,
-                frontend_sender,
-                share_runtime_state,
-                session_store,
-                llm_config=llm_config,
-            )
-            message = UserChatMessage(
-                content=[MessageTextContent(text="cleanup test")]
-            )
-            chat_manager.get_or_create_chat(
-                None,
-                message,
-                "primary",
-                share_session_id=session.id,
-            )
-            self.assertIn(session.id, chat_manager._managers)
-
             listener_runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=None,
@@ -204,13 +180,11 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 session_store,
                 share_runtime_state,
                 share_listener_runtime=listener_runtime,
-                share_chat_manager=chat_manager,
             )
 
             self.assertIn(session.id, expired_ids)
             self.assertFalse(session_store.has_session(session.id))
             self.assertFalse(listener_runtime._session_handles)
-            self.assertNotIn(session.id, chat_manager._managers)
             self.assertNotIn(module_name, sys.modules)
 
             await asyncio.gather(task, return_exceptions=True)

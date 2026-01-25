@@ -30,7 +30,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - The command-line options (`--backend`, `--verbose`) make the bridge easy to embed in shell scripts or automation. Because the connection uses only SSE, the bridge works across machines as long as the HTTP endpoint is reachable.
 
 ## LLM chat manager (`backend/setta/llm/llm_chat_manager.py`)
-- `LLMChatManager` is the orchestrator that the FastAPI routes invoke. It persists chats, streams litellm responses, manages `deepThink` overrides, and communicates back to the UI via `WMHFrontendSender`.
+- `LLMChatManager` is the orchestrator that the FastAPI routes invoke. It persists chats, streams litellm responses, manages `thinking` overrides, and communicates back to the UI via `WMHFrontendSender`.
 - `LLMChatManager` always includes the full tool catalog in each request. For Anthropic tool search, it marks non-search tools with `defer_loading` and exposes a local search tool that returns tool references to load the exact tools needed.
 - Tool names are always namespaced as `<serverId>__<toolName>` so the prompt never contains ambiguous tool names.
 - The first request for a chat injects the active `projectConfigId` into the system prompt (if available). Project summaries are fetched only when the model calls `get_latest_project_state_summary`.

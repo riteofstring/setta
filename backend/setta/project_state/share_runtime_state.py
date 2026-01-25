@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
-from fastapi import HTTPException, status
-
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -10,11 +8,9 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import (
     SnapshotSectionInput,
     build_bash_run_command,
-    build_python_snapshot_module_run_command,
-    create_snapshot_run_command_from_code_sections_only,
+    build_python_file_run_command,
     create_snapshot_run_command_from_sections,
 )
-from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
@@ -32,18 +28,13 @@ from setta.types.helpers_lvl3 import (
     merge_single_config_into_backend,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    ProjectCodegenLanguage,
-    project_config_has_codegen_language,
-)
-from setta.types.project_state import RUNNABLE_CODE_LANGUAGES, ProjectStateBackend
+from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
-    GenPythonMetadataSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.utils import build_gen_code_path
@@ -53,7 +44,6 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-    from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 
 class ShareRuntimeState:
@@ -63,12 +53,10 @@ class ShareRuntimeState:
         deployment_root: Path,
         frontend_sender: "WMHFrontendSender",
         specific_file_watcher: SpecificFileWatcher | None = None,
-        realtime_event_hub: "RealtimeEventHub | None" = None,
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
         self.frontend_sender = frontend_sender
-        self.realtime_event_hub = realtime_event_hub
         self._validate_deployment_root()
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
@@ -204,8 +192,6 @@ class ShareRuntimeState:
             self.dbe,
             artifact_id_resolver=self._format_share_artifact_id,
             path_resolver=self._resolve_share_artifact_path,
-            realtime_event_hub=self.realtime_event_hub,
-            share_session_id=session_id,
         )
         self._session_artifacts[session_id] = artifacts
         return artifacts
@@ -224,80 +210,32 @@ class ShareRuntimeState:
             share_session_id,
             project_config_id,
         )
-        snapshots_updated = apply_draw_snapshot_updates(
-            dbe=self.dbe,
-            project_state=project_state,
-            snapshots_by_section_id=x.drawSnapshotsBySectionId,
-            artifact_root=self._resolve_deployment_path_to_absolute("artifacts"),
-        )
-        if snapshots_updated:
-            project_state.validate_for_update(validate_code_file_bindings=False)
-            self.update_session_state(
-                resolved_session_id, project_config_id, project_state
-            )
-        snapshot_root = self.share_runs_root / resolved_session_id
-        python_codegen_enabled = project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        )
+        gen_binding = self._get_gen_code_binding(project_state)
         code_sections = self._collect_code_sections(project_state)
 
         if not section_id:
             section_id = project_state.projectConfig.entryCodeBlockId
-        if section_id:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if isinstance(
-                section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
-            ):
-                section_id = None
-            elif isinstance(section_impl, CodeSectionImpl):
-                if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Run is only available for Python and Bash.",
-                    )
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
+        gen_code = self._generate_gen_code(project_state)
         snapshot_section_inputs: dict[ID, SnapshotSectionInput] = {}
         for sid, (code, binding, language) in code_sections.items():
 
-            def run_command_builder(
-                path: Path, language=language, snapshot_root=snapshot_root
-            ) -> str:
+            def run_command_builder(path: Path, language=language) -> str:
                 if language == CodeLanguage.python:
-                    return build_python_snapshot_module_run_command(snapshot_root, path)
-                if language == CodeLanguage.bash:
-                    return build_bash_run_command(path, use_absolute=True, quote=True)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Run is only available for Python and Bash.",
-                )
+                    return build_python_file_run_command(path)
+                return build_bash_run_command(path, use_absolute=True, quote=True)
 
             snapshot_section_inputs[sid] = (code, binding, run_command_builder)
 
-        if not python_codegen_enabled:
-            return create_snapshot_run_command_from_code_sections_only(
-                dbe=self.dbe,
-                snapshot_root=snapshot_root,
-                entry_section_id=section_id,
-                section_inputs=snapshot_section_inputs,
-            )
-
-        gen_binding = self._get_gen_code_binding(project_state)
-        gen_code, gen_meta_code = self._generate_gen_code(project_state)
-
-        def gen_command_builder(path: Path, snapshot_root=snapshot_root) -> str:
-            return build_python_snapshot_module_run_command(snapshot_root, path)
-
         return create_snapshot_run_command_from_sections(
             dbe=self.dbe,
-            snapshot_root=snapshot_root,
+            snapshot_root=self.share_runs_root / resolved_session_id,
             entry_section_id=section_id,
             gen_code=gen_code,
-            gen_meta_code=gen_meta_code,
             gen_binding=gen_binding,
             section_inputs=snapshot_section_inputs,
-            gen_command_builder=gen_command_builder,
+            gen_command_builder=build_python_file_run_command,
         )
 
     def _resolve_default_project_config_id(self) -> ID:
@@ -355,12 +293,6 @@ class ShareRuntimeState:
         self,
         project_state: "ProjectStateSingleConfig",
     ) -> bool:
-        if not project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        ):
-            project_state.genCodeBinding = None
-            return False
         if project_state.genCodeBinding is not None:
             return False
         gen_section_id = project_state.singletonSections.GenPythonCode
@@ -507,11 +439,6 @@ class ShareRuntimeState:
     def _get_gen_code_binding(
         self, project_state: "ProjectStateSingleConfig"
     ) -> "CodeFileBinding":
-        if not project_config_has_codegen_language(
-            project_state.projectConfig,
-            ProjectCodegenLanguage.python,
-        ):
-            raise KeyError("Python codegen disabled for share run.")
         gen_binding = project_state.genCodeBinding
         if gen_binding is None:
             raise KeyError("Share run missing generated code binding")
@@ -544,10 +471,8 @@ class ShareRuntimeState:
             )
         return output
 
-    def _generate_gen_code(
-        self, project_state: "ProjectStateSingleConfig"
-    ) -> tuple[str, str | None]:
+    def _generate_gen_code(self, project_state: "ProjectStateSingleConfig") -> str:
         dep_graph = DependencyGraph(project_state)
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
-        return code_generator.code, code_generator.meta_code
+        return code_generator.code

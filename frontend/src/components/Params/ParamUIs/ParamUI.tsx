@@ -12,14 +12,12 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
-  DropzoneModeEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { focusOnSection } from "utils/tabbingLogic";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -30,19 +28,10 @@ import {
   ParamValueChange,
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
-import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
+import { DropzoneInput } from "./DropzoneInput";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
-
-type ParamUIProps = {
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  onChange: ParamValueChange;
-  onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
-  maybeErrorMessage?: string;
-};
 
 export function ParamUIConfig({
   sectionId,
@@ -84,13 +73,6 @@ export function ParamUIConfig({
           paramInfoId={paramInfoId}
         />
       );
-    case CodeObjTypeEnum.DropzoneParam:
-      return (
-        <DropzoneInputConfigForParam
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-        />
-      );
     default:
       return null;
   }
@@ -101,45 +83,31 @@ export function ParamUI({
   paramInfoId,
   value,
   onChange,
-  onDropzoneStateless,
   maybeErrorMessage,
-}: ParamUIProps) {
+}) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isShareMode = useShareSession((x) => x.isShareMode);
   const { canEditParams } = useShareCapabilities();
-  const {
-    codeObjType,
-    configLanguage,
-    defaultVal,
-    disabledOrFrozen,
-    dropzoneMode,
-    dropzoneMaxAttachments,
-    dropzonePlaceholder,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseChildlessCodeObjImpl,
-    );
-    const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
-    return {
-      codeObjType: codeObjImpl.type,
-      configLanguage: impl.configLanguage,
-      defaultVal: codeObjImpl.defaultVal,
-      disabledOrFrozen: impl.isFrozen,
-      dropzoneMode: isDropzone ? codeObjImpl.mode : null,
-      dropzoneMaxAttachments: isDropzone
-        ? codeObjImpl.maxAttachments ?? null
-        : null,
-      dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
-    };
-  }, _.isEqual);
+  const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        x,
+        sectionId,
+        paramInfoId,
+        isBaseChildlessCodeObjImpl,
+      );
+      return {
+        codeObjType: codeObjImpl.type,
+        configLanguage: impl.configLanguage,
+        defaultVal: codeObjImpl.defaultVal,
+        disabledOrFrozen: impl.isFrozen,
+      };
+    }, _.isEqual);
 
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -260,11 +228,7 @@ export function ParamUI({
         <DropzoneParamConfigured
           value={value}
           onChange={onChange}
-          onStatelessDrop={onDropzoneStateless}
           isDisabled={isDisabled}
-          mode={dropzoneMode}
-          maxAttachments={dropzoneMaxAttachments}
-          placeholder={dropzonePlaceholder ?? undefined}
         />
       );
     default:
@@ -371,30 +335,14 @@ function RotaryParamConfigured({
 function DropzoneParamConfigured({
   value,
   onChange,
-  onStatelessDrop,
   isDisabled,
-  mode,
-  maxAttachments,
-  placeholder,
 }: {
   value: string;
   onChange: ParamValueChange;
-  onStatelessDrop?: (attachments: DropzoneStatelessAttachment[]) => void;
   isDisabled: boolean;
-  mode: DropzoneModeEnum | null;
-  maxAttachments: number | null;
-  placeholder?: string;
 }) {
   return (
-    <DropzoneInput
-      value={value}
-      onChange={onChange}
-      onStatelessDrop={onStatelessDrop}
-      isDisabled={isDisabled}
-      mode={mode ?? DropzoneModeEnum.STATEFUL}
-      maxAttachments={maxAttachments}
-      placeholder={placeholder}
-    />
+    <DropzoneInput value={value} onChange={onChange} isDisabled={isDisabled} />
   );
 }
 

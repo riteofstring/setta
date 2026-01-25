@@ -1,7 +1,4 @@
-import {
-  NodesSelectionDragHandleWrapper,
-  NodesSelectionWrapper,
-} from "forks/xyflow/core/components/NodesSelection";
+import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection";
 import _ from "lodash";
 import { memo, type ReactNode } from "react";
 import { useAIFollow, useSettings } from "state/definitions";
@@ -67,7 +64,6 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
         panOnDrag={!isFollowTransitioning && panOnDrag}
         isSelecting={!!selectionKeyPressed}
       >
-        <NodesSelectionDragHandleWrapper />
         {children}
         <NodesSelectionWrapper />
       </Pane>
