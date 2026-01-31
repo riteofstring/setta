@@ -31,6 +31,7 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
+from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -165,6 +166,7 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
+    SetSectionPinnedAreaHeightRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -192,6 +194,7 @@ from setta.project_state.project_manager_types import (
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
@@ -284,6 +287,7 @@ from setta.types.helpers_lvl2 import (
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
+    set_section_pinned_area_height,
     set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
@@ -355,6 +359,7 @@ from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
+from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     collect_param_name_errors,
     collect_project_name_format_errors,
@@ -364,6 +369,7 @@ from setta.utils.name_validation import (
     validate_param_name,
     validate_param_name_format,
     validate_project_name,
+    validate_view_mode_name,
 )
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -2488,12 +2494,7 @@ class BaseProjectManager(ABC):
                     SectionType.GenPythonMetadata,
                     Position(),
                 )
-        visibility_by_section_id = {
-            section_id: True for section_id in project_state.sections.keys()
-        }
-        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        project_state.projectConfig.activeViewModeId = view_mode.id
+        project_state.validate_view_modes()
         self.project_state_backend = merge_single_config_into_backend(
             self.project_state_backend, project_state
         )
@@ -2683,9 +2684,9 @@ class BaseProjectManager(ABC):
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
-        self.project_state_backend.projectConfigs[
-            x.projectConfigId
-        ].viewport = x.viewport
+        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
+        project_config.viewport = x.viewport
+        project_config.viewportInitialized = x.viewport is not None
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
@@ -2694,7 +2695,17 @@ class BaseProjectManager(ABC):
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
-        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+        existing_slugs = {
+            sanitize_slug(view_mode.name)
+            for view_mode in project_state.projectConfig.viewModes.values()
+        }
+        name = generate_memorable_string()
+        while sanitize_slug(name) in existing_slugs:
+            name = generate_memorable_string()
+        view_mode = ViewModeConfig(
+            name=name,
+            visibilityBySectionId=visibility_by_section_id,
+        )
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         project_state.projectConfig.activeViewModeId = view_mode.id
         project_state.projectConfig.isEditingViewMode = True
@@ -2759,10 +2770,18 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.isTab = not view_mode.isTab
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
-        view_mode.name = x.name
+        normalized_name = validate_view_mode_name(project_state, x.viewModeId, x.name)
+        view_mode.name = normalized_name
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -2857,6 +2876,14 @@ class BaseProjectManager(ABC):
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_pinned_area_height(
+        self, x: SetSectionPinnedAreaHeightRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_pinned_area_height(project_state, x.sectionId, x.pinnedAreaHeight)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

@@ -54,6 +54,7 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     isUserFacing: bool = False
+    isTab: bool = False
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
 
 
@@ -409,6 +410,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     allowJsonSourceKeyEdits: bool = True
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
+    viewportInitialized: bool = False
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
@@ -435,4 +437,17 @@ class ProjectConfig(BaseModel, extra="forbid"):
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen.add(target.language)
+        if "viewportInitialized" not in self.model_fields_set:
+            if self.viewport is None:
+                self.viewportInitialized = False
+            else:
+                is_default_viewport = (
+                    self.viewport.x == 0
+                    and self.viewport.y == 0
+                    and self.viewport.zoom == 1
+                )
+                if is_default_viewport and self.topLevelSections:
+                    self.viewportInitialized = False
+                else:
+                    self.viewportInitialized = True
         return self
