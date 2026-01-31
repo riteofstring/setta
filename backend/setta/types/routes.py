@@ -49,6 +49,7 @@ class Route(str, Enum):
     CHECK_IF_FILE_EXISTS = "/checkIfFileExists"
     LOAD_ARTIFACT_FROM_DISK = "/loadArtifactFromDisk"
     GET_ATTACHMENT_DOWNLOAD_URL = "/getAttachmentDownloadUrl"
+    GET_ATTACHMENT_DOWNLOAD_URLS = "/getAttachmentDownloadUrls"
     ATTACHMENT_DOWNLOAD = "/attachments/{token}"
     RESTART_LANGUAGE_SERVER = "/restartLanguageServer"
     GET_NOTIFICATIONS = "/getNotifications"

@@ -36,7 +36,7 @@ import {
   resolveToolCallArguments,
 } from "utils/claudeTools";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_get_attachment_download_url } from "utils/generatedEndpoints";
+import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
   ChatFileAttachment,
@@ -72,7 +72,11 @@ type AttachmentUrlEntry = {
   url: string;
   expiresAt: number;
 };
-type AttachmentUrlResponseEntry = AttachmentUrlEntry & { id: string };
+type AttachmentUrlResponseEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -307,13 +311,30 @@ function ChatAttachmentList({
     [attachmentUrlMap, requestAttachmentUrls],
   );
 
+  useEffect(() => {
+    const staleImages = attachments.filter((attachment) => {
+      const mimeType = attachment.mimeType ?? "application/octet-stream";
+      if (!mimeType.startsWith("image/")) {
+        return false;
+      }
+      const entry = attachmentUrlMap[attachment.id];
+      if (!entry) {
+        return false;
+      }
+      return isAttachmentUrlStale(entry, Date.now());
+    });
+    if (staleImages.length > 0) {
+      void requestAttachmentUrls(staleImages);
+    }
+  }, [attachments, attachmentUrlMap, requestAttachmentUrls]);
+
   return (
     <div className="flex flex-col gap-2">
       {attachments.map((attachment) => {
         const mimeType = attachment.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
         const entry = attachmentUrlMap[attachment.id];
-        const url = entry && !isAttachmentUrlStale(entry, now) ? entry.url : "";
+        const url = entry ? entry.url : "";
         const sizeLabel =
           attachment.size !== null && attachment.size !== undefined
             ? formatBytes(attachment.size)
@@ -889,34 +910,24 @@ function ChatMessages({
         attachmentUrlRequests.current.add(attachment.id);
       }
       const projectConfigId = getCurrProjectConfigId();
-      let entries: Array<AttachmentUrlResponseEntry | null> = [];
+      let entries: AttachmentUrlResponseEntry[] = [];
       try {
-        entries = await Promise.all(
-          pending.map(async (attachment) => {
-            try {
-              const res = await route_get_attachment_download_url({
-                artifactId: attachment.id,
-                projectConfigId,
-              });
-              if (!res200(res)) {
-                const detail = getErrorDetail(res.data);
-                console.warn(
-                  "Failed to load attachment URL",
-                  detail ?? attachment.id,
-                );
-                return null;
-              }
-              const expiresAt = resolveAttachmentExpiry(
-                res.data.expiresAt,
-                now,
-              );
-              return { id: attachment.id, url: res.data.url, expiresAt };
-            } catch (error) {
-              console.warn("Failed to load attachment URL", error);
-              return null;
-            }
-          }),
-        );
+        const res = await route_get_attachment_download_urls({
+          artifactIds: pending.map((attachment) => attachment.id),
+          projectConfigId,
+        });
+        if (!res200(res)) {
+          const detail = getErrorDetail(res.data);
+          console.warn(
+            "Failed to load attachment URLs",
+            detail ?? pending.map((attachment) => attachment.id),
+          );
+          return {};
+        }
+        entries = res.data;
+      } catch (error) {
+        console.warn("Failed to load attachment URLs", error);
+        return {};
       } finally {
         for (const attachment of pending) {
           attachmentUrlRequests.current.delete(attachment.id);
@@ -924,10 +935,11 @@ function ChatMessages({
       }
       const nextEntries: Record<string, AttachmentUrlEntry> = {};
       for (const entry of entries) {
-        if (!entry) {
-          continue;
-        }
-        nextEntries[entry.id] = { url: entry.url, expiresAt: entry.expiresAt };
+        const expiresAt = resolveAttachmentExpiry(entry.expiresAt, now);
+        nextEntries[entry.artifactId] = {
+          url: entry.url,
+          expiresAt,
+        };
       }
       if (Object.keys(nextEntries).length > 0) {
         setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));

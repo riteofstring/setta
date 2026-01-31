@@ -26,7 +26,18 @@ class GetAttachmentDownloadUrlRequest(BaseModel):
     projectConfigId: ID | None = None
 
 
+class GetAttachmentDownloadUrlsRequest(BaseModel):
+    artifactIds: list[str]
+    projectConfigId: ID | None = None
+
+
 class GetAttachmentDownloadUrlResponse(BaseModel):
+    url: str
+    expiresAt: int
+
+
+class AttachmentDownloadUrlEntry(BaseModel):
+    artifactId: str
     url: str
     expiresAt: int
 
@@ -117,6 +128,40 @@ def _validate_project_config(
         ) from None
 
 
+def _build_attachment_download_entry(
+    *,
+    artifact_id: str,
+    ctx: RuntimeContextFromRequest,
+    artifacts: Artifacts,
+    secret: bytes,
+    now: datetime,
+    share_session_id: str | None,
+    project_config_id: ID | None,
+) -> AttachmentDownloadUrlEntry:
+    artifacts_root = _resolve_artifacts_root(ctx)
+    base_root = ctx.deployment_root if ctx.share_mode else CWD
+    resolved_path = _resolve_attachment_path(
+        artifact_id,
+        base_root=base_root,
+        artifacts_root=artifacts_root,
+        allow_external=not ctx.share_mode,
+        require_exists=True,
+    )
+    normalized_id = artifacts.normalize_artifact_id(resolved_path)
+    token = _TOKEN_MANAGER.mint(
+        artifact_id=normalized_id,
+        secret=secret,
+        project_config_id=str(project_config_id) if project_config_id else None,
+        share_session_id=share_session_id,
+        now=now,
+    )
+    return AttachmentDownloadUrlEntry(
+        artifactId=artifact_id,
+        url=_build_download_url(token, share_session_id),
+        expiresAt=int(now.timestamp()) + C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS,
+    )
+
+
 @router.post(Route.GET_ATTACHMENT_DOWNLOAD_URL)
 async def route_get_attachment_download_url(
     x: GetAttachmentDownloadUrlRequest,
@@ -124,30 +169,51 @@ async def route_get_attachment_download_url(
 ) -> GetAttachmentDownloadUrlResponse:
     if x.projectConfigId is not None:
         _validate_project_config(ctx, x.projectConfigId)
-    artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = ctx.deployment_root if ctx.share_mode else CWD
-    resolved_path = _resolve_attachment_path(
-        x.artifactId,
-        base_root=base_root,
-        artifacts_root=artifacts_root,
-        allow_external=not ctx.share_mode,
-        require_exists=True,
-    )
     artifacts = _resolve_artifacts(ctx)
-    normalized_id = artifacts.normalize_artifact_id(resolved_path)
     now = datetime.now(timezone.utc)
     secret = _require_session_secret()
-    token = _TOKEN_MANAGER.mint(
-        artifact_id=normalized_id,
+    share_session_id = ctx.share_session_id if ctx.share_mode else None
+    entry = _build_attachment_download_entry(
+        artifact_id=x.artifactId,
+        ctx=ctx,
+        artifacts=artifacts,
         secret=secret,
-        project_config_id=str(x.projectConfigId) if x.projectConfigId else None,
-        share_session_id=ctx.session_id,
         now=now,
+        share_session_id=share_session_id,
+        project_config_id=x.projectConfigId,
     )
-    return GetAttachmentDownloadUrlResponse(
-        url=_build_download_url(token, ctx.session_id),
-        expiresAt=int(now.timestamp()) + C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS,
-    )
+    return GetAttachmentDownloadUrlResponse(url=entry.url, expiresAt=entry.expiresAt)
+
+
+@router.post(Route.GET_ATTACHMENT_DOWNLOAD_URLS)
+async def route_get_attachment_download_urls(
+    x: GetAttachmentDownloadUrlsRequest,
+    ctx: RuntimeContextFromRequest,
+) -> list[AttachmentDownloadUrlEntry]:
+    if not x.artifactIds:
+        return []
+    if x.projectConfigId is not None:
+        _validate_project_config(ctx, x.projectConfigId)
+    artifacts = _resolve_artifacts(ctx)
+    now = datetime.now(timezone.utc)
+    secret = _require_session_secret()
+    share_session_id = ctx.share_session_id if ctx.share_mode else None
+    entries: list[AttachmentDownloadUrlEntry] = []
+    for artifact_id in x.artifactIds:
+        try:
+            entry = _build_attachment_download_entry(
+                artifact_id=artifact_id,
+                ctx=ctx,
+                artifacts=artifacts,
+                secret=secret,
+                now=now,
+                share_session_id=share_session_id,
+                project_config_id=x.projectConfigId,
+            )
+        except HTTPException:
+            continue
+        entries.append(entry)
+    return entries
 
 
 @router.get(Route.ATTACHMENT_DOWNLOAD)
@@ -163,11 +229,19 @@ async def route_download_attachment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or expired attachment token.",
         ) from exc
-    if payload.shareSessionId != ctx.session_id:
+    if ctx.share_mode:
+        if payload.shareSessionId != ctx.session_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Attachment token session mismatch.",
+            )
+    elif payload.shareSessionId is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Attachment token session mismatch.",
         )
+    if payload.projectConfigId is not None:
+        _validate_project_config(ctx, ID(payload.projectConfigId))
     artifacts_root = _resolve_artifacts_root(ctx)
     base_root = ctx.deployment_root if ctx.share_mode else CWD
     resolved_path = _resolve_attachment_path(

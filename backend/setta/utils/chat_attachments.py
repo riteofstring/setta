@@ -27,6 +27,10 @@ _TEXT_MIME_TYPES = {
 def normalize_attachment_mime(
     attachment: ChatFileAttachment, *, path: Path | None = None
 ) -> str:
+    if isinstance(attachment.mimeType, str):
+        trimmed = attachment.mimeType.strip()
+        if trimmed:
+            return trimmed
     if path is not None:
         guess, _ = mimetypes.guess_type(path.as_posix())
         if guess:

@@ -120,12 +120,21 @@ def _estimate_base64_decoded_bytes(payload: str) -> int:
     return (len(normalized) * 3 // 4) - padding
 
 
-def _enforce_file_artifact_size(artifact: FileArtifact) -> None:
+def _resolve_upload_size_limit(upload_scope: str | None) -> tuple[int, str]:
+    if upload_scope == "chat":
+        return C.CHAT_ATTACHMENTS_MAX_FILE_BYTES, C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+    return DROPZONE_MAX_FILE_BYTES, DROPZONE_MAX_FILE_LABEL
+
+
+def _enforce_file_artifact_size(
+    artifact: FileArtifact, *, upload_scope: str | None
+) -> None:
     size = _estimate_base64_decoded_bytes(artifact.value)
-    if size > DROPZONE_MAX_FILE_BYTES:
+    max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
+    if size > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {artifact.id}",
+            detail=f"File exceeds {max_label} limit: {artifact.id}",
         )
 
 
@@ -421,10 +430,11 @@ async def route_import_files_to_artifacts(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to stat file: {raw_path}",
             ) from exc
-        if size > DROPZONE_MAX_FILE_BYTES:
+        max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
+        if size > max_bytes:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=(f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {raw_path}"),
+                detail=(f"File exceeds {max_label} limit: {raw_path}"),
             )
         try:
             content = resolved.read_bytes()
@@ -521,7 +531,7 @@ async def route_update_artifacts(
     upload_scope = x.uploadScope or "generic"
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
-            _enforce_file_artifact_size(artifact)
+            _enforce_file_artifact_size(artifact, upload_scope=upload_scope)
             if upload_scope == "chat":
                 _enforce_file_artifact_mime(artifact)
     if ctx.share_mode:

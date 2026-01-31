@@ -336,22 +336,12 @@ export const ChatInput = memo(function ChatInput({
           notifyAttachmentWarning(message);
           return;
         }
-        const rejected = res.data.filter(
-          (item) => !isChatAttachmentMimeAllowed(item.mimeType),
-        );
-        if (rejected.length > 0) {
-          notifyAttachmentWarning(
-            `Some files were skipped due to type restrictions. ${allowedMimeLabel}`.trim(),
-          );
-        }
-        const newAttachments: ChatFileAttachment[] = res.data
-          .filter((item) => isChatAttachmentMimeAllowed(item.mimeType))
-          .map((item) => ({
-            id: item.id,
-            name: item.name,
-            mimeType: item.mimeType,
-            size: item.size,
-          }));
+        const newAttachments: ChatFileAttachment[] = res.data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          mimeType: item.mimeType,
+          size: item.size,
+        }));
         if (newAttachments.length === 0) {
           return;
         }
@@ -359,7 +349,6 @@ export const ChatInput = memo(function ChatInput({
       },
     });
   }, [
-    allowedMimeLabel,
     attachmentsDisabled,
     isDisabled,
     isUploading,
@@ -369,10 +358,10 @@ export const ChatInput = memo(function ChatInput({
 
   const handleDragEnter = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
       if (attachmentInputDisabled) {
         return;
       }
-      event.preventDefault();
       dragDepth.current += 1;
       setIsDragActive(true);
     },
@@ -381,10 +370,10 @@ export const ChatInput = memo(function ChatInput({
 
   const handleDragLeave = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
       if (attachmentInputDisabled) {
         return;
       }
-      event.preventDefault();
       dragDepth.current -= 1;
       if (dragDepth.current <= 0) {
         dragDepth.current = 0;
@@ -396,10 +385,10 @@ export const ChatInput = memo(function ChatInput({
 
   const handleDragOver = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
       if (attachmentInputDisabled) {
         return;
       }
-      event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
     },
     [attachmentInputDisabled],
@@ -407,10 +396,10 @@ export const ChatInput = memo(function ChatInput({
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
       if (attachmentInputDisabled) {
         return;
       }
-      event.preventDefault();
       dragDepth.current = 0;
       setIsDragActive(false);
       const files = Array.from(event.dataTransfer.files || []);

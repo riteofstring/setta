@@ -409,6 +409,7 @@ export const RouteEnum = {
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
   ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
@@ -6617,6 +6618,16 @@ export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
 >;
 
+const AttachmentDownloadUrlEntrySchema = z.object({
+  artifactId: z.string(),
+  url: z.string(),
+  expiresAt: z.int(),
+});
+
+export type AttachmentDownloadUrlEntry = z.infer<
+  typeof AttachmentDownloadUrlEntrySchema
+>;
+
 const GetAttachmentDownloadUrlRequestSchema = z.object({
   artifactId: z.string(),
   projectConfigId: z.union([IDSchema, z.null()]).default(null),
@@ -6633,6 +6644,15 @@ const GetAttachmentDownloadUrlResponseSchema = z.object({
 
 export type GetAttachmentDownloadUrlResponse = z.infer<
   typeof GetAttachmentDownloadUrlResponseSchema
+>;
+
+const GetAttachmentDownloadUrlsRequestSchema = z.object({
+  artifactIds: z.array(z.string()),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetAttachmentDownloadUrlsRequestInput = z.input<
+  typeof GetAttachmentDownloadUrlsRequestSchema
 >;
 
 const BootstrapConsumeRequestSchema = z.object({

@@ -219,10 +219,16 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-export async function route_get_attachment_download_url(
+async function route_get_attachment_download_url(
   x: gt.GetAttachmentDownloadUrlRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {
   return await post("/getAttachmentDownloadUrl", x);
+}
+
+export async function route_get_attachment_download_urls(
+  x: gt.GetAttachmentDownloadUrlsRequestInput,
+): Promise<ResponseDataAndStatus<Array<gt.AttachmentDownloadUrlEntry>>> {
+  return await post("/getAttachmentDownloadUrls", x);
 }
 
 async function route_download_attachment(

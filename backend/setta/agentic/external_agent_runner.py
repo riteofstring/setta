@@ -509,16 +509,16 @@ class ExternalAgentRunner:
         if session_info is None:
             raise RuntimeError("Attachment token secret unavailable")
         _, secret = session_info
-        session_id = self.share_session_id or "main"
+        share_session_id = self.share_session_id if self.share_mode else None
         token = self._attachment_token_manager.mint(
             artifact_id=artifact_id,
             secret=secret,
             project_config_id=str(project_config_id),
-            share_session_id=session_id,
+            share_session_id=share_session_id,
         )
         path = Route.ATTACHMENT_DOWNLOAD.value.replace("{token}", token)
         url = f"{C.BACKEND}{Route.PREFIX.value}{path}"
-        if self.share_session_id:
+        if share_session_id:
             return f"{url}?shareSessionId={self.share_session_id}"
         return url
 

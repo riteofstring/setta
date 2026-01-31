@@ -11,9 +11,11 @@ import pytest
 from setta.auth.session import load_current_session_secret
 from setta.routers.attachments import (
     GetAttachmentDownloadUrlRequest,
+    GetAttachmentDownloadUrlsRequest,
     _TOKEN_MANAGER,
     route_download_attachment,
     route_get_attachment_download_url,
+    route_get_attachment_download_urls,
 )
 from setta.routers.artifact import UpdateArtifactsRequest, route_update_artifacts
 from setta.server_state import SettaFastAPIState
@@ -219,6 +221,94 @@ class TestAttachmentRoutes:
                             with pytest.raises(HTTPException) as ctx:
                                 await route_download_attachment(token, runtime_ctx)
                         assert ctx.value.status_code == 403
+                    finally:
+                        await _shutdown_state(state)
+
+    async def test_download_attachment_rejects_share_session_id_in_ide_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        session_info = load_current_session_secret()
+                        assert session_info is not None
+                        _, secret = session_info
+                        token = _TOKEN_MANAGER.mint(
+                            artifact_id="artifacts/missing.txt",
+                            secret=secret,
+                            share_session_id="main",
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            with pytest.raises(HTTPException) as ctx:
+                                await route_download_attachment(token, runtime_ctx)
+                        assert ctx.value.status_code == 403
+                    finally:
+                        await _shutdown_state(state)
+
+    async def test_download_attachment_validates_project_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        artifact_path = (
+                            Path(C.ARTIFACTS_FOLDER) / "notes.txt"
+                        ).resolve()
+                        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+                        artifact_path.write_text("hello", encoding="utf-8")
+                        session_info = load_current_session_secret()
+                        assert session_info is not None
+                        _, secret = session_info
+                        token = _TOKEN_MANAGER.mint(
+                            artifact_id=artifact_path.as_posix(),
+                            secret=secret,
+                            project_config_id="missing",
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            with pytest.raises(HTTPException) as ctx:
+                                await route_download_attachment(token, runtime_ctx)
+                        assert ctx.value.status_code == 404
+                    finally:
+                        await _shutdown_state(state)
+
+    async def test_get_attachment_download_urls_skips_invalid_entries(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        artifact_path = (
+                            Path(C.ARTIFACTS_FOLDER) / "notes.txt"
+                        ).resolve()
+                        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+                        artifact_path.write_text("hello", encoding="utf-8")
+                        request = GetAttachmentDownloadUrlsRequest(
+                            artifactIds=[
+                                artifact_path.as_posix(),
+                                "../secrets.txt",
+                            ]
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            response = await route_get_attachment_download_urls(
+                                request, runtime_ctx
+                            )
+                        assert len(response) == 1
+                        entry = response[0]
+                        assert entry.artifactId == artifact_path.as_posix()
+                        token = _extract_token(entry.url)
+                        with runtime_context(state) as runtime_ctx:
+                            downloaded = await route_download_attachment(
+                                token, runtime_ctx
+                            )
+                        assert downloaded.body == b"hello"
                     finally:
                         await _shutdown_state(state)
 

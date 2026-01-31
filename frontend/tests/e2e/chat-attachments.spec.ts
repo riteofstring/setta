@@ -117,14 +117,22 @@ test.describe.serial("chat attachments", () => {
       await input.fill("Here is a file.");
       await input.press("Enter");
 
-      const openLink = overviewPane.getByRole("link", { name: "Open" }).first();
-      await expect(openLink).toBeVisible();
-      const href = await openLink.getAttribute("href");
-      if (!href) {
-        throw new Error("Missing attachment download link.");
+      const openButton = overviewPane
+        .getByRole("button", { name: "Open" })
+        .first();
+      await expect(openButton).toBeVisible();
+      const [popup] = await Promise.all([
+        page.waitForEvent("popup"),
+        openButton.click(),
+      ]);
+      await popup.waitForLoadState("domcontentloaded");
+      const popupUrl = popup.url();
+      if (!popupUrl) {
+        throw new Error("Missing attachment download URL.");
       }
-      const response = await page.request.get(href);
+      const response = await page.request.get(popupUrl);
       expect(response.ok()).toBeTruthy();
+      await popup.close();
     } finally {
       if (createdEngineConfigId) {
         await postBackend(page, "/deleteEngineConfig", {
@@ -165,14 +173,22 @@ test.describe.serial("chat attachments", () => {
       await input.fill("Dropped file");
       await input.press("Enter");
 
-      const openLink = chatSection.getByRole("link", { name: "Open" }).first();
-      await expect(openLink).toBeVisible();
-      const href = await openLink.getAttribute("href");
-      if (!href) {
-        throw new Error("Missing attachment download link.");
+      const openButton = chatSection
+        .getByRole("button", { name: "Open" })
+        .first();
+      await expect(openButton).toBeVisible();
+      const [popup] = await Promise.all([
+        page.waitForEvent("popup"),
+        openButton.click(),
+      ]);
+      await popup.waitForLoadState("domcontentloaded");
+      const popupUrl = popup.url();
+      if (!popupUrl) {
+        throw new Error("Missing attachment download URL.");
       }
-      const response = await page.request.get(href);
+      const response = await page.request.get(popupUrl);
       expect(response.ok()).toBeTruthy();
+      await popup.close();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

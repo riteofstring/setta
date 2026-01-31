@@ -77,6 +77,35 @@ def test_build_attachment_content_blocks_handles_images_text_and_binary() -> Non
         assert "Type: application/octet-stream" in binary_block.text
 
 
+def test_build_attachment_content_blocks_prefers_mime_type_override() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        payload = "No extension"
+        text_path = dbe.path / "attachments" / "README"
+        dbe.write(text_path, payload, mode="w")
+        attachments = [
+            ChatFileAttachment(
+                id=str(text_path),
+                name="README",
+                mimeType="text/plain",
+                size=len(payload),
+            )
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert len(blocks) == 1
+        block = blocks[0]
+        assert isinstance(block, MessageTextContent)
+        assert payload in block.text
+
+
 def test_build_attachments_prompt_text_skips_images_when_disabled() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = DBE(Path(tmpdir) / "setta_files")
