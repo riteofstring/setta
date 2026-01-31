@@ -255,6 +255,18 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
   const decodedIds = Object.keys(decoded);
   if (decodedIds.length > 0) {
     useDecodedImages.setState((state) => {
+      for (const id of decodedIds) {
+        const existing = state.x[id];
+        const nextImage = decoded[id];
+        if (!existing || !nextImage || existing === nextImage) {
+          continue;
+        }
+        const existingUrl = existing.dataset.objectUrl;
+        const nextUrl = nextImage.dataset.objectUrl;
+        if (existingUrl && existingUrl !== nextUrl) {
+          URL.revokeObjectURL(existingUrl);
+        }
+      }
       const revisions = bumpRemoteRevisions(
         {
           revisionById: state.revisionById,

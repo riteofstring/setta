@@ -14,7 +14,7 @@ export async function blobToImageObj(blob: Blob): Promise<HTMLImageElement> {
   const img = new Image();
   img.src = objectUrl;
   await img.decode();
-  URL.revokeObjectURL(objectUrl);
+  img.dataset.objectUrl = objectUrl;
   return img;
 }
 
