@@ -27,7 +27,6 @@ from setta.types.artifact import (
     ImageArtifact,
     create_file_artifact_id,
 )
-from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
 from setta.utils.constants import CWD, C
@@ -570,17 +569,4 @@ async def route_delete_artifacts(
             detail=f"Failed to delete artifact: {exc}",
         ) from exc
 
-    if deleted_ids:
-        payloads = [
-            FileArtifact(
-                id=artifact_id,
-                value=BinaryContentRef(contentId="deleted", byteLength=0),
-            )
-            for artifact_id in deleted_ids
-        ]
-        await ctx.state.wmh_frontend_sender.broadcast_artifacts_update(
-            artifacts=payloads,
-            updateType="delete",
-            share_session_id=ctx.session_id if ctx.share_mode else None,
-        )
     return deleted_ids

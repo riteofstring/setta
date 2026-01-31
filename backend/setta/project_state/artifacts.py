@@ -389,7 +389,10 @@ class Artifacts:
         if not self._image_section_refs_by_path:
             return
 
-        deltas_by_project: dict[ID, list[ListenerRealtimeDelta]] = defaultdict(list)
+        deltas_by_project: dict[tuple[ID, str], list[ListenerRealtimeDelta]] = (
+            defaultdict(list)
+        )
+        payloads_by_content_id: dict[str, bytes] = {}
         for artifact in artifacts:
             if not isinstance(artifact, ImageArtifact):
                 continue
@@ -397,23 +400,27 @@ class Artifacts:
             refs = self._image_section_refs_by_path.get(path)
             if not refs:
                 continue
-            binary_payload = self._binary_store.read_bytes(artifact.value.contentId)
+            content_id = artifact.value.contentId
+            binary_payload = payloads_by_content_id.get(content_id)
+            if binary_payload is None:
+                binary_payload = self._binary_store.read_bytes(content_id)
+                payloads_by_content_id[content_id] = binary_payload
             for project_config_id, section_id in refs:
                 delta = ListenerRealtimeDelta(
                     dependency=SectionDependencyKey(sectionId=section_id),
                     value=BinaryDependencyValue(payload=artifact.value),
                 )
                 delta.binaryPayload = binary_payload
-                deltas_by_project[project_config_id].append(delta)
+                deltas_by_project[(project_config_id, content_id)].append(delta)
 
-        for project_config_id, deltas in deltas_by_project.items():
-            for delta in deltas:
-                await self._realtime_event_hub.emit_realtime_delta_binary(
-                    project_config_id=project_config_id,
-                    delta=delta,
-                    binary_payload=delta.binaryPayload or b"",
-                    share_session_id=self._share_session_id,
-                )
+        for (project_config_id, content_id), deltas in deltas_by_project.items():
+            binary_payload = payloads_by_content_id.get(content_id, b"")
+            await self._realtime_event_hub.emit_realtime_deltas_binary(
+                project_config_id=project_config_id,
+                deltas=deltas,
+                binary_payload=binary_payload,
+                share_session_id=self._share_session_id,
+            )
 
     def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
         """Return the cached artifact type for a normalized path, if any.

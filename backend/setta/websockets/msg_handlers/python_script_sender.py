@@ -146,19 +146,39 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         sequence: int,
         share_session_id: str | None = None,
     ) -> None:
+        await self.send_realtime_updates_binary(
+            projectConfigId=projectConfigId,
+            deltas=[delta],
+            binary_payload=binary_payload,
+            sequence=sequence,
+            share_session_id=share_session_id,
+        )
+
+    async def send_realtime_updates_binary(
+        self,
+        *,
+        projectConfigId: ID,
+        deltas: list[ListenerRealtimeDelta],
+        binary_payload: bytes,
+        sequence: int,
+        share_session_id: str | None = None,
+    ) -> None:
+        if not deltas:
+            raise ValueError("deltas must contain at least one entry")
         content = ListenerRealtimeEventContent(
             projectConfigId=projectConfigId,
             shareSessionId=share_session_id,
-            deltas=[delta],
+            deltas=deltas,
             sequence=sequence,
         )
         sockets_to_notify = set()
+        dependency_keys = tuple(delta.dependency for delta in deltas)
         for (
             registration,
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_keys=(delta.dependency,),
+            dependency_keys=dependency_keys,
             share_session_id=share_session_id,
         ):
             if matching_callbacks:

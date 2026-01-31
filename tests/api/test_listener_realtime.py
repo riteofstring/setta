@@ -20,7 +20,8 @@ from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
-from setta.types.dependency_value import LiteralDependencyValue
+from setta.types.binary_content import BinaryContentRef
+from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
@@ -36,7 +37,12 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-from setta.types.websocket import WebsocketMsgListenerError
+from setta.types.websocket import (
+    WebsocketMsgListenerDependencyEvent,
+    WebsocketMsgListenerError,
+    WebsocketMsgListenerRealtimeEvent,
+)
+from setta.websockets.binary_frames import encode_binary_frame
 
 if TYPE_CHECKING:
     from setta.code_gen.python.code_generator import PythonCodeGenerator
@@ -1039,3 +1045,69 @@ class TestSettaListenerBootstrapFailure:
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
+
+
+class TestSettaListenerBinaryParsing:
+    def test_binary_realtime_event_applies_payload_to_all_deltas(self) -> None:
+        listener = SettaListener(project_name="Binary Parse")
+        dependency_one = create_dep_key(sectionId=ID("section-1"))
+        dependency_two = create_dep_key(sectionId=ID("section-2"))
+        ref = BinaryContentRef(
+            contentId="binary-1",
+            byteLength=3,
+            mimeType="image/png",
+        )
+        delta_one = ListenerRealtimeDelta(
+            dependency=dependency_one,
+            value=BinaryDependencyValue(payload=ref),
+        )
+        delta_two = ListenerRealtimeDelta(
+            dependency=dependency_two,
+            value=BinaryDependencyValue(payload=ref),
+        )
+        content = ListenerRealtimeEventContent(
+            projectConfigId=ID("project-1"),
+            deltas=[delta_one, delta_two],
+            sequence=1,
+        )
+        message = WebsocketMsgListenerRealtimeEvent(content=content)
+        payload = encode_binary_frame(message.model_dump(), b"payload")
+
+        parsed = listener._parse_websocket_payload(payload)
+
+        assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
+        assert parsed.content.deltas[0].binaryPayload == b"payload"
+        assert parsed.content.deltas[1].binaryPayload == b"payload"
+
+    def test_binary_dependency_event_applies_payload_to_all_events(self) -> None:
+        listener = SettaListener(project_name="Binary Parse")
+        dependency_one = create_dep_key(sectionId=ID("section-1"))
+        dependency_two = create_dep_key(sectionId=ID("section-2"))
+        ref = BinaryContentRef(
+            contentId="binary-2",
+            byteLength=5,
+            mimeType="application/octet-stream",
+        )
+        event_one = DependencyEvent(
+            dependencyKey=dependency_one,
+            payload=BinaryDependencyValue(payload=ref),
+            timestampMs=123,
+        )
+        event_two = DependencyEvent(
+            dependencyKey=dependency_two,
+            payload=BinaryDependencyValue(payload=ref),
+            timestampMs=456,
+        )
+        content = ListenerDependencyEventContent(
+            projectConfigId=ID("project-1"),
+            dependencyEvents=[event_one, event_two],
+            sequence=1,
+        )
+        message = WebsocketMsgListenerDependencyEvent(content=content)
+        payload = encode_binary_frame(message.model_dump(), b"payload")
+
+        parsed = listener._parse_websocket_payload(payload)
+
+        assert isinstance(parsed, WebsocketMsgListenerDependencyEvent)
+        assert parsed.content.dependencyEvents[0].binaryPayload == b"payload"
+        assert parsed.content.dependencyEvents[1].binaryPayload == b"payload"

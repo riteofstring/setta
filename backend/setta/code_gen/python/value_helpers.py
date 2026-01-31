@@ -19,10 +19,6 @@ def read_binary_value(payload: dict[str, object]) -> bytes:
     local_path = Path("setta_files") / "binary" / content_id
     if local_path.exists():
         return local_path.read_bytes()
-    download_url = payload.get("downloadUrl")
-    if isinstance(download_url, str) and download_url:
-        with urlopen(download_url) as response:
-            return response.read()
     base_url = os.environ.get(_BINARY_BASE_URL_ENV)
     if not base_url:
         raise FileNotFoundError(f"Missing binary payload: {content_id}")

@@ -583,20 +583,22 @@ class SettaListener:
                 logger.warning("Received malformed listener payload: %s", header)
                 return None
             if isinstance(message, WebsocketMsgListenerRealtimeEvent):
-                if len(message.content.deltas) != 1:
+                if not message.content.deltas:
                     logger.warning(
-                        "Binary realtime event must contain exactly one delta."
+                        "Binary realtime event must contain at least one delta."
                     )
                     return None
-                message.content.deltas[0].binaryPayload = binary_payload
+                for delta in message.content.deltas:
+                    delta.binaryPayload = binary_payload
                 return message
             if isinstance(message, WebsocketMsgListenerDependencyEvent):
-                if len(message.content.dependencyEvents) != 1:
+                if not message.content.dependencyEvents:
                     logger.warning(
-                        "Binary dependency event must contain exactly one event."
+                        "Binary dependency event must contain at least one event."
                     )
                     return None
-                message.content.dependencyEvents[0].binaryPayload = binary_payload
+                for event in message.content.dependencyEvents:
+                    event.binaryPayload = binary_payload
                 return message
             logger.warning(
                 "Binary websocket payload uses unsupported message type: %s",

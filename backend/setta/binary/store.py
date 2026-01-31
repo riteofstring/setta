@@ -190,16 +190,6 @@ class BinaryStore:
             raise FileNotFoundError(f"Missing binary payload: {content_id}")
         return path.read_bytes()
 
-    def claim(self, content_id: str, target_path: Path) -> None:
-        path = self.resolve_content(content_id)
-        if path is None:
-            raise FileNotFoundError(f"Missing binary payload: {content_id}")
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        Path(path).replace(target_path)
-        metadata_path = self._metadata_path(content_id)
-        if metadata_path.exists():
-            metadata_path.unlink()
-
     def promote_to_durable(
         self, content_id: str, *, mime_type: str | None = None
     ) -> BinaryContentRef:
