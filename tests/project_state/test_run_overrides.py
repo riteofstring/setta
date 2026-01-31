@@ -88,19 +88,13 @@ class TestRunOverride:
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self._run_folder_original = C.RUNTIME_FOLDER
-        self._run_sessions_folder_original = C.RUNTIME_SESSIONS_FOLDER
-        self._run_logs_folder_original = C.RUNTIME_LOGS_FOLDER
-        self._run_mcp_folder_original = C.RUNTIME_MCP_FOLDER
-        self._run_secrets_folder_original = C.RUNTIME_SECRETS_FOLDER
-        self._detached_runs_folder_original = C.DETACHED_RUNS_FOLDER
-        self._run_root = root / "runtime"
-        C.RUNTIME_FOLDER = self._run_root
-        C.RUNTIME_SESSIONS_FOLDER = self._run_root / "sessions"
-        C.RUNTIME_LOGS_FOLDER = self._run_root / "logs"
-        C.RUNTIME_MCP_FOLDER = self._run_root / "mcp"
-        C.RUNTIME_SECRETS_FOLDER = self._run_root / "secrets"
-        C.DETACHED_RUNS_FOLDER = self._run_root / "detached_runs"
+        self._run_folder_original = C.RUN_FOLDER
+        self._run_sessions_folder_original = C.RUN_SESSIONS_FOLDER
+        self._run_logs_folder_original = C.RUN_LOGS_FOLDER
+        self._run_root = root / "run"
+        C.RUN_FOLDER = self._run_root
+        C.RUN_SESSIONS_FOLDER = self._run_root / "sessions"
+        C.RUN_LOGS_FOLDER = self._run_root / "logs"
         websocket_manager = WebsocketManager()
         listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(websocket_manager)
@@ -130,12 +124,9 @@ class TestRunOverride:
 
         yield
 
-        C.RUNTIME_FOLDER = self._run_folder_original
-        C.RUNTIME_SESSIONS_FOLDER = self._run_sessions_folder_original
-        C.RUNTIME_LOGS_FOLDER = self._run_logs_folder_original
-        C.RUNTIME_MCP_FOLDER = self._run_mcp_folder_original
-        C.RUNTIME_SECRETS_FOLDER = self._run_secrets_folder_original
-        C.DETACHED_RUNS_FOLDER = self._detached_runs_folder_original
+        C.RUN_FOLDER = self._run_folder_original
+        C.RUN_SESSIONS_FOLDER = self._run_sessions_folder_original
+        C.RUN_LOGS_FOLDER = self._run_logs_folder_original
         self._tmpdir.cleanup()
 
     def _build_manager_and_state(self):
