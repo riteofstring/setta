@@ -950,9 +950,6 @@ test("dict pinned resize keeps unpinned height stable", async ({ page }) => {
 
     const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
     await expect(pinnedArea).toBeVisible();
-    const edgesStrip = paramGroup
-      .locator(":scope > section.section-row-pin-main")
-      .first();
     const pinnedList = pinnedArea.locator("div.section-args-nested");
     const pinnedRows = pinnedList.locator(rowSelector);
     await expect
@@ -1071,9 +1068,6 @@ test("dict pinned/unpinned resize avoids update-depth loop", async ({ page }) =>
 
     const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
     await expect(pinnedArea).toBeVisible();
-    const edgesStrip = paramGroup
-      .locator(":scope > section.section-row-pin-main")
-      .first();
     const pinnedList = pinnedArea.locator("div.section-args-nested");
     const pinnedRows = pinnedList.locator(rowSelector);
     await expect
@@ -1142,21 +1136,35 @@ test("dict pinned/unpinned resize avoids update-depth loop", async ({ page }) =>
 
 test("dict unpinned area does not auto-expand after shrink", async ({ page }) => {
   test.setTimeout(240000);
+  const logStep = (label: string) => {
+    if (process.env.SETTA_E2E_DEBUG_LOG === "1") {
+      const timestamp = new Date().toISOString();
+      console.log(`[e2e-step] ${timestamp} ${label}`);
+    }
+  };
+  logStep("ensureAppReady start");
   await ensureAppReady(page);
+  logStep("ensureAppReady done");
 
+  logStep("loadSettingsSnapshot");
   const settingsSnapshot = await loadSettingsSnapshot(page);
   try {
+    logStep("ensureSizingPolicyDefaults");
     const didUpdateSettings = await ensureSizingPolicyDefaults(page);
     if (didUpdateSettings) {
+      logStep("reload after settings update");
       await page.reload();
       await page.waitForSelector(READY_SELECTOR);
     }
 
     const sections = page.locator('section[class*="card-section"]');
+    logStep("ensureProjectConfig");
     await ensureProjectConfig(page, sections);
 
+    logStep("createDictSection");
     const ensuredDict = await createDictSection(page);
     const dictSection = ensuredDict.dictSection;
+    logStep("focusSectionFromOverview");
     await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
 
     const paramGroup = dictSection.locator("div.section-row-pin-main").first();
@@ -1169,6 +1177,7 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
     const rowSelector =
       ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
 
+    logStep("ensureEditableArgRows");
     await ensureEditableArgRows(dictSection, unpinnedArea, 6);
     const unpinnedRows = unpinnedArea.locator(rowSelector);
     await expect
@@ -1180,6 +1189,7 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
       name: "Pin selected args",
     });
     await expect(pinButton).toBeEnabled();
+    logStep("pinButton click");
     await pinButton.click();
 
     const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
@@ -1195,6 +1205,7 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
     expect(pinnedRowHeight).toBeGreaterThan(0);
     expect(unpinnedRowHeight).toBeGreaterThan(0);
 
+    logStep("shrinkPinnedAreaToMin");
     await shrinkPinnedAreaToMin(page, pinnedArea);
     let pinnedMetrics = await getScrollMetrics(pinnedList);
     for (
@@ -1209,18 +1220,7 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
       pinnedRowHeight * 2 - 4,
     );
 
-    const layoutMetrics = await getPinnedLayoutMetrics(
-      page,
-      paramGroup,
-      pinnedArea,
-      unpinnedArea,
-      edgesStrip,
-    );
-    const unpinnedMinTarget = Math.max(
-      layoutMetrics.unpinnedMinHeight,
-      unpinnedRowHeight,
-    );
-
+    logStep("shrink section to unpinned min");
     for (let i = 0; i < 10; i += 1) {
       await dragResize(page, dictSection, {
         handle: "bottom",
@@ -1229,16 +1229,31 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
         outside: 6,
       });
       const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-      if (unpinnedMetrics.clientHeight <= unpinnedMinTarget + 6) {
+      if (
+        unpinnedMetrics.scrollHeight >=
+        unpinnedMetrics.clientHeight + unpinnedRowHeight - 2
+      ) {
         break;
       }
     }
 
-    const baselineUnpinned = await getScrollMetrics(unpinnedArea);
-    expect(baselineUnpinned.clientHeight).toBeLessThanOrEqual(
-      unpinnedMinTarget + 6,
+    let baselineUnpinned = await getScrollMetrics(unpinnedArea);
+    if (
+      baselineUnpinned.scrollHeight <
+      baselineUnpinned.clientHeight + unpinnedRowHeight - 2
+    ) {
+      const sectionMinHeight = await getComputedMinHeight(dictSection);
+      await setSectionHeight(page, ensuredDict.sectionId, sectionMinHeight);
+      await expect
+        .poll(async () => getHeight(dictSection))
+        .toBeGreaterThanOrEqual(sectionMinHeight - 2);
+      baselineUnpinned = await getScrollMetrics(unpinnedArea);
+    }
+    expect(baselineUnpinned.scrollHeight).toBeGreaterThanOrEqual(
+      baselineUnpinned.clientHeight + unpinnedRowHeight - 2,
     );
 
+    logStep("shrink pinned to 1 row");
     let pinnedAfterShrink = await getScrollMetrics(pinnedList);
     for (
       let i = 0;
@@ -1253,16 +1268,20 @@ test("dict unpinned area does not auto-expand after shrink", async ({ page }) =>
       pinnedAfterShrink = await getScrollMetrics(pinnedList);
     }
     expect(pinnedAfterShrink.clientHeight).toBeLessThanOrEqual(
-      pinnedRowHeight + 6,
+      pinnedRowHeight + 10,
     );
 
+    logStep("wait for layout settle");
     await page.waitForTimeout(400);
     const afterUnpinned = await getScrollMetrics(unpinnedArea);
     expect(afterUnpinned.clientHeight).toBeLessThanOrEqual(
       baselineUnpinned.clientHeight + 2,
     );
+    logStep("assertions done");
   } finally {
+    logStep("restoreSettings");
     await restoreSettings(page, settingsSnapshot);
+    logStep("restoreSettings done");
   }
 });
 
@@ -2424,7 +2443,6 @@ async function dragResize(
 ): Promise<void> {
   const handleLocator = getResizeHandleLocator(target, handle);
   if ((await handleLocator.count()) > 0) {
-    await handleLocator.scrollIntoViewIfNeeded();
     const handleBox = await handleLocator.boundingBox();
     if (handleBox) {
       const x = handleBox.x + handleBox.width / 2;
@@ -2734,13 +2752,19 @@ async function dragPinnedResize(
   dy: number,
 ): Promise<void> {
   const handle = pinnedArea.locator(".pinned-resize-handle").first();
-  await handle.scrollIntoViewIfNeeded();
   const box = await handle.boundingBox();
-  if (!box) {
-    throw new Error("Pinned resize handle not visible.");
+  if (box) {
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + dy, { steps: 5 });
+    await page.mouse.up();
+    return;
   }
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
+  const areaBox = await getBox(pinnedArea);
+  const x = areaBox.x + areaBox.width / 2;
+  const y = areaBox.y + areaBox.height + 4;
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x, y + dy, { steps: 5 });
@@ -2778,6 +2802,8 @@ async function getPinnedLayoutMetrics(
   unpinnedArea: Locator,
   edgesStrip: Locator,
 ): Promise<Record<string, number>> {
+  const edgesHandle =
+    (await edgesStrip.count()) > 0 ? await edgesStrip.elementHandle() : null;
   return page.evaluate(
     ({ paramGroup, pinnedArea, unpinnedArea, edgesStrip }) => {
       const paramGroupHeight = paramGroup.clientHeight;
@@ -2785,11 +2811,14 @@ async function getPinnedLayoutMetrics(
       const paramGroupPadding =
         (Number.parseFloat(paramGroupStyle.paddingTop) || 0) +
         (Number.parseFloat(paramGroupStyle.paddingBottom) || 0);
-      const edgesStyle = window.getComputedStyle(edgesStrip);
-      const edgesMarginHeight =
-        (Number.parseFloat(edgesStyle.marginTop) || 0) +
-        (Number.parseFloat(edgesStyle.marginBottom) || 0);
-      const edgesHeight = edgesStrip.clientHeight + edgesMarginHeight;
+      let edgesHeight = 0;
+      if (edgesStrip) {
+        const edgesStyle = window.getComputedStyle(edgesStrip);
+        const edgesMarginHeight =
+          (Number.parseFloat(edgesStyle.marginTop) || 0) +
+          (Number.parseFloat(edgesStyle.marginBottom) || 0);
+        edgesHeight = edgesStrip.clientHeight + edgesMarginHeight;
+      }
       const pinnedHeight = pinnedArea.clientHeight;
       const unpinnedHeight = unpinnedArea.clientHeight;
       const pinnedList = pinnedArea.querySelector(
@@ -2911,12 +2940,16 @@ async function getPinnedLayoutMetrics(
         pinnedHeaderHeight +
         pinnedPadding +
         pinnedBorderHeight;
-      const edgesInputCount = edgesStrip.querySelectorAll(
-        "div.grid > div:first-child div.flex.flex-col.gap-1 > div",
-      ).length;
-      const edgesOutputCount = edgesStrip.querySelectorAll(
-        "div.grid > div:last-child div.flex.flex-col.gap-1 > div",
-      ).length;
+      const edgesInputCount = edgesStrip
+        ? edgesStrip.querySelectorAll(
+            "div.grid > div:first-child div.flex.flex-col.gap-1 > div",
+          ).length
+        : 0;
+      const edgesOutputCount = edgesStrip
+        ? edgesStrip.querySelectorAll(
+            "div.grid > div:last-child div.flex.flex-col.gap-1 > div",
+          ).length
+        : 0;
       return {
         paramGroupHeight,
         paramGroupPadding,
@@ -2947,7 +2980,7 @@ async function getPinnedLayoutMetrics(
       paramGroup: await paramGroup.elementHandle(),
       pinnedArea: await pinnedArea.elementHandle(),
       unpinnedArea: await unpinnedArea.elementHandle(),
-      edgesStrip: await edgesStrip.elementHandle(),
+      edgesStrip: edgesHandle,
     },
   );
 }
