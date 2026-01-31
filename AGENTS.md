@@ -10,11 +10,11 @@
 
 ## Build, Test, and Development Commands
 
-- `pnpm start` (or `pnpm startr` for backend reloads) runs Vite alongside `frontend/backendStart.sh` for a full-stack dev server (Vite defaults to `http://127.0.0.1:3000`, backend defaults to `http://127.0.0.1:8000`).
+- `pnpm -C frontend start` (or `pnpm -C frontend startr` for backend reloads) runs Vite alongside `frontend/backendStart.sh` for a full-stack dev server (defaults to `http://127.0.0.1:3000`/`8000` in the main worktree, offset per worktree).
 - `pnpm -C frontend ai` starts dev + a CDP-enabled Chrome; `pnpm -C frontend aicdt` adds auto-open DevTools; `pnpm -C frontend aireset` wipes `setta_files` then starts.
 - `pnpm -C frontend kill` stops dev processes + sessions; `pnpm -C frontend cdp-port` prints the CDP port for the current worktree.
-- `pnpm build` produces the production frontend bundle; `./build.sh` wraps this, bundles the Node runtime + sidecars, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
-- `pnpm test` executes the Vitest suite (watch mode: `pnpm test -- --watch`); Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
+- `pnpm -C frontend build` produces the production frontend bundle; `./build.sh` wraps this, bundles the Node runtime + sidecars, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
+- `pnpm -C frontend test` executes the Vitest suite (watch mode: `pnpm -C frontend test -- --watch`); Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
 - `./rt.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E).
 - `./run_backend_tests.sh` runs the Python pytest suite only.
@@ -55,18 +55,18 @@
 - Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --all-extras` and activates the venv.
 - `dev_install.sh` is the one-stop local setup (runs `init_env.sh`, installs frontend deps, installs agent sidecars, then cleans). Source it if you want the venv to stay active: `. ./dev_install.sh`.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
-- Regenerate TypeScript bindings or templates via `pnpm generate` whenever editing files under `frontend/generation/`.
+- Regenerate TypeScript bindings or templates via `pnpm -C frontend generate` whenever editing files under `frontend/generation/`.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
 - Node is pinned in `scripts/node_version.txt` (used by `scripts/bundle_node_runtime.sh` during builds); keep local Node compatible.
 
 ## Worktrees & Ports
 
 - `./scripts/create-worktrees.sh <branch...>` (or `pnpm -C frontend worktrees`) creates worktrees, copies `.env*`, and runs `./dev_install.sh` per worktree.
-- `./scripts/run-dev-instance.sh` starts a dev instance with per-worktree port offsets (defaults: `8000/3000` + offset). Use `--mode startr` or `SETTA_HOST/SETTA_PORT/SETTA_DEV_FRONTEND_PORT` for overrides.
+- `pnpm -C frontend start` (or `pnpm -C frontend startr`) starts a dev instance with per-worktree port offsets (defaults: `8000/3000` + offset). Override with `SETTA_HOST/SETTA_PORT/SETTA_DEV_FRONTEND_PORT` or `VITE_BACKEND_ORIGIN` if needed.
 
 ## Endpoints
 
-Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then run pnpm generate to sync the backend and frontend endpoint function definitions.
+Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then run `pnpm -C frontend generate` to sync the backend and frontend endpoint function definitions.
 
 ## Pydantic
 
@@ -74,7 +74,7 @@ Never use the `alias` feature in pydantic. Camel case is fine for pydantic attri
 
 ## Environment
 
-Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
+Whenever you run `pnpm -C frontend generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
 
 To run backend-only tests: `./run_backend_tests.sh` (uses pytest).
 
@@ -88,7 +88,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 
 ## Generated types
 
-Don't manually edit files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
+Don't manually edit files in `backend/setta/types/generated`. These are generated via `pnpm -C frontend generate`.
 
 To cleanup generated files after you've imported what you need from them, you can run pnpm full-cleanup to remove unused generated types.
 

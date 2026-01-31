@@ -13,7 +13,7 @@ chrome-devtools-mcp and performance profiling.
 ## Default use (Chrome DevTools MCP)
 
 1) Start your app:
-   `pnpm start`
+   `pnpm -C frontend start`
 
    Or use the combined helpers:
    `pnpm -C frontend ai` (adds CDP Chrome + bootstrap/app open)
@@ -51,7 +51,7 @@ chrome-devtools-mcp and performance profiling.
 
 ## Playwright E2E (reliable path)
 
-1) Start the backend + frontend (`pnpm start` or `pnpm startr`).
+1) Start the backend + frontend (`pnpm -C frontend start` or `pnpm -C frontend startr`).
 2) Run the suite with the helper (auto-mints a bootstrap token):
    `scripts/run-playwright-e2e.sh`
 

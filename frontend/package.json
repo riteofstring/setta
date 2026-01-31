@@ -85,8 +85,8 @@
     "zustand": "5.0.8"
   },
   "scripts": {
-    "start": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh\"",
-    "startr": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh --reload\"",
+    "start": "bash ./scripts/dev-start.sh",
+    "startr": "bash ./scripts/dev-start.sh --reload",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
     "reset": "cd .. && rm -rf setta_files && cd frontend && pnpm start",
