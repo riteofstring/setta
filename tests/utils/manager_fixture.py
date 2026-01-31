@@ -323,7 +323,7 @@ async def _close_lsp_process(process) -> None:
         if reader is None:
             continue
         with suppress(Exception):
-            await reader.read()
+            await asyncio.wait_for(reader.read(), timeout=3)
 
 
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
