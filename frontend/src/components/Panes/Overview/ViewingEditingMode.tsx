@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { FiBookmark, FiCheck, FiEdit3 } from "react-icons/fi";
+import { FiCheck, FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
@@ -14,14 +14,9 @@ import {
   route_set_active_view_mode,
   route_set_view_mode_name,
   route_toggle_is_editing_view_mode,
-  route_toggle_view_mode_tab,
   route_toggle_view_mode_user_facing,
 } from "utils/generatedEndpoints";
 import { ViewModeConfig } from "utils/generatedTypes";
-import {
-  sanitizeNameForSlug,
-  validateViewModeNameInput,
-} from "utils/nameValidation";
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
@@ -86,16 +81,6 @@ export function ViewingEditingMode() {
     });
   };
 
-  const handleToggleTab = (modeId: string): void => {
-    if (!canEditStructure) {
-      return;
-    }
-    void route_toggle_view_mode_tab({
-      projectConfigId,
-      viewModeId: modeId,
-    });
-  };
-
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -144,7 +129,6 @@ export function ViewingEditingMode() {
                 isDeletable={canDeleteViewModes}
                 projectConfigId={projectConfigId}
                 onSelect={handleModeChange}
-                onToggleTab={handleToggleTab}
                 onToggleUserFacing={handleToggleUserFacing}
                 canEditVariants={canEditVariants}
                 canEditStructure={canEditStructure}
@@ -216,7 +200,6 @@ type ViewModeEditingRowProps = {
   isDeletable: boolean;
   projectConfigId: string;
   onSelect: (modeId: string) => void;
-  onToggleTab: (modeId: string) => void;
   onToggleUserFacing: (modeId: string) => void;
   canEditVariants: boolean;
   canEditStructure: boolean;
@@ -228,20 +211,14 @@ function ViewModeEditingRow({
   isDeletable,
   projectConfigId,
   onSelect,
-  onToggleTab,
   onToggleUserFacing,
   canEditVariants,
   canEditStructure,
 }: ViewModeEditingRowProps) {
-  const normalizeName = (value: string) => value.trim();
-
   function onSetName(name: string) {
     if (!canEditStructure) {
       return;
     }
-    const previousName =
-      useProjectState.getState().projectConfig.viewModes[mode.id]?.name ??
-      mode.name;
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
@@ -256,28 +233,13 @@ function ViewModeEditingRow({
           name,
           frontendOpId,
         }),
-      rollback: (state) => {
-        if (!(mode.id in state.projectConfig.viewModes)) {
-          throw new Error(`View mode ${mode.id} not found`);
-        }
-        state.projectConfig.viewModes[mode.id].name = previousName;
-      },
     });
   }
 
   function conditionToSetName(name: string) {
-    const normalized = normalizeName(name);
-    const validationError = validateViewModeNameInput(normalized);
-    if (validationError) {
-      return false;
-    }
-    const nextSlug = sanitizeNameForSlug(normalized);
     const state = useProjectState.getState();
     for (const viewMode of Object.values(state.projectConfig.viewModes)) {
-      if (viewMode.id === mode.id) {
-        continue;
-      }
-      if (sanitizeNameForSlug(viewMode.name) === nextSlug) {
+      if (viewMode.id !== mode.id && viewMode.name === name) {
         return false;
       }
     }
@@ -288,8 +250,6 @@ function ViewModeEditingRow({
     mode.name,
     onSetName,
     conditionToSetName,
-    false,
-    normalizeName,
   );
 
   const handleToggleUserFacing = (
@@ -300,14 +260,6 @@ function ViewModeEditingRow({
       return;
     }
     onToggleUserFacing(mode.id);
-  };
-
-  const handleToggleTab = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    if (!canEditStructure) {
-      return;
-    }
-    onToggleTab(mode.id);
   };
 
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -362,13 +314,6 @@ function ViewModeEditingRow({
     userFacingTitle = "User-facing";
   }
 
-  let tabClasses = "text-setta-400 hover:text-setta-600";
-  let tabTitle = "Not shown as a tab";
-  if (mode.isTab) {
-    tabClasses = "text-blue-500 hover:text-blue-400";
-    tabTitle = "Shown as a tab";
-  }
-
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
     <div
@@ -387,14 +332,6 @@ function ViewModeEditingRow({
         className="flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100"
         disabled={!canEditStructure}
       />
-      <button
-        className={`cursor-pointer bg-transparent ${tabClasses}`}
-        onClick={handleToggleTab}
-        title={tabTitle}
-        disabled={!canEditStructure}
-      >
-        <FiBookmark size={16} />
-      </button>
       <button
         className={`cursor-pointer bg-transparent ${userFacingClasses}`}
         onClick={handleToggleUserFacing}
