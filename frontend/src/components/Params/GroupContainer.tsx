@@ -303,10 +303,10 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-50 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
       ref={edgesStripRef}
     >
-      <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-setta-200/80 dark:bg-setta-700/60" />
       <div className="grid grid-cols-2 py-2">
         <div className="flex flex-col pl-3">
           <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
@@ -316,7 +316,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             {inputPorts.map((port) => (
               <div
                 key={port.id}
-                className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+                className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-setta-600 transition-colors hover:bg-setta-100/50 dark:text-setta-200 hover:dark:bg-setta-800/70"
               >
                 <Handle
                   id={port.id}
@@ -340,7 +340,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             {outputPorts.map((port) => (
               <div
                 key={port.id}
-                className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-slate-700 transition-colors hover:bg-setta-100/50 dark:text-slate-200 hover:dark:bg-setta-800/70"
+                className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-setta-600 transition-colors hover:bg-setta-100/50 dark:text-setta-200 hover:dark:bg-setta-800/70"
               >
                 <span className="truncate">{port.label}</span>
                 <Handle
