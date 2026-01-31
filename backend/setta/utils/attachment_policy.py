@@ -6,7 +6,6 @@ from fastapi import HTTPException, status
 from setta.utils.constants import C
 
 AttachmentPolicyScope = Literal["chat", "dropzone_stateful", "dropzone_stateless"]
-DropzonePolicyMode = Literal["stateful", "stateless"]
 
 
 @dataclass(frozen=True)
@@ -18,14 +17,6 @@ class AttachmentPolicy:
     max_file_label: str
     max_total_label: str | None
     allowed_mime_prefixes: list[str]
-
-
-def resolve_dropzone_scope(
-    dropzone_mode: DropzonePolicyMode | None,
-) -> AttachmentPolicyScope:
-    if dropzone_mode == "stateless":
-        return "dropzone_stateless"
-    return "dropzone_stateful"
 
 
 def resolve_attachment_policy_scope(upload_scope: str | None) -> AttachmentPolicyScope:
@@ -59,15 +50,7 @@ def _is_mime_allowed(mime_type: str, prefixes: list[str]) -> bool:
     return any(mime_type.startswith(prefix) for prefix in prefixes)
 
 
-def get_attachment_policy(
-    scope: AttachmentPolicyScope,
-    *,
-    dropzone_mode: DropzonePolicyMode | None = None,
-) -> AttachmentPolicy:
-    if dropzone_mode is not None:
-        if scope == "chat":
-            raise ValueError("dropzone_mode is only valid for dropzone scopes.")
-        scope = resolve_dropzone_scope(dropzone_mode)
+def get_attachment_policy(scope: AttachmentPolicyScope) -> AttachmentPolicy:
     if scope == "chat":
         return AttachmentPolicy(
             scope=scope,
@@ -111,15 +94,16 @@ def enforce_upload_policy(
     mime_type: str,
     scope: AttachmentPolicyScope,
     label: str,
+    policy: AttachmentPolicy | None = None,
 ) -> None:
-    policy = get_attachment_policy(scope)
-    if file_size > policy.max_file_bytes:
+    resolved_policy = policy or get_attachment_policy(scope)
+    if file_size > resolved_policy.max_file_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds {policy.max_file_label} limit: {label}",
+            detail=f"File exceeds {resolved_policy.max_file_label} limit: {label}",
         )
-    if not _is_mime_allowed(mime_type, policy.allowed_mime_prefixes):
-        allowed_label = ", ".join(policy.allowed_mime_prefixes)
+    if not _is_mime_allowed(mime_type, resolved_policy.allowed_mime_prefixes):
+        allowed_label = ", ".join(resolved_policy.allowed_mime_prefixes)
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=(

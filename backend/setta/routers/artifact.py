@@ -31,6 +31,7 @@ from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
 from setta.utils.attachment_policy import (
     enforce_upload_policy,
+    get_attachment_policy,
     resolve_attachment_policy_scope,
 )
 from setta.utils.constants import CWD, C
@@ -349,6 +350,7 @@ async def route_import_files_to_artifacts(
         return []
     upload_scope = x.uploadScope
     policy_scope = resolve_attachment_policy_scope(upload_scope)
+    policy = get_attachment_policy(policy_scope)
     artifacts = _get_artifacts(ctx)
     binary_store = BinaryStore.from_dbe(ctx.state.dbe)
     updates: list[FileArtifact] = []
@@ -379,6 +381,7 @@ async def route_import_files_to_artifacts(
             mime_type=resolved_mime,
             scope=policy_scope,
             label=resolved.name,
+            policy=policy,
         )
         try:
             content = resolved.read_bytes()
@@ -475,6 +478,7 @@ async def route_update_artifacts(
 ) -> list[ArtifactSaveResult]:
     upload_scope = x.uploadScope
     policy_scope = resolve_attachment_policy_scope(upload_scope)
+    policy = get_attachment_policy(policy_scope)
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
             mime_type, _ = mimetypes.guess_type(artifact.id)
@@ -484,6 +488,7 @@ async def route_update_artifacts(
                 mime_type=resolved_mime,
                 scope=policy_scope,
                 label=artifact.id,
+                policy=policy,
             )
     if ctx.share_mode:
         session_id = ctx.session_id

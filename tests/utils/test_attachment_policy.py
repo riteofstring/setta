@@ -2,6 +2,7 @@ import pytest
 from fastapi import HTTPException, status
 
 from setta.utils.attachment_policy import (
+    AttachmentPolicy,
     enforce_upload_policy,
     get_attachment_policy,
     resolve_attachment_policy_scope,
@@ -45,5 +46,35 @@ def test_enforce_upload_policy_rejects_disallowed_mime(monkeypatch) -> None:
             mime_type="text/plain",
             scope="chat",
             label="notes.txt",
+        )
+    assert exc_info.value.status_code == status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+
+
+def test_enforce_upload_policy_uses_explicit_policy() -> None:
+    policy = AttachmentPolicy(
+        scope="chat",
+        max_files=None,
+        max_file_bytes=1,
+        max_total_bytes=None,
+        max_file_label="1 B",
+        max_total_label=None,
+        allowed_mime_prefixes=["image/"],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        enforce_upload_policy(
+            file_size=2,
+            mime_type="image/png",
+            scope="chat",
+            label="photo.png",
+            policy=policy,
+        )
+    assert exc_info.value.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    with pytest.raises(HTTPException) as exc_info:
+        enforce_upload_policy(
+            file_size=1,
+            mime_type="text/plain",
+            scope="chat",
+            label="notes.txt",
+            policy=policy,
         )
     assert exc_info.value.status_code == status.HTTP_415_UNSUPPORTED_MEDIA_TYPE

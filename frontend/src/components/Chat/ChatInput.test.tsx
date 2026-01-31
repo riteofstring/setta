@@ -39,6 +39,23 @@ function renderChatInput() {
   );
 }
 
+function getButtonTag(markup: string, label: string): string | null {
+  const marker = `${label}</button>`;
+  const labelIndex = markup.indexOf(marker);
+  if (labelIndex < 0) {
+    return null;
+  }
+  const buttonStart = markup.lastIndexOf("<button", labelIndex);
+  if (buttonStart < 0) {
+    return null;
+  }
+  const buttonEnd = markup.indexOf(">", buttonStart);
+  if (buttonEnd < 0) {
+    return null;
+  }
+  return markup.slice(buttonStart, buttonEnd);
+}
+
 describe("ChatInput attachment gating", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -59,6 +76,9 @@ describe("ChatInput attachment gating", () => {
 
     expect(markup).toContain("Attachments blocked by share policy");
     expect(markup).not.toContain("Slots:");
+    const attachButton = getButtonTag(markup, "Attach");
+    expect(attachButton).not.toBeNull();
+    expect(attachButton).toContain("disabled");
   });
 
   it("shows slots when param changes are allowed", () => {
@@ -77,5 +97,8 @@ describe("ChatInput attachment gating", () => {
     } else {
       expect(markup).not.toContain("Slots:");
     }
+    const attachButton = getButtonTag(markup, "Attach");
+    expect(attachButton).not.toBeNull();
+    expect(attachButton).not.toContain("disabled");
   });
 });
