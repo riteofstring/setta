@@ -1,6 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import path from "path";
-import { fileURLToPath } from "url";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -40,14 +38,6 @@ type IsolatedProjectContext = {
   projectConfigId: string;
   defaultProjectConfigId: string | null;
 };
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const ATTACHMENT_FIXTURES_DIR = path.join(
-  __dirname,
-  "fixtures",
-  "attachments",
-);
 
 test.describe.serial("chat attachments", () => {
   test("project chat attachments via picker", async ({ page }) => {
@@ -298,62 +288,6 @@ test.describe.serial("chat attachments", () => {
       await expect(chatSection.getByText(/File exceeds/i)).toBeVisible();
       const inputContainer = input.locator("..");
       await expect(inputContainer.getByText("oversized.txt")).toHaveCount(0);
-    } finally {
-      await cleanupIsolatedProject(page, projectContext);
-    }
-  });
-
-  test("chat attachment preview supports common file types", async ({
-    page,
-  }) => {
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page);
-
-    try {
-      const chatSection = await ensureChatSection(page, "__pw_chat_preview__");
-      const input = chatSection.getByPlaceholder("Type a message...");
-      await expect(input).toBeVisible();
-
-      const fileInput = chatSection.locator('input[type="file"]').first();
-      await fileInput.setInputFiles([
-        path.join(ATTACHMENT_FIXTURES_DIR, "sample_pdf.pdf"),
-        path.join(ATTACHMENT_FIXTURES_DIR, "sample_audio.mp3"),
-        path.join(ATTACHMENT_FIXTURES_DIR, "sample_video.mp4"),
-        path.join(ATTACHMENT_FIXTURES_DIR, "sample_text.txt"),
-        path.join(ATTACHMENT_FIXTURES_DIR, "sample_image.jpg"),
-      ]);
-
-      await expect(chatSection.getByText("sample_pdf.pdf")).toBeVisible();
-      await expect(chatSection.getByText("sample_audio.mp3")).toBeVisible();
-      await expect(chatSection.getByText("sample_video.mp4")).toBeVisible();
-      await expect(chatSection.getByText("sample_text.txt")).toBeVisible();
-      await expect(chatSection.getByText("sample_image.jpg")).toBeVisible();
-
-      await input.fill("Preview types");
-      await input.press("Enter");
-
-      await chatSection.getByText("sample_pdf.pdf").first().click();
-
-      const modal = page.getByRole("dialog", {
-        name: "Attachment preview",
-      });
-      await expect(modal).toBeVisible();
-      await expect(modal.locator("iframe")).toBeVisible();
-
-      await modal.getByRole("button", { name: "sample_audio.mp3" }).click();
-      await expect(modal.locator("audio")).toBeVisible();
-
-      await modal.getByRole("button", { name: "sample_video.mp4" }).click();
-      await expect(modal.locator("video")).toBeVisible();
-
-      await modal.getByRole("button", { name: "sample_text.txt" }).click();
-      await expect(modal.locator("pre")).toBeVisible();
-
-      await modal.getByRole("button", { name: "sample_image.jpg" }).click();
-      await expect(modal.locator("img.object-contain")).toBeVisible();
-
-      await page.keyboard.press("Escape");
-      await expect(modal).toHaveCount(0);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

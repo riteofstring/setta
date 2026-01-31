@@ -14,7 +14,6 @@ from setta.lsp.managers import (
     LSPServers,
     LSPWriters,
     start_lsps,
-    stop_file_watcher,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -266,6 +265,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
+    manager.shutdown()
     manager.autosave_debouncer.cancel()
     manager.autosave_debouncer.cancel_pending()
     manager.queue_task.cancel()
@@ -288,10 +288,14 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
-    try:
-        watcher.stop()
-    except RuntimeError:
-        pass
+    if not watcher._started:
+        return
+    observer = watcher.observer
+    if observer.is_alive():
+        observer.stop()
+        # Avoid hanging CI if watchdog threads don't exit cleanly.
+        observer.join(timeout=1.0)
+    watcher._started = False
 
 
 async def _stop_lsps_and_file_watcher(
@@ -299,7 +303,11 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
-    stop_file_watcher(lsp_writers)
+    file_watcher = lsp_writers.file_watcher
+    observer = file_watcher.observer
+    if observer.is_alive():
+        observer.stop()
+        observer.join(timeout=1.0)
     await _close_lsp_process(process)
 
 
@@ -313,8 +321,13 @@ async def _close_lsp_process(process) -> None:
         with suppress(RuntimeError, AttributeError):
             await writer.wait_closed()
 
-    with suppress(ProcessLookupError):
-        await process.wait()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=3)
+    except (asyncio.TimeoutError, ProcessLookupError):
+        with suppress(ProcessLookupError):
+            process.kill()
+        with suppress(asyncio.TimeoutError, ProcessLookupError):
+            await asyncio.wait_for(process.wait(), timeout=3)
 
     for reader in (
         getattr(process, "stdout", None),
