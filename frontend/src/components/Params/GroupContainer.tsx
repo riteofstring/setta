@@ -665,6 +665,27 @@ function ResizablePinnedArea({
       const heightDelta = clampedHeight - basePinnedHeight;
       if (Math.abs(heightDelta) > 1) {
         let nextSectionHeight = Math.round(baseSectionHeight + heightDelta);
+        let nextSectionMinHeight =
+          typeof sectionMinHeight === "number" &&
+          Number.isFinite(sectionMinHeight) &&
+          sectionMinHeight > 0
+            ? sectionMinHeight
+            : null;
+        if (nextSectionMinHeight !== null) {
+          const pinnedContributionBefore = Math.max(
+            basePinnedHeight,
+            pinnedMinHeight,
+          );
+          const pinnedContributionAfter = Math.max(
+            clampedHeight,
+            pinnedMinHeight,
+          );
+          const adjustedMin =
+            nextSectionMinHeight -
+            pinnedContributionBefore +
+            pinnedContributionAfter;
+          nextSectionMinHeight = Math.max(0, adjustedMin);
+        }
         if (
           typeof sectionMaxHeight === "number" &&
           Number.isFinite(sectionMaxHeight) &&
@@ -672,12 +693,8 @@ function ResizablePinnedArea({
         ) {
           nextSectionHeight = Math.min(nextSectionHeight, sectionMaxHeight);
         }
-        if (
-          typeof sectionMinHeight === "number" &&
-          Number.isFinite(sectionMinHeight) &&
-          sectionMinHeight > 0
-        ) {
-          nextSectionHeight = Math.max(nextSectionHeight, sectionMinHeight);
+        if (nextSectionMinHeight !== null) {
+          nextSectionHeight = Math.max(nextSectionHeight, nextSectionMinHeight);
         }
         if (Math.abs(nextSectionHeight - baseSectionHeight) > 1) {
           let updatedSectionSizes: Record<string, SectionSize> = {};
@@ -1065,10 +1082,12 @@ function ResizablePinnedArea({
               : manualPinnedHeight,
           )
         : pinnedMinHeight;
+    const shouldAutoExpandSection = manualPinnedHeight === null;
 
     // 1. Expand section height if pinned area needs more space
     if (
       canResize &&
+      shouldAutoExpandSection &&
       desiredPinnedHeight > 0 &&
       desiredPinnedHeight - availableHeight > 1
     ) {

@@ -1140,6 +1140,132 @@ test("dict pinned/unpinned resize avoids update-depth loop", async ({ page }) =>
   }
 });
 
+test("dict unpinned area does not auto-expand after shrink", async ({ page }) => {
+  test.setTimeout(240000);
+  await ensureAppReady(page);
+
+  const settingsSnapshot = await loadSettingsSnapshot(page);
+  try {
+    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
+    if (didUpdateSettings) {
+      await page.reload();
+      await page.waitForSelector(READY_SELECTOR);
+    }
+
+    const sections = page.locator('section[class*="card-section"]');
+    await ensureProjectConfig(page, sections);
+
+    const ensuredDict = await createDictSection(page);
+    const dictSection = ensuredDict.dictSection;
+    await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
+
+    const paramGroup = dictSection.locator("div.section-row-pin-main").first();
+    const edgesStrip = paramGroup
+      .locator(":scope > section.section-row-pin-main")
+      .first();
+    const unpinnedArea = paramGroup
+      .locator(":scope > div.section-args-nested")
+      .first();
+    const rowSelector =
+      ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
+
+    await ensureEditableArgRows(dictSection, unpinnedArea, 6);
+    const unpinnedRows = unpinnedArea.locator(rowSelector);
+    await expect
+      .poll(async () => unpinnedRows.count())
+      .toBeGreaterThanOrEqual(6);
+
+    await selectArgRowsByIndex(page, unpinnedRows, [0, 1, 2]);
+    const pinButton = dictSection.getByRole("button", {
+      name: "Pin selected args",
+    });
+    await expect(pinButton).toBeEnabled();
+    await pinButton.click();
+
+    const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
+    await expect(pinnedArea).toBeVisible();
+    const pinnedList = pinnedArea.locator("div.section-args-nested");
+    const pinnedRows = pinnedList.locator(rowSelector);
+    await expect
+      .poll(async () => pinnedRows.count())
+      .toBeGreaterThanOrEqual(3);
+
+    const pinnedRowHeight = await getMinParamRowHeight(pinnedList);
+    const unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
+    expect(pinnedRowHeight).toBeGreaterThan(0);
+    expect(unpinnedRowHeight).toBeGreaterThan(0);
+
+    await shrinkPinnedAreaToMin(page, pinnedArea);
+    let pinnedMetrics = await getScrollMetrics(pinnedList);
+    for (
+      let i = 0;
+      i < 4 && pinnedMetrics.clientHeight < pinnedRowHeight * 2 - 4;
+      i += 1
+    ) {
+      await dragPinnedResize(page, pinnedArea, pinnedRowHeight + 12);
+      pinnedMetrics = await getScrollMetrics(pinnedList);
+    }
+    expect(pinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
+      pinnedRowHeight * 2 - 4,
+    );
+
+    const layoutMetrics = await getPinnedLayoutMetrics(
+      page,
+      paramGroup,
+      pinnedArea,
+      unpinnedArea,
+      edgesStrip,
+    );
+    const unpinnedMinTarget = Math.max(
+      layoutMetrics.unpinnedMinHeight,
+      unpinnedRowHeight,
+    );
+
+    for (let i = 0; i < 10; i += 1) {
+      await dragResize(page, dictSection, {
+        handle: "bottom",
+        dx: 0,
+        dy: -140,
+        outside: 6,
+      });
+      const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
+      if (unpinnedMetrics.clientHeight <= unpinnedMinTarget + 6) {
+        break;
+      }
+    }
+
+    const baselineUnpinned = await getScrollMetrics(unpinnedArea);
+    expect(baselineUnpinned.clientHeight).toBeLessThanOrEqual(
+      unpinnedMinTarget + 6,
+    );
+
+    let pinnedAfterShrink = await getScrollMetrics(pinnedList);
+    for (
+      let i = 0;
+      i < 6 && pinnedAfterShrink.clientHeight > pinnedRowHeight + 4;
+      i += 1
+    ) {
+      await dragPinnedResize(
+        page,
+        pinnedArea,
+        -Math.max(pinnedRowHeight + 16, 48),
+      );
+      pinnedAfterShrink = await getScrollMetrics(pinnedList);
+    }
+    expect(pinnedAfterShrink.clientHeight).toBeLessThanOrEqual(
+      pinnedRowHeight + 6,
+    );
+
+    await page.waitForTimeout(400);
+    const afterUnpinned = await getScrollMetrics(unpinnedArea);
+    expect(afterUnpinned.clientHeight).toBeLessThanOrEqual(
+      baselineUnpinned.clientHeight + 2,
+    );
+  } finally {
+    await restoreSettings(page, settingsSnapshot);
+  }
+});
+
 async function ensureProjectConfig(
   page: Page,
   sections: Locator,
