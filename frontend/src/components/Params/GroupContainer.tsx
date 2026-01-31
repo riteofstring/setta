@@ -303,7 +303,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName} overflow-clip`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
       ref={edgesStripRef}
     >
       <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
@@ -1108,8 +1108,8 @@ function ResizablePinnedArea({
       }}
       handleStyles={{
         bottom: {
-          bottom: "0px",
-          height: "18px",
+          bottom: "-5px",
+          height: "10px",
           left: 0,
           right: 0,
           width: "100%",
