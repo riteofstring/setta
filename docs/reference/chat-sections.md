@@ -34,6 +34,7 @@ Scriptable mode keeps chat state inside the section:
 - Limits use the shared attachment policy scope `chat`, driven by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
 - In share mode, attachments require `allowParamChanges`; the UI disables attachment actions and the backend enforces the same policy on artifact updates.
 - Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
+- The chat UI previews attachments in-place; clicking an attachment opens a preview dialog (images, text, PDF, audio, video). Large files may be truncated or show a "preview unavailable" message.
 
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
