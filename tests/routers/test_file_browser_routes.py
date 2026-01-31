@@ -470,9 +470,13 @@ class TestFileBrowserRoutes:
         try:
             C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 5
             C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "5 bytes"
-            oversized_payload = base64.b64encode(b"abcdef").decode("utf-8")
             artifact_id = (C.ARTIFACTS_FOLDER / "too-big.txt").as_posix()
-            artifact = FileArtifact(id=artifact_id, value=oversized_payload)
+            oversized_ref = BinaryContentRef(
+                contentId="oversized-chat",
+                byteLength=6,
+                mimeType="text/plain",
+            )
+            artifact = FileArtifact(id=artifact_id, value=oversized_ref)
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_update_artifacts(

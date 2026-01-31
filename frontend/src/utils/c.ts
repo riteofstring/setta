@@ -45,14 +45,14 @@ export class C {
   static OPEN_BROWSER_ON_START = null;
   static PORT = 8000;
   static REALTIME_BINARY_MAX_BYTES = 10485760;
-  static RUN_FOLDER = "setta_files/run";
-  static RUN_LOGS_FOLDER = "setta_files/run/logs";
-  static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
   static RUNTIME_FOLDER = "setta_files/runtime";
   static RUNTIME_LOGS_FOLDER = "setta_files/runtime/logs";
   static RUNTIME_MCP_FOLDER = "setta_files/runtime/mcp";
   static RUNTIME_SECRETS_FOLDER = "setta_files/runtime/secrets";
   static RUNTIME_SESSIONS_FOLDER = "setta_files/runtime/sessions";
+  static RUN_FOLDER = "setta_files/run";
+  static RUN_LOGS_FOLDER = "setta_files/run/logs";
+  static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
   static SEARCH_MCP_TOOLS_NAME = "search_mcp_tools";
   static SESSION_SECRET_BYTES = 32;
   static SETTA_FILES_FOLDER = "setta_files";

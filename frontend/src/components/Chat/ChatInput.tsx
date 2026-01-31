@@ -35,6 +35,7 @@ import {
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_binary_upload,
   route_delete_artifacts,
   route_import_files_to_artifacts,
   route_update_artifacts,
@@ -135,29 +136,6 @@ export const ChatInput = memo(function ChatInput({
     }, DEFAULT_TEMP_TIMEOUT);
   }, []);
 
-  const readFileAsBase64 = useCallback(async (file: File): Promise<string> => {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result !== "string") {
-          reject(new Error("Unexpected file reader payload."));
-          return;
-        }
-        const commaIndex = result.indexOf(",");
-        if (commaIndex >= 0) {
-          resolve(result.slice(commaIndex + 1));
-          return;
-        }
-        resolve(result);
-      };
-      reader.onerror = () => {
-        reject(reader.error ?? new Error("Failed to read file."));
-      };
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
   const uploadFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) {
@@ -165,18 +143,49 @@ export const ChatInput = memo(function ChatInput({
       }
       setIsUploading(true);
       try {
+        const uploadResults = await Promise.allSettled(
+          files.map(async (file) => {
+            const form = new FormData();
+            form.append("file", file, file.name);
+            form.append("durable", "false");
+            const res = await route_binary_upload(form);
+            if (!res200(res)) {
+              throw new Error("Upload failed");
+            }
+            return { file, ref: res.data };
+          }),
+        );
+        const successfulUploads: Array<{
+          file: File;
+          ref: FileArtifact["value"];
+        }> = [];
+        const failedUploads: File[] = [];
+        uploadResults.forEach((result, index) => {
+          const file = files[index];
+          if (!file) {
+            return;
+          }
+          if (result.status === "fulfilled") {
+            successfulUploads.push(result.value);
+          } else {
+            failedUploads.push(file);
+          }
+        });
+        if (failedUploads.length > 0) {
+          notifyAttachmentWarning("Failed to upload attachments.");
+        }
+        if (successfulUploads.length === 0) {
+          return;
+        }
         const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
-        const fileIds = files.map((file) =>
+        const fileIds = successfulUploads.map(({ file }) =>
           createDropzoneFileArtifactId(file.name, artifactBaseFolder),
         );
-        const base64Payloads = await Promise.all(
-          files.map((file) => readFileAsBase64(file)),
-        );
-        const artifacts: FileArtifact[] = base64Payloads.map(
-          (payload, index) => ({
+        const artifacts: FileArtifact[] = successfulUploads.map(
+          ({ ref }, index) => ({
             type: ArtifactTypeEnum.File,
             id: fileIds[index],
-            value: payload,
+            value: ref,
           }),
         );
         const res = await route_update_artifacts({
@@ -189,8 +198,8 @@ export const ChatInput = memo(function ChatInput({
           notifyAttachmentWarning(message);
           return;
         }
-        const newAttachments: ChatFileAttachment[] = files.map(
-          (file, index) => ({
+        const newAttachments: ChatFileAttachment[] = successfulUploads.map(
+          ({ file }, index) => ({
             id: fileIds[index],
             name: file.name,
             mimeType: file.type || "application/octet-stream",
@@ -202,7 +211,7 @@ export const ChatInput = memo(function ChatInput({
         setIsUploading(false);
       }
     },
-    [isShareMode, notifyAttachmentWarning, readFileAsBase64],
+    [isShareMode, notifyAttachmentWarning],
   );
 
   const handleLocalFiles = useCallback(

@@ -1,4 +1,3 @@
-import base64
 import os
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
@@ -9,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 import pytest
 
 from setta.auth.session import load_current_session_secret
+from setta.binary import BinaryStore
 from setta.routers.attachments import (
     GetAttachmentDownloadUrlRequest,
     GetAttachmentDownloadUrlsRequest,
@@ -345,10 +345,13 @@ class TestAttachmentRoutes:
                     previous_prefixes = C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES
                     C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = ["text/"]
                     try:
-                        payload = base64.b64encode(b"payload").decode("utf-8")
+                        binary_store = BinaryStore.from_dbe(state.dbe)
+                        ref = binary_store.store_bytes(
+                            b"payload", mime_type="image/png"
+                        )
                         artifact = FileArtifact(
                             id=(Path(C.ARTIFACTS_FOLDER) / "image.png").as_posix(),
-                            value=payload,
+                            value=ref,
                         )
                         request = UpdateArtifactsRequest(
                             artifacts=[artifact],
@@ -374,10 +377,13 @@ class TestAttachmentRoutes:
                     previous_prefixes = C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES
                     C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = ["text/"]
                     try:
-                        payload = base64.b64encode(b"payload").decode("utf-8")
+                        binary_store = BinaryStore.from_dbe(state.dbe)
+                        ref = binary_store.store_bytes(
+                            b"payload", mime_type="image/png"
+                        )
                         artifact = FileArtifact(
                             id=(Path(C.ARTIFACTS_FOLDER) / "image.png").as_posix(),
-                            value=payload,
+                            value=ref,
                         )
                         request = UpdateArtifactsRequest(
                             artifacts=[artifact],

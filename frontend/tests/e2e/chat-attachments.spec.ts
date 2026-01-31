@@ -53,22 +53,29 @@ test.describe.serial("chat attachments", () => {
       throw new Error("Missing LLM config payload.");
     }
     let createdLlmConfigId: string | null = null;
-    let llmConfigId = Object.keys(initialConfig.configs ?? {})[0] ?? null;
+    let didUpdateLlmConfig = false;
+    const existingConfigs = initialConfig.configs ?? {};
+    let llmConfigId =
+      Object.entries(existingConfigs).find(
+        ([, config]) => !config.api_key_env,
+      )?.[0] ?? null;
     if (!llmConfigId) {
       llmConfigId = "e2e-llm";
       const updated: AllLLMConfigs = {
         ...initialConfig,
         configs: {
-          ...(initialConfig.configs ?? {}),
+          ...existingConfigs,
           [llmConfigId]: { model: "gpt-test" },
         },
         default_config_id: llmConfigId,
       };
       await postBackend(page, "/llm/config", updated as Record<string, unknown>);
       createdLlmConfigId = llmConfigId;
+      didUpdateLlmConfig = true;
     }
 
     let createdEngineConfigId: string | null = null;
+    let updatedEngineConfig: EngineConfig | null = null;
     const engineConfigs = await getBackend<EngineConfig[]>(
       page,
       "/getEngineConfigs",
@@ -91,6 +98,21 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing engine config id.");
       }
       createdEngineConfigId = created.id;
+    } else if (existingEngine.settaLlmConfigId !== llmConfigId) {
+      const updated = await postBackend<EngineConfig>(
+        page,
+        "/updateEngineConfig",
+        {
+          config: {
+            ...existingEngine,
+            settaLlmConfigId: llmConfigId,
+          },
+        },
+      );
+      if (!updated?.id) {
+        throw new Error("Failed to update engine config.");
+      }
+      updatedEngineConfig = existingEngine;
     }
 
     await page.reload();
@@ -104,6 +126,7 @@ test.describe.serial("chat attachments", () => {
 
       const input = overviewPane.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
+      await expect(input).toBeEnabled();
 
       const fileInput = overviewPane.locator('input[type="file"]').first();
       await fileInput.setInputFiles({
@@ -139,7 +162,12 @@ test.describe.serial("chat attachments", () => {
           configId: createdEngineConfigId,
         });
       }
-      if (createdLlmConfigId) {
+      if (updatedEngineConfig) {
+        await postBackend(page, "/updateEngineConfig", {
+          config: updatedEngineConfig,
+        });
+      }
+      if (createdLlmConfigId || didUpdateLlmConfig) {
         await postBackend(
           page,
           "/llm/config",

@@ -143,6 +143,7 @@ async function updateImageArtifact(
         value: binaryRef,
       },
     ],
+    uploadScope: "generic",
   });
 }
 
