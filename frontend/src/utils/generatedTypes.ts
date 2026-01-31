@@ -408,9 +408,6 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
-  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
-  GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
-  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
@@ -513,6 +510,9 @@ export const RouteEnum = {
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
+  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -942,15 +942,6 @@ export function createMessageThinkingContent(
   return MessageThinkingContentSchema.parse(options);
 }
 
-const ChatFileAttachmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  size: z.union([z.int(), z.null()]).default(null),
-});
-
-export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
-
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
@@ -963,7 +954,6 @@ const SystemChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -991,7 +981,6 @@ const AssistantChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -1009,7 +998,6 @@ const UserChatMessageSchema = z.object({
       ]),
     )
     .default([]),
-  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -1274,6 +1262,21 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
+const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
+  muted: z.boolean().default(false),
+  suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
+});
+
+type CodeSectionDiagnosticsIgnoreState = z.infer<
+  typeof CodeSectionDiagnosticsIgnoreStateSchema
+>;
+
+function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
+  return CodeSectionDiagnosticsIgnoreStateSchema.parse(options);
+}
+
 const EdgePortSchema = z.object({
   id: IDSchema.default(create_new_id),
   accessor: z.string().default("" as const),
@@ -1371,6 +1374,7 @@ const SharedModifierSchema = z.object({
   dataPath: z.string().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1496,6 +1500,7 @@ const CoreSchema = z.object({
         "dataPath",
         "defaultVal",
         "description",
+        "diagnosticsIgnoreState",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1900,6 +1905,9 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type CodeSectionImpl = z.infer<typeof CodeSectionImplSchema>;
@@ -2835,6 +2843,7 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
 type CodeSectionImplArgs = z.infer<typeof CodeSectionImplArgsSchema>;
@@ -3395,9 +3404,43 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
+const SettaLspDiagnosticPositionSchema = z.object({
+  line: z.int(),
+  character: z.int(),
+});
+
+const SettaLspDiagnosticRangeSchema = z.object({
+  start: SettaLspDiagnosticPositionSchema,
+  end: SettaLspDiagnosticPositionSchema,
+});
+
+const SettaLspDiagnosticSchema = z.object({
+  message: z.string(),
+  severity: z.union([z.int(), z.null()]).default(null),
+  code: z.union([z.string(), z.int(), z.null()]).default(null),
+  source: z.union([z.string(), z.null()]).default(null),
+  range: SettaLspDiagnosticRangeSchema,
+  uri: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
+
+const SettaLspDiagnosticsPayloadSchema = z.object({
+  projectConfigId: IDSchema,
+  genCode: SettaProjectConfigDiagnosticsSchema,
+  codeSections: z
+    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
+    .default({}),
+  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
+});
+
+export type SettaLspDiagnosticsPayload = z.infer<
+  typeof SettaLspDiagnosticsPayloadSchema
+>;
+
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaProjectConfigDiagnosticsSchema,
+  content: SettaLspDiagnosticsPayloadSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -4464,6 +4507,9 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type UserDefaultCodeSectionImpl = z.infer<
@@ -5032,7 +5078,18 @@ const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z.record(z.string(), z.any()).default({}),
+  languageServer: z.record(z.string(), z.any()).default(() => ({
+    basedpyright: {
+      analysis: {
+        diagnosticSeverityOverrides: {
+          reportUnknownVariableType: "none" as const,
+          reportUnknownMemberType: "none" as const,
+          reportUnannotatedClassAttribute: "none" as const,
+          reportSelfClsParameterName: "none" as const,
+        },
+      },
+    },
+  })),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
@@ -6567,7 +6624,6 @@ export type GetFolderContentsRequestInput = z.input<
 
 const ImportFilesToArtifactsRequestSchema = z.object({
   paths: z.array(z.string()),
-  uploadScope: z.literal(["chat", "generic"]),
 });
 
 export type ImportFilesToArtifactsRequestInput = z.input<
@@ -6607,48 +6663,10 @@ const UpdateArtifactsRequestSchema = z.object({
   conflictStrategy: z
     .union([z.enum(SaveConflictStrategyEnum), z.null()])
     .default(null),
-  uploadScope: z.literal(["chat", "generic"]),
 });
 
 export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
->;
-
-const AttachmentDownloadUrlEntrySchema = z.object({
-  artifactId: z.string(),
-  url: z.string(),
-  expiresAt: z.int(),
-});
-
-export type AttachmentDownloadUrlEntry = z.infer<
-  typeof AttachmentDownloadUrlEntrySchema
->;
-
-const GetAttachmentDownloadUrlRequestSchema = z.object({
-  artifactId: z.string(),
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type GetAttachmentDownloadUrlRequestInput = z.input<
-  typeof GetAttachmentDownloadUrlRequestSchema
->;
-
-const GetAttachmentDownloadUrlResponseSchema = z.object({
-  url: z.string(),
-  expiresAt: z.int(),
-});
-
-export type GetAttachmentDownloadUrlResponse = z.infer<
-  typeof GetAttachmentDownloadUrlResponseSchema
->;
-
-const GetAttachmentDownloadUrlsRequestSchema = z.object({
-  artifactIds: z.array(z.string()),
-  projectConfigId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type GetAttachmentDownloadUrlsRequestInput = z.input<
-  typeof GetAttachmentDownloadUrlsRequestSchema
 >;
 
 const BootstrapConsumeRequestSchema = z.object({
@@ -7354,6 +7372,29 @@ const SetCodeRequestSchema = z.object({
 });
 
 export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
+
+const SetCodeSectionDiagnosticCodeSuppressionRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  code: z.union([z.string(), z.int()]),
+  suppress: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticCodeSuppressionRequestSchema
+>;
+
+const SetCodeSectionDiagnosticsMuteRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  mute: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticsMuteRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticsMuteRequestSchema
+>;
 
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

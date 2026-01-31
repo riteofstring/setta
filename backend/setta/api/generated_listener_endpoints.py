@@ -562,6 +562,21 @@ class ListenerSetCodeRequestPayload(TypedDict):
     code: str
 
 
+class ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    code: str | int
+    suppress: bool
+
+
+class ListenerSetCodeSectionDiagnosticsMuteRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    mute: bool
+
+
 class ListenerSetDefaultSectionVariantRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1223,6 +1238,18 @@ class RouterEndpointAPI:
         self, payload: ListenerSetCodeObjNameRequestPayload
     ) -> None:
         return await self._caller("route_set_code_obj_name", payload)
+
+    async def set_code_section_diagnostic_code_suppression(
+        self, payload: ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload
+    ) -> None:
+        return await self._caller(
+            "route_set_code_section_diagnostic_code_suppression", payload
+        )
+
+    async def set_code_section_diagnostics_mute(
+        self, payload: ListenerSetCodeSectionDiagnosticsMuteRequestPayload
+    ) -> None:
+        return await self._caller("route_set_code_section_diagnostics_mute", payload)
 
     async def set_default_section_variant(
         self, payload: ListenerSetDefaultSectionVariantRequestPayload

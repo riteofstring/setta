@@ -16,6 +16,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     process_gen_code_diagnostics_with_undefined_symbols,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.project_code import ProjectGenPythonCode
 from setta.project_state.code_files import CodeFiles
 from setta.database.db_objs import DBE
@@ -257,6 +258,7 @@ class TestLspDiagnosticsProcessing:
             errors,
             undefined_sections,
             _callable_mismatch_sections,
+            _unmapped_diagnostics,
         ) = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
@@ -290,6 +292,7 @@ class TestLspDiagnosticsProcessing:
             errors,
             undefined_sections,
             _callable_mismatch_sections,
+            _unmapped_diagnostics,
         ) = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
@@ -322,6 +325,7 @@ class TestLspDiagnosticsProcessing:
             errors,
             undefined_sections,
             _callable_mismatch_sections,
+            _unmapped_diagnostics,
         ) = process_gen_code_diagnostics_with_undefined_symbols(
             [diagnostic],
             code_generator,
@@ -391,6 +395,7 @@ class TestLspDiagnosticsIntegration:
                 dep_graph,
                 code_generator,
                 {},
+                ProjectLspDiagnosticsState(project_config.id, frontend_sender),
                 initial_undefined_callable_sections={ID("removed-section")},
                 on_callable_symbols_resolved=on_callable_symbols_resolved,
             )
@@ -447,6 +452,10 @@ class TestLspDiagnosticsIntegration:
                 dep_graph,
                 code_generator,
                 {},
+                ProjectLspDiagnosticsState(
+                    project_state.projectConfig.id,
+                    frontend_sender,
+                ),
                 initial_undefined_callable_sections={section_id},
                 on_callable_symbols_resolved=on_callable_symbols_resolved,
             )
@@ -503,6 +512,10 @@ class TestLspDiagnosticsIntegration:
                 dep_graph,
                 code_generator,
                 {},
+                ProjectLspDiagnosticsState(
+                    project_state.projectConfig.id,
+                    frontend_sender,
+                ),
                 initial_callable_mismatch_sections={section_id},
                 on_callable_signature_mismatch=on_callable_signature_mismatch,
             )
@@ -568,6 +581,10 @@ class TestProjectGenPythonCodeMutationHook:
                 dep_graph,
                 code_generator,
                 {},
+                ProjectLspDiagnosticsState(
+                    project_state.projectConfig.id,
+                    frontend_sender,
+                ),
             )
 
             hook_called = False
@@ -616,6 +633,10 @@ class TestProjectGenPythonCodeMutationHook:
                 dep_graph,
                 code_generator,
                 {},
+                ProjectLspDiagnosticsState(
+                    project_state.projectConfig.id,
+                    frontend_sender,
+                ),
             )
 
             hook_called = False

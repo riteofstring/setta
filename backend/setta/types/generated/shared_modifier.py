@@ -31,6 +31,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
@@ -73,6 +74,7 @@ class SharedModifier(TypedDict):
     dataPath: NotRequired[str]
     defaultVal: NotRequired[str]
     description: NotRequired[str]
+    diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
     drawThrottleDelay: NotRequired[int]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]
