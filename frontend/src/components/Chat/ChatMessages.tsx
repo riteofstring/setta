@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 import { FaBrain } from "react-icons/fa6";
-import { FiFileText } from "react-icons/fi";
+import { FiArchive, FiFileText, FiMusic, FiVideo } from "react-icons/fi";
 import { IoMdCheckmark, IoMdClose } from "react-icons/io";
 import { IoImageOutline } from "react-icons/io5";
 import { MdErrorOutline } from "react-icons/md";
@@ -26,6 +26,11 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  getAttachmentPreviewKind,
+  isImageAttachment,
+  isTextAttachment,
+} from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
@@ -246,114 +251,9 @@ function ChatImage({
   );
 }
 
-const IMAGE_ATTACHMENT_EXTENSIONS = new Set([
-  ".apng",
-  ".avif",
-  ".bmp",
-  ".gif",
-  ".heic",
-  ".heif",
-  ".ico",
-  ".jfif",
-  ".jpeg",
-  ".jpg",
-  ".png",
-  ".svg",
-  ".tif",
-  ".tiff",
-  ".webp",
-]);
-const TEXT_ATTACHMENT_EXTENSIONS = new Set([
-  ".cfg",
-  ".conf",
-  ".csv",
-  ".ini",
-  ".json",
-  ".log",
-  ".md",
-  ".markdown",
-  ".py",
-  ".toml",
-  ".tsv",
-  ".txt",
-  ".xml",
-  ".yaml",
-  ".yml",
-]);
-const TEXT_ATTACHMENT_MIME_TYPES = new Set([
-  "application/json",
-  "application/javascript",
-  "application/x-javascript",
-  "application/x-python",
-  "application/toml",
-  "application/x-yaml",
-  "application/yaml",
-  "application/xml",
-  "text/markdown",
-  "text/x-markdown",
-  "text/x-python",
-  "text/x-toml",
-]);
 const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
-
-function extractFileExtension(value: string): string | null {
-  const baseName = value.split(/[/\\]/).pop() ?? value;
-  if (!baseName) {
-    return null;
-  }
-  const dotIndex = baseName.lastIndexOf(".");
-  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
-    return null;
-  }
-  return baseName.slice(dotIndex).toLowerCase();
-}
-
-function normalizeAttachmentMime(attachment: ChatFileAttachment): string {
-  const mimeType = attachment.mimeType?.trim().toLowerCase();
-  if (mimeType) {
-    return mimeType;
-  }
-  return "application/octet-stream";
-}
-
-function isImageAttachment(attachment: ChatFileAttachment): boolean {
-  const mimeType = normalizeAttachmentMime(attachment);
-  if (mimeType !== "application/octet-stream") {
-    return mimeType.startsWith("image/");
-  }
-  const nameExtension = extractFileExtension(attachment.name);
-  if (nameExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(nameExtension)) {
-    return true;
-  }
-  const idExtension = extractFileExtension(attachment.id);
-  if (idExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(idExtension)) {
-    return true;
-  }
-  return false;
-}
-
-function isTextAttachment(attachment: ChatFileAttachment): boolean {
-  const mimeType = normalizeAttachmentMime(attachment);
-  if (mimeType.startsWith("text/")) {
-    return true;
-  }
-  if (TEXT_ATTACHMENT_MIME_TYPES.has(mimeType)) {
-    return true;
-  }
-  if (mimeType !== "application/octet-stream") {
-    return false;
-  }
-  const nameExtension = extractFileExtension(attachment.name);
-  if (nameExtension && TEXT_ATTACHMENT_EXTENSIONS.has(nameExtension)) {
-    return true;
-  }
-  const idExtension = extractFileExtension(attachment.id);
-  if (idExtension && TEXT_ATTACHMENT_EXTENSIONS.has(idExtension)) {
-    return true;
-  }
-  return false;
-}
+const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 
 function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
@@ -564,16 +464,46 @@ function AttachmentPreviewDialog({
     () =>
       attachments.map((attachment) => {
         const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? null;
-        const isImage = isImageAttachment(attachment);
+        const previewKind = getAttachmentPreviewKind(attachment);
+        const shouldShowThumbnail = previewKind === "image";
         return {
           id: attachment.id,
           label: attachment.name,
-          thumbnailUrl: isImage ? attachmentUrl : null,
-          imageUrl: isImage ? attachmentUrl : null,
+          thumbnailUrl: shouldShowThumbnail ? attachmentUrl : null,
+          imageUrl: shouldShowThumbnail ? attachmentUrl : null,
           data: attachment,
         };
       }),
     [attachments, attachmentUrlMap],
+  );
+
+  const renderFileCard = useCallback(
+    (
+      attachment: ChatFileAttachment,
+      icon: ReactNode,
+      description?: string,
+    ) => {
+      const sizeLabel = getAttachmentSizeLabel(attachment);
+      return (
+        <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
+          <div className="text-setta-400 dark:text-setta-500">{icon}</div>
+          <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
+            {attachment.name}
+          </span>
+          {description ? (
+            <span className="text-xs text-setta-400 dark:text-setta-500">
+              {description}
+            </span>
+          ) : null}
+          {sizeLabel ? (
+            <span className="text-xs text-setta-400 dark:text-setta-500">
+              {sizeLabel}
+            </span>
+          ) : null}
+        </div>
+      );
+    },
+    [],
   );
 
   const renderAttachmentPreview = useCallback(
@@ -587,9 +517,9 @@ function AttachmentPreviewDialog({
           </div>
         );
       }
-      const isImage = isImageAttachment(attachment);
+      const previewKind = getAttachmentPreviewKind(attachment);
       const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? "";
-      if (isImage) {
+      if (previewKind === "image") {
         if (!attachmentUrl) {
           return (
             <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
@@ -610,7 +540,7 @@ function AttachmentPreviewDialog({
           </div>
         );
       }
-      if (isTextAttachment(attachment)) {
+      if (previewKind === "text") {
         const preview = textPreviewMap[attachment.id];
         if (!preview || preview.isLoading) {
           return (
@@ -645,22 +575,85 @@ function AttachmentPreviewDialog({
           </div>
         );
       }
-      const sizeLabel = getAttachmentSizeLabel(attachment);
-      return (
-        <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
-          <FiFileText size={40} />
-          <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
-            {attachment.name}
-          </span>
-          {sizeLabel ? (
-            <span className="text-xs text-setta-400 dark:text-setta-500">
-              {sizeLabel}
-            </span>
-          ) : null}
-        </div>
+      if (previewKind === "pdf") {
+        if (
+          attachment.size !== null &&
+          attachment.size !== undefined &&
+          attachment.size > PDF_PREVIEW_MAX_BYTES
+        ) {
+          return renderFileCard(
+            attachment,
+            <FiFileText size={40} />,
+            "Preview disabled for large PDFs.",
+          );
+        }
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiFileText size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="relative h-full w-full overflow-hidden rounded-md">
+            <iframe
+              src={attachmentUrl}
+              title={attachment.name}
+              className="h-full w-full"
+            />
+          </div>
+        );
+      }
+      if (previewKind === "audio") {
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiMusic size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="flex h-full w-full items-center justify-center">
+            <audio
+              controls
+              preload="metadata"
+              className="w-full max-w-[720px]"
+            >
+              <source src={attachmentUrl} />
+            </audio>
+          </div>
+        );
+      }
+      if (previewKind === "video") {
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiVideo size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="relative h-full w-full">
+            <video controls preload="metadata" className="h-full w-full">
+              <source src={attachmentUrl} />
+            </video>
+          </div>
+        );
+      }
+      if (previewKind === "archive") {
+        return renderFileCard(
+          attachment,
+          <FiArchive size={40} />,
+          "Archive preview not available.",
+        );
+      }
+      return renderFileCard(
+        attachment,
+        <FiFileText size={40} />,
+        "Preview not available.",
       );
     },
-    [attachmentUrlMap, onImageError, textPreviewMap],
+    [attachmentUrlMap, onImageError, renderFileCard, textPreviewMap],
   );
 
   if (!open || attachments.length === 0 || !selectedAttachment) {
