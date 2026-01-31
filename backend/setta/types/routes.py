@@ -150,6 +150,10 @@ class Route(str, Enum):
     SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
+    SET_CODE_SECTION_DIAGNOSTICS_MUTE = "/setCodeSectionDiagnosticsMute"
+    SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
+        "/setCodeSectionDiagnosticCodeSuppression"
+    )
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"

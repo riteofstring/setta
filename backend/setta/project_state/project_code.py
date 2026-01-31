@@ -23,6 +23,7 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
+    apply_code_section_diagnostics_ignore,
     build_setta_lsp_diagnostic,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
@@ -69,6 +70,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
     CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
@@ -666,6 +668,9 @@ class ProjectPythonCode(PythonCode):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.sectionId = sectionId
         self.code = section_impl.code
+        self.diagnostics_ignore_state = section_impl.diagnosticsIgnoreState.model_copy(
+            deep=True
+        )
         self.diagnostics_state = diagnostics_state
         project_config = project_state.projectConfig
         variant_id = project_config.sectionVariantMap.get(sectionId)
@@ -702,6 +707,11 @@ class ProjectPythonCode(PythonCode):
             )
         return process_completion_response(response)
 
+    def update_diagnostics_ignore_state(
+        self, ignore_state: CodeSectionDiagnosticsIgnoreState
+    ) -> None:
+        self.diagnostics_ignore_state = ignore_state.model_copy(deep=True)
+
     async def type_check(self):
         await self.send_document_open_request(self.code)
 
@@ -712,6 +722,10 @@ class ProjectPythonCode(PythonCode):
         diagnostics = [
             build_setta_lsp_diagnostic(d, uri=params.uri) for d in params.diagnostics
         ]
+        diagnostics = apply_code_section_diagnostics_ignore(
+            diagnostics,
+            self.diagnostics_ignore_state,
+        )
         await self.diagnostics_state.update_code_section(
             self.sectionId,
             diagnostics,

@@ -21,7 +21,10 @@ from setta.types.lsp import (
     SettaLSPPosition,
     SettaSectionTypeErrors,
 )
-from setta.types.section_impls import TypeErrorIgnoreState
+from setta.types.section_impls import (
+    CodeSectionDiagnosticsIgnoreState,
+    TypeErrorIgnoreState,
+)
 
 RangeIndex = tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]]
 
@@ -127,6 +130,25 @@ def should_ignore_type_error(
     if param_id in ignore_state.params:
         return ignore_state.params[param_id]
     return False
+
+
+def apply_code_section_diagnostics_ignore(
+    diagnostics: list[SettaLspDiagnostic],
+    ignore_state: CodeSectionDiagnosticsIgnoreState | None,
+) -> list[SettaLspDiagnostic]:
+    if ignore_state is None:
+        return diagnostics
+    if ignore_state.muted:
+        return []
+    suppressed_codes = ignore_state.suppressedCodes
+    if not suppressed_codes:
+        return diagnostics
+    suppressed_set = set(suppressed_codes)
+    return [
+        diagnostic
+        for diagnostic in diagnostics
+        if diagnostic.code not in suppressed_set
+    ]
 
 
 def process_gen_code_diagnostic(

@@ -74,6 +74,9 @@ from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
 from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
+from setta.project_state.lsp_response_handlers.diagnostics import (
+    apply_code_section_diagnostics_ignore,
+)
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
@@ -144,6 +147,8 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetCodeSectionDiagnosticCodeSuppressionRequest,
+    SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
     SetEdgesRequest,
     SetGenCodePrefixRequest,
@@ -265,6 +270,8 @@ from setta.types.helpers_lvl2 import (
     set_chat_section_state,
     set_code,
     set_code_file_binding,
+    set_code_section_diagnostic_code_suppression,
+    set_code_section_diagnostics_mute,
     set_default_section_variant,
     set_edges,
     set_group_overflow_mode,
@@ -1663,6 +1670,71 @@ class BaseProjectManager(ABC):
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    async def _apply_code_section_diagnostics_ignore_state(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> None:
+        code_entries = self.code_dict.get(project_config_id)
+        if not code_entries:
+            return
+        if section_id not in code_entries:
+            return
+        code_entry = code_entries[section_id]
+        if not isinstance(code_entry, ProjectPythonCode):
+            return
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state, section_id, CodeSectionImpl
+        )
+        ignore_state = section_impl.diagnosticsIgnoreState
+        code_entry.update_diagnostics_ignore_state(ignore_state)
+        diagnostics_state = self._get_lsp_diagnostics_state(project_config_id)
+        current = diagnostics_state.code_sections.get(section_id, [])
+        filtered = apply_code_section_diagnostics_ignore(current, ignore_state)
+        await diagnostics_state.update_code_section(section_id, filtered)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_code_section_diagnostics_mute(
+        self, x: SetCodeSectionDiagnosticsMuteRequest
+    ):
+        """Toggle muting LSP diagnostics for a code section."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._apply_code_section_diagnostics_ignore_state(
+            x.projectConfigId, x.sectionId
+        )
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_code_section_diagnostic_code_suppression(
+        self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
+    ):
+        """Toggle suppressing an LSP diagnostic code for a code section."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_code_section_diagnostic_code_suppression(
+            project_state,
+            x.sectionId,
+            x.code,
+            x.suppress,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._apply_code_section_diagnostics_ignore_state(
+            x.projectConfigId, x.sectionId
+        )
 
     @enqueue_method
     @project_state_tool(

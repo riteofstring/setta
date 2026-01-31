@@ -23,6 +23,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     PromptFormat,
     SectionSize,
@@ -155,6 +156,9 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
     codeLanguage: CodeLanguage = CodeLanguage.python
+    diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
+        default_factory=CodeSectionDiagnosticsIgnoreState
+    )
 
 
 class UserDefaultGenPythonCodeSectionImpl(

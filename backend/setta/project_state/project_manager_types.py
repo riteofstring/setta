@@ -604,6 +604,25 @@ class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     )
 
 
+class SetCodeSectionDiagnosticsMuteRequest(ProjectManagerRequestWithSection):
+    """Toggle muting LSP diagnostics for a code section."""
+
+    mute: bool = Field(
+        description="Whether to mute LSP diagnostics for the code section.",
+    )
+
+
+class SetCodeSectionDiagnosticCodeSuppressionRequest(ProjectManagerRequestWithSection):
+    """Toggle suppressing a diagnostic code for a code section."""
+
+    code: str | int = Field(
+        description="Diagnostic code to suppress for this code section.",
+    )
+    suppress: bool = Field(
+        description="Whether to suppress the diagnostic code.",
+    )
+
+
 class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     """Set a parameter's name and value in one step."""
 

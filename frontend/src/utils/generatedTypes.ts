@@ -510,6 +510,9 @@ export const RouteEnum = {
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
+  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -1259,6 +1262,21 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
+const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
+  muted: z.boolean().default(false),
+  suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
+});
+
+type CodeSectionDiagnosticsIgnoreState = z.infer<
+  typeof CodeSectionDiagnosticsIgnoreStateSchema
+>;
+
+function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
+  return CodeSectionDiagnosticsIgnoreStateSchema.parse(options);
+}
+
 const EdgePortSchema = z.object({
   id: IDSchema.default(create_new_id),
   accessor: z.string().default("" as const),
@@ -1356,6 +1374,7 @@ const SharedModifierSchema = z.object({
   dataPath: z.string().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1481,6 +1500,7 @@ const CoreSchema = z.object({
         "dataPath",
         "defaultVal",
         "description",
+        "diagnosticsIgnoreState",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1885,6 +1905,9 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type CodeSectionImpl = z.infer<typeof CodeSectionImplSchema>;
@@ -2820,6 +2843,7 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
 type CodeSectionImplArgs = z.infer<typeof CodeSectionImplArgsSchema>;
@@ -4483,6 +4507,9 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type UserDefaultCodeSectionImpl = z.infer<
@@ -7345,6 +7372,29 @@ const SetCodeRequestSchema = z.object({
 });
 
 export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
+
+const SetCodeSectionDiagnosticCodeSuppressionRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  code: z.union([z.string(), z.int()]),
+  suppress: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticCodeSuppressionRequestSchema
+>;
+
+const SetCodeSectionDiagnosticsMuteRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  mute: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticsMuteRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticsMuteRequestSchema
+>;
 
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
