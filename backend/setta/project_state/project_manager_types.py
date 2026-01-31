@@ -593,6 +593,16 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class GetPasswordParamValueRequest(ProjectManagerRequestWithSectionParam):
+    """Fetch the saved secret for a password parameter within a section."""
+
+
+class GetPasswordParamValueResponse(BaseModel):
+    value: str = Field(
+        description="Stored secret value for the password parameter.",
+    )
+
+
 class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     """Toggle ignoring type errors for a callable or parameter within a section."""
 

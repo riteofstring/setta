@@ -8,6 +8,7 @@ node_modules
 # testing
 /coverage
 frontend/test-results/
+frontend/tests/e2e/.storageState.json
 
 # production
 */dist
@@ -43,6 +44,9 @@ setta_code/
 .dmypy.json
 backend/setta/frontend
 setta_files/
+tests.log
+backend.log
+gcf.log
 auth.json
 mcp-tools.json
 docs/temporary/

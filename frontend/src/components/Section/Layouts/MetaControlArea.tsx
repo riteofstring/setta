@@ -37,6 +37,7 @@ import {
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import { shouldEmitRealtimeValue } from "utils/paramValue";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
@@ -156,6 +157,9 @@ function MetaControlValueArea({
       if (codeObjType === CodeObjTypeEnum.ButtonParam) {
         return;
       }
+      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
+        return;
+      }
       useProjectState.setState((state) => {
         setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
@@ -181,11 +185,21 @@ function MetaControlValueArea({
     }
     const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
-    if (value !== valueStr) {
+    if (
+      shouldEmitRealtimeValue({
+        previousValue: value,
+        nextValue: valueStr,
+        codeObjType,
+      })
+    ) {
       sendRealtimeSectionLiteral(sectionId, valueStr);
     }
     if (!options?.skipBackendUpdate) {
-      debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
+        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
+      } else {
+        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+      }
     }
   };
 
@@ -286,6 +300,18 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value,
     });
   },
   50,
