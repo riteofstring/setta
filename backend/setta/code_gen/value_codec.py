@@ -9,6 +9,7 @@ from setta.code_gen.dependency_graph import (
     SectionNode,
 )
 from setta.code_gen.value_mode import PythonValueMode
+from setta.types.binary_content import BinaryContentRef
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
 from setta.types.dropzone import dropzone_value_to_attachments
@@ -63,6 +64,10 @@ class PythonValueCodec:
         return tuple(sorted(self._required_imports))
 
     def format_param_expression(self, node: ParamNode) -> str:
+        if node.type is CodeObjType.PasswordParam:
+            if node.code_obj_impl_id is None:
+                raise ValueError(f"Missing code obj impl id for {node.full_path_name}")
+            return self._format_password_value(node.code_obj_impl_id)
         param_type = node.type
         literal_value = self._expect_literal(node)
         return self.format_param_value(
@@ -216,8 +221,8 @@ class PythonValueCodec:
         match value.type:
             case DependencyValueType.Literal:
                 return value.payload
-            case DependencyValueType.Base64:
-                return self._format_base64_value(value.payload)
+            case DependencyValueType.Binary:
+                return self._format_binary_value(value.payload)
             case DependencyValueType.FileRead:
                 return self._format_file_read_value(value.payload)
             case _:
@@ -249,6 +254,12 @@ class PythonValueCodec:
         control_type = node.control_code_obj_type
         if control_type is None:
             raise ValueError(f"Missing control code obj type for {node.full_path_name}")
+        if control_type is CodeObjType.PasswordParam:
+            if node.control_code_obj_impl_id is None:
+                raise ValueError(
+                    f"Missing control code obj impl id for {node.full_path_name}"
+                )
+            return self._format_password_value(node.control_code_obj_impl_id)
         literal_value = node.value.payload
         representation = (
             node.control_value_representation
@@ -397,17 +408,29 @@ class PythonValueCodec:
 
         return self._format_collection(f"{callable_name}(", ")", items)
 
-    def _format_base64_value(self, payload: str) -> str:
+    def _format_binary_value(self, payload: BinaryContentRef) -> str:
+        payload_literal = repr(
+            {
+                "contentId": payload.contentId,
+                "byteLength": payload.byteLength,
+                "mimeType": payload.mimeType,
+                "sha256": payload.sha256,
+            }
+        )
         if self.mode is PythonValueMode.LIVE_RUNTIME:
-            return repr(payload)
+            return payload_literal
         helper_alias = self._require_value_helpers()
-        return f"{helper_alias}.decode_base64_value({repr(payload)})"
+        return f"{helper_alias}.read_binary_value({payload_literal})"
 
     def _format_file_read_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:
             return repr(payload)
         helper_alias = self._require_value_helpers()
         return f"{helper_alias}.read_file_value({repr(payload)})"
+
+    def _format_password_value(self, code_obj_id: str) -> str:
+        helper_alias = self._require_value_helpers()
+        return f"{helper_alias}.read_password_value({repr(str(code_obj_id))})"
 
     def _node_in_codegen(self, node: Node) -> bool:
         return getattr(node, "include_in_codegen", True)

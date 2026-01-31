@@ -4,6 +4,7 @@ import {
   RevisionedArtifacts,
   useBrushStrokes,
   useChartData,
+  useDecodedImages,
   useDrawAreaLayerItemTransform,
   useImages,
 } from "state/definitions";
@@ -163,6 +164,38 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
   brushStrokeUpdate.commit();
   transformUpdate.commit();
   chartDataUpdate.commit();
+
+  if (
+    artifactUpdate.updateType === "delete" &&
+    imagesUpdate.deletedIds.size > 0
+  ) {
+    const deletedIds = Array.from(imagesUpdate.deletedIds);
+    useDecodedImages.setState((state) => {
+      const next = { ...state.x };
+      for (const id of deletedIds) {
+        const existing = next[id];
+        if (!existing) {
+          continue;
+        }
+        const existingUrl = existing.dataset.objectUrl;
+        if (existingUrl) {
+          URL.revokeObjectURL(existingUrl);
+        }
+        delete next[id];
+      }
+      const revisions = removeRevisionEntries(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        deletedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
+    });
+  }
 }
 
 function getNamePathTypeKey(artifact: {
@@ -241,6 +274,7 @@ async function flushPendingArtifacts(force = false) {
     const res = await route_update_artifacts({
       artifacts: snapshot,
       conflictStrategy: null,
+      uploadScope: "generic",
     });
     if (res200(res)) {
       clearPendingArtifacts(snapshot);

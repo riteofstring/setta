@@ -21,6 +21,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
+from setta.websockets.binary_frames import encode_binary_frame
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
@@ -136,6 +137,73 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             else:
                 await self.websocket_manager.send_message(message, websocket_id)
 
+    async def send_realtime_update_binary(
+        self,
+        *,
+        projectConfigId: ID,
+        delta: ListenerRealtimeDelta,
+        binary_payload: bytes,
+        sequence: int,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self.send_realtime_updates_binary(
+            projectConfigId=projectConfigId,
+            deltas=[delta],
+            binary_payload=binary_payload,
+            sequence=sequence,
+            share_session_id=share_session_id,
+        )
+
+    async def send_realtime_updates_binary(
+        self,
+        *,
+        projectConfigId: ID,
+        deltas: list[ListenerRealtimeDelta],
+        binary_payload: bytes,
+        sequence: int,
+        share_session_id: str | None = None,
+    ) -> None:
+        if not deltas:
+            raise ValueError("deltas must contain at least one entry")
+        content = ListenerRealtimeEventContent(
+            projectConfigId=projectConfigId,
+            shareSessionId=share_session_id,
+            deltas=deltas,
+            sequence=sequence,
+        )
+        sockets_to_notify = set()
+        dependency_keys = tuple(delta.dependency for delta in deltas)
+        for (
+            registration,
+            matching_callbacks,
+        ) in self.listener_registry.iter_callbacks_matching_dependencies(
+            project_config_id=projectConfigId,
+            dependency_keys=dependency_keys,
+            share_session_id=share_session_id,
+        ):
+            if matching_callbacks:
+                sockets_to_notify.add(registration.websocket_id)
+
+        if not sockets_to_notify:
+            return
+
+        message = WebsocketMsgListenerRealtimeEvent(content=content)
+        payload = encode_binary_frame(message.model_dump(), binary_payload)
+        temporary_payload = None
+        for websocket_id in sockets_to_notify:
+            if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+                if temporary_payload is None:
+                    temporary_content = self._convert_outgoing_to_temporary(content)
+                    temporary_message = WebsocketMsgListenerRealtimeEvent(
+                        content=temporary_content
+                    )
+                    temporary_payload = encode_binary_frame(
+                        temporary_message.model_dump(), binary_payload
+                    )
+                await self.websocket_manager.send_bytes(temporary_payload, websocket_id)
+            else:
+                await self.websocket_manager.send_bytes(payload, websocket_id)
+
     async def send_dependency_event(
         self,
         *,
@@ -192,6 +260,53 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
                 )
             else:
                 await self.websocket_manager.send_message(message, websocket_id)
+
+    async def send_dependency_event_binary(
+        self,
+        *,
+        projectConfigId: ID,
+        dependencyEvent: DependencyEvent,
+        binary_payload: bytes,
+        sequence: int,
+        share_session_id: str | None = None,
+    ) -> None:
+        content = ListenerDependencyEventContent(
+            projectConfigId=projectConfigId,
+            shareSessionId=share_session_id,
+            dependencyEvents=[dependencyEvent],
+            sequence=sequence,
+        )
+        sockets_to_notify = set()
+        for (
+            registration,
+            matching_callbacks,
+        ) in self.listener_registry.iter_callbacks_matching_dependencies(
+            project_config_id=projectConfigId,
+            dependency_keys=(dependencyEvent.dependencyKey,),
+            share_session_id=share_session_id,
+        ):
+            if matching_callbacks:
+                sockets_to_notify.add(registration.websocket_id)
+
+        if not sockets_to_notify:
+            return
+
+        message = WebsocketMsgListenerDependencyEvent(content=content)
+        payload = encode_binary_frame(message.model_dump(), binary_payload)
+        temporary_payload = None
+        for websocket_id in sockets_to_notify:
+            if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+                if temporary_payload is None:
+                    temporary_content = self._convert_outgoing_to_temporary(content)
+                    temporary_message = WebsocketMsgListenerDependencyEvent(
+                        content=temporary_content
+                    )
+                    temporary_payload = encode_binary_frame(
+                        temporary_message.model_dump(), binary_payload
+                    )
+                await self.websocket_manager.send_bytes(temporary_payload, websocket_id)
+            else:
+                await self.websocket_manager.send_bytes(payload, websocket_id)
 
     async def send_force_refresh(
         self,

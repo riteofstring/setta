@@ -1,13 +1,15 @@
-import base64
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
 
 import setta.routers.artifact as artifact_router
+from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
@@ -22,11 +24,14 @@ from setta.routers.artifact import (
     route_import_files_to_artifacts,
     route_update_artifacts,
 )
+from setta.routers.binary import route_binary_download, router as binary_router
 from setta.server_state import SettaFastAPIState
+from setta.types.routes import Route
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
 from setta.types.artifact import ArtifactType, FileArtifact
+from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C, CWD
 from tests.utils.runtime_context import runtime_context
 from tests.utils.manager_fixture import _seed_minimal_setta_files
@@ -87,27 +92,36 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         "CODE_FOLDER": C.CODE_FOLDER,
         "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
         "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "RUN_FOLDER": C.RUN_FOLDER,
-        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
-        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
+        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
+        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
+        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
+        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
+        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
+        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
         "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
     C.SETTA_FILES_FOLDER = root / "setta_files"
     C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
     C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
     C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
-    C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
-    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
-    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
+    C.RUNTIME_FOLDER = C.SETTA_FILES_FOLDER / "runtime"
+    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
+    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
+    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
+    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
+    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
     C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
         C.DB_BACKUP_FOLDER,
         C.ARTIFACTS_FOLDER,
-        C.RUN_FOLDER,
-        C.RUN_SESSIONS_FOLDER,
-        C.RUN_LOGS_FOLDER,
+        C.RUNTIME_FOLDER,
+        C.RUNTIME_SESSIONS_FOLDER,
+        C.RUNTIME_LOGS_FOLDER,
+        C.RUNTIME_MCP_FOLDER,
+        C.RUNTIME_SECRETS_FOLDER,
+        C.DETACHED_RUNS_FOLDER,
         C.SHARE_DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)
@@ -120,9 +134,12 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.CODE_FOLDER = previous["CODE_FOLDER"]
     C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
     C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
-    C.RUN_FOLDER = previous["RUN_FOLDER"]
-    C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
-    C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
+    C.RUNTIME_FOLDER = previous["RUNTIME_FOLDER"]
+    C.RUNTIME_SESSIONS_FOLDER = previous["RUNTIME_SESSIONS_FOLDER"]
+    C.RUNTIME_LOGS_FOLDER = previous["RUNTIME_LOGS_FOLDER"]
+    C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
+    C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
+    C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
     C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
 
 
@@ -150,6 +167,7 @@ class TestFileBrowserRoutes:
         *,
         share_mode: bool = False,
         share_deployment_root: Path | None = None,
+        app: FastAPI | None = None,
     ) -> SettaFastAPIState:
         if not share_mode:
             temp_dir = TemporaryDirectory()
@@ -159,7 +177,7 @@ class TestFileBrowserRoutes:
             code_folder = setta_root / "code"
             artifacts_folder = setta_root / "artifacts"
             backup_folder = setta_root / "backups"
-            run_folder = setta_root / "run"
+            run_folder = setta_root / "runtime"
             run_sessions_folder = run_folder / "sessions"
             run_logs_folder = run_folder / "logs"
             share_deployments_folder = setta_root / "share_deployments"
@@ -176,11 +194,12 @@ class TestFileBrowserRoutes:
             C.CODE_FOLDER = code_folder
             C.ARTIFACTS_FOLDER = artifacts_folder
             C.DB_BACKUP_FOLDER = backup_folder
-            C.RUN_FOLDER = run_folder
-            C.RUN_SESSIONS_FOLDER = run_sessions_folder
-            C.RUN_LOGS_FOLDER = run_logs_folder
+            C.RUNTIME_FOLDER = run_folder
+            C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
+            C.RUNTIME_LOGS_FOLDER = run_logs_folder
             C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
-        app = FastAPI()
+        if app is None:
+            app = FastAPI()
         state = SettaFastAPIState(
             app,
             share_mode=share_mode,
@@ -188,6 +207,7 @@ class TestFileBrowserRoutes:
             enable_mcp_connections=False,
             enable_language_server=False,
         )
+        app.state.setta = state
         self._states.append(state)
         await state.wait_until_ready()
         return state
@@ -353,7 +373,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=["/tmp/ignored.txt"]),
+                        ImportFilesToArtifactsRequest(
+                            paths=["/tmp/ignored.txt"],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 403
@@ -365,7 +388,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[str(missing_path)]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[str(missing_path)],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 404
@@ -376,7 +402,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[tmpdir]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[tmpdir],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 400
@@ -389,7 +418,10 @@ class TestFileBrowserRoutes:
             file_path.write_bytes(contents)
             with runtime_context(state) as runtime_ctx:
                 results = await route_import_files_to_artifacts(
-                    ImportFilesToArtifactsRequest(paths=[str(file_path)]),
+                    ImportFilesToArtifactsRequest(
+                        paths=[str(file_path)],
+                        uploadScope="generic",
+                    ),
                     runtime_ctx,
                 )
         assert len(results) == 1
@@ -398,8 +430,10 @@ class TestFileBrowserRoutes:
         assert len(contents) == result.size
         cached = state.artifacts.get_cached_file(result.id)
         assert cached is not None
-        assert cached is not None
-        assert base64.b64encode(contents).decode("utf-8") == cached.value
+        assert cached.value.byteLength == len(contents)
+        binary_store = BinaryStore.from_dbe(state.dbe)
+        stored = binary_store.read_bytes(cached.value.contentId)
+        assert stored == contents
 
     async def test_update_artifacts_rejects_oversized_file(self) -> None:
         state = await self._build_state()
@@ -408,13 +442,20 @@ class TestFileBrowserRoutes:
         try:
             artifact_router.DROPZONE_MAX_FILE_BYTES = 10
             artifact_router.DROPZONE_MAX_FILE_LABEL = "10 bytes"
-            oversized_payload = base64.b64encode(b"a" * 11).decode("utf-8")
             artifact_id = (C.ARTIFACTS_FOLDER / "too-big.bin").as_posix()
-            artifact = FileArtifact(id=artifact_id, value=oversized_payload)
+            oversized_ref = BinaryContentRef(
+                contentId="oversized",
+                byteLength=11,
+                mimeType="application/octet-stream",
+            )
+            artifact = FileArtifact(id=artifact_id, value=oversized_ref)
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_update_artifacts(
-                        UpdateArtifactsRequest(artifacts=[artifact]),
+                        UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
             assert ctx.value.status_code == 413
@@ -422,14 +463,69 @@ class TestFileBrowserRoutes:
             artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
             artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
 
+    async def test_update_artifacts_rejects_oversized_chat_file(self) -> None:
+        state = await self._build_state()
+        original_limit = C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
+        original_label = C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+        try:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 5
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "5 bytes"
+            oversized_payload = base64.b64encode(b"abcdef").decode("utf-8")
+            artifact_id = (C.ARTIFACTS_FOLDER / "too-big.txt").as_posix()
+            artifact = FileArtifact(id=artifact_id, value=oversized_payload)
+            with runtime_context(state) as runtime_ctx:
+                with pytest.raises(HTTPException) as ctx:
+                    await route_update_artifacts(
+                        UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="chat",
+                        ),
+                        runtime_ctx,
+                    )
+            assert ctx.value.status_code == 413
+        finally:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
+
+    async def test_import_files_to_artifacts_respects_chat_size_limit(self) -> None:
+        state = await self._build_state()
+        original_limit = C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
+        original_label = C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+        try:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 4
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "4 bytes"
+            with TemporaryDirectory(dir=CWD) as tmpdir:
+                file_path = Path(tmpdir) / "oversized.txt"
+                file_path.write_bytes(b"12345")
+                with runtime_context(state) as runtime_ctx:
+                    with pytest.raises(HTTPException) as ctx:
+                        await route_import_files_to_artifacts(
+                            ImportFilesToArtifactsRequest(
+                                paths=[str(file_path)],
+                                uploadScope="chat",
+                            ),
+                            runtime_ctx,
+                        )
+            assert ctx.value.status_code == 413
+        finally:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
+
     async def test_delete_artifacts_removes_file(self) -> None:
         state = await self._build_state()
         artifact_id = (C.ARTIFACTS_FOLDER / "dropzone.txt").as_posix()
         expected_id = Path(artifact_id).resolve().as_posix()
-        artifact = FileArtifact(id=artifact_id, value=base64.b64encode(b"data").decode("utf-8"))
+        binary_store = BinaryStore.from_dbe(state.dbe)
+        payload_ref = binary_store.store_bytes(
+            b"data", mime_type="text/plain"
+        )
+        artifact = FileArtifact(id=artifact_id, value=payload_ref)
         with runtime_context(state) as runtime_ctx:
             await route_update_artifacts(
-                UpdateArtifactsRequest(artifacts=[artifact]),
+                UpdateArtifactsRequest(
+                    artifacts=[artifact],
+                    uploadScope="generic",
+                ),
                 runtime_ctx,
             )
             file_path = (CWD / artifact_id).resolve()
@@ -467,6 +563,52 @@ class TestFileBrowserRoutes:
                 )
         assert ctx.value.status_code == 400
 
+    async def test_binary_upload_and_download(self) -> None:
+        app = FastAPI()
+        state = await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
+        payload = b"binary-payload"
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+        assert response.status_code == 200
+        ref = BinaryContentRef(**response.json())
+        with runtime_context(state) as runtime_ctx:
+            response = route_binary_download(ref.contentId, runtime_ctx)
+        binary_store = BinaryStore.from_dbe(state.dbe)
+        assert binary_store.read_bytes(ref.contentId) == payload
+        assert response.media_type == "application/octet-stream"
+        assert Path(response.path).read_bytes() == payload
+
+    async def test_binary_upload_allows_non_durable(self) -> None:
+        app = FastAPI()
+        state = await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
+        payload = b"temporary"
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                data={"durable": "false"},
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+        assert response.status_code == 200
+        ref = BinaryContentRef(**response.json())
+        binary_store = BinaryStore.from_dbe(state.dbe)
+        metadata_path = binary_store.root / f"{ref.contentId}.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        assert metadata["durable"] is False
+
+    async def test_binary_download_rejects_invalid_content_id(self) -> None:
+        state = await self._build_state()
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_binary_download("..", runtime_ctx)
+        assert ctx.value.status_code == 400
+
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:
         state = await self._build_state()
         outside_id = "setta_files/code/should-not-delete.txt"
@@ -484,4 +626,3 @@ class TestFileBrowserRoutes:
                     runtime_ctx,
                 )
         assert ctx.value.status_code == 403
-

@@ -315,7 +315,7 @@ export function ParamNameInput({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         value={inputValue}
-        defaultVal={"Add Key"}
+        defaultVal={"Please Enter Key"}
         onChange={onChange}
         onBlur={onBlur}
         onEscape={onEscape}

@@ -1,28 +1,30 @@
 import _ from "lodash";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
+import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { processTypeErrors } from "state/actions/typeCheck";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_binary_upload,
   route_get_auth_refresh_status,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
-  Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  BinaryDependencyValue,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -31,6 +33,7 @@ import {
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
+  SettaNotificationTypeEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -40,6 +43,7 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
@@ -85,6 +89,7 @@ const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
+const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
@@ -100,6 +105,7 @@ let currentRoute: string | null = null;
 let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
+let lastRealtimeBinaryOversizeWarningAt = 0;
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -168,6 +174,9 @@ export const openWebSocket = _.debounce(
       });
 
       wss.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") {
+          return;
+        }
         receiveMessage(event.data);
       });
 
@@ -392,7 +401,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
-      return processTypeErrors(m.content);
+      return processLspDiagnostics(m.content);
     case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
       return processNameValidationErrors(m.content);
     case WebsocketMsgTypeForFrontendEnum.Notification:
@@ -444,6 +453,7 @@ function sendCurrentAddress(currentAddress: string) {
 function emitRealtimeDependencyValue(
   dependencyKey: BaseDependencyKeyUnion,
   value: BaseDependencyValueUnion,
+  binaryPayload?: ArrayBuffer,
 ) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -463,12 +473,17 @@ function emitRealtimeDependencyValue(
       value,
     },
   };
+  if (value.type === DependencyValueTypeEnum.Binary && binaryPayload) {
+    sendBinaryMessage(message, binaryPayload);
+    return;
+  }
   sendMessage(message);
 }
 
 type DependencyEventInput = {
   dependencyKey: BaseDependencyKeyUnion;
-  payload?: string | null;
+  payload?: BaseDependencyValueUnion | null;
+  binaryPayload?: ArrayBuffer;
   timestampMs?: number;
 };
 
@@ -491,6 +506,13 @@ export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
       dependencyEvent,
     },
   };
+  if (
+    dependencyEvent.payload?.type === DependencyValueTypeEnum.Binary &&
+    event.binaryPayload
+  ) {
+    sendBinaryMessage(message, event.binaryPayload);
+    return;
+  }
   sendMessage(message);
 }
 
@@ -523,23 +545,99 @@ export function sendRealtimeSectionLiteral(sectionId: string, value: string) {
   emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
-export function sendRealtimeSectionBase64(
+export function sendRealtimeSectionBinary(
   sectionId: string,
-  base64Payload: string,
+  payload: ArrayBuffer,
+  mimeType = "image/png",
 ) {
+  if (
+    C.REALTIME_BINARY_MAX_BYTES > 0 &&
+    payload.byteLength > C.REALTIME_BINARY_MAX_BYTES
+  ) {
+    void sendRealtimeSectionBinaryViaUpload(sectionId, payload, mimeType);
+    return;
+  }
   const dependencyKey: SectionDependencyKey = {
     type: DependencyKeyTypeEnum.Section,
     sectionId,
   };
-  const dependencyValue: Base64DependencyValue = {
-    payload: base64Payload,
-    type: DependencyValueTypeEnum.Base64,
+  const dependencyValue: BinaryDependencyValue = {
+    payload: {
+      contentId: createNewId(),
+      byteLength: payload.byteLength,
+      mimeType,
+    },
+    type: DependencyValueTypeEnum.Binary,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue, payload);
 }
 
 function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
+}
+
+function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
+  if (wssReady(wss)) {
+    const frame = encodeBinaryFrame(message, payload);
+    wss.send(frame);
+  }
+}
+
+function maybeWarnRealtimeOversize(message: string) {
+  const now = Date.now();
+  if (
+    now - lastRealtimeBinaryOversizeWarningAt <
+    REALTIME_BINARY_OVERSIZE_COOLDOWN_MS
+  ) {
+    return;
+  }
+  lastRealtimeBinaryOversizeWarningAt = now;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+async function uploadRealtimeBinaryPayload(
+  payload: ArrayBuffer,
+  mimeType: string,
+) {
+  const blob = new Blob([payload], { type: mimeType });
+  const form = new FormData();
+  form.append("file", blob, "realtime.bin");
+  form.append("durable", "false");
+  const res = await route_binary_upload(form);
+  if (!res200(res)) {
+    return null;
+  }
+  return res.data;
+}
+
+async function sendRealtimeSectionBinaryViaUpload(
+  sectionId: string,
+  payload: ArrayBuffer,
+  mimeType: string,
+) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  if (!dependencyKeyCovered(projectConfigId, dependencyKey)) {
+    return;
+  }
+  const ref = await uploadRealtimeBinaryPayload(payload, mimeType);
+  if (!ref) {
+    maybeWarnRealtimeOversize(
+      "Realtime snapshot too large to send. Upload failed.",
+    );
+    return;
+  }
+  const dependencyValue: BinaryDependencyValue = {
+    payload: ref,
+    type: DependencyValueTypeEnum.Binary,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
