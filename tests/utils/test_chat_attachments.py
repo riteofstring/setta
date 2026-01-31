@@ -107,6 +107,48 @@ def test_build_attachment_content_blocks_inlines_text_for_known_extension() -> N
         assert payload in block.text
 
 
+def test_build_attachment_content_blocks_inlines_text_for_multi_dot_names() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        toml_payload = "title = \"Setta\""
+        toml_path = dbe.path / "attachments" / "config.local.toml"
+        dbe.write(toml_path, toml_payload, mode="w")
+        txt_payload = "Hello"
+        txt_path = dbe.path / "attachments" / "notes.en.txt"
+        dbe.write(txt_path, txt_payload, mode="w")
+
+        attachments = [
+            ChatFileAttachment(
+                id=str(toml_path),
+                name="config.local.toml",
+                mimeType="application/octet-stream",
+                size=len(toml_payload),
+            ),
+            ChatFileAttachment(
+                id=str(txt_path),
+                name="notes.en.txt",
+                mimeType="application/octet-stream",
+                size=len(txt_payload),
+            ),
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert len(blocks) == 2
+        first = blocks[0]
+        second = blocks[1]
+        assert isinstance(first, MessageTextContent)
+        assert isinstance(second, MessageTextContent)
+        assert toml_payload in first.text
+        assert txt_payload in second.text
+
+
 def test_build_attachment_content_blocks_prefers_mime_type_override() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = DBE(Path(tmpdir) / "setta_files")

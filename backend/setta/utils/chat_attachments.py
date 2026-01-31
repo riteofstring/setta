@@ -76,17 +76,15 @@ def is_image_mime(mime_type: str) -> bool:
     return mime_type.startswith("image/")
 
 
-def _get_attachment_extension(
+def _get_attachment_suffixes(
     attachment: ChatFileAttachment, path: Path | None
-) -> str | None:
+) -> list[str]:
     if path is not None:
-        suffixes = path.suffixes
+        suffixes = [suffix.lower() for suffix in path.suffixes if suffix]
         if suffixes:
-            return "".join(suffixes).lower()
-    name_suffixes = Path(attachment.name).suffixes
-    if name_suffixes:
-        return "".join(name_suffixes).lower()
-    return None
+            return suffixes
+    name_suffixes = [suffix.lower() for suffix in Path(attachment.name).suffixes]
+    return name_suffixes
 
 
 def is_text_attachment(
@@ -96,10 +94,8 @@ def is_text_attachment(
         return True
     if mime_type != "application/octet-stream":
         return False
-    extension = _get_attachment_extension(attachment, path)
-    if extension and extension in _TEXT_FILE_EXTENSIONS:
-        return True
-    return False
+    suffixes = _get_attachment_suffixes(attachment, path)
+    return any(suffix in _TEXT_FILE_EXTENSIONS for suffix in suffixes)
 
 
 def _resolve_attachment_path_for_read(

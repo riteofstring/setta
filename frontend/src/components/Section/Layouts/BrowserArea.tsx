@@ -3,14 +3,13 @@ import { MediaCarousel } from "components/Utils/MediaCarousel";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import { FiFileText, FiMusic } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
-import sampleText from "../../../../tests/e2e/fixtures/attachments/sample_text.txt?raw";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -23,6 +22,13 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { res200 } from "utils/endpointUtils";
+import {
+  AUDIO_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  PDF_EXTENSIONS,
+  TEXT_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+} from "utils/attachmentExtensions";
 import {
   route_get_folder_contents,
   route_set_browser_area_view_mode,
@@ -45,144 +51,7 @@ const artifactTypes = [
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
-const USE_MOCK_BROWSER_ITEMS = true;
-const MOCK_SAMPLE_IMAGE_URL = new URL(
-  "../../../../tests/e2e/fixtures/attachments/sample_image.jpg",
-  import.meta.url,
-).toString();
-const MOCK_SAMPLE_PDF_URL = new URL(
-  "../../../../tests/e2e/fixtures/attachments/sample_pdf.pdf",
-  import.meta.url,
-).toString();
-const MOCK_SAMPLE_AUDIO_URL = new URL(
-  "../../../../tests/e2e/fixtures/attachments/sample_audio.mp3",
-  import.meta.url,
-).toString();
-const MOCK_SAMPLE_VIDEO_URL = new URL(
-  "../../../../tests/e2e/fixtures/attachments/sample_video.mp4",
-  import.meta.url,
-).toString();
-const MOCK_SAMPLE_TEXT_URL = new URL(
-  "../../../../tests/e2e/fixtures/attachments/sample_text.txt",
-  import.meta.url,
-).toString();
-
-type MockBrowserContent = {
-  previewKind: "image" | "pdf" | "audio" | "video" | "text";
-  url: string;
-  thumbnail?: string;
-  image?: string;
-  text?: string;
-};
-
-type MockBrowserItem = BrowserAreaItem & {
-  content?: MockBrowserContent;
-};
-
-const MOCK_BROWSER_ITEMS: MockBrowserItem[] = [
-  {
-    id: "sample_image.jpg",
-    type: "Image",
-    lastModified: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    content: {
-      previewKind: "image",
-      url: MOCK_SAMPLE_IMAGE_URL,
-      thumbnail: MOCK_SAMPLE_IMAGE_URL,
-      image: MOCK_SAMPLE_IMAGE_URL,
-    },
-  },
-  {
-    id: "sample_pdf.pdf",
-    type: "Other",
-    lastModified: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    content: {
-      previewKind: "pdf",
-      url: MOCK_SAMPLE_PDF_URL,
-    },
-  },
-  {
-    id: "sample_audio.mp3",
-    type: "Other",
-    lastModified: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    content: {
-      previewKind: "audio",
-      url: MOCK_SAMPLE_AUDIO_URL,
-    },
-  },
-  {
-    id: "sample_video.mp4",
-    type: "Video",
-    lastModified: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    content: {
-      previewKind: "video",
-      url: MOCK_SAMPLE_VIDEO_URL,
-    },
-  },
-  {
-    id: "sample_text.txt",
-    type: "Text",
-    lastModified: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    content: {
-      previewKind: "text",
-      url: MOCK_SAMPLE_TEXT_URL,
-      text: sampleText,
-    },
-  },
-];
-
 type BrowserPreviewKind = "image" | "pdf" | "audio" | "video" | "text" | "other";
-
-const IMAGE_EXTENSIONS = new Set([
-  ".apng",
-  ".avif",
-  ".bmp",
-  ".gif",
-  ".heic",
-  ".heif",
-  ".ico",
-  ".jfif",
-  ".jpeg",
-  ".jpg",
-  ".png",
-  ".svg",
-  ".tif",
-  ".tiff",
-  ".webp",
-]);
-const PDF_EXTENSIONS = new Set([".pdf"]);
-const AUDIO_EXTENSIONS = new Set([
-  ".aac",
-  ".flac",
-  ".m4a",
-  ".mp3",
-  ".ogg",
-  ".wav",
-]);
-const VIDEO_EXTENSIONS = new Set([
-  ".avi",
-  ".m4v",
-  ".mov",
-  ".mp4",
-  ".webm",
-]);
-const TEXT_EXTENSIONS = new Set([
-  ".cfg",
-  ".conf",
-  ".csv",
-  ".ini",
-  ".json",
-  ".log",
-  ".md",
-  ".markdown",
-  ".py",
-  ".toml",
-  ".tsv",
-  ".txt",
-  ".vtt",
-  ".xml",
-  ".yaml",
-  ".yml",
-]);
 
 type PreviewIcon = React.ComponentType<{ className?: string; size?: number }>;
 
@@ -240,13 +109,7 @@ function getExtensionBadge(value: string | undefined): string | null {
   return label.length > 6 ? label.slice(0, 6) : label;
 }
 
-function getBrowserPreviewKind(
-  item: BrowserAreaItem,
-  content?: MockBrowserContent,
-): BrowserPreviewKind {
-  if (content?.previewKind) {
-    return content.previewKind;
-  }
+function getBrowserPreviewKind(item: BrowserAreaItem): BrowserPreviewKind {
   const extension = extractExtension(item.id);
   if (extension) {
     if (IMAGE_EXTENSIONS.has(extension)) {
@@ -586,20 +449,17 @@ function ViewSwitch({
         >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
             {items.map((item) => {
-              const content = (item as MockBrowserItem).content;
-              const previewKind = getBrowserPreviewKind(item, content);
+              const previewKind = getBrowserPreviewKind(item);
               const badgeText =
                 previewKind === "image"
                   ? null
                   : getExtensionBadge(item.id) ?? previewKind.toUpperCase();
-              const thumbnailUrl =
-                previewKind === "image" ? content?.thumbnail ?? null : null;
               return (
                 <ThumbnailItem
                   key={item.id}
                   previewKind={previewKind}
                   badgeText={badgeText}
-                  thumbnailUrl={thumbnailUrl}
+                  thumbnailUrl={null}
                   label={item.id}
                 >
                   {item.id}
@@ -613,26 +473,17 @@ function ViewSwitch({
     case BrowserAreaViewModeEnum.carousel:
       return (
         <MediaCarousel
-          items={items.map((item) => {
-            const content = (item as MockBrowserItem).content;
-            const previewKind = getBrowserPreviewKind(item, content);
-            const isImage = previewKind === "image";
-            return {
-              id: item.id,
-              label: item.id,
-              thumbnailUrl: isImage ? content?.thumbnail ?? null : null,
-              imageUrl: isImage ? content?.image ?? null : null,
-              text: previewKind === "text" ? content?.text ?? null : null,
-              data: item,
-            };
-          })}
+          items={items.map((item) => ({
+            id: item.id,
+            label: item.id,
+            data: item,
+          }))}
           renderThumbnail={(item) => {
-            const data = item.data as MockBrowserItem | undefined;
+            const data = item.data as BrowserAreaItem | undefined;
             if (!data) {
               return null;
             }
-            const content = data.content;
-            const previewKind = getBrowserPreviewKind(data, content);
+            const previewKind = getBrowserPreviewKind(data);
             const badgeText =
               previewKind === "image"
                 ? null
@@ -647,47 +498,6 @@ function ViewSwitch({
                 label={item.label}
               />
             );
-          }}
-          renderPreview={(item) => {
-            const data = item.data as MockBrowserItem | undefined;
-            const content = data?.content;
-            if (!content?.previewKind || !content.url) {
-              return null;
-            }
-            if (content.previewKind === "pdf") {
-              return (
-                <div className="relative h-full w-full overflow-hidden rounded-md">
-                  <iframe
-                    src={content.url}
-                    title={item.label}
-                    className="h-full w-full"
-                  />
-                </div>
-              );
-            }
-            if (content.previewKind === "audio") {
-              return (
-                <div className="flex h-full w-full items-center justify-center">
-                  <audio
-                    controls
-                    preload="metadata"
-                    className="w-full max-w-[720px]"
-                  >
-                    <source src={content.url} />
-                  </audio>
-                </div>
-              );
-            }
-            if (content.previewKind === "video") {
-              return (
-                <div className="relative h-full w-full">
-                  <video controls preload="metadata" className="h-full w-full">
-                    <source src={content.url} />
-                  </video>
-                </div>
-              );
-            }
-            return null;
           }}
           renderThumbnailOverlay={() => (
             <input
@@ -759,7 +569,7 @@ function ItemsColumn({
       <ViewSwitch
         view={value}
         sectionId={sectionId}
-        items={USE_MOCK_BROWSER_ITEMS ? MOCK_BROWSER_ITEMS : items}
+        items={items}
       />
     </div>
   );

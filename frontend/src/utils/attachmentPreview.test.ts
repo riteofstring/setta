@@ -29,6 +29,15 @@ describe("attachmentPreview", () => {
     expect(getAttachmentPreviewKind(attachment)).toBe("text");
   });
 
+  it("treats vtt as text", () => {
+    const attachment = buildAttachment({
+      name: "subtitles.vtt",
+      id: "artifacts/subtitles.vtt",
+    });
+    expect(isTextAttachment(attachment)).toBe(true);
+    expect(getAttachmentPreviewKind(attachment)).toBe("text");
+  });
+
   it("detects pdf by mime", () => {
     const attachment = buildAttachment({ mimeType: "application/pdf" });
     expect(isPdfAttachment(attachment)).toBe(true);

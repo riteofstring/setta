@@ -284,28 +284,6 @@ function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
   return formatBytes(attachment.size);
 }
 
-async function openAttachmentInNewTab(
-  attachment: ChatFileAttachment,
-  attachmentUrlMap: Record<string, AttachmentUrlEntry>,
-  requestAttachmentUrls: (
-    targets: ChatFileAttachment[],
-    options?: { force?: boolean },
-  ) => Promise<Record<string, AttachmentUrlEntry>>,
-) {
-  const now = Date.now();
-  const entry = attachmentUrlMap[attachment.id];
-  if (entry && !isAttachmentUrlStale(entry, now)) {
-    window.open(entry.url, "_blank", "noopener,noreferrer");
-    return;
-  }
-  const refreshed = await requestAttachmentUrls([attachment], { force: true });
-  const nextEntry = refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
-  if (!nextEntry || isAttachmentUrlStale(nextEntry, Date.now())) {
-    return;
-  }
-  window.open(nextEntry.url, "_blank", "noopener,noreferrer");
-}
-
 function AttachmentPreviewDialog({
   open,
   onOpenChange,
@@ -314,7 +292,6 @@ function AttachmentPreviewDialog({
   onSelectAttachmentId,
   attachmentUrlMap,
   requestAttachmentUrls,
-  onOpenAttachment,
   onImageError,
 }: {
   open: boolean;
@@ -327,7 +304,6 @@ function AttachmentPreviewDialog({
     targets: ChatFileAttachment[],
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
-  onOpenAttachment: (attachment: ChatFileAttachment) => void;
   onImageError: (attachment: ChatFileAttachment) => void;
 }) {
   const selectedIndex = useMemo(() => {
@@ -708,16 +684,7 @@ function AttachmentPreviewDialog({
                   <div className="truncate">
                     {selectedAttachment.mimeType ?? "Unknown type"}
                   </div>
-                  <div className="flex items-center gap-3">
-                    {sizeLabel ? <span>{sizeLabel}</span> : null}
-                    <button
-                      type="button"
-                      onClick={() => onOpenAttachment(selectedAttachment)}
-                      className="uppercase tracking-[0.2em] text-setta-400 transition hover:text-setta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:hover:text-setta-200"
-                    >
-                      Open
-                    </button>
-                  </div>
+                  {sizeLabel ? <span>{sizeLabel}</span> : null}
                 </div>
               }
             />
@@ -756,16 +723,6 @@ function ChatAttachmentList({
       void requestAttachmentUrls([attachment], { force: true });
     },
     [requestAttachmentUrls],
-  );
-  const handleAttachmentOpen = useCallback(
-    (attachment: ChatFileAttachment) => {
-      void openAttachmentInNewTab(
-        attachment,
-        attachmentUrlMap,
-        requestAttachmentUrls,
-      );
-    },
-    [attachmentUrlMap, requestAttachmentUrls],
   );
   const handlePreviewOpen = useCallback((attachment: ChatFileAttachment) => {
     setPreviewAttachmentId(attachment.id);
@@ -815,7 +772,6 @@ function ChatAttachmentList({
         onSelectAttachmentId={setPreviewAttachmentId}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
-        onOpenAttachment={handleAttachmentOpen}
         onImageError={handleImageError}
       />
       <div className="flex flex-wrap gap-2">
@@ -869,16 +825,6 @@ function ChatAttachmentList({
                 {sizeLabel}
               </span>
             ) : null}
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleAttachmentOpen(attachment);
-              }}
-              className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
-            >
-              Open
-            </button>
           </div>
         );
       })}
