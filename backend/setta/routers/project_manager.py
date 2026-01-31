@@ -139,11 +139,7 @@ from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
-from setta.utils.errors import (
-    InvalidParamName,
-    InvalidSectionName,
-    InvalidViewModeName,
-)
+from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 logger = logging.getLogger(__name__)
 
@@ -415,10 +411,7 @@ async def route_set_view_mode_name(
 ) -> None:
     await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_view_mode_name(x)
-    except InvalidViewModeName as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await manager.set_view_mode_name(x)
 
 
 @router.post(Route.DELETE_VIEW_MODE)

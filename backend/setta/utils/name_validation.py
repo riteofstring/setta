@@ -25,12 +25,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.utils.constants import C
-from setta.utils.errors import (
-    InvalidParamName,
-    InvalidProjectName,
-    InvalidSectionName,
-    InvalidViewModeName,
-)
+from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
 
 if TYPE_CHECKING:
     from setta.types.id import ID
@@ -110,28 +105,6 @@ def _project_name_format_error(
     return None
 
 
-def _view_mode_name_format_error(normalized: str) -> str | None:
-    if not normalized:
-        return "View mode name cannot be empty."
-    if _contains_control_chars(normalized):
-        return "View mode name cannot include control characters."
-    if "/" in normalized or "\\" in normalized:
-        return "View mode name cannot include path separators."
-    if ".." in normalized:
-        return "View mode name cannot include '..' path segments."
-    for char in normalized:
-        if char not in ALLOWED_SIMPLE_NAME_CHARS:
-            return (
-                "View mode name can only contain letters, numbers, spaces, '_' and '-'."
-            )
-    if normalized.lower() in PROJECT_RESERVED_NAMES:
-        return f"View mode name '{normalized}' is reserved."
-    slug = sanitize_slug(normalized)
-    if not slug:
-        return "View mode name is invalid after sanitization."
-    return None
-
-
 def get_project_name_format_error(
     name: str,
     *,
@@ -168,38 +141,6 @@ def validate_project_name(
             _raise_invalid_name(
                 f"Project name '{normalized}' conflicts with existing project '{config.name}'.",
                 InvalidProjectName,
-            )
-    return normalized
-
-
-def get_view_mode_name_format_error(name: str) -> str | None:
-    normalized = _normalize_name(name)
-    return _view_mode_name_format_error(normalized)
-
-
-def validate_view_mode_name_format(name: str) -> str:
-    normalized = _normalize_name(name)
-    error = _view_mode_name_format_error(normalized)
-    if error:
-        _raise_invalid_name(error, InvalidViewModeName)
-    return normalized
-
-
-def validate_view_mode_name(
-    project_state: "ProjectStateSingleConfig",
-    view_mode_id: "ID | None",
-    name: str,
-) -> str:
-    normalized = validate_view_mode_name_format(name)
-    slug = sanitize_slug(normalized)
-    for existing_id, view_mode in project_state.projectConfig.viewModes.items():
-        if view_mode_id is not None and existing_id == view_mode_id:
-            continue
-        existing_slug = sanitize_slug(view_mode.name)
-        if slug == existing_slug:
-            _raise_invalid_name(
-                f"View mode name '{normalized}' conflicts with existing view mode '{view_mode.name}'.",
-                InvalidViewModeName,
             )
     return normalized
 
