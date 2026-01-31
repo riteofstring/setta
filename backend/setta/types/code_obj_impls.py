@@ -143,6 +143,7 @@ class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
+    hasSecret: bool = False
 
 
 class TextAreaParamCodeObjImpl(BaseChildlessCodeObjImpl):

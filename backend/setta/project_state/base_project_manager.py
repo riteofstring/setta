@@ -73,7 +73,6 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
-from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
@@ -144,8 +143,6 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
-    SetCodeSectionDiagnosticCodeSuppressionRequest,
-    SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
     SetEdgesRequest,
     SetGenCodePrefixRequest,
@@ -267,8 +264,6 @@ from setta.types.helpers_lvl2 import (
     set_chat_section_state,
     set_code,
     set_code_file_binding,
-    set_code_section_diagnostic_code_suppression,
-    set_code_section_diagnostics_mute,
     set_default_section_variant,
     set_edges,
     set_group_overflow_mode,
@@ -319,7 +314,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
@@ -488,9 +483,6 @@ class BaseProjectManager(ABC):
         self.code_dict: dict[
             str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
         ] = {}
-        self.lsp_diagnostics_state_by_project_config: dict[
-            ID, ProjectLspDiagnosticsState
-        ] = {}
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
         ] = asyncio.Queue()
@@ -526,22 +518,6 @@ class BaseProjectManager(ABC):
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
-
-    def _get_lsp_diagnostics_state(
-        self, project_config_id: ID
-    ) -> ProjectLspDiagnosticsState:
-        diagnostics_state = self.lsp_diagnostics_state_by_project_config.get(
-            project_config_id
-        )
-        if diagnostics_state is None:
-            diagnostics_state = ProjectLspDiagnosticsState(
-                project_config_id=project_config_id,
-                websocket_msg_handler=self.websocket_msg_handler,
-            )
-            self.lsp_diagnostics_state_by_project_config[project_config_id] = (
-                diagnostics_state
-            )
-        return diagnostics_state
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -972,7 +948,7 @@ class BaseProjectManager(ABC):
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
         if run_snapshot_mode == RunSnapshotMode.ephemeral:
-            return C.RUN_FOLDER
+            return C.RUNTIME_FOLDER
         if run_snapshot_mode == RunSnapshotMode.always:
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
@@ -1075,15 +1051,6 @@ class BaseProjectManager(ABC):
     ) -> None:
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
-        diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
-        prev_gen_code = self.gen_code.get(projectConfigId)
-        prev_full_code = prev_gen_code.code if prev_gen_code is not None else None
-        valid_code_section_ids: set[ID] = set()
-        for section_id in projectState.sections.keys():
-            section_impl = get_curr_effective_section_impl(projectState, section_id)
-            if isinstance(section_impl, CodeSectionImpl):
-                valid_code_section_ids.add(section_id)
-        await diagnostics_state.prune_code_sections(valid_code_section_ids)
         python_codegen_enabled = project_config_has_codegen_language(
             projectConfig,
             ProjectCodegenLanguage.python,
@@ -1107,11 +1074,6 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
-            if prev_full_code != code_generator.code:
-                await diagnostics_state.reset(
-                    clear_gen_code=True,
-                    clear_unmapped=True,
-                )
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
                 projectState
             )
@@ -1129,7 +1091,6 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
                 ignore_type_errors_by_section,
-                diagnostics_state,
                 initial_undefined_callable_sections=prev_undefined_callable_sections,
                 initial_callable_mismatch_sections=prev_callable_mismatch_sections,
                 on_callable_symbols_resolved=self.auto_refetch_callable_params,
@@ -1154,10 +1115,6 @@ class BaseProjectManager(ABC):
             if projectConfigId in self.gen_code:
                 self.gen_code[projectConfigId].callback_cleanup()
                 self.gen_code.pop(projectConfigId, None)
-            await diagnostics_state.reset(
-                clear_gen_code=True,
-                clear_unmapped=True,
-            )
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
@@ -1249,13 +1206,8 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
         async with self._project_state_lock.read_lock():
-            gen_code = self.gen_code.get(projectConfigId)
-            code_entries = list(self.code_dict.get(projectConfigId, {}).values())
-        if gen_code is not None:
-            await gen_code.type_check()
-        for code_entry in code_entries:
-            if isinstance(code_entry, ProjectPythonCode):
-                await code_entry.type_check()
+            gen_code = self._require_python_codegen(projectConfigId)
+        await gen_code.type_check()
 
     async def _refetch_callable_params(
         self,
@@ -1679,72 +1631,6 @@ class BaseProjectManager(ABC):
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    async def _apply_code_section_diagnostics_ignore_state(
-        self,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> None:
-        code_entries = self.code_dict.get(project_config_id)
-        if not code_entries:
-            return
-        if section_id not in code_entries:
-            return
-        code_entry = code_entries[section_id]
-        if not isinstance(code_entry, ProjectPythonCode):
-            return
-        project_state = self.get_single_config_state(project_config_id)
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state, section_id, CodeSectionImpl
-        )
-        ignore_state = section_impl.diagnosticsIgnoreState
-        code_entry.update_diagnostics_ignore_state(ignore_state)
-        diagnostics_state = self._get_lsp_diagnostics_state(project_config_id)
-        await diagnostics_state.reapply_code_section_ignore_state(
-            section_id,
-            ignore_state,
-        )
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        )
-    )
-    async def set_code_section_diagnostics_mute(
-        self, x: SetCodeSectionDiagnosticsMuteRequest
-    ):
-        """Toggle muting LSP diagnostics for a code section."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-        await self._apply_code_section_diagnostics_ignore_state(
-            x.projectConfigId, x.sectionId
-        )
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        )
-    )
-    async def set_code_section_diagnostic_code_suppression(
-        self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
-    ):
-        """Toggle suppressing an LSP diagnostic code for a code section."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_code_section_diagnostic_code_suppression(
-            project_state,
-            x.sectionId,
-            x.code,
-            x.suppress,
-        )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-        await self._apply_code_section_diagnostics_ignore_state(
-            x.projectConfigId, x.sectionId
-        )
 
     @enqueue_method
     @project_state_tool(
@@ -2335,7 +2221,6 @@ class BaseProjectManager(ABC):
                 self.code_files,
                 self.lsp_writers,
                 self.websocket_msg_handler,
-                self._get_lsp_diagnostics_state(project_state.projectConfig.id),
                 project_state,
                 sectionId,
             )
@@ -2505,17 +2390,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
-        for project_config_id in project_config_ids:
-            del self.project_state_backend.projectConfigs[project_config_id]
-            gen_code = self.gen_code.pop(project_config_id, None)
-            if gen_code is not None:
-                gen_code.callback_cleanup()
-            code_entries = self.code_dict.pop(project_config_id, None)
-            if code_entries:
-                for code_entry in code_entries.values():
-                    if isinstance(code_entry, ProjectPythonCode):
-                        code_entry.callback_cleanup()
-            self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
+        for id in project_config_ids:
+            del self.project_state_backend.projectConfigs[id]
         self.project_state_backend.validate_default_project_id()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
@@ -3365,10 +3241,11 @@ class BaseProjectManager(ABC):
     @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_lsp_diagnostics(
         self, x: GetLatestLspDiagnosticsRequest
-    ) -> SettaLspDiagnosticsPayload:
-        """Return the latest parsed LSP diagnostics payload for the project config."""
-        diagnostics_state = self._get_lsp_diagnostics_state(x.projectConfigId)
-        return diagnostics_state.snapshot()
+    ) -> SettaProjectConfigDiagnostics:
+        """Return the latest parsed LSP diagnostics for generated code."""
+        async with self._project_state_lock.read_lock():
+            gen_code = self._require_python_codegen(x.projectConfigId)
+        return gen_code.latest_diagnostics
 
     @enqueue_method
     async def autosave(self):
