@@ -9,7 +9,7 @@ import {
 } from "utils/attachmentExtensions";
 import { ChatFileAttachment } from "utils/generatedTypes";
 
-export type AttachmentPreviewKind =
+type AttachmentPreviewKind =
   | "image"
   | "text"
   | "pdf"

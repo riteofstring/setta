@@ -454,11 +454,7 @@ function AttachmentPreviewDialog({
   );
 
   const renderFileCard = useCallback(
-    (
-      attachment: ChatFileAttachment,
-      icon: ReactNode,
-      description?: string,
-    ) => {
+    (attachment: ChatFileAttachment, icon: ReactNode, description?: string) => {
       const sizeLabel = getAttachmentSizeLabel(attachment);
       return (
         <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
@@ -590,11 +586,7 @@ function AttachmentPreviewDialog({
         }
         return (
           <div className="flex h-full w-full items-center justify-center">
-            <audio
-              controls
-              preload="metadata"
-              className="w-full max-w-[720px]"
-            >
+            <audio controls preload="metadata" className="w-full max-w-[720px]">
               <source src={attachmentUrl} />
             </audio>
           </div>
@@ -775,59 +767,61 @@ function ChatAttachmentList({
         onImageError={handleImageError}
       />
       <div className="flex flex-wrap gap-2">
-      {attachments.map((attachment) => {
-        const isImage = isImageAttachment(attachment);
-        const entry = attachmentUrlMap[attachment.id];
-        const url = entry ? entry.url : "";
-        const sizeLabel = getAttachmentSizeLabel(attachment);
-        if (isImage && url) {
-          return (
-            <div key={attachment.id} className="flex w-24 flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => handlePreviewOpen(attachment)}
-                className="inline-flex h-16 w-16 cursor-pointer items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-              >
-                <ChatImage
-                  url={url}
-                  onError={() => handleImageError(attachment)}
-                  className={`h-16 w-16 cursor-pointer object-cover ${
-                    isUser ? "border-white/40 bg-white/10" : ""
-                  }`}
-                />
-              </button>
-              <div
-                className={`flex w-full flex-col gap-0.5 text-[10px] ${detailClassName}`}
-              >
-                <span className="truncate">{attachment.name}</span>
-                {sizeLabel ? <span className="opacity-70">{sizeLabel}</span> : null}
+        {attachments.map((attachment) => {
+          const isImage = isImageAttachment(attachment);
+          const entry = attachmentUrlMap[attachment.id];
+          const url = entry ? entry.url : "";
+          const sizeLabel = getAttachmentSizeLabel(attachment);
+          if (isImage && url) {
+            return (
+              <div key={attachment.id} className="flex w-24 flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => handlePreviewOpen(attachment)}
+                  className="inline-flex h-16 w-16 cursor-pointer items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                >
+                  <ChatImage
+                    url={url}
+                    onError={() => handleImageError(attachment)}
+                    className={`h-16 w-16 cursor-pointer object-cover ${
+                      isUser ? "border-white/40 bg-white/10" : ""
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`flex w-full flex-col gap-0.5 text-[10px] ${detailClassName}`}
+                >
+                  <span className="truncate">{attachment.name}</span>
+                  {sizeLabel ? (
+                    <span className="opacity-70">{sizeLabel}</span>
+                  ) : null}
+                </div>
               </div>
+            );
+          }
+          return (
+            <div
+              key={attachment.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => handlePreviewOpen(attachment)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handlePreviewOpen(attachment);
+                }
+              }}
+              className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
+            >
+              <span className="max-w-[220px] truncate">{attachment.name}</span>
+              {sizeLabel ? (
+                <span className={`text-[10px] ${detailClassName}`}>
+                  {sizeLabel}
+                </span>
+              ) : null}
             </div>
           );
-        }
-        return (
-          <div
-            key={attachment.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => handlePreviewOpen(attachment)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                handlePreviewOpen(attachment);
-              }
-            }}
-            className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
-          >
-            <span className="max-w-[220px] truncate">{attachment.name}</span>
-            {sizeLabel ? (
-              <span className={`text-[10px] ${detailClassName}`}>
-                {sizeLabel}
-              </span>
-            ) : null}
-          </div>
-        );
-      })}
+        })}
       </div>
     </>
   );

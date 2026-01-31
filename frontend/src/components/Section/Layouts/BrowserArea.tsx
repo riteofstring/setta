@@ -21,7 +21,6 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { res200 } from "utils/endpointUtils";
 import {
   AUDIO_EXTENSIONS,
   IMAGE_EXTENSIONS,
@@ -29,6 +28,7 @@ import {
   TEXT_EXTENSIONS,
   VIDEO_EXTENSIONS,
 } from "utils/attachmentExtensions";
+import { res200 } from "utils/endpointUtils";
 import {
   route_get_folder_contents,
   route_set_browser_area_view_mode,
@@ -51,7 +51,13 @@ const artifactTypes = [
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
-type BrowserPreviewKind = "image" | "pdf" | "audio" | "video" | "text" | "other";
+type BrowserPreviewKind =
+  | "image"
+  | "pdf"
+  | "audio"
+  | "video"
+  | "text"
+  | "other";
 
 type PreviewIcon = React.ComponentType<{ className?: string; size?: number }>;
 
@@ -77,7 +83,8 @@ const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   image: "",
   pdf: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
   audio: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
-  video: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+  video:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
   text: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
   other: "bg-setta-200 text-setta-700 dark:bg-setta-700/40 dark:text-setta-200",
 };
@@ -174,7 +181,7 @@ function BrowserThumbnailContent({
       </div>
       {badgeText ? (
         <span
-          className={`single-cell-child mb-1 mr-1 justify-self-end self-end rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${badgeClassName}`}
+          className={`single-cell-child mb-1 mr-1 self-end justify-self-end rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${badgeClassName}`}
         >
           {badgeText}
         </span>
@@ -566,11 +573,7 @@ function ItemsColumn({
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch
-        view={value}
-        sectionId={sectionId}
-        items={items}
-      />
+      <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>
   );
 }

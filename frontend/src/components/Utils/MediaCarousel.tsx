@@ -1,4 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { FiChevronLeft, FiChevronRight, FiFileText } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";
 import { useIsScrollable } from "state/hooks/sectionSizes";
@@ -164,11 +170,8 @@ export function MediaCarousel<T>({
     return null;
   }
 
-  const resolvedPreview = selectedItem
-    ? renderPreview?.(selectedItem)
-    : null;
-  const previewContent =
-    resolvedPreview ?? renderDefaultPreview(selectedItem);
+  const resolvedPreview = selectedItem ? renderPreview?.(selectedItem) : null;
+  const previewContent = resolvedPreview ?? renderDefaultPreview(selectedItem);
 
   const previewContainerClasses = [
     "relative flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg",
@@ -201,9 +204,7 @@ export function MediaCarousel<T>({
   const resolvedSelectedThumbnailClassName =
     selectedThumbnailClassName ?? defaultSelectedThumbnailClassName;
 
-  function renderDefaultPreview(
-    item: MediaCarouselItem<T> | null,
-  ): ReactNode {
+  function renderDefaultPreview(item: MediaCarouselItem<T> | null): ReactNode {
     if (!item) {
       return (
         <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
@@ -239,11 +240,7 @@ export function MediaCarousel<T>({
   }
 
   return (
-    <div
-      className={wrapperClasses}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
+    <div className={wrapperClasses} tabIndex={0} onKeyDown={handleKeyDown}>
       <section className={previewContainerClasses}>
         {showNavButtons && items.length > 1 ? (
           <button
@@ -298,7 +295,10 @@ export function MediaCarousel<T>({
             >
               <div
                 className={thumbnailContainerClassName}
-                style={{ width: `${thumbnailSize}px`, height: `${thumbnailSize}px` }}
+                style={{
+                  width: `${thumbnailSize}px`,
+                  height: `${thumbnailSize}px`,
+                }}
               >
                 {customThumbnail ??
                   (item.thumbnailUrl ? (

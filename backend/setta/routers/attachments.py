@@ -1,7 +1,7 @@
 import mimetypes
 from datetime import datetime, timezone
-from urllib.parse import quote
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import HTTPException, status
 from fastapi.responses import Response

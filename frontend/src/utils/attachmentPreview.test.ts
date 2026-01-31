@@ -9,7 +9,9 @@ import {
 } from "./attachmentPreview";
 import { ChatFileAttachment } from "./generatedTypes";
 
-function buildAttachment(overrides: Partial<ChatFileAttachment>): ChatFileAttachment {
+function buildAttachment(
+  overrides: Partial<ChatFileAttachment>,
+): ChatFileAttachment {
   return {
     id: "artifacts/attachment.bin",
     name: "attachment.bin",
