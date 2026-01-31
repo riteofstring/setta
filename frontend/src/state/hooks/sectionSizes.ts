@@ -220,15 +220,7 @@ export function useSectionMinMaxDims(sectionId: string) {
     return typeof height === "number" ? height : 0;
   });
 
-  const {
-    isAutoHeight,
-    policyMaxHeight,
-    maxHeight,
-    minHeight,
-    minWidth,
-    maxWidth,
-    sizeMode,
-  } = useProjectState((x) => {
+  return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const sectionType = impl.type;
@@ -344,27 +336,8 @@ export function useSectionMinMaxDims(sectionId: string) {
       metaControlSizeMode,
     });
 
-    return {
-      minHeight,
-      maxHeight,
-      minWidth,
-      maxWidth,
-      sizeMode,
-      isAutoHeight,
-      policyMaxHeight,
-    };
+    return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
   }, _.isEqual);
-
-  const resolvedMaxHeight =
-    isAutoHeight && resizeEvent === "start" ? policyMaxHeight : maxHeight;
-
-  return {
-    minHeight,
-    maxHeight: resolvedMaxHeight,
-    minWidth,
-    maxWidth,
-    sizeMode,
-  };
 }
 
 type UseIsScrollableOptions = {
