@@ -125,7 +125,13 @@ class SpecificFileWatcher:
         dirs_to_remove = current_watched_dirs - dirs_to_watch
         for dir_path in dirs_to_remove:
             if dir_path in self.watched_dirs:
-                self.observer.unschedule(self.watched_dirs[dir_path])
+                try:
+                    self.observer.unschedule(self.watched_dirs[dir_path])
+                except KeyError:
+                    logger.debug(
+                        "Specific file watcher watch already unscheduled: %s",
+                        dir_path,
+                    )
                 del self.watched_dirs[dir_path]
 
         dirs_to_add = dirs_to_watch - current_watched_dirs
