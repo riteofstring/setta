@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import suppress
 
 from setta.logging.tasks import spawn_background_task
@@ -12,6 +13,7 @@ from .server import LanguageServer
 from .writer import LanguageServerWriter
 
 LSP_SHUTDOWN_TIMEOUT_SECONDS = 3
+logger = logging.getLogger(__name__)
 
 
 class LSPServers:
@@ -107,8 +109,12 @@ async def stop_lsps(lsps: LSPServers, lsp_readers: LSPReaders):
     try:
         await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        process.kill()
-        await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
+        with suppress(ProcessLookupError):
+            process.kill()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
+        except (asyncio.TimeoutError, ProcessLookupError):
+            logger.warning("Timed out waiting for LSP process to exit after kill.")
     for reader in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
         if reader is None:
             continue

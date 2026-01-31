@@ -38,12 +38,8 @@ export async function loadProjectConfig({ projectConfigName }) {
 }
 
 export async function loadProjectState(p: ProjectStateSingleConfig) {
-  const { viewport, topLevelSections } = p.projectConfig;
-  const hasTopLevelSections = Object.keys(topLevelSections).length > 0;
-  // Treat the default viewport as "unset" so initial sections get fit into view.
-  const isDefaultViewport =
-    !!viewport && viewport.x === 0 && viewport.y === 0 && viewport.zoom === 1;
-  if (!viewport || (hasTopLevelSections && isDefaultViewport)) {
+  const { viewport, viewportInitialized } = p.projectConfig;
+  if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
     const { x, y, zoom } = viewport;

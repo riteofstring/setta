@@ -266,9 +266,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
     manager.shutdown()
-    manager.autosave_debouncer.cancel()
     manager.autosave_debouncer.cancel_pending()
-    manager.queue_task.cancel()
 
     while True:
         try:
@@ -288,14 +286,7 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
-    if not watcher._started:
-        return
-    observer = watcher.observer
-    if observer.is_alive():
-        observer.stop()
-        # Avoid hanging CI if watchdog threads don't exit cleanly.
-        observer.join(timeout=1.0)
-    watcher._started = False
+    watcher.stop()
 
 
 async def _stop_lsps_and_file_watcher(
@@ -303,11 +294,7 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
-    file_watcher = lsp_writers.file_watcher
-    observer = file_watcher.observer
-    if observer.is_alive():
-        observer.stop()
-        observer.join(timeout=1.0)
+    lsp_writers.file_watcher.stop()
     await _close_lsp_process(process)
 
 

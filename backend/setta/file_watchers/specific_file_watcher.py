@@ -43,6 +43,7 @@ class SpecificFileWatcher:
         self._pending_reads: set[Path] = set()
         self._loop = loop
         self._started = False
+        self._started_once = False
         self.handler = SpecificFileEventHandler(
             self._get_loop,
             self.callbacks,
@@ -171,8 +172,18 @@ class SpecificFileWatcher:
 
     def start(self):
         self._get_loop()
+        if self._started:
+            if self.observer.is_alive():
+                return
+            self._started = False
+        if self.observer.is_alive():
+            self._started = True
+            return
+        if self._started_once:
+            self._reset_observer()
         self.observer.start()
         self._started = True
+        self._started_once = True
 
     def stop(self):
         if not self._started:
@@ -185,7 +196,16 @@ class SpecificFileWatcher:
                 logger.warning(
                     "Specific file watcher observer did not shut down within timeout."
                 )
-        self._started = False
+            else:
+                self._started = False
+        else:
+            self._started = False
+
+    def _reset_observer(self) -> None:
+        self.observer = Observer()
+        self.observer.daemon = True
+        self.watched_dirs.clear()
+        self._sync_watches()
 
 
 class SpecificFileEventHandler(FileSystemEventHandler):
