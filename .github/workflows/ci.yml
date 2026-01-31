@@ -51,9 +51,40 @@ jobs:
           PY
           echo "suites=$(cat /tmp/test_suites.json)" >> "$GITHUB_OUTPUT"
 
+  discover-playwright:
+    runs-on: ubuntu-latest
+    outputs:
+      suites: ${{ steps.discover.outputs.suites }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: discover
+        name: Discover Playwright suites
+        run: |
+          python - <<'PY' > /tmp/playwright_suites.json
+          import json
+          from pathlib import Path
+
+          root = Path("frontend/tests/e2e")
+          excluded = {"__pycache__", "fixtures"}
+          suites = []
+
+          if root.exists():
+              root_specs = list(root.glob("*.spec.*"))
+              if root_specs:
+                  suites.append("root")
+
+              for path in sorted(root.iterdir()):
+                  if path.is_dir() and path.name not in excluded:
+                      if any(path.rglob("*.spec.*")):
+                          suites.append(path.name)
+
+          print(json.dumps(suites))
+          PY
+          echo "suites=$(cat /tmp/playwright_suites.json)" >> "$GITHUB_OUTPUT"
+
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     needs: discover-tests
     strategy:
       fail-fast: false
@@ -74,7 +105,7 @@ jobs:
       - name: Backend tests (${{ matrix.suite }})
         run: ./scripts/run_backend_tests.sh tests/${{ matrix.suite }}
 
-  frontend:
+  frontend-unit:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -104,8 +135,55 @@ jobs:
       - name: Frontend unit tests
         run: pnpm -C frontend exec vitest run
 
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: discover-playwright
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.discover-playwright.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: scripts/node_version.txt
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install frontend deps
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Install Python deps
+        run: uv sync --all-extras
+
       - name: Install Playwright browsers
         run: pnpm -C frontend exec playwright install --with-deps
 
-      - name: Playwright E2E
-        run: ./scripts/run-playwright-e2e.sh
+      - name: Playwright E2E (${{ matrix.suite }})
+        run: |
+          if [[ "${{ matrix.suite }}" == "root" ]]; then
+            shopt -s nullglob
+            files=(frontend/tests/e2e/*.spec.*)
+            if (( ${#files[@]} == 0 )); then
+              echo "No root-level Playwright specs found."
+              exit 0
+            fi
+            args=()
+            for file in "${files[@]}"; do
+              args+=("${file#frontend/}")
+            done
+            ./scripts/run-playwright-e2e.sh "${args[@]}"
+          else
+            ./scripts/run-playwright-e2e.sh "tests/e2e/${{ matrix.suite }}"
+          fi
