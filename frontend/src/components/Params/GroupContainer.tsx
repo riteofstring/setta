@@ -27,7 +27,7 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useIsScrollable, useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
@@ -480,7 +480,7 @@ function ResizablePinnedArea({
       hasUnpinnedParams:
         !impl.hideUnpinnedParams &&
         filteredUnpinned.topLevelParamIds.length > 0,
-      sectionHeight: x.sections[sectionId]?.size?.height ?? null,
+      sectionHeight: impl.size.height ?? null,
     };
   }, _.isEqual);
   const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
@@ -491,6 +491,8 @@ function ResizablePinnedArea({
     }),
     _.isEqual,
   );
+  const { minHeight: sectionMinHeight, maxHeight: sectionMaxHeight } =
+    useSectionMinMaxDims(sectionId);
   const { canEditLayout } = useShareCapabilities();
   const canResize = canEditLayout && !positionAndSizeLocked;
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
@@ -502,6 +504,8 @@ function ResizablePinnedArea({
   const resizeStartHeightRef = useRef<number | null>(null);
   const didResizeRef = useRef(false);
   const lastMaxHeightRef = useRef<number | null>(null);
+  const pendingSectionResizeRef = useRef<number | null>(null);
+  const pendingSectionResizeRafRef = useRef<number | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -646,6 +650,56 @@ function ResizablePinnedArea({
     }
     if (clampedHeight < resolvedMinHeight) {
       clampedHeight = resolvedMinHeight;
+    }
+    const basePinnedHeight =
+      typeof startHeight === "number" && Number.isFinite(startHeight)
+        ? startHeight
+        : typeof height === "number" && Number.isFinite(height)
+          ? height
+          : null;
+    const baseSectionHeight =
+      typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
+        ? sectionHeight
+        : null;
+    if (basePinnedHeight !== null && baseSectionHeight !== null) {
+      const heightDelta = clampedHeight - basePinnedHeight;
+      if (Math.abs(heightDelta) > 1) {
+        let nextSectionHeight = Math.round(baseSectionHeight + heightDelta);
+        if (
+          typeof sectionMaxHeight === "number" &&
+          Number.isFinite(sectionMaxHeight) &&
+          sectionMaxHeight > 0
+        ) {
+          nextSectionHeight = Math.min(nextSectionHeight, sectionMaxHeight);
+        }
+        if (
+          typeof sectionMinHeight === "number" &&
+          Number.isFinite(sectionMinHeight) &&
+          sectionMinHeight > 0
+        ) {
+          nextSectionHeight = Math.max(nextSectionHeight, sectionMinHeight);
+        }
+        if (Math.abs(nextSectionHeight - baseSectionHeight) > 1) {
+          let updatedSectionSizes: Record<string, SectionSize> = {};
+          dispatchOptimisticProjectStateUpdate({
+            apply: (state) => {
+              updatedSectionSizes = {
+                [sectionId]: setSectionSize(
+                  sectionId,
+                  { height: nextSectionHeight },
+                  state,
+                ),
+              };
+            },
+            send: (frontendOpId) =>
+              route_set_section_sizes({
+                projectConfigId: getCurrProjectConfigId(),
+                sectionSizes: updatedSectionSizes,
+                frontendOpId,
+              }),
+          });
+        }
+      }
     }
     const isAtMax =
       resolvedMaxHeight !== null &&
@@ -891,6 +945,27 @@ function ResizablePinnedArea({
     typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
       ? sectionHeight
       : null;
+  const numericSectionHeightRef = useRef<number | null>(numericSectionHeight);
+
+  useEffect(() => {
+    numericSectionHeightRef.current = numericSectionHeight;
+    if (
+      numericSectionHeight !== null &&
+      pendingSectionResizeRef.current !== null &&
+      Math.abs(pendingSectionResizeRef.current - numericSectionHeight) <= 1
+    ) {
+      pendingSectionResizeRef.current = null;
+    }
+  }, [numericSectionHeight]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingSectionResizeRafRef.current !== null) {
+        window.cancelAnimationFrame(pendingSectionResizeRafRef.current);
+        pendingSectionResizeRafRef.current = null;
+      }
+    };
+  }, []);
 
   // Track when measurements are complete to avoid acting on stale/zero values
   useLayoutEffect(() => {
@@ -924,6 +999,53 @@ function ResizablePinnedArea({
       window.cancelAnimationFrame(rafId2);
     };
   }, [measurementsReady, availableHeight, maxHeight, contentHeight]);
+
+  const queueSectionResize = useCallback(
+    (nextHeight: number) => {
+      const currentHeight = numericSectionHeightRef.current;
+      if (
+        currentHeight !== null &&
+        Math.abs(currentHeight - nextHeight) <= 1
+      ) {
+        pendingSectionResizeRef.current = null;
+        return;
+      }
+      const pending = pendingSectionResizeRef.current;
+      if (pending !== null && Math.abs(pending - nextHeight) <= 1) {
+        return;
+      }
+      pendingSectionResizeRef.current = nextHeight;
+      if (pendingSectionResizeRafRef.current !== null) {
+        return;
+      }
+      pendingSectionResizeRafRef.current = window.requestAnimationFrame(() => {
+        pendingSectionResizeRafRef.current = null;
+        const targetHeight = pendingSectionResizeRef.current;
+        if (targetHeight === null) {
+          return;
+        }
+        let updatedSectionSizes: Record<string, SectionSize> = {};
+        dispatchOptimisticProjectStateUpdate({
+          apply: (state) => {
+            updatedSectionSizes = {
+              [sectionId]: setSectionSize(
+                sectionId,
+                { height: targetHeight },
+                state,
+              ),
+            };
+          },
+          send: (frontendOpId) =>
+            route_set_section_sizes({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionSizes: updatedSectionSizes,
+              frontendOpId,
+            }),
+        });
+      });
+    },
+    [sectionId],
+  );
 
   // Consolidated height constraint effect - guards with measurementsReady to avoid race conditions
   useLayoutEffect(() => {
@@ -959,29 +1081,25 @@ function ResizablePinnedArea({
         }
       }
       if (baseSectionHeight === null) {
+        pendingSectionResizeRef.current = null;
         return;
       }
-      const nextHeight = Math.round(baseSectionHeight + heightShortfall);
-      let updatedSectionSizes: Record<string, SectionSize> = {};
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          updatedSectionSizes = {
-            [sectionId]: setSectionSize(
-              sectionId,
-              { height: nextHeight },
-              state,
-            ),
-          };
-        },
-        send: (frontendOpId) =>
-          route_set_section_sizes({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionSizes: updatedSectionSizes,
-            frontendOpId,
-          }),
-      });
+      let nextHeight = Math.round(baseSectionHeight + heightShortfall);
+      if (
+        typeof sectionMaxHeight === "number" &&
+        Number.isFinite(sectionMaxHeight) &&
+        sectionMaxHeight > 0
+      ) {
+        nextHeight = Math.min(nextHeight, sectionMaxHeight);
+      }
+      if (Math.abs(nextHeight - baseSectionHeight) <= 1) {
+        pendingSectionResizeRef.current = null;
+        return;
+      }
+      queueSectionResize(nextHeight);
       return;
     }
+    pendingSectionResizeRef.current = null;
 
     // Reset max-follow tracking when height becomes non-numeric
     if (typeof height !== "number") {
@@ -1032,8 +1150,10 @@ function ResizablePinnedArea({
     numericSectionHeight,
     pinnedMinHeight,
     resolvedMinHeight,
+    sectionMaxHeight,
     sectionId,
     persistPinnedAreaHeight,
+    queueSectionResize,
     outerRef,
   ]);
 
