@@ -150,22 +150,21 @@ test.describe.serial("chat attachments", () => {
       await input.fill("Here is a file.");
       await input.press("Enter");
 
-      const openButton = overviewPane
-        .getByRole("button", { name: "Open" })
+      const attachmentButton = overviewPane
+        .getByRole("button", { name: "notes.txt" })
         .first();
-      await expect(openButton).toBeVisible();
-      const [popup] = await Promise.all([
-        page.waitForEvent("popup"),
-        openButton.click(),
-      ]);
-      await popup.waitForLoadState("domcontentloaded");
-      const popupUrl = popup.url();
-      if (!popupUrl) {
-        throw new Error("Missing attachment download URL.");
-      }
-      const response = await page.request.get(popupUrl);
-      expect(response.ok()).toBeTruthy();
-      await popup.close();
+      await expect(attachmentButton).toBeVisible();
+      await attachmentButton.click();
+
+      const modal = page.getByRole("dialog", {
+        name: "Attachment preview",
+      });
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("pre")).toContainText(
+        "Hello from project chat.",
+      );
+      await page.keyboard.press("Escape");
+      await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
         await postBackend(page, "/deleteEngineConfig", {
@@ -211,22 +210,19 @@ test.describe.serial("chat attachments", () => {
       await input.fill("Dropped file");
       await input.press("Enter");
 
-      const openButton = chatSection
-        .getByRole("button", { name: "Open" })
+      const attachmentButton = chatSection
+        .getByRole("button", { name: "drop.txt" })
         .first();
-      await expect(openButton).toBeVisible();
-      const [popup] = await Promise.all([
-        page.waitForEvent("popup"),
-        openButton.click(),
-      ]);
-      await popup.waitForLoadState("domcontentloaded");
-      const popupUrl = popup.url();
-      if (!popupUrl) {
-        throw new Error("Missing attachment download URL.");
-      }
-      const response = await page.request.get(popupUrl);
-      expect(response.ok()).toBeTruthy();
-      await popup.close();
+      await expect(attachmentButton).toBeVisible();
+      await attachmentButton.click();
+
+      const modal = page.getByRole("dialog", {
+        name: "Attachment preview",
+      });
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("pre")).toContainText("Dropped attachment");
+      await page.keyboard.press("Escape");
+      await expect(modal).toHaveCount(0);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
