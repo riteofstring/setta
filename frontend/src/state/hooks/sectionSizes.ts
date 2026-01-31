@@ -279,7 +279,16 @@ export function useSectionMinMaxDims(sectionId: string) {
     }
 
     if (!isMinimized && isBaseSectionWithParamsImpl(impl) && !hideParams) {
-      const baseMinHeight = minHeight;
+      const baseMinHeight =
+        sectionType === SectionTypeEnum.Callable
+          ? getMinSectionHeight({
+              sectionType,
+              hideSearch,
+              hideParams: true,
+              isMinimized,
+              sizingPolicy,
+            })
+          : minHeight;
       const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
       const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
       const edgeInputSet = new Set(impl.edgeInputParams);

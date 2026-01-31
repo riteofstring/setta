@@ -1192,28 +1192,34 @@ function GetUnpinnedParams({
         useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
         return;
       }
-      const observedRow =
-        node.querySelector(":scope > article.section-args-nested-key-value") ??
-        node.querySelector(":scope > article.section-lg-value") ??
-        null;
-      const underlineBuffer = 2;
-      const getHeaderHeight = (row: Element) => {
-        const element = row as HTMLElement;
-        let height = element.offsetHeight;
-        const nestedContainer = element.querySelector<HTMLElement>(
-          ":scope > div.section-args-nested.section-key-value",
+      const rowCandidates = Array.from(
+        node.querySelectorAll<HTMLElement>(
+          ":scope > article.section-args-nested-key-value",
+        ),
+      );
+      const listRows =
+        rowCandidates.length > 0
+          ? rowCandidates
+          : Array.from(
+              node.querySelectorAll<HTMLElement>(
+                ":scope > article.section-lg-value",
+              ),
+            );
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      let rowHeight = 0;
+      for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
+        const measuredHeight = Math.max(
+          row.offsetHeight,
+          row.scrollHeight,
+          rectHeight,
         );
-        if (!nestedContainer) {
-          return height;
+        if (measuredHeight > 0) {
+          rowHeight = measuredHeight;
+          break;
         }
-        const rowStyle = window.getComputedStyle(element);
-        const rowGapValue = Number.parseFloat(rowStyle.rowGap);
-        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
-        const nestedHeight = nestedContainer.offsetHeight;
-        const headerHeight = Math.ceil(height - nestedHeight - rowGap);
-        return headerHeight > 0 ? headerHeight : height;
-      };
-      const rowHeight = observedRow ? getHeaderHeight(observedRow) : 0;
+      }
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
@@ -1231,7 +1237,7 @@ function GetUnpinnedParams({
       const padding =
         Number.parseFloat(style.paddingTop) +
         Number.parseFloat(style.paddingBottom);
-      const nextHeight = Math.ceil(rowHeight + padding + underlineBuffer);
+      const nextHeight = Math.ceil(rowHeight + padding);
       const resolvedMinHeight = nextHeight > 0 ? nextHeight : null;
       if (lastMeasuredMinHeightRef.current === resolvedMinHeight) {
         return;
