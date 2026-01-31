@@ -30,6 +30,7 @@ class LSPFileWatcher:
                            Should accept FileSystemEvent as parameter.
         """
         self.observer = Observer()
+        self.observer.daemon = True
         self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(
             notify_callback,
@@ -67,8 +68,12 @@ class LSPFileWatcher:
 
     def stop(self) -> None:
         """Stop the file watcher."""
-        self.observer.stop()
-        self.observer.join()
+        observer = self.observer
+        if observer.is_alive():
+            observer.stop()
+            observer.join(timeout=1.0)
+            if observer.is_alive():
+                logger.warning("LSP file watcher observer did not shut down in time.")
 
 
 class LSPEventHandler(FileSystemEventHandler):
