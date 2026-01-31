@@ -109,7 +109,6 @@
     "cdp-port": "cd .. && ./scripts/cdp-port.sh",
     "worktrees": "cd .. && ./scripts/create-worktrees.sh",
     "ai": "cd .. && ./scripts/ai.sh",
-    "aicdt": "cd .. && ./scripts/aicdt.sh",
     "kill": "cd .. && ./scripts/kill-setta.sh"
   },
   "browserslist": {

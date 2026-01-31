@@ -38,11 +38,15 @@
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
+- Visual verification is a hard gate for UI changes: never claim visual verification without a CDP run. If CDP access is unavailable, stop and ask the user to enable the extension; otherwise state `CDP visual check: not run (reason)` in the final response.
+- For any visual/UI change, include a final-response line `CDP visual check: done (brief context)` or `CDP visual check: not run (reason)`.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.
 - You should never start `pnpm ai`/`pnpm -C frontend ai`, `pnpm -C frontend aireset`, or `pnpm -C frontend aicdt`; if chrome-devtools-mcp is needed, the developer runs it first.
-- Frontend tests are split into unit/integration tests (Vitest, colocated as `*.test.tsx`) and E2E tests (Playwright, `frontend/tests/e2e/*.spec.ts`).
-- Always run relevant Vitest or Playwright tests if they exist for the task.
+- Follow `docs/guides/verification-checklist.md` for the standard verification flow.
+- Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
+- Playwright tests do not require running `pnpm ai`; when running Playwright tests as an AI, use `./scripts/run-playwright-e2e.sh`.
 - Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
+- Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace.
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
