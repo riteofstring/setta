@@ -1,22 +1,13 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import React from "react";
-import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
-import {
-  setCodeSectionDiagnosticCodeSuppression,
-  setCodeSectionDiagnosticsMuted,
-} from "state/actions/lspDiagnostics";
+import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import {
-  useLspDiagnostics,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   SectionTypeEnum,
-  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
@@ -51,39 +42,6 @@ function _SectionHeader({
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const codeSectionDiagnostics = useLspDiagnostics((x) => {
-    const diagnostics = x.codeSections[sectionId];
-    return diagnostics ?? [];
-  });
-  const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
-  const codeDiagnosticsIgnoreState = useProjectState((x) => {
-    if (sectionTypeName !== SectionTypeEnum.Code) {
-      return null;
-    }
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Code,
-    );
-    return impl.diagnosticsIgnoreState;
-  });
-  const codeDiagnosticsMuted = codeDiagnosticsIgnoreState?.muted ?? false;
-  const suppressedCodes = codeDiagnosticsIgnoreState?.suppressedCodes ?? [];
-  let codeDiagnosticsLabel = "Diagnostics";
-  if (codeDiagnosticsMuted) {
-    codeDiagnosticsLabel = "Diagnostics muted";
-  } else if (codeSectionDiagnostics.length > 0) {
-    codeDiagnosticsLabel = `Issues ${codeSectionDiagnostics.length}`;
-  } else if (suppressedCodes.length > 0) {
-    codeDiagnosticsLabel = `Suppressed ${suppressedCodes.length}`;
-  }
-  const showCodeDiagnosticsPopover =
-    !isShareMode &&
-    sectionTypeName === SectionTypeEnum.Code &&
-    (codeSectionDiagnostics.length > 0 ||
-      suppressedCodes.length > 0 ||
-      codeDiagnosticsMuted);
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -101,53 +59,6 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
       />
       <div className="z-10 ml-auto flex items-center">
-        {!isShareMode && sectionTypeName === SectionTypeEnum.Code && (
-          <button
-            className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
-            onClick={() =>
-              void setCodeSectionDiagnosticsMuted(
-                sectionId,
-                !codeDiagnosticsMuted,
-              )
-            }
-            title={
-              codeDiagnosticsMuted ? "Unmute diagnostics" : "Mute diagnostics"
-            }
-            type="button"
-          >
-            {codeDiagnosticsMuted ? (
-              <TbBellOff className="text-[12px]" />
-            ) : (
-              <TbBell className="text-[12px]" />
-            )}
-          </button>
-        )}
-        {!isShareMode && showCodeDiagnosticsPopover && (
-          <DiagnosticsPopover
-            diagnostics={codeSectionDiagnostics}
-            label={codeDiagnosticsLabel}
-            title="Problems"
-            suppressedCodes={suppressedCodes}
-            isMuted={codeDiagnosticsMuted}
-            onSetSuppressedCode={(code, suppress) => {
-              void setCodeSectionDiagnosticCodeSuppression(
-                sectionId,
-                code,
-                suppress,
-              );
-            }}
-            showInlineSuppressions
-          />
-        )}
-        {!isShareMode &&
-          sectionTypeName === SectionTypeEnum.GenPythonCode &&
-          genCodeDiagnostics.length > 0 && (
-            <DiagnosticsPopover
-              diagnostics={genCodeDiagnostics}
-              label={`Issues ${genCodeDiagnostics.length}`}
-              title="Generated code issues"
-            />
-          )}
         {isSeriesElement && (
           <StandardPopover
             arrowClasses="fill-white dark:fill-setta-800"
@@ -184,184 +95,6 @@ function _SectionHeader({
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
-
-function DiagnosticsPopover({
-  diagnostics,
-  label,
-  title,
-  suppressedCodes,
-  isMuted,
-  onSetSuppressedCode,
-  showInlineSuppressions,
-}: {
-  diagnostics: Array<SettaLspDiagnostic>;
-  label: string;
-  title: string;
-  suppressedCodes?: Array<NonNullable<SettaLspDiagnostic["code"]>>;
-  isMuted?: boolean;
-  onSetSuppressedCode?: (
-    code: NonNullable<SettaLspDiagnostic["code"]>,
-    suppress: boolean,
-  ) => void;
-  showInlineSuppressions?: boolean;
-}) {
-  const badgeClassName = getBadgeClassName(diagnostics);
-  const hasSuppressedCodes = (suppressedCodes ?? []).length > 0;
-  const hasDiagnostics = diagnostics.length > 0;
-  return (
-    <StandardPopover
-      arrowClasses="fill-white dark:fill-setta-800"
-      contentClasses="z-20"
-      trigger={
-        <button
-          className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm backdrop-blur-sm ${badgeClassName}`}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-    >
-      <div className="flex w-80 flex-col gap-2 p-2 text-xs text-slate-700 dark:text-slate-100">
-        <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          <span>{title}</span>
-          <span>{diagnostics.length}</span>
-        </div>
-        {isMuted && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-            Muted
-          </div>
-        )}
-        {hasDiagnostics ? (
-          <div className="max-h-64 overflow-auto">
-            <ul className="flex flex-col gap-2">
-              {diagnostics.map((diagnostic, idx) => {
-                const { line, character } = diagnostic.range.start;
-                const { label: severityLabel, className: severityClassName } =
-                  getSeverityMeta(diagnostic.severity);
-                const code = diagnostic.code;
-                const codeLabel =
-                  code === null || code === undefined ? null : String(code);
-                const suppressHandler = onSetSuppressedCode;
-                const canSuppress =
-                  code !== null &&
-                  code !== undefined &&
-                  suppressHandler !== undefined;
-                return (
-                  <li
-                    className="rounded-md border border-slate-200 bg-white/80 p-2 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
-                    key={`${diagnostic.message}-${idx}`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${severityClassName}`}
-                      >
-                        {severityLabel}
-                      </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Line {line + 1}, Col {character + 1}
-                      </span>
-                      {codeLabel && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                          {codeLabel}
-                        </span>
-                      )}
-                      {diagnostic.source && (
-                        <span className="text-[10px] text-slate-400">
-                          {diagnostic.source}
-                        </span>
-                      )}
-                      {canSuppress && (
-                        <button
-                          className="ml-auto rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
-                          onClick={() =>
-                            void suppressHandler?.(
-                              code as NonNullable<SettaLspDiagnostic["code"]>,
-                              true,
-                            )
-                          }
-                          type="button"
-                        >
-                          Suppress code
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-1 text-[11px] leading-snug text-slate-700 dark:text-slate-100">
-                      {diagnostic.message}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : (
-          <div className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            No active diagnostics.
-          </div>
-        )}
-        {hasSuppressedCodes && onSetSuppressedCode && (
-          <div className="flex flex-col gap-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Suppressed codes
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(suppressedCodes ?? []).map((code) => (
-                <button
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
-                  key={`suppressed-${String(code)}`}
-                  onClick={() => void onSetSuppressedCode(code, false)}
-                  type="button"
-                >
-                  <span>{String(code)}</span>
-                  <span className="text-[12px] leading-none">x</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {showInlineSuppressions && (
-          <div className="border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Inline suppressions: add a Python ignore comment on the line (for
-            example, <code className="font-mono"># type: ignore</code>).
-          </div>
-        )}
-      </div>
-    </StandardPopover>
-  );
-}
-
-function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
-  let hasError = false;
-  let hasWarning = false;
-  for (const diagnostic of diagnostics) {
-    if (diagnostic.severity === 1) {
-      hasError = true;
-      break;
-    }
-    if (diagnostic.severity === 2) {
-      hasWarning = true;
-    }
-  }
-  if (hasError) {
-    return "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200";
-  }
-  if (hasWarning) {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200";
-  }
-  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600/40 dark:bg-slate-700/30 dark:text-slate-200";
-}
-
-function getSeverityMeta(severity: number | null | undefined) {
-  if (severity === 1) {
-    return { label: "Error", className: "bg-red-500 text-white" };
-  }
-  if (severity === 2) {
-    return { label: "Warning", className: "bg-amber-400 text-slate-900" };
-  }
-  if (severity === 3) {
-    return { label: "Info", className: "bg-sky-500 text-white" };
-  }
-  return { label: "Hint", className: "bg-slate-300 text-slate-900" };
-}
 
 function MaybeCardTitle({
   sectionId,

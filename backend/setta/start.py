@@ -395,7 +395,7 @@ def _start_remote_setta(
         raise click.ClickException(
             "Remote host missing nohup/setsid for background start. Use --remote-cmd."
         )
-    remote_logs_dir = _format_remote_path(C.RUN_LOGS_FOLDER)
+    remote_logs_dir = _format_remote_path(C.RUNTIME_LOGS_FOLDER)
     remote_log_file = f"{remote_logs_dir}/nohup.out"
     start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} --no-open"
     quoted_start = shlex.quote(start_cmd)

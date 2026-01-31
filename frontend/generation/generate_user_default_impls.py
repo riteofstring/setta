@@ -199,7 +199,6 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
-    CodeSectionDiagnosticsIgnoreState,
     SectionSize,
     SectionSizeMode,
     SectionType,
