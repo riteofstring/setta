@@ -509,10 +509,8 @@ export const RouteEnum = {
   SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
-  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
-  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
-    "/setCodeSectionDiagnosticCodeSuppression",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -1262,21 +1260,6 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
-const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
-  muted: z.boolean().default(false),
-  suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
-});
-
-type CodeSectionDiagnosticsIgnoreState = z.infer<
-  typeof CodeSectionDiagnosticsIgnoreStateSchema
->;
-
-function createCodeSectionDiagnosticsIgnoreState(
-  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
-): CodeSectionDiagnosticsIgnoreState {
-  return CodeSectionDiagnosticsIgnoreStateSchema.parse(options);
-}
-
 const EdgePortSchema = z.object({
   id: IDSchema.default(create_new_id),
   accessor: z.string().default("" as const),
@@ -1374,7 +1357,6 @@ const SharedModifierSchema = z.object({
   dataPath: z.string().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1384,6 +1366,7 @@ const SharedModifierSchema = z.object({
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
     .optional(),
+  hasSecret: z.boolean().optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1500,7 +1483,6 @@ const CoreSchema = z.object({
         "dataPath",
         "defaultVal",
         "description",
-        "diagnosticsIgnoreState",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1508,6 +1490,7 @@ const CoreSchema = z.object({
         "eraserBrushSize",
         "folder",
         "format",
+        "hasSecret",
         "headingAsSectionName",
         "hideColumn",
         "hideParams",
@@ -1905,9 +1888,6 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
-    createCodeSectionDiagnosticsIgnoreState,
-  ),
 });
 
 type CodeSectionImpl = z.infer<typeof CodeSectionImplSchema>;
@@ -2249,6 +2229,7 @@ const PasswordParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  hasSecret: z.boolean().default(false),
 });
 
 type PasswordParamCodeObjImpl = z.infer<typeof PasswordParamCodeObjImplSchema>;
@@ -2733,6 +2714,7 @@ const PasswordParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  hasSecret: z.boolean().optional(),
 });
 
 type PasswordParamCodeObjImplArgs = z.infer<
@@ -2843,7 +2825,6 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
 type CodeSectionImplArgs = z.infer<typeof CodeSectionImplArgsSchema>;
@@ -3404,43 +3385,9 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
-const SettaLspDiagnosticPositionSchema = z.object({
-  line: z.int(),
-  character: z.int(),
-});
-
-const SettaLspDiagnosticRangeSchema = z.object({
-  start: SettaLspDiagnosticPositionSchema,
-  end: SettaLspDiagnosticPositionSchema,
-});
-
-const SettaLspDiagnosticSchema = z.object({
-  message: z.string(),
-  severity: z.union([z.int(), z.null()]).default(null),
-  code: z.union([z.string(), z.int(), z.null()]).default(null),
-  source: z.union([z.string(), z.null()]).default(null),
-  range: SettaLspDiagnosticRangeSchema,
-  uri: z.union([z.string(), z.null()]).default(null),
-});
-
-export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
-
-const SettaLspDiagnosticsPayloadSchema = z.object({
-  projectConfigId: IDSchema,
-  genCode: SettaProjectConfigDiagnosticsSchema,
-  codeSections: z
-    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
-    .default({}),
-  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
-});
-
-export type SettaLspDiagnosticsPayload = z.infer<
-  typeof SettaLspDiagnosticsPayloadSchema
->;
-
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaLspDiagnosticsPayloadSchema,
+  content: SettaProjectConfigDiagnosticsSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -4507,9 +4454,6 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
-    createCodeSectionDiagnosticsIgnoreState,
-  ),
 });
 
 type UserDefaultCodeSectionImpl = z.infer<
@@ -4968,6 +4912,7 @@ const UserDefaultPasswordParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  hasSecret: z.boolean().default(false),
 });
 
 type UserDefaultPasswordParamCodeObjImpl = z.infer<
@@ -5078,18 +5023,7 @@ const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z.record(z.string(), z.any()).default(() => ({
-    basedpyright: {
-      analysis: {
-        diagnosticSeverityOverrides: {
-          reportUnknownVariableType: "none" as const,
-          reportUnknownMemberType: "none" as const,
-          reportUnannotatedClassAttribute: "none" as const,
-          reportSelfClsParameterName: "none" as const,
-        },
-      },
-    },
-  })),
+  languageServer: z.record(z.string(), z.any()).default({}),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
@@ -7042,6 +6976,25 @@ export type GetLatestProjectStateRequestInput = z.input<
   typeof GetLatestProjectStateRequestSchema
 >;
 
+const GetPasswordParamValueRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramInfoId: IDSchema,
+});
+
+export type GetPasswordParamValueRequestInput = z.input<
+  typeof GetPasswordParamValueRequestSchema
+>;
+
+const GetPasswordParamValueResponseSchema = z.object({
+  value: z.string(),
+});
+
+export type GetPasswordParamValueResponse = z.infer<
+  typeof GetPasswordParamValueResponseSchema
+>;
+
 const GroupSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -7372,29 +7325,6 @@ const SetCodeRequestSchema = z.object({
 });
 
 export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
-
-const SetCodeSectionDiagnosticCodeSuppressionRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  code: z.union([z.string(), z.int()]),
-  suppress: z.boolean(),
-});
-
-export type SetCodeSectionDiagnosticCodeSuppressionRequestInput = z.input<
-  typeof SetCodeSectionDiagnosticCodeSuppressionRequestSchema
->;
-
-const SetCodeSectionDiagnosticsMuteRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  mute: z.boolean(),
-});
-
-export type SetCodeSectionDiagnosticsMuteRequestInput = z.input<
-  typeof SetCodeSectionDiagnosticsMuteRequestSchema
->;
 
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

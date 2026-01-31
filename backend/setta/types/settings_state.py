@@ -149,21 +149,6 @@ class SettingsBackend(BaseModel):
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
 
 
-def get_default_language_server_settings() -> dict:
-    return {
-        "basedpyright": {
-            "analysis": {
-                "diagnosticSeverityOverrides": {
-                    "reportUnknownVariableType": "none",
-                    "reportUnknownMemberType": "none",
-                    "reportUnannotatedClassAttribute": "none",
-                    "reportSelfClsParameterName": "none",
-                }
-            }
-        }
-    }
-
-
 class SectionSizingPolicyTypeEntry(BaseModel):
     minHeight: float
     maxHeight: float

@@ -62,9 +62,12 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     code_folder = setta_root / "code"
     artifacts_folder = setta_root / "artifacts"
     backup_folder = setta_root / "backups"
-    run_folder = setta_root / "run"
+    run_folder = setta_root / "runtime"
     run_sessions_folder = run_folder / "sessions"
     run_logs_folder = run_folder / "logs"
+    run_mcp_folder = run_folder / "mcp"
+    run_secrets_folder = run_folder / "secrets"
+    detached_runs_folder = run_folder / "detached_runs"
     share_deployments_folder = setta_root / "share_deployments"
 
     for path in (
@@ -73,6 +76,9 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         backup_folder,
         run_sessions_folder,
         run_logs_folder,
+        run_mcp_folder,
+        run_secrets_folder,
+        detached_runs_folder,
         share_deployments_folder,
     ):
         path.mkdir(parents=True, exist_ok=True)
@@ -84,9 +90,12 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         "CODE_FOLDER": C.CODE_FOLDER,
         "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
         "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "RUN_FOLDER": C.RUN_FOLDER,
-        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
-        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
+        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
+        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
+        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
+        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
+        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
+        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
         "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
 
@@ -94,9 +103,12 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.CODE_FOLDER = code_folder
     C.ARTIFACTS_FOLDER = artifacts_folder
     C.DB_BACKUP_FOLDER = backup_folder
-    C.RUN_FOLDER = run_folder
-    C.RUN_SESSIONS_FOLDER = run_sessions_folder
-    C.RUN_LOGS_FOLDER = run_logs_folder
+    C.RUNTIME_FOLDER = run_folder
+    C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
+    C.RUNTIME_LOGS_FOLDER = run_logs_folder
+    C.RUNTIME_MCP_FOLDER = run_mcp_folder
+    C.RUNTIME_SECRETS_FOLDER = run_secrets_folder
+    C.DETACHED_RUNS_FOLDER = detached_runs_folder
     C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
 
     try:
@@ -106,9 +118,12 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         C.CODE_FOLDER = previous_values["CODE_FOLDER"]
         C.ARTIFACTS_FOLDER = previous_values["ARTIFACTS_FOLDER"]
         C.DB_BACKUP_FOLDER = previous_values["DB_BACKUP_FOLDER"]
-        C.RUN_FOLDER = previous_values["RUN_FOLDER"]
-        C.RUN_SESSIONS_FOLDER = previous_values["RUN_SESSIONS_FOLDER"]
-        C.RUN_LOGS_FOLDER = previous_values["RUN_LOGS_FOLDER"]
+        C.RUNTIME_FOLDER = previous_values["RUNTIME_FOLDER"]
+        C.RUNTIME_SESSIONS_FOLDER = previous_values["RUNTIME_SESSIONS_FOLDER"]
+        C.RUNTIME_LOGS_FOLDER = previous_values["RUNTIME_LOGS_FOLDER"]
+        C.RUNTIME_MCP_FOLDER = previous_values["RUNTIME_MCP_FOLDER"]
+        C.RUNTIME_SECRETS_FOLDER = previous_values["RUNTIME_SECRETS_FOLDER"]
+        C.DETACHED_RUNS_FOLDER = previous_values["DETACHED_RUNS_FOLDER"]
         C.SHARE_DEPLOYMENTS_FOLDER = previous_values["SHARE_DEPLOYMENTS_FOLDER"]
 
 

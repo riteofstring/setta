@@ -63,4 +63,4 @@ Optional overrides:
 
 If browser installs fail with permissions under `~/Library/Caches`, install to a
 repo-local path:
-`PLAYWRIGHT_BROWSERS_PATH=setta_files/run/playwright-browsers npx playwright install`
+`PLAYWRIGHT_BROWSERS_PATH=setta_files/runtime/playwright-browsers npx playwright install`
