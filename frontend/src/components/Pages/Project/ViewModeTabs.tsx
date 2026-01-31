@@ -70,7 +70,9 @@ export function ViewModeTabs() {
             <button
               key={mode.id}
               className={tabClasses}
-              onClick={canEditVariants ? () => handleSelect(mode.id) : undefined}
+              onClick={
+                canEditVariants ? () => handleSelect(mode.id) : undefined
+              }
               title={label}
               disabled={!canEditVariants}
             >
