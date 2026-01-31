@@ -14,6 +14,7 @@ from setta.lsp.managers import (
     LSPServers,
     LSPWriters,
     start_lsps,
+    stop_file_watcher,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -287,14 +288,10 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
-    if not watcher._started:
-        return
-    observer = watcher.observer
-    if observer.is_alive():
-        observer.stop()
-        # Avoid hanging CI if watchdog threads don't exit cleanly.
-        observer.join(timeout=1.0)
-    watcher._started = False
+    try:
+        watcher.stop()
+    except RuntimeError:
+        pass
 
 
 async def _stop_lsps_and_file_watcher(
@@ -302,11 +299,7 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
-    file_watcher = lsp_writers.file_watcher
-    observer = file_watcher.observer
-    if observer.is_alive():
-        observer.stop()
-        observer.join(timeout=1.0)
+    stop_file_watcher(lsp_writers)
     await _close_lsp_process(process)
 
 

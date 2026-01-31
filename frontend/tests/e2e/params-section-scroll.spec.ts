@@ -10,9 +10,7 @@ const PROJECT_URL =
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
-const CANVAS_SELECTOR = ".react-flow";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -20,40 +18,28 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 
-test("new config opens with initial section in view", async ({ page }) => {
+test("params area uses section scroll and removes pinned resize handles", async ({
+  page,
+}) => {
   await ensureAppReady(page);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const sectionId = await createCallableSection(page, projectConfigId);
 
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "New Config" }).click();
-  await page.waitForSelector(READY_SELECTOR);
+  try {
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
 
-  const canvas = page.locator(CANVAS_SELECTOR);
-  const header = canvas.getByText(/generated python code/i).first();
-  await expect(header).toBeVisible();
-
-  await expect
-    .poll(async () => {
-      const canvasBox = await canvas.boundingBox();
-      const headerBox = await header.boundingBox();
-      if (!canvasBox || !headerBox) {
-        return false;
-      }
-      const centerX = headerBox.x + headerBox.width / 2;
-      const centerY = headerBox.y + headerBox.height / 2;
-      return (
-        centerX >= canvasBox.x &&
-        centerX <= canvasBox.x + canvasBox.width &&
-        centerY >= canvasBox.y &&
-        centerY <= canvasBox.y + canvasBox.height
-      );
-    })
-    .toBe(true);
-
-  const projectConfigName = decodeURIComponent(
-    new URL(page.url()).pathname.replace(/^\//, ""),
-  );
-  if (projectConfigName) {
-    await deleteProjectConfigByName(page, projectConfigName);
+    const paramGroup = sectionNode.locator("div.section-row-pin-main").first();
+    await expect(paramGroup).toBeVisible();
+    await expect(paramGroup).toHaveCSS("overflow-y", /auto|scroll/);
+    await expect(page.locator(".pinned-resize-handle")).toHaveCount(0);
+  } finally {
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });
 
@@ -71,7 +57,7 @@ async function ensureAppReady(page: Page): Promise<void> {
     try {
       await waitForProjectUrl(page);
     } catch {
-      // Fall through to final readiness check.
+      // Fall through to the final readiness check below.
     }
   }
 
@@ -98,23 +84,18 @@ async function isAppReady(page: Page): Promise<boolean> {
 }
 
 async function waitForProjectUrl(page: Page): Promise<void> {
-  await page.waitForURL(
-    (url) => url.toString().startsWith(PROJECT_URL),
-    { timeout: 20000, waitUntil: "domcontentloaded" },
-  );
+  await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
+    timeout: 20000,
+    waitUntil: "domcontentloaded",
+  });
 }
 
 async function hasAuthCookie(page: Page): Promise<boolean> {
-  const cookies = await page
-    .context()
-    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
+  const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
 
-async function deleteProjectConfigByName(
-  page: Page,
-  projectConfigName: string,
-): Promise<void> {
+async function getCurrentProjectConfigId(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -123,34 +104,58 @@ async function deleteProjectConfigByName(
   if (!metadata) {
     throw new Error("Missing project metadata response.");
   }
-  const match = metadata.projectMetadata.find(
-    (entry) => entry.name === projectConfigName,
-  );
-  if (!match) {
-    throw new Error(
-      `Unable to resolve project config id for ${projectConfigName}.`,
-    );
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    const match = metadata.projectMetadata.find((p) => p.name === projectName);
+    if (match?.id) {
+      return match.id;
+    }
   }
-  await postBackend(page, "/deleteProjectConfigs", { ids: [match.id] });
+
+  if (metadata.defaultProjectConfigId) {
+    return metadata.defaultProjectConfigId;
+  }
+
+  throw new Error("Unable to resolve projectConfigId for test.");
+}
+
+async function createCallableSection(
+  page: Page,
+  projectConfigId: string,
+): Promise<string> {
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+    },
+  );
+  if (!response?.sectionId) {
+    throw new Error("Missing sectionId when creating callable section.");
+  }
+  return response.sectionId;
 }
 
 async function postBackend<T>(
   page: Page,
-  path: string,
+  route: string,
   payload: Record<string, unknown> | null,
-): Promise<T | null> {
-  const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
+): Promise<T> {
+  const response = await page.request.post(`${BACKEND_ORIGIN}/api${route}`, {
     data: payload,
   });
   const text = await response.text();
   if (!response.ok()) {
     const detail = text ? ` ${text}` : "";
     throw new Error(
-      `Backend request failed (${response.status()}): ${path}${detail}`,
+      `Backend request failed (${response.status()}): ${route}${detail}`,
     );
   }
   if (!text) {
-    return null;
+    return null as T;
   }
   return JSON.parse(text) as T;
 }

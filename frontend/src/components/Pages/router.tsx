@@ -19,7 +19,6 @@ import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
-  VIEW_MODE_ROUTER_PATH,
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
@@ -206,19 +205,8 @@ const projectRoute = {
   ),
 };
 
-const viewModeRoute = {
-  path: VIEW_MODE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideProjectRouteElement}
-      share={shareProjectRouteElement}
-    />
-  ),
-};
-
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
-  viewModeRoute,
   projectRoute,
 ]);
