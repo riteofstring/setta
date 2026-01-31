@@ -1,7 +1,8 @@
-import base64
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from setta.binary import BinaryStore
+from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.impl_args_as_typed_dicts import (
     DrawSectionImplArgsWithCallable,
 )
@@ -24,23 +25,17 @@ def build_draw_snapshot_path(section_id: "ID", artifact_root: Path) -> Path:
     return artifact_root / DRAW_SNAPSHOT_FOLDER_NAME / f"{section_id}.png"
 
 
-def _decode_base64_payload(payload: str) -> bytes:
-    normalized = payload.strip()
-    if "," in normalized:
-        normalized = normalized.split(",", 1)[1]
-    return base64.b64decode(normalized)
-
-
 def apply_draw_snapshot_updates(
     *,
     dbe: "DBE",
     project_state: "ProjectStateSingleConfig",
-    snapshots_by_section_id: dict["ID", str] | None,
+    snapshots_by_section_id: dict["ID", BinaryContentRef] | None,
     artifact_root: Path = C.ARTIFACTS_FOLDER,
 ) -> bool:
     if snapshots_by_section_id is None:
         return False
     did_update = False
+    binary_store = BinaryStore.from_dbe(dbe)
     for section_id, payload in snapshots_by_section_id.items():
         if section_id not in project_state.projectConfig.sectionVariantMap:
             raise KeyError(f"Unknown section id {section_id}")
@@ -52,11 +47,13 @@ def apply_draw_snapshot_updates(
             if impl.renderedImagePath
             else build_draw_snapshot_path(section_id, artifact_root)
         )
+        binary_payload = binary_store.read_bytes(payload.contentId)
         dbe.write(
             target_path,
-            _decode_base64_payload(payload),
+            binary_payload,
             mode="wb",
         )
+        binary_store.delete(payload.contentId)
         new_path = target_path.as_posix()
         if impl.renderedImagePath != new_path:
             set_curr_effective_section_impl_value(

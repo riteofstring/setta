@@ -16,9 +16,8 @@
 - `pnpm build` produces the production frontend bundle; `./build.sh` wraps this, bundles the Node runtime + sidecars, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
 - `pnpm test` executes the Vitest suite (watch mode: `pnpm test -- --watch`); Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
-- `./t.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E). Use `--b` for backend-only or `--f` for frontend + Playwright.
-- `./scripts/run_backend_tests.sh` runs the Python pytest suite only.
-- `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root.
+- `./rt.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E).
+- `./run_backend_tests.sh` runs the Python pytest suite only.
 - Release smoke tests rely on `verify_install.sh`, which builds, installs the sdist with `uv pip`, and cleans up.
 - Note: the full test suite (and Playwright in particular) can take a long time to finish.
 
@@ -42,7 +41,7 @@
 - You should never start `pnpm ai`/`pnpm -C frontend ai`, `pnpm -C frontend aireset`, or `pnpm -C frontend aicdt`; if chrome-devtools-mcp is needed, the developer runs it first.
 - Frontend tests are split into unit/integration tests (Vitest, colocated as `*.test.tsx`) and E2E tests (Playwright, `frontend/tests/e2e/*.spec.ts`).
 - Always run relevant Vitest or Playwright tests if they exist for the task.
-- Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
+- Backend tests live under `tests/` mirroring `backend/setta`; run them with `./run_backend_tests.sh` (pytest).
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
@@ -77,7 +76,7 @@ Never use the `alias` feature in pydantic. Camel case is fine for pydantic attri
 
 Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
 
-To run backend-only tests: `./scripts/run_backend_tests.sh` (uses pytest).
+To run backend-only tests: `./run_backend_tests.sh` (uses pytest).
 
 To run anything python related: `source activate.sh && <python command goes here>`
 

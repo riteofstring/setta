@@ -1,25 +1,27 @@
 import { LayerCanvasesType } from "./types";
 
-function dataURLToBase64(dataURL) {
-  return dataURL.split(";base64,")[1];
+export function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType = "image/png",
+): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), mimeType);
+  });
 }
 
-export function canvasToBase64(canvas) {
-  return dataURLToBase64(canvas.toDataURL("image/png"));
+export async function blobToImageObj(blob: Blob): Promise<HTMLImageElement> {
+  const objectUrl = URL.createObjectURL(blob);
+  const img = new Image();
+  img.src = objectUrl;
+  await img.decode();
+  URL.revokeObjectURL(objectUrl);
+  return img;
 }
 
-export async function base64ToImageObj(input_value: string) {
-  const imgSrc = base64StrToImgSrc(input_value);
-  const value = new Image();
-  value.src = imgSrc;
-  await value.decode();
-  return value;
-}
-
-export function serializeLayerStackToBase64(
+export async function serializeLayerStackToBlob(
   layerCanvases: LayerCanvasesType,
   draftCanvas: HTMLCanvasElement | null,
-): string | null {
+): Promise<Blob | null> {
   const canvasesInOrder = layerCanvases.filter(
     (canvas): canvas is HTMLCanvasElement => canvas !== null,
   );
@@ -46,11 +48,5 @@ export function serializeLayerStackToBase64(
     ctx.drawImage(draftCanvas, 0, 0);
   }
 
-  return canvasToBase64(tempCanvas);
-}
-
-function base64StrToImgSrc(base64Str: string) {
-  return base64Str.startsWith("data:image/")
-    ? base64Str
-    : `data:image/png;base64,${base64Str}`;
+  return await canvasToBlob(tempCanvas);
 }

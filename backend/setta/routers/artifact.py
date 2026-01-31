@@ -1,4 +1,3 @@
-import base64
 import fnmatch
 import mimetypes
 import os
@@ -10,6 +9,7 @@ from typing import Literal, NotRequired, TypedDict, TypeVar
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
+from setta.binary import BinaryStore
 from setta.project_state.artifacts import (
     Artifacts,
     ArtifactSaveResult,
@@ -27,6 +27,7 @@ from setta.types.artifact import (
     ImageArtifact,
     create_file_artifact_id,
 )
+from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
 from setta.utils.constants import CWD, C
@@ -106,20 +107,8 @@ class DeleteArtifactsRequest(BaseModel):
     artifacts: list[DeleteArtifactRequestItem]
 
 
-def _estimate_base64_decoded_bytes(payload: str) -> int:
-    normalized = payload.strip()
-    if not normalized:
-        return 0
-    padding = 0
-    if normalized.endswith("=="):
-        padding = 2
-    elif normalized.endswith("="):
-        padding = 1
-    return (len(normalized) * 3 // 4) - padding
-
-
 def _enforce_file_artifact_size(artifact: FileArtifact) -> None:
-    size = _estimate_base64_decoded_bytes(artifact.value)
+    size = artifact.value.byteLength
     if size > DROPZONE_MAX_FILE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -365,6 +354,7 @@ async def route_import_files_to_artifacts(
     if not x.paths:
         return []
     artifacts = _get_artifacts(ctx)
+    binary_store = BinaryStore.from_dbe(ctx.state.dbe)
     updates: list[FileArtifact] = []
     results: list[ImportFilesToArtifactsResponseItem] = []
     for raw_path in x.paths:
@@ -400,13 +390,17 @@ async def route_import_files_to_artifacts(
             ) from exc
         extension = "".join(resolved.suffixes) or ".bin"
         artifact_id = create_file_artifact_id(extension)
+        mime_type, _ = mimetypes.guess_type(resolved.name)
+        ref = binary_store.store_bytes(
+            content,
+            mime_type=mime_type or "application/octet-stream",
+        )
         updates.append(
             FileArtifact(
                 id=artifact_id,
-                value=base64.b64encode(content).decode("utf-8"),
+                value=ref,
             )
         )
-        mime_type, _ = mimetypes.guess_type(resolved.name)
         results.append(
             ImportFilesToArtifactsResponseItem(
                 id=artifact_id,
@@ -577,7 +571,11 @@ async def route_delete_artifacts(
 
     if deleted_ids:
         payloads = [
-            FileArtifact(id=artifact_id, value="") for artifact_id in deleted_ids
+            FileArtifact(
+                id=artifact_id,
+                value=BinaryContentRef(contentId="deleted", byteLength=0),
+            )
+            for artifact_id in deleted_ids
         ]
         await ctx.state.wmh_frontend_sender.broadcast_artifacts_update(
             artifacts=payloads,
