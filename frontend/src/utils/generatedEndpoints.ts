@@ -811,6 +811,18 @@ export async function route_set_type_error_ignore(
   return await post("/setTypeErrorIgnore", x);
 }
 
+export async function route_set_code_section_diagnostics_mute(
+  x: gt.SetCodeSectionDiagnosticsMuteRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticsMute", x);
+}
+
+export async function route_set_code_section_diagnostic_code_suppression(
+  x: gt.SetCodeSectionDiagnosticCodeSuppressionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticCodeSuppression", x);
+}
+
 export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

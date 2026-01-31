@@ -18,10 +18,12 @@ from setta.project_state.code_files import (
     GEN_CODE_VARIANT_ID,
     RegisteredCodeFileBinding,
 )
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
+    build_setta_lsp_diagnostic,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
@@ -67,6 +69,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
     CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     TypeErrorIgnoreState,
 )
@@ -108,6 +111,7 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
         ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
+        diagnostics_state: ProjectLspDiagnosticsState,
         *,
         initial_undefined_callable_sections: set[ID] | None = None,
         initial_callable_mismatch_sections: set[ID] | None = None,
@@ -121,6 +125,7 @@ class ProjectGenPythonCode(PythonCode):
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.ignored_type_errors_by_section = ignored_type_errors_by_section
+        self.diagnostics_state = diagnostics_state
         self.latest_undefined_callable_sections = (
             set(initial_undefined_callable_sections)
             if initial_undefined_callable_sections
@@ -132,11 +137,6 @@ class ProjectGenPythonCode(PythonCode):
             set(initial_callable_mismatch_sections)
             if initial_callable_mismatch_sections
             else set()
-        )
-        self.latest_diagnostics = SettaProjectConfigDiagnostics(
-            projectConfigId=project_config_id,
-            errors={},
-            isGenCode=True,
         )
         code_files.register_binding(
             binding.canonical_path,
@@ -555,17 +555,22 @@ class ProjectGenPythonCode(PythonCode):
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
     ):
         params = lsp_response.params
-        if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
-            return
+        if self.lsp_writer is not None:
+            if params.version is None:
+                return
+            if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
+                return
         (
             errors,
             undefined_callable_sections,
             callable_mismatch_sections,
+            unmapped_diagnostics,
         ) = process_gen_code_diagnostics_with_undefined_symbols(
             params.diagnostics,
             self.code_generator,
             self.dep_graph,
             self.ignored_type_errors_by_section,
+            uri=params.uri,
         )
         if callable_mismatch_sections:
             logger.debug(
@@ -595,8 +600,7 @@ class ProjectGenPythonCode(PythonCode):
             isGenCode=True,
         )
 
-        self.latest_diagnostics = content
-        await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
+        await self.diagnostics_state.update_gen_code(content, unmapped_diagnostics)
         if resolved_sections and self._on_callable_symbols_resolved:
             await self._on_callable_symbols_resolved(
                 self.project_config_id, resolved_sections
@@ -647,6 +651,7 @@ class ProjectPythonCode(PythonCode):
         code_files,
         lsp_writers,
         websocket_msg_handler,
+        diagnostics_state: ProjectLspDiagnosticsState,
         project_state: ProjectStateSingleConfig,
         sectionId,
     ):
@@ -659,6 +664,10 @@ class ProjectPythonCode(PythonCode):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.sectionId = sectionId
         self.code = section_impl.code
+        self.diagnostics_ignore_state = section_impl.diagnosticsIgnoreState.model_copy(
+            deep=True
+        )
+        self.diagnostics_state = diagnostics_state
         project_config = project_state.projectConfig
         variant_id = project_config.sectionVariantMap.get(sectionId)
         if variant_id is None:
@@ -694,12 +703,29 @@ class ProjectPythonCode(PythonCode):
             )
         return process_completion_response(response)
 
+    def update_diagnostics_ignore_state(
+        self, ignore_state: CodeSectionDiagnosticsIgnoreState
+    ) -> None:
+        self.diagnostics_ignore_state = ignore_state.model_copy(deep=True)
+
     async def type_check(self):
         await self.send_document_open_request(self.code)
 
     async def diagnostics_callback(self, lsp_response):
-        # TODO
-        pass
+        params = lsp_response.params
+        if self.lsp_writer is not None:
+            if params.version is None:
+                return
+            if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
+                return
+        diagnostics = [
+            build_setta_lsp_diagnostic(d, uri=params.uri) for d in params.diagnostics
+        ]
+        await self.diagnostics_state.update_code_section(
+            self.sectionId,
+            diagnostics,
+            ignore_state=self.diagnostics_ignore_state,
+        )
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)

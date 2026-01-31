@@ -61,6 +61,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
+    CodeSectionImplArgsWithCallable,
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
@@ -116,6 +117,8 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     ChatSectionState,
     CodeFileBinding,
+    CodeSectionDiagnosticsIgnoreState,
+    CodeSectionImpl,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
@@ -2862,6 +2865,53 @@ def set_type_error_ignore(
         p,
         sectionId,
         BaseSectionWithParamsImplArgsWithCallable(ignoreTypeErrors=update),
+    )
+
+
+def set_code_section_diagnostics_mute(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    mute: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, CodeSectionImpl)
+
+    def update(curr: CodeSectionDiagnosticsIgnoreState):
+        return CodeSectionDiagnosticsIgnoreState(
+            muted=mute,
+            suppressedCodes=list(curr.suppressedCodes),
+        )
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        CodeSectionImplArgsWithCallable(diagnosticsIgnoreState=update),
+    )
+
+
+def set_code_section_diagnostic_code_suppression(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    code: str | int,
+    suppress: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, CodeSectionImpl)
+
+    def update(curr: CodeSectionDiagnosticsIgnoreState):
+        next_codes = list(curr.suppressedCodes)
+        if suppress:
+            if code not in next_codes:
+                next_codes.append(code)
+        elif code in next_codes:
+            next_codes.remove(code)
+        return CodeSectionDiagnosticsIgnoreState(
+            muted=curr.muted,
+            suppressedCodes=next_codes,
+        )
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        CodeSectionImplArgsWithCallable(diagnosticsIgnoreState=update),
     )
 
 
