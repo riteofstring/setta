@@ -29,6 +29,10 @@ from setta.types.artifact import (
 )
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.routes import Route
+from setta.utils.attachment_policy import (
+    enforce_upload_policy,
+    resolve_attachment_policy_scope,
+)
 from setta.utils.constants import CWD, C
 from setta.utils.utils import normalize_path
 
@@ -45,8 +49,6 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
-DROPZONE_MAX_FILE_BYTES = 25 * 1024 * 1024
-DROPZONE_MAX_FILE_LABEL = f"{DROPZONE_MAX_FILE_BYTES // (1024 * 1024)} MB"
 
 
 class CheckIfFileExistsRequests(BaseModel):
@@ -106,56 +108,6 @@ class DeleteArtifactRequestItem(BaseModel):
 
 class DeleteArtifactsRequest(BaseModel):
     artifacts: list[DeleteArtifactRequestItem]
-
-
-def _resolve_upload_size_limit(upload_scope: str | None) -> tuple[int, str]:
-    if upload_scope == "chat":
-        return C.CHAT_ATTACHMENTS_MAX_FILE_BYTES, C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
-    return DROPZONE_MAX_FILE_BYTES, DROPZONE_MAX_FILE_LABEL
-
-
-def _enforce_file_artifact_size(
-    artifact: FileArtifact, *, upload_scope: str | None
-) -> None:
-    size = artifact.value.byteLength
-    max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
-    if size > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds {max_label} limit: {artifact.id}",
-        )
-
-
-def _normalized_attachment_mime_prefixes() -> list[str]:
-    prefixes: list[str] = []
-    for prefix in C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES:
-        if not isinstance(prefix, str):
-            continue
-        trimmed = prefix.strip()
-        if trimmed:
-            prefixes.append(trimmed)
-    return prefixes
-
-
-def _enforce_attachment_mime_type(mime_type: str, *, label: str) -> None:
-    prefixes = _normalized_attachment_mime_prefixes()
-    if not prefixes:
-        return
-    if not any(mime_type.startswith(prefix) for prefix in prefixes):
-        allowed_label = ", ".join(prefixes)
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=(
-                f"Attachment type {mime_type} is not allowed for {label}. "
-                f"Allowed prefixes: {allowed_label}."
-            ),
-        )
-
-
-def _enforce_file_artifact_mime(artifact: FileArtifact) -> None:
-    mime_type, _ = mimetypes.guess_type(artifact.id)
-    resolved = mime_type or "application/octet-stream"
-    _enforce_attachment_mime_type(resolved, label=artifact.id)
 
 
 def _get_share_session_artifacts(
@@ -396,6 +348,7 @@ async def route_import_files_to_artifacts(
     if not x.paths:
         return []
     upload_scope = x.uploadScope
+    policy_scope = resolve_attachment_policy_scope(upload_scope)
     artifacts = _get_artifacts(ctx)
     binary_store = BinaryStore.from_dbe(ctx.state.dbe)
     updates: list[FileArtifact] = []
@@ -419,12 +372,14 @@ async def route_import_files_to_artifacts(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to stat file: {raw_path}",
             ) from exc
-        max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
-        if size > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=(f"File exceeds {max_label} limit: {raw_path}"),
-            )
+        mime_type, _ = mimetypes.guess_type(resolved.name)
+        resolved_mime = mime_type or "application/octet-stream"
+        enforce_upload_policy(
+            file_size=size,
+            mime_type=resolved_mime,
+            scope=policy_scope,
+            label=resolved.name,
+        )
         try:
             content = resolved.read_bytes()
         except OSError as exc:
@@ -434,10 +389,6 @@ async def route_import_files_to_artifacts(
             ) from exc
         extension = "".join(resolved.suffixes) or ".bin"
         artifact_id = create_file_artifact_id(extension)
-        mime_type, _ = mimetypes.guess_type(resolved.name)
-        resolved_mime = mime_type or "application/octet-stream"
-        if upload_scope == "chat":
-            _enforce_attachment_mime_type(resolved_mime, label=resolved.name)
         ref = binary_store.store_bytes(
             content,
             mime_type=resolved_mime,
@@ -523,11 +474,17 @@ async def route_update_artifacts(
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
     upload_scope = x.uploadScope
+    policy_scope = resolve_attachment_policy_scope(upload_scope)
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
-            _enforce_file_artifact_size(artifact, upload_scope=upload_scope)
-            if upload_scope == "chat":
-                _enforce_file_artifact_mime(artifact)
+            mime_type, _ = mimetypes.guess_type(artifact.id)
+            resolved_mime = mime_type or "application/octet-stream"
+            enforce_upload_policy(
+                file_size=artifact.value.byteLength,
+                mime_type=resolved_mime,
+                scope=policy_scope,
+                label=artifact.id,
+            )
     if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(

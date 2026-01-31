@@ -6272,6 +6272,12 @@ const SharePolicySchema = z.object({
 
 export type SharePolicy = z.infer<typeof SharePolicySchema>;
 
+export function createSharePolicy(
+  options: Partial<SharePolicy> = {},
+): SharePolicy {
+  return SharePolicySchema.parse(options);
+}
+
 const ShareDeploymentSessionResponseSchema = z.object({
   deploymentName: z.string(),
   deploymentVersion: z.string(),

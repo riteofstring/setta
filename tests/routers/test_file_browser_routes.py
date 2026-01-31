@@ -8,7 +8,6 @@ from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
 
-import setta.routers.artifact as artifact_router
 from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
@@ -437,11 +436,11 @@ class TestFileBrowserRoutes:
 
     async def test_update_artifacts_rejects_oversized_file(self) -> None:
         state = await self._build_state()
-        original_limit = artifact_router.DROPZONE_MAX_FILE_BYTES
-        original_label = artifact_router.DROPZONE_MAX_FILE_LABEL
+        original_limit = C.DROPZONE_STATEFUL_MAX_FILE_BYTES
+        original_label = C.DROPZONE_STATEFUL_MAX_FILE_LABEL
         try:
-            artifact_router.DROPZONE_MAX_FILE_BYTES = 10
-            artifact_router.DROPZONE_MAX_FILE_LABEL = "10 bytes"
+            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = 10
+            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = "10 bytes"
             artifact_id = (C.ARTIFACTS_FOLDER / "too-big.bin").as_posix()
             oversized_ref = BinaryContentRef(
                 contentId="oversized",
@@ -460,8 +459,8 @@ class TestFileBrowserRoutes:
                     )
             assert ctx.value.status_code == 413
         finally:
-            artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
-            artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
+            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = original_limit
+            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = original_label
 
     async def test_update_artifacts_rejects_oversized_chat_file(self) -> None:
         state = await self._build_state()
