@@ -369,7 +369,7 @@ raise SystemExit("Timed out waiting for a backend session.")
 PY
 )"
 
-declare -a PLAYWRIGHT_EXTRA_ARGS=()
+PLAYWRIGHT_EXTRA_ARGS=()
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
     "${PYTHON_BIN}" - <<'PY'
@@ -400,12 +400,7 @@ fi
 
 log "Running Playwright tests."
 cd "${ROOT_DIR}/frontend"
-PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
-if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
-  PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
-fi
-PLAYWRIGHT_CMD+=("$@")
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
 SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-"${PLAYWRIGHT_CMD[@]}"
+pnpm exec playwright test --reporter=line "${PLAYWRIGHT_EXTRA_ARGS[@]:-}" "$@"

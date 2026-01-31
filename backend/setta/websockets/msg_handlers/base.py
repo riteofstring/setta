@@ -20,9 +20,6 @@ class BaseWebsocketMsgReceiver:
     async def process_json_str(self, json_str, fromWebsocketId):
         pass
 
-    async def process_bytes(self, payload: bytes, fromWebsocketId):
-        pass
-
 
 class BaseWebsocketMsgSender:
     def __init__(self, websocket_manager: WebsocketManager):

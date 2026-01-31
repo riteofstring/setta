@@ -11,24 +11,24 @@ run_playwright=1
 
 usage() {
   cat <<'EOF'
-Usage: ./t.sh [--b | --f]
+Usage: ./rt.sh [--backend-only | --frontend-only]
 
 Options:
-  --b              Run backend pytest only.
-  --f              Run frontend Vitest + Playwright only.
+  --backend-only   Run backend pytest only.
+  --frontend-only  Run frontend Vitest + Playwright only.
   -h, --help       Show this help.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --b)
+    --backend-only)
       run_backend=1
       run_frontend=0
       run_playwright=0
       shift
       ;;
-    --f)
+    --frontend-only)
       run_backend=0
       run_frontend=1
       run_playwright=1
@@ -49,7 +49,7 @@ done
 status=0
 
 if [[ "${run_backend}" -eq 1 ]]; then
-  ./scripts/run_backend_tests.sh || status=1
+  ./run_backend_tests.sh || status=1
 fi
 if [[ "${run_frontend}" -eq 1 ]]; then
   CI=1 pnpm -C frontend test -- --run || status=1

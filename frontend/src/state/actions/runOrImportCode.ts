@@ -11,7 +11,7 @@ import {
   route_kill_subprocesses,
   route_run_code,
 } from "utils/generatedEndpoints";
-import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
@@ -79,7 +79,7 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
-  const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
+  const drawSnapshotsBySectionId = collectDrawSnapshotsForRun();
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
@@ -126,10 +126,7 @@ export async function stopCode() {
   });
 }
 
-async function collectDrawSnapshotsForRun(): Promise<Record<
-  string,
-  BinaryContentRef
-> | null> {
+function collectDrawSnapshotsForRun(): Record<string, string> | null {
   const state = useProjectState.getState();
   const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);
   const drawSectionIds = sectionIds.filter(
@@ -140,5 +137,5 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
   if (drawSectionIds.length === 0) {
     return null;
   }
-  return await collectDrawSnapshotPayloads(drawSectionIds);
+  return collectDrawSnapshotPayloads(drawSectionIds);
 }

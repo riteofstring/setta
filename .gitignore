@@ -8,6 +8,7 @@ node_modules
 # testing
 /coverage
 frontend/test-results/
+frontend/tests/e2e/.storageState.json
 
 # production
 */dist
@@ -45,7 +46,6 @@ backend/setta/frontend
 setta_files/
 tests.log
 backend.log
-gcf.log
 auth.json
 mcp-tools.json
 docs/temporary/

@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
@@ -17,8 +16,6 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeDependencyEvent,
     WebsocketMsgRealtimeUIChange,
 )
-from setta.utils.constants import C
-from setta.websockets.binary_frames import decode_binary_frame
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
@@ -77,41 +74,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
                 m.content, share_session_id=share_session_id
             )
 
-    async def process_bytes(self, payload: bytes, fromWebsocketId: str):
-        header, binary_payload = decode_binary_frame(payload)
-        message: BackendWebsocketMsgUnion = (
-            BackendWebsocketMsgTypeAdapter.validate_python(header)
-        )
-        if (
-            C.REALTIME_BINARY_MAX_BYTES > 0
-            and len(binary_payload) > C.REALTIME_BINARY_MAX_BYTES
-        ):
-            raise ValueError("Realtime binary payload exceeds size limit.")
-        share_session_id = (
-            self.require_share_session_id(fromWebsocketId) if self.share_mode else None
-        )
-        if isinstance(message, WebsocketMsgRealtimeUIChange):
-            if message.content.value.type is not DependencyValueType.Binary:
-                raise ValueError("Binary realtime UI change requires Binary value.")
-            await self._handle_realtime_ui_change(
-                message.content,
-                share_session_id=share_session_id,
-                binary_payload=binary_payload,
-            )
-            return
-        if isinstance(message, WebsocketMsgRealtimeDependencyEvent):
-            payload_value = message.content.dependencyEvent.payload
-            if (
-                payload_value is None
-                or payload_value.type is not DependencyValueType.Binary
-            ):
-                raise ValueError("Binary dependency event requires Binary payload.")
-            await self._handle_realtime_dependency_event(
-                message.content,
-                share_session_id=share_session_id,
-                binary_payload=binary_payload,
-            )
-
     async def on_connect(self, _websocket_id: str):
         if self.share_mode:
             self.require_share_session_id(_websocket_id)
@@ -125,7 +87,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         content: RealtimeUIChangeContent,
         *,
         share_session_id: str | None,
-        binary_payload: bytes | None = None,
     ):
         self._require_share_project_config(
             content.projectConfigId,
@@ -134,18 +95,9 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         delta = ListenerRealtimeDelta(
             dependency=content.dependencyKey, value=content.value
         )
-        if binary_payload is None:
-            await self.realtime_event_hub.emit_realtime_delta(
-                project_config_id=content.projectConfigId,
-                deltas=[delta],
-                share_session_id=share_session_id,
-            )
-            return
-        delta.binaryPayload = binary_payload
-        await self.realtime_event_hub.emit_realtime_delta_binary(
+        await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,
-            delta=delta,
-            binary_payload=binary_payload,
+            deltas=[delta],
             share_session_id=share_session_id,
         )
 
@@ -154,24 +106,14 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         content: RealtimeDependencyEventContent,
         *,
         share_session_id: str | None,
-        binary_payload: bytes | None = None,
     ) -> None:
         self._require_share_project_config(
             content.projectConfigId,
             share_session_id=share_session_id,
         )
-        if binary_payload is None:
-            await self.realtime_event_hub.emit_dependency_event(
-                project_config_id=content.projectConfigId,
-                dependency_events=[content.dependencyEvent],
-                share_session_id=share_session_id,
-            )
-            return
-        content.dependencyEvent.binaryPayload = binary_payload
-        await self.realtime_event_hub.emit_dependency_event_binary(
+        await self.realtime_event_hub.emit_dependency_event(
             project_config_id=content.projectConfigId,
-            dependency_event=content.dependencyEvent,
-            binary_payload=binary_payload,
+            dependency_events=[content.dependencyEvent],
             share_session_id=share_session_id,
         )
 
