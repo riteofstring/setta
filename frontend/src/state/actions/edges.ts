@@ -12,11 +12,11 @@ import {
   route_set_edges,
   route_update_edge,
 } from "utils/generatedEndpoints";
+import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
-import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 
 const agenticHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,

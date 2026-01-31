@@ -1252,9 +1252,7 @@ def status(
     if workspace is None:
         sessions = registry.load_sessions()
     else:
-        sessions = registry.find_sessions_by_workspace(
-            workspace, prune_stale=False
-        )
+        sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
         if not sessions:
             sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 

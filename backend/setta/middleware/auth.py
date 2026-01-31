@@ -12,7 +12,7 @@ from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
 from setta.types.routes import Route
-from setta.utils.constants import C, IS_DEV_MODE
+from setta.utils.constants import IS_DEV_MODE, C
 
 AUTH_EXEMPT_PATHS = {Route.BOOTSTRAP_PAGE.value, Route.BOOTSTRAP_CONSUME.value}
 
@@ -278,9 +278,7 @@ class AuthMiddleware:
             async def send_wrapper(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     headers = list(message.get("headers", []))
-                    cookie_headers = _build_auth_cookie_headers(
-                        auth_cookie, request
-                    )
+                    cookie_headers = _build_auth_cookie_headers(auth_cookie, request)
                     if cookie_headers:
                         headers.extend(cookie_headers)
                         message["headers"] = headers

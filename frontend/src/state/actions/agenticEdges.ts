@@ -70,9 +70,7 @@ function resolveAgenticKindForConnection(
   return resolveAgenticEdgeKind(types.sourceType, types.targetType);
 }
 
-export function isValidAgenticEdgeConnection(
-  connection: Connection,
-): boolean {
+export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   if (!connection.source || !connection.target) {
     return false;
   }

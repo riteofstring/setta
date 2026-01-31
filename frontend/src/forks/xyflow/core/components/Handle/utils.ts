@@ -154,14 +154,14 @@ export function getClosestHandle(
   pos: { x: number; y: number },
   connectionRadius: number,
   handles: ConnectionHandle[],
-  allowHandle: ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean) | null,
+  allowHandle:
+    | ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean)
+    | null,
   validator: (
     handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
   ) => Result,
 ) {
-  const isHandleAllowed =
-    allowHandle ??
-    (() => true);
+  const isHandleAllowed = allowHandle ?? (() => true);
   const eventPos = getPointerPosition(event);
   const handleBelow = doc
     .elementsFromPoint(eventPos.x, eventPos.y)
