@@ -1,7 +1,6 @@
 from .history import ChatHistory
 from .messages import (
     assistant_message,
-    message_attachment,
     message_image_url,
     message_text,
     message_thinking,
@@ -22,7 +21,6 @@ __all__ = [
     "ToolRunner",
     "apply_stream_delta",
     "assistant_message",
-    "message_attachment",
     "build_chat_section_state",
     "message_image_url",
     "message_text",

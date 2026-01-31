@@ -41,11 +41,12 @@ import {
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
-  ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   EngineTypeEnum,
+  LiteralDependencyValue,
   SectionTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
@@ -57,7 +58,6 @@ type ChatSendActionPayload = {
   sectionId: string;
   messageId: string;
   text: string;
-  attachments: ChatFileAttachment[];
   role: ChatRoleEnum;
   timestampMs: number;
   managed: boolean;
@@ -81,7 +81,6 @@ type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
   text: string;
-  attachments: ChatFileAttachment[];
   role: ChatRoleEnum;
   managed: boolean;
   timestampMs: number;
@@ -94,12 +93,16 @@ type EmitChatStopActionArgs = {
 };
 
 function emitChatAction(payload: ChatActionPayload) {
+  const literalPayload: LiteralDependencyValue = {
+    payload: JSON.stringify(payload),
+    type: DependencyValueTypeEnum.Literal,
+  };
   sendRealtimeDependencyEvent({
     dependencyKey: {
       type: DependencyKeyTypeEnum.Section,
       sectionId: payload.sectionId,
     },
-    payload: JSON.stringify(payload),
+    payload: literalPayload,
     timestampMs: payload.timestampMs,
   });
 }
@@ -108,7 +111,6 @@ function emitChatSendAction({
   sectionId,
   messageId,
   text,
-  attachments,
   role,
   managed,
   timestampMs,
@@ -118,7 +120,6 @@ function emitChatSendAction({
     sectionId,
     messageId,
     text,
-    attachments,
     role,
     timestampMs,
     managed,
@@ -288,22 +289,16 @@ function ScriptableChatArea({
   );
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
+    async (message: string) => {
+      if (!message.trim()) {
         return false;
       }
       const messageId = createNewId();
       const timestampMs = Date.now();
-      const content = [];
-      if (trimmed) {
-        content.push(createMessageTextContent({ text: message }));
-      }
       const newMessage = {
         id: messageId,
         role: ChatRoleEnum.user,
-        content,
-        attachments,
+        content: [createMessageTextContent({ text: message })],
       };
       const nextMessages = [...messages, newMessage];
       const nextState = {
@@ -320,7 +315,6 @@ function ScriptableChatArea({
         sectionId,
         messageId,
         text: message,
-        attachments,
         role: ChatRoleEnum.user,
         managed: false,
         timestampMs,
@@ -614,9 +608,8 @@ function ManagedChatArea({
   );
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
+    async (message: string) => {
+      if (!message.trim()) {
         return false;
       }
       if (!hasEngineConfig) {
@@ -634,7 +627,6 @@ function ManagedChatArea({
         sectionId,
         messageId,
         text: message,
-        attachments,
         role: ChatRoleEnum.user,
         managed: true,
         timestampMs,
@@ -653,7 +645,6 @@ function ManagedChatArea({
         submittedChatId = await submitMessage(
           chatId,
           message,
-          attachments,
           thinking,
           effectiveEngineConfigId,
           isExternalEngine,

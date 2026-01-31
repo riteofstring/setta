@@ -32,8 +32,6 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
-    GetPasswordParamValueRequest,
-    GetPasswordParamValueResponse,
     GroupSectionsRequest,
     IndentParamsRequest,
     MoveParamGroupsRequest,
@@ -63,8 +61,6 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
-    SetCodeSectionDiagnosticCodeSuppressionRequest,
-    SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
     SetEdgesRequest,
     SetGenCodePrefixRequest,
@@ -126,7 +122,6 @@ from setta.routers.dependencies import (
     RuntimeContextFromRequest,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.secrets.password_store import get_password_secret
 from setta.share.policy import (
     SharePolicyGuard,
     deny_in_share_mode,
@@ -135,8 +130,6 @@ from setta.share.policy import (
 )
 from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
-from setta.types.code_obj_impls import PasswordParamCodeObjImpl
-from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import InvalidParamName, InvalidSectionName
@@ -198,15 +191,6 @@ async def _deny_share_mode_view_modes(ctx) -> None:
         share_mode=ctx.share_mode,
         frontend_sender=ctx.frontend_sender,
         message="Share mode disallows view mode changes.",
-        share_session_id=ctx.share_session_id,
-    )
-
-
-async def _deny_share_mode_diagnostics(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
-        frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows diagnostics settings.",
         share_session_id=ctx.share_session_id,
     )
 
@@ -675,33 +659,6 @@ async def route_set_param_entered_value(
     await manager.set_param_entered_value(x)
 
 
-@router.post(Route.GET_PASSWORD_PARAM_VALUE)
-async def route_get_password_param_value(
-    x: GetPasswordParamValueRequest, ctx: RuntimeContextFromRequest
-) -> GetPasswordParamValueResponse:
-    logger.debug(
-        "route_get_password_param_value project_config_id=%s section_id=%s param_info_id=%s",
-        x.projectConfigId,
-        x.sectionId,
-        x.paramInfoId,
-    )
-    manager = ctx.get_project_manager(x.projectConfigId)
-    project_state = manager.get_single_config_state(x.projectConfigId)
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
-        frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows password reveals.",
-        share_session_id=ctx.share_session_id,
-    )
-    impl = get_curr_effective_code_obj_impl_with_type_guard(
-        project_state,
-        x.sectionId,
-        x.paramInfoId,
-        PasswordParamCodeObjImpl,
-    )
-    return GetPasswordParamValueResponse(value=get_password_secret(str(impl.id)))
-
-
 @router.post(Route.SET_TYPE_ERROR_IGNORE)
 async def route_set_type_error_ignore(
     x: SetTypeErrorIgnoreRequest, ctx: RuntimeContextFromRequest
@@ -709,24 +666,6 @@ async def route_set_type_error_ignore(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_type_error_ignore(x)
-
-
-@router.post(Route.SET_CODE_SECTION_DIAGNOSTICS_MUTE)
-async def route_set_code_section_diagnostics_mute(
-    x: SetCodeSectionDiagnosticsMuteRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_share_mode_diagnostics(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_code_section_diagnostics_mute(x)
-
-
-@router.post(Route.SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION)
-async def route_set_code_section_diagnostic_code_suppression(
-    x: SetCodeSectionDiagnosticCodeSuppressionRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_share_mode_diagnostics(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_code_section_diagnostic_code_suppression(x)
 
 
 @router.post(Route.SET_CODE_OBJ_NAME)

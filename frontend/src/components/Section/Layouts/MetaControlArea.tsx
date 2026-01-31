@@ -29,15 +29,17 @@ import type {
   ButtonParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
+  BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
+  LiteralDependencyValue,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
-import { shouldEmitRealtimeValue } from "utils/paramValue";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
@@ -157,9 +159,6 @@ function MetaControlValueArea({
       if (codeObjType === CodeObjTypeEnum.ButtonParam) {
         return;
       }
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        return;
-      }
       useProjectState.setState((state) => {
         setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
@@ -185,21 +184,11 @@ function MetaControlValueArea({
     }
     const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
-    if (
-      shouldEmitRealtimeValue({
-        previousValue: value,
-        nextValue: valueStr,
-        codeObjType,
-      })
-    ) {
+    if (value !== valueStr) {
       sendRealtimeSectionLiteral(sectionId, valueStr);
     }
     if (!options?.skipBackendUpdate) {
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
-      } else {
-        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
-      }
+      debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
     }
   };
 
@@ -215,15 +204,19 @@ function MetaControlValueArea({
       sendButtonSettaRequest(buttonConfig);
       return;
     }
+    const payload: LiteralDependencyValue = {
+      payload: JSON.stringify({
+        actionMode: buttonConfig.actionMode,
+        controlParamId,
+      }),
+      type: DependencyValueTypeEnum.Literal,
+    };
     sendRealtimeDependencyEvent({
       dependencyKey: {
         type: DependencyKeyTypeEnum.Section,
         sectionId,
       },
-      payload: JSON.stringify({
-        actionMode: buttonConfig.actionMode,
-        controlParamId,
-      }),
+      payload,
     });
   }
 
@@ -231,17 +224,53 @@ function MetaControlValueArea({
     if (attachments.length === 0) {
       return;
     }
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.Section,
-        sectionId,
-      },
+    const dependencyKey = {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId,
+    };
+    const metadataAttachments = attachments.map((attachment) => {
+      if (attachment.kind === "file") {
+        return {
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+        };
+      }
+      return attachment;
+    });
+    const metadataPayload: LiteralDependencyValue = {
       payload: JSON.stringify({
         sectionId,
         paramInfoId: controlParamId,
-        attachments,
+        attachments: metadataAttachments,
       }),
+      type: DependencyValueTypeEnum.Literal,
+    };
+    sendRealtimeDependencyEvent({
+      dependencyKey,
+      payload: metadataPayload,
     });
+    for (const attachment of attachments) {
+      if (attachment.kind !== "file") {
+        continue;
+      }
+      const binaryPayload: BinaryDependencyValue = {
+        payload: {
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+          mimeType: attachment.mimeType,
+        },
+        type: DependencyValueTypeEnum.Binary,
+      };
+      sendRealtimeDependencyEvent({
+        dependencyKey,
+        payload: binaryPayload,
+        binaryPayload: attachment.binaryPayload,
+      });
+    }
   }
 
   return (
@@ -300,18 +329,6 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
-    });
-  },
-  50,
-);
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
     });
   },
   50,

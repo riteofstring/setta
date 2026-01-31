@@ -16,7 +16,6 @@
 - `reference/json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
-- `reference/lsp-diagnostics.md` – how LSP diagnostics are collected, broadcast, and surfaced (generated code + code sections).
 - `reference/mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.

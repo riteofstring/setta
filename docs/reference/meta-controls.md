@@ -46,17 +46,9 @@ their values and action events propagate, and how they appear in generated code 
     `route_set_param_entered_value`), storing a JSON payload.
   - `mode=STATELESS` behaves like button controls (no persisted value). Frontend
     sends `RealtimeDependencyEvent` with the section dependency key and a JSON
-    payload that includes the attachments plus `sectionId`/`paramInfoId`.
-- Password controls:
-  - Secrets are stored in the runtime secret store
-    (`setta_files/runtime/secrets/passwords.json` or `SETTA_RUNTIME_ROOT`);
-    project state keeps `value`/`defaultVal` empty and tracks presence via
-    `hasSecret`.
-  - The UI shows a "Saved" placeholder when `hasSecret` is true and reveals the
-    secret only on demand (`route_get_password_param_value`), which is blocked
-    in share mode.
-  - Realtime deltas are not emitted for password values; they only persist via
-    `route_set_param_entered_value`.
+    payload that includes the attachments plus `sectionId`/`paramInfoId`. File
+    attachments include binary metadata (`contentId`, `byteLength`, `mimeType`)
+    and the bytes arrive in separate binary frames.
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the
@@ -69,7 +61,7 @@ their values and action events propagate, and how they appear in generated code 
   param id.
 - Literal formatting uses the control type (for example,
   `SwitchParam` -> `True`/`False`, `ColorPickerParam` -> quoted string,
-  `TextParam` -> `repr(...)`, `PasswordParam` -> `read_password_value(...)`).
+  `TextParam`/`PasswordParam` -> `repr(...)`).
 - `DropzoneParam` values render as a list of attachment objects when stateful
   (or `[]` when empty/ stateless).
 
@@ -79,7 +71,8 @@ their values and action events propagate, and how they appear in generated code 
 - Subscribe to button controls by including the section dependency and
   `dependency_mode=ListenerDependencyMode.REALTIME_ONLY` (use `deps=[]` for a wildcard).
 - Subscribe to stateless dropzone controls the same way as buttons and decode
-  the JSON payload to access base64 attachments.
+  the JSON payload to access attachment metadata, then read binary frames for
+  file payloads.
 - Listener emits can only update meta controls through the control param id
   (`SectionParamDependencyKey`) or `route_set_param_entered_value`; section-level
   dependency updates are not applied for MetaControl sections.

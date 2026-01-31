@@ -71,7 +71,6 @@ from setta.types.agentic import (
 )
 from setta.types.chat_messages import (
     AssistantChatMessage,
-    ContentChatMessage,
     MessageTextContent,
     SystemChatMessage,
     ToolCall,
@@ -96,8 +95,7 @@ from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -151,13 +149,11 @@ class AgentRunner:
         websocket_msg_handler: WMHFrontendSender,
         *,
         share_session_id: str | None = None,
-        share_mode: bool = False,
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
-        self.share_mode = share_mode
         self.config: AllLLMConfigs = AllLLMConfigs()
         self.api_keys: dict[str, str] = {}
         self._raw_env_vars: dict[str, str] = {}
@@ -840,10 +836,7 @@ class AgentRunner:
             content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
         message_payloads: list[dict[str, Any]] = [system_message]
-        resolved_messages = [
-            self._resolve_message_attachments(message) for message in messages
-        ]
-        for message in resolved_messages:
+        for message in messages:
             message_payloads.append(message.to_openai_format())
         request, api_key_env = self.config.build_llm_params(llm_config)
         if api_key_env:
@@ -878,33 +871,6 @@ class AgentRunner:
         if not request.get("model"):
             raise ValueError("LLM config must specify a model via config or override")
         return request
-
-    def _resolve_message_attachments(
-        self, message: BaseChatMessageUnion
-    ) -> BaseChatMessageUnion:
-        if not isinstance(message, ContentChatMessage):
-            return message
-        if not message.attachments:
-            return message
-        if self.share_mode:
-            base_root = self.dbe.path
-            artifacts_root = self.dbe.path / "artifacts"
-        else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
-        extra_blocks = build_attachment_content_blocks(
-            dbe=self.dbe,
-            attachments=message.attachments,
-            base_root=base_root,
-            artifacts_root=artifacts_root,
-            allow_external=False,
-        )
-        if not extra_blocks:
-            return message.model_copy(update={"attachments": []})
-        updated_content = list(message.content) + list(extra_blocks)
-        return message.model_copy(
-            update={"content": updated_content, "attachments": []}
-        )
 
     def _resolve_mcp_server_ids(self, llm_config: LLMConfig) -> list[str]:
         return self.config.resolve_mcp_server_ids(llm_config)

@@ -7,7 +7,6 @@ In share mode only, those flags gate specific route families. Here is what each 
 - Artifact + listener updates in share sessions (`Route.UPDATE_ARTIFACTS`, listener emits).
 - Example: viewer edits a text block or changes chart data -> allowed only if `allowParamChanges` is true.
 - Note: CodeParam edits are *always* blocked in share mode (even if this is true).
-- Note: Code section diagnostics settings (mute/suppress) are *always* blocked in share mode.
 
 **allowVariantChanges** (variants + view modes)
 - Section variants: create new variant, set active/default variant, rename variant, toggle frozen, toggle variant JSON source (`Route.CREATE_NEW_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT`, `Route.SET_DEFAULT_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT_NAME`, `Route.TOGGLE_VARIANT_FROZEN`, `Route.TOGGLE_VARIANT_JSON_SOURCE`).

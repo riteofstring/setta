@@ -10,7 +10,6 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_python_identifier,
 )
-from setta.secrets.password_store import read_password_store
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParamCodeObjImpl,
@@ -89,7 +88,6 @@ class Node(ABC):
 @dataclass
 class SectionNode(Node):
     control_code_obj_type: CodeObjType | None = None
-    control_code_obj_impl_id: ID | None = None
     control_value_representation: CodeObjValueRepresentationMode | None = None
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
     include_in_codegen: bool = True
@@ -102,8 +100,6 @@ class SectionNode(Node):
 @dataclass
 class ParamNode(Node):
     passing_style: ParameterPassingStyle
-    code_obj_impl_id: ID | None = None
-    has_secret: bool = False
     value_representation: CodeObjValueRepresentationMode = (
         CodeObjValueRepresentationMode.expression
     )
@@ -113,10 +109,6 @@ class ParamNode(Node):
     def has_name_and_value(self):
         if not self.name:
             return False
-        if self.type is CodeObjType.PasswordParam:
-            if self.code_obj_impl_id is None:
-                return False
-            return self.has_secret
         if self.value is None:
             return False
         return self.value.payload != ""
@@ -162,7 +154,6 @@ class DependencyGraph:
         }
         self.section_policy = get_section_codegen_policy(p.projectConfig)
         self.code_obj_value_policy = get_code_obj_value_policy(p.projectConfig)
-        self.password_secrets = read_password_store()
         self.construct_graph(p)
 
     def reset(self):
@@ -496,7 +487,6 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=control_value,
             control_code_obj_type=control_impl.type,
-            control_code_obj_impl_id=control_impl.id,
             control_value_representation=control_value_representation,
             deps={},
             representation=ctx.codegen_policy.representation,
@@ -563,11 +553,6 @@ class DependencyGraph:
                     pid,
                     code_obj_impl.type,
                 ).representation
-                has_secret = False
-                if code_obj_impl.type is CodeObjType.PasswordParam:
-                    secret_key = str(code_obj_impl.id)
-                    if secret_key in self.password_secrets:
-                        has_secret = self.password_secrets[secret_key] != ""
                 param_node = ParamNode(
                     id=pid,
                     name=name,
@@ -578,8 +563,6 @@ class DependencyGraph:
                     if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
                     else None,
                     passing_style=code_obj_impl.passingStyle,
-                    code_obj_impl_id=code_obj_impl.id,
-                    has_secret=has_secret,
                     value_representation=value_representation,
                     include_in_codegen=include_in_codegen,
                     deps={},

@@ -9,8 +9,6 @@ export function PasswordInput({
   onBlur,
   onKeyDown,
   isDisabled,
-  placeholder,
-  toggleClassName,
   gridArea = "section-value",
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +24,6 @@ export function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         disabled={isDisabled}
         type={showPassword ? "text" : "password"}
-        placeholder={placeholder}
         onBlur={onBlur}
         onKeyDown={(e) => {
           if (onKeyDown) {
@@ -39,7 +36,7 @@ export function PasswordInput({
       <button
         type="button"
         onClick={togglePasswordVisibility}
-        className={`${gridArea} grid-row-start-1 cursor-pointer justify-self-end text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300 ${toggleClassName ?? ""}`}
+        className={`${gridArea} grid-row-start-1 cursor-pointer justify-self-end text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`}
         tabIndex={-1}
       >
         {!showPassword ? <BiHide /> : <BiShow />}
