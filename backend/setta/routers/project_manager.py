@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
+    CreateAgenticEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
@@ -19,6 +20,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
+    DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -47,6 +49,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
+    SetAgenticEdgesRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -111,12 +114,12 @@ from setta.project_state.project_manager_types import (
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
-    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
     UnindentParamsRequest,
     UnselectAllParamsRequest,
+    UpdateAgenticEdgeRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -140,11 +143,7 @@ from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
-from setta.utils.errors import (
-    InvalidParamName,
-    InvalidSectionName,
-    InvalidViewModeName,
-)
+from setta.utils.errors import InvalidParamName, InvalidSectionName
 
 logger = logging.getLogger(__name__)
 
@@ -410,25 +409,13 @@ async def route_toggle_view_mode_user_facing(
     await manager.toggle_view_mode_user_facing(x)
 
 
-@router.post(Route.TOGGLE_VIEW_MODE_TAB)
-async def route_toggle_view_mode_tab(
-    x: ToggleViewModeTabRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _deny_share_mode_view_modes(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.toggle_view_mode_tab(x)
-
-
 @router.post(Route.SET_VIEW_MODE_NAME)
 async def route_set_view_mode_name(
     x: SetViewModeNameRequest, ctx: RuntimeContextFromRequest
 ) -> None:
     await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_view_mode_name(x)
-    except InvalidViewModeName as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await manager.set_view_mode_name(x)
 
 
 @router.post(Route.DELETE_VIEW_MODE)
@@ -879,6 +866,42 @@ async def route_set_edges(x: SetEdgesRequest, ctx: RuntimeContextFromRequest):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_edges(x)
+
+
+@router.post(Route.CREATE_AGENTIC_EDGE)
+async def route_create_agentic_edge(
+    x: CreateAgenticEdgeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.create_agentic_edge(x)
+
+
+@router.post(Route.UPDATE_AGENTIC_EDGE)
+async def route_update_agentic_edge(
+    x: UpdateAgenticEdgeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.update_agentic_edge(x)
+
+
+@router.post(Route.DELETE_AGENTIC_EDGES)
+async def route_delete_agentic_edges(
+    x: DeleteAgenticEdgesRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_agentic_edges(x)
+
+
+@router.post(Route.SET_AGENTIC_EDGES)
+async def route_set_agentic_edges(
+    x: SetAgenticEdgesRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_agentic_edges(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)
