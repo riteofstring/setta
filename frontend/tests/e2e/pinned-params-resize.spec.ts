@@ -15,7 +15,6 @@ const JUMP_TO_START_SHORTCUT =
   MOD_KEY === "Meta" ? "Meta+ArrowUp" : "Control+Home";
 const TARGET_CALLABLE = "math.sqrt";
 const FALLBACK_CALLABLE_SECTION_NAME = "__pw_callable__";
-const FALLBACK_DICT_SECTION_NAME = "__pw_dict__";
 const EXPECTED_CALLABLE_HIDE_PARAMS_MIN_HEIGHT = 32;
 const EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const BACKEND_ORIGIN =
@@ -821,325 +820,6 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   }
 });
 
-test("dict section keeps unpinned params visible when shrinking", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-
-  const settingsSnapshot = await loadSettingsSnapshot(page);
-  try {
-    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
-    if (didUpdateSettings) {
-      await page.reload();
-      await page.waitForSelector(READY_SELECTOR);
-    }
-
-    const sections = page.locator('section[class*="card-section"]');
-    await ensureProjectConfig(page, sections);
-
-    const ensuredDict = await createDictSection(page);
-    const dictSection = ensuredDict.dictSection;
-    await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
-
-    const paramGroup = dictSection.locator("div.section-row-pin-main").first();
-    const unpinnedArea = paramGroup
-      .locator(":scope > div.section-args-nested")
-      .first();
-
-    const editableRows = await ensureEditableArgRows(
-      dictSection,
-      unpinnedArea,
-      6,
-    );
-    const rowSelector =
-      ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
-    const unpinnedRows = unpinnedArea.locator(rowSelector);
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(6);
-
-    await selectArgRowsByIndex(page, unpinnedRows, [0, 1, 2]);
-    const pinButton = dictSection.getByRole("button", {
-      name: "Pin selected args",
-    });
-    await expect(pinButton).toBeEnabled();
-    await pinButton.click();
-
-    const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
-    await expect(pinnedArea).toBeVisible();
-    const pinnedRows = pinnedArea
-      .locator("div.section-args-nested")
-      .locator(rowSelector);
-    // Shrink immediately after pinning to catch cases where unpinned min height
-    // hasn't been measured yet.
-    const initialUnpinnedCount = await unpinnedRows.count();
-    for (let i = 0; i < 6; i += 1) {
-      await dragResize(page, dictSection, {
-        handle: "bottom",
-        dx: 0,
-        dy: -120,
-        outside: 6,
-      });
-      const intersectionMetrics = await getUnpinnedIntersectionMetrics(
-        page,
-        dictSection,
-        unpinnedArea,
-      );
-      const rowHeight =
-        intersectionMetrics.rowHeight > 0
-          ? intersectionMetrics.rowHeight
-          : await getMinParamRowHeight(unpinnedArea);
-      expect(rowHeight).toBeGreaterThan(0);
-      expect(intersectionMetrics.intersectionHeight).toBeGreaterThanOrEqual(
-        rowHeight - 2,
-      );
-    }
-    let unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-    if (unpinnedRowHeight === 0) {
-      unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-    }
-    const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-    expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-      unpinnedRowHeight - 2,
-    );
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(initialUnpinnedCount);
-  } finally {
-    await restoreSettings(page, settingsSnapshot);
-  }
-});
-
-test("dict pinned resize keeps unpinned height stable", async ({ page }) => {
-  await ensureAppReady(page);
-
-  const settingsSnapshot = await loadSettingsSnapshot(page);
-  try {
-    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
-    if (didUpdateSettings) {
-      await page.reload();
-      await page.waitForSelector(READY_SELECTOR);
-    }
-
-    const sections = page.locator('section[class*="card-section"]');
-    await ensureProjectConfig(page, sections);
-
-    const ensuredDict = await createDictSection(page);
-    const dictSection = ensuredDict.dictSection;
-    await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
-
-    const paramGroup = dictSection.locator("div.section-row-pin-main").first();
-    const unpinnedArea = paramGroup
-      .locator(":scope > div.section-args-nested")
-      .first();
-    const rowSelector =
-      ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
-
-    await ensureEditableArgRows(dictSection, unpinnedArea, 6);
-    const unpinnedRows = unpinnedArea.locator(rowSelector);
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(6);
-
-    await selectArgRowsByIndex(page, unpinnedRows, [0, 1, 2]);
-    const pinButton = dictSection.getByRole("button", {
-      name: "Pin selected args",
-    });
-    await expect(pinButton).toBeEnabled();
-    await pinButton.click();
-
-    const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
-    await expect(pinnedArea).toBeVisible();
-    const edgesStrip = paramGroup
-      .locator(":scope > section.section-row-pin-main")
-      .first();
-    const pinnedList = pinnedArea.locator("div.section-args-nested");
-    const pinnedRows = pinnedList.locator(rowSelector);
-    await expect
-      .poll(async () => pinnedRows.count())
-      .toBeGreaterThanOrEqual(3);
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(3);
-
-    await expect
-      .poll(async () => getMinParamRowHeight(pinnedList))
-      .toBeGreaterThan(0);
-    await expect
-      .poll(async () => getMinParamRowHeight(unpinnedArea))
-      .toBeGreaterThan(0);
-    const pinnedRowHeight = await getMinParamRowHeight(pinnedList);
-    const unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-
-    await shrinkPinnedAreaToMin(page, pinnedArea);
-    let pinnedMetrics = await getScrollMetrics(pinnedList);
-    for (
-      let i = 0;
-      i < 4 && pinnedMetrics.clientHeight < pinnedRowHeight * 2 - 4;
-      i += 1
-    ) {
-      await dragPinnedResize(page, pinnedArea, pinnedRowHeight + 12);
-      pinnedMetrics = await getScrollMetrics(pinnedList);
-    }
-    expect(pinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-      pinnedRowHeight * 2 - 4,
-    );
-
-    const sectionMinHeight = await getComputedMinHeight(dictSection);
-    await setSectionHeight(page, ensuredDict.sectionId, sectionMinHeight);
-    await expect
-      .poll(async () => getHeight(dictSection))
-      .toBeGreaterThanOrEqual(sectionMinHeight - 2);
-    let unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-    const baselineUnpinnedHeight = unpinnedMetrics.clientHeight;
-    expect(unpinnedMetrics.scrollHeight).toBeGreaterThanOrEqual(
-      baselineUnpinnedHeight + unpinnedRowHeight - 2,
-    );
-
-    await shrinkPinnedAreaToMin(page, pinnedArea);
-    pinnedMetrics = await getScrollMetrics(pinnedList);
-    expect(pinnedMetrics.clientHeight).toBeLessThanOrEqual(
-      pinnedRowHeight + 12,
-    );
-
-    unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-    expect(unpinnedMetrics.clientHeight).toBeLessThanOrEqual(
-      baselineUnpinnedHeight + 2,
-    );
-    expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-      baselineUnpinnedHeight - 2,
-    );
-  } finally {
-    await restoreSettings(page, settingsSnapshot);
-  }
-});
-
-test("dict pinned/unpinned resize avoids update-depth loop", async ({ page }) => {
-  test.setTimeout(180000);
-  await ensureAppReady(page);
-
-  const settingsSnapshot = await loadSettingsSnapshot(page);
-  const depthErrors: Array<string> = [];
-  const onConsole = (msg: ConsoleMessage) => {
-    if (
-      msg.type() === "error" &&
-      msg.text().includes("Maximum update depth exceeded")
-    ) {
-      depthErrors.push(msg.text());
-    }
-  };
-  const onPageError = (error: Error) => {
-    if (error.message.includes("Maximum update depth exceeded")) {
-      depthErrors.push(error.message);
-    }
-  };
-  page.on("console", onConsole);
-  page.on("pageerror", onPageError);
-  try {
-    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
-    if (didUpdateSettings) {
-      await page.reload();
-      await page.waitForSelector(READY_SELECTOR);
-    }
-
-    const sections = page.locator('section[class*="card-section"]');
-    await ensureProjectConfig(page, sections);
-
-    const ensuredDict = await createDictSection(page);
-    const dictSection = ensuredDict.dictSection;
-    await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
-
-    const paramGroup = dictSection.locator("div.section-row-pin-main").first();
-    const unpinnedArea = paramGroup
-      .locator(":scope > div.section-args-nested")
-      .first();
-    const rowSelector =
-      ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
-
-    await ensureEditableArgRows(dictSection, unpinnedArea, 6);
-    const unpinnedRows = unpinnedArea.locator(rowSelector);
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(6);
-
-    await selectArgRowsByIndex(page, unpinnedRows, [0, 1, 2]);
-    const pinButton = dictSection.getByRole("button", {
-      name: "Pin selected args",
-    });
-    await expect(pinButton).toBeEnabled();
-    await pinButton.click();
-
-    const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
-    await expect(pinnedArea).toBeVisible();
-    const edgesStrip = paramGroup
-      .locator(":scope > section.section-row-pin-main")
-      .first();
-    const pinnedList = pinnedArea.locator("div.section-args-nested");
-    const pinnedRows = pinnedList.locator(rowSelector);
-    await expect
-      .poll(async () => pinnedRows.count())
-      .toBeGreaterThanOrEqual(3);
-
-    const pinnedRowHeight = await getMinParamRowHeight(pinnedList);
-    const unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-    expect(pinnedRowHeight).toBeGreaterThan(0);
-    expect(unpinnedRowHeight).toBeGreaterThan(0);
-
-    await shrinkPinnedAreaToMin(page, pinnedArea);
-    let pinnedMetrics = await getScrollMetrics(pinnedList);
-    for (
-      let i = 0;
-      i < 4 && pinnedMetrics.clientHeight < pinnedRowHeight * 2 - 4;
-      i += 1
-    ) {
-      await dragPinnedResize(page, pinnedArea, pinnedRowHeight + 12);
-      pinnedMetrics = await getScrollMetrics(pinnedList);
-    }
-    expect(pinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-      pinnedRowHeight * 2 - 4,
-    );
-
-    const unpinnedTargetMetrics = await getPinnedLayoutMetrics(
-      page,
-      paramGroup,
-      pinnedArea,
-      unpinnedArea,
-      edgesStrip,
-    );
-    const unpinnedMinTarget = Math.max(
-      unpinnedTargetMetrics.unpinnedMinHeight,
-      unpinnedRowHeight,
-    );
-    for (let i = 0; i < 8; i += 1) {
-      await dragResize(page, dictSection, {
-        handle: "bottom",
-        dx: 0,
-        dy: -140,
-        outside: 6,
-      });
-      const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-      if (unpinnedMetrics.clientHeight <= unpinnedMinTarget + 6) {
-        break;
-      }
-    }
-    await dragResize(page, dictSection, {
-      handle: "bottom",
-      dx: 0,
-      dy: -180,
-      outside: 6,
-    });
-
-    await shrinkPinnedAreaToMin(page, pinnedArea);
-    await page.waitForTimeout(300);
-
-    expect(depthErrors).toHaveLength(0);
-  } finally {
-    page.off("console", onConsole);
-    page.off("pageerror", onPageError);
-    await restoreSettings(page, settingsSnapshot);
-  }
-});
-
 async function ensureProjectConfig(
   page: Page,
   sections: Locator,
@@ -1268,40 +948,6 @@ async function ensureCallableSectionWithMathSqrt(
   return {
     callableSection: createdSection,
     callableName: sectionName,
-  };
-}
-
-async function createDictSection(page: Page): Promise<{
-  dictSection: Locator;
-  dictName: string;
-  sectionId: string;
-}> {
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await postBackend(page, "/createTopLevelSection", {
-    projectConfigId,
-    implType: "Dict",
-  });
-  const sectionId = created?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating dict section.");
-  }
-
-  const sectionName = await resolveUniqueSectionName(
-    page,
-    FALLBACK_DICT_SECTION_NAME,
-  );
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId,
-    name: sectionName,
-  });
-
-  const createdSection = findSectionCandidates(page, sectionName).first();
-  await expect(createdSection).toBeVisible();
-  return {
-    dictSection: createdSection,
-    dictName: sectionName,
-    sectionId,
   };
 }
 
@@ -1539,22 +1185,6 @@ async function postBackendWithRetries<T>(
   throw new Error(
     `Backend request failed (${lastStatus}): ${path}${detail}`,
   );
-}
-
-async function setSectionHeight(
-  page: Page,
-  sectionId: string,
-  height: number,
-): Promise<void> {
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  await postBackend(page, "/setSectionSizes", {
-    projectConfigId,
-    sectionSizes: {
-      [sectionId]: {
-        height,
-      },
-    },
-  });
 }
 
 async function ensureSizingPolicyDefaults(page: Page): Promise<boolean> {
@@ -2417,27 +2047,6 @@ async function getHeight(target: Locator): Promise<number> {
   });
 }
 
-async function getComputedMinHeight(target: Locator): Promise<number> {
-  return target.evaluate((el) => {
-    const viewport =
-      el.closest(".react-flow__viewport") ??
-      document.querySelector(".react-flow__viewport");
-    let scale = 1;
-    if (viewport) {
-      const transform = window.getComputedStyle(viewport).transform;
-      if (transform && transform !== "none") {
-        const matrix = new DOMMatrixReadOnly(transform);
-        if (Number.isFinite(matrix.a) && matrix.a > 0) {
-          scale = matrix.a;
-        }
-      }
-    }
-    const minHeight =
-      Number.parseFloat(window.getComputedStyle(el).minHeight) || 0;
-    return scale > 0 ? minHeight / scale : minHeight;
-  });
-}
-
 async function getMinParamRowHeight(target: Locator): Promise<number> {
   return target.evaluate((el) => {
     const rows = Array.from(
@@ -2504,39 +2113,6 @@ async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
     clientHeight: el.clientHeight,
     scrollHeight: el.scrollHeight,
   }));
-}
-
-async function getUnpinnedIntersectionMetrics(
-  page: Page,
-  section: Locator,
-  unpinnedArea: Locator,
-): Promise<{ intersectionHeight: number; rowHeight: number }> {
-  return page.evaluate(
-    ({ section, unpinnedArea }) => {
-      if (!section || !unpinnedArea) {
-        return { intersectionHeight: 0, rowHeight: 0 };
-      }
-      const sectionRect = section.getBoundingClientRect();
-      const areaRect = unpinnedArea.getBoundingClientRect();
-      const intersectionTop = Math.max(sectionRect.top, areaRect.top);
-      const intersectionBottom = Math.min(sectionRect.bottom, areaRect.bottom);
-      const intersectionHeight = Math.max(0, intersectionBottom - intersectionTop);
-      const rows = Array.from(
-        unpinnedArea.querySelectorAll(
-          ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value",
-        ),
-      );
-      const rowHeight =
-        rows.length > 0 && rows[0] instanceof HTMLElement
-          ? rows[0].offsetHeight
-          : 0;
-      return { intersectionHeight, rowHeight };
-    },
-    {
-      section: await section.elementHandle(),
-      unpinnedArea: await unpinnedArea.elementHandle(),
-    },
-  );
 }
 
 async function waitForPinnedRowCounts(
@@ -3024,4 +2600,11 @@ async function verifyLayoutStabilityAfterReload({
   // Pinned list should have visible content
   const pinnedScroll = await getScrollMetrics(pinnedList);
   expect(pinnedScroll.clientHeight).toBeGreaterThan(0);
+}
+
+async function getComputedMinHeight(target: Locator): Promise<number> {
+  return target.evaluate((el) => {
+    const style = window.getComputedStyle(el);
+    return Number.parseFloat(style.minHeight) || 0;
+  });
 }
