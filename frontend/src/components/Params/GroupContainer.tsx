@@ -303,16 +303,16 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-100 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName} overflow-clip`}
       ref={edgesStripRef}
     >
       <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
-      <div className="grid grid-cols-2">
-        <div className="flex flex-col px-2 pb-3">
+      <div className="grid grid-cols-2 py-2">
+        <div className="flex flex-col pl-3">
           <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             In
           </div>
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="-ml-2 flex flex-col gap-1 pt-1">
             {inputPorts.map((port) => (
               <div
                 key={port.id}
@@ -332,11 +332,11 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             ))}
           </div>
         </div>
-        <div className="flex flex-col px-2 pb-3">
+        <div className="flex flex-col pr-3">
           <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             Out
           </div>
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="-mr-2 flex flex-col gap-1 pt-1">
             {outputPorts.map((port) => (
               <div
                 key={port.id}
@@ -758,8 +758,7 @@ function ResizablePinnedArea({
         const listScrollTop = list.scrollTop;
         for (const row of listRows) {
           const rowRect = row.getBoundingClientRect();
-          const top =
-            (rowRect.top - listRect.top) / safeZoom + listScrollTop;
+          const top = (rowRect.top - listRect.top) / safeZoom + listScrollTop;
           const bottom = top + rowRect.height / safeZoom;
           if (bottom > maxBottom) {
             maxBottom = bottom;
@@ -1119,7 +1118,7 @@ function ResizablePinnedArea({
       }}
     >
       <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-4"
+        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
         ref={contentRef}
       >
         <header className="flex w-full gap-1 px-2" ref={headerRef}>

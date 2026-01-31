@@ -31,7 +31,10 @@
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
+- Visual verification is a hard gate for UI changes: never claim visual verification without a CDP run. If CDP access is unavailable, stop and ask the user to enable the extension; otherwise state `CDP visual check: not run (reason)` in the final response.
+- For any visual/UI change, include a final-response line `CDP visual check: done (brief context)` or `CDP visual check: not run (reason)`.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.
+- Follow `docs/guides/verification-checklist.md` for the standard verification flow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Playwright tests do not require running `pnpm ai`.
 - When running Playwright tests as an AI, use `./scripts/run-playright-e2e.sh`.
