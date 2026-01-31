@@ -254,19 +254,11 @@ class AuthMiddleware:
                     Route.PREFIX.value
                 ) and _should_refresh_auth_cookie(cookie_payload.exp):
                     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-
-                    async def send_wrapper(message: Message) -> None:
-                        if message["type"] == "http.response.start":
-                            headers = list(message.get("headers", []))
-                            cookie_headers = _build_auth_cookie_headers(
-                                auth_cookie, request
-                            )
-                            if cookie_headers:
-                                headers.extend(cookie_headers)
-                                message["headers"] = headers
-                        await send(message)
-
-                    await self.app(scope, receive, send_wrapper)
+                    await self.app(
+                        scope,
+                        receive,
+                        _build_send_with_auth_cookie(send, auth_cookie, request),
+                    )
                     return
 
                 await self.app(scope, receive, send)
@@ -274,17 +266,11 @@ class AuthMiddleware:
 
         if _should_auto_auth_dev_request(request):
             auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-
-            async def send_wrapper(message: Message) -> None:
-                if message["type"] == "http.response.start":
-                    headers = list(message.get("headers", []))
-                    cookie_headers = _build_auth_cookie_headers(auth_cookie, request)
-                    if cookie_headers:
-                        headers.extend(cookie_headers)
-                        message["headers"] = headers
-                await send(message)
-
-            await self.app(scope, receive, send_wrapper)
+            await self.app(
+                scope,
+                receive,
+                _build_send_with_auth_cookie(send, auth_cookie, request),
+            )
             return
 
         bearer_token = extract_bearer_token(request.headers)
@@ -294,19 +280,11 @@ class AuthMiddleware:
             )
             if token_payload is not None:
                 auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-
-                async def send_wrapper(message: Message) -> None:
-                    if message["type"] == "http.response.start":
-                        headers = list(message.get("headers", []))
-                        cookie_headers = _build_auth_cookie_headers(
-                            auth_cookie, request
-                        )
-                        if cookie_headers:
-                            headers.extend(cookie_headers)
-                            message["headers"] = headers
-                    await send(message)
-
-                await self.app(scope, receive, send_wrapper)
+                await self.app(
+                    scope,
+                    receive,
+                    _build_send_with_auth_cookie(send, auth_cookie, request),
+                )
                 return
 
         response = _unauthorized_response(request)
@@ -322,6 +300,21 @@ def _unauthorized_response(request: Request) -> Response:
 def _should_refresh_auth_cookie(exp: int) -> bool:
     timestamp = int(datetime.now(timezone.utc).timestamp())
     return exp - timestamp <= C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS
+
+
+def _build_send_with_auth_cookie(
+    send: Send, auth_cookie: str, request: Request
+) -> Send:
+    async def send_wrapper(message: Message) -> None:
+        if message["type"] == "http.response.start":
+            headers = list(message.get("headers", []))
+            cookie_headers = _build_auth_cookie_headers(auth_cookie, request)
+            if cookie_headers:
+                headers.extend(cookie_headers)
+                message["headers"] = headers
+        await send(message)
+
+    return send_wrapper
 
 
 def _is_json_unauthorized_path(path: str) -> bool:
