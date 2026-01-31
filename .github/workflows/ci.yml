@@ -85,6 +85,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: discover-tests
     strategy:
       fail-fast: false
@@ -175,10 +176,6 @@ jobs:
           if [[ "${{ matrix.suite }}" == "root" ]]; then
             shopt -s nullglob
             files=(frontend/tests/e2e/*.spec.*)
-            if (( ${#files[@]} == 0 )); then
-              echo "No root-level Playwright specs found."
-              exit 0
-            fi
             args=()
             for file in "${files[@]}"; do
               args+=("${file#frontend/}")
