@@ -1,4 +1,5 @@
 import { ResizeHandle } from "components/Params/ResizeHandle";
+import { MediaCarousel } from "components/Utils/MediaCarousel";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
@@ -43,6 +44,58 @@ const artifactTypes = [
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
+const USE_MOCK_BROWSER_ITEMS = true;
+const MOCK_BROWSER_ITEMS: Array<
+  BrowserAreaItem & {
+    content?: { thumbnail?: string; image?: string; text?: string };
+  }
+> = [
+  {
+    id: "mock-image-1",
+    type: "Image",
+    lastModified: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    content: {
+      thumbnail: "https://picsum.photos/seed/setta-1/200/200",
+      image: "https://picsum.photos/seed/setta-1/1200/900",
+    },
+  },
+  {
+    id: "mock-image-2",
+    type: "Image",
+    lastModified: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    content: {
+      thumbnail: "https://picsum.photos/seed/setta-2/200/200",
+      image: "https://picsum.photos/seed/setta-2/1200/900",
+    },
+  },
+  {
+    id: "mock-image-3",
+    type: "Image",
+    lastModified: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    content: {
+      thumbnail: "https://picsum.photos/seed/setta-3/200/200",
+      image: "https://picsum.photos/seed/setta-3/1200/900",
+    },
+  },
+  {
+    id: "mock-image-4",
+    type: "Image",
+    lastModified: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    content: {
+      thumbnail: "https://picsum.photos/seed/setta-4/200/200",
+      image: "https://picsum.photos/seed/setta-4/1200/900",
+    },
+  },
+  {
+    id: "mock-image-5",
+    type: "Image",
+    lastModified: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    content: {
+      thumbnail: "https://picsum.photos/seed/setta-5/200/200",
+      image: "https://picsum.photos/seed/setta-5/1200/900",
+    },
+  },
+];
 
 export function BrowserArea({ sectionId }: { sectionId: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -291,112 +344,6 @@ function ResizableFileList({
   );
 }
 
-function EnhancedCarouselView({ items }) {
-  const [selectedItem, setSelectedItem] = useState(null);
-
-  // Find items with images for initial selection
-  const imageItems = items.filter((item) => item.content?.thumbnail);
-
-  // Set first image as default selected item if none is selected
-  useEffect(() => {
-    if (selectedItem === null && imageItems.length > 0) {
-      setSelectedItem(imageItems[0]);
-    }
-  }, []);
-
-  const handleItemClick = (item) => {
-    setSelectedItem(item);
-  };
-
-  const { ref, isScrollable } = useIsScrollable();
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {/* Featured Image Display */}
-      <section className="flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg  bg-transparent  dark:bg-setta-860">
-        {selectedItem && selectedItem.content?.image ? (
-          <div className="relative h-full w-full">
-            <img
-              src={selectedItem.content.image}
-              className="h-full w-full object-contain"
-              alt={selectedItem.id}
-            />
-            {/* <div className="absolute bottom-2 left-2 rounded bg-setta-800/70 px-2 py-1 text-xs text-white">
-              {selectedItem.id}
-            </div> */}
-          </div>
-        ) : selectedItem && selectedItem.content?.text ? (
-          <div className="max-w-lg p-4 text-sm text-setta-700 dark:text-setta-200">
-            {selectedItem.content.text}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
-            <IoImageOutline size={48} />
-            <p className="mt-2 text-sm">Select an item to preview</p>
-          </div>
-        )}
-      </section>
-
-      {/* Carousel Thumbnails */}
-      <article
-        ref={ref}
-        className={`flex gap-2 overflow-x-scroll pb-4 pt-[4px] ${isScrollable ? "nowheel" : ""}`}
-      >
-        {items.map((item) => (
-          <EnhancedThumbnailItem
-            key={item.id}
-            item={item}
-            isSelected={selectedItem && selectedItem.id === item.id}
-            onClick={() => handleItemClick(item)}
-          />
-        ))}
-      </article>
-    </div>
-  );
-}
-
-// Enhanced thumbnail item with selection state
-function EnhancedThumbnailItem({ item, isSelected, onClick }) {
-  const { id, content } = item;
-  const thumbnail = content?.thumbnail;
-
-  return (
-    <div
-      className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 ${isSelected ? "scale-105" : ""}`}
-      style={{ width: "96px" }}
-      onClick={onClick}
-    >
-      <div
-        className={`single-cell-container overflow-clip rounded-md border border-solid ${isSelected ? "border-blue-500 shadow-md" : "border-setta-500/20"} bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`}
-        style={{ width: "96px", height: "96px" }}
-      >
-        {thumbnail ? (
-          <>
-            <img
-              src={thumbnail}
-              className="single-cell-child z-10 h-full w-full object-cover"
-            />
-            <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
-          </>
-        ) : (
-          <FiFileText
-            size={20}
-            className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
-          />
-        )}
-        <input
-          className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
-          type="checkbox"
-          onClick={(e) => e.stopPropagation()}
-        ></input>
-      </div>
-      <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-        {id}
-      </p>
-    </div>
-  );
-}
-
 function ViewSwitch({
   view,
   sectionId,
@@ -428,7 +375,24 @@ function ViewSwitch({
       );
 
     case BrowserAreaViewModeEnum.carousel:
-      return <EnhancedCarouselView items={items} />;
+      return (
+        <MediaCarousel
+          items={items.map((item) => ({
+            id: item.id,
+            label: item.id,
+            thumbnailUrl: item.content?.thumbnail ?? null,
+            imageUrl: item.content?.image ?? null,
+            text: item.content?.text ?? null,
+          }))}
+          renderThumbnailOverlay={() => (
+            <input
+              className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
+              type="checkbox"
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
+        />
+      );
 
     default:
       return view satisfies never;
@@ -487,7 +451,11 @@ function ItemsColumn({
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch view={value} sectionId={sectionId} items={items} />
+      <ViewSwitch
+        view={value}
+        sectionId={sectionId}
+        items={USE_MOCK_BROWSER_ITEMS ? MOCK_BROWSER_ITEMS : items}
+      />
     </div>
   );
 }
