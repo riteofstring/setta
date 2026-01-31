@@ -38,20 +38,11 @@ Send payload (JSON string):
   "sectionId": "section-id",
   "messageId": "message-id",
   "text": "hello",
-  "attachments": [
-    {
-      "id": "artifacts/01J4.../notes.txt",
-      "name": "notes.txt",
-      "mimeType": "text/plain",
-      "size": 1203
-    }
-  ],
   "role": "user",
   "timestampMs": 1710000000000,
   "managed": true
 }
 ```
-`attachments` is always present (empty when none) and references artifacts for the attached files.
 
 Stop payload (JSON string):
 ```json

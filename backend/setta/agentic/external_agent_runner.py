@@ -78,14 +78,8 @@ from setta.types.external_agents import (
 )
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
-from setta.types.routes import Route
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.utils.attachment_tokens import AttachmentTokenManager
-from setta.utils.chat_attachments import (
-    build_attachments_prompt_text,
-    collect_message_attachments,
-)
 from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -168,9 +162,6 @@ class ExternalAgentRunner:
         self._pending_questions: dict[str, ExternalAgentQuestionState] = {}
         self._pending_question_approvals: dict[ID, list[str]] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
-        self._attachment_token_manager = AttachmentTokenManager(
-            C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
-        )
 
     @property
     def disabled(self) -> bool:
@@ -419,7 +410,6 @@ class ExternalAgentRunner:
             self._apply_session_history(
                 payload_inputs, config, engine_config_id, chat_id, project_config_id
             )
-        self._augment_inputs_with_attachments(payload_inputs, project_config_id)
 
         run, chat_id, is_new = self._find_or_create_chat_run(
             chat_id=chat_id,
@@ -454,61 +444,6 @@ class ExternalAgentRunner:
             env=env,
             cleanup_paths=tuple(cleanup_paths),
         ), is_new
-
-    def _augment_inputs_with_attachments(
-        self,
-        payload_inputs: dict[str, Any],
-        project_config_id: ID,
-    ) -> None:
-        raw_messages = payload_inputs.get("messages")
-        if not isinstance(raw_messages, list):
-            return
-        attachments = collect_message_attachments(raw_messages)
-        if not attachments:
-            return
-        attachment_text = build_attachments_prompt_text(
-            dbe=self.dbe,
-            attachments=attachments,
-            include_images=True,
-        )
-        if attachment_text:
-            payload_inputs["attachmentText"] = attachment_text
-        attachment_text_no_images = build_attachments_prompt_text(
-            dbe=self.dbe,
-            attachments=attachments,
-            include_images=False,
-        )
-        if attachment_text_no_images:
-            payload_inputs["attachmentTextNoImages"] = attachment_text_no_images
-        urls: dict[str, str] = {}
-        for attachment in attachments:
-            urls[attachment.id] = self._build_attachment_download_url(
-                attachment.id,
-                project_config_id,
-            )
-        if urls:
-            payload_inputs["attachmentUrls"] = urls
-
-    def _build_attachment_download_url(
-        self,
-        artifact_id: str,
-        project_config_id: ID,
-    ) -> str:
-        session_info = load_current_session_secret()
-        if session_info is None:
-            raise RuntimeError("Attachment token secret unavailable")
-        _, secret = session_info
-        token = self._attachment_token_manager.mint(
-            artifact_id=artifact_id,
-            secret=secret,
-            project_config_id=str(project_config_id),
-            share_session_id=self.share_session_id,
-        )
-        path = Route.ATTACHMENT_DOWNLOAD.value.replace("{token}", token)
-        url = f"{C.BACKEND}{Route.PREFIX.value}{path}"
-        if self.share_session_id:
-            return f"{url}?shareSessionId={self.share_session_id}"
-        return url
 
     def _find_or_create_chat_run(
         self,
