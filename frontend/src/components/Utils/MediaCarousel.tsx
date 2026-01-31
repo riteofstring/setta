@@ -17,6 +17,7 @@ type MediaCarouselProps<T = unknown> = {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   renderPreview?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
   renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
   showThumbnailLabels?: boolean;
   thumbnailSize?: number;
@@ -36,6 +37,7 @@ export function MediaCarousel<T>({
   selectedId,
   onSelect,
   renderPreview,
+  renderThumbnail,
   renderThumbnailOverlay,
   showThumbnailLabels = true,
   thumbnailSize = DEFAULT_THUMBNAIL_SIZE,
@@ -276,6 +278,7 @@ export function MediaCarousel<T>({
           ]
             .filter(Boolean)
             .join(" ");
+          const customThumbnail = renderThumbnail?.(item);
           return (
             <div
               key={item.id}
@@ -297,21 +300,22 @@ export function MediaCarousel<T>({
                 className={thumbnailContainerClassName}
                 style={{ width: `${thumbnailSize}px`, height: `${thumbnailSize}px` }}
               >
-                {item.thumbnailUrl ? (
-                  <>
-                    <img
-                      src={item.thumbnailUrl}
-                      className="single-cell-child z-10 h-full w-full object-cover"
-                      alt={item.label}
+                {customThumbnail ??
+                  (item.thumbnailUrl ? (
+                    <>
+                      <img
+                        src={item.thumbnailUrl}
+                        className="single-cell-child z-10 h-full w-full object-cover"
+                        alt={item.label}
+                      />
+                      <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
+                    </>
+                  ) : (
+                    <FiFileText
+                      size={20}
+                      className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
                     />
-                    <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
-                  </>
-                ) : (
-                  <FiFileText
-                    size={20}
-                    className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
-                  />
-                )}
+                  ))}
                 {renderThumbnailOverlay ? renderThumbnailOverlay(item) : null}
               </div>
               {showThumbnailLabels ? (

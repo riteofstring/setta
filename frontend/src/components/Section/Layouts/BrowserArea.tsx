@@ -5,11 +5,12 @@ import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
-import { FiFileText } from "react-icons/fi";
+import { FiFileText, FiMusic } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
+import sampleText from "../../../../tests/e2e/fixtures/attachments/sample_text.txt?raw";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -45,57 +46,279 @@ const artifactTypes = [
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
 const USE_MOCK_BROWSER_ITEMS = true;
-const MOCK_BROWSER_ITEMS: Array<
-  BrowserAreaItem & {
-    content?: { thumbnail?: string; image?: string; text?: string };
-  }
-> = [
+const MOCK_SAMPLE_IMAGE_URL = new URL(
+  "../../../../tests/e2e/fixtures/attachments/sample_image.jpg",
+  import.meta.url,
+).toString();
+const MOCK_SAMPLE_PDF_URL = new URL(
+  "../../../../tests/e2e/fixtures/attachments/sample_pdf.pdf",
+  import.meta.url,
+).toString();
+const MOCK_SAMPLE_AUDIO_URL = new URL(
+  "../../../../tests/e2e/fixtures/attachments/sample_audio.mp3",
+  import.meta.url,
+).toString();
+const MOCK_SAMPLE_VIDEO_URL = new URL(
+  "../../../../tests/e2e/fixtures/attachments/sample_video.mp4",
+  import.meta.url,
+).toString();
+const MOCK_SAMPLE_TEXT_URL = new URL(
+  "../../../../tests/e2e/fixtures/attachments/sample_text.txt",
+  import.meta.url,
+).toString();
+
+type MockBrowserContent = {
+  previewKind: "image" | "pdf" | "audio" | "video" | "text";
+  url: string;
+  thumbnail?: string;
+  image?: string;
+  text?: string;
+};
+
+type MockBrowserItem = BrowserAreaItem & {
+  content?: MockBrowserContent;
+};
+
+const MOCK_BROWSER_ITEMS: MockBrowserItem[] = [
   {
-    id: "mock-image-1",
+    id: "sample_image.jpg",
     type: "Image",
     lastModified: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     content: {
-      thumbnail: "https://picsum.photos/seed/setta-1/200/200",
-      image: "https://picsum.photos/seed/setta-1/1200/900",
+      previewKind: "image",
+      url: MOCK_SAMPLE_IMAGE_URL,
+      thumbnail: MOCK_SAMPLE_IMAGE_URL,
+      image: MOCK_SAMPLE_IMAGE_URL,
     },
   },
   {
-    id: "mock-image-2",
-    type: "Image",
+    id: "sample_pdf.pdf",
+    type: "Other",
     lastModified: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     content: {
-      thumbnail: "https://picsum.photos/seed/setta-2/200/200",
-      image: "https://picsum.photos/seed/setta-2/1200/900",
+      previewKind: "pdf",
+      url: MOCK_SAMPLE_PDF_URL,
     },
   },
   {
-    id: "mock-image-3",
-    type: "Image",
+    id: "sample_audio.mp3",
+    type: "Other",
     lastModified: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     content: {
-      thumbnail: "https://picsum.photos/seed/setta-3/200/200",
-      image: "https://picsum.photos/seed/setta-3/1200/900",
+      previewKind: "audio",
+      url: MOCK_SAMPLE_AUDIO_URL,
     },
   },
   {
-    id: "mock-image-4",
-    type: "Image",
+    id: "sample_video.mp4",
+    type: "Video",
     lastModified: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     content: {
-      thumbnail: "https://picsum.photos/seed/setta-4/200/200",
-      image: "https://picsum.photos/seed/setta-4/1200/900",
+      previewKind: "video",
+      url: MOCK_SAMPLE_VIDEO_URL,
     },
   },
   {
-    id: "mock-image-5",
-    type: "Image",
+    id: "sample_text.txt",
+    type: "Text",
     lastModified: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
     content: {
-      thumbnail: "https://picsum.photos/seed/setta-5/200/200",
-      image: "https://picsum.photos/seed/setta-5/1200/900",
+      previewKind: "text",
+      url: MOCK_SAMPLE_TEXT_URL,
+      text: sampleText,
     },
   },
 ];
+
+type BrowserPreviewKind = "image" | "pdf" | "audio" | "video" | "text" | "other";
+
+const IMAGE_EXTENSIONS = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jfif",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+]);
+const PDF_EXTENSIONS = new Set([".pdf"]);
+const AUDIO_EXTENSIONS = new Set([
+  ".aac",
+  ".flac",
+  ".m4a",
+  ".mp3",
+  ".ogg",
+  ".wav",
+]);
+const VIDEO_EXTENSIONS = new Set([
+  ".avi",
+  ".m4v",
+  ".mov",
+  ".mp4",
+  ".webm",
+]);
+const TEXT_EXTENSIONS = new Set([
+  ".cfg",
+  ".conf",
+  ".csv",
+  ".ini",
+  ".json",
+  ".log",
+  ".md",
+  ".markdown",
+  ".py",
+  ".toml",
+  ".tsv",
+  ".txt",
+  ".vtt",
+  ".xml",
+  ".yaml",
+  ".yml",
+]);
+
+type PreviewIcon = React.ComponentType<{ className?: string; size?: number }>;
+
+const PREVIEW_KIND_ICON_MAP: Record<BrowserPreviewKind, PreviewIcon> = {
+  image: IoImageOutline,
+  pdf: FiFileText,
+  audio: FiMusic,
+  video: IoVideocam,
+  text: FiFileText,
+  other: FiFileText,
+};
+
+const PREVIEW_KIND_ICON_CLASS_MAP: Record<BrowserPreviewKind, string> = {
+  image: "text-setta-200 dark:text-setta-600",
+  pdf: "text-rose-500/80 dark:text-rose-300",
+  audio: "text-amber-500/80 dark:text-amber-300",
+  video: "text-emerald-500/80 dark:text-emerald-300",
+  text: "text-sky-500/80 dark:text-sky-300",
+  other: "text-setta-300 dark:text-setta-600",
+};
+
+const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
+  image: "",
+  pdf: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+  audio: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+  video: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+  text: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
+  other: "bg-setta-200 text-setta-700 dark:bg-setta-700/40 dark:text-setta-200",
+};
+
+function extractExtension(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const baseName = value.split(/[/\\]/).pop() ?? value;
+  if (!baseName) {
+    return null;
+  }
+  const dotIndex = baseName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
+    return null;
+  }
+  return baseName.slice(dotIndex).toLowerCase();
+}
+
+function getExtensionBadge(value: string | undefined): string | null {
+  const extension = extractExtension(value);
+  if (!extension) {
+    return null;
+  }
+  const label = extension.replace(".", "").toUpperCase();
+  if (!label) {
+    return null;
+  }
+  return label.length > 6 ? label.slice(0, 6) : label;
+}
+
+function getBrowserPreviewKind(
+  item: BrowserAreaItem,
+  content?: MockBrowserContent,
+): BrowserPreviewKind {
+  if (content?.previewKind) {
+    return content.previewKind;
+  }
+  const extension = extractExtension(item.id);
+  if (extension) {
+    if (IMAGE_EXTENSIONS.has(extension)) {
+      return "image";
+    }
+    if (PDF_EXTENSIONS.has(extension)) {
+      return "pdf";
+    }
+    if (AUDIO_EXTENSIONS.has(extension)) {
+      return "audio";
+    }
+    if (VIDEO_EXTENSIONS.has(extension)) {
+      return "video";
+    }
+    if (TEXT_EXTENSIONS.has(extension)) {
+      return "text";
+    }
+  }
+  const type = item.type?.toString().toLowerCase();
+  if (type === "image") {
+    return "image";
+  }
+  if (type === "video") {
+    return "video";
+  }
+  if (type === "text") {
+    return "text";
+  }
+  return "other";
+}
+
+function BrowserThumbnailContent({
+  previewKind,
+  thumbnailUrl,
+  badgeText,
+  label,
+}: {
+  previewKind: BrowserPreviewKind;
+  thumbnailUrl?: string | null;
+  badgeText?: string | null;
+  label: string;
+}) {
+  if (previewKind === "image" && thumbnailUrl) {
+    return (
+      <>
+        <img
+          src={thumbnailUrl}
+          className="single-cell-child z-10 h-full w-full object-cover"
+          alt={label}
+        />
+        <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
+      </>
+    );
+  }
+  const Icon = PREVIEW_KIND_ICON_MAP[previewKind];
+  const iconClassName = PREVIEW_KIND_ICON_CLASS_MAP[previewKind];
+  const badgeClassName = PREVIEW_KIND_BADGE_CLASS_MAP[previewKind];
+  return (
+    <>
+      <div className="single-cell-child flex flex-col items-center justify-center gap-2">
+        <Icon size={26} className={iconClassName} />
+      </div>
+      {badgeText ? (
+        <span
+          className={`single-cell-child mb-1 mr-1 justify-self-end self-end rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${badgeClassName}`}
+        >
+          {badgeText}
+        </span>
+      ) : null}
+    </>
+  );
+}
 
 export function BrowserArea({ sectionId }: { sectionId: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -230,14 +453,19 @@ function ViewSelector({
 
 function ThumbnailItem({
   size = "96px",
-  thumbnail,
+  thumbnailUrl,
+  previewKind,
+  badgeText,
+  label,
   children,
 }: {
   size: string;
-  thumbnail: string;
+  thumbnailUrl?: string | null;
+  previewKind: BrowserPreviewKind;
+  badgeText?: string | null;
+  label: string;
   children: React.ReactNode;
 }) {
-  console.log("thumbnail: ", thumbnail);
   return (
     <div
       className="group/thumbnail flex cursor-pointer flex-col items-center gap-1"
@@ -247,20 +475,12 @@ function ThumbnailItem({
         className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
         style={{ width: size, height: size }}
       >
-        {thumbnail ? (
-          <>
-            <img
-              src={thumbnail}
-              className="single-cell-child z-10 object-cover"
-            />
-            <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
-          </>
-        ) : (
-          <FiFileText
-            size={20}
-            className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
-          />
-        )}
+        <BrowserThumbnailContent
+          previewKind={previewKind}
+          thumbnailUrl={thumbnailUrl}
+          badgeText={badgeText}
+          label={label}
+        />
         <input
           className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
           type="checkbox"
@@ -365,11 +585,27 @@ function ViewSwitch({
           className={`nodrag h-full w-full overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
         >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
-            {items.map((x) => (
-              <ThumbnailItem key={x.id} thumbnail={x.content?.thumbnail}>
-                {x.id}
-              </ThumbnailItem>
-            ))}
+            {items.map((item) => {
+              const content = (item as MockBrowserItem).content;
+              const previewKind = getBrowserPreviewKind(item, content);
+              const badgeText =
+                previewKind === "image"
+                  ? null
+                  : getExtensionBadge(item.id) ?? previewKind.toUpperCase();
+              const thumbnailUrl =
+                previewKind === "image" ? content?.thumbnail ?? null : null;
+              return (
+                <ThumbnailItem
+                  key={item.id}
+                  previewKind={previewKind}
+                  badgeText={badgeText}
+                  thumbnailUrl={thumbnailUrl}
+                  label={item.id}
+                >
+                  {item.id}
+                </ThumbnailItem>
+              );
+            })}
           </div>
         </div>
       );
@@ -377,13 +613,82 @@ function ViewSwitch({
     case BrowserAreaViewModeEnum.carousel:
       return (
         <MediaCarousel
-          items={items.map((item) => ({
-            id: item.id,
-            label: item.id,
-            thumbnailUrl: item.content?.thumbnail ?? null,
-            imageUrl: item.content?.image ?? null,
-            text: item.content?.text ?? null,
-          }))}
+          items={items.map((item) => {
+            const content = (item as MockBrowserItem).content;
+            const previewKind = getBrowserPreviewKind(item, content);
+            const isImage = previewKind === "image";
+            return {
+              id: item.id,
+              label: item.id,
+              thumbnailUrl: isImage ? content?.thumbnail ?? null : null,
+              imageUrl: isImage ? content?.image ?? null : null,
+              text: previewKind === "text" ? content?.text ?? null : null,
+              data: item,
+            };
+          })}
+          renderThumbnail={(item) => {
+            const data = item.data as MockBrowserItem | undefined;
+            if (!data) {
+              return null;
+            }
+            const content = data.content;
+            const previewKind = getBrowserPreviewKind(data, content);
+            const badgeText =
+              previewKind === "image"
+                ? null
+                : getExtensionBadge(data.id) ?? previewKind.toUpperCase();
+            const thumbnailUrl =
+              previewKind === "image" ? item.thumbnailUrl : null;
+            return (
+              <BrowserThumbnailContent
+                previewKind={previewKind}
+                thumbnailUrl={thumbnailUrl}
+                badgeText={badgeText}
+                label={item.label}
+              />
+            );
+          }}
+          renderPreview={(item) => {
+            const data = item.data as MockBrowserItem | undefined;
+            const content = data?.content;
+            if (!content?.previewKind || !content.url) {
+              return null;
+            }
+            if (content.previewKind === "pdf") {
+              return (
+                <div className="relative h-full w-full overflow-hidden rounded-md">
+                  <iframe
+                    src={content.url}
+                    title={item.label}
+                    className="h-full w-full"
+                  />
+                </div>
+              );
+            }
+            if (content.previewKind === "audio") {
+              return (
+                <div className="flex h-full w-full items-center justify-center">
+                  <audio
+                    controls
+                    preload="metadata"
+                    className="w-full max-w-[720px]"
+                  >
+                    <source src={content.url} />
+                  </audio>
+                </div>
+              );
+            }
+            if (content.previewKind === "video") {
+              return (
+                <div className="relative h-full w-full">
+                  <video controls preload="metadata" className="h-full w-full">
+                    <source src={content.url} />
+                  </video>
+                </div>
+              );
+            }
+            return null;
+          }}
           renderThumbnailOverlay={() => (
             <input
               className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
