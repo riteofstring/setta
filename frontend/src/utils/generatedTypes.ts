@@ -4251,6 +4251,14 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
+  Prompt: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 150.0,
+      maxHeight: 100000.0,
+      minWidth: 300.0,
+      maxWidth: 100000.0,
+    }),
+  ),
   MetaControl: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 20.0,
