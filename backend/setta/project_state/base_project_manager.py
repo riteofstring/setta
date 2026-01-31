@@ -1076,15 +1076,15 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
+        prev_gen_code = self.gen_code.get(projectConfigId)
+        prev_generated_code = (
+            prev_gen_code.generated_code if prev_gen_code is not None else None
+        )
         valid_code_section_ids: set[ID] = set()
         for section_id in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, section_id)
             if isinstance(section_impl, CodeSectionImpl):
                 valid_code_section_ids.add(section_id)
-        await diagnostics_state.reset(
-            clear_gen_code=True,
-            clear_unmapped=True,
-        )
         await diagnostics_state.prune_code_sections(valid_code_section_ids)
         python_codegen_enabled = project_config_has_codegen_language(
             projectConfig,
@@ -1109,6 +1109,11 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
+            if prev_generated_code != code_generator.generated_code:
+                await diagnostics_state.reset(
+                    clear_gen_code=True,
+                    clear_unmapped=True,
+                )
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
                 projectState
             )
@@ -1151,6 +1156,10 @@ class BaseProjectManager(ABC):
             if projectConfigId in self.gen_code:
                 self.gen_code[projectConfigId].callback_cleanup()
                 self.gen_code.pop(projectConfigId, None)
+            await diagnostics_state.reset(
+                clear_gen_code=True,
+                clear_unmapped=True,
+            )
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
@@ -2498,8 +2507,17 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
-        for id in project_config_ids:
-            del self.project_state_backend.projectConfigs[id]
+        for project_config_id in project_config_ids:
+            del self.project_state_backend.projectConfigs[project_config_id]
+            gen_code = self.gen_code.pop(project_config_id, None)
+            if gen_code is not None:
+                gen_code.callback_cleanup()
+            code_entries = self.code_dict.pop(project_config_id, None)
+            if code_entries:
+                for code_entry in code_entries.values():
+                    if isinstance(code_entry, ProjectPythonCode):
+                        code_entry.callback_cleanup()
+            self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
         self.project_state_backend.validate_default_project_id()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()

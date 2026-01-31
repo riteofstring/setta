@@ -11,6 +11,18 @@ from setta.types.section_impls import CodeSectionDiagnosticsIgnoreState
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
+def _diagnostics_equal(
+    left: list[SettaLspDiagnostic],
+    right: list[SettaLspDiagnostic],
+) -> bool:
+    if len(left) != len(right):
+        return False
+    for left_item, right_item in zip(left, right):
+        if left_item.model_dump() != right_item.model_dump():
+            return False
+    return True
+
+
 class ProjectLspDiagnosticsState:
     def __init__(
         self,
@@ -47,6 +59,10 @@ class ProjectLspDiagnosticsState:
         gen_code: SettaProjectConfigDiagnostics,
         unmapped_gen_code: list[SettaLspDiagnostic],
     ) -> None:
+        if self.gen_code.model_dump() == gen_code.model_dump() and _diagnostics_equal(
+            self.unmapped_gen_code, unmapped_gen_code
+        ):
+            return
         self.gen_code = gen_code
         self.unmapped_gen_code = unmapped_gen_code
         await self.broadcast()
@@ -58,16 +74,23 @@ class ProjectLspDiagnosticsState:
         *,
         ignore_state: CodeSectionDiagnosticsIgnoreState | None = None,
     ) -> None:
-        if diagnostics:
-            self.raw_code_sections[section_id] = diagnostics
-        else:
-            self.raw_code_sections.pop(section_id, None)
+        existing_raw = self.raw_code_sections.get(section_id, [])
+        raw_changed = not _diagnostics_equal(existing_raw, diagnostics)
+        if raw_changed:
+            if diagnostics:
+                self.raw_code_sections[section_id] = diagnostics
+            else:
+                self.raw_code_sections.pop(section_id, None)
         filtered = apply_code_section_diagnostics_ignore(diagnostics, ignore_state)
-        if filtered:
-            self.code_sections[section_id] = filtered
-        else:
-            self.code_sections.pop(section_id, None)
-        await self.broadcast()
+        existing_filtered = self.code_sections.get(section_id, [])
+        filtered_changed = not _diagnostics_equal(existing_filtered, filtered)
+        if filtered_changed:
+            if filtered:
+                self.code_sections[section_id] = filtered
+            else:
+                self.code_sections.pop(section_id, None)
+        if filtered_changed:
+            await self.broadcast()
 
     async def reapply_code_section_ignore_state(
         self,
@@ -76,11 +99,14 @@ class ProjectLspDiagnosticsState:
     ) -> None:
         diagnostics = self.raw_code_sections.get(section_id, [])
         filtered = apply_code_section_diagnostics_ignore(diagnostics, ignore_state)
-        if filtered:
-            self.code_sections[section_id] = filtered
-        else:
-            self.code_sections.pop(section_id, None)
-        await self.broadcast()
+        existing_filtered = self.code_sections.get(section_id, [])
+        filtered_changed = not _diagnostics_equal(existing_filtered, filtered)
+        if filtered_changed:
+            if filtered:
+                self.code_sections[section_id] = filtered
+            else:
+                self.code_sections.pop(section_id, None)
+            await self.broadcast()
 
     async def prune_code_sections(self, valid_section_ids: set[ID]) -> None:
         changed = False
@@ -104,14 +130,17 @@ class ProjectLspDiagnosticsState:
     ) -> None:
         changed = False
         if clear_gen_code:
-            self.gen_code = self._empty_gen_code()
-            changed = True
+            if self.gen_code.errors:
+                self.gen_code = self._empty_gen_code()
+                changed = True
         if clear_code_sections:
-            self.raw_code_sections = {}
-            self.code_sections = {}
-            changed = True
+            if self.raw_code_sections or self.code_sections:
+                self.raw_code_sections = {}
+                self.code_sections = {}
+                changed = True
         if clear_unmapped:
-            self.unmapped_gen_code = []
-            changed = True
+            if self.unmapped_gen_code:
+                self.unmapped_gen_code = []
+                changed = True
         if changed:
             await self.broadcast()
