@@ -32,6 +32,7 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -855,6 +856,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
