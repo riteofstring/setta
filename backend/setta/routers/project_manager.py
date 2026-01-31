@@ -111,6 +111,7 @@ from setta.project_state.project_manager_types import (
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
@@ -407,6 +408,15 @@ async def route_toggle_view_mode_user_facing(
     await _deny_share_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.toggle_view_mode_user_facing(x)
+
+
+@router.post(Route.TOGGLE_VIEW_MODE_TAB)
+async def route_toggle_view_mode_tab(
+    x: ToggleViewModeTabRequest, ctx: RuntimeContextFromRequest
+) -> None:
+    await _deny_share_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.toggle_view_mode_tab(x)
 
 
 @router.post(Route.SET_VIEW_MODE_NAME)

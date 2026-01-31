@@ -194,6 +194,7 @@ from setta.project_state.project_manager_types import (
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
@@ -2502,9 +2503,7 @@ class BaseProjectManager(ABC):
                 view_mode.visibilityBySectionId = dict(visibility_by_section_id)
             active_view_mode_id = project_state.projectConfig.activeViewModeId
             if active_view_mode_id not in view_modes:
-                project_state.projectConfig.activeViewModeId = next(
-                    iter(view_modes)
-                )
+                project_state.projectConfig.activeViewModeId = next(iter(view_modes))
         else:
             view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
             view_modes[view_mode.id] = view_mode
@@ -2781,6 +2780,13 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.isTab = not view_mode.isTab
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
