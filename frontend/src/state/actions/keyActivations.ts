@@ -50,10 +50,10 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
+  clearActiveSectionIds,
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
-import { deleteSelectedAgenticEdges } from "./agenticEdges";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
 import { restartLanguageServer } from "./lsp";
@@ -83,8 +83,7 @@ import { redoProjectState, undoProjectState } from "./undo";
 
 function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();
-  const deletedAgenticEdges = deleteSelectedAgenticEdges();
-  if (!deletedEdges && !deletedAgenticEdges) {
+  if (!deletedEdges) {
     deleteAllActiveSections();
   }
 }
@@ -430,6 +429,9 @@ function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
   if (isParsedTabShortcut(parsedShortcut)) {
     return false;
   }
+  if (parsedShortcut.keys.has("Escape")) {
+    return false;
+  }
   return _isMacOs
     ? getMacosIgnoreWhenInInputField(parsedShortcut)
     : getWindowsIgnoreWhenInInputField(parsedShortcut);
@@ -757,12 +759,32 @@ function specialModTabCase(shortcutInfo) {
   }
 }
 
-function onEscapeKey() {
-  unselectAllParams();
-  // if (!didUnselectSomeParams) {
-  //   clearActiveSectionIds();
-  // }
+function onEscapeKey(event: KeyboardEvent) {
   removeFrozenFloatingBox();
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const sectionNode = target?.closest(".react-flow__node");
+  if (getIsInput(event) && !sectionNode) {
+    return;
+  }
+  const didUnselectSomeParams = unselectAllParams();
+  if (!didUnselectSomeParams && sectionNode) {
+    const sectionId = sectionNode.getAttribute("data-id");
+    const activeIds = useProjectState.getState().projectConfig.activeIds;
+    if (sectionId && activeIds.includes(sectionId)) {
+      clearActiveSectionIds();
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        activeElement &&
+        activeElement !== document.body &&
+        activeElement !== document.documentElement
+      ) {
+        activeElement.blur();
+      }
+    }
+  }
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {

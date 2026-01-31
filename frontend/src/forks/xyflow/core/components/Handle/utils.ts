@@ -154,14 +154,10 @@ export function getClosestHandle(
   pos: { x: number; y: number },
   connectionRadius: number,
   handles: ConnectionHandle[],
-  allowHandle: ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean) | null,
   validator: (
     handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
   ) => Result,
 ) {
-  const isHandleAllowed =
-    allowHandle ??
-    (() => true);
   const eventPos = getPointerPosition(event);
   const handleBelow = doc
     .elementsFromPoint(eventPos.x, eventPos.y)
@@ -172,35 +168,28 @@ export function getClosestHandle(
     if (handleSectionId) {
       const handleType = getHandleType(undefined, handleBelow);
       const handleId = handleBelow.getAttribute("data-handleid");
-      if (
-        isHandleAllowed({
-          portId: handleId,
-          type: handleType,
-        })
-      ) {
-        const validHandleResult = validator({
-          sectionId: handleSectionId,
-          portId: handleId,
-          type: handleType,
-        });
-        if (validHandleResult) {
-          const handle = handles.find(
-            (entry) =>
-              entry.sectionId === handleSectionId &&
-              entry.type === handleType &&
-              entry.portId === handleId,
-          );
-          return {
-            handle: {
-              sectionId: handleSectionId,
-              portId: handleId,
-              type: handleType,
-              x: handle?.x ?? pos.x,
-              y: handle?.y ?? pos.y,
-            },
-            validHandleResult,
-          };
-        }
+      const validHandleResult = validator({
+        sectionId: handleSectionId,
+        portId: handleId,
+        type: handleType,
+      });
+      if (validHandleResult) {
+        const handle = handles.find(
+          (entry) =>
+            entry.sectionId === handleSectionId &&
+            entry.type === handleType &&
+            entry.portId === handleId,
+        );
+        return {
+          handle: {
+            sectionId: handleSectionId,
+            portId: handleId,
+            type: handleType,
+            x: handle?.x ?? pos.x,
+            y: handle?.y ?? pos.y,
+          },
+          validHandleResult,
+        };
       }
     }
   }
@@ -212,14 +201,6 @@ export function getClosestHandle(
   let minDistance = Infinity;
 
   handles.forEach((handle) => {
-    if (
-      !isHandleAllowed({
-        portId: handle.portId,
-        type: handle.type,
-      })
-    ) {
-      return;
-    }
     const distance = Math.sqrt(
       (handle.x - pos.x) ** 2 + (handle.y - pos.y) ** 2,
     );
