@@ -16,6 +16,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import change_param_impl, delete_code_obj, set_param_entered_value
+from setta.types.helpers_lvl3 import copy_project
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
@@ -229,3 +230,41 @@ def test_strip_password_values_sets_has_secret(runtime_root) -> None:
     )
     assert impl.hasSecret is True
     assert impl.value == ""
+
+
+def test_strip_password_values_force_has_secret_false(runtime_root) -> None:
+    project_state, section_id, param_id, _ = build_project_state(
+        param_type=CodeObjType.PasswordParam,
+    )
+    set_param_entered_value(project_state, section_id, param_id, "hidden")
+
+    strip_password_values(project_state, force_has_secret=False)
+
+    impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state, section_id, param_id, PasswordParamCodeObjImpl
+    )
+    assert impl.hasSecret is False
+    assert impl.value == ""
+
+
+def test_copy_project_clears_password_secrets(runtime_root) -> None:
+    project_state, section_id, param_id, _ = build_project_state(
+        param_type=CodeObjType.PasswordParam,
+    )
+    set_param_entered_value(project_state, section_id, param_id, "hunter2")
+
+    copied = copy_project(project_state, "Copy", do_create_new_id=True)
+
+    new_section_id = next(
+        key
+        for key, section in copied.sections.items()
+        if section.name == "CallableSection"
+    )
+    new_param_id = next(
+        key for key, core in copied.codeObjs.items() if core.name == "secret"
+    )
+    impl = get_curr_effective_code_obj_impl_with_type_guard(
+        copied, new_section_id, new_param_id, PasswordParamCodeObjImpl
+    )
+    assert impl.hasSecret is False
+    assert get_password_secret(str(impl.id)) == ""

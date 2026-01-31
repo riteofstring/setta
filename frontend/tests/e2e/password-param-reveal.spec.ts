@@ -68,8 +68,12 @@ test("password param reveals saved secret on demand", async ({ page }) => {
     ).toBeVisible();
     await expect(paramRow).toBeVisible();
 
+    const passwordInput = paramRow.locator('input[type="password"]');
+    await expect(passwordInput).toHaveValue("");
+    await expect(passwordInput).toHaveAttribute("placeholder", "Saved");
+
     const revealButton = paramRow.getByRole("button", {
-      name: "Click to reveal",
+      name: "Reveal",
     });
     await expect(revealButton).toBeVisible();
     // Dispatching the click avoids actionability blockers from aria-disabled ancestors.
@@ -79,7 +83,6 @@ test("password param reveals saved secret on demand", async ({ page }) => {
     await revealButton.dispatchEvent("click");
     await revealResponsePromise;
 
-    const passwordInput = paramRow.locator('input[type="password"]');
     await expect(passwordInput).toHaveValue("topsecret");
     await expect(revealButton).toHaveCount(0);
   } finally {

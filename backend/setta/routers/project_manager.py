@@ -676,15 +676,12 @@ async def route_get_password_param_value(
     )
     manager = ctx.get_project_manager(x.projectConfigId)
     project_state = manager.get_single_config_state(x.projectConfigId)
-    if ctx.share_mode:
-        await ensure_share_param_value_allowed(
-            policy=ctx.policy,
-            frontend_sender=ctx.frontend_sender,
-            project_state=project_state,
-            section_id=x.sectionId,
-            param_info_id=x.paramInfoId,
-            share_session_id=ctx.share_session_id,
-        )
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows password reveals.",
+        share_session_id=ctx.share_session_id,
+    )
     impl = get_curr_effective_code_obj_impl_with_type_guard(
         project_state,
         x.sectionId,

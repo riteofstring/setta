@@ -8,7 +8,7 @@ node_modules
 # testing
 /coverage
 frontend/test-results/
-frontend/tests/e2e/.auth/
+frontend/tests/e2e/.storageState.json
 
 # production
 */dist

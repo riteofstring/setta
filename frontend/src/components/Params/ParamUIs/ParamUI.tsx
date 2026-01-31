@@ -162,10 +162,14 @@ export function ParamUI({
     disabledOrFrozen ||
     !canEditParams ||
     (isShareMode && isCodeParam);
-  const showPasswordReveal = shouldShowPasswordReveal({
-    value,
-    hasSecret: passwordHasSecret,
-  });
+  const showPasswordReveal =
+    !isShareMode &&
+    shouldShowPasswordReveal({
+      value,
+      hasSecret: passwordHasSecret,
+    });
+  const passwordPlaceholder =
+    passwordHasSecret && value === "" ? "Saved" : undefined;
 
   function onEscape() {
     focusOnSection(null, sectionId, false);
@@ -255,6 +259,7 @@ export function ParamUI({
           showReveal={showPasswordReveal}
           onReveal={onRevealPassword}
           isRevealing={isPasswordRevealPending ?? false}
+          placeholder={passwordPlaceholder}
         />
       );
     case CodeObjTypeEnum.TextAreaParam:
@@ -493,31 +498,37 @@ function PasswordParamConfigured({
   showReveal,
   onReveal,
   isRevealing,
+  placeholder,
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
-  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag section-value peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag section-value peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
   return (
     <>
-      {showReveal ? (
-        <button
-          type="button"
-          className={revealClassName}
-          onClick={onReveal}
-          disabled={revealDisabled}
-          aria-busy={isRevealing}
-        >
-          {isRevealing ? "Revealing..." : "Click to reveal"}
-        </button>
-      ) : (
+      <div className={wrapperClassName}>
         <PasswordInput
           className={inputClassName}
           value={value}
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
+          placeholder={placeholder}
+          toggleClassName="flex-none"
         />
-      )}
+        {showReveal ? (
+          <button
+            type="button"
+            className={revealClassName}
+            onClick={onReveal}
+            disabled={revealDisabled}
+            aria-busy={isRevealing}
+            title="Reveal saved password"
+          >
+            {isRevealing ? "Revealing..." : "Reveal"}
+          </button>
+        ) : null}
+      </div>
       <span
         className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
       />
