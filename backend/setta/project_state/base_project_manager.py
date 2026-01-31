@@ -2494,13 +2494,7 @@ class BaseProjectManager(ABC):
                     SectionType.GenPythonMetadata,
                     Position(),
                 )
-        visibility_by_section_id = {
-            section_id: True for section_id in project_state.sections.keys()
-        }
-        view_modes = project_state.projectConfig.viewModes
-        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-        view_modes[view_mode.id] = view_mode
-        project_state.projectConfig.activeViewModeId = view_mode.id
+        project_state.validate_view_modes()
         self.project_state_backend = merge_single_config_into_backend(
             self.project_state_backend, project_state
         )

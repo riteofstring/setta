@@ -11,8 +11,8 @@ In share mode only, those flags gate specific route families. Here is what each 
 
 **allowVariantChanges** (variants + view modes)
 - Section variants: create new variant, set active/default variant, rename variant, toggle frozen, toggle variant JSON source (`Route.CREATE_NEW_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT`, `Route.SET_DEFAULT_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT_NAME`, `Route.TOGGLE_VARIANT_FROZEN`, `Route.TOGGLE_VARIANT_JSON_SOURCE`).
-- View modes: set active (`Route.SET_ACTIVE_VIEW_MODE`).
-- Example: viewer switches to a different variant or toggles a view mode -> allowed only if `allowVariantChanges` is true.
+- View modes: set active (`Route.SET_ACTIVE_VIEW_MODE`). Other view mode edits (rename, toggle user-facing, show as tab, section visibility) are IDE-only and blocked in share mode.
+- Example: viewer switches to a different variant or active view mode -> allowed only if `allowVariantChanges` is true.
 
 **allowLayoutChanges** (layout + UI display controls)
 - Layout structure: set/auto layout of top-level sections, set section sizes, move sections (`Route.SET_TOP_LEVEL_SECTION_LAYOUT`, `Route.AUTO_LAYOUT_TOP_LEVEL_SECTIONS`, `Route.SET_SECTION_SIZES`, `Route.MOVE_SECTIONS`).

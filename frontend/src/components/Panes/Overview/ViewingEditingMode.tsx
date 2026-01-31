@@ -239,6 +239,9 @@ function ViewModeEditingRow({
     if (!canEditStructure) {
       return;
     }
+    const previousName =
+      useProjectState.getState().projectConfig.viewModes[mode.id]?.name ??
+      mode.name;
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
@@ -253,6 +256,12 @@ function ViewModeEditingRow({
           name,
           frontendOpId,
         }),
+      rollback: (state) => {
+        if (!(mode.id in state.projectConfig.viewModes)) {
+          throw new Error(`View mode ${mode.id} not found`);
+        }
+        state.projectConfig.viewModes[mode.id].name = previousName;
+      },
     });
   }
 
