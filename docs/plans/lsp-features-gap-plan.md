@@ -35,8 +35,6 @@ Key references:
   list) for diagnostics.
 - **No ignore/suppress model for code sections.** The ignore toggle only applies
   to callable/param errors.
-- **Non-Python code sections have no LSP diagnostics.** (TS/JS/JSON/YAML are
-  CodeMirror-only; no server-backed diagnostics.)
 
 ## Goals
 - Provide LSP diagnostics for Python code sections (inline + summary counts).
@@ -48,7 +46,6 @@ Key references:
 ## Non-goals
 - Replacing Pyright or LSP server selection in this phase.
 - Full LSP code actions or refactor tooling.
-- Diagnostics for every language immediately (planned as a later phase).
 
 ## Proposed data model changes
 - Introduce a new diagnostics payload that can carry both existing type errors
@@ -99,9 +96,6 @@ Key references:
   - Optional per-rule suppression list (code + message substring).
 - Ensure suppressions are stored in project state and honored on diagnostics
   ingestion.
-
-### Phase 5: Multi-language LSP (future)
-- Not planned; out of scope for this plan.
 
 ## Testing plan
 - Backend unit tests:

@@ -1233,8 +1233,13 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
         async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(projectConfigId)
-        await gen_code.type_check()
+            gen_code = self.gen_code.get(projectConfigId)
+            code_entries = list(self.code_dict.get(projectConfigId, {}).values())
+        if gen_code is not None:
+            await gen_code.type_check()
+        for code_entry in code_entries:
+            if isinstance(code_entry, ProjectPythonCode):
+                await code_entry.type_check()
 
     async def _refetch_callable_params(
         self,
