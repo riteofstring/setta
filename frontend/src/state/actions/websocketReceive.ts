@@ -17,6 +17,7 @@ import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_binary_upload,
   route_get_auth_refresh_status,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
@@ -32,6 +33,7 @@ import {
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
+  SettaNotificationTypeEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -87,6 +89,7 @@ const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
+const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
@@ -102,6 +105,7 @@ let currentRoute: string | null = null;
 let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
+let lastRealtimeBinaryOversizeWarningAt = 0;
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -546,6 +550,13 @@ export function sendRealtimeSectionBinary(
   payload: ArrayBuffer,
   mimeType = "image/png",
 ) {
+  if (
+    C.REALTIME_BINARY_MAX_BYTES > 0 &&
+    payload.byteLength > C.REALTIME_BINARY_MAX_BYTES
+  ) {
+    void sendRealtimeSectionBinaryViaUpload(sectionId, payload, mimeType);
+    return;
+  }
   const dependencyKey: SectionDependencyKey = {
     type: DependencyKeyTypeEnum.Section,
     sectionId,
@@ -572,4 +583,53 @@ function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
     const frame = encodeBinaryFrame(message, payload);
     wss.send(frame);
   }
+}
+
+function maybeWarnRealtimeOversize(message: string) {
+  const now = Date.now();
+  if (
+    now - lastRealtimeBinaryOversizeWarningAt <
+    REALTIME_BINARY_OVERSIZE_COOLDOWN_MS
+  ) {
+    return;
+  }
+  lastRealtimeBinaryOversizeWarningAt = now;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+async function uploadRealtimeBinaryPayload(
+  payload: ArrayBuffer,
+  mimeType: string,
+) {
+  const blob = new Blob([payload], { type: mimeType });
+  const form = new FormData();
+  form.append("file", blob, "realtime.bin");
+  const res = await route_binary_upload(form);
+  if (!res200(res)) {
+    return null;
+  }
+  return res.data;
+}
+
+async function sendRealtimeSectionBinaryViaUpload(
+  sectionId: string,
+  payload: ArrayBuffer,
+  mimeType: string,
+) {
+  const ref = await uploadRealtimeBinaryPayload(payload, mimeType);
+  if (!ref) {
+    maybeWarnRealtimeOversize(
+      "Realtime snapshot too large to send. Upload failed.",
+    );
+    return;
+  }
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  const dependencyValue: BinaryDependencyValue = {
+    payload: ref,
+    type: DependencyValueTypeEnum.Binary,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }

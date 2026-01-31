@@ -21,7 +21,8 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
   await installFrameCapture(page);
   await ensureAppReady(page);
 
-  const { drawSection, projectConfigId } = await ensureDrawSection(page);
+  const { drawSection, projectConfigId, sectionId } =
+    await ensureDrawSection(page);
   const canvas = drawSection.locator("canvas").first();
   await waitForCanvasReady(canvas);
   await enableRealtimeCoverage(page, projectConfigId);
@@ -41,6 +42,38 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
     payload.includes('"binaryPayload"'),
   );
   expect(hasBinaryPayloadField).toBe(false);
+  await resetSentFrames(page);
+  const uploadPromise = page.waitForResponse((response) => {
+    return (
+      response.url().includes("/api/binary/upload") &&
+      response.request().method() === "POST"
+    );
+  });
+
+  await page.evaluate(async ({ targetSectionId }) => {
+    const { sendRealtimeSectionBinary } = await import(
+      "/src/state/actions/websocketReceive"
+    );
+    const { C } = await import("/src/utils/c");
+
+    const payload = new ArrayBuffer(C.REALTIME_BINARY_MAX_BYTES + 1024);
+    sendRealtimeSectionBinary(targetSectionId, payload, "image/png");
+  }, { targetSectionId: sectionId });
+
+  const uploadResponse = await uploadPromise;
+  expect(uploadResponse.ok()).toBe(true);
+  const uploadedRef = (await uploadResponse.json()) as {
+    contentId?: string;
+  };
+  if (!uploadedRef.contentId) {
+    throw new Error("Missing contentId from binary upload response.");
+  }
+
+  await expect
+    .poll(async () => (await getSentFrameSummary(page)).binaryCount, {
+      timeout: 5000,
+    })
+    .toBe(0);
 });
 
 async function ensureAppReady(page: Page): Promise<void> {
@@ -54,7 +87,7 @@ async function ensureAppReady(page: Page): Promise<void> {
     );
   }
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
-  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(PROJECT_URL);
   await page.waitForSelector(".react-flow__pane");
 }
 
@@ -69,14 +102,19 @@ async function isAppReady(page: Page): Promise<boolean> {
 
 async function ensureDrawSection(
   page: Page,
-): Promise<{ drawSection: Locator; projectConfigId: string }> {
+): Promise<{ drawSection: Locator; projectConfigId: string; sectionId: string }> {
   const sectionName = await resolveUniqueSectionName(page, "__pw_draw__");
   const existing = findSectionCandidates(page, sectionName);
   if ((await existing.count()) > 0) {
     const first = existing.first();
     await expect(first).toBeVisible();
     const projectConfigId = await getCurrentProjectConfigId(page);
-    return { drawSection: first, projectConfigId };
+    const sectionId = await resolveSectionIdByName(
+      page,
+      projectConfigId,
+      sectionName,
+    );
+    return { drawSection: first, projectConfigId, sectionId };
   }
 
   const projectConfigId = await getCurrentProjectConfigId(page);
@@ -100,7 +138,27 @@ async function ensureDrawSection(
 
   const section = findSectionCandidates(page, sectionName).first();
   await expect(section).toBeVisible();
-  return { drawSection: section, projectConfigId };
+  return { drawSection: section, projectConfigId, sectionId };
+}
+
+async function resolveSectionIdByName(
+  page: Page,
+  projectConfigId: string,
+  sectionName: string,
+): Promise<string> {
+  const response = await postBackend<{
+    projectState: { sections: Record<string, { name: string }> };
+  }>(page, "/getLatestProjectState", { projectConfigId });
+  if (!response?.projectState?.sections) {
+    throw new Error("Missing project state while resolving section id.");
+  }
+  const entries = Object.entries(response.projectState.sections);
+  for (const [id, section] of entries) {
+    if (section.name === sectionName) {
+      return id;
+    }
+  }
+  throw new Error(`Unable to resolve section id for ${sectionName}.`);
 }
 
 async function waitForCanvasReady(canvas: Locator): Promise<void> {

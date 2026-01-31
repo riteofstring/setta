@@ -273,9 +273,16 @@ class ListenerFrontendEmitResolver:
                 expected_type=DependencyValueType.Binary,
                 actual_value=raw_value,
             )
+        byte_length = raw_value.get("byteLength")
+        if not isinstance(byte_length, int):
+            raise InvalidListenerDependencyValueError(
+                dependency_name,
+                expected_type=DependencyValueType.Binary,
+                actual_value=raw_value,
+            )
         payload = BinaryContentRef(
             contentId=str(raw_value.get("contentId", "")),
-            byteLength=int(raw_value.get("byteLength", 0)),
+            byteLength=byte_length,
             mimeType=raw_value.get("mimeType"),
             sha256=raw_value.get("sha256"),
         )

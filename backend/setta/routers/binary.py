@@ -22,7 +22,11 @@ async def route_binary_upload(
         )
     store = BinaryStore.from_dbe(ctx.state.dbe)
     try:
-        ref = store.store_stream(file.file, mime_type=file.content_type)
+        ref = store.store_stream(
+            file.file,
+            mime_type=file.content_type,
+            durable=True,
+        )
     finally:
         await file.close()
     return ref

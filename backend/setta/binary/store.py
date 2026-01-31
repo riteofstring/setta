@@ -35,12 +35,13 @@ class BinaryStore:
         if not content_id or "/" in content_id or "\\" in content_id:
             raise ValueError(f"Invalid content id: {content_id!r}")
 
-    def _write_metadata(self, ref: BinaryContentRef) -> None:
+    def _write_metadata(self, ref: BinaryContentRef, *, durable: bool) -> None:
         metadata_path = self._metadata_path(ref.contentId)
         payload = {
             "byteLength": ref.byteLength,
             "mimeType": ref.mimeType,
             "sha256": ref.sha256,
+            "durable": durable,
         }
         metadata_path.write_text(json.dumps(payload, separators=(",", ":")))
 
@@ -52,6 +53,12 @@ class BinaryStore:
             return json.loads(metadata_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
+
+    def _is_durable(self, content_id: str) -> bool:
+        metadata = self._read_metadata(content_id)
+        if not metadata:
+            return False
+        return metadata.get("durable") is True
 
     def _build_ref(
         self,
@@ -73,6 +80,7 @@ class BinaryStore:
         data: bytes,
         *,
         mime_type: str | None = None,
+        durable: bool = False,
     ) -> BinaryContentRef:
         self._ensure_root()
         content_id = uuid4().hex
@@ -85,7 +93,7 @@ class BinaryStore:
             mime_type=mime_type,
             sha256=sha256,
         )
-        self._write_metadata(ref)
+        self._write_metadata(ref, durable=durable)
         self.cleanup_expired()
         return ref
 
@@ -95,6 +103,7 @@ class BinaryStore:
         *,
         mime_type: str | None = None,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
+        durable: bool = False,
     ) -> BinaryContentRef:
         self._ensure_root()
         content_id = uuid4().hex
@@ -115,7 +124,7 @@ class BinaryStore:
             mime_type=mime_type,
             sha256=sha256.hexdigest(),
         )
-        self._write_metadata(ref)
+        self._write_metadata(ref, durable=durable)
         self.cleanup_expired()
         return ref
 
@@ -181,6 +190,11 @@ class BinaryStore:
         for entry in self.root.iterdir():
             if entry.is_dir():
                 continue
+            if entry.suffix == ".json":
+                continue
+            content_id = entry.name
+            if self._is_durable(content_id):
+                continue
             try:
                 mtime = entry.stat().st_mtime
             except OSError:
@@ -189,5 +203,19 @@ class BinaryStore:
                 continue
             try:
                 entry.unlink()
+            except OSError:
+                continue
+            metadata_path = self._metadata_path(content_id)
+            if metadata_path.exists():
+                try:
+                    metadata_path.unlink()
+                except OSError:
+                    continue
+        for metadata_path in self.root.glob("*.json"):
+            content_id = metadata_path.stem
+            if self._content_path(content_id).exists():
+                continue
+            try:
+                metadata_path.unlink()
             except OSError:
                 continue

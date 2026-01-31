@@ -394,6 +394,7 @@ async def route_import_files_to_artifacts(
         ref = binary_store.store_bytes(
             content,
             mime_type=mime_type or "application/octet-stream",
+            durable=True,
         )
         updates.append(
             FileArtifact(

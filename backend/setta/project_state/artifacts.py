@@ -267,7 +267,15 @@ class Artifacts:
         normalized_path = self._resolve_path(path)
         img = self.dbe.read(normalized_path, "rb")
         if img:
-            ref = self._binary_store.store_bytes(img, mime_type="image/png")
+            existing = self.images.get(normalized_path)
+            if existing is not None:
+                self._binary_store.delete(existing.value.contentId)
+            mime_type, _ = mimetypes.guess_type(normalized_path.name)
+            ref = self._binary_store.store_bytes(
+                img,
+                mime_type=mime_type or "application/octet-stream",
+                durable=True,
+            )
             artifact = ImageArtifact(
                 id=self.normalize_artifact_id(path),
                 value=ref,
@@ -335,9 +343,14 @@ class Artifacts:
         normalized_path = self._resolve_path(path)
         content = self.dbe.read(normalized_path, "rb")
         if content is not None:
+            existing = self.files.get(normalized_path)
+            if existing is not None:
+                self._binary_store.delete(existing.value.contentId)
             mime_type, _ = mimetypes.guess_type(normalized_path.name)
             ref = self._binary_store.store_bytes(
-                content, mime_type=mime_type or "application/octet-stream"
+                content,
+                mime_type=mime_type or "application/octet-stream",
+                durable=True,
             )
             artifact = FileArtifact(
                 id=self.normalize_artifact_id(path),
@@ -630,9 +643,13 @@ class Artifacts:
             return result
         if isinstance(artifact, ImageArtifact):
             self._binary_store.delete(artifact.value.contentId)
+            mime_type, _ = mimetypes.guess_type(path.name)
             ref = self._binary_store.store_bytes(
                 prepared.payload,
-                mime_type="image/png",
+                mime_type=mime_type
+                or artifact.value.mimeType
+                or "application/octet-stream",
+                durable=True,
             )
             self.images[path] = artifact.model_copy(update={"value": ref})
         elif isinstance(artifact, FileArtifact):
@@ -641,6 +658,7 @@ class Artifacts:
             ref = self._binary_store.store_bytes(
                 prepared.payload,
                 mime_type=mime_type or "application/octet-stream",
+                durable=True,
             )
             self.files[path] = artifact.model_copy(update={"value": ref})
         return result
@@ -703,7 +721,9 @@ class Artifacts:
                 )
             if resolved_path.exists() and resolved_path.is_dir():
                 raise ValueError(f"Artifact path is a directory: {artifact_id}")
-            self.files.pop(normalized_path, None)
+            cached = self.files.pop(normalized_path, None)
+            if cached is not None:
+                self._binary_store.delete(cached.value.contentId)
             self.file_metadata.pop(normalized_path, None)
             if resolved_path.exists():
                 resolved_path.unlink()

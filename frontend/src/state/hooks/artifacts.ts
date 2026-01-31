@@ -240,17 +240,26 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
   }
   const decoded: ZustandDecodedImages["x"] = {};
   const rawImages = useImages.getState().x;
-  for (const path of needToDecode) {
-    const rawImage = rawImages[path];
-    if (rawImage) {
+  const entries = await Promise.all(
+    needToDecode.map(async (path) => {
+      const rawImage = rawImages[path];
+      if (!rawImage) {
+        return null;
+      }
       const blob = await fetchBinaryBlob(rawImage.value.contentId);
       if (!blob) {
-        continue;
+        return null;
       }
       const image = await blobToImageObj(blob);
       image.dataset.contentId = rawImage.value.contentId;
-      decoded[path] = image;
+      return { path, image };
+    }),
+  );
+  for (const entry of entries) {
+    if (!entry) {
+      continue;
     }
+    decoded[entry.path] = entry.image;
   }
   const decodedIds = Object.keys(decoded);
   if (decodedIds.length > 0) {
