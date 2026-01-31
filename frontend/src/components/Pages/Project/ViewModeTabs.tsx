@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useMemo } from "react";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
@@ -7,11 +6,13 @@ import { route_set_active_view_mode } from "utils/generatedEndpoints";
 const TAB_LABEL_FALLBACK = "Untitled View";
 
 export function ViewModeTabs() {
-  const { projectConfigId, viewModes, activeViewModeId } = useProjectState(
+  const { projectConfigId, tabModes, activeViewModeId } = useProjectState(
     (x) => ({
       projectConfigId: x.projectConfig.id,
-      viewModes: x.projectConfig.viewModes,
       activeViewModeId: x.projectConfig.activeViewModeId,
+      tabModes: Object.values(x.projectConfig.viewModes)
+        .filter((mode) => mode.isTab)
+        .map((mode) => ({ id: mode.id, name: mode.name })),
     }),
     _.isEqual,
   );
@@ -22,11 +23,6 @@ export function ViewModeTabs() {
       uiEditorWidth: x.uiEditorTrueWidth,
     }),
     _.isEqual,
-  );
-
-  const tabModes = useMemo(
-    () => Object.values(viewModes).filter((mode) => mode.isTab),
-    [viewModes],
   );
 
   if (tabModes.length === 0) {

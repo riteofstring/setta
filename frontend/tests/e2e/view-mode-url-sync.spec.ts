@@ -38,10 +38,6 @@ test("view mode selection updates url on /view route", async ({ page }) => {
     viewNames[1],
   );
 
-  await postBackend(page, "/toggleIsEditingViewMode", {
-    projectConfigId,
-  });
-
   const firstViewUrl = `${BASE_URL}/${projectConfigName}/view/${encodeURIComponent(
     viewNames[0],
   )}`;
@@ -205,6 +201,10 @@ async function createNamedViewMode(
     projectConfigId,
     viewModeId,
     name,
+  });
+  await postBackend(page, "/toggleViewModeTab", {
+    projectConfigId,
+    viewModeId,
   });
   return viewModeId;
 }
