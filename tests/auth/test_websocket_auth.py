@@ -11,9 +11,9 @@ from setta.utils.constants import C
 
 @pytest.fixture
 def websocket_client(tmp_path, monkeypatch):
-    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
+    sessions_root = tmp_path / "setta_files" / "run" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(C, "RUNTIME_SESSIONS_FOLDER", sessions_root)
+    monkeypatch.setattr(C, "RUN_SESSIONS_FOLDER", sessions_root)
     monkeypatch.delenv(SESSION_ID_ENV_VAR, raising=False)
 
     auth_session._cached_metadata = None

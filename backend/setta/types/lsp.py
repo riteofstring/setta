@@ -16,6 +16,32 @@ class SettaProjectConfigDiagnostics(BaseModel):
     isGenCode: bool
 
 
+class SettaLspDiagnosticPosition(BaseModel):
+    line: int
+    character: int
+
+
+class SettaLspDiagnosticRange(BaseModel):
+    start: SettaLspDiagnosticPosition
+    end: SettaLspDiagnosticPosition
+
+
+class SettaLspDiagnostic(BaseModel):
+    message: str
+    severity: int | None = None
+    code: str | int | None = None
+    source: str | None = None
+    range: SettaLspDiagnosticRange
+    uri: str | None = None
+
+
+class SettaLspDiagnosticsPayload(BaseModel):
+    projectConfigId: ID
+    genCode: SettaProjectConfigDiagnostics
+    codeSections: dict[ID, list[SettaLspDiagnostic]] = Field(default_factory=dict)
+    unmappedGenCode: list[SettaLspDiagnostic] = Field(default_factory=list)
+
+
 @dataclass
 class SettaLSPPosition:
     start: int

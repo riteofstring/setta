@@ -1,0 +1,380 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pytest
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.database.db_objs import DBE
+from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.lsp.managers import LSPServers, LSPWriters
+from setta.project_state.artifacts import Artifacts
+from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.code_files import CodeFiles
+from setta.project_state.jsonSource.jsonSource import JSONSource
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
+from setta.project_state.project_code import (
+    ProjectBashCode,
+    ProjectGenPythonCode,
+    ProjectPythonCode,
+    build_python_code_generator,
+)
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.id import ID
+from setta.types.project_config import (
+    ProjectCodegenTarget,
+    ProjectConfig,
+    TopLevelSectionLayout,
+)
+from setta.types.project_state import (
+    CODE_LANGUAGE_EXTENSIONS,
+    ProjectStateBackend,
+    ProjectStateSingleConfig,
+)
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
+    CodeSectionImpl,
+)
+from setta.utils.constants import C
+from setta.websockets.listener_registry import ListenerRegistry
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+from setta.websockets.websocket_manager import WebsocketManager
+
+
+def _set_temp_constants(root: Path) -> dict[str, Path]:
+    previous = {
+        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
+        "CODE_FOLDER": C.CODE_FOLDER,
+        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
+        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
+        "RUN_FOLDER": C.RUN_FOLDER,
+        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
+        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
+        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+    }
+    C.SETTA_FILES_FOLDER = root / "setta_files"
+    C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
+    C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
+    C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
+    C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
+    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
+    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
+    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    for path in (
+        C.SETTA_FILES_FOLDER,
+        C.CODE_FOLDER,
+        C.DB_BACKUP_FOLDER,
+        C.ARTIFACTS_FOLDER,
+        C.RUN_FOLDER,
+        C.RUN_SESSIONS_FOLDER,
+        C.RUN_LOGS_FOLDER,
+        C.SHARE_DEPLOYMENTS_FOLDER,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    return previous
+
+
+def _restore_constants(previous: dict[str, Path]) -> None:
+    C.SETTA_FILES_FOLDER = previous["SETTA_FILES_FOLDER"]
+    C.CODE_FOLDER = previous["CODE_FOLDER"]
+    C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
+    C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
+    C.RUN_FOLDER = previous["RUN_FOLDER"]
+    C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
+    C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
+    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
+
+
+class TypeCheckProjectManager(BaseProjectManager):
+    def __init__(
+        self,
+        lsp_writers,
+        websocket_msg_handler,
+        python_script_sender,
+        settings_file,
+        specific_file_watcher,
+        dbe,
+        artifacts,
+        json_source,
+        code_files,
+        initial_backend: ProjectStateBackend,
+    ):
+        self._initial_backend = initial_backend
+        super().__init__(
+            lsp_writers,
+            websocket_msg_handler,
+            python_script_sender,
+            settings_file,
+            specific_file_watcher,
+            dbe,
+            artifacts,
+            json_source,
+            code_files,
+        )
+
+    def load_initial_state(self) -> ProjectStateBackend:
+        return self._initial_backend.model_copy(deep=True)
+
+    def save(self):  # pragma: no cover - not used in these tests
+        return None
+
+    async def save_as_new_project_config(self, _x):  # pragma: no cover
+        return None
+
+
+def build_code_section(
+    project_name: str,
+    *,
+    section_id: ID,
+    section_impl_id: ID,
+    section_variant_id: ID,
+    name: str,
+    code: str,
+    language: CodeLanguage,
+) -> tuple[Core, Variant, CodeSectionImpl, CodeFileBinding]:
+    extension = CODE_LANGUAGE_EXTENSIONS[language]
+    binding = CodeFileBinding(
+        canonical_path=C.CODE_FOLDER / project_name / f"{name}.{extension}",
+        access_mode=CodeFileAccessMode.read_write,
+    )
+    section_impl = CodeSectionImpl(
+        id=section_impl_id,
+        code=code,
+        codeLanguage=language,
+        codeFileBinding=binding,
+        diagnosticsIgnoreState=CodeSectionDiagnosticsIgnoreState(),
+    )
+    section_variant = Variant(
+        id=section_variant_id,
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    section_core = Core(
+        id=section_id,
+        name=name,
+        variants=[section_variant.id],
+        defaultVariant=section_variant.id,
+    )
+    return section_core, section_variant, section_impl, binding
+
+
+def build_project_state(
+    *,
+    project_config_id: ID,
+    project_name: str,
+    codegen_targets: list[ProjectCodegenTarget],
+    include_bash: bool,
+) -> tuple[ProjectStateSingleConfig, dict[str, CodeFileBinding], dict[str, ID]]:
+    python_section_id = ID("section-python")
+    python_impl_id = ID("section-python-impl")
+    python_variant_id = ID("section-python-variant")
+
+    python_core, python_variant, python_impl, python_binding = build_code_section(
+        project_name,
+        section_id=python_section_id,
+        section_impl_id=python_impl_id,
+        section_variant_id=python_variant_id,
+        name="PythonSection",
+        code="print('hi')",
+        language=CodeLanguage.python,
+    )
+
+    sections = {python_section_id: python_core}
+    section_impls = {python_impl_id: python_impl}
+    section_variants = {python_variant_id: python_variant}
+    section_variant_map = {python_section_id: python_variant_id}
+    top_level_sections = {python_section_id: TopLevelSectionLayout()}
+    bindings: dict[str, CodeFileBinding] = {"python": python_binding}
+    section_ids: dict[str, ID] = {"python": python_section_id}
+
+    if include_bash:
+        bash_section_id = ID("section-bash")
+        bash_impl_id = ID("section-bash-impl")
+        bash_variant_id = ID("section-bash-variant")
+        bash_core, bash_variant, bash_impl, bash_binding = build_code_section(
+            project_name,
+            section_id=bash_section_id,
+            section_impl_id=bash_impl_id,
+            section_variant_id=bash_variant_id,
+            name="BashSection",
+            code="echo hi",
+            language=CodeLanguage.bash,
+        )
+        sections[bash_section_id] = bash_core
+        section_impls[bash_impl_id] = bash_impl
+        section_variants[bash_variant_id] = bash_variant
+        section_variant_map[bash_section_id] = bash_variant_id
+        top_level_sections[bash_section_id] = TopLevelSectionLayout()
+        bindings["bash"] = bash_binding
+        section_ids["bash"] = bash_section_id
+
+    project_config = ProjectConfig(
+        id=project_config_id,
+        name=project_name,
+        codegenTargets=codegen_targets,
+        sectionVariantMap=section_variant_map,
+        topLevelSections=top_level_sections,
+    )
+    project_state = ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections=sections,
+        sectionImpls=section_impls,
+        sectionVariants=section_variants,
+    )
+    return project_state, bindings, section_ids
+
+
+@asynccontextmanager
+async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
+    temp_dir = TemporaryDirectory()
+    previous = _set_temp_constants(Path(temp_dir.name))
+    manager = None
+    try:
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = WMHPythonScriptSender(
+            websocket_manager, listener_registry
+        )
+        dbe = DBE(C.SETTA_FILES_FOLDER)
+        settings_file = SettingsFile(dbe, frontend_sender)
+        specific_file_watcher = SpecificFileWatcher()
+        artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
+        code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+        json_source = JSONSource(
+            frontend_sender, settings_file, specific_file_watcher, dbe
+        )
+        lsps = LSPServers({})
+        lsp_writers = LSPWriters(lsps)
+
+        project_config = ProjectConfig(
+            id=ID("project-1"),
+            name="TypeCheckProject",
+            codegenTargets=codegen_targets,
+        )
+        backend = ProjectStateBackend(projectConfigs={project_config.id: project_config})
+
+        manager = TypeCheckProjectManager(
+            lsp_writers,
+            frontend_sender,
+            python_script_sender,
+            settings_file,
+            specific_file_watcher,
+            dbe,
+            artifacts,
+            json_source,
+            code_files,
+            backend,
+        )
+        await manager._process_queue_task_started.wait()
+        yield manager
+    finally:
+        if manager is not None:
+            manager.shutdown()
+        _restore_constants(previous)
+        temp_dir.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_type_check_runs_python_sections_without_codegen() -> None:
+    async with _type_check_manager(codegen_targets=[]) as manager:
+        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
+        project_state, bindings, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=[],
+            include_bash=True,
+        )
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_config_id,
+            manager.websocket_msg_handler,
+        )
+        python_code = ProjectPythonCode(
+            manager.dbe,
+            manager.code_files,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            diagnostics_state,
+            project_state,
+            section_ids["python"],
+        )
+        bash_code = ProjectBashCode(
+            manager.dbe,
+            manager.code_files,
+            project_state,
+            section_ids["bash"],
+        )
+        manager.code_dict[project_config_id] = {
+            section_ids["python"]: python_code,
+            section_ids["bash"]: bash_code,
+        }
+
+        await manager.type_check(project_config_id)
+
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
+        bash_uri = manager.lsp_writers.full.get_uri(bindings["bash"].canonical_path)
+        assert python_uri in manager.lsp_writers.full.latest_version_numbers
+        assert bash_uri not in manager.lsp_writers.full.latest_version_numbers
+
+
+@pytest.mark.asyncio
+async def test_type_check_runs_gen_code_and_python_sections() -> None:
+    codegen_targets = ProjectConfig().codegenTargets
+    async with _type_check_manager(codegen_targets=codegen_targets) as manager:
+        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
+        project_state, bindings, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=codegen_targets,
+            include_bash=False,
+        )
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_config_id,
+            manager.websocket_msg_handler,
+        )
+        python_code = ProjectPythonCode(
+            manager.dbe,
+            manager.code_files,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            diagnostics_state,
+            project_state,
+            section_ids["python"],
+        )
+        dep_graph = DependencyGraph(project_state)
+        code_generator = build_python_code_generator(project_state, dep_graph)
+        code_generator.generate_code()
+        gen_binding = CodeFileBinding(
+            canonical_path=C.CODE_FOLDER / "TypeCheckProject" / "setta_gen.py",
+            access_mode=CodeFileAccessMode.write_only,
+        )
+        gen_code = ProjectGenPythonCode(
+            manager.dbe,
+            manager.code_files,
+            gen_binding,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            project_config_id,
+            dep_graph,
+            code_generator,
+            {},
+            diagnostics_state,
+        )
+
+        manager.gen_code[project_config_id] = gen_code
+        manager.code_dict[project_config_id] = {section_ids["python"]: python_code}
+
+        await manager.type_check(project_config_id)
+
+        gen_uri = manager.lsp_writers.full.get_uri(gen_binding.canonical_path)
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
+        assert gen_uri in manager.lsp_writers.full.latest_version_numbers
+        assert python_uri in manager.lsp_writers.full.latest_version_numbers

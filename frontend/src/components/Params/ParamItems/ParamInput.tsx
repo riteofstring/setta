@@ -13,23 +13,17 @@ import {
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200 } from "utils/endpointUtils";
+import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import {
-  route_get_password_param_value,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
-import {
-  CodeObjTypeEnum,
   DependencyKeyTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
-import { shouldEmitRealtimeValue } from "utils/paramValue";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const { baseValue, codeObjType } = useProjectState((x) => {
+  const baseValue = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
@@ -37,9 +31,8 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    return { baseValue: impl.value, codeObjType: impl.type };
+    return impl.value;
   });
-  const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
     if (!previewState) {
@@ -58,9 +51,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
-      if (isPasswordParam) {
-        return;
-      }
       useProjectState.setState((state) => {
         setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
@@ -73,48 +63,17 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       });
     },
   );
-  const [isRevealing, setIsRevealing] = React.useState(false);
 
   // value and enteredValue should always be string
   function onChange(v, options?: ParamValueChangeOptions) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
-    if (
-      shouldEmitRealtimeValue({
-        previousValue: value,
-        nextValue: vStr,
-        codeObjType,
-      })
-    ) {
+    if (value !== vStr) {
       sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
     }
     if (!options?.skipBackendUpdate) {
-      if (isPasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
-      } else {
-        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
-      }
+      debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
     }
-  }
-
-  function onRevealPassword() {
-    if (!isPasswordParam || isRevealing || value !== "") {
-      return;
-    }
-    setIsRevealing(true);
-    route_get_password_param_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-    })
-      .then((response) => {
-        if (res200(response)) {
-          setPendingValue(response.data.value);
-        }
-      })
-      .finally(() => {
-        setIsRevealing(false);
-      });
   }
 
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
@@ -142,8 +101,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       value={value}
       onChange={onChange}
       onDropzoneStateless={onDropzoneStateless}
-      onRevealPassword={onRevealPassword}
-      isPasswordRevealPending={isRevealing}
       maybeErrorMessage={maybeErrorMessage}
     />
   );
@@ -170,18 +127,6 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
-    });
-  },
-  50,
-);
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
     });
   },
   50,
