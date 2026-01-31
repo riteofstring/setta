@@ -1,9 +1,35 @@
-type AttachmentLimit = {
+import { C } from "utils/c";
+
+export const CHAT_ATTACHMENT_MAX_FILES = Number.isFinite(
+  C.CHAT_ATTACHMENTS_MAX_FILES,
+)
+  ? C.CHAT_ATTACHMENTS_MAX_FILES
+  : 0;
+
+export const CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES = Array.isArray(
+  C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES,
+)
+  ? C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES.filter(
+      (prefix) => typeof prefix === "string" && prefix.trim().length > 0,
+    )
+  : [];
+
+export const CHAT_ATTACHMENT_MAX_FILE_BYTES = Number.isFinite(
+  C.CHAT_ATTACHMENTS_MAX_FILE_BYTES,
+)
+  ? C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
+  : 0;
+
+export const CHAT_ATTACHMENT_MAX_FILE_LABEL = formatBytes(
+  CHAT_ATTACHMENT_MAX_FILE_BYTES,
+);
+
+type ChatAttachmentLimit = {
   maxFiles: number | null;
   disabled: boolean;
 };
 
-export function resolveAttachmentLimit(value: number): AttachmentLimit {
+export function resolveChatAttachmentLimit(value: number): ChatAttachmentLimit {
   if (!Number.isFinite(value)) {
     return { maxFiles: 0, disabled: true };
   }
@@ -14,6 +40,15 @@ export function resolveAttachmentLimit(value: number): AttachmentLimit {
     return { maxFiles: null, disabled: false };
   }
   return { maxFiles: value, disabled: false };
+}
+
+export function isChatAttachmentMimeAllowed(mimeType: string): boolean {
+  if (CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.length === 0) {
+    return true;
+  }
+  return CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.some((prefix) =>
+    mimeType.startsWith(prefix),
+  );
 }
 
 export function formatBytes(bytes: number): string {
