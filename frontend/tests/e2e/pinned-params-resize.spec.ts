@@ -20,14 +20,12 @@ const EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-const READY_SELECTOR = ".react-flow__pane";
 
 type DragHandle = "bottom" | "right" | "bottomRight";
 type Box = { x: number; y: number; width: number; height: number };
@@ -158,18 +156,26 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     initialLayoutMetrics.pinnedBorderHeight;
   const expectedUnpinnedMin =
     initialLayoutMetrics.unpinnedRowHeight + initialLayoutMetrics.unpinnedPadding;
+  // Pinned param area min height should be the height where 1 pinned param is fully visible.
   expect(initialLayoutMetrics.pinnedMinHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
+  );
+  expect(initialLayoutMetrics.pinnedMinHeight).toBeLessThanOrEqual(
+    expectedPinnedMin + 4,
   );
   expect(initialLayoutMetrics.pinnedHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
   );
+  // Unpinned param area min height should be the height where 1 unpinned param is fully visible.
   expect(initialLayoutMetrics.unpinnedMinHeight).toBeGreaterThanOrEqual(
     expectedUnpinnedMin - 2,
   );
   expect(initialLayoutMetrics.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMin + 4,
   );
+  // Unpinned param area max height should be unbounded.
+  const unpinnedMaxHeight = await getComputedMaxHeight(unpinnedArea);
+  expect(isMaxHeightUnbounded(unpinnedMaxHeight)).toBe(true);
   pinnedList = pinnedArea.locator("div.section-args-nested");
 
   await dragResize(page, callableSection, {
@@ -213,8 +219,16 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
       (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
     0,
   );
-  const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > availableHeight + 1;
+  const expectedPinnedMax = Math.min(
+    availableHeight,
+    layoutMetrics.pinnedContentHeight,
+  );
+  // Pinned param area max height should be the minimum height necessary
+  // to have all pinned params visible.
+  expect(
+    Math.abs(layoutMetrics.pinnedHeight - expectedPinnedMax),
+  ).toBeLessThanOrEqual(2);
+  const shouldScrollAtMax = layoutMetrics.pinnedContentHeight > expectedPinnedMax + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -580,57 +594,27 @@ async function ensureProjectConfig(
 }
 
 async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(PROJECT_URL);
   if (await isAppReady(page)) {
     return;
   }
-
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-    );
-    try {
-      await waitForProjectUrl(page);
-    } catch {
-      // Fall through to the final readiness check below.
-    }
-  }
-
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  if (await isAppReady(page)) {
-    return;
-  }
-
-  if (!BOOTSTRAP_TOKEN && !hasCookie) {
+  if (!BOOTSTRAP_TOKEN) {
     throw new Error(
-      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
+      "Missing SETTA_BOOTSTRAP_TOKEN. Open /__setta__/bootstrap to mint one.",
     );
   }
-  throw new Error("Setta UI did not become ready. Check bootstrap auth.");
+  await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
+  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
 }
 
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
+    await page.waitForSelector(".react-flow__pane", { timeout: 10000 });
     return true;
   } catch {
     return false;
   }
-}
-
-async function waitForProjectUrl(page: Page): Promise<void> {
-  await page.waitForURL(
-    (url) => url.toString().startsWith(PROJECT_URL),
-    { timeout: 20000, waitUntil: "domcontentloaded" },
-  );
-}
-
-async function hasAuthCookie(page: Page): Promise<boolean> {
-  const cookies = await page
-    .context()
-    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
 
 async function ensureCallableSectionWithMathSqrt(
@@ -1486,6 +1470,14 @@ async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
     clientHeight: el.clientHeight,
     scrollHeight: el.scrollHeight,
   }));
+}
+
+async function getComputedMaxHeight(target: Locator): Promise<string> {
+  return target.evaluate((el) => window.getComputedStyle(el).maxHeight);
+}
+
+function isMaxHeightUnbounded(maxHeight: string): boolean {
+  return maxHeight === "none";
 }
 
 async function dragPinnedResize(

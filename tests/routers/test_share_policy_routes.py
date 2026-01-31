@@ -18,7 +18,6 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    GetPasswordParamValueRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     SetCallableHideParamsRequest,
@@ -83,7 +82,6 @@ from setta.routers.project_manager import (
     route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
-    route_get_password_param_value,
     route_set_image_area_image_path,
     route_set_param_entered_value,
     route_set_section_name,
@@ -707,15 +705,6 @@ class TestSharePolicyRoutes:
                         sectionId=section_id,
                         paramInfoId=create_new_id(),
                         ignoreTypeErrors=True,
-                    ),
-                ),
-                (
-                    "get_password_param_value",
-                    route_get_password_param_value,
-                    GetPasswordParamValueRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=section_id,
-                        paramInfoId=create_new_id(),
                     ),
                 ),
             ]
