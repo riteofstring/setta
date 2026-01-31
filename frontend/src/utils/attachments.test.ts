@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  getAttachmentPolicy,
-  isAttachmentMimeAllowed,
-} from "./attachmentPolicy";
-import { formatBytes, resolveAttachmentLimit } from "./attachments";
+  CHAT_ATTACHMENT_MAX_FILE_BYTES,
+  CHAT_ATTACHMENT_MAX_FILE_LABEL,
+  CHAT_ATTACHMENT_MAX_FILES,
+  formatBytes,
+  resolveChatAttachmentLimit,
+} from "./attachments";
 import { C } from "./c";
 
 describe("formatBytes", () => {
@@ -19,67 +21,37 @@ describe("formatBytes", () => {
   });
 });
 
-describe("resolveAttachmentLimit", () => {
+describe("chat attachment constants", () => {
+  it("derives attachment limits from constants", () => {
+    expect(CHAT_ATTACHMENT_MAX_FILES).toBe(C.CHAT_ATTACHMENTS_MAX_FILES);
+    expect(CHAT_ATTACHMENT_MAX_FILE_BYTES).toBe(
+      C.CHAT_ATTACHMENTS_MAX_FILE_BYTES,
+    );
+    expect(CHAT_ATTACHMENT_MAX_FILE_LABEL).toBe(
+      formatBytes(C.CHAT_ATTACHMENTS_MAX_FILE_BYTES),
+    );
+  });
+});
+
+describe("resolveChatAttachmentLimit", () => {
   it("treats 0 as disabled", () => {
-    expect(resolveAttachmentLimit(0)).toEqual({
+    expect(resolveChatAttachmentLimit(0)).toEqual({
       maxFiles: 0,
       disabled: true,
     });
   });
 
   it("treats negative values as unlimited", () => {
-    expect(resolveAttachmentLimit(-1)).toEqual({
+    expect(resolveChatAttachmentLimit(-1)).toEqual({
       maxFiles: null,
       disabled: false,
     });
   });
 
   it("uses positive values as limits", () => {
-    expect(resolveAttachmentLimit(3)).toEqual({
+    expect(resolveChatAttachmentLimit(3)).toEqual({
       maxFiles: 3,
       disabled: false,
     });
-  });
-});
-
-describe("getAttachmentPolicy", () => {
-  it("derives chat policy fields from constants", () => {
-    const policy = getAttachmentPolicy("chat");
-    expect(policy.maxFiles).toBe(C.CHAT_ATTACHMENTS_MAX_FILES);
-    expect(policy.maxFileBytes).toBe(C.CHAT_ATTACHMENTS_MAX_FILE_BYTES);
-    expect(policy.maxFileLabel).toBe(C.CHAT_ATTACHMENTS_MAX_FILE_LABEL);
-  });
-
-  it("derives dropzone limits from constants", () => {
-    const stateful = getAttachmentPolicy("dropzone_stateful");
-    const stateless = getAttachmentPolicy("dropzone_stateless");
-    expect(stateful.maxFileBytes).toBe(C.DROPZONE_STATEFUL_MAX_FILE_BYTES);
-    expect(stateless.maxFileBytes).toBe(C.DROPZONE_STATELESS_MAX_FILE_BYTES);
-    expect(stateless.maxTotalBytes).toBe(C.DROPZONE_STATELESS_MAX_TOTAL_BYTES);
-  });
-
-  it("builds allowed mime label from configured prefixes", () => {
-    const originalPrefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES;
-    try {
-      C.DROPZONE_ALLOWED_MIME_PREFIXES = ["image/", "text/"];
-      const policy = getAttachmentPolicy("dropzone_stateful");
-      expect(policy.allowedMimeLabel).toBe("Allowed types: image/, text/.");
-    } finally {
-      C.DROPZONE_ALLOWED_MIME_PREFIXES = originalPrefixes;
-    }
-  });
-});
-
-describe("isAttachmentMimeAllowed", () => {
-  it("permits all types when no prefixes are configured", () => {
-    const policy = getAttachmentPolicy("chat");
-    const normalized = { ...policy, allowedMimePrefixes: [] };
-    expect(isAttachmentMimeAllowed("text/plain", normalized)).toBe(true);
-  });
-
-  it("blocks disallowed mime types when prefixes are set", () => {
-    const policy = getAttachmentPolicy("chat");
-    const normalized = { ...policy, allowedMimePrefixes: ["image/"] };
-    expect(isAttachmentMimeAllowed("text/plain", normalized)).toBe(false);
   });
 });

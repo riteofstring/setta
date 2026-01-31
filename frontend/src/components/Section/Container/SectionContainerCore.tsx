@@ -5,6 +5,7 @@ import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
+import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import {
   getOnSectionClick,
@@ -82,10 +83,11 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`group/card-section relative transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
     >
+      <AgenticEdgeHandles isUserView={isUserView} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
