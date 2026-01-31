@@ -346,6 +346,13 @@ class Artifacts:
             return artifact
         raise ValueError
 
+    def read_file_bytes(self, path: Path | str) -> bytes:
+        normalized_path = self._resolve_path(path)
+        content = self.dbe.read(normalized_path, "rb")
+        if content is None:
+            raise ValueError(f"File artifact not found: {path}")
+        return content
+
     def get_cached_image(self, path: Path | str):
         return self.images.get(self._resolve_path(path))
 

@@ -53,15 +53,6 @@ Current limits:
 - Expression + json_parsed + string: `SliderParam`.
 - File path/read only: `DropzoneParam`.
 
-PasswordParam secrets:
-- PasswordParam values are stored in the runtime secret store
-  (`setta_files/runtime/secrets/passwords.json` or `SETTA_RUNTIME_ROOT`), not in
-  project state.
-- The dependency graph treats a PasswordParam as present only when a secret
-  exists, so missing secrets omit the param from generated output.
-- The Python value codec emits `read_password_value("<impl_id>")` so generated
-  code fetches the secret at runtime.
-
 ## Policy resolution order
 
 `resolve_section_codegen_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedSectionCodegenPolicy` in this order:

@@ -53,6 +53,7 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
+from setta.utils.chat_attachments import extract_attachment_text
 
 logger = logging.getLogger(__name__)
 
@@ -292,9 +293,19 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
         prompt = _extract_latest_user_prompt(context.inputs)
+        attachment_text = extract_attachment_text(
+            context.inputs if isinstance(context.inputs, dict) else None
+        )
         if prompt:
-            return f"{prompt}\n"
-        return build_prompt_from_inputs("", context.inputs)
+            combined = prompt
+            if attachment_text:
+                combined = f"{prompt}\n\n{attachment_text}"
+            return f"{combined}\n"
+        return build_prompt_from_inputs(
+            "",
+            context.inputs,
+            attachments_text=attachment_text,
+        )
 
 
 async def _run_query(
