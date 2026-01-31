@@ -8,6 +8,7 @@ import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
+import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { UIPage } from "./Project/UiPage";
@@ -25,6 +26,7 @@ export function MainContainerCore({
   useAddMouseLocationListener();
   useAIFollowViewport();
   useAIFollowZIndexBoost();
+  useViewModeUrlSync({ enabled: doneLoading && !is404 });
 
   if (!doneLoading) {
     return <LoadingSpinner />;
