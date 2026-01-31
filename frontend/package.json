@@ -91,7 +91,7 @@
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
     "reset": "cd .. && rm -rf setta_files && cd frontend && pnpm start",
-    "aireset": "cd .. && rm -rf setta_files && ./scripts/ai.sh",
+    "aireset": "cd .. && ./aireset.sh",
     "build": "vite build --base=/static/",
     "test": "vitest",
     "serve": "vite preview",
@@ -107,9 +107,10 @@
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
     "generate": "bash ./generation/generate.sh",
     "cdp-port": "cd .. && ./scripts/cdp-port.sh",
-    "worktrees": "cd .. && ./scripts/create-worktrees.sh",
-    "ai": "cd .. && ./scripts/ai.sh",
-    "kill": "cd .. && ./scripts/kill-setta.sh"
+    "worktree": "cd .. && ./worktree.sh",
+    "worktrees": "cd .. && ./worktree.sh",
+    "ai": "cd .. && ./ai.sh",
+    "kill": "cd .. && ./kill.sh"
   },
   "browserslist": {
     "production": [

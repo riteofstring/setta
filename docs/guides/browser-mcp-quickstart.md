@@ -16,14 +16,14 @@ chrome-devtools-mcp and performance profiling.
    `pnpm start`
 
    Or use the combined helpers:
-   `pnpm -C frontend ai` (adds CDP Chrome + bootstrap/app open)
+   `./ai.sh` (adds CDP Chrome + bootstrap/app open)
    Tip: set `CHROME_EXTRA_ARGS=--auto-open-devtools-for-tabs` to auto-open DevTools.
 
-2) Start the debug Chrome instance (if you are not using `pnpm -C frontend ai`):
-   `scripts/start-browser-mcp.sh --devtools`
+2) Start the debug Chrome instance (if you are not using `./ai.sh`):
+   `./scripts/start-browser-mcp.sh --devtools`
 
    Override MCP state location:
-   `MCP_RUN_DIR="${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>" scripts/start-browser-mcp.sh --devtools`
+   `MCP_RUN_DIR="${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>" ./scripts/start-browser-mcp.sh --devtools`
 
 3) Codex auto-connects chrome-devtools-mcp to the per-worktree CDP port via
    `.codex/config.toml` + `scripts/chrome-devtools-mcp.sh` (no manual port typing).
@@ -50,7 +50,7 @@ chrome-devtools-mcp and performance profiling.
   multiple Setta instances in parallel without collisions.
 - The debug Chrome profile lives under `${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>` by default.
   Override with `MCP_RUN_DIR` (base dir) or `PROFILE_DIR` (exact profile path).
-- Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh --devtools`.
+- Stop browser MCP processes for this repo with `./scripts/stop-browser-mcp.sh --devtools`.
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.
 
@@ -58,7 +58,7 @@ chrome-devtools-mcp and performance profiling.
 
 1) Start the backend + frontend (`pnpm start` or `pnpm startr`).
 2) Run the suite with the helper (auto-mints a bootstrap token):
-   `scripts/run-playwright-e2e.sh`
+   `./scripts/run-playwright-e2e.sh`
 
 Optional overrides:
 - `PLAYWRIGHT_BASE_URL` (frontend URL)

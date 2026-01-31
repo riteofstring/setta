@@ -5,13 +5,13 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 ## Start
 
 ```bash
-pnpm -C frontend ai
+./ai.sh
 ```
 
 Resets state + starts:
 
 ```bash
-pnpm -C frontend aireset
+./aireset.sh
 ```
 
 ## Tell the assistant what to use
@@ -31,7 +31,7 @@ Use that port to point other MCP clients at `http://127.0.0.1:<port>`.
 Stop everything:
 
 ```bash
-pnpm -C frontend kill
+./kill.sh
 ```
 
 Stop only the CDP/Chrome helpers (repo root):
@@ -42,5 +42,5 @@ Stop only the CDP/Chrome helpers (repo root):
 
 ## End chat vs. keep running
 
-- Want Setta still running? Leave the `pnpm ai` terminal open and just end the chat.
-- Want a clean stop? Run `pnpm -C frontend kill`, then close tabs.
+- Want Setta still running? Leave the `./ai.sh` terminal open and just end the chat.
+- Want a clean stop? Run `./kill.sh`, then close tabs.

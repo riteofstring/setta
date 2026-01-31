@@ -11,6 +11,16 @@ Use these first for day-to-day work.
   - Wrapper over `scripts/run-dev-instance.sh`.
 - `./reset.sh`
   - Same as `start.sh` but runs the frontend reset flow (wipes `setta_files`).
+- `./ai.sh`
+  - Starts dev + Chrome DevTools MCP helpers (worktree-aware ports).
+  - Wrapper over `scripts/ai.sh`.
+- `./aireset.sh`
+  - Wipes `setta_files` then runs `./ai.sh`.
+- `./kill.sh`
+  - Stops dev processes + browser MCP helpers.
+  - Wrapper over `scripts/kill-setta.sh`.
+- `./worktree.sh`
+  - Worktree creation + setup.
 - `./t.sh`
   - Runs tests (backend pytest + frontend Vitest + Playwright).
   - Flags: `--b` (backend-only), `--f` (frontend + Playwright only).
@@ -46,13 +56,11 @@ These are used by the top-level wrappers or for advanced workflows.
   - Backend pytest runner (invoked by `t.sh`).
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
-- `./scripts/create-worktrees.sh`
-  - Worktree creation + setup.
 - `./scripts/cdp-port.sh`
   - Prints the Chrome DevTools Protocol port for the worktree.
 - `./scripts/kill-setta.sh`
   - Stops dev processes.
-- `./scripts/ai.sh`, `./scripts/aicdt.sh`
+- `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
@@ -77,8 +85,8 @@ These are the underlying tasks used by the wrappers above.
   - `pnpm gcf` + `./t.sh`.
 - `pnpm full-cleanup`
   - Knip + Python prune step.
-- `pnpm worktrees`
-  - Wrapper over `scripts/create-worktrees.sh`.
+- `pnpm worktree` / `pnpm worktrees`
+  - Wrapper over `./worktree.sh`.
 
 ## Layer 4: Lowest-level entry points
 

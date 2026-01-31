@@ -3,7 +3,7 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
+ROOT_DIR="${SCRIPT_DIR}"
 BASE_DIR=$(cd "${ROOT_DIR}/.." && pwd)
 
 if [ "$#" -eq 0 ]; then

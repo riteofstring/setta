@@ -11,8 +11,8 @@
 ## Build, Test, and Development Commands
 
 - `pnpm start` (or `pnpm startr` for backend reloads) runs Vite alongside `frontend/backendStart.sh` for a full-stack dev server (Vite defaults to `http://127.0.0.1:3000`, backend defaults to `http://127.0.0.1:8000`).
-- `pnpm -C frontend ai` starts dev + a CDP-enabled Chrome; `pnpm -C frontend aicdt` adds auto-open DevTools; `pnpm -C frontend aireset` wipes `setta_files` then starts.
-- `pnpm -C frontend kill` stops dev processes + sessions; `pnpm -C frontend cdp-port` prints the CDP port for the current worktree.
+- `./ai.sh` (or `pnpm -C frontend ai`) starts dev + a CDP-enabled Chrome; `./aireset.sh` (or `pnpm -C frontend aireset`) wipes `setta_files` then starts.
+- `./kill.sh` (or `pnpm -C frontend kill`) stops dev processes + sessions; `pnpm -C frontend cdp-port` prints the CDP port for the current worktree.
 - `pnpm build` produces the production frontend bundle; `./build.sh` wraps this, bundles the Node runtime + sidecars, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
 - `pnpm test` executes the Vitest suite (watch mode by default). For a one-off run, prefer `pnpm -C frontend exec vitest run <path>` to avoid hanging in watch; Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
@@ -41,7 +41,7 @@
 - Visual verification is a hard gate for UI changes: never claim visual verification without a CDP run. If CDP access is unavailable, stop and ask the user to enable the extension; otherwise state `CDP visual check: not run (reason)` in the final response.
 - For any visual/UI change, include a final-response line `CDP visual check: done (brief context)` or `CDP visual check: not run (reason)`.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.
-- You should never start `pnpm ai`/`pnpm -C frontend ai`, `pnpm -C frontend aireset`, or `pnpm -C frontend aicdt`; if chrome-devtools-mcp is needed, the developer runs it first.
+- You should never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset`; if chrome-devtools-mcp is needed, the developer runs it first.
 - Follow `docs/guides/verification-checklist.md` for the standard verification flow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Playwright tests do not require running `pnpm ai`; when running Playwright tests as an AI, use `./scripts/run-playwright-e2e.sh`.
@@ -66,7 +66,7 @@
 
 ## Worktrees & Ports
 
-- `./scripts/create-worktrees.sh <branch...>` (or `pnpm -C frontend worktrees`) creates worktrees, copies `.env*`, and runs `./dev_install.sh` per worktree.
+- `./worktree.sh <branch...>` (or `pnpm -C frontend worktree` / `pnpm -C frontend worktrees`) creates worktrees, copies `.env*`, and runs `./dev_install.sh` per worktree.
 - `./scripts/run-dev-instance.sh` starts a dev instance with per-worktree port offsets (defaults: `8000/3000` + offset). Use `--mode startr` or `SETTA_HOST/SETTA_PORT/SETTA_DEV_FRONTEND_PORT` for overrides.
 
 ## Endpoints

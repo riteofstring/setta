@@ -2,7 +2,7 @@
 
 Create worktrees (from the main repo root):
 ```sh
-./scripts/create-worktrees.sh feature-auth-1 fix-realtime-2
+./worktree.sh feature-auth-1 fix-realtime-2
 ```
 This creates `../setta.feature-auth-1` and `../setta.fix-realtime-2` on branches
 `feature-auth-1` and `fix-realtime-2`,
