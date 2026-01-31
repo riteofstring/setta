@@ -50,8 +50,8 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
-  selectAll,
   clearActiveSectionIds,
+  selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy, paste } from "./copyPaste";
