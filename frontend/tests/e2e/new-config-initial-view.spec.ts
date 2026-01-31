@@ -49,9 +49,7 @@ test("new config opens with initial section in view", async ({ page }) => {
     })
     .toBe(true);
 
-  const projectConfigName = decodeURIComponent(
-    new URL(page.url()).pathname.replace(/^\//, ""),
-  );
+  const projectConfigName = getProjectConfigName(page.url(), PROJECT_URL);
   if (projectConfigName) {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -109,6 +107,24 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
     .context()
     .cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
+}
+
+function getProjectConfigName(pageUrl: string, baseUrl: string): string {
+  const pagePath = new URL(pageUrl).pathname;
+  const basePath = new URL(baseUrl).pathname;
+  let relativePath = pagePath;
+
+  if (basePath !== "/") {
+    const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+    if (relativePath.startsWith(normalizedBase)) {
+      relativePath = relativePath.slice(normalizedBase.length);
+    } else if (relativePath.startsWith(basePath)) {
+      relativePath = relativePath.slice(basePath.length);
+    }
+  }
+
+  relativePath = relativePath.replace(/^\/+/, "");
+  return decodeURIComponent(relativePath);
 }
 
 async function deleteProjectConfigByName(

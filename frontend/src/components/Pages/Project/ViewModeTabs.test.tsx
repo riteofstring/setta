@@ -40,15 +40,13 @@ describe("ViewModeTabs", () => {
   beforeEach(() => {
     resetProjectStores();
     memoryStorage.reset();
-    if (useLocalStorage.persist) {
-      useLocalStorage.persist.setOptions({
-        storage: {
-          getItem: memoryStorage.getItem,
-          setItem: memoryStorage.setItem,
-          removeItem: memoryStorage.removeItem,
-        },
-      });
-    }
+    useLocalStorage.persist.setOptions({
+      storage: {
+        getItem: memoryStorage.getItem,
+        setItem: memoryStorage.setItem,
+        removeItem: memoryStorage.removeItem,
+      },
+    });
     useShareSession.setState({ isShareMode: false });
     useLocalStorage.setState({
       overviewTrueWidth: 50,

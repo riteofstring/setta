@@ -437,17 +437,4 @@ class ProjectConfig(BaseModel, extra="forbid"):
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen.add(target.language)
-        if "viewportInitialized" not in self.model_fields_set:
-            if self.viewport is None:
-                self.viewportInitialized = False
-            else:
-                is_default_viewport = (
-                    self.viewport.x == 0
-                    and self.viewport.y == 0
-                    and self.viewport.zoom == 1
-                )
-                if is_default_viewport and self.topLevelSections:
-                    self.viewportInitialized = False
-                else:
-                    self.viewportInitialized = True
         return self
