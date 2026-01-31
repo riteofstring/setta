@@ -113,7 +113,7 @@ def enforce_upload_policy(
     label: str,
 ) -> None:
     policy = get_attachment_policy(scope)
-    if policy.max_file_bytes > 0 and file_size > policy.max_file_bytes:
+    if file_size > policy.max_file_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File exceeds {policy.max_file_label} limit: {label}",

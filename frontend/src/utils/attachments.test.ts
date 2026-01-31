@@ -57,6 +57,17 @@ describe("getAttachmentPolicy", () => {
     expect(stateless.maxFileBytes).toBe(C.DROPZONE_STATELESS_MAX_FILE_BYTES);
     expect(stateless.maxTotalBytes).toBe(C.DROPZONE_STATELESS_MAX_TOTAL_BYTES);
   });
+
+  it("builds allowed mime label from configured prefixes", () => {
+    const originalPrefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES;
+    try {
+      C.DROPZONE_ALLOWED_MIME_PREFIXES = ["image/", "text/"];
+      const policy = getAttachmentPolicy("dropzone_stateful");
+      expect(policy.allowedMimeLabel).toBe("Allowed types: image/, text/.");
+    } finally {
+      C.DROPZONE_ALLOWED_MIME_PREFIXES = originalPrefixes;
+    }
+  });
 });
 
 describe("isAttachmentMimeAllowed", () => {

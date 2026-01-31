@@ -1,9 +1,22 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { createSharePolicy } from "utils/generatedTypes";
+import { getAttachmentPolicy } from "utils/attachmentPolicy";
+import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatInput } from "./ChatInput";
+
+function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
+  return {
+    allowParamChanges: true,
+    allowVariantChanges: true,
+    allowLayoutChanges: true,
+    allowRun: false,
+    allowLLM: false,
+    runSnapshotMode: "ephemeral",
+    ...overrides,
+  };
+}
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -38,7 +51,7 @@ describe("ChatInput attachment gating", () => {
   it("shows share policy block when param changes are disallowed", () => {
     useShareSession.setState({
       isShareMode: true,
-      sharePolicy: createSharePolicy({ allowParamChanges: false }),
+      sharePolicy: buildSharePolicy({ allowParamChanges: false }),
     });
     syncStoreInitialState(useShareSession);
 
@@ -51,12 +64,18 @@ describe("ChatInput attachment gating", () => {
   it("shows slots when param changes are allowed", () => {
     useShareSession.setState({
       isShareMode: true,
-      sharePolicy: createSharePolicy({ allowParamChanges: true }),
+      sharePolicy: buildSharePolicy({ allowParamChanges: true }),
     });
     syncStoreInitialState(useShareSession);
 
     const markup = renderChatInput();
 
-    expect(markup).toContain("Slots: 10");
+    expect(markup).not.toContain("Attachments blocked by share policy");
+    const chatPolicy = getAttachmentPolicy("chat");
+    if (!chatPolicy.maxFilesDisabled && chatPolicy.maxFiles !== null) {
+      expect(markup).toContain(`Slots: ${chatPolicy.maxFiles}`);
+    } else {
+      expect(markup).not.toContain("Slots:");
+    }
   });
 });

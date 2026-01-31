@@ -19,7 +19,10 @@ import {
   DropzoneConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { getAttachmentPolicy } from "utils/attachmentPolicy";
+import {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
 import { formatBytes } from "utils/attachments";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import {
@@ -151,6 +154,18 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
 
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
+  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+}
+
+function notifyDisallowedMime(files: File[], allowedLabel: string): void {
+  if (files.length === 0) {
+    return;
+  }
+  const prefix =
+    files.length === 1
+      ? "A file was skipped due to type restrictions."
+      : "Some files were skipped due to type restrictions.";
+  const message = `${prefix} ${allowedLabel}`.trim();
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
@@ -530,9 +545,23 @@ export function DropzoneInput({
     if (allowedFiles.length === 0) {
       return;
     }
+    const rejectedByType = allowedFiles.filter((file) => {
+      const mimeType = file.type || "application/octet-stream";
+      return !isAttachmentMimeAllowed(mimeType, dropzonePolicy);
+    });
+    if (rejectedByType.length > 0) {
+      notifyDisallowedMime(rejectedByType, dropzonePolicy.allowedMimeLabel);
+    }
+    allowedFiles = allowedFiles.filter((file) => {
+      const mimeType = file.type || "application/octet-stream";
+      return isAttachmentMimeAllowed(mimeType, dropzonePolicy);
+    });
+    if (allowedFiles.length === 0) {
+      return;
+    }
     if (mode === DropzoneModeEnum.STATELESS) {
       const maxTotalBytes = dropzonePolicy.maxTotalBytes;
-      if (maxTotalBytes && maxTotalBytes > 0) {
+      if (maxTotalBytes !== null) {
         const maxTotalLabel =
           dropzonePolicy.maxTotalLabel ?? formatBytes(maxTotalBytes);
         const { accepted: sizeAccepted, rejected: sizeRejected } =
@@ -699,7 +728,7 @@ export function DropzoneInput({
     }
     if (mode === DropzoneModeEnum.STATELESS) {
       const maxTotalBytes = dropzonePolicy.maxTotalBytes;
-      if (maxTotalBytes && maxTotalBytes > 0) {
+      if (maxTotalBytes !== null) {
         const textBytes = getUtf8ByteLength(text);
         if (textBytes > maxTotalBytes) {
           const maxTotalLabel =
