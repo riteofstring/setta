@@ -897,12 +897,6 @@ class ListenerToggleVariantJSONSourceRequestPayload(TypedDict):
     variantId: ID
 
 
-class ListenerToggleViewModeTabRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    viewModeId: ID
-
-
 class ListenerToggleViewModeUserFacingRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1496,11 +1490,6 @@ class RouterEndpointAPI:
         self, payload: ListenerToggleVariantJSONSourceRequestPayload
     ) -> None:
         return await self._caller("route_toggle_variant_json_source", payload)
-
-    async def toggle_view_mode_tab(
-        self, payload: ListenerToggleViewModeTabRequestPayload
-    ) -> None:
-        return await self._caller("route_toggle_view_mode_tab", payload)
 
     async def toggle_view_mode_user_facing(
         self, payload: ListenerToggleViewModeUserFacingRequestPayload

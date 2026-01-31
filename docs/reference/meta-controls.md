@@ -49,11 +49,6 @@ their values and action events propagate, and how they appear in generated code 
     payload that includes the attachments plus `sectionId`/`paramInfoId`. File
     attachments include binary metadata (`contentId`, `byteLength`, `mimeType`)
     and the bytes arrive in separate binary frames.
-  - Attachment limits use the shared policy scopes:
-    `dropzone_stateful` (`C.DROPZONE_STATEFUL_MAX_FILE_BYTES`) and
-    `dropzone_stateless` (`C.DROPZONE_STATELESS_MAX_FILE_BYTES`,
-    `C.DROPZONE_STATELESS_MAX_TOTAL_BYTES`). MIME prefixes are optional via
-    `C.DROPZONE_ALLOWED_MIME_PREFIXES`.
 - Password controls:
   - Secrets are stored in the runtime secret store
     (`setta_files/runtime/secrets/passwords.json` or `SETTA_RUNTIME_ROOT`);

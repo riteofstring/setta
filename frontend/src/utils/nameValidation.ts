@@ -126,25 +126,6 @@ export function validateProjectNameInput(
   return null;
 }
 
-export function validateViewModeNameInput(name: string): string | null {
-  const baseError = validateName(name, {
-    label: "View mode name",
-    reservedNames: PROJECT_RESERVED_NAMES,
-    allowEmpty: false,
-    allowedCharsRegex: SIMPLE_NAME_REGEX,
-    requirePythonIdentifier: false,
-  });
-  if (baseError) {
-    return baseError;
-  }
-  const normalized = name.trim();
-  const slug = sanitizeNameForSlug(normalized);
-  if (!slug) {
-    return "View mode name is invalid after sanitization.";
-  }
-  return null;
-}
-
 export function validateSectionNameInput(name: string): string | null {
   return validateName(name, {
     label: "Section name",
