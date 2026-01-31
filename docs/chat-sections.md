@@ -8,7 +8,7 @@ Chat sections store the following fields on the section impl:
 - `engineConfigId`: selected engine config (managed mode only).
 - `chatId`: chat store id for managed mode (null means "new chat").
 - `thinking`: toggles thinking behavior for managed mode.
-- `messages`: list of chat messages (scriptable mode state; managed mode uses chat store).
+- `messages`: list of chat messages (scriptable mode state; managed mode uses chat store). Messages may include `attachments`.
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
 - `toolCallArguments`: map of tool call ids to argument JSON text (streaming UI support).
@@ -27,6 +27,12 @@ Scriptable mode keeps chat state inside the section:
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
 - Listener chat history accepts an `engineConfigId` for internal engines, or `None` for scriptable-only chats.
+
+## Attachments
+- Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).
+- Attachments are stored as File artifacts; messages and send payloads carry `attachments` metadata (`id`, `name`, `mimeType`, `size`).
+- Limits are controlled by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
+- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
 
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
