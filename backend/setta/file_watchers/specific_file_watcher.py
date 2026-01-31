@@ -35,6 +35,7 @@ class MockFileEvent:
 class SpecificFileWatcher:
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
         self.observer = Observer()
+        self.observer.daemon = True
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}

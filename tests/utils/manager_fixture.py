@@ -265,6 +265,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
+    manager.shutdown()
     manager.autosave_debouncer.cancel()
     manager.autosave_debouncer.cancel_pending()
     manager.queue_task.cancel()

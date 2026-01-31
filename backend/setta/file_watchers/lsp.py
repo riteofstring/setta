@@ -30,6 +30,7 @@ class LSPFileWatcher:
                            Should accept FileSystemEvent as parameter.
         """
         self.observer = Observer()
+        self.observer.daemon = True
         self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(
             notify_callback,
