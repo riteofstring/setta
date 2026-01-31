@@ -233,13 +233,6 @@ function ChatImage({
   );
 }
 
-function resolveAttachmentExpiry(expiresAt: number | undefined, now: number) {
-  if (typeof expiresAt === "number" && Number.isFinite(expiresAt)) {
-    return expiresAt * 1000;
-  }
-  return now + C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS * 1000;
-}
-
 function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
 }
@@ -283,7 +276,6 @@ function ChatAttachmentList({
     ? "border-white/40 bg-white/10 text-white"
     : "border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200";
   const detailClassName = isUser ? "text-white/70" : "text-setta-400";
-  const now = Date.now();
   const handleImageError = useCallback(
     (attachment: ChatFileAttachment) => {
       void requestAttachmentUrls([attachment], { force: true });
@@ -935,7 +927,14 @@ function ChatMessages({
       }
       const nextEntries: Record<string, AttachmentUrlEntry> = {};
       for (const entry of entries) {
-        const expiresAt = resolveAttachmentExpiry(entry.expiresAt, now);
+        if (
+          typeof entry.expiresAt !== "number" ||
+          !Number.isFinite(entry.expiresAt)
+        ) {
+          console.error("Attachment URL missing expiresAt", entry);
+          continue;
+        }
+        const expiresAt = entry.expiresAt * 1000;
         nextEntries[entry.artifactId] = {
           url: entry.url,
           expiresAt,

@@ -83,12 +83,12 @@ class LoadCachedPathsRequest(BaseModel):
 class UpdateArtifactsRequest(BaseModel):
     artifacts: list[BaseArtifactUnion]
     conflictStrategy: SaveConflictStrategy | None = None
-    uploadScope: Literal["chat", "generic"] | None = None
+    uploadScope: Literal["chat", "generic"]
 
 
 class ImportFilesToArtifactsRequest(BaseModel):
     paths: list[str]
-    uploadScope: Literal["chat", "generic"] | None = None
+    uploadScope: Literal["chat", "generic"]
 
 
 class ImportFilesToArtifactsResponseItem(BaseModel):
@@ -407,7 +407,7 @@ async def route_import_files_to_artifacts(
         )
     if not x.paths:
         return []
-    upload_scope = x.uploadScope or "generic"
+    upload_scope = x.uploadScope
     artifacts = _get_artifacts(ctx)
     updates: list[FileArtifact] = []
     results: list[ImportFilesToArtifactsResponseItem] = []
@@ -528,7 +528,7 @@ async def route_update_artifacts(
     x: UpdateArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
-    upload_scope = x.uploadScope or "generic"
+    upload_scope = x.uploadScope
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
             _enforce_file_artifact_size(artifact, upload_scope=upload_scope)

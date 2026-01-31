@@ -241,6 +241,7 @@ async function flushPendingArtifacts(force = false) {
     const res = await route_update_artifacts({
       artifacts: snapshot,
       conflictStrategy: null,
+      uploadScope: "generic",
     });
     if (res200(res)) {
       clearPendingArtifacts(snapshot);

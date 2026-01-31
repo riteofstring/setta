@@ -22,7 +22,7 @@ from setta.server_state import SettaFastAPIState
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.artifact import FileArtifact
-from setta.utils.constants import C
+from setta.utils.constants import C, CWD
 from tests.utils.manager_fixture import _populate_project_fixture_files
 from tests.utils.runtime_context import runtime_context
 
@@ -165,6 +165,29 @@ class TestAttachmentRoutes:
                                     request, runtime_ctx
                                 )
                         assert ctx.value.status_code == 404
+                    finally:
+                        await _shutdown_state(state)
+
+    async def test_get_attachment_download_url_blocks_outside_artifacts(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        with TemporaryDirectory(dir=CWD) as outside_dir:
+                            outside_path = Path(outside_dir) / "outside.txt"
+                            outside_path.write_text("secret", encoding="utf-8")
+                            request = GetAttachmentDownloadUrlRequest(
+                                artifactId=outside_path.as_posix()
+                            )
+                            with runtime_context(state) as runtime_ctx:
+                                with pytest.raises(HTTPException) as ctx:
+                                    await route_get_attachment_download_url(
+                                        request, runtime_ctx
+                                    )
+                            assert ctx.value.status_code == 404
                     finally:
                         await _shutdown_state(state)
 
@@ -356,7 +379,10 @@ class TestAttachmentRoutes:
                             id=(Path(C.ARTIFACTS_FOLDER) / "image.png").as_posix(),
                             value=payload,
                         )
-                        request = UpdateArtifactsRequest(artifacts=[artifact])
+                        request = UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="generic",
+                        )
                         with runtime_context(state) as runtime_ctx:
                             result = await route_update_artifacts(request, runtime_ctx)
                         assert result

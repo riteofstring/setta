@@ -213,7 +213,17 @@ class ExternalAgentRunner:
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
     ) -> AgentRun:
-        context, is_new = self._build_context(engine_config_id, config, profile, inputs)
+        adapter = self._adapter_registry.lookup(
+            config.toolType,
+            config.runMode,
+        ).adapter
+        context, is_new = self._build_context(
+            engine_config_id,
+            config,
+            profile,
+            inputs,
+            adapter=adapter,
+        )
         run = context.run
         self._runs[run.id] = run
         self._init_chat_state(run)
@@ -393,6 +403,8 @@ class ExternalAgentRunner:
         config: ExternalAgentConfig,
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
+        *,
+        adapter: ExternalAgentAdapter | None = None,
     ) -> tuple[ExternalAgentRunContext, bool]:
         project_state = self.dbe.read_project_required()
         if project_state.defaultProjectConfigId is None:
@@ -422,7 +434,9 @@ class ExternalAgentRunner:
                 payload_inputs, config, engine_config_id, chat_id, project_config_id
             )
         attachment_payload = self._build_attachment_payload(
-            payload_inputs, project_config_id
+            payload_inputs,
+            project_config_id,
+            adapter=adapter,
         )
 
         run, chat_id, is_new = self._find_or_create_chat_run(
@@ -465,6 +479,8 @@ class ExternalAgentRunner:
         self,
         payload_inputs: dict[str, Any],
         project_config_id: ID,
+        *,
+        adapter: ExternalAgentAdapter | None = None,
     ) -> dict[str, Any]:
         raw_messages = payload_inputs.get("messages")
         if not isinstance(raw_messages, list):
@@ -472,32 +488,50 @@ class ExternalAgentRunner:
         attachments = collect_message_attachments(raw_messages)
         if not attachments:
             return {}
+        include_text = True
+        include_text_no_images = True
+        include_urls = True
+        if adapter is not None:
+            include_text = adapter.tool_type == ExternalAgentToolType.claude_code
+            include_text_no_images = adapter.tool_type == ExternalAgentToolType.codex
+            include_urls = adapter.tool_type in {
+                ExternalAgentToolType.codex,
+                ExternalAgentToolType.opencode,
+            }
+        if not (include_text or include_text_no_images or include_urls):
+            return {}
         if self.share_mode:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
             base_root = CWD
             artifacts_root = CWD / C.ARTIFACTS_FOLDER
-        attachment_text, attachment_text_no_images = build_attachments_prompt_text_pair(
-            dbe=self.dbe,
-            attachments=attachments,
-            base_root=base_root,
-            artifacts_root=artifacts_root,
-            allow_external=not self.share_mode,
-        )
-        payload: dict[str, Any] = {}
-        if attachment_text:
-            payload["attachmentText"] = attachment_text
-        if attachment_text_no_images:
-            payload["attachmentTextNoImages"] = attachment_text_no_images
-        urls: dict[str, str] = {}
-        for attachment in attachments:
-            urls[attachment.id] = self._build_attachment_download_url(
-                attachment.id,
-                project_config_id,
+        attachment_text = ""
+        attachment_text_no_images = ""
+        if include_text or include_text_no_images:
+            attachment_text, attachment_text_no_images = (
+                build_attachments_prompt_text_pair(
+                    dbe=self.dbe,
+                    attachments=attachments,
+                    base_root=base_root,
+                    artifacts_root=artifacts_root,
+                    allow_external=False,
+                )
             )
-        if urls:
-            payload["attachmentUrls"] = urls
+        payload: dict[str, Any] = {}
+        if include_text and attachment_text:
+            payload["attachmentText"] = attachment_text
+        if include_text_no_images and attachment_text_no_images:
+            payload["attachmentTextNoImages"] = attachment_text_no_images
+        if include_urls:
+            urls: dict[str, str] = {}
+            for attachment in attachments:
+                urls[attachment.id] = self._build_attachment_download_url(
+                    attachment.id,
+                    project_config_id,
+                )
+            if urls:
+                payload["attachmentUrls"] = urls
         return payload
 
     def _build_attachment_download_url(

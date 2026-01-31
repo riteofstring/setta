@@ -120,7 +120,9 @@ def _validate_project_config(
     ctx: RuntimeContextFromRequest, project_config_id: ID
 ) -> None:
     try:
-        ctx.get_project_manager(project_config_id)
+        manager = ctx.get_project_manager(project_config_id)
+        if project_config_id not in manager.project_state_backend.projectConfigs:
+            raise KeyError(f"Unknown project config id: {project_config_id}")
     except (KeyError, ProjectNotFound):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -144,7 +146,7 @@ def _build_attachment_download_entry(
         artifact_id,
         base_root=base_root,
         artifacts_root=artifacts_root,
-        allow_external=not ctx.share_mode,
+        allow_external=False,
         require_exists=True,
     )
     normalized_id = artifacts.normalize_artifact_id(resolved_path)
@@ -248,7 +250,7 @@ async def route_download_attachment(
         payload.artifactId,
         base_root=base_root,
         artifacts_root=artifacts_root,
-        allow_external=not ctx.share_mode,
+        allow_external=False,
         require_exists=True,
     )
     artifacts = _resolve_artifacts(ctx)

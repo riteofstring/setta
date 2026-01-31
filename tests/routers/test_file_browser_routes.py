@@ -353,7 +353,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=["/tmp/ignored.txt"]),
+                        ImportFilesToArtifactsRequest(
+                            paths=["/tmp/ignored.txt"],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 403
@@ -365,7 +368,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[str(missing_path)]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[str(missing_path)],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 404
@@ -376,7 +382,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[tmpdir]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[tmpdir],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 400
@@ -389,7 +398,10 @@ class TestFileBrowserRoutes:
             file_path.write_bytes(contents)
             with runtime_context(state) as runtime_ctx:
                 results = await route_import_files_to_artifacts(
-                    ImportFilesToArtifactsRequest(paths=[str(file_path)]),
+                    ImportFilesToArtifactsRequest(
+                        paths=[str(file_path)],
+                        uploadScope="generic",
+                    ),
                     runtime_ctx,
                 )
         assert len(results) == 1
@@ -414,7 +426,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_update_artifacts(
-                        UpdateArtifactsRequest(artifacts=[artifact]),
+                        UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
             assert ctx.value.status_code == 413
@@ -477,7 +492,10 @@ class TestFileBrowserRoutes:
         artifact = FileArtifact(id=artifact_id, value=base64.b64encode(b"data").decode("utf-8"))
         with runtime_context(state) as runtime_ctx:
             await route_update_artifacts(
-                UpdateArtifactsRequest(artifacts=[artifact]),
+                UpdateArtifactsRequest(
+                    artifacts=[artifact],
+                    uploadScope="generic",
+                ),
                 runtime_ctx,
             )
             file_path = (CWD / artifact_id).resolve()

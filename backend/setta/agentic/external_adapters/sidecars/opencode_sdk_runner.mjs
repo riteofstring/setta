@@ -189,21 +189,17 @@ function parseModel(value) {
   return undefined;
 }
 
-function normalizeParts(rawParts, fallbackPrompt) {
-  if (Array.isArray(rawParts)) {
-    const parts = rawParts.filter((part) => {
-      return part && typeof part === "object" && typeof part.type === "string";
-    });
-    if (parts.length > 0) {
-      return parts;
-    }
+function requireParts(rawParts) {
+  if (!Array.isArray(rawParts)) {
+    throw new Error("Missing required prompt parts.");
   }
-  const text =
-    typeof fallbackPrompt === "string" ? fallbackPrompt.trim() : "";
-  if (!text) {
-    return [];
+  const parts = rawParts.filter((part) => {
+    return part && typeof part === "object" && typeof part.type === "string";
+  });
+  if (parts.length !== rawParts.length) {
+    throw new Error("Invalid prompt parts payload.");
   }
-  return [{ type: "text", text }];
+  return parts;
 }
 
 function isSessionIdleEvent(event, sessionId) {
@@ -574,7 +570,7 @@ if (!input) {
 }
 
 const prompt = typeof input.prompt === "string" ? input.prompt : "";
-const rawParts = Array.isArray(input.parts) ? input.parts : null;
+const rawParts = input.parts;
 const systemPrompt =
   typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
 const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl : null;
@@ -732,7 +728,7 @@ const abortEvents = () => {
     eventsController.abort();
   }
 };
-const parts = normalizeParts(rawParts, prompt);
+const parts = requireParts(rawParts);
 const promptPayload = {
   path: { id: sessionId },
   query: { directory: workingDir },

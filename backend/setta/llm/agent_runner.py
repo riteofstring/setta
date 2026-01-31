@@ -897,7 +897,7 @@ class AgentRunner:
             attachments=message.attachments,
             base_root=base_root,
             artifacts_root=artifacts_root,
-            allow_external=not self.share_mode,
+            allow_external=False,
         )
         if not extra_blocks:
             return message.model_copy(update={"attachments": []})
