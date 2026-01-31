@@ -1,0 +1,33 @@
+{
+  "cookies": [
+    {
+      "name": "setta_auth_setta.backend-updates-4",
+      "value": "eyJleHAiOjE3Njk3NTI5MzAsInNlc3Npb25JZCI6ImQyZmQ4ZiJ9.mrn77Vg59DxuUB1gsB97l32aZHmPwDlOhV-klMlTNOg",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": 1769752930.565909,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://127.0.0.1:52871",
+      "localStorage": [
+        {
+          "name": "react-scan-widget-settings-v2",
+          "value": "{\"corner\":\"bottom-right\",\"dimensions\":{\"isFullWidth\":false,\"isFullHeight\":false,\"width\":550,\"height\":350,\"position\":{\"x\":24,\"y\":24}},\"lastDimensions\":{\"isFullWidth\":false,\"isFullHeight\":false,\"width\":550,\"height\":350,\"position\":{\"x\":24,\"y\":24}},\"componentsTree\":{\"width\":240}}"
+        },
+        {
+          "name": "react-scan-options",
+          "value": "{\"enabled\":false,\"log\":false,\"showToolbar\":true,\"animationSpeed\":\"fast\",\"dangerouslyForceRunInProduction\":false,\"showFPS\":true,\"showNotificationCount\":true,\"allowInIframe\":false}"
+        },
+        {
+          "name": "setta_data",
+          "value": "{\"state\":{\"snapToGrid\":true,\"darkMode\":true,\"showMinimap\":true,\"projectConfigPreviewEnabled\":true,\"overviewVis\":true,\"overviewWidth\":335,\"overviewTrueWidth\":335,\"overviewTab\":\"Overview\",\"uiEditorVis\":false,\"uiEditorWidth\":500,\"uiEditorTrueWidth\":50,\"uiEditorTab\":{},\"showNavBarHelpMessage\":true,\"tooltipWidth\":256,\"customRunsByProjectConfigId\":{\"null\":[{\"id\":\"f48c9841-88fc-4012-bb60-5bf2d6220986\",\"name\":\"Entry run\",\"includeInRunDropdown\":true,\"runMode\":\"once\",\"action\":{\"type\":\"runCodeBlock\",\"sectionId\":null}},{\"id\":\"1cfa29ae-c24b-4435-b729-53e3eb4c8ca4\",\"name\":\"Listener refresh\",\"includeInRunDropdown\":false,\"runMode\":\"continuous\",\"action\":{\"type\":\"triggerListenerForceRefresh\"}}],\"sample-project-config\":[{\"id\":\"c62e5b98-405d-47e5-b11b-1d392b09a856\",\"name\":\"Entry run\",\"includeInRunDropdown\":true,\"runMode\":\"once\",\"action\":{\"type\":\"runCodeBlock\",\"sectionId\":null}},{\"id\":\"7bad5c86-eab7-4b3c-ad8e-8323367f1f27\",\"name\":\"Listener refresh\",\"includeInRunDropdown\":false,\"runMode\":\"continuous\",\"action\":{\"type\":\"triggerListenerForceRefresh\"}}]},\"runSnapshotModeByProjectConfigId\":{}},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

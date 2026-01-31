@@ -32,7 +32,9 @@ from setta.types.listener import (
     RealtimeUIChangeContent,
 )
 from setta.types.llm_config import AllLLMConfigs
-from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.lsp import (
+    SettaProjectConfigDiagnostics,
+)
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
@@ -155,7 +157,7 @@ class WebsocketMsgLLMStreamingResponse(FrontendWebsocketMsg):
 
 
 class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
-    content: SettaLspDiagnosticsPayload
+    content: SettaProjectConfigDiagnostics
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
     )

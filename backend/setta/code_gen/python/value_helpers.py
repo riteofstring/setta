@@ -1,6 +1,8 @@
 import base64
 from pathlib import Path
 
+from setta.secrets.password_store import get_password_secret
+
 
 def decode_base64_value(payload: str) -> bytes:
     """Decode a base64 payload into bytes for packaged runtime access."""
@@ -17,3 +19,8 @@ def read_file_value(path: str) -> str | bytes:
         return file_path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         return file_path.read_bytes()
+
+
+def read_password_value(code_obj_impl_id: str) -> str:
+    """Fetch a PasswordParam value from the runtime secret store."""
+    return get_password_secret(code_obj_impl_id)
