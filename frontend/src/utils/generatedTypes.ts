@@ -232,7 +232,7 @@ export const DependencyKeyTypeEnum = {
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
-  Binary: "Binary",
+  Base64: "Base64",
   FileRead: "FileRead",
 } as const;
 
@@ -395,8 +395,7 @@ export const RouteEnum = {
   LOAD_ARTIFACTS: "/loadArtifacts",
   LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
   UPDATE_ARTIFACTS: "/updateArtifacts",
-  BINARY_UPLOAD: "/binary/upload",
-  BINARY_DOWNLOAD: "/binary/{contentId}",
+  READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
@@ -409,6 +408,8 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
+  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
@@ -872,19 +873,10 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
-const BinaryContentRefSchema = z.object({
-  contentId: z.string(),
-  byteLength: z.int(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  sha256: z.union([z.string(), z.null()]).default(null),
-});
-
-export type BinaryContentRef = z.infer<typeof BinaryContentRefSchema>;
-
 const FileArtifactSchema = z.object({
   type: z.literal("File").default(ArtifactTypeEnum.File),
   id: z.string().default(create_file_artifact_id),
-  value: BinaryContentRefSchema,
+  value: z.string(),
 });
 
 export type FileArtifact = z.infer<typeof FileArtifactSchema>;
@@ -892,7 +884,7 @@ export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
-  value: BinaryContentRefSchema,
+  value: z.string(),
 });
 
 export type ImageArtifact = z.infer<typeof ImageArtifactSchema>;
@@ -949,6 +941,15 @@ export function createMessageThinkingContent(
   return MessageThinkingContentSchema.parse(options);
 }
 
+const ChatFileAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  size: z.union([z.int(), z.null()]).default(null),
+});
+
+export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
+
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
@@ -961,6 +962,7 @@ const SystemChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -988,6 +990,7 @@ const AssistantChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -1005,6 +1008,7 @@ const UserChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -2402,22 +2406,22 @@ export type LiteralDependencyValue = z.infer<
   typeof LiteralDependencyValueSchema
 >;
 
+const Base64DependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
+});
+
+export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
+
 const FileReadDependencyValueSchema = z.object({
   payload: z.string(),
   type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
 });
 
-const BinaryDependencyValueSchema = z.object({
-  payload: BinaryContentRefSchema,
-  type: z.literal("Binary").default(DependencyValueTypeEnum.Binary),
-});
-
-export type BinaryDependencyValue = z.infer<typeof BinaryDependencyValueSchema>;
-
 const BaseDependencyValueUnionSchema = z.union([
   LiteralDependencyValueSchema,
+  Base64DependencyValueSchema,
   FileReadDependencyValueSchema,
-  BinaryDependencyValueSchema,
 ]);
 
 export type BaseDependencyValueUnion = z.infer<
@@ -3212,8 +3216,8 @@ const RealtimeUIChangeContentSchema = z.object({
   ]),
   value: z.union([
     LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
     FileReadDependencyValueSchema,
-    BinaryDependencyValueSchema,
   ]),
 });
 
@@ -3229,21 +3233,12 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-export const DependencyEventSchema = z.object({
+const DependencyEventSchema = z.object({
   dependencyKey: z.union([
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  payload: z
-    .union([
-      z.discriminatedUnion("type", [
-        LiteralDependencyValueSchema,
-        FileReadDependencyValueSchema,
-        BinaryDependencyValueSchema,
-      ]),
-      z.null(),
-    ])
-    .default(null),
+  payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 
@@ -6616,6 +6611,24 @@ export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
 >;
 
+const GetAttachmentDownloadUrlRequestSchema = z.object({
+  artifactId: z.string(),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetAttachmentDownloadUrlRequestInput = z.input<
+  typeof GetAttachmentDownloadUrlRequestSchema
+>;
+
+const GetAttachmentDownloadUrlResponseSchema = z.object({
+  url: z.string(),
+  expiresAt: z.int(),
+});
+
+export type GetAttachmentDownloadUrlResponse = z.infer<
+  typeof GetAttachmentDownloadUrlResponseSchema
+>;
+
 const BootstrapConsumeRequestSchema = z.object({
   token: z.union([z.string(), z.null()]).default(null),
 });
@@ -8127,7 +8140,7 @@ const RunCodeRequestSchema = z.object({
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
   drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, BinaryContentRefSchema), z.null()])
+    .union([z.record(IDSchema, z.string()), z.null()])
     .default(null),
 });
 

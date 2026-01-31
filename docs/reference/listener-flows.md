@@ -33,8 +33,7 @@ Key paths:
 
 Payload note:
 - Stateless dropzone events include `{ sectionId, paramInfoId, attachments }` where
-  file attachments carry binary metadata (`contentId`, `byteLength`, `mimeType`),
-  and the bytes arrive in a separate binary websocket frame.
+  file attachments carry raw base64 (no data URI prefix).
 
 ## Flow B: Chat send/stop -> listeners
 ```
@@ -56,6 +55,7 @@ Key paths:
 
 Note:
 - Listener chat history accepts an internal `engineConfigId`, or `None` for scriptable-only chats (no LLM).
+- Chat send payloads include `attachments` (artifact metadata) for any files attached to the message.
 
 ## Flow C: Meta control persistence -> project state
 ```

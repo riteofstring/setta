@@ -39,6 +39,14 @@ Send:
   "sectionId": "section-id",
   "messageId": "message-id",
   "text": "hello",
+  "attachments": [
+    {
+      "id": "artifacts/01J4.../notes.txt",
+      "name": "notes.txt",
+      "mimeType": "text/plain",
+      "size": 1203
+    }
+  ],
   "role": "user",
   "timestampMs": 1710000000000,
   "managed": true
@@ -56,6 +64,7 @@ Stop:
 ```
 
 Use the `managed` flag if you need to branch between managed and scriptable behavior.
+`attachments` is always present (empty when none) and carries artifact metadata for any files attached to the message.
 
 ## Engine config ids (or none)
 Listener chat history accepts an `engineConfigId` for internal (Setta LLM) engines. If you omit it (`None`/`null`), the chat runs in scriptable-only mode with a built-in "scriptable" LLM config (no provider, no MCP tools). External engines are not supported for listener chat history.

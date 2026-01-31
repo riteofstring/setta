@@ -219,16 +219,16 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-export async function route_binary_upload(
-  file: FormData,
-): Promise<ResponseDataAndStatus<gt.BinaryContentRef>> {
-  return await post("/binary/upload", file);
+export async function route_get_attachment_download_url(
+  x: gt.GetAttachmentDownloadUrlRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {
+  return await post("/getAttachmentDownloadUrl", x);
 }
 
-async function route_binary_download(
-  contentId: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/binary/{contentId}", { contentId });
+async function route_download_attachment(
+  token: string,
+): Promise<ResponseDataAndStatus<gt.Response>> {
+  return await get("/attachments/{token}", { token });
 }
 
 export async function route_get_listener_coverage(

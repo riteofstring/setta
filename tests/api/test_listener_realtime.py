@@ -427,14 +427,7 @@ class TestSettaListenerRealtimeIntegration:
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
         def on_action(state, ctx):
-            action_calls.append(
-                [
-                    event.payload.payload
-                    if isinstance(event.payload, LiteralDependencyValue)
-                    else None
-                    for event in ctx.events
-                ]
-            )
+            action_calls.append([event.payload for event in ctx.events])
 
         await listener._process_snapshot(
             project_state,
@@ -456,7 +449,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue("payload-a"),
+                        payload="payload-a",
                         timestampMs=1,
                     )
                 ],
@@ -472,7 +465,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue("payload-b"),
+                        payload="payload-b",
                         timestampMs=2,
                     )
                 ],
@@ -515,7 +508,7 @@ class TestSettaListenerRealtimeIntegration:
                     dependencyEvents=[
                         DependencyEvent(
                             dependencyKey=dependency_key,
-                            payload=LiteralDependencyValue("payload-b"),
+                            payload="payload-b",
                             timestampMs=2,
                         )
                     ],

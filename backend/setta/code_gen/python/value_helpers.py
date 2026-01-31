@@ -1,12 +1,10 @@
+import base64
 from pathlib import Path
 
 
-def read_binary_value(payload: dict[str, object]) -> bytes:
-    """Read a binary payload from the local binary store."""
-    content_id = payload.get("contentId")
-    if not isinstance(content_id, str) or not content_id:
-        raise ValueError("Binary payload missing contentId.")
-    return (Path("setta_files") / "binary" / content_id).read_bytes()
+def decode_base64_value(payload: str) -> bytes:
+    """Decode a base64 payload into bytes for packaged runtime access."""
+    return base64.b64decode(payload.encode("utf-8"))
 
 
 def read_file_value(path: str) -> str | bytes:
