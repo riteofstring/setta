@@ -1180,6 +1180,7 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectConfig.viewport = viewport;
+      state.projectConfig.viewportInitialized = viewport !== null;
     },
     send: (frontendOpId) =>
       route_set_viewport({

@@ -31,7 +31,7 @@ export function FileMenu() {
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
   return (
-    <NavbarMenuDropdown trigger="Project">
+    <NavbarMenuDropdown trigger="File">
       <MenuItem
         onClick={createAndGoToProjectConfig}
         shortcut={shortcuts.newProjectConfigShortcut}

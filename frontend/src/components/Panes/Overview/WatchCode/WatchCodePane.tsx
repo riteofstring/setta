@@ -1,6 +1,4 @@
-import { WatchCodeToggleButton } from "components/AppHeader/WatchCodeToggleButton";
 import { useCallback, useEffect, useRef } from "react";
-import { RiRadarLine } from "react-icons/ri";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalValue } from "state/hooks/utils";
@@ -15,6 +13,7 @@ type WatchInputs = {
 export function WatchCodePane() {
   const { canEditLayout } = useShareCapabilities();
   const {
+    watchCodeEnabled,
     watchCodeFolders,
     watchCodeFiles,
     projectConfigId,
@@ -22,10 +21,12 @@ export function WatchCodePane() {
     (
       state,
     ): {
+      watchCodeEnabled: boolean;
       watchCodeFolders: WatchCodeFolder[];
       watchCodeFiles: string[];
       projectConfigId: string;
     } => ({
+      watchCodeEnabled: state.projectConfig.watchCodeEnabled,
       watchCodeFolders: state.projectConfig.watchCodeFolders,
       watchCodeFiles: state.projectConfig.watchCodeFiles,
       projectConfigId: state.projectConfig.id,
@@ -140,20 +141,25 @@ export function WatchCodePane() {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pr-2">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-1 items-center gap-3">
-            <div className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300">
-              <RiRadarLine size={14} />
-            </div>
-            <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">
-              New top-level Python defs and classes become callable sections
-              when watch mode is on.
-            </p>
+      <div className="rounded border border-setta-100 bg-white/60 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/50 dark:text-setta-300">
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-setta-700 dark:text-setta-200">
+            Watch Code
           </div>
-          <WatchCodeToggleButton />
+          <span
+            className={
+              watchCodeEnabled
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-setta-500 dark:text-setta-500"
+            }
+          >
+            {watchCodeEnabled ? "Enabled" : "Disabled"}
+          </span>
         </div>
-        <div className="h-px w-full bg-setta-200/70 dark:bg-setta-800" />
+        <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+          New top-level Python defs become callable sections when watch mode is
+          on.
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -180,7 +186,7 @@ export function WatchCodePane() {
             {localFolders.map((folder, index) => (
               <div className="flex items-center gap-2" key={index}>
                 <input
-                  className={`${inputClasses} ml-[2px]`}
+                  className={inputClasses}
                   disabled={inputsDisabled}
                   onBlur={(event) =>
                     updateFolder(index, { path: event.target.value }, true)

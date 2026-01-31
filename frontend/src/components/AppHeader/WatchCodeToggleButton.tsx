@@ -1,4 +1,4 @@
-import * as Switch from "@radix-ui/react-switch";
+import { RiRadarLine } from "react-icons/ri";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
@@ -14,26 +14,28 @@ export function WatchCodeToggleButton() {
   const isShareMode = useShareSession((state) => state.isShareMode);
   const disabled = isShareMode || projectConfigId === NULL_PROJECT_CONFIG_ID;
 
-  const actionLabel = enabled ? "Disable Watch Code" : "Enable Watch Code";
+  const stateClasses = enabled
+    ? "text-blue-600 hover:text-blue-500 dark:text-blue-400"
+    : "text-setta-700 hover:text-setta-900 dark:text-setta-100";
+  const disabledClasses = disabled ? "cursor-not-allowed opacity-60" : "";
 
   return (
-    <Switch.Root
-      aria-label={actionLabel}
-      title={actionLabel}
-      className="nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full bg-setta-400 p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700"
-      checked={enabled}
+    <button
+      aria-pressed={enabled}
+      className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-2 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-blue-100 dark:hover:bg-setta-800 active:dark:!bg-blue-950 ${stateClasses} ${disabledClasses}`}
       disabled={disabled}
-      onCheckedChange={(checked) => {
+      onClick={() => {
         if (disabled) {
           return;
         }
         void route_set_watch_code_enabled({
           projectConfigId,
-          enabled: checked,
+          enabled: !enabled,
         });
       }}
     >
-      <Switch.Thumb className="block h-2.5 w-2.5 rounded-full bg-white transition-all will-change-transform data-[state='checked']:translate-x-4 dark:bg-setta-800" />
-    </Switch.Root>
+      <RiRadarLine />
+      Watch Code
+    </button>
   );
 }
