@@ -18,13 +18,7 @@ import {
   useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
-import {
-  getEdgesStripHeightKey,
-  getKwargsControlsHeightKey,
-  getParamGroupPaddingKey,
-  getPinnedParamsMinHeightKey,
-  getUnpinnedParamsMinHeightKey,
-} from "utils/constants";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
   MetaControlSizingPolicyTypeEntry,
@@ -212,25 +206,9 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const edgesStripHeight = useTemporaryMiscState((x) => {
-    const height = x[getEdgesStripHeightKey(sectionId)];
-    return typeof height === "number" ? height : 0;
-  });
   const kwargsControlsHeight = useTemporaryMiscState((x) => {
     const height = x[getKwargsControlsHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
-  });
-  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
-    const height = x[getPinnedParamsMinHeightKey(sectionId)];
-    return typeof height === "number" ? height : 0;
-  });
-  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
-    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
-    return typeof height === "number" ? height : 0;
-  });
-  const paramGroupPadding = useTemporaryMiscState((x) => {
-    const padding = x[getParamGroupPaddingKey(sectionId)];
-    return typeof padding === "number" ? padding : 0;
   });
 
   return useProjectState((x) => {
@@ -298,43 +276,22 @@ export function useSectionMinMaxDims(sectionId: string) {
       const hasUnpinnedParams =
         !impl.hideUnpinnedParams &&
         unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
-      const hasEdges =
-        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
       const resolvedPinnedMinHeight =
-        pinnedParamsMinHeight > 0
-          ? pinnedParamsMinHeight
-          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
+        sizingPolicy.globals.pinnedParamsAreaMinHeight;
       const baseUnpinnedMinHeight = Number.isFinite(
         sizingPolicy.globals.unpinnedParamsAreaMinHeight,
       )
         ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
         : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-      const resolvedUnpinnedMinHeight =
-        unpinnedParamsMinHeight > 0
-          ? unpinnedParamsMinHeight
-          : baseUnpinnedMinHeight;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
-        if (typeof impl.pinnedAreaHeight === "number") {
-          requiredParamsHeight += Math.max(
-            impl.pinnedAreaHeight,
-            resolvedPinnedMinHeight,
-          );
-        } else {
-          requiredParamsHeight += resolvedPinnedMinHeight;
-        }
+        requiredParamsHeight += resolvedPinnedMinHeight;
       }
       if (hasUnpinnedParams) {
-        requiredParamsHeight += resolvedUnpinnedMinHeight;
+        requiredParamsHeight += baseUnpinnedMinHeight;
       }
       if (kwargsControlsHeight > 0) {
         requiredParamsHeight += kwargsControlsHeight;
-      }
-      if (hasEdges) {
-        requiredParamsHeight += edgesStripHeight;
-      }
-      if (hasPinnedParams || hasUnpinnedParams || hasEdges) {
-        requiredParamsHeight += paramGroupPadding;
       }
       if (requiredParamsHeight > 0) {
         minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);

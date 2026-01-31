@@ -157,31 +157,12 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
-const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
 const KWARGS_CONTROLS_HEIGHT_KEY_PREFIX = "kwargs-controls-height";
-const PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX = "pinned-params-min-height";
-const UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX = "unpinned-params-min-height";
-const PARAM_GROUP_PADDING_KEY_PREFIX = "param-group-padding";
-
-export function getEdgesStripHeightKey(sectionId: string) {
-  return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
 
 export function getKwargsControlsHeightKey(sectionId: string) {
   return `${KWARGS_CONTROLS_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
-export function getPinnedParamsMinHeightKey(sectionId: string) {
-  return `${PINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getUnpinnedParamsMinHeightKey(sectionId: string) {
-  return `${UNPINNED_PARAMS_MIN_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getParamGroupPaddingKey(sectionId: string) {
-  return `${PARAM_GROUP_PADDING_KEY_PREFIX}-${sectionId}`;
-}
 
 const MODEL_GROUPS = [
   {
