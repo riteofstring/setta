@@ -46,6 +46,7 @@ backend/setta/frontend
 setta_files/
 tests.log
 backend.log
+gcf.log
 auth.json
 mcp-tools.json
 docs/temporary/

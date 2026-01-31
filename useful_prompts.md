@@ -18,3 +18,7 @@ Give succinct concrete examples for each finding, your proposed fix, and the UX/
 
 
 Implement the fixes. Add tests if appropriate.
+
+
+
+Merge the main branch into our current branch. If there are merge conflicts, resolve them, and then afterwards explain your logic for how you resolved each conflict. All branches are up to date (no need to fetch).
