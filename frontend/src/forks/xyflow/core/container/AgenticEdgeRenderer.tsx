@@ -13,14 +13,17 @@ import {
   SectionTypeEnum,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
+import { getBezierPath } from "../components/Edges/BezierEdge";
 import { useReactFlow } from "../store";
-import type { Node } from "../types";
+import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
+type NodeAnchorSide = "left" | "right";
 
-function resolveNodeCenter(
+function resolveNodeAnchor(
   node: Node | undefined,
   fallbackLayout: TopLevelSectionLayout | undefined,
+  side: NodeAnchorSide,
 ): NodeCenter | null {
   if (!node) {
     return null;
@@ -31,7 +34,7 @@ function resolveNodeCenter(
     return null;
   }
   return {
-    x: node.position.x + width / 2,
+    x: side === "left" ? node.position.x : node.position.x + width,
     y: node.position.y + height / 2,
   };
 }
@@ -128,13 +131,15 @@ const AgenticEdgeRenderer = () => {
           if (edge.hidden) {
             return null;
           }
-          const sourceCenter = resolveNodeCenter(
+          const sourceCenter = resolveNodeAnchor(
             nodes.get(edge.sourceSectionId),
             topLevelSections[edge.sourceSectionId],
+            "right",
           );
-          const targetCenter = resolveNodeCenter(
+          const targetCenter = resolveNodeAnchor(
             nodes.get(edge.targetSectionId),
             topLevelSections[edge.targetSectionId],
+            "left",
           );
           if (!sourceCenter || !targetCenter) {
             return null;
@@ -142,7 +147,14 @@ const AgenticEdgeRenderer = () => {
 
           const { x: sourceX, y: sourceY } = sourceCenter;
           const { x: targetX, y: targetY } = targetCenter;
-          const path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+          const [path] = getBezierPath({
+            sourceX,
+            sourceY,
+            sourcePosition: HandlePosition.Right,
+            targetX,
+            targetY,
+            targetPosition: HandlePosition.Left,
+          });
 
           const touchesToolArgs =
             toolArgSectionIds.has(edge.sourceSectionId) ||

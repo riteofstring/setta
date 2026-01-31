@@ -11,7 +11,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { createEdgeFromConnection } from "state/actions/edges";
+import {
+  createEdgeFromConnection,
+  isValidDataEdgeConnection,
+} from "state/actions/edges";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -322,6 +325,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
                   type="target"
                   position={HandlePosition.Left}
                   onConnect={createEdgeFromConnection}
+                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}
@@ -353,6 +357,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
                   type="source"
                   position={HandlePosition.Right}
                   onConnect={createEdgeFromConnection}
+                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}

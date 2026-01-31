@@ -76,6 +76,52 @@ html.dark .react-flow__handle {
   border-color: hsl(220, 25%, 11%);
 }
 
+.react-flow__handle.agentic-handle {
+  width: 10px;
+  height: 10px;
+  z-index: 160;
+  border-width: 2px;
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22);
+}
+
+.react-flow__handle.agentic-handle.agentic-handle--source {
+  background: #0ea5e9;
+  border-color: #0369a1;
+}
+
+.react-flow__handle.agentic-handle.agentic-handle--target {
+  background: #f8fafc;
+}
+
+.react-flow__handle.agentic-handle.react-flow__handle-left {
+  left: -6px;
+}
+
+.react-flow__handle.agentic-handle.react-flow__handle-right {
+  right: -6px;
+}
+
+.react-flow__handle.agentic-handle:not(.connectable) {
+  opacity: 0.45;
+}
+
+html.dark .react-flow__handle.agentic-handle {
+  border-color: #38bdf8;
+  background: #0b1b2b;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+}
+
+html.dark .react-flow__handle.agentic-handle.agentic-handle--source {
+  background: #38bdf8;
+  border-color: #0284c7;
+}
+
+html.dark .react-flow__handle.agentic-handle.agentic-handle--target {
+  background: #0f172a;
+}
+
 .react-flow__agentic-edge-path {
   stroke: #94a3b8;
   stroke-width: 1.6;

@@ -1,8 +1,5 @@
-import {
-  useAgenticLinkState,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import type { Connection } from "forks/xyflow/core/types";
+import { useProjectState, useShareSession } from "state/definitions";
 import {
   route_create_agentic_edge,
   route_delete_agentic_edges,
@@ -18,6 +15,11 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+
+export const AGENTIC_EDGE_HANDLE_IDS = {
+  source: "agentic-edge-source",
+  target: "agentic-edge-target",
+} as const;
 
 function getSectionTypeById(
   state: ReturnType<typeof useProjectState.getState>,
@@ -36,6 +38,97 @@ function getSectionTypeById(
     return null;
   }
   return impl.type ?? null;
+}
+
+function resolveAgenticEdgeKind(
+  sourceType: SectionTypeEnum,
+  targetType: SectionTypeEnum,
+): AgenticEdgeKindEnum | null {
+  if (
+    sourceType === SectionTypeEnum.Chat &&
+    targetType === SectionTypeEnum.Chat
+  ) {
+    return AgenticEdgeKindEnum.chat_chat;
+  }
+  if (sourceType === SectionTypeEnum.Chat) {
+    return AgenticEdgeKindEnum.chat_section;
+  }
+  if (targetType === SectionTypeEnum.Chat) {
+    return AgenticEdgeKindEnum.section_chat;
+  }
+  return null;
+}
+
+function resolveAgenticKindForConnection(
+  connection: Connection,
+  state?: ReturnType<typeof useProjectState.getState>,
+): AgenticEdgeKindEnum | null {
+  const types = getConnectionSectionTypes(connection, state);
+  if (!types || !types.sourceType || !types.targetType) {
+    return null;
+  }
+  return resolveAgenticEdgeKind(types.sourceType, types.targetType);
+}
+
+export function isValidAgenticEdgeConnection(
+  connection: Connection,
+): boolean {
+  if (!connection.source || !connection.target) {
+    return false;
+  }
+  if (connection.source === connection.target) {
+    return false;
+  }
+  if (useShareSession.getState().isShareMode) {
+    return false;
+  }
+  const types = getConnectionSectionTypes(connection);
+  if (!types || !types.sourceType || !types.targetType) {
+    return true;
+  }
+  return resolveAgenticEdgeKind(types.sourceType, types.targetType) !== null;
+}
+
+export function createAgenticEdgeFromConnection(connection: Connection): void {
+  if (!connection.source || !connection.target) {
+    return;
+  }
+  const kind = resolveAgenticKindForConnection(connection);
+  if (!kind) {
+    return;
+  }
+  createAgenticEdgeFromSections({
+    sourceSectionId: connection.source,
+    targetSectionId: connection.target,
+    kind,
+  });
+}
+
+function getConnectionSectionTypes(connection: Connection): {
+  sourceType: SectionTypeEnum | null;
+  targetType: SectionTypeEnum | null;
+} | null {
+  if (!connection.source || !connection.target) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  return getConnectionSectionTypesFromState(connection, state);
+}
+
+function getConnectionSectionTypesFromState(
+  connection: Connection,
+  state: ReturnType<typeof useProjectState.getState>,
+): {
+  sourceType: SectionTypeEnum | null;
+  targetType: SectionTypeEnum | null;
+} | null {
+  if (!connection.source || !connection.target) {
+    return null;
+  }
+  return {
+    sourceType: getSectionTypeById(state, connection.source),
+    targetType: getSectionTypeById(state, connection.target),
+  };
 }
 
 export function toggleAgenticEdgeSelection(
@@ -150,7 +243,7 @@ export function createAgenticEdgeFromSections({
     return;
   }
   const existingEdges = useProjectState.getState().projectConfig.agenticEdges;
-  const alreadyExists = existingEdges.some((edge) => {
+  const matchingEdge = existingEdges.find((edge) => {
     if (edge.kind !== kind) {
       return false;
     }
@@ -167,7 +260,7 @@ export function createAgenticEdgeFromSections({
       edge.targetSectionId === targetSectionId
     );
   });
-  if (alreadyExists) {
+  if (matchingEdge) {
     return;
   }
 
@@ -178,44 +271,4 @@ export function createAgenticEdgeFromSections({
     kind,
     contextMode,
   });
-}
-
-export function handleAgenticLinkClick(targetSectionId: string): boolean {
-  const sourceSectionId = useAgenticLinkState.getState().sourceSectionId;
-  if (!sourceSectionId) {
-    return false;
-  }
-  useAgenticLinkState.setState({ sourceSectionId: null });
-  if (useShareSession.getState().isShareMode) {
-    return true;
-  }
-  if (sourceSectionId === targetSectionId) {
-    return true;
-  }
-  const state = useProjectState.getState();
-  const sourceType = getSectionTypeById(state, sourceSectionId);
-  const targetType = getSectionTypeById(state, targetSectionId);
-  if (!sourceType || !targetType) {
-    return true;
-  }
-  let kind: AgenticEdgeKindEnum | null = null;
-  if (
-    sourceType === SectionTypeEnum.Chat &&
-    targetType === SectionTypeEnum.Chat
-  ) {
-    kind = AgenticEdgeKindEnum.chat_chat;
-  } else if (sourceType === SectionTypeEnum.Chat) {
-    kind = AgenticEdgeKindEnum.chat_section;
-  } else if (targetType === SectionTypeEnum.Chat) {
-    kind = AgenticEdgeKindEnum.section_chat;
-  }
-  if (!kind) {
-    return true;
-  }
-  createAgenticEdgeFromSections({
-    sourceSectionId,
-    targetSectionId,
-    kind,
-  });
-  return true;
 }
