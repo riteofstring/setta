@@ -21,9 +21,6 @@ from setta.utils.constants import C
 from tests.utils.manager_fixture import _seed_minimal_setta_files
 
 
-TOOLS_CALL_TIMEOUT_SECONDS = 15
-
-
 def _select_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -751,7 +748,7 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         url,
         headers=headers,
         json={"tool": "unknown_tool_name", "arguments": {}},
-        timeout=TOOLS_CALL_TIMEOUT_SECONDS,
+        timeout=5,
     )
     assert response.status_code == 404
     assert "Unknown tool" in response.json().get("detail", "")
@@ -760,7 +757,7 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         url,
         headers=headers,
         json={"tool": "getProjectConfigNamesAndIds", "arguments": "nope"},
-        timeout=TOOLS_CALL_TIMEOUT_SECONDS,
+        timeout=5,
     )
     assert response.status_code == 400
     assert "arguments" in response.json().get("detail", "")
@@ -769,7 +766,7 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         url,
         headers=headers,
         json={"tool": "getProjectConfigNamesAndIds", "arguments": []},
-        timeout=TOOLS_CALL_TIMEOUT_SECONDS,
+        timeout=5,
     )
     assert response.status_code == 400
     assert "arguments" in response.json().get("detail", "")
@@ -786,7 +783,7 @@ def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
         url,
         headers=headers,
         json={"tool": "getTerminalOutput", "arguments": {"sectionId": "missing"}},
-        timeout=TOOLS_CALL_TIMEOUT_SECONDS,
+        timeout=5,
     )
     assert response.status_code == 500
     detail = response.json().get("detail")

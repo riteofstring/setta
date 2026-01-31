@@ -4,7 +4,12 @@ from setta.types.chat_messages import MessageTextContent
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
 
 
-def build_prompt_from_inputs(system_prompt: str, inputs: dict[str, Any] | None) -> str:
+def build_prompt_from_inputs(
+    system_prompt: str,
+    inputs: dict[str, Any] | None,
+    *,
+    attachments_text: str | None = None,
+) -> str:
     parts: list[str] = []
     normalized_system = system_prompt.strip()
     if normalized_system:
@@ -23,6 +28,8 @@ def build_prompt_from_inputs(system_prompt: str, inputs: dict[str, Any] | None) 
         prompt = inputs.get("prompt")
         if isinstance(prompt, str) and prompt.strip():
             parts.append(prompt.strip())
+        if attachments_text and attachments_text.strip():
+            parts.append(attachments_text.strip())
 
     combined = "\n\n".join(parts).strip()
     if combined:

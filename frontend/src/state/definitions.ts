@@ -33,7 +33,6 @@ import {
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
   SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
@@ -440,22 +439,6 @@ export const useTypeErrors = withProjectState(
       withResetFn<ZustandTypeErrors>(() => ({
         userRequested: false,
         errors: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
-};
-
-export const useLspDiagnostics = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandLspDiagnostics>(() => ({
-        codeSections: {},
-        unmappedGenCode: [],
       })),
     ),
   ),

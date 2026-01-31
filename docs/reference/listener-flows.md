@@ -55,6 +55,7 @@ Key paths:
 
 Note:
 - Listener chat history accepts an internal `engineConfigId`, or `None` for scriptable-only chats (no LLM).
+- Chat send payloads include `attachments` (artifact metadata) for any files attached to the message.
 
 ## Flow C: Meta control persistence -> project state
 ```

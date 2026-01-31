@@ -17,6 +17,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
   APPROVAL_TOOL_NAME,
@@ -32,8 +34,11 @@ import {
   parseTodoPayload,
   resolveToolCallArguments,
 } from "utils/claudeTools";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_get_attachment_download_url } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
+  ChatFileAttachment,
   ChatRoleEnum,
   ToolCall,
   ToolChatMessage,
@@ -204,6 +209,131 @@ function ChatImage({ url, className }: { url: string; className?: string }) {
       className={combinedClassName}
       loading="lazy"
     />
+  );
+}
+
+function useAttachmentUrlMap(
+  attachments: ChatFileAttachment[],
+): Record<string, string> {
+  const [urlMap, setUrlMap] = useState<Record<string, string>>({});
+  const attachmentIds = useMemo(
+    () => attachments.map((attachment) => attachment.id).join("|"),
+    [attachments],
+  );
+
+  useEffect(() => {
+    if (attachments.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const missing = attachments.filter((attachment) => !urlMap[attachment.id]);
+    if (missing.length === 0) {
+      return;
+    }
+    const projectConfigId = getCurrProjectConfigId();
+    const fetchUrls = async () => {
+      const entries = await Promise.all(
+        missing.map(async (attachment) => {
+          const res = await route_get_attachment_download_url({
+            artifactId: attachment.id,
+            projectConfigId,
+          });
+          if (!res200(res)) {
+            const detail = getErrorDetail(res.data);
+            console.warn(
+              "Failed to load attachment URL",
+              detail ?? attachment.id,
+            );
+            return null;
+          }
+          return { id: attachment.id, url: res.data.url };
+        }),
+      );
+      if (cancelled) {
+        return;
+      }
+      setUrlMap((prev) => {
+        const next = { ...prev };
+        for (const entry of entries) {
+          if (!entry) {
+            continue;
+          }
+          next[entry.id] = entry.url;
+        }
+        return next;
+      });
+    };
+    void fetchUrls();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentIds, attachments, urlMap]);
+
+  return urlMap;
+}
+
+function ChatAttachmentList({
+  attachments,
+  isUser,
+}: {
+  attachments: ChatFileAttachment[];
+  isUser: boolean;
+}) {
+  if (attachments.length === 0) {
+    return null;
+  }
+  const urlMap = useAttachmentUrlMap(attachments);
+  const pillClassName = isUser
+    ? "border-white/40 bg-white/10 text-white"
+    : "border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200";
+  const detailClassName = isUser ? "text-white/70" : "text-setta-400";
+
+  return (
+    <div className="flex flex-col gap-2">
+      {attachments.map((attachment) => {
+        const mimeType = attachment.mimeType ?? "application/octet-stream";
+        const isImage = mimeType.startsWith("image/");
+        const url = urlMap[attachment.id];
+        const sizeLabel =
+          attachment.size !== null && attachment.size !== undefined
+            ? formatBytes(attachment.size)
+            : null;
+        if (isImage && url) {
+          return (
+            <div key={attachment.id} className="flex flex-col gap-1">
+              <ChatImage url={url} />
+              <span className={`text-[10px] ${detailClassName}`}>
+                {attachment.name}
+                {sizeLabel ? ` • ${sizeLabel}` : ""}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div
+            key={attachment.id}
+            className={`flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
+          >
+            <span className="max-w-[220px] truncate">{attachment.name}</span>
+            {sizeLabel ? (
+              <span className={`text-[10px] ${detailClassName}`}>
+                {sizeLabel}
+              </span>
+            ) : null}
+            {url ? (
+              <a
+                href={url}
+                className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open
+              </a>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -478,6 +608,10 @@ const ChatMessage = memo(function ChatMessage({
   isStreaming: boolean;
   toolCallContext: ToolCallContext;
 }) {
+  const attachments =
+    "attachments" in message && Array.isArray(message.attachments)
+      ? message.attachments
+      : [];
   const isAssistant = message.role === ChatRoleEnum.assistant;
   const assistantContent = isAssistant
     ? message.content
@@ -498,6 +632,7 @@ const ChatMessage = memo(function ChatMessage({
     const showTypingIndicator = showAssistantSpinner;
     return (
       <LLMChatBubble>
+        <ChatAttachmentList attachments={attachments} isUser={false} />
         {message.content.map((item, idx) => (
           <StreamItem
             key={idx}
@@ -608,6 +743,10 @@ const ChatMessage = memo(function ChatMessage({
 
   return (
     <Wrapper>
+      <ChatAttachmentList
+        attachments={attachments}
+        isUser={message.role === ChatRoleEnum.user}
+      />
       {content.map((item, idx) => {
         const key = `${message.id}-${idx}`;
         if (item.type === C.LLM_TEXT) {

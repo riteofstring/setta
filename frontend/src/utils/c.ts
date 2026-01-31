@@ -17,6 +17,11 @@ export class C {
   static AUTH_COOKIE_SECURE = false;
   static BACKEND_INIT_DELAY_SECONDS = 0.0;
   static BOOTSTRAP_TOKEN_TTL_SECONDS = 600;
+  static CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = [];
+  static CHAT_ATTACHMENTS_MAX_FILES = 10;
+  static CHAT_ATTACHMENTS_MAX_FILE_BYTES = 26214400;
+  static CHAT_ATTACHMENTS_MAX_FILE_LABEL = "25 MB";
+  static CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS = 600;
   static CODE_FOLDER = "setta_files/code";
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
