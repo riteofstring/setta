@@ -9,6 +9,11 @@ from setta.lsp.managers import LSPServers, LSPWriters
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.project_code import ProjectPythonCode
+from setta.types.lsp import (
+    SettaLspDiagnostic,
+    SettaLspDiagnosticPosition,
+    SettaLspDiagnosticRange,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
@@ -71,12 +76,17 @@ def build_code_section_state(
     return project_state, section_id, binding
 
 
-def build_notification(uri: str, diagnostics: list[LSPTypes.Diagnostic]):
+def build_notification(
+    uri: str,
+    diagnostics: list[LSPTypes.Diagnostic],
+    *,
+    version: int | None = 0,
+):
     return LSPTypes.TextDocumentPublishDiagnosticsNotification(
         params=LSPTypes.PublishDiagnosticsParams(
             uri=uri,
             diagnostics=diagnostics,
-            version=0,
+            version=version,
         )
     )
 
@@ -177,3 +187,125 @@ async def test_code_section_diagnostics_respect_suppression() -> None:
         await code.diagnostics_callback(notification)
 
         assert section_id not in diagnostics_state.code_sections
+        assert section_id in diagnostics_state.raw_code_sections
+
+
+@pytest.mark.asyncio
+async def test_code_section_diagnostics_prune_drops_stale_sections() -> None:
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager)
+    diagnostics_state = ProjectLspDiagnosticsState(ID("project-1"), frontend_sender)
+
+    diagnostic = SettaLspDiagnostic(
+        message="Bad code",
+        severity=1,
+        code="reportFoo",
+        source="pyright",
+        range=SettaLspDiagnosticRange(
+            start=SettaLspDiagnosticPosition(line=0, character=0),
+            end=SettaLspDiagnosticPosition(line=0, character=5),
+        ),
+        uri="file:///tmp/section.py",
+    )
+    section_keep = ID("section-keep")
+    section_drop = ID("section-drop")
+    await diagnostics_state.update_code_section(section_keep, [diagnostic])
+    await diagnostics_state.update_code_section(section_drop, [diagnostic])
+
+    await diagnostics_state.prune_code_sections({section_keep})
+
+    assert section_keep in diagnostics_state.code_sections
+    assert section_keep in diagnostics_state.raw_code_sections
+    assert section_drop not in diagnostics_state.code_sections
+    assert section_drop not in diagnostics_state.raw_code_sections
+
+
+@pytest.mark.asyncio
+async def test_code_section_diagnostics_accepts_versionless_publish() -> None:
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        dbe = DBE(root)
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        specific_file_watcher = SpecificFileWatcher()
+        code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+        lsps = LSPServers({})
+        lsp_writers = LSPWriters(lsps)
+
+        project_state, section_id, binding = build_code_section_state(root)
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_state.projectConfig.id,
+            frontend_sender,
+        )
+        code = ProjectPythonCode(
+            dbe,
+            code_files,
+            lsp_writers,
+            frontend_sender,
+            diagnostics_state,
+            project_state,
+            section_id,
+        )
+
+        uri = lsp_writers.full.get_uri(binding.canonical_path)
+        code.uri = uri
+        lsp_writers.full.latest_version_numbers[uri] = 0
+
+        notification = build_notification(
+            uri,
+            [build_diagnostic("reportFoo")],
+            version=None,
+        )
+        await code.diagnostics_callback(notification)
+
+        stored = diagnostics_state.code_sections[section_id]
+        assert len(stored) == 1
+
+
+@pytest.mark.asyncio
+async def test_code_section_diagnostics_restore_after_ignore_change() -> None:
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        dbe = DBE(root)
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        specific_file_watcher = SpecificFileWatcher()
+        code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+        lsps = LSPServers({})
+        lsp_writers = LSPWriters(lsps)
+
+        ignore_state = CodeSectionDiagnosticsIgnoreState(muted=True)
+        project_state, section_id, binding = build_code_section_state(
+            root,
+            ignore_state=ignore_state,
+        )
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_state.projectConfig.id,
+            frontend_sender,
+        )
+        code = ProjectPythonCode(
+            dbe,
+            code_files,
+            lsp_writers,
+            frontend_sender,
+            diagnostics_state,
+            project_state,
+            section_id,
+        )
+
+        uri = lsp_writers.full.get_uri(binding.canonical_path)
+        code.uri = uri
+        lsp_writers.full.latest_version_numbers[uri] = 0
+
+        notification = build_notification(uri, [build_diagnostic("reportFoo")])
+        await code.diagnostics_callback(notification)
+
+        assert section_id not in diagnostics_state.code_sections
+
+        await diagnostics_state.reapply_code_section_ignore_state(
+            section_id,
+            CodeSectionDiagnosticsIgnoreState(),
+        )
+
+        stored = diagnostics_state.code_sections[section_id]
+        assert len(stored) == 1

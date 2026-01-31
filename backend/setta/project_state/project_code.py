@@ -23,7 +23,6 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
-    apply_code_section_diagnostics_ignore,
     build_setta_lsp_diagnostic,
     process_gen_code_diagnostics_with_undefined_symbols,
 )
@@ -138,11 +137,6 @@ class ProjectGenPythonCode(PythonCode):
             set(initial_callable_mismatch_sections)
             if initial_callable_mismatch_sections
             else set()
-        )
-        self.latest_diagnostics = SettaProjectConfigDiagnostics(
-            projectConfigId=project_config_id,
-            errors={},
-            isGenCode=True,
         )
         code_files.register_binding(
             binding.canonical_path,
@@ -561,8 +555,9 @@ class ProjectGenPythonCode(PythonCode):
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
     ):
         params = lsp_response.params
-        if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
-            return
+        if params.version is not None and self.lsp_writer is not None:
+            if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
+                return
         (
             errors,
             undefined_callable_sections,
@@ -603,7 +598,6 @@ class ProjectGenPythonCode(PythonCode):
             isGenCode=True,
         )
 
-        self.latest_diagnostics = content
         await self.diagnostics_state.update_gen_code(content, unmapped_diagnostics)
         if resolved_sections and self._on_callable_symbols_resolved:
             await self._on_callable_symbols_resolved(
@@ -717,18 +711,16 @@ class ProjectPythonCode(PythonCode):
 
     async def diagnostics_callback(self, lsp_response):
         params = lsp_response.params
-        if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
-            return
+        if params.version is not None and self.lsp_writer is not None:
+            if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
+                return
         diagnostics = [
             build_setta_lsp_diagnostic(d, uri=params.uri) for d in params.diagnostics
         ]
-        diagnostics = apply_code_section_diagnostics_ignore(
-            diagnostics,
-            self.diagnostics_ignore_state,
-        )
         await self.diagnostics_state.update_code_section(
             self.sectionId,
             diagnostics,
+            ignore_state=self.diagnostics_ignore_state,
         )
 
     def write_to_folder(self, folder):

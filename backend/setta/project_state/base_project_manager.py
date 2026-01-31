@@ -74,9 +74,6 @@ from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
 from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
-from setta.project_state.lsp_response_handlers.diagnostics import (
-    apply_code_section_diagnostics_ignore,
-)
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
@@ -1079,11 +1076,16 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
+        valid_code_section_ids: set[ID] = set()
+        for section_id in projectState.sections.keys():
+            section_impl = get_curr_effective_section_impl(projectState, section_id)
+            if isinstance(section_impl, CodeSectionImpl):
+                valid_code_section_ids.add(section_id)
         await diagnostics_state.reset(
             clear_gen_code=True,
-            clear_code_sections=True,
             clear_unmapped=True,
         )
+        await diagnostics_state.prune_code_sections(valid_code_section_ids)
         python_codegen_enabled = project_config_has_codegen_language(
             projectConfig,
             ProjectCodegenLanguage.python,
@@ -1691,9 +1693,10 @@ class BaseProjectManager(ABC):
         ignore_state = section_impl.diagnosticsIgnoreState
         code_entry.update_diagnostics_ignore_state(ignore_state)
         diagnostics_state = self._get_lsp_diagnostics_state(project_config_id)
-        current = diagnostics_state.code_sections.get(section_id, [])
-        filtered = apply_code_section_diagnostics_ignore(current, ignore_state)
-        await diagnostics_state.update_code_section(section_id, filtered)
+        await diagnostics_state.reapply_code_section_ignore_state(
+            section_id,
+            ignore_state,
+        )
 
     @enqueue_method
     @project_state_tool(

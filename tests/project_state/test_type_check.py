@@ -3,18 +3,41 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.lsp.managers import NoopLSPWriters
+from setta.lsp.managers import LSPServers, LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.project_code import ProjectPythonCode
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
+from setta.project_state.project_code import (
+    ProjectBashCode,
+    ProjectGenPythonCode,
+    ProjectPythonCode,
+    build_python_code_generator,
+)
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_config import (
+    ProjectCodegenTarget,
+    ProjectConfig,
+    TopLevelSectionLayout,
+)
+from setta.types.project_state import (
+    CODE_LANGUAGE_EXTENSIONS,
+    ProjectStateBackend,
+    ProjectStateSingleConfig,
+)
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
+    CodeSectionImpl,
+)
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -103,32 +126,110 @@ class TypeCheckProjectManager(BaseProjectManager):
         return None
 
 
-class DummyGenCode:
-    def __init__(self) -> None:
-        self.calls = 0
+def build_code_section(
+    project_name: str,
+    *,
+    section_id: ID,
+    section_impl_id: ID,
+    section_variant_id: ID,
+    name: str,
+    code: str,
+    language: CodeLanguage,
+) -> tuple[Core, Variant, CodeSectionImpl, CodeFileBinding]:
+    extension = CODE_LANGUAGE_EXTENSIONS[language]
+    binding = CodeFileBinding(
+        canonical_path=C.CODE_FOLDER / project_name / f"{name}.{extension}",
+        access_mode=CodeFileAccessMode.read_write,
+    )
+    section_impl = CodeSectionImpl(
+        id=section_impl_id,
+        code=code,
+        codeLanguage=language,
+        codeFileBinding=binding,
+        diagnosticsIgnoreState=CodeSectionDiagnosticsIgnoreState(),
+    )
+    section_variant = Variant(
+        id=section_variant_id,
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    section_core = Core(
+        id=section_id,
+        name=name,
+        variants=[section_variant.id],
+        defaultVariant=section_variant.id,
+    )
+    return section_core, section_variant, section_impl, binding
 
-    async def type_check(self) -> None:
-        self.calls += 1
 
+def build_project_state(
+    *,
+    project_config_id: ID,
+    project_name: str,
+    codegen_targets: list[ProjectCodegenTarget],
+    include_bash: bool,
+) -> tuple[ProjectStateSingleConfig, dict[str, CodeFileBinding], dict[str, ID]]:
+    python_section_id = ID("section-python")
+    python_impl_id = ID("section-python-impl")
+    python_variant_id = ID("section-python-variant")
 
-class DummyPythonCode(ProjectPythonCode):
-    def __init__(self) -> None:
-        self.calls = 0
+    python_core, python_variant, python_impl, python_binding = build_code_section(
+        project_name,
+        section_id=python_section_id,
+        section_impl_id=python_impl_id,
+        section_variant_id=python_variant_id,
+        name="PythonSection",
+        code="print('hi')",
+        language=CodeLanguage.python,
+    )
 
-    async def type_check(self) -> None:
-        self.calls += 1
+    sections = {python_section_id: python_core}
+    section_impls = {python_impl_id: python_impl}
+    section_variants = {python_variant_id: python_variant}
+    section_variant_map = {python_section_id: python_variant_id}
+    top_level_sections = {python_section_id: TopLevelSectionLayout()}
+    bindings: dict[str, CodeFileBinding] = {"python": python_binding}
+    section_ids: dict[str, ID] = {"python": python_section_id}
 
+    if include_bash:
+        bash_section_id = ID("section-bash")
+        bash_impl_id = ID("section-bash-impl")
+        bash_variant_id = ID("section-bash-variant")
+        bash_core, bash_variant, bash_impl, bash_binding = build_code_section(
+            project_name,
+            section_id=bash_section_id,
+            section_impl_id=bash_impl_id,
+            section_variant_id=bash_variant_id,
+            name="BashSection",
+            code="echo hi",
+            language=CodeLanguage.bash,
+        )
+        sections[bash_section_id] = bash_core
+        section_impls[bash_impl_id] = bash_impl
+        section_variants[bash_variant_id] = bash_variant
+        section_variant_map[bash_section_id] = bash_variant_id
+        top_level_sections[bash_section_id] = TopLevelSectionLayout()
+        bindings["bash"] = bash_binding
+        section_ids["bash"] = bash_section_id
 
-class DummyNonPythonCode:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    async def type_check(self) -> None:
-        self.calls += 1
+    project_config = ProjectConfig(
+        id=project_config_id,
+        name=project_name,
+        codegenTargets=codegen_targets,
+        sectionVariantMap=section_variant_map,
+        topLevelSections=top_level_sections,
+    )
+    project_state = ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections=sections,
+        sectionImpls=section_impls,
+        sectionVariants=section_variants,
+    )
+    return project_state, bindings, section_ids
 
 
 @asynccontextmanager
-async def _type_check_manager(*, codegen_targets):
+async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
     temp_dir = TemporaryDirectory()
     previous = _set_temp_constants(Path(temp_dir.name))
     manager = None
@@ -147,7 +248,8 @@ async def _type_check_manager(*, codegen_targets):
         json_source = JSONSource(
             frontend_sender, settings_file, specific_file_watcher, dbe
         )
-        lsp_writers = NoopLSPWriters()
+        lsps = LSPServers({})
+        lsp_writers = LSPWriters(lsps)
 
         project_config = ProjectConfig(
             id=ID("project-1"),
@@ -181,31 +283,98 @@ async def _type_check_manager(*, codegen_targets):
 async def test_type_check_runs_python_sections_without_codegen() -> None:
     async with _type_check_manager(codegen_targets=[]) as manager:
         project_config_id = next(iter(manager.project_state_backend.projectConfigs))
-        python_code = DummyPythonCode()
-        other_code = DummyNonPythonCode()
+        project_state, bindings, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=[],
+            include_bash=True,
+        )
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_config_id,
+            manager.websocket_msg_handler,
+        )
+        python_code = ProjectPythonCode(
+            manager.dbe,
+            manager.code_files,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            diagnostics_state,
+            project_state,
+            section_ids["python"],
+        )
+        bash_code = ProjectBashCode(
+            manager.dbe,
+            manager.code_files,
+            project_state,
+            section_ids["bash"],
+        )
         manager.code_dict[project_config_id] = {
-            ID("section-python"): python_code,
-            ID("section-other"): other_code,
+            section_ids["python"]: python_code,
+            section_ids["bash"]: bash_code,
         }
 
         await manager.type_check(project_config_id)
 
-        assert python_code.calls == 1
-        assert other_code.calls == 0
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
+        bash_uri = manager.lsp_writers.full.get_uri(bindings["bash"].canonical_path)
+        assert python_uri in manager.lsp_writers.full.latest_version_numbers
+        assert bash_uri not in manager.lsp_writers.full.latest_version_numbers
 
 
 @pytest.mark.asyncio
 async def test_type_check_runs_gen_code_and_python_sections() -> None:
-    async with _type_check_manager(codegen_targets=ProjectConfig().codegenTargets) as (
-        manager
-    ):
+    codegen_targets = ProjectConfig().codegenTargets
+    async with _type_check_manager(codegen_targets=codegen_targets) as manager:
         project_config_id = next(iter(manager.project_state_backend.projectConfigs))
-        gen_code = DummyGenCode()
-        python_code = DummyPythonCode()
+        project_state, bindings, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=codegen_targets,
+            include_bash=False,
+        )
+        diagnostics_state = ProjectLspDiagnosticsState(
+            project_config_id,
+            manager.websocket_msg_handler,
+        )
+        python_code = ProjectPythonCode(
+            manager.dbe,
+            manager.code_files,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            diagnostics_state,
+            project_state,
+            section_ids["python"],
+        )
+        dep_graph = DependencyGraph(project_state)
+        code_generator = build_python_code_generator(project_state, dep_graph)
+        code_generator.generate_code()
+        gen_binding = CodeFileBinding(
+            canonical_path=C.CODE_FOLDER / "TypeCheckProject" / "setta_gen.py",
+            access_mode=CodeFileAccessMode.write_only,
+        )
+        gen_code = ProjectGenPythonCode(
+            manager.dbe,
+            manager.code_files,
+            gen_binding,
+            manager.lsp_writers,
+            manager.websocket_msg_handler,
+            project_config_id,
+            dep_graph,
+            code_generator,
+            {},
+            diagnostics_state,
+        )
+
         manager.gen_code[project_config_id] = gen_code
-        manager.code_dict[project_config_id] = {ID("section-python"): python_code}
+        manager.code_dict[project_config_id] = {section_ids["python"]: python_code}
 
         await manager.type_check(project_config_id)
 
-        assert gen_code.calls == 1
-        assert python_code.calls == 1
+        gen_uri = manager.lsp_writers.full.get_uri(gen_binding.canonical_path)
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
+        assert gen_uri in manager.lsp_writers.full.latest_version_numbers
+        assert python_uri in manager.lsp_writers.full.latest_version_numbers

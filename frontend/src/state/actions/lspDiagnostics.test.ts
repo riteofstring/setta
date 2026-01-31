@@ -134,6 +134,39 @@ describe("processLspDiagnostics", () => {
     expect(processTypeErrors).toHaveBeenCalledWith(payload.genCode);
   });
 
+  it("preserves existing diagnostics arrays when unchanged", () => {
+    useLspDiagnostics.setState({
+      codeSections: { "section-1": [baseDiagnostic] },
+      unmappedGenCode: [],
+    });
+    const prevState = useLspDiagnostics.getState();
+    const prevArray = prevState.codeSections["section-1"];
+    const nextDiagnostic: SettaLspDiagnostic = {
+      ...baseDiagnostic,
+      range: {
+        start: { ...baseDiagnostic.range.start },
+        end: { ...baseDiagnostic.range.end },
+      },
+    };
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [nextDiagnostic],
+      },
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    const nextState = useLspDiagnostics.getState();
+    expect(nextState.codeSections["section-1"]).toBe(prevArray);
+  });
+
   it("ignores diagnostics in share mode", () => {
     useShareSession.setState({ isShareMode: true });
     const payload: SettaLspDiagnosticsPayload = {
