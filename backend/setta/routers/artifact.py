@@ -127,38 +127,6 @@ def _enforce_file_artifact_size(artifact: FileArtifact) -> None:
         )
 
 
-def _normalized_attachment_mime_prefixes() -> list[str]:
-    prefixes: list[str] = []
-    for prefix in C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES:
-        if not isinstance(prefix, str):
-            continue
-        trimmed = prefix.strip()
-        if trimmed:
-            prefixes.append(trimmed)
-    return prefixes
-
-
-def _enforce_attachment_mime_type(mime_type: str, *, label: str) -> None:
-    prefixes = _normalized_attachment_mime_prefixes()
-    if not prefixes:
-        return
-    if not any(mime_type.startswith(prefix) for prefix in prefixes):
-        allowed_label = ", ".join(prefixes)
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=(
-                f"Attachment type {mime_type} is not allowed for {label}. "
-                f"Allowed prefixes: {allowed_label}."
-            ),
-        )
-
-
-def _enforce_file_artifact_mime(artifact: FileArtifact) -> None:
-    mime_type, _ = mimetypes.guess_type(artifact.id)
-    resolved = mime_type or "application/octet-stream"
-    _enforce_attachment_mime_type(resolved, label=artifact.id)
-
-
 def _get_share_session_artifacts(
     ctx: RuntimeContextFromRequest,
 ):
@@ -432,20 +400,18 @@ async def route_import_files_to_artifacts(
             ) from exc
         extension = "".join(resolved.suffixes) or ".bin"
         artifact_id = create_file_artifact_id(extension)
-        mime_type, _ = mimetypes.guess_type(resolved.name)
-        resolved_mime = mime_type or "application/octet-stream"
-        _enforce_attachment_mime_type(resolved_mime, label=resolved.name)
         updates.append(
             FileArtifact(
                 id=artifact_id,
                 value=base64.b64encode(content).decode("utf-8"),
             )
         )
+        mime_type, _ = mimetypes.guess_type(resolved.name)
         results.append(
             ImportFilesToArtifactsResponseItem(
                 id=artifact_id,
                 name=resolved.name,
-                mimeType=resolved_mime,
+                mimeType=mime_type or "application/octet-stream",
                 size=len(content),
             )
         )
@@ -517,7 +483,6 @@ async def route_update_artifacts(
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
             _enforce_file_artifact_size(artifact)
-            _enforce_file_artifact_mime(artifact)
     if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(
