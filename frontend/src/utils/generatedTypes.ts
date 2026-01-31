@@ -3790,7 +3790,6 @@ const ProjectConfigSchema = z.object({
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
-  viewportInitialized: z.boolean().default(false),
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
