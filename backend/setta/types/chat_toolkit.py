@@ -1,8 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from setta.types.chat_messages import ChatRole, ToolCall
+from setta.types.chat_messages import ChatFileAttachment, ChatRole, ToolCall
 from setta.types.chat_stream_events import LLMStreamingResponseChunk
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
@@ -53,6 +53,7 @@ class ChatSendEvent(BaseModel):
     sectionId: ID
     messageId: str
     text: str
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
     role: ChatRole
     timestampMs: int
     managed: bool

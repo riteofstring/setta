@@ -39,6 +39,14 @@ Send:
   "sectionId": "section-id",
   "messageId": "message-id",
   "text": "hello",
+  "attachments": [
+    {
+      "id": "artifacts/01J4.../notes.txt",
+      "name": "notes.txt",
+      "mimeType": "text/plain",
+      "size": 1203
+    }
+  ],
   "role": "user",
   "timestampMs": 1710000000000,
   "managed": true
@@ -56,6 +64,18 @@ Stop:
 ```
 
 Use the `managed` flag if you need to branch between managed and scriptable behavior.
+`attachments` is always present (empty when none) and carries artifact metadata for any files attached to the message.
+
+## Attachments
+Chat send events include `event.attachments` (artifact metadata). Pass them through when you build the first message so chat history retains the attachment list:
+```python
+first_message = UserChatMessage(
+    id=event.messageId,
+    content=[message_text(event.text)],
+    attachments=event.attachments,
+)
+```
+If you need to synthesize attachments manually, use `message_attachment(...)` and pass the list into `user_message`, `system_message`, or `assistant_message`.
 
 ## Engine config ids (or none)
 Listener chat history accepts an `engineConfigId` for internal (Setta LLM) engines. If you omit it (`None`/`null`), the chat runs in scriptable-only mode with a built-in "scriptable" LLM config (no provider, no MCP tools). External engines are not supported for listener chat history.
@@ -126,6 +146,7 @@ if not event:
 first_message = UserChatMessage(
     id=event.messageId,
     content=[message_text(event.text)],
+    attachments=event.attachments,
 )
 chat_id, created = await history.ensure_section_chat_id(
     section_id=section_id,
@@ -196,6 +217,7 @@ if not event:
 first_message = UserChatMessage(
     id=event.messageId,
     content=[message_text(event.text)],
+    attachments=event.attachments,
 )
 chat_id, created = await history.ensure_section_chat_id(
     section_id=section_id,

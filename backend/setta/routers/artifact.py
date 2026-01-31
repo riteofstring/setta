@@ -83,10 +83,12 @@ class LoadCachedPathsRequest(BaseModel):
 class UpdateArtifactsRequest(BaseModel):
     artifacts: list[BaseArtifactUnion]
     conflictStrategy: SaveConflictStrategy | None = None
+    uploadScope: Literal["chat", "generic"]
 
 
 class ImportFilesToArtifactsRequest(BaseModel):
     paths: list[str]
+    uploadScope: Literal["chat", "generic"]
 
 
 class ImportFilesToArtifactsResponseItem(BaseModel):
@@ -118,13 +120,54 @@ def _estimate_base64_decoded_bytes(payload: str) -> int:
     return (len(normalized) * 3 // 4) - padding
 
 
-def _enforce_file_artifact_size(artifact: FileArtifact) -> None:
+def _resolve_upload_size_limit(upload_scope: str | None) -> tuple[int, str]:
+    if upload_scope == "chat":
+        return C.CHAT_ATTACHMENTS_MAX_FILE_BYTES, C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+    return DROPZONE_MAX_FILE_BYTES, DROPZONE_MAX_FILE_LABEL
+
+
+def _enforce_file_artifact_size(
+    artifact: FileArtifact, *, upload_scope: str | None
+) -> None:
     size = _estimate_base64_decoded_bytes(artifact.value)
-    if size > DROPZONE_MAX_FILE_BYTES:
+    max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
+    if size > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {artifact.id}",
+            detail=f"File exceeds {max_label} limit: {artifact.id}",
         )
+
+
+def _normalized_attachment_mime_prefixes() -> list[str]:
+    prefixes: list[str] = []
+    for prefix in C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES:
+        if not isinstance(prefix, str):
+            continue
+        trimmed = prefix.strip()
+        if trimmed:
+            prefixes.append(trimmed)
+    return prefixes
+
+
+def _enforce_attachment_mime_type(mime_type: str, *, label: str) -> None:
+    prefixes = _normalized_attachment_mime_prefixes()
+    if not prefixes:
+        return
+    if not any(mime_type.startswith(prefix) for prefix in prefixes):
+        allowed_label = ", ".join(prefixes)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                f"Attachment type {mime_type} is not allowed for {label}. "
+                f"Allowed prefixes: {allowed_label}."
+            ),
+        )
+
+
+def _enforce_file_artifact_mime(artifact: FileArtifact) -> None:
+    mime_type, _ = mimetypes.guess_type(artifact.id)
+    resolved = mime_type or "application/octet-stream"
+    _enforce_attachment_mime_type(resolved, label=artifact.id)
 
 
 def _get_share_session_artifacts(
@@ -364,6 +407,7 @@ async def route_import_files_to_artifacts(
         )
     if not x.paths:
         return []
+    upload_scope = x.uploadScope
     artifacts = _get_artifacts(ctx)
     updates: list[FileArtifact] = []
     results: list[ImportFilesToArtifactsResponseItem] = []
@@ -386,10 +430,11 @@ async def route_import_files_to_artifacts(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to stat file: {raw_path}",
             ) from exc
-        if size > DROPZONE_MAX_FILE_BYTES:
+        max_bytes, max_label = _resolve_upload_size_limit(upload_scope)
+        if size > max_bytes:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=(f"File exceeds {DROPZONE_MAX_FILE_LABEL} limit: {raw_path}"),
+                detail=(f"File exceeds {max_label} limit: {raw_path}"),
             )
         try:
             content = resolved.read_bytes()
@@ -400,18 +445,21 @@ async def route_import_files_to_artifacts(
             ) from exc
         extension = "".join(resolved.suffixes) or ".bin"
         artifact_id = create_file_artifact_id(extension)
+        mime_type, _ = mimetypes.guess_type(resolved.name)
+        resolved_mime = mime_type or "application/octet-stream"
+        if upload_scope == "chat":
+            _enforce_attachment_mime_type(resolved_mime, label=resolved.name)
         updates.append(
             FileArtifact(
                 id=artifact_id,
                 value=base64.b64encode(content).decode("utf-8"),
             )
         )
-        mime_type, _ = mimetypes.guess_type(resolved.name)
         results.append(
             ImportFilesToArtifactsResponseItem(
                 id=artifact_id,
                 name=resolved.name,
-                mimeType=mime_type or "application/octet-stream",
+                mimeType=resolved_mime,
                 size=len(content),
             )
         )
@@ -480,9 +528,12 @@ async def route_update_artifacts(
     x: UpdateArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
+    upload_scope = x.uploadScope
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
-            _enforce_file_artifact_size(artifact)
+            _enforce_file_artifact_size(artifact, upload_scope=upload_scope)
+            if upload_scope == "chat":
+                _enforce_file_artifact_mime(artifact)
     if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 import time
 from pathlib import Path
@@ -194,6 +195,7 @@ class SettaFastAPIState:
             runtime_root=self.share_runtime_root,
             lock_root=self.share_runtime_root,
         )
+        os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
@@ -405,6 +407,7 @@ class SettaFastAPIState:
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
+                share_mode=self.share_mode,
             )
             self.agent_runner.update_config(llm_config)
             self.agent_runner.update_api_keys(self.dbe.read_dot_env())
@@ -449,6 +452,7 @@ class SettaFastAPIState:
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
+                share_mode=self.share_mode,
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(

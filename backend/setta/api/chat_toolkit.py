@@ -9,6 +9,7 @@ from setta.llm.chat_toolkit import (
     ToolCallBuilder,
     assistant_message,
     build_chat_section_state,
+    message_attachment,
     message_image_url,
     message_text,
     message_thinking,
@@ -401,20 +402,24 @@ class ChatSession:
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
         content = [MessageTextContent(text=resolved_event.text)]
+        attachments = resolved_event.attachments
         if resolved_event.role == ChatRole.user:
             first_message = UserChatMessage(
                 id=resolved_event.messageId,
                 content=content,
+                attachments=attachments,
             )
         elif resolved_event.role == ChatRole.system:
             first_message = SystemChatMessage(
                 id=resolved_event.messageId,
                 content=content,
+                attachments=attachments,
             )
         elif resolved_event.role == ChatRole.assistant:
             first_message = AssistantChatMessage(
                 id=resolved_event.messageId,
                 content=content,
+                attachments=attachments,
             )
         elif resolved_event.role == ChatRole.tool:
             raise ValueError(
@@ -647,6 +652,8 @@ def on_chat_action_event(
 
 
 def _should_persist_partial_message(message: AssistantChatMessage) -> bool:
+    if message.attachments:
+        return True
     if message.tool_calls:
         return True
     for block in message.content:
@@ -685,6 +692,7 @@ __all__ = [
     "ChatToolRunnerClient",
     "ToolCallBuilder",
     "assistant_message",
+    "message_attachment",
     "message_image_url",
     "message_text",
     "message_thinking",

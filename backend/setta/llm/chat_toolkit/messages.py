@@ -2,6 +2,7 @@ from typing import Literal
 
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    ChatFileAttachment,
     MessageImageUrl,
     MessageImageUrlContent,
     MessageTextContent,
@@ -44,19 +45,38 @@ def tool_reference(tool_name: str) -> ToolReferenceContent:
 
 def system_message(
     content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
+    *,
+    attachments: list[ChatFileAttachment] | None = None,
 ) -> SystemChatMessage:
-    return SystemChatMessage(content=content)
+    return SystemChatMessage(content=content, attachments=attachments or [])
 
 
 def user_message(
     content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
+    *,
+    attachments: list[ChatFileAttachment] | None = None,
 ) -> UserChatMessage:
-    return UserChatMessage(content=content)
+    return UserChatMessage(content=content, attachments=attachments or [])
 
 
 def assistant_message(
     content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
     *,
     tool_calls: list[ToolCall] | None = None,
+    attachments: list[ChatFileAttachment] | None = None,
 ) -> AssistantChatMessage:
-    return AssistantChatMessage(content=content, tool_calls=tool_calls)
+    return AssistantChatMessage(
+        content=content,
+        tool_calls=tool_calls,
+        attachments=attachments or [],
+    )
+
+
+def message_attachment(
+    *,
+    id: str,
+    name: str,
+    mime_type: str | None = None,
+    size: int | None = None,
+) -> ChatFileAttachment:
+    return ChatFileAttachment(id=id, name=name, mimeType=mime_type, size=size)
