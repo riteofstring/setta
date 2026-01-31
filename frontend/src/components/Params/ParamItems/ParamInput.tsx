@@ -15,7 +15,10 @@ import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import {
+  BinaryDependencyValue,
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
+  LiteralDependencyValue,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
@@ -80,18 +83,54 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     if (attachments.length === 0) {
       return;
     }
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.SectionParam,
-        sectionId,
-        codeObjId: paramInfoId,
-      },
+    const dependencyKey = {
+      type: DependencyKeyTypeEnum.SectionParam,
+      sectionId,
+      codeObjId: paramInfoId,
+    };
+    const metadataAttachments = attachments.map((attachment) => {
+      if (attachment.kind === "file") {
+        return {
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+        };
+      }
+      return attachment;
+    });
+    const metadataPayload: LiteralDependencyValue = {
       payload: JSON.stringify({
         sectionId,
         paramInfoId,
-        attachments,
+        attachments: metadataAttachments,
       }),
+      type: DependencyValueTypeEnum.Literal,
+    };
+    sendRealtimeDependencyEvent({
+      dependencyKey,
+      payload: metadataPayload,
     });
+    for (const attachment of attachments) {
+      if (attachment.kind !== "file") {
+        continue;
+      }
+      const binaryPayload: BinaryDependencyValue = {
+        payload: {
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+          mimeType: attachment.mimeType,
+        },
+        type: DependencyValueTypeEnum.Binary,
+      };
+      sendRealtimeDependencyEvent({
+        dependencyKey,
+        payload: binaryPayload,
+        binaryPayload: attachment.binaryPayload,
+      });
+    }
   }
 
   return (

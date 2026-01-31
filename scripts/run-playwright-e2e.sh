@@ -8,6 +8,14 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 
+source "${ROOT_DIR}/activate.sh"
+if [[ ! -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+  echo "Missing ${ROOT_DIR}/.venv/bin/python after sourcing activate.sh." >&2
+  exit 1
+fi
+
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+
 instance_offset() {
   local instance_name="$1"
   local segment="${instance_name}"
@@ -63,7 +71,7 @@ SETTA_HOST="${SETTA_HOST:-127.0.0.1}"
 SETTA_DEV_FRONTEND_HOST="${SETTA_DEV_FRONTEND_HOST:-${SETTA_HOST}}"
 
 pick_free_port() {
-  EXCLUDE_PORTS="${1:-}" python - <<'PY'
+  EXCLUDE_PORTS="${1:-}" "${PYTHON_BIN}" - <<'PY'
 import os
 import socket
 
@@ -186,7 +194,7 @@ seed_workspace() {
   (
     cd "${ROOT_DIR}"
     source "./activate.sh"
-    SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT}" python - <<'PY'
+    SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT}" "${PYTHON_BIN}" - <<'PY'
 import os
 from pathlib import Path
 
@@ -269,7 +277,7 @@ wait_for_url() {
   local label="$2"
   local timeout="${3:-60}"
   log "Waiting for ${label} at ${url} (timeout ${timeout}s)."
-  python - "${url}" "${label}" "${timeout}" <<'PY'
+  "${PYTHON_BIN}" - "${url}" "${label}" "${timeout}" <<'PY'
 import sys
 import time
 import urllib.error
@@ -302,7 +310,7 @@ log "Minting bootstrap token."
 BOOTSTRAP_TOKEN="$(
   cd "${ROOT_DIR}"
   source "./activate.sh"
-  python - <<'PY'
+  "${PYTHON_BIN}" - <<'PY'
 import os
 import time
 from pathlib import Path
@@ -361,10 +369,10 @@ raise SystemExit("Timed out waiting for a backend session.")
 PY
 )"
 
-PLAYWRIGHT_EXTRA_ARGS=()
+declare -a PLAYWRIGHT_EXTRA_ARGS=()
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
-    python - <<'PY'
+    "${PYTHON_BIN}" - <<'PY'
 import os
 
 raw = os.environ.get("SETTA_E2E_TEST_TIMEOUT_SECONDS", "").strip()
@@ -392,7 +400,12 @@ fi
 
 log "Running Playwright tests."
 cd "${ROOT_DIR}/frontend"
+PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
+if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
+  PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
+fi
+PLAYWRIGHT_CMD+=("$@")
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
 SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-pnpm exec playwright test --reporter=line "${PLAYWRIGHT_EXTRA_ARGS[@]:-}" "$@"
+"${PLAYWRIGHT_CMD[@]}"

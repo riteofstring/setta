@@ -25,7 +25,7 @@ Relevant code:
 ## Realtime (IDE/UI + listeners)
 ### UI and artifact caches
 - The backend keeps in-memory artifact caches in `Artifacts`:
-  - `ImageArtifact.value` is a `data:image/png;base64,...` string.
+  - `ImageArtifact.value` is a `BinaryContentRef` with `contentId` + metadata.
   - `BrushStrokeArtifact.value` and `DrawAreaLayerItemTransformArtifact.value`
     are JSON payloads.
 - File watcher updates call `read_*_from_disk`, cache artifacts, and broadcast
@@ -34,10 +34,10 @@ Relevant code:
   - `route_load_cached_image_artifacts`
   - `route_load_cached_brush_strokes`
   - `route_load_cached_draw_area_layer_item_transform`
-- `useImageArtifact` looks up the image by `imagePath` and `ImageArea` renders
-  `imageArtifact.value` as an `<img src=...>`.
+- `useImageArtifact` looks up the image by `imagePath` and `ImageArea` fetches
+  the bytes via `route_binary_download`, then renders from a Blob URL.
 - `useDrawAreaArtifactLoader` loads and decodes images + strokes + transforms
-  before Draw canvases render.
+  before Draw canvases render (binary images are fetched via the binary endpoint).
 
 Relevant code:
 - `backend/setta/project_state/artifacts.py`
@@ -47,11 +47,12 @@ Relevant code:
 - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
 
 ### Realtime dependency deltas (listeners)
-- Draw sections emit base64 snapshots (no data URI prefix) via
-  `sendRealtimeSectionBase64` -> `WebsocketMsgRealtimeUIChange`.
-- Image file changes emit base64 deltas via
-  `Artifacts.emit_realtime_image_updates`, which strips the data URI prefix.
-- Listener-side dependency updates for Draw/Image expect `Base64DependencyValue`
+- Draw sections emit binary snapshots via
+  `sendRealtimeSectionBinary` -> `WebsocketMsgRealtimeUIChange` with a binary
+  websocket frame.
+- Image file changes emit binary deltas via
+  `Artifacts.emit_realtime_image_updates`, which streams bytes in a binary frame.
+- Listener-side dependency updates for Draw/Image expect `BinaryDependencyValue`
   (see `ListenerFrontendEmitResolver`).
 - Direct dependency updates for Image sections are not applied to project state;
   use artifact updates instead (`listener_dependency_updates.py` raises
@@ -75,8 +76,8 @@ Relevant code:
   - Binary files (png snapshots) return `bytes`.
   - Text files return `str`.
 - Draw snapshots are written on run when the frontend supplies
-  `drawSnapshotsBySectionId`; the backend decodes base64, writes the png, and
-  updates `renderedImagePath`.
+  `drawSnapshotsBySectionId`; the backend reads bytes from the binary store,
+  writes the png, and updates `renderedImagePath`.
 
 Relevant code:
 - `backend/setta/code_gen/dependency_graph.py`

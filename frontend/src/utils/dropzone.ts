@@ -29,7 +29,9 @@ type DropzoneStatelessFileAttachment = {
   name: string;
   mimeType: string;
   size: number;
-  base64: string;
+  contentId: string;
+  byteLength: number;
+  binaryPayload: ArrayBuffer;
 };
 
 type DropzoneStatelessTextAttachment = {

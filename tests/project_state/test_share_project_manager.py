@@ -22,6 +22,7 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
     ImageArtifact,
 )
+from setta.types.binary_content import BinaryContentRef
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -1160,7 +1161,11 @@ class TestShareRuntimeState:
             artifact_updates = [
                 ImageArtifact(
                     id="artifacts/share-image.png",
-                    value="data:image/png;base64,AAA",
+                    value=BinaryContentRef(
+                        contentId="share-image",
+                        byteLength=3,
+                        mimeType="image/png",
+                    ),
                 )
             ]
 

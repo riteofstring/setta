@@ -56,31 +56,12 @@ instance_offset() {
   echo "${offset:-0}"
 }
 
-profile_suffix() {
-  local root="$1"
-
-  if command -v shasum >/dev/null 2>&1; then
-    printf "%s" "$root" | shasum -a 256 | awk '{print substr($1,1,12)}'
-    return
-  fi
-
-  if command -v md5 >/dev/null 2>&1; then
-    printf "%s" "$root" | md5 -q 2>/dev/null | awk '{print substr($1,1,12)}'
-    return
-  fi
-
-  basename "$root" | tr ' ' '_'
-}
-
 INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
 INSTANCE_OFFSET="$(instance_offset "${INSTANCE_NAME}")"
 DEFAULT_DEBUG_PORT=$((9222 + INSTANCE_OFFSET))
 DEBUG_PORT="${DEBUG_PORT:-${DEFAULT_DEBUG_PORT}}"
 
-PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
-MCP_BASE_DIR="${MCP_BASE_DIR:-${TMPDIR:-/tmp}/setta-mcp}"
-DEFAULT_MCP_RUN_DIR="${MCP_BASE_DIR}/${INSTANCE_NAME}-${PROFILE_SUFFIX}"
-MCP_RUN_DIR="${MCP_RUN_DIR:-${DEFAULT_MCP_RUN_DIR}}"
+MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
 BOOTSTRAP_ENABLED="${BOOTSTRAP_ENABLED:-1}"
 BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
@@ -337,8 +318,7 @@ chrome-devtools-mcp. This is separate from your main profile.
 
 Environment variables:
   DEBUG_PORT   Remote debugging port (default: 9222 + worktree offset)
-  MCP_RUN_DIR  Base dir for MCP state (default: ${TMPDIR:-/tmp}/setta-mcp/<worktree>)
-  PROFILE_DIR  User data dir for the debug instance (default: ${TMPDIR:-/tmp}/setta-mcp/<worktree>/devtools-profile)
+  PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
   BOOTSTRAP_ENABLED  Open /__setta__/bootstrap with token when possible (default: 1)
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
