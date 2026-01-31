@@ -460,7 +460,7 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
 
 
 class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
-    """Request the latest parsed LSP diagnostics for generated code."""
+    """Request the latest parsed LSP diagnostics payload for a project config."""
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
@@ -590,16 +590,6 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
 
     value: str = Field(
         description="Raw text value to persist for the parameter.",
-    )
-
-
-class GetPasswordParamValueRequest(ProjectManagerRequestWithSectionParam):
-    """Fetch the saved secret for a password parameter within a section."""
-
-
-class GetPasswordParamValueResponse(BaseModel):
-    value: str = Field(
-        description="Stored secret value for the password parameter.",
     )
 
 

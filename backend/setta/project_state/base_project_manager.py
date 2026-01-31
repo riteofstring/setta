@@ -73,6 +73,7 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
+from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.project_code import (
     ProjectBashCode,
@@ -314,7 +315,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.lsp import SettaProjectConfigDiagnostics
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
@@ -483,6 +484,9 @@ class BaseProjectManager(ABC):
         self.code_dict: dict[
             str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
         ] = {}
+        self.lsp_diagnostics_state_by_project_config: dict[
+            ID, ProjectLspDiagnosticsState
+        ] = {}
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
         ] = asyncio.Queue()
@@ -518,6 +522,22 @@ class BaseProjectManager(ABC):
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
+
+    def _get_lsp_diagnostics_state(
+        self, project_config_id: ID
+    ) -> ProjectLspDiagnosticsState:
+        diagnostics_state = self.lsp_diagnostics_state_by_project_config.get(
+            project_config_id
+        )
+        if diagnostics_state is None:
+            diagnostics_state = ProjectLspDiagnosticsState(
+                project_config_id=project_config_id,
+                websocket_msg_handler=self.websocket_msg_handler,
+            )
+            self.lsp_diagnostics_state_by_project_config[project_config_id] = (
+                diagnostics_state
+            )
+        return diagnostics_state
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -948,7 +968,7 @@ class BaseProjectManager(ABC):
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
         if run_snapshot_mode == RunSnapshotMode.ephemeral:
-            return C.RUNTIME_FOLDER
+            return C.RUN_FOLDER
         if run_snapshot_mode == RunSnapshotMode.always:
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
@@ -1051,6 +1071,12 @@ class BaseProjectManager(ABC):
     ) -> None:
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
+        diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
+        await diagnostics_state.reset(
+            clear_gen_code=True,
+            clear_code_sections=True,
+            clear_unmapped=True,
+        )
         python_codegen_enabled = project_config_has_codegen_language(
             projectConfig,
             ProjectCodegenLanguage.python,
@@ -1091,6 +1117,7 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
                 ignore_type_errors_by_section,
+                diagnostics_state,
                 initial_undefined_callable_sections=prev_undefined_callable_sections,
                 initial_callable_mismatch_sections=prev_callable_mismatch_sections,
                 on_callable_symbols_resolved=self.auto_refetch_callable_params,
@@ -2221,6 +2248,7 @@ class BaseProjectManager(ABC):
                 self.code_files,
                 self.lsp_writers,
                 self.websocket_msg_handler,
+                self._get_lsp_diagnostics_state(project_state.projectConfig.id),
                 project_state,
                 sectionId,
             )
@@ -3241,11 +3269,10 @@ class BaseProjectManager(ABC):
     @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_lsp_diagnostics(
         self, x: GetLatestLspDiagnosticsRequest
-    ) -> SettaProjectConfigDiagnostics:
-        """Return the latest parsed LSP diagnostics for generated code."""
-        async with self._project_state_lock.read_lock():
-            gen_code = self._require_python_codegen(x.projectConfigId)
-        return gen_code.latest_diagnostics
+    ) -> SettaLspDiagnosticsPayload:
+        """Return the latest parsed LSP diagnostics payload for the project config."""
+        diagnostics_state = self._get_lsp_diagnostics_state(x.projectConfigId)
+        return diagnostics_state.snapshot()
 
     @enqueue_method
     async def autosave(self):
