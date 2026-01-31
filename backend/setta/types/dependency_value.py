@@ -2,14 +2,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal
 
-from setta.types.binary_content import BinaryContentRef
-
 
 class DependencyValueType(str, Enum):
     """Enumerates supported dependency payload encodings."""
 
     Literal = "Literal"
-    Binary = "Binary"
+    Base64 = "Base64"
     FileRead = "FileRead"
 
 
@@ -28,16 +26,16 @@ class LiteralDependencyValue(BaseDependencyValue):
 
 
 @dataclass(frozen=True, slots=True)
-class FileReadDependencyValue(BaseDependencyValue):
+class Base64DependencyValue(BaseDependencyValue):
     payload: str
-    type: Literal[DependencyValueType.FileRead] = field(
-        default=DependencyValueType.FileRead, init=False
+    type: Literal[DependencyValueType.Base64] = field(
+        default=DependencyValueType.Base64, init=False
     )
 
 
 @dataclass(frozen=True, slots=True)
-class BinaryDependencyValue(BaseDependencyValue):
-    payload: BinaryContentRef
-    type: Literal[DependencyValueType.Binary] = field(
-        default=DependencyValueType.Binary, init=False
+class FileReadDependencyValue(BaseDependencyValue):
+    payload: str
+    type: Literal[DependencyValueType.FileRead] = field(
+        default=DependencyValueType.FileRead, init=False
     )

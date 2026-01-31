@@ -35,8 +35,7 @@ class Route(str, Enum):
     LOAD_ARTIFACTS = "/loadArtifacts"
     LOAD_AVAILABLE_ARTIFACTS = "/loadAvailableArtifacts"
     UPDATE_ARTIFACTS = "/updateArtifacts"
-    BINARY_UPLOAD = "/binary/upload"
-    BINARY_DOWNLOAD = "/binary/{contentId}"
+    READ_CSV_BASE64 = "/readCSVBase64"
     FILL_IN_MISSING_ARTIFACT_IDS = "/getArtifactIdsFromNamePathType"
     GET_DEFAULT_PROJECT_CONFIG_NAME = "/getDefaultConfigName"
     DOCSTRING_TO_MARKDOWN = "/docstringToMarkdown"
@@ -151,6 +150,10 @@ class Route(str, Enum):
     SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
+    SET_CODE_SECTION_DIAGNOSTICS_MUTE = "/setCodeSectionDiagnosticsMute"
+    SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
+        "/setCodeSectionDiagnosticCodeSuppression"
+    )
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"

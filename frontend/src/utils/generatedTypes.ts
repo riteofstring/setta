@@ -232,7 +232,7 @@ export const DependencyKeyTypeEnum = {
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
-  Binary: "Binary",
+  Base64: "Base64",
   FileRead: "FileRead",
 } as const;
 
@@ -395,8 +395,7 @@ export const RouteEnum = {
   LOAD_ARTIFACTS: "/loadArtifacts",
   LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
   UPDATE_ARTIFACTS: "/updateArtifacts",
-  BINARY_UPLOAD: "/binary/upload",
-  BINARY_DOWNLOAD: "/binary/{contentId}",
+  READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
@@ -511,6 +510,9 @@ export const RouteEnum = {
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
+  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -872,19 +874,10 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
-const BinaryContentRefSchema = z.object({
-  contentId: z.string(),
-  byteLength: z.int(),
-  mimeType: z.union([z.string(), z.null()]).default(null),
-  sha256: z.union([z.string(), z.null()]).default(null),
-});
-
-export type BinaryContentRef = z.infer<typeof BinaryContentRefSchema>;
-
 const FileArtifactSchema = z.object({
   type: z.literal("File").default(ArtifactTypeEnum.File),
   id: z.string().default(create_file_artifact_id),
-  value: BinaryContentRefSchema,
+  value: z.string(),
 });
 
 export type FileArtifact = z.infer<typeof FileArtifactSchema>;
@@ -892,7 +885,7 @@ export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
-  value: BinaryContentRefSchema,
+  value: z.string(),
 });
 
 export type ImageArtifact = z.infer<typeof ImageArtifactSchema>;
@@ -1269,6 +1262,21 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
+const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
+  muted: z.boolean().default(false),
+  suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
+});
+
+type CodeSectionDiagnosticsIgnoreState = z.infer<
+  typeof CodeSectionDiagnosticsIgnoreStateSchema
+>;
+
+function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
+  return CodeSectionDiagnosticsIgnoreStateSchema.parse(options);
+}
+
 const EdgePortSchema = z.object({
   id: IDSchema.default(create_new_id),
   accessor: z.string().default("" as const),
@@ -1366,6 +1374,7 @@ const SharedModifierSchema = z.object({
   dataPath: z.string().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1491,6 +1500,7 @@ const CoreSchema = z.object({
         "dataPath",
         "defaultVal",
         "description",
+        "diagnosticsIgnoreState",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -1895,6 +1905,9 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type CodeSectionImpl = z.infer<typeof CodeSectionImplSchema>;
@@ -2402,22 +2415,22 @@ export type LiteralDependencyValue = z.infer<
   typeof LiteralDependencyValueSchema
 >;
 
+const Base64DependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
+});
+
+export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
+
 const FileReadDependencyValueSchema = z.object({
   payload: z.string(),
   type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
 });
 
-const BinaryDependencyValueSchema = z.object({
-  payload: BinaryContentRefSchema,
-  type: z.literal("Binary").default(DependencyValueTypeEnum.Binary),
-});
-
-export type BinaryDependencyValue = z.infer<typeof BinaryDependencyValueSchema>;
-
 const BaseDependencyValueUnionSchema = z.union([
   LiteralDependencyValueSchema,
+  Base64DependencyValueSchema,
   FileReadDependencyValueSchema,
-  BinaryDependencyValueSchema,
 ]);
 
 export type BaseDependencyValueUnion = z.infer<
@@ -2830,6 +2843,7 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
 type CodeSectionImplArgs = z.infer<typeof CodeSectionImplArgsSchema>;
@@ -3212,8 +3226,8 @@ const RealtimeUIChangeContentSchema = z.object({
   ]),
   value: z.union([
     LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
     FileReadDependencyValueSchema,
-    BinaryDependencyValueSchema,
   ]),
 });
 
@@ -3229,21 +3243,12 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-export const DependencyEventSchema = z.object({
+const DependencyEventSchema = z.object({
   dependencyKey: z.union([
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  payload: z
-    .union([
-      z.discriminatedUnion("type", [
-        LiteralDependencyValueSchema,
-        FileReadDependencyValueSchema,
-        BinaryDependencyValueSchema,
-      ]),
-      z.null(),
-    ])
-    .default(null),
+  payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
 
@@ -3399,9 +3404,43 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
+const SettaLspDiagnosticPositionSchema = z.object({
+  line: z.int(),
+  character: z.int(),
+});
+
+const SettaLspDiagnosticRangeSchema = z.object({
+  start: SettaLspDiagnosticPositionSchema,
+  end: SettaLspDiagnosticPositionSchema,
+});
+
+const SettaLspDiagnosticSchema = z.object({
+  message: z.string(),
+  severity: z.union([z.int(), z.null()]).default(null),
+  code: z.union([z.string(), z.int(), z.null()]).default(null),
+  source: z.union([z.string(), z.null()]).default(null),
+  range: SettaLspDiagnosticRangeSchema,
+  uri: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SettaLspDiagnostic = z.infer<typeof SettaLspDiagnosticSchema>;
+
+const SettaLspDiagnosticsPayloadSchema = z.object({
+  projectConfigId: IDSchema,
+  genCode: SettaProjectConfigDiagnosticsSchema,
+  codeSections: z
+    .record(IDSchema, z.array(SettaLspDiagnosticSchema))
+    .default({}),
+  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
+});
+
+export type SettaLspDiagnosticsPayload = z.infer<
+  typeof SettaLspDiagnosticsPayloadSchema
+>;
+
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: SettaProjectConfigDiagnosticsSchema,
+  content: SettaLspDiagnosticsPayloadSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
@@ -4468,6 +4507,9 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
+    createCodeSectionDiagnosticsIgnoreState,
+  ),
 });
 
 type UserDefaultCodeSectionImpl = z.infer<
@@ -5036,7 +5078,18 @@ const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z.record(z.string(), z.any()).default({}),
+  languageServer: z.record(z.string(), z.any()).default(() => ({
+    basedpyright: {
+      analysis: {
+        diagnosticSeverityOverrides: {
+          reportUnknownVariableType: "none" as const,
+          reportUnknownMemberType: "none" as const,
+          reportUnannotatedClassAttribute: "none" as const,
+          reportSelfClsParameterName: "none" as const,
+        },
+      },
+    },
+  })),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
@@ -7320,6 +7373,29 @@ const SetCodeRequestSchema = z.object({
 
 export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
 
+const SetCodeSectionDiagnosticCodeSuppressionRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  code: z.union([z.string(), z.int()]),
+  suppress: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticCodeSuppressionRequestSchema
+>;
+
+const SetCodeSectionDiagnosticsMuteRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  mute: z.boolean(),
+});
+
+export type SetCodeSectionDiagnosticsMuteRequestInput = z.input<
+  typeof SetCodeSectionDiagnosticsMuteRequestSchema
+>;
+
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -8127,7 +8203,7 @@ const RunCodeRequestSchema = z.object({
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
   drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, BinaryContentRefSchema), z.null()])
+    .union([z.record(IDSchema, z.string()), z.null()])
     .default(null),
 });
 

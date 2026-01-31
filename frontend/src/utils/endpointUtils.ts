@@ -103,21 +103,14 @@ export async function post<T>(
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
-    const isFormData = body instanceof FormData;
-    let requestBody: BodyInit | null = null;
-    if (body !== null) {
-      requestBody = isFormData ? body : JSON.stringify(body);
-    }
     const response = await fetch(resolveBackendUrl(fullAddress), {
       method: "POST",
       credentials: "include",
-      headers: isFormData
-        ? shareHeaders
-        : {
-            "Content-Type": "application/json",
-            ...shareHeaders,
-          },
-      body: requestBody,
+      headers: {
+        "Content-Type": "application/json",
+        ...shareHeaders,
+      },
+      body: body === null ? null : JSON.stringify(body),
     });
     return {
       data: await parseResponse<T>(response),

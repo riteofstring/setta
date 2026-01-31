@@ -16,9 +16,6 @@ export class C {
   static AUTH_COOKIE_SAMESITE = "lax";
   static AUTH_COOKIE_SECURE = false;
   static BACKEND_INIT_DELAY_SECONDS = 0.0;
-  static BINARY_FOLDER = "setta_files/binary";
-  static BINARY_FOLDER_NAME = "binary";
-  static BINARY_TTL_SECONDS = 21600;
   static BOOTSTRAP_TOKEN_TTL_SECONDS = 600;
   static CODE_FOLDER = "setta_files/code";
   static DB_BACKUP_FOLDER = "setta_files/backups";
@@ -35,7 +32,6 @@ export class C {
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static OPEN_BROWSER_ON_START = null;
   static PORT = 8000;
-  static REALTIME_BINARY_MAX_BYTES = 10485760;
   static RUN_FOLDER = "setta_files/run";
   static RUN_LOGS_FOLDER = "setta_files/run/logs";
   static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";

@@ -219,18 +219,6 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-export async function route_binary_upload(
-  file: FormData,
-): Promise<ResponseDataAndStatus<gt.BinaryContentRef>> {
-  return await post("/binary/upload", file);
-}
-
-async function route_binary_download(
-  contentId: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/binary/{contentId}", { contentId });
-}
-
 export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
@@ -815,6 +803,18 @@ export async function route_set_type_error_ignore(
   x: gt.SetTypeErrorIgnoreRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTypeErrorIgnore", x);
+}
+
+export async function route_set_code_section_diagnostics_mute(
+  x: gt.SetCodeSectionDiagnosticsMuteRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticsMute", x);
+}
+
+export async function route_set_code_section_diagnostic_code_suppression(
+  x: gt.SetCodeSectionDiagnosticCodeSuppressionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticCodeSuppression", x);
 }
 
 export async function route_set_code_obj_name(
