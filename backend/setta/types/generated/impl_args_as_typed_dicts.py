@@ -37,6 +37,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     PromptFormat,
     SectionSize,
@@ -86,6 +87,7 @@ class CoreArgs(TypedDict):
                 "dataPath",
                 "defaultVal",
                 "description",
+                "diagnosticsIgnoreState",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -93,7 +95,6 @@ class CoreArgs(TypedDict):
                 "eraserBrushSize",
                 "folder",
                 "format",
-                "hasSecret",
                 "headingAsSectionName",
                 "hideColumn",
                 "hideParams",
@@ -528,6 +529,7 @@ class GlobalVariablesSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCall
 class CodeSectionImplArgs(BaseCodeSectionImplArgs):
     type: NotRequired[Literal[SectionType.Code]]
     codeLanguage: NotRequired[CodeLanguage]
+    diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
 
 
 class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
@@ -536,6 +538,12 @@ class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Code]], Literal[SectionType.Code]]
     ]
     codeLanguage: NotRequired[CodeLanguage | Callable[[CodeLanguage], CodeLanguage]]
+    diagnosticsIgnoreState: NotRequired[
+        CodeSectionDiagnosticsIgnoreState
+        | Callable[
+            [CodeSectionDiagnosticsIgnoreState], CodeSectionDiagnosticsIgnoreState
+        ]
+    ]
 
 
 class GenPythonCodeSectionImplArgs(BaseCodeSectionImplArgs):
@@ -868,7 +876,6 @@ class DropdownParamCodeObjImplArgsWithCallable(
 
 class PasswordParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.PasswordParam]]
-    hasSecret: NotRequired[bool]
 
 
 class PasswordParamCodeObjImplArgsWithCallable(
@@ -880,7 +887,6 @@ class PasswordParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.PasswordParam]], Literal[CodeObjType.PasswordParam]
         ]
     ]
-    hasSecret: NotRequired[bool | Callable[[bool], bool]]
 
 
 class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):

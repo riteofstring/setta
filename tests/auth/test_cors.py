@@ -13,7 +13,7 @@ from setta.utils.constants import C
 def cors_client(tmp_path, monkeypatch):
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(C, "RUNTIME_SESSIONS_FOLDER", sessions_root)
+    monkeypatch.setattr(C, "RUN_SESSIONS_FOLDER", sessions_root)
     monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
     monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
     monkeypatch.delenv(SESSION_ID_ENV_VAR, raising=False)

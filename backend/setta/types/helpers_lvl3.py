@@ -9,11 +9,7 @@ from setta.project_state.project_state_summary_types import (
     ProjectStateSummarySection,
 )
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import (
-    BaseParentCodeObjImpl,
-    ParameterPassingStyle,
-    PasswordParamCodeObjImpl,
-)
+from setta.types.code_obj_impls import BaseParentCodeObjImpl, ParameterPassingStyle
 from setta.types.core import Core, Variant
 from setta.types.edges import Edge
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
@@ -568,23 +564,6 @@ def update_code_obj_impl_details(
             c.children = [codeObjIdMap[v] for v in c.children]
 
 
-def clear_copied_password_secrets(
-    code_obj_impls: dict[ID, BaseCodeObjImplUnion],
-    code_obj_impl_id_map: dict[ID, ID],
-) -> None:
-    for old_id, new_id in code_obj_impl_id_map.items():
-        if old_id == new_id:
-            continue
-        impl = code_obj_impls[new_id]
-        if not isinstance(impl, PasswordParamCodeObjImpl):
-            continue
-        impl.hasSecret = False
-        if impl.value != "":
-            impl.value = ""
-        if impl.defaultVal != "":
-            impl.defaultVal = ""
-
-
 def update_section_impl_details(
     sectionImpls: dict[ID, BaseSectionImplUnion],
     sectionIdMap: dict[ID, ID],
@@ -751,7 +730,6 @@ def copy_sections_and_other_info(p: ProjectStateCore):
     )
     newCodeObjs, codeObjIdMap = copy_cores(p.codeObjs, codeObjVariantIdMap)
     update_code_obj_impl_details(newCodeObjImpls, codeObjIdMap)
-    clear_copied_password_secrets(newCodeObjImpls, codeObjImplIdMap)
     update_code_obj_modifier_details(newCodeObjs, newCodeObjVariants, codeObjIdMap)
 
     newSectionImpls, sectionImplIdMap = copy_impls(p.sectionImpls)

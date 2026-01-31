@@ -43,6 +43,7 @@ from setta.types.settings_state import (
     SettingsBackend,
     SettingsGUI,
     SettingsShortcuts,
+    get_default_language_server_settings,
 )
 
 
@@ -56,7 +57,7 @@ class SettingsState(BaseModel, extra="forbid"):
     sectionSizingPolicy: SectionSizingPolicy = Field(
         default_factory=SectionSizingPolicy
     )
-    languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
+    languageServer: dict = Field(default_factory=get_default_language_server_settings)
 
     browserSectionDefault: UserDefaultBrowserSectionImpl = Field(
         default_factory=UserDefaultBrowserSectionImpl

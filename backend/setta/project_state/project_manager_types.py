@@ -460,7 +460,7 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
 
 
 class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
-    """Request the latest parsed LSP diagnostics for generated code."""
+    """Request the latest parsed LSP diagnostics payload for a project config."""
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
@@ -593,16 +593,6 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
-class GetPasswordParamValueRequest(ProjectManagerRequestWithSectionParam):
-    """Fetch the saved secret for a password parameter within a section."""
-
-
-class GetPasswordParamValueResponse(BaseModel):
-    value: str = Field(
-        description="Stored secret value for the password parameter.",
-    )
-
-
 class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     """Toggle ignoring type errors for a callable or parameter within a section."""
 
@@ -611,6 +601,25 @@ class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     )
     ignoreTypeErrors: bool = Field(
         description="Whether to hide type errors for the targeted entry.",
+    )
+
+
+class SetCodeSectionDiagnosticsMuteRequest(ProjectManagerRequestWithSection):
+    """Toggle muting LSP diagnostics for a code section."""
+
+    mute: bool = Field(
+        description="Whether to mute LSP diagnostics for the code section.",
+    )
+
+
+class SetCodeSectionDiagnosticCodeSuppressionRequest(ProjectManagerRequestWithSection):
+    """Toggle suppressing a diagnostic code for a code section."""
+
+    code: str | int = Field(
+        description="Diagnostic code to suppress for this code section.",
+    )
+    suppress: bool = Field(
+        description="Whether to suppress the diagnostic code.",
     )
 
 

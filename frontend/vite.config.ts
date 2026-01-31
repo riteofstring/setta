@@ -34,6 +34,15 @@ const devFrontendHost = resolveHost(
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
+  resolve: {
+    dedupe: [
+      "@codemirror/state",
+      "@codemirror/view",
+      "@codemirror/lint",
+      "@codemirror/language",
+      "@codemirror/autocomplete",
+    ],
+  },
   server: {
     host: devFrontendHost,
     port: devFrontendPort,
