@@ -1,5 +1,10 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import * as Dialog from "@radix-ui/react-dialog";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import {
+  MediaCarousel,
+  type MediaCarouselItem,
+} from "components/Utils/MediaCarousel";
 import {
   ReactNode,
   Ref,
@@ -11,7 +16,9 @@ import {
   useState,
 } from "react";
 import { FaBrain } from "react-icons/fa6";
-import { IoMdCheckmark } from "react-icons/io";
+import { FiFileText } from "react-icons/fi";
+import { IoMdCheckmark, IoMdClose } from "react-icons/io";
+import { IoImageOutline } from "react-icons/io5";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import ReactMarkdown from "react-markdown";
@@ -233,6 +240,52 @@ function ChatImage({
   );
 }
 
+const IMAGE_ATTACHMENT_EXTENSIONS = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jfif",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+]);
+
+function extractFileExtension(value: string): string | null {
+  const baseName = value.split(/[/\\]/).pop() ?? value;
+  if (!baseName) {
+    return null;
+  }
+  const dotIndex = baseName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
+    return null;
+  }
+  return baseName.slice(dotIndex).toLowerCase();
+}
+
+function isImageAttachment(attachment: ChatFileAttachment): boolean {
+  const mimeType = attachment.mimeType?.trim().toLowerCase();
+  if (mimeType) {
+    return mimeType.startsWith("image/");
+  }
+  const nameExtension = extractFileExtension(attachment.name);
+  if (nameExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(nameExtension)) {
+    return true;
+  }
+  const idExtension = extractFileExtension(attachment.id);
+  if (idExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(idExtension)) {
+    return true;
+  }
+  return false;
+}
+
 function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
 }
@@ -255,6 +308,221 @@ function collectAttachments(
   return Array.from(map.values());
 }
 
+function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
+  if (attachment.size === null || attachment.size === undefined) {
+    return null;
+  }
+  return formatBytes(attachment.size);
+}
+
+async function openAttachmentInNewTab(
+  attachment: ChatFileAttachment,
+  attachmentUrlMap: Record<string, AttachmentUrlEntry>,
+  requestAttachmentUrls: (
+    targets: ChatFileAttachment[],
+    options?: { force?: boolean },
+  ) => Promise<Record<string, AttachmentUrlEntry>>,
+) {
+  const now = Date.now();
+  const entry = attachmentUrlMap[attachment.id];
+  if (entry && !isAttachmentUrlStale(entry, now)) {
+    window.open(entry.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const refreshed = await requestAttachmentUrls([attachment], { force: true });
+  const nextEntry = refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
+  if (!nextEntry || isAttachmentUrlStale(nextEntry, Date.now())) {
+    return;
+  }
+  window.open(nextEntry.url, "_blank", "noopener,noreferrer");
+}
+
+function AttachmentPreviewDialog({
+  open,
+  onOpenChange,
+  attachments,
+  selectedAttachmentId,
+  onSelectAttachmentId,
+  attachmentUrlMap,
+  requestAttachmentUrls,
+  onOpenAttachment,
+  onImageError,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  attachments: ChatFileAttachment[];
+  selectedAttachmentId: string | null;
+  onSelectAttachmentId: (id: string) => void;
+  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
+  requestAttachmentUrls: (
+    targets: ChatFileAttachment[],
+    options?: { force?: boolean },
+  ) => Promise<Record<string, AttachmentUrlEntry>>;
+  onOpenAttachment: (attachment: ChatFileAttachment) => void;
+  onImageError: (attachment: ChatFileAttachment) => void;
+}) {
+  const selectedIndex = useMemo(() => {
+    if (attachments.length === 0) {
+      return -1;
+    }
+    if (!selectedAttachmentId) {
+      return 0;
+    }
+    const index = attachments.findIndex(
+      (attachment) => attachment.id === selectedAttachmentId,
+    );
+    return index >= 0 ? index : 0;
+  }, [attachments, selectedAttachmentId]);
+  const selectedAttachment =
+    selectedIndex >= 0 ? attachments[selectedIndex] : null;
+
+  useEffect(() => {
+    if (!open || attachments.length === 0) {
+      return;
+    }
+    void requestAttachmentUrls(attachments);
+  }, [open, attachments, requestAttachmentUrls]);
+
+  const carouselItems = useMemo<Array<MediaCarouselItem<ChatFileAttachment>>>(
+    () =>
+      attachments.map((attachment) => {
+        const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? null;
+        const isImage = isImageAttachment(attachment);
+        return {
+          id: attachment.id,
+          label: attachment.name,
+          thumbnailUrl: isImage ? attachmentUrl : null,
+          imageUrl: isImage ? attachmentUrl : null,
+          data: attachment,
+        };
+      }),
+    [attachments, attachmentUrlMap],
+  );
+
+  const renderAttachmentPreview = useCallback(
+    (item: MediaCarouselItem<ChatFileAttachment>) => {
+      const attachment = item.data;
+      if (!attachment) {
+        return (
+          <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+            <IoImageOutline size={40} />
+            <span>Loading preview...</span>
+          </div>
+        );
+      }
+      const isImage = isImageAttachment(attachment);
+      const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? "";
+      if (isImage) {
+        if (!attachmentUrl) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+              <IoImageOutline size={40} />
+              <span>Loading preview...</span>
+            </div>
+          );
+        }
+        return (
+          <div className="relative h-full w-full">
+            <img
+              src={attachmentUrl}
+              alt={attachment.name}
+              className="h-full w-full object-contain"
+              loading="lazy"
+              onError={() => onImageError(attachment)}
+            />
+          </div>
+        );
+      }
+      const sizeLabel = getAttachmentSizeLabel(attachment);
+      return (
+        <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
+          <FiFileText size={40} />
+          <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
+            {attachment.name}
+          </span>
+          {sizeLabel ? (
+            <span className="text-xs text-setta-400 dark:text-setta-500">
+              {sizeLabel}
+            </span>
+          ) : null}
+        </div>
+      );
+    },
+    [attachmentUrlMap, onImageError],
+  );
+
+  if (!open || attachments.length === 0 || !selectedAttachment) {
+    return null;
+  }
+
+  const sizeLabel = getAttachmentSizeLabel(selectedAttachment);
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[80vh] min-h-0 w-[95vw] max-w-[1100px] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-lg bg-white px-6 pb-5 pt-4 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
+          <div className="flex items-center justify-between gap-3">
+            <Dialog.Title className="text-xs font-bold uppercase tracking-[0.2em] text-setta-400">
+              Attachment preview
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-setta-400 transition hover:bg-setta-200 hover:text-setta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:hover:bg-setta-900 dark:hover:text-setta-200"
+              >
+                <IoMdClose size={18} />
+              </button>
+            </Dialog.Close>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex items-center justify-between text-[11px] text-setta-400">
+              <div className="max-w-[70%] truncate">
+                {selectedAttachment.name}
+              </div>
+              <div className="shrink-0">
+                {selectedIndex + 1} / {attachments.length}
+              </div>
+            </div>
+
+            <MediaCarousel
+              items={carouselItems}
+              selectedId={selectedAttachmentId}
+              onSelect={onSelectAttachmentId}
+              renderPreview={renderAttachmentPreview}
+              showThumbnailLabels
+              showNavButtons={attachments.length > 1}
+              containerClassName="gap-4"
+              previewClassName="border border-setta-200/60 bg-setta-50 dark:border-setta-700 dark:bg-setta-860/80"
+              thumbnailRowClassName="rounded-lg border border-setta-200/60 bg-setta-50/70 px-3 py-3 dark:border-setta-700 dark:bg-setta-900/50"
+              thumbnailClassName="border-setta-300/70 bg-white/70 dark:border-setta-700 dark:bg-setta-800/70"
+              selectedThumbnailClassName="border-blue-500 shadow-md"
+              footer={
+                <div className="flex items-center justify-between text-[11px] text-setta-400">
+                  <div className="truncate">
+                    {selectedAttachment.mimeType ?? "Unknown type"}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {sizeLabel ? <span>{sizeLabel}</span> : null}
+                    <button
+                      type="button"
+                      onClick={() => onOpenAttachment(selectedAttachment)}
+                      className="uppercase tracking-[0.2em] text-setta-400 transition hover:text-setta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:hover:text-setta-200"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              }
+            />
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 function ChatAttachmentList({
   attachments,
   isUser,
@@ -269,9 +537,11 @@ function ChatAttachmentList({
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
 }) {
-  if (attachments.length === 0) {
-    return null;
-  }
+  const hasAttachments = attachments.length > 0;
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewAttachmentId, setPreviewAttachmentId] = useState<string | null>(
+    null,
+  );
   const pillClassName = isUser
     ? "border-white/40 bg-white/10 text-white"
     : "border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200";
@@ -283,30 +553,23 @@ function ChatAttachmentList({
     [requestAttachmentUrls],
   );
   const handleAttachmentOpen = useCallback(
-    async (attachment: ChatFileAttachment) => {
-      const now = Date.now();
-      const entry = attachmentUrlMap[attachment.id];
-      if (entry && !isAttachmentUrlStale(entry, now)) {
-        window.open(entry.url, "_blank", "noopener,noreferrer");
-        return;
-      }
-      const refreshed = await requestAttachmentUrls([attachment], {
-        force: true,
-      });
-      const nextEntry =
-        refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
-      if (!nextEntry || isAttachmentUrlStale(nextEntry, Date.now())) {
-        return;
-      }
-      window.open(nextEntry.url, "_blank", "noopener,noreferrer");
+    (attachment: ChatFileAttachment) => {
+      void openAttachmentInNewTab(
+        attachment,
+        attachmentUrlMap,
+        requestAttachmentUrls,
+      );
     },
     [attachmentUrlMap, requestAttachmentUrls],
   );
+  const handlePreviewOpen = useCallback((attachment: ChatFileAttachment) => {
+    setPreviewAttachmentId(attachment.id);
+    setPreviewOpen(true);
+  }, []);
 
   useEffect(() => {
     const staleImages = attachments.filter((attachment) => {
-      const mimeType = attachment.mimeType ?? "application/octet-stream";
-      if (!mimeType.startsWith("image/")) {
+      if (!isImageAttachment(attachment)) {
         return false;
       }
       const entry = attachmentUrlMap[attachment.id];
@@ -320,35 +583,80 @@ function ChatAttachmentList({
     }
   }, [attachments, attachmentUrlMap, requestAttachmentUrls]);
 
+  useEffect(() => {
+    if (!previewOpen || attachments.length === 0) {
+      return;
+    }
+    if (
+      previewAttachmentId &&
+      attachments.some((attachment) => attachment.id === previewAttachmentId)
+    ) {
+      return;
+    }
+    setPreviewAttachmentId(attachments[0]?.id ?? null);
+  }, [attachments, previewAttachmentId, previewOpen]);
+
+  if (!hasAttachments) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col gap-2">
+    <>
+      <AttachmentPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        attachments={attachments}
+        selectedAttachmentId={previewAttachmentId}
+        onSelectAttachmentId={setPreviewAttachmentId}
+        attachmentUrlMap={attachmentUrlMap}
+        requestAttachmentUrls={requestAttachmentUrls}
+        onOpenAttachment={handleAttachmentOpen}
+        onImageError={handleImageError}
+      />
+      <div className="flex flex-wrap gap-2">
       {attachments.map((attachment) => {
-        const mimeType = attachment.mimeType ?? "application/octet-stream";
-        const isImage = mimeType.startsWith("image/");
+        const isImage = isImageAttachment(attachment);
         const entry = attachmentUrlMap[attachment.id];
         const url = entry ? entry.url : "";
-        const sizeLabel =
-          attachment.size !== null && attachment.size !== undefined
-            ? formatBytes(attachment.size)
-            : null;
+        const sizeLabel = getAttachmentSizeLabel(attachment);
         if (isImage && url) {
           return (
-            <div key={attachment.id} className="flex flex-col gap-1">
-              <ChatImage
-                url={url}
-                onError={() => handleImageError(attachment)}
-              />
-              <span className={`text-[10px] ${detailClassName}`}>
-                {attachment.name}
-                {sizeLabel ? ` • ${sizeLabel}` : ""}
-              </span>
+            <div key={attachment.id} className="flex w-24 flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => handlePreviewOpen(attachment)}
+                className="inline-flex h-16 w-16 cursor-pointer items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+              >
+                <ChatImage
+                  url={url}
+                  onError={() => handleImageError(attachment)}
+                  className={`h-16 w-16 cursor-pointer object-cover ${
+                    isUser ? "border-white/40 bg-white/10" : ""
+                  }`}
+                />
+              </button>
+              <div
+                className={`flex w-full flex-col gap-0.5 text-[10px] ${detailClassName}`}
+              >
+                <span className="truncate">{attachment.name}</span>
+                {sizeLabel ? <span className="opacity-70">{sizeLabel}</span> : null}
+              </div>
             </div>
           );
         }
         return (
           <div
             key={attachment.id}
-            className={`flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => handlePreviewOpen(attachment)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handlePreviewOpen(attachment);
+              }
+            }}
+            className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
           >
             <span className="max-w-[220px] truncate">{attachment.name}</span>
             {sizeLabel ? (
@@ -358,7 +666,10 @@ function ChatAttachmentList({
             ) : null}
             <button
               type="button"
-              onClick={() => void handleAttachmentOpen(attachment)}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleAttachmentOpen(attachment);
+              }}
               className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
             >
               Open
@@ -366,7 +677,8 @@ function ChatAttachmentList({
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 
