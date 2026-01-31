@@ -170,14 +170,8 @@ class SpecificFileWatcher:
     def stop(self):
         if not self._started:
             return
-        observer = self.observer
-        if observer.is_alive():
-            observer.stop()
-            observer.join(timeout=1.0)
-            if observer.is_alive():
-                logger.warning(
-                    "Specific file watcher observer did not shut down within timeout."
-                )
+        self.observer.stop()
+        self.observer.join()
         self._started = False
 
 

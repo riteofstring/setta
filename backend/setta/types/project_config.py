@@ -54,7 +54,6 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     isUserFacing: bool = False
-    isTab: bool = False
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
 
 
