@@ -36,7 +36,7 @@ from setta.types.helpers_lvl2 import (
     set_text_block_heading_as_section_name,
     set_text_block_text,
 )
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import Position, ProjectConfig, ViewModeConfig
 from setta.types.project_state import (
     CODE_LANGUAGE_EXTENSIONS,
     ProjectStateBackend,
@@ -52,7 +52,12 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.utils.constants import C
-from setta.utils.errors import InvalidParamName, InvalidProjectName, InvalidSectionName
+from setta.utils.errors import (
+    InvalidParamName,
+    InvalidProjectName,
+    InvalidSectionName,
+    InvalidViewModeName,
+)
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
     collect_param_name_format_errors,
@@ -61,6 +66,7 @@ from setta.utils.name_validation import (
     collect_section_name_format_errors,
     collect_text_block_heading_name_errors,
     validate_param_name,
+    validate_view_mode_name,
 )
 from setta.utils.utils import build_project_sections_dir, normalize_path
 
@@ -213,6 +219,99 @@ class TestProjectNameValidation:
         assert collect_project_name_format_errors(project_state) == [
             "Project name cannot include path separators."
         ]
+
+
+class TestViewModeNameValidation:
+    def test_view_mode_name_rejects_reserved(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, view_mode.id, "home")
+
+    def test_view_mode_name_rejects_path_separators(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, view_mode.id, "bad/name")
+
+    def test_view_mode_name_rejects_dotdot(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, view_mode.id, "bad..name")
+
+    def test_view_mode_name_rejects_special_chars(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, view_mode.id, "bad@name")
+
+    def test_view_mode_name_invalid_after_sanitization_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, view_mode.id, "__")
+
+    def test_view_mode_name_trims_whitespace(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        assert (
+            validate_view_mode_name(project_state, view_mode.id, "  Foo Bar  ")
+            == "Foo Bar"
+        )
+
+    def test_view_mode_name_allows_simple_chars(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        view_mode = ViewModeConfig(name="Primary")
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        assert (
+            validate_view_mode_name(
+                project_state, view_mode.id, "Alpha-2 _Beta"
+            )
+            == "Alpha-2 _Beta"
+        )
+
+    def test_view_mode_slug_collision_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        primary = ViewModeConfig(name="foo_bar")
+        secondary = ViewModeConfig(name="secondary")
+        project_state.projectConfig.viewModes[primary.id] = primary
+        project_state.projectConfig.viewModes[secondary.id] = secondary
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, secondary.id, "foo bar")
+
+    def test_view_mode_slug_collision_case_insensitive_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        primary = ViewModeConfig(name="Foo")
+        secondary = ViewModeConfig(name="secondary")
+        project_state.projectConfig.viewModes[primary.id] = primary
+        project_state.projectConfig.viewModes[secondary.id] = secondary
+        with pytest.raises(InvalidViewModeName):
+            validate_view_mode_name(project_state, secondary.id, "foo")
 
 
 class TestSectionNameValidation:
