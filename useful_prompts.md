@@ -27,7 +27,3 @@ Merge the main branch into our current branch. If there are merge conflicts, res
 
 
 Any unit/integration/e2e backend/frontend tests worth adding? If so, add them.
-
-
-
-Read all the top-level review*.md docs. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
