@@ -83,11 +83,6 @@ class TypeErrorIgnoreState(BaseModel, extra="forbid"):
     params: dict[ID, bool] = Field(default_factory=dict)
 
 
-class CodeSectionDiagnosticsIgnoreState(BaseModel, extra="forbid"):
-    muted: bool = False
-    suppressedCodes: list[str | int] = Field(default_factory=list)
-
-
 class TextBlockDisplayMode(str, Enum):
     Render = "Render"
     Edit = "Edit"
@@ -281,9 +276,6 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
-    diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
-        default_factory=CodeSectionDiagnosticsIgnoreState
-    )
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):

@@ -14,7 +14,7 @@
 - `pnpm -C frontend ai` starts dev + a CDP-enabled Chrome; `pnpm -C frontend aicdt` adds auto-open DevTools; `pnpm -C frontend aireset` wipes `setta_files` then starts.
 - `pnpm -C frontend kill` stops dev processes + sessions; `pnpm -C frontend cdp-port` prints the CDP port for the current worktree.
 - `pnpm build` produces the production frontend bundle; `./build.sh` wraps this, bundles the Node runtime + sidecars, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
-- `pnpm test` executes the Vitest suite (watch mode: `pnpm test -- --watch`); Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
+- `pnpm test` executes the Vitest suite (watch mode by default). For a one-off run, prefer `pnpm -C frontend exec vitest run <path>` to avoid hanging in watch; Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
 - `./t.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E). Use `--b` for backend-only or `--f` for frontend + Playwright.
 - `./scripts/run_backend_tests.sh` runs the Python pytest suite only.
