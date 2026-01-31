@@ -6,7 +6,7 @@ INSTANCE_NAME=""
 if [ "$#" -gt 0 ]; then
   case "$1" in
     -h|--help)
-      echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr]" >&2
+      echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset]" >&2
       echo "If instance-name is omitted, the worktree folder name is used." >&2
       exit 0
       ;;
@@ -127,6 +127,8 @@ cd "${ROOT_DIR}/frontend"
 
 if [ "${RUN_MODE}" = "startr" ]; then
   pnpm startr
+elif [ "${RUN_MODE}" = "reset" ]; then
+  pnpm reset
 else
   pnpm start
 fi
