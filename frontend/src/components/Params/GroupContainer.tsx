@@ -1,6 +1,7 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, {
@@ -257,12 +258,15 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     };
 
     const measureHeight = () => {
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      const rectHeight = node.getBoundingClientRect().height / safeZoom;
       const style = window.getComputedStyle(node);
       const marginHeight =
         (Number.parseFloat(style.marginTop) || 0) +
         (Number.parseFloat(style.marginBottom) || 0);
       const measuredHeight =
-        Math.max(node.scrollHeight, node.offsetHeight) + marginHeight;
+        Math.max(node.scrollHeight, rectHeight) + marginHeight;
       updateHeight(Math.max(measuredHeight, 0));
     };
 
@@ -273,8 +277,16 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     observer.observe(node);
     measureHeight();
 
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        measureHeight();
+      },
+    );
+
     return () => {
       observer.disconnect();
+      unsubscribe();
     };
   }, [hasEdges, heightKey, portsKey]);
 
@@ -669,9 +681,14 @@ function ResizablePinnedArea({
       return;
     }
     const update = () => {
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const rectHeight = node.getBoundingClientRect().height;
+      const unscaledHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
       const clientHeight = node.clientHeight;
-      const offsetHeight = node.offsetHeight;
-      const nextHeight = Math.max(clientHeight, offsetHeight);
+      const nextHeight =
+        clientHeight > 0
+          ? Math.max(clientHeight, unscaledHeight)
+          : unscaledHeight;
       const roundedHeight = Math.ceil(nextHeight);
       setMeasuredContainerHeight(roundedHeight > 0 ? roundedHeight : null);
       const style = window.getComputedStyle(node);
@@ -686,8 +703,15 @@ function ResizablePinnedArea({
       update();
     });
     observer.observe(node);
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
     return () => {
       observer.disconnect();
+      unsubscribe();
     };
   }, [outerRef]);
 
@@ -730,12 +754,17 @@ function ResizablePinnedArea({
           list.querySelectorAll<HTMLElement>("article.section-lg-value"),
         );
       }
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
       let listHeight = list.scrollHeight;
       let maxBottom = 0;
       if (listRows.length > 0) {
+        const listRect = list.getBoundingClientRect();
+        const listScrollTop = list.scrollTop;
         for (const row of listRows) {
-          const top = row.offsetTop;
-          const bottom = top + Math.max(row.offsetHeight, row.scrollHeight);
+          const rowRect = row.getBoundingClientRect();
+          const top = (rowRect.top - listRect.top) / safeZoom + listScrollTop;
+          const bottom = top + rowRect.height / safeZoom;
           if (bottom > maxBottom) {
             maxBottom = bottom;
           }
@@ -756,9 +785,11 @@ function ResizablePinnedArea({
       // Prefer the first non-zero row height to guarantee one pinned row fits.
       let rowHeight = 0;
       for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
         const measuredHeight = Math.max(
           row.offsetHeight,
           row.scrollHeight,
+          rectHeight,
         );
         if (measuredHeight > 0) {
           rowHeight = measuredHeight;
@@ -826,6 +857,12 @@ function ResizablePinnedArea({
       rows.forEach((row) => rowObserver.observe(row));
     };
     observeRows();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
     const mutationObserver = new MutationObserver(() => {
       update();
       observeRows();
@@ -852,6 +889,7 @@ function ResizablePinnedArea({
       });
       resizeObserver.disconnect();
       rowObserver.disconnect();
+      unsubscribe();
       mutationObserver.disconnect();
     };
   }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
@@ -879,14 +917,10 @@ function ResizablePinnedArea({
       : pinnedParamsAreaMinHeight;
   const minHeight = maxHeight > 0 ? Math.min(pinnedMinHeight, maxHeight) : 0;
   const resolvedMinHeight = minHeight;
-  const resolvedAutoHeight =
-    typeof maxHeight === "number" && Number.isFinite(maxHeight)
-      ? Math.max(resolvedMinHeight, Math.min(maxHeight, availableHeight))
-      : height;
   const resolvedHeight =
     typeof height === "number" && Number.isFinite(maxHeight)
       ? Math.min(Math.max(height, resolvedMinHeight), maxHeight)
-      : resolvedAutoHeight;
+      : height;
   const numericSectionHeight =
     typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
       ? sectionHeight
@@ -955,7 +989,10 @@ function ResizablePinnedArea({
       if (baseSectionHeight === null && outerRef.current) {
         const sectionRoot = outerRef.current.closest("section");
         if (sectionRoot) {
-          baseSectionHeight = sectionRoot.offsetHeight;
+          const zoom = useReactFlow.getState().transform[2] ?? 1;
+          const safeZoom = zoom > 0 ? zoom : 1;
+          baseSectionHeight =
+            sectionRoot.getBoundingClientRect().height / safeZoom;
         }
       }
       if (baseSectionHeight === null) {
@@ -1172,11 +1209,15 @@ function GetUnpinnedParams({
                 ":scope > article.section-lg-value",
               ),
             );
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
       let rowHeight = 0;
       for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
         const measuredHeight = Math.max(
           row.offsetHeight,
           row.scrollHeight,
+          rectHeight,
         );
         if (measuredHeight > 0) {
           rowHeight = measuredHeight;

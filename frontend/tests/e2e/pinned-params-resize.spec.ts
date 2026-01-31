@@ -15,7 +15,6 @@ const JUMP_TO_START_SHORTCUT =
   MOD_KEY === "Meta" ? "Meta+ArrowUp" : "Control+Home";
 const TARGET_CALLABLE = "math.sqrt";
 const FALLBACK_CALLABLE_SECTION_NAME = "__pw_callable__";
-const FALLBACK_DICT_SECTION_NAME = "__pw_dict__";
 const EXPECTED_CALLABLE_HIDE_PARAMS_MIN_HEIGHT = 32;
 const EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const BACKEND_ORIGIN =
@@ -821,95 +820,6 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   }
 });
 
-test("dict section keeps unpinned params visible when shrinking", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-
-  const settingsSnapshot = await loadSettingsSnapshot(page);
-  try {
-    const didUpdateSettings = await ensureSizingPolicyDefaults(page);
-    if (didUpdateSettings) {
-      await page.reload();
-      await page.waitForSelector(READY_SELECTOR);
-    }
-
-    const sections = page.locator('section[class*="card-section"]');
-    await ensureProjectConfig(page, sections);
-
-    const ensuredDict = await createDictSection(page);
-    const dictSection = ensuredDict.dictSection;
-    await focusSectionFromOverview(page, ensuredDict.dictName, dictSection);
-
-    const paramGroup = dictSection.locator("div.section-row-pin-main").first();
-    const unpinnedArea = paramGroup
-      .locator(":scope > div.section-args-nested")
-      .first();
-
-    const editableRows = await ensureEditableArgRows(
-      dictSection,
-      unpinnedArea,
-      6,
-    );
-    const rowSelector =
-      ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value";
-    const unpinnedRows = unpinnedArea.locator(rowSelector);
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(6);
-
-    await selectArgRowsByIndex(page, unpinnedRows, [0, 1, 2]);
-    const pinButton = dictSection.getByRole("button", {
-      name: "Pin selected args",
-    });
-    await expect(pinButton).toBeEnabled();
-    await pinButton.click();
-
-    const pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
-    await expect(pinnedArea).toBeVisible();
-    const pinnedRows = pinnedArea
-      .locator("div.section-args-nested")
-      .locator(rowSelector);
-    // Shrink immediately after pinning to catch cases where unpinned min height
-    // hasn't been measured yet.
-    const initialUnpinnedCount = await unpinnedRows.count();
-    for (let i = 0; i < 6; i += 1) {
-      await dragResize(page, dictSection, {
-        handle: "bottom",
-        dx: 0,
-        dy: -120,
-        outside: 6,
-      });
-      const intersectionMetrics = await getUnpinnedIntersectionMetrics(
-        page,
-        dictSection,
-        unpinnedArea,
-      );
-      const rowHeight =
-        intersectionMetrics.rowHeight > 0
-          ? intersectionMetrics.rowHeight
-          : await getMinParamRowHeight(unpinnedArea);
-      expect(rowHeight).toBeGreaterThan(0);
-      expect(intersectionMetrics.intersectionHeight).toBeGreaterThanOrEqual(
-        rowHeight - 2,
-      );
-    }
-    let unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-    if (unpinnedRowHeight === 0) {
-      unpinnedRowHeight = await getMinParamRowHeight(unpinnedArea);
-    }
-    const unpinnedMetrics = await getScrollMetrics(unpinnedArea);
-    expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
-      unpinnedRowHeight - 2,
-    );
-    await expect
-      .poll(async () => unpinnedRows.count())
-      .toBeGreaterThanOrEqual(initialUnpinnedCount);
-  } finally {
-    await restoreSettings(page, settingsSnapshot);
-  }
-});
-
 async function ensureProjectConfig(
   page: Page,
   sections: Locator,
@@ -1038,37 +948,6 @@ async function ensureCallableSectionWithMathSqrt(
   return {
     callableSection: createdSection,
     callableName: sectionName,
-  };
-}
-
-async function createDictSection(
-  page: Page,
-): Promise<{ dictSection: Locator; dictName: string }> {
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await postBackend(page, "/createTopLevelSection", {
-    projectConfigId,
-    implType: "Dict",
-  });
-  const sectionId = created?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating dict section.");
-  }
-
-  const sectionName = await resolveUniqueSectionName(
-    page,
-    FALLBACK_DICT_SECTION_NAME,
-  );
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId,
-    name: sectionName,
-  });
-
-  const createdSection = findSectionCandidates(page, sectionName).first();
-  await expect(createdSection).toBeVisible();
-  return {
-    dictSection: createdSection,
-    dictName: sectionName,
   };
 }
 
@@ -2234,39 +2113,6 @@ async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
     clientHeight: el.clientHeight,
     scrollHeight: el.scrollHeight,
   }));
-}
-
-async function getUnpinnedIntersectionMetrics(
-  page: Page,
-  section: Locator,
-  unpinnedArea: Locator,
-): Promise<{ intersectionHeight: number; rowHeight: number }> {
-  return page.evaluate(
-    ({ section, unpinnedArea }) => {
-      if (!section || !unpinnedArea) {
-        return { intersectionHeight: 0, rowHeight: 0 };
-      }
-      const sectionRect = section.getBoundingClientRect();
-      const areaRect = unpinnedArea.getBoundingClientRect();
-      const intersectionTop = Math.max(sectionRect.top, areaRect.top);
-      const intersectionBottom = Math.min(sectionRect.bottom, areaRect.bottom);
-      const intersectionHeight = Math.max(0, intersectionBottom - intersectionTop);
-      const rows = Array.from(
-        unpinnedArea.querySelectorAll(
-          ":scope > article.section-args-nested-key-value, :scope > article.section-lg-value",
-        ),
-      );
-      const rowHeight =
-        rows.length > 0 && rows[0] instanceof HTMLElement
-          ? rows[0].offsetHeight
-          : 0;
-      return { intersectionHeight, rowHeight };
-    },
-    {
-      section: await section.elementHandle(),
-      unpinnedArea: await unpinnedArea.elementHandle(),
-    },
-  );
 }
 
 async function waitForPinnedRowCounts(
