@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   useLocation,
   useMatch,
@@ -20,6 +20,8 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
   const requestedViewModeName = viewMatch?.params.viewModeName ?? null;
   const location = useLocation();
   const navigate = useNavigate();
+  const lastSyncedPathRef = useRef<string | null>(null);
+  const isUrlDrivenRef = useRef(false);
   const { canEditVariants } = useShareCapabilities();
   const { projectConfigId, activeViewModeId, viewModes } = useProjectState(
     (x) => ({
@@ -28,6 +30,7 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       viewModes: x.projectConfig.viewModes,
     }),
   );
+  const isViewRoute = Boolean(viewMatch);
 
   const requestedViewModeId = useMemo(() => {
     if (!requestedViewModeName) {
@@ -42,13 +45,34 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
   }, [requestedViewModeName, viewModes]);
 
   useEffect(() => {
+    if (!enabled || !isViewRoute) {
+      isUrlDrivenRef.current = false;
+      lastSyncedPathRef.current = null;
+      return;
+    }
+    if (
+      lastSyncedPathRef.current &&
+      location.pathname === lastSyncedPathRef.current
+    ) {
+      lastSyncedPathRef.current = null;
+      isUrlDrivenRef.current = false;
+      return;
+    }
+    isUrlDrivenRef.current = true;
+  }, [enabled, isViewRoute, location.pathname]);
+
+  useEffect(() => {
     if (!enabled || !requestedViewModeName || !requestedViewModeId) {
       return;
     }
     if (requestedViewModeId === activeViewModeId) {
+      isUrlDrivenRef.current = false;
       return;
     }
     if (!canEditVariants) {
+      return;
+    }
+    if (!isUrlDrivenRef.current) {
       return;
     }
     void route_set_active_view_mode({
@@ -62,6 +86,7 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     projectConfigId,
     requestedViewModeId,
     requestedViewModeName,
+    isViewRoute,
   ]);
 
   useEffect(() => {
@@ -71,7 +96,8 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     if (
       requestedViewModeId &&
       requestedViewModeId !== activeViewModeId &&
-      canEditVariants
+      canEditVariants &&
+      isUrlDrivenRef.current
     ) {
       return;
     }
@@ -86,6 +112,7 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     if (location.pathname === nextPath) {
       return;
     }
+    lastSyncedPathRef.current = nextPath;
     navigate(nextPath, { replace: true, state: location.state });
   }, [
     activeViewModeId,
