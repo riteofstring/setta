@@ -11,6 +11,7 @@ from .server import LanguageServer, LanguageServerInteractor
 logger = logging.getLogger(__name__)
 
 _MAX_LOGGED_PARAMS_KEYS = 25
+LSP_STDIN_DRAIN_TIMEOUT_SECONDS = 5.0
 
 
 def _summarize_params(params: object) -> object:
@@ -47,7 +48,18 @@ class LanguageServerWriter(LanguageServerInteractor):
             logger.debug("Skipping %s; language server process is not ready", method)
             return
         stdin.write(header + request)
-        await stdin.drain()
+        try:
+            await asyncio.wait_for(
+                stdin.drain(),
+                timeout=LSP_STDIN_DRAIN_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Timed out sending %s to LSP server %s",
+                method,
+                self.server.name,
+            )
+            return
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
 
