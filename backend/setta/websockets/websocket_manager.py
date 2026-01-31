@@ -76,20 +76,6 @@ class WebsocketManager:
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)
 
-    async def send_bytes(self, payload: bytes, toWebsocketId: str) -> None:
-        socket_info = self.sockets.get(toWebsocketId)
-        if not socket_info:
-            return
-        websocket = socket_info.websocket
-        if websocket.application_state != WebSocketState.CONNECTED:
-            self.sockets.pop(toWebsocketId, None)
-            return
-        try:
-            await websocket.send_bytes(payload)
-        except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
-            logger.debug("Websocket %s is closed; removing.", toWebsocketId)
-            self.sockets.pop(toWebsocketId, None)
-
     async def broadcast(
         self,
         message: WebsocketMsg,

@@ -9,7 +9,6 @@ from setta.code_gen.dependency_graph import (
     SectionNode,
 )
 from setta.code_gen.value_mode import PythonValueMode
-from setta.types.binary_content import BinaryContentRef
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
 from setta.types.dropzone import dropzone_value_to_attachments
@@ -217,8 +216,8 @@ class PythonValueCodec:
         match value.type:
             case DependencyValueType.Literal:
                 return value.payload
-            case DependencyValueType.Binary:
-                return self._format_binary_value(value.payload)
+            case DependencyValueType.Base64:
+                return self._format_base64_value(value.payload)
             case DependencyValueType.FileRead:
                 return self._format_file_read_value(value.payload)
             case _:
@@ -398,19 +397,11 @@ class PythonValueCodec:
 
         return self._format_collection(f"{callable_name}(", ")", items)
 
-    def _format_binary_value(self, payload: BinaryContentRef) -> str:
-        payload_literal = repr(
-            {
-                "contentId": payload.contentId,
-                "byteLength": payload.byteLength,
-                "mimeType": payload.mimeType,
-                "sha256": payload.sha256,
-            }
-        )
+    def _format_base64_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:
-            return payload_literal
+            return repr(payload)
         helper_alias = self._require_value_helpers()
-        return f"{helper_alias}.read_binary_value({payload_literal})"
+        return f"{helper_alias}.decode_base64_value({repr(payload)})"
 
     def _format_file_read_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:

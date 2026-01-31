@@ -1,10 +1,5 @@
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${ROOT_DIR}"
+cd ..
 . ./activate.sh
-
-LOG_FILE="${ROOT_DIR}/backend.log"
-: > "${LOG_FILE}"
-exec > >(tee -a "${LOG_FILE}") 2>&1
 # SETTA_DEV_MODE="true" setta "$@" # pass in other command line args
 
 HOST_ARGS=(--host "${SETTA_HOST:-127.0.0.1}")

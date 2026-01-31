@@ -22,6 +22,9 @@ chrome-devtools-mcp and performance profiling.
 2) Start the debug Chrome instance (if you are not using `pnpm -C frontend ai`):
    `scripts/start-browser-mcp.sh --devtools`
 
+   Override MCP state location:
+   `MCP_RUN_DIR="${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>" scripts/start-browser-mcp.sh --devtools`
+
 3) Codex auto-connects chrome-devtools-mcp to the per-worktree CDP port via
    `.codex/config.toml` + `scripts/chrome-devtools-mcp.sh` (no manual port typing).
    If another client needs the port, run:
@@ -45,6 +48,8 @@ chrome-devtools-mcp and performance profiling.
 
 - Each worktree uses an offset for backend/frontend/CDP ports, so you can run
   multiple Setta instances in parallel without collisions.
+- The debug Chrome profile lives under `${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>` by default.
+  Override with `MCP_RUN_DIR` (base dir) or `PROFILE_DIR` (exact profile path).
 - Stop browser MCP processes for this repo with `scripts/stop-browser-mcp.sh --devtools`.
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.

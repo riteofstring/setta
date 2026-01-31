@@ -36,7 +36,7 @@ and as `ctx.emit_to_frontend` inside callbacks.
      `DependencyGraph.full_path_name_to_dep_key`.
    - Infers expected value type from the node value or section type:
      - Literal: section params, callable sections, TextBlock sections.
-     - Binary: Draw + Image sections.
+     - Base64: Draw + Image sections.
      - FileRead: dependencies whose current value type is FileRead.
    - Normalizes artifact paths and enforces cached type consistency.
 
@@ -75,9 +75,6 @@ and as `ctx.emit_to_frontend` inside callbacks.
   fail fast.
 - Dependency updates are intentionally narrow today (params + TextBlock only).
 - Use artifact updates for Draw/Image payloads instead of dependency updates.
-- Image/File artifact updates require `BinaryContentRef` values that already
-  exist in the binary store (for example, via `BinaryStore.store_bytes` or
-  `route_binary_upload`); the websocket payload does not include raw bytes.
 - Artifact updates stay in memory until a save writes them to disk.
 - Tests covering this path live in `tests/websockets/test_python_script_receiver.py`,
   `tests/project_state/test_listener_emit_updates.py`, and
