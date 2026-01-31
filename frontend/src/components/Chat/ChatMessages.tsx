@@ -84,6 +84,12 @@ type AttachmentUrlResponseEntry = {
   url: string;
   expiresAt: number;
 };
+type AttachmentTextPreview = {
+  text: string;
+  truncated: boolean;
+  isLoading: boolean;
+  error: string | null;
+};
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -257,6 +263,39 @@ const IMAGE_ATTACHMENT_EXTENSIONS = new Set([
   ".tiff",
   ".webp",
 ]);
+const TEXT_ATTACHMENT_EXTENSIONS = new Set([
+  ".cfg",
+  ".conf",
+  ".csv",
+  ".ini",
+  ".json",
+  ".log",
+  ".md",
+  ".markdown",
+  ".py",
+  ".toml",
+  ".tsv",
+  ".txt",
+  ".xml",
+  ".yaml",
+  ".yml",
+]);
+const TEXT_ATTACHMENT_MIME_TYPES = new Set([
+  "application/json",
+  "application/javascript",
+  "application/x-javascript",
+  "application/x-python",
+  "application/toml",
+  "application/x-yaml",
+  "application/yaml",
+  "application/xml",
+  "text/markdown",
+  "text/x-markdown",
+  "text/x-python",
+  "text/x-toml",
+]);
+const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
+const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 
 function extractFileExtension(value: string): string | null {
   const baseName = value.split(/[/\\]/).pop() ?? value;
@@ -270,9 +309,17 @@ function extractFileExtension(value: string): string | null {
   return baseName.slice(dotIndex).toLowerCase();
 }
 
-function isImageAttachment(attachment: ChatFileAttachment): boolean {
+function normalizeAttachmentMime(attachment: ChatFileAttachment): string {
   const mimeType = attachment.mimeType?.trim().toLowerCase();
   if (mimeType) {
+    return mimeType;
+  }
+  return "application/octet-stream";
+}
+
+function isImageAttachment(attachment: ChatFileAttachment): boolean {
+  const mimeType = normalizeAttachmentMime(attachment);
+  if (mimeType !== "application/octet-stream") {
     return mimeType.startsWith("image/");
   }
   const nameExtension = extractFileExtension(attachment.name);
@@ -281,6 +328,28 @@ function isImageAttachment(attachment: ChatFileAttachment): boolean {
   }
   const idExtension = extractFileExtension(attachment.id);
   if (idExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(idExtension)) {
+    return true;
+  }
+  return false;
+}
+
+function isTextAttachment(attachment: ChatFileAttachment): boolean {
+  const mimeType = normalizeAttachmentMime(attachment);
+  if (mimeType.startsWith("text/")) {
+    return true;
+  }
+  if (TEXT_ATTACHMENT_MIME_TYPES.has(mimeType)) {
+    return true;
+  }
+  if (mimeType !== "application/octet-stream") {
+    return false;
+  }
+  const nameExtension = extractFileExtension(attachment.name);
+  if (nameExtension && TEXT_ATTACHMENT_EXTENSIONS.has(nameExtension)) {
+    return true;
+  }
+  const idExtension = extractFileExtension(attachment.id);
+  if (idExtension && TEXT_ATTACHMENT_EXTENSIONS.has(idExtension)) {
     return true;
   }
   return false;
@@ -375,6 +444,9 @@ function AttachmentPreviewDialog({
   }, [attachments, selectedAttachmentId]);
   const selectedAttachment =
     selectedIndex >= 0 ? attachments[selectedIndex] : null;
+  const [textPreviewMap, setTextPreviewMap] = useState<
+    Record<string, AttachmentTextPreview>
+  >({});
 
   useEffect(() => {
     if (!open || attachments.length === 0) {
@@ -382,6 +454,111 @@ function AttachmentPreviewDialog({
     }
     void requestAttachmentUrls(attachments);
   }, [open, attachments, requestAttachmentUrls]);
+
+  const requestTextPreview = useCallback(
+    async (attachment: ChatFileAttachment) => {
+      if (!isTextAttachment(attachment)) {
+        return;
+      }
+      const existing = textPreviewMap[attachment.id];
+      if (existing) {
+        return;
+      }
+      if (
+        attachment.size !== null &&
+        attachment.size !== undefined &&
+        attachment.size > TEXT_PREVIEW_MAX_BYTES
+      ) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: true,
+            isLoading: false,
+            error: "Preview disabled for large files.",
+          },
+        }));
+        return;
+      }
+      let entry = attachmentUrlMap[attachment.id];
+      if (!entry || isAttachmentUrlStale(entry, Date.now())) {
+        const refreshed = await requestAttachmentUrls([attachment], {
+          force: true,
+        });
+        entry = refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
+      }
+      if (!entry) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      setTextPreviewMap((prev) => ({
+        ...prev,
+        [attachment.id]: {
+          text: "",
+          truncated: false,
+          isLoading: true,
+          error: null,
+        },
+      }));
+      let response: Response;
+      try {
+        response = await fetch(entry.url);
+      } catch {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      if (!response.ok) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      const text = await response.text();
+      const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
+      const previewText = truncated
+        ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT)
+        : text;
+      setTextPreviewMap((prev) => ({
+        ...prev,
+        [attachment.id]: {
+          text: previewText,
+          truncated,
+          isLoading: false,
+          error: null,
+        },
+      }));
+    },
+    [attachmentUrlMap, requestAttachmentUrls, textPreviewMap],
+  );
+
+  useEffect(() => {
+    if (!open || !selectedAttachment) {
+      return;
+    }
+    void requestTextPreview(selectedAttachment);
+  }, [open, requestTextPreview, selectedAttachment]);
 
   const carouselItems = useMemo<Array<MediaCarouselItem<ChatFileAttachment>>>(
     () =>
@@ -433,6 +610,41 @@ function AttachmentPreviewDialog({
           </div>
         );
       }
+      if (isTextAttachment(attachment)) {
+        const preview = textPreviewMap[attachment.id];
+        if (!preview || preview.isLoading) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+              <FiFileText size={40} />
+              <span>Loading preview...</span>
+            </div>
+          );
+        }
+        if (preview.error) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
+              <FiFileText size={40} />
+              <span className="max-w-[70%] text-center text-setta-700 dark:text-setta-200">
+                {preview.error}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div className="flex h-full w-full flex-col gap-2">
+            <div className="h-full w-full overflow-hidden rounded-md border border-setta-200/60 bg-white/70 dark:border-setta-700 dark:bg-setta-900/60">
+              <pre className="h-full w-full overflow-auto p-4 text-xs leading-relaxed text-setta-700 dark:text-setta-200">
+                {preview.text || ""}
+              </pre>
+            </div>
+            {preview.truncated ? (
+              <div className="text-[11px] text-setta-400">
+                Preview truncated.
+              </div>
+            ) : null}
+          </div>
+        );
+      }
       const sizeLabel = getAttachmentSizeLabel(attachment);
       return (
         <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
@@ -448,7 +660,7 @@ function AttachmentPreviewDialog({
         </div>
       );
     },
-    [attachmentUrlMap, onImageError],
+    [attachmentUrlMap, onImageError, textPreviewMap],
   );
 
   if (!open || attachments.length === 0 || !selectedAttachment) {
