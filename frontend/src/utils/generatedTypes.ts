@@ -6622,6 +6622,7 @@ export type GetAttachmentDownloadUrlRequestInput = z.input<
 
 const GetAttachmentDownloadUrlResponseSchema = z.object({
   url: z.string(),
+  expiresAt: z.int(),
 });
 
 export type GetAttachmentDownloadUrlResponse = z.infer<

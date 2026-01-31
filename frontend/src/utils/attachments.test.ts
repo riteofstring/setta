@@ -4,6 +4,7 @@ import {
   CHAT_ATTACHMENT_MAX_FILE_LABEL,
   CHAT_ATTACHMENT_MAX_FILES,
   formatBytes,
+  resolveChatAttachmentLimit,
 } from "./attachments";
 import { C } from "./c";
 
@@ -29,5 +30,28 @@ describe("chat attachment constants", () => {
     expect(CHAT_ATTACHMENT_MAX_FILE_LABEL).toBe(
       formatBytes(C.CHAT_ATTACHMENTS_MAX_FILE_BYTES),
     );
+  });
+});
+
+describe("resolveChatAttachmentLimit", () => {
+  it("treats 0 as disabled", () => {
+    expect(resolveChatAttachmentLimit(0)).toEqual({
+      maxFiles: 0,
+      disabled: true,
+    });
+  });
+
+  it("treats negative values as unlimited", () => {
+    expect(resolveChatAttachmentLimit(-1)).toEqual({
+      maxFiles: null,
+      disabled: false,
+    });
+  });
+
+  it("uses positive values as limits", () => {
+    expect(resolveChatAttachmentLimit(3)).toEqual({
+      maxFiles: 3,
+      disabled: false,
+    });
   });
 });

@@ -24,10 +24,13 @@ import {
 } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
 import {
+  CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES,
   CHAT_ATTACHMENT_MAX_FILE_BYTES,
   CHAT_ATTACHMENT_MAX_FILE_LABEL,
   CHAT_ATTACHMENT_MAX_FILES,
   formatBytes,
+  isChatAttachmentMimeAllowed,
+  resolveChatAttachmentLimit,
 } from "utils/attachments";
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -84,12 +87,19 @@ export const ChatInput = memo(function ChatInput({
   const inputValue = isControlled ? value : internalValue;
   const isDisabled = disabled;
   const isSubmitDisabled = submitDisabled || isDisabled || isUploading;
-  const attachmentLimit =
-    CHAT_ATTACHMENT_MAX_FILES > 0 ? CHAT_ATTACHMENT_MAX_FILES : null;
-  const remainingSlots =
-    attachmentLimit === null
+  const { maxFiles: attachmentLimit, disabled: attachmentsDisabled } =
+    resolveChatAttachmentLimit(CHAT_ATTACHMENT_MAX_FILES);
+  const attachmentInputDisabled =
+    isDisabled || isUploading || attachmentsDisabled;
+  const remainingSlots = attachmentsDisabled
+    ? 0
+    : attachmentLimit === null
       ? null
       : Math.max(attachmentLimit - attachments.length, 0);
+  const allowedMimeLabel =
+    CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.length > 0
+      ? `Allowed types: ${CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.join(", ")}.`
+      : "";
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -197,6 +207,10 @@ export const ChatInput = memo(function ChatInput({
       if (isDisabled || isUploading) {
         return;
       }
+      if (attachmentsDisabled) {
+        notifyAttachmentWarning("Attachments are disabled.");
+        return;
+      }
       if (files.length === 0) {
         return;
       }
@@ -206,7 +220,23 @@ export const ChatInput = memo(function ChatInput({
       }
       const allowedFiles =
         remainingSlots === null ? files : files.slice(0, remainingSlots);
-      const oversized = allowedFiles.filter(
+      const rejectedByType = allowedFiles.filter((file) => {
+        const mimeType = file.type || "application/octet-stream";
+        return !isChatAttachmentMimeAllowed(mimeType);
+      });
+      if (rejectedByType.length > 0) {
+        notifyAttachmentWarning(
+          `Some files were skipped due to type restrictions. ${allowedMimeLabel}`.trim(),
+        );
+      }
+      const typeAllowedFiles = allowedFiles.filter((file) => {
+        const mimeType = file.type || "application/octet-stream";
+        return isChatAttachmentMimeAllowed(mimeType);
+      });
+      if (typeAllowedFiles.length === 0) {
+        return;
+      }
+      const oversized = typeAllowedFiles.filter(
         (file) => file.size > CHAT_ATTACHMENT_MAX_FILE_BYTES,
       );
       if (oversized.length > 0) {
@@ -214,7 +244,7 @@ export const ChatInput = memo(function ChatInput({
           `File exceeds ${CHAT_ATTACHMENT_MAX_FILE_LABEL} limit.`,
         );
       }
-      const validFiles = allowedFiles.filter(
+      const validFiles = typeAllowedFiles.filter(
         (file) => file.size <= CHAT_ATTACHMENT_MAX_FILE_BYTES,
       );
       if (validFiles.length === 0) {
@@ -223,6 +253,8 @@ export const ChatInput = memo(function ChatInput({
       await uploadFiles(validFiles);
     },
     [
+      allowedMimeLabel,
+      attachmentsDisabled,
       isDisabled,
       isUploading,
       notifyAttachmentWarning,
@@ -280,6 +312,10 @@ export const ChatInput = memo(function ChatInput({
     if (isDisabled || isUploading) {
       return;
     }
+    if (attachmentsDisabled) {
+      notifyAttachmentWarning("Attachments are disabled.");
+      return;
+    }
     openDropzoneFilePickerModal({
       title: "Attach files",
       remainingSlots,
@@ -294,32 +330,52 @@ export const ChatInput = memo(function ChatInput({
           notifyAttachmentWarning(message);
           return;
         }
-        const newAttachments: ChatFileAttachment[] = res.data.map((item) => ({
-          id: item.id,
-          name: item.name,
-          mimeType: item.mimeType,
-          size: item.size,
-        }));
+        const rejected = res.data.filter(
+          (item) => !isChatAttachmentMimeAllowed(item.mimeType),
+        );
+        if (rejected.length > 0) {
+          notifyAttachmentWarning(
+            `Some files were skipped due to type restrictions. ${allowedMimeLabel}`.trim(),
+          );
+        }
+        const newAttachments: ChatFileAttachment[] = res.data
+          .filter((item) => isChatAttachmentMimeAllowed(item.mimeType))
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            mimeType: item.mimeType,
+            size: item.size,
+          }));
+        if (newAttachments.length === 0) {
+          return;
+        }
         setAttachments((prev) => [...prev, ...newAttachments]);
       },
     });
-  }, [isDisabled, isUploading, notifyAttachmentWarning, remainingSlots]);
+  }, [
+    allowedMimeLabel,
+    attachmentsDisabled,
+    isDisabled,
+    isUploading,
+    notifyAttachmentWarning,
+    remainingSlots,
+  ]);
 
   const handleDragEnter = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (isDisabled || isUploading) {
+      if (attachmentInputDisabled) {
         return;
       }
       event.preventDefault();
       dragDepth.current += 1;
       setIsDragActive(true);
     },
-    [isDisabled, isUploading],
+    [attachmentInputDisabled],
   );
 
   const handleDragLeave = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (isDisabled || isUploading) {
+      if (attachmentInputDisabled) {
         return;
       }
       event.preventDefault();
@@ -329,23 +385,23 @@ export const ChatInput = memo(function ChatInput({
         setIsDragActive(false);
       }
     },
-    [isDisabled, isUploading],
+    [attachmentInputDisabled],
   );
 
   const handleDragOver = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (isDisabled || isUploading) {
+      if (attachmentInputDisabled) {
         return;
       }
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
     },
-    [isDisabled, isUploading],
+    [attachmentInputDisabled],
   );
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (isDisabled || isUploading) {
+      if (attachmentInputDisabled) {
         return;
       }
       event.preventDefault();
@@ -354,7 +410,7 @@ export const ChatInput = memo(function ChatInput({
       const files = Array.from(event.dataTransfer.files || []);
       void handleLocalFiles(files);
     },
-    [handleLocalFiles, isDisabled, isUploading],
+    [attachmentInputDisabled, handleLocalFiles],
   );
 
   const handleSubmit = useCallback(
@@ -377,7 +433,7 @@ export const ChatInput = memo(function ChatInput({
 
       const submittedValue = inputValue;
       const result = await onSubmit(submittedValue, attachments);
-      if (result !== false) {
+      if (result === true) {
         clearInput();
         setAttachments([]);
       }
@@ -476,28 +532,36 @@ export const ChatInput = memo(function ChatInput({
               multiple
               className="hidden"
               onChange={handleFileInputChange}
+              disabled={attachmentInputDisabled}
             />
             <button
               type="button"
               className="inline-flex items-center gap-1 rounded-full border border-setta-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-850"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isDisabled || isUploading}
+              disabled={attachmentInputDisabled}
             >
               <IoAttach />
               Attach
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-setta-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-850"
-              onClick={handlePickFromProject}
-              disabled={isDisabled || isUploading}
-            >
-              <IoFolderOpen />
-              Project
-            </button>
-            {remainingSlots !== null ? (
+            {!isShareMode ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-setta-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-850"
+                onClick={handlePickFromProject}
+                disabled={attachmentInputDisabled}
+              >
+                <IoFolderOpen />
+                Project
+              </button>
+            ) : null}
+            {!attachmentsDisabled && remainingSlots !== null ? (
               <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
                 Slots: {remainingSlots}
+              </span>
+            ) : null}
+            {attachmentsDisabled ? (
+              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
+                Attachments disabled
               </span>
             ) : null}
             {isUploading ? (

@@ -116,6 +116,33 @@ def test_build_attachments_prompt_text_skips_images_when_disabled() -> None:
         assert "[Attachment: blob.bin]" in text
 
 
+def test_build_attachment_helpers_handle_missing_files() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        missing_path = dbe.path / "attachments" / "missing.txt"
+        attachment = ChatFileAttachment(
+            id=str(missing_path),
+            name="missing.txt",
+            mimeType="text/plain",
+            size=10,
+        )
+
+        blocks = build_attachment_content_blocks(dbe=dbe, attachments=[attachment])
+        assert len(blocks) == 1
+        missing_block = blocks[0]
+        assert isinstance(missing_block, MessageTextContent)
+        assert "Attachment missing" in missing_block.text
+        assert "missing.txt" in missing_block.text
+
+        text = build_attachments_prompt_text(
+            dbe=dbe,
+            attachments=[attachment],
+            include_images=True,
+        )
+        assert "Attachment missing" in text
+        assert "missing.txt" in text
+
+
 def test_collect_message_attachments_dedupes_by_id() -> None:
     attachment = ChatFileAttachment(
         id="artifacts/one.txt",

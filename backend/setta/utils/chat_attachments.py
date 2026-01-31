@@ -76,6 +76,22 @@ def build_attachment_placeholder_block(
     )
 
 
+def build_missing_attachment_block(
+    attachment: ChatFileAttachment, *, mime_type: str
+) -> MessageTextContent:
+    size_label = (
+        f"{attachment.size} bytes" if attachment.size is not None else "size unknown"
+    )
+    return MessageTextContent(
+        text=(
+            f"[Attachment missing: {attachment.name}]\n"
+            f"Type: {mime_type}\n"
+            f"Size: {size_label}\n"
+            "Attachment not found."
+        )
+    )
+
+
 def build_attachment_content_blocks(
     *,
     dbe: DBE,
@@ -85,7 +101,13 @@ def build_attachment_content_blocks(
     for attachment in attachments:
         mime_type = normalize_attachment_mime(attachment)
         if is_image_mime(mime_type):
-            payload = read_attachment_bytes(dbe, attachment)
+            try:
+                payload = read_attachment_bytes(dbe, attachment)
+            except FileNotFoundError:
+                blocks.append(
+                    build_missing_attachment_block(attachment, mime_type=mime_type)
+                )
+                continue
             encoded = base64.b64encode(payload).decode("utf-8")
             url = f"data:{mime_type};base64,{encoded}"
             blocks.append(
@@ -95,7 +117,13 @@ def build_attachment_content_blocks(
             )
             continue
         if is_text_mime(mime_type):
-            payload = read_attachment_bytes(dbe, attachment)
+            try:
+                payload = read_attachment_bytes(dbe, attachment)
+            except FileNotFoundError:
+                blocks.append(
+                    build_missing_attachment_block(attachment, mime_type=mime_type)
+                )
+                continue
             text = payload.decode("utf-8", errors="replace")
             blocks.append(build_attachment_text_block(attachment, text))
             continue
@@ -117,7 +145,13 @@ def build_attachments_prompt_text(
         if is_image_mime(mime_type) and not include_images:
             continue
         if is_text_mime(mime_type):
-            payload = read_attachment_bytes(dbe, attachment)
+            try:
+                payload = read_attachment_bytes(dbe, attachment)
+            except FileNotFoundError:
+                parts.append(
+                    build_missing_attachment_block(attachment, mime_type=mime_type).text
+                )
+                continue
             text = payload.decode("utf-8", errors="replace")
             parts.append(build_attachment_text_block(attachment, text).text)
             continue
