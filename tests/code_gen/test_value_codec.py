@@ -147,7 +147,6 @@ class TestPythonValueCodec:
             deps={},
             value=LiteralDependencyValue("ignored"),
             control_code_obj_type=CodeObjType.PasswordParam,
-            control_code_obj_id=ID("meta-secret"),
             control_code_obj_impl_id=ID("meta-secret-impl"),
             control_value_representation=CodeObjValueRepresentationMode.string,
         )

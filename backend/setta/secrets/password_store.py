@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from pathlib import Path
 
 from filelock import FileLock
@@ -62,7 +63,16 @@ def _write_password_store_unlocked(path: Path, payload: dict[str, str]) -> None:
     content = json.dumps(payload, indent=2, sort_keys=True)
     if content:
         content += "\n"
-    path.write_text(content, encoding="utf-8")
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=path.parent,
+        delete=False,
+        encoding="utf-8",
+        suffix=".tmp",
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    Path(tmp_path).replace(path)
 
 
 def write_password_store(payload: dict[str, str]) -> None:

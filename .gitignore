@@ -8,6 +8,7 @@ node_modules
 # testing
 /coverage
 frontend/test-results/
+frontend/tests/e2e/.auth/
 
 # production
 */dist
