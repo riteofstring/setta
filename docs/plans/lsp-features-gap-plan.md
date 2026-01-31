@@ -31,8 +31,8 @@ Key references:
   map to a section/param (prefix/suffix/imports/global errors) are ignored.
 - **No diagnostics payload for code sections.** `SettaProjectConfigDiagnostics`
   only supports section/param errors; it cannot carry line/column data.
-- **No code-area UI affordance** (gutter markers, underline, tooltip, problems
-  list) for diagnostics.
+- **No code-area UI affordance** (underline, tooltip, problems list) for
+  diagnostics.
 - **No ignore/suppress model for code sections.** The ignore toggle only applies
   to callable/param errors.
 
@@ -79,7 +79,7 @@ Key references:
 ### Phase 2: Frontend diagnostics state + UI
 - Add new state slice for `codeSectionDiagnostics` keyed by section ID.
 - Build a CodeMirror lint extension that:
-  - Underlines ranges, adds gutter markers, and shows hover tooltips.
+  - Underlines ranges and shows hover tooltips.
   - Accepts diagnostics from the new payload and re-renders on update.
 - Add a small header badge on code sections showing error count; click opens a
   lightweight “Problems” popover scoped to the section.

@@ -1,19 +1,33 @@
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   route_set_code_section_diagnostic_code_suppression,
   route_set_code_section_diagnostics_mute,
 } from "utils/generatedEndpoints";
-import { createProjectConfig } from "utils/generatedTypes";
+import {
+  createProjectConfig,
+  SettaLspDiagnosticsPayload,
+  type SettaLspDiagnostic,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  processLspDiagnostics,
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "./lspDiagnostics";
+import { processTypeErrors } from "./typeCheck";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_set_code_section_diagnostics_mute: vi.fn(),
   route_set_code_section_diagnostic_code_suppression: vi.fn(),
+}));
+
+vi.mock("./typeCheck", () => ({
+  processTypeErrors: vi.fn(),
 }));
 
 describe("lspDiagnostics actions", () => {
@@ -68,5 +82,100 @@ describe("lspDiagnostics actions", () => {
       code: "reportFoo",
       suppress: true,
     });
+  });
+});
+
+describe("processLspDiagnostics", () => {
+  const baseDiagnostic: SettaLspDiagnostic = {
+    message: "Bad code",
+    severity: 1,
+    code: "reportFoo",
+    source: "pyright",
+    range: {
+      start: { line: 0, character: 0 },
+      end: { line: 0, character: 5 },
+    },
+    uri: "file:///tmp/section.py",
+  };
+
+  beforeEach(() => {
+    resetProjectStores();
+    useProjectState.setState({
+      projectConfig: createProjectConfig({ id: "project-1" }),
+    });
+    useShareSession.setState({ isShareMode: false });
+    useLspDiagnostics.setState({ codeSections: {}, unmappedGenCode: [] });
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("updates diagnostics state and forwards gen-code errors", () => {
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [baseDiagnostic],
+      },
+      unmappedGenCode: [baseDiagnostic],
+    };
+
+    processLspDiagnostics(payload);
+
+    const state = useLspDiagnostics.getState();
+    expect(state.codeSections["section-1"]).toEqual([baseDiagnostic]);
+    expect(state.unmappedGenCode).toEqual([baseDiagnostic]);
+    expect(processTypeErrors).toHaveBeenCalledWith(payload.genCode);
+  });
+
+  it("ignores diagnostics in share mode", () => {
+    useShareSession.setState({ isShareMode: true });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [baseDiagnostic],
+      },
+      unmappedGenCode: [baseDiagnostic],
+    };
+
+    processLspDiagnostics(payload);
+
+    const state = useLspDiagnostics.getState();
+    expect(state.codeSections).toEqual({});
+    expect(state.unmappedGenCode).toEqual([]);
+    expect(processTypeErrors).not.toHaveBeenCalled();
+  });
+
+  it("ignores diagnostics for other project configs", () => {
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-2",
+      genCode: {
+        projectConfigId: "project-2",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [baseDiagnostic],
+      },
+      unmappedGenCode: [baseDiagnostic],
+    };
+
+    processLspDiagnostics(payload);
+
+    const state = useLspDiagnostics.getState();
+    expect(state.codeSections).toEqual({});
+    expect(state.unmappedGenCode).toEqual([]);
+    expect(processTypeErrors).not.toHaveBeenCalled();
   });
 });
