@@ -233,6 +233,52 @@ function ChatImage({
   );
 }
 
+const IMAGE_ATTACHMENT_EXTENSIONS = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jfif",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+]);
+
+function extractFileExtension(value: string): string | null {
+  const baseName = value.split(/[/\\]/).pop() ?? value;
+  if (!baseName) {
+    return null;
+  }
+  const dotIndex = baseName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
+    return null;
+  }
+  return baseName.slice(dotIndex).toLowerCase();
+}
+
+function isImageAttachment(attachment: ChatFileAttachment): boolean {
+  const mimeType = attachment.mimeType?.trim().toLowerCase();
+  if (mimeType) {
+    return mimeType.startsWith("image/");
+  }
+  const nameExtension = extractFileExtension(attachment.name);
+  if (nameExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(nameExtension)) {
+    return true;
+  }
+  const idExtension = extractFileExtension(attachment.id);
+  if (idExtension && IMAGE_ATTACHMENT_EXTENSIONS.has(idExtension)) {
+    return true;
+  }
+  return false;
+}
+
 function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
 }
@@ -305,8 +351,7 @@ function ChatAttachmentList({
 
   useEffect(() => {
     const staleImages = attachments.filter((attachment) => {
-      const mimeType = attachment.mimeType ?? "application/octet-stream";
-      if (!mimeType.startsWith("image/")) {
+      if (!isImageAttachment(attachment)) {
         return false;
       }
       const entry = attachmentUrlMap[attachment.id];
@@ -323,8 +368,7 @@ function ChatAttachmentList({
   return (
     <div className="flex flex-col gap-2">
       {attachments.map((attachment) => {
-        const mimeType = attachment.mimeType ?? "application/octet-stream";
-        const isImage = mimeType.startsWith("image/");
+        const isImage = isImageAttachment(attachment);
         const entry = attachmentUrlMap[attachment.id];
         const url = entry ? entry.url : "";
         const sizeLabel =
