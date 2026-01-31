@@ -8,6 +8,7 @@ import rpack
 
 from setta.database.utils import create_new_id
 from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
+from setta.secrets.password_store import get_password_secret, set_password_secret
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -23,6 +24,7 @@ from setta.types.code_obj_impls import (
     ControlCodeObjTypeSet,
     DropzoneMode,
     DropzoneParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
@@ -433,6 +435,17 @@ def set_param_entered_value(
     value: str,
 ):
     impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
+    if isinstance(impl, PasswordParamCodeObjImpl):
+        variant = get_curr_code_obj_variant(p, sectionId, paramId)
+        core = p.codeObjs[paramId]
+        _, base_impl, effective_impl = (
+            get_variant_base_and_effective_code_obj_impl_with_type_guard(
+                p, core, variant.id, PasswordParamCodeObjImpl
+            )
+        )
+        set_password_secret(str(effective_impl.id), value)
+        base_impl.hasSecret = value != ""
+        value = ""
     if isinstance(impl, DropzoneParamCodeObjImpl):
         if impl.mode == DropzoneMode.STATELESS:
             value = ""
@@ -1325,7 +1338,31 @@ def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
     ):
         old_effective_impl = get_effective_impl(old_impl, core, variant)
         old_value = old_effective_impl.value
-        new_value = convert_code_obj_value(new_impl, old_value)
+        old_is_password = isinstance(old_effective_impl, PasswordParamCodeObjImpl)
+        new_is_password = isinstance(new_impl, PasswordParamCodeObjImpl)
+        if old_is_password:
+            old_secret = get_password_secret(str(old_effective_impl.id))
+            if new_is_password:
+                if new_impl.id != old_effective_impl.id and old_secret != "":
+                    set_password_secret(str(new_impl.id), old_secret)
+                if new_impl.id != old_effective_impl.id:
+                    set_password_secret(str(old_effective_impl.id), "")
+            else:
+                set_password_secret(str(old_effective_impl.id), "")
+            old_value = ""
+            if (
+                isinstance(old_impl, PasswordParamCodeObjImpl)
+                and new_impl.id != old_effective_impl.id
+            ):
+                old_impl.hasSecret = False
+        if new_is_password:
+            if not old_is_password and old_value != "":
+                set_password_secret(str(new_impl.id), old_value)
+            if isinstance(new_impl, PasswordParamCodeObjImpl):
+                new_impl.hasSecret = get_password_secret(str(new_impl.id)) != ""
+            new_value = ""
+        else:
+            new_value = convert_code_obj_value(new_impl, old_value)
         set_effective_impl_value(
             new_impl,
             core,
@@ -3182,6 +3219,8 @@ def delete_code_obj(p: "ProjectStateCore", codeObjId: ID):
             impl = p.codeObjImpls.get(i)
             if not impl or impl.isPreset:
                 continue
+            if isinstance(impl, PasswordParamCodeObjImpl):
+                set_password_secret(str(impl.id), "")
             del p.codeObjImpls[i]
         del p.codeObjVariants[v]
     del p.codeObjs[codeObjId]

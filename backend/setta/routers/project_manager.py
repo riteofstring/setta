@@ -32,6 +32,8 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
+    GetPasswordParamValueRequest,
+    GetPasswordParamValueResponse,
     GroupSectionsRequest,
     IndentParamsRequest,
     MoveParamGroupsRequest,
@@ -122,6 +124,7 @@ from setta.routers.dependencies import (
     RuntimeContextFromRequest,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.secrets.password_store import get_password_secret
 from setta.share.policy import (
     SharePolicyGuard,
     deny_in_share_mode,
@@ -130,6 +133,8 @@ from setta.share.policy import (
 )
 from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
+from setta.types.code_obj_impls import PasswordParamCodeObjImpl
+from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import InvalidParamName, InvalidSectionName
@@ -657,6 +662,36 @@ async def route_set_param_entered_value(
             share_session_id=ctx.share_session_id,
         )
     await manager.set_param_entered_value(x)
+
+
+@router.post(Route.GET_PASSWORD_PARAM_VALUE)
+async def route_get_password_param_value(
+    x: GetPasswordParamValueRequest, ctx: RuntimeContextFromRequest
+) -> GetPasswordParamValueResponse:
+    logger.debug(
+        "route_get_password_param_value project_config_id=%s section_id=%s param_info_id=%s",
+        x.projectConfigId,
+        x.sectionId,
+        x.paramInfoId,
+    )
+    manager = ctx.get_project_manager(x.projectConfigId)
+    project_state = manager.get_single_config_state(x.projectConfigId)
+    if ctx.share_mode:
+        await ensure_share_param_value_allowed(
+            policy=ctx.policy,
+            frontend_sender=ctx.frontend_sender,
+            project_state=project_state,
+            section_id=x.sectionId,
+            param_info_id=x.paramInfoId,
+            share_session_id=ctx.share_session_id,
+        )
+    impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state,
+        x.sectionId,
+        x.paramInfoId,
+        PasswordParamCodeObjImpl,
+    )
+    return GetPasswordParamValueResponse(value=get_password_secret(str(impl.id)))
 
 
 @router.post(Route.SET_TYPE_ERROR_IGNORE)
