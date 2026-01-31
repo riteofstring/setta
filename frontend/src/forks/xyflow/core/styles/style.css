@@ -75,3 +75,71 @@ html.dark .react-flow__handle {
   background: hsl(219, 25%, 77%);
   border-color: hsl(220, 25%, 11%);
 }
+
+.react-flow__agentic-edge-path {
+  stroke: #94a3b8;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.react-flow__agentic-edge-interaction {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--chat-chat {
+  stroke: #0ea5e9;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--section-chat {
+  stroke: #10b981;
+  stroke-dasharray: 6 4;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--chat-section {
+  stroke: #f59e0b;
+  stroke-dasharray: 2 5;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--selected {
+  stroke-width: 2.4;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--tool-args {
+  stroke: #2563eb;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--tool-result {
+  stroke: #f97316;
+}
+
+.react-flow__agentic-edge-path.agentic-edge--run {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.35));
+}
+
+html.dark .react-flow__agentic-edge-path {
+  stroke: #64748b;
+}
+
+html.dark .react-flow__agentic-edge-path.agentic-edge--chat-chat {
+  stroke: #38bdf8;
+}
+
+html.dark .react-flow__agentic-edge-path.agentic-edge--section-chat {
+  stroke: #34d399;
+}
+
+html.dark .react-flow__agentic-edge-path.agentic-edge--chat-section {
+  stroke: #fbbf24;
+}
+
+html.dark .react-flow__agentic-edge-path.agentic-edge--tool-args {
+  stroke: #60a5fa;
+}
+
+html.dark .react-flow__agentic-edge-path.agentic-edge--tool-result {
+  stroke: #fb923c;
+}
