@@ -8,3 +8,7 @@ class InvalidSectionName(ValueError):
 
 class InvalidParamName(ValueError):
     pass
+
+
+class InvalidViewModeName(ValueError):
+    pass

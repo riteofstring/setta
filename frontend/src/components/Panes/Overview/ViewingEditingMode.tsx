@@ -17,6 +17,10 @@ import {
   route_toggle_view_mode_user_facing,
 } from "utils/generatedEndpoints";
 import { ViewModeConfig } from "utils/generatedTypes";
+import {
+  sanitizeNameForSlug,
+  validateViewModeNameInput,
+} from "utils/nameValidation";
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
@@ -215,6 +219,8 @@ function ViewModeEditingRow({
   canEditVariants,
   canEditStructure,
 }: ViewModeEditingRowProps) {
+  const normalizeName = (value: string) => value.trim();
+
   function onSetName(name: string) {
     if (!canEditStructure) {
       return;
@@ -237,9 +243,18 @@ function ViewModeEditingRow({
   }
 
   function conditionToSetName(name: string) {
+    const normalized = normalizeName(name);
+    const validationError = validateViewModeNameInput(normalized);
+    if (validationError) {
+      return false;
+    }
+    const nextSlug = sanitizeNameForSlug(normalized);
     const state = useProjectState.getState();
     for (const viewMode of Object.values(state.projectConfig.viewModes)) {
-      if (viewMode.id !== mode.id && viewMode.name === name) {
+      if (viewMode.id === mode.id) {
+        continue;
+      }
+      if (sanitizeNameForSlug(viewMode.name) === nextSlug) {
         return false;
       }
     }
@@ -250,6 +265,8 @@ function ViewModeEditingRow({
     mode.name,
     onSetName,
     conditionToSetName,
+    false,
+    normalizeName,
   );
 
   const handleToggleUserFacing = (
