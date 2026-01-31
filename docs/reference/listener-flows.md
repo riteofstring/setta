@@ -34,7 +34,8 @@ Key paths:
 
 Payload note:
 - Stateless dropzone events include `{ sectionId, paramInfoId, attachments }` where
-  file attachments carry raw base64 (no data URI prefix).
+  file attachments carry binary metadata (`contentId`, `byteLength`, `mimeType`),
+  and the bytes arrive in a separate binary websocket frame.
 
 ## Flow B: Chat send/stop -> listeners
 ```

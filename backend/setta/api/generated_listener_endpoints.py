@@ -15,6 +15,7 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.binary_content import BinaryContentRef
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -434,7 +435,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
     sectionId: ID | None
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
-    drawSnapshotsBySectionId: NotRequired[dict[ID, str] | None]
+    drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):

@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import FileArtifact
@@ -41,7 +42,9 @@ class TestArtifactFileRead:
             artifact = artifacts.read_file_from_disk(file_path)
 
             assert isinstance(artifact, FileArtifact)
-            assert "" == artifact.value
+            assert artifact.value.byteLength == 0
+            binary_store = BinaryStore.from_dbe(dbe)
+            assert binary_store.read_bytes(artifact.value.contentId) == b""
             normalized_path = normalize_path(file_path)
             assert normalized_path in artifacts.files
             metadata = artifacts.file_metadata[normalized_path]

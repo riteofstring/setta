@@ -9,8 +9,9 @@ from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_key import create_dep_key
+from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_value import (
-    Base64DependencyValue,
+    BinaryDependencyValue,
     FileReadDependencyValue,
     LiteralDependencyValue,
 )
@@ -41,16 +42,32 @@ class TestPythonValueCodec:
             helper_module_alias=alias,
         )
 
-    def test_live_mode_renders_inline_base64_dict(self) -> None:
+    def test_live_mode_renders_inline_binary_dict(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        rendered = codec.format_dependency_value(Base64DependencyValue("c29tZQ=="))
-        assert rendered == "'c29tZQ=='"
+        payload = BinaryContentRef(
+            contentId="binary-id",
+            byteLength=4,
+            mimeType="image/png",
+        )
+        rendered = codec.format_dependency_value(BinaryDependencyValue(payload))
+        assert (
+            rendered
+            == "{'contentId': 'binary-id', 'byteLength': 4, 'mimeType': 'image/png', 'sha256': None}"
+        )
         assert codec.required_imports == ()
 
-    def test_packaged_mode_uses_helper_for_base64(self) -> None:
+    def test_packaged_mode_uses_helper_for_binary(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
-        rendered = codec.format_dependency_value(Base64DependencyValue("c29tZQ=="))
-        assert rendered == "_helpers.decode_base64_value('c29tZQ==')"
+        payload = BinaryContentRef(
+            contentId="binary-id",
+            byteLength=4,
+            mimeType="image/png",
+        )
+        rendered = codec.format_dependency_value(BinaryDependencyValue(payload))
+        assert (
+            rendered
+            == "_helpers.read_binary_value({'contentId': 'binary-id', 'byteLength': 4, 'mimeType': 'image/png', 'sha256': None})"
+        )
         assert codec.required_imports == (
             "from setta.code_gen.python import value_helpers as _helpers",
         )

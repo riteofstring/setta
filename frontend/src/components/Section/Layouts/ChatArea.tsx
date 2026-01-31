@@ -45,7 +45,9 @@ import {
   ChatRoleEnum,
   ChatSectionState,
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   EngineTypeEnum,
+  LiteralDependencyValue,
   SectionTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
@@ -94,12 +96,16 @@ type EmitChatStopActionArgs = {
 };
 
 function emitChatAction(payload: ChatActionPayload) {
+  const literalPayload: LiteralDependencyValue = {
+    payload: JSON.stringify(payload),
+    type: DependencyValueTypeEnum.Literal,
+  };
   sendRealtimeDependencyEvent({
     dependencyKey: {
       type: DependencyKeyTypeEnum.Section,
       sectionId: payload.sectionId,
     },
-    payload: JSON.stringify(payload),
+    payload: literalPayload,
     timestampMs: payload.timestampMs,
   });
 }

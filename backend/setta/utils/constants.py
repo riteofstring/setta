@@ -47,6 +47,11 @@ class C:
     RUNTIME_MCP_FOLDER = RUNTIME_FOLDER / "mcp"
     RUNTIME_SECRETS_FOLDER = RUNTIME_FOLDER / "secrets"
     DETACHED_RUNS_FOLDER = RUNTIME_FOLDER / "detached_runs"
+    BINARY_FOLDER_NAME = "binary"
+    BINARY_FOLDER = SETTA_FILES_FOLDER / BINARY_FOLDER_NAME
+    RUN_FOLDER = SETTA_FILES_FOLDER / "run"
+    RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
+    RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
     SHARE_DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
@@ -63,6 +68,20 @@ class C:
     WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
+
+    BINARY_TTL_SECONDS = int(os.environ.get("SETTA_BINARY_TTL_SECONDS", "21600") or 0)
+    BINARY_UPLOAD_MAX_BYTES = int(
+        os.environ.get("SETTA_BINARY_UPLOAD_MAX_BYTES", str(32 * 1024 * 1024)) or 0
+    )
+    BINARY_CLEANUP_INTERVAL_SECONDS = int(
+        os.environ.get("SETTA_BINARY_CLEANUP_INTERVAL_SECONDS", "60") or 0
+    )
+    BINARY_CLEANUP_WRITE_INTERVAL = int(
+        os.environ.get("SETTA_BINARY_CLEANUP_WRITE_INTERVAL", "50") or 0
+    )
+    REALTIME_BINARY_MAX_BYTES = int(
+        os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
+    )
 
     # Allowed artifact types
     ALLOWED_ARTIFACT_TYPES = {

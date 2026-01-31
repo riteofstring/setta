@@ -29,11 +29,14 @@ import type {
   ButtonParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
+  BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
+  LiteralDependencyValue,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
@@ -215,15 +218,19 @@ function MetaControlValueArea({
       sendButtonSettaRequest(buttonConfig);
       return;
     }
+    const payload: LiteralDependencyValue = {
+      payload: JSON.stringify({
+        actionMode: buttonConfig.actionMode,
+        controlParamId,
+      }),
+      type: DependencyValueTypeEnum.Literal,
+    };
     sendRealtimeDependencyEvent({
       dependencyKey: {
         type: DependencyKeyTypeEnum.Section,
         sectionId,
       },
-      payload: JSON.stringify({
-        actionMode: buttonConfig.actionMode,
-        controlParamId,
-      }),
+      payload,
     });
   }
 
@@ -231,17 +238,53 @@ function MetaControlValueArea({
     if (attachments.length === 0) {
       return;
     }
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.Section,
-        sectionId,
-      },
+    const dependencyKey = {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId,
+    };
+    const metadataAttachments = attachments.map((attachment) => {
+      if (attachment.kind === "file") {
+        return {
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+        };
+      }
+      return attachment;
+    });
+    const metadataPayload: LiteralDependencyValue = {
       payload: JSON.stringify({
         sectionId,
         paramInfoId: controlParamId,
-        attachments,
+        attachments: metadataAttachments,
       }),
+      type: DependencyValueTypeEnum.Literal,
+    };
+    sendRealtimeDependencyEvent({
+      dependencyKey,
+      payload: metadataPayload,
     });
+    for (const attachment of attachments) {
+      if (attachment.kind !== "file") {
+        continue;
+      }
+      const binaryPayload: BinaryDependencyValue = {
+        payload: {
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+          mimeType: attachment.mimeType,
+        },
+        type: DependencyValueTypeEnum.Binary,
+      };
+      sendRealtimeDependencyEvent({
+        dependencyKey,
+        payload: binaryPayload,
+        binaryPayload: attachment.binaryPayload,
+      });
+    }
   }
 
   return (

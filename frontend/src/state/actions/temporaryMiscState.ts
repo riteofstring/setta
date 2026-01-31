@@ -28,24 +28,26 @@ function callFnAndWait({ id, condition, fn }) {
   });
 }
 
-async function requestBase64FromCanvas(sectionId) {
+async function requestBlobFromCanvas(sectionId) {
   const fn = (actualId) => setTemporaryMiscState(actualId, true);
-  const id = base64RequestId(sectionId);
+  const id = blobRequestId(sectionId);
   const condition = () => true;
   return await callFnAndWait({ id, condition, fn });
 }
 
-function base64RequestId(sectionId) {
-  return `${sectionId}-base64-request`;
+function blobRequestId(sectionId) {
+  return `${sectionId}-blob-request`;
 }
 
-export function listenForCanvasToBase64Requests(sectionId, fnCanvasToBase64) {
-  const id = base64RequestId(sectionId);
+export function listenForCanvasToBlobRequests(sectionId, fnCanvasToBlob) {
+  const id = blobRequestId(sectionId);
   const unsub = useTemporaryMiscState.subscribe(
     (x) => x[id],
     (x) => {
       if (x === true) {
-        setTemporaryMiscState(id, fnCanvasToBase64());
+        Promise.resolve(fnCanvasToBlob()).then((blob) => {
+          setTemporaryMiscState(id, blob);
+        });
       }
     },
   );

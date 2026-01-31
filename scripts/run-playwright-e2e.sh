@@ -112,7 +112,7 @@ export SETTA_WORKSPACE_ROOT
 export SETTA_DEV_FRONTEND_HOST
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
-LOG_DIR="${SETTA_E2E_LOG_DIR:-${SETTA_WORKSPACE_ROOT}/e2e-logs-$(date +%Y%m%d-%H%M%S)}"
+LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "${LOG_DIR}"
 
 log() {
@@ -369,7 +369,7 @@ raise SystemExit("Timed out waiting for a backend session.")
 PY
 )"
 
-PLAYWRIGHT_EXTRA_ARGS=()
+declare -a PLAYWRIGHT_EXTRA_ARGS=()
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
     "${PYTHON_BIN}" - <<'PY'
@@ -400,7 +400,12 @@ fi
 
 log "Running Playwright tests."
 cd "${ROOT_DIR}/frontend"
+PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
+if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
+  PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
+fi
+PLAYWRIGHT_CMD+=("$@")
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
 SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-pnpm exec playwright test --reporter=line "${PLAYWRIGHT_EXTRA_ARGS[@]:-}" "$@"
+"${PLAYWRIGHT_CMD[@]}"

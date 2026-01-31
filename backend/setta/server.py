@@ -32,6 +32,7 @@ from setta.routers import (
     ai_router,
     artifact_router,
     attachments_router,
+    binary_router,
     bootstrap_router,
     code_info_router,
     listener_router,
@@ -152,6 +153,7 @@ app.include_router(code_info_router, **http_router_kwargs)
 app.include_router(settings_router, **http_router_kwargs)
 app.include_router(artifact_router, **http_router_kwargs)
 app.include_router(attachments_router, **http_router_kwargs)
+app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)

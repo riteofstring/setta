@@ -25,6 +25,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.types.artifact import ImageArtifact
+from setta.types.binary_content import BinaryContentRef
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import SectionDependencyKey
 from setta.types.dependency_value import LiteralDependencyValue
@@ -296,7 +297,11 @@ class TestApplyListenerEmitUpdates:
         artifact_updates = [
             ImageArtifact(
                 id=ID("listener/new-image.png"),
-                value="data:image/png;base64,AAA",
+                value=BinaryContentRef(
+                    contentId="listener-image",
+                    byteLength=3,
+                    mimeType="image/png",
+                ),
             )
         ]
         captured_artifact_calls: list[tuple[list, str]] = []
@@ -342,4 +347,11 @@ class TestApplyListenerEmitUpdates:
         assert 1 == len(artifacts_payload)
         artifact = artifacts_payload[0]
         assert normalize_path("listener/new-image.png") == normalize_path(artifact.id)
-        assert "data:image/png;base64,AAA" == artifact.value
+        assert (
+            BinaryContentRef(
+                contentId="listener-image",
+                byteLength=3,
+                mimeType="image/png",
+            )
+            == artifact.value
+        )

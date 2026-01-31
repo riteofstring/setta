@@ -237,6 +237,18 @@ async function route_download_attachment(
   return await get("/attachments/{token}", { token });
 }
 
+export async function route_binary_upload(
+  form: FormData,
+): Promise<ResponseDataAndStatus<gt.BinaryContentRef>> {
+  return await post("/binary/upload", form);
+}
+
+async function route_binary_download(
+  contentId: string,
+): Promise<ResponseDataAndStatus<null>> {
+  return await get("/binary/{contentId}", { contentId });
+}
+
 export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {

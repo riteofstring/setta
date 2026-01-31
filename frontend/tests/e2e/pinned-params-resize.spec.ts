@@ -632,7 +632,6 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
     .cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
-
 async function ensureCallableSectionWithMathSqrt(
   page: Page,
   sections: Locator,
