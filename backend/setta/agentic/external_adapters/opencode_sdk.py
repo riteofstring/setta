@@ -37,11 +37,6 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
-from setta.utils.chat_attachments import (
-    collect_message_attachments,
-    extract_attachment_urls,
-    normalize_attachment_mime,
-)
 from setta.utils.timestamps import get_now_timestamp
 
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
@@ -56,7 +51,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
         self, context: ExternalAgentRunContext
     ) -> ExternalAgentRunHandle:
         prompt = self._build_prompt(context)
-        parts = self._build_parts(context, prompt)
         command = self._build_command(context)
         process = await asyncio.create_subprocess_exec(
             *command,
@@ -75,7 +69,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
         if process.stdin is not None:
             payload = {
                 "prompt": prompt,
-                "parts": parts,
                 "runId": str(context.run.id),
                 "baseUrl": context.config.baseUrl,
                 "model": context.config.defaultModel,
@@ -196,38 +189,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
     @staticmethod
     def _build_prompt(context: ExternalAgentRunContext) -> str:
         return build_prompt_from_inputs("", context.inputs)
-
-    @staticmethod
-    def _build_parts(
-        context: ExternalAgentRunContext,
-        prompt: str,
-    ) -> list[dict[str, Any]]:
-        parts: list[dict[str, Any]] = []
-        normalized_prompt = prompt.strip()
-        if normalized_prompt:
-            parts.append({"type": "text", "text": normalized_prompt})
-        raw_messages = context.inputs.get("messages") if context.inputs else None
-        if not isinstance(raw_messages, list):
-            return parts
-        attachments = collect_message_attachments(raw_messages)
-        if not attachments:
-            return parts
-        url_map = extract_attachment_urls(
-            context.inputs if isinstance(context.inputs, dict) else None
-        )
-        for attachment in attachments:
-            url = url_map.get(attachment.id)
-            if not url:
-                continue
-            part: dict[str, Any] = {
-                "type": "file",
-                "mime": normalize_attachment_mime(attachment),
-                "url": url,
-            }
-            if attachment.name:
-                part["filename"] = attachment.name
-            parts.append(part)
-        return parts
 
 
 def _normalize_opencode_system_prompt(system_prompt: str) -> str:

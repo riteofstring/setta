@@ -130,10 +130,7 @@ class TestShareArtifactRoutes:
                     lineCap=DrawAreaBrushShape.butt,
                 ),
             )
-            request = UpdateArtifactsRequest(
-                artifacts=[artifact],
-                uploadScope="generic",
-            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with runtime_context(state, session.id) as runtime_ctx:
                 results = await route_update_artifacts(request, runtime_ctx)
@@ -170,10 +167,7 @@ class TestShareArtifactRoutes:
                     lineCap=DrawAreaBrushShape.butt,
                 ),
             )
-            request = UpdateArtifactsRequest(
-                artifacts=[artifact],
-                uploadScope="generic",
-            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with runtime_context(state, session.id) as runtime_ctx:
                 results = await route_update_artifacts(request, runtime_ctx)
@@ -222,10 +216,7 @@ class TestShareArtifactRoutes:
                     lineCap=DrawAreaBrushShape.butt,
                 ),
             )
-            request = UpdateArtifactsRequest(
-                artifacts=[artifact],
-                uploadScope="generic",
-            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
@@ -278,10 +269,7 @@ class TestShareArtifactRoutes:
                     lineCap=DrawAreaBrushShape.butt,
                 ),
             )
-            request = UpdateArtifactsRequest(
-                artifacts=[artifact],
-                uploadScope="generic",
-            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with runtime_context(state, session_a.id) as runtime_ctx:
                 await route_update_artifacts(request, runtime_ctx)
@@ -299,3 +287,4 @@ class TestShareArtifactRoutes:
 
             await websocket_a.close()
             await websocket_b.close()
+

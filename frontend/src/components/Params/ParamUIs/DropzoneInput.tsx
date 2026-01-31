@@ -651,10 +651,7 @@ export function DropzoneInput({
           value: payload,
         }),
       );
-      const res = await route_update_artifacts({
-        artifacts,
-        uploadScope: "generic",
-      });
+      const res = await route_update_artifacts({ artifacts });
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to upload attachments.";
@@ -764,7 +761,6 @@ export function DropzoneInput({
     try {
       const res = await route_import_files_to_artifacts({
         paths: allowedPaths,
-        uploadScope: "generic",
       });
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);

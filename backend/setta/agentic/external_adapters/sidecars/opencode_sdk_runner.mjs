@@ -189,19 +189,6 @@ function parseModel(value) {
   return undefined;
 }
 
-function requireParts(rawParts) {
-  if (!Array.isArray(rawParts)) {
-    throw new Error("Missing required prompt parts.");
-  }
-  const parts = rawParts.filter((part) => {
-    return part && typeof part === "object" && typeof part.type === "string";
-  });
-  if (parts.length !== rawParts.length) {
-    throw new Error("Invalid prompt parts payload.");
-  }
-  return parts;
-}
-
 function isSessionIdleEvent(event, sessionId) {
   if (!sessionId) {
     return false;
@@ -570,7 +557,6 @@ if (!input) {
 }
 
 const prompt = typeof input.prompt === "string" ? input.prompt : "";
-const rawParts = input.parts;
 const systemPrompt =
   typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
 const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl : null;
@@ -728,12 +714,11 @@ const abortEvents = () => {
     eventsController.abort();
   }
 };
-const parts = requireParts(rawParts);
 const promptPayload = {
   path: { id: sessionId },
   query: { directory: workingDir },
   body: {
-    parts,
+    parts: [{ type: "text", text: prompt }],
   },
 };
 if (systemPrompt) {

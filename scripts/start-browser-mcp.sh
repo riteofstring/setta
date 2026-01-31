@@ -61,7 +61,7 @@ INSTANCE_OFFSET="$(instance_offset "${INSTANCE_NAME}")"
 DEFAULT_DEBUG_PORT=$((9222 + INSTANCE_OFFSET))
 DEBUG_PORT="${DEBUG_PORT:-${DEFAULT_DEBUG_PORT}}"
 
-MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/run/mcp"
+MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/runtime/mcp"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
 BOOTSTRAP_ENABLED="${BOOTSTRAP_ENABLED:-1}"
 BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
@@ -318,7 +318,7 @@ chrome-devtools-mcp. This is separate from your main profile.
 
 Environment variables:
   DEBUG_PORT   Remote debugging port (default: 9222 + worktree offset)
-  PROFILE_DIR  User data dir for the debug instance (default: setta_files/run/mcp/devtools-profile)
+  PROFILE_DIR  User data dir for the debug instance (default: setta_files/runtime/mcp/devtools-profile)
   BOOTSTRAP_ENABLED  Open /__setta__/bootstrap with token when possible (default: 1)
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)

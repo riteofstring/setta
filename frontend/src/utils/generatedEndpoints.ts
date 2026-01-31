@@ -219,24 +219,6 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-async function route_get_attachment_download_url(
-  x: gt.GetAttachmentDownloadUrlRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {
-  return await post("/getAttachmentDownloadUrl", x);
-}
-
-export async function route_get_attachment_download_urls(
-  x: gt.GetAttachmentDownloadUrlsRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.AttachmentDownloadUrlEntry>>> {
-  return await post("/getAttachmentDownloadUrls", x);
-}
-
-async function route_download_attachment(
-  token: string,
-): Promise<ResponseDataAndStatus<gt.Response>> {
-  return await get("/attachments/{token}", { token });
-}
-
 export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
@@ -817,10 +799,28 @@ export async function route_set_param_entered_value(
   return await post("/setParamEnteredValue", x);
 }
 
+export async function route_get_password_param_value(
+  x: gt.GetPasswordParamValueRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
+  return await post("/getPasswordParamValue", x);
+}
+
 export async function route_set_type_error_ignore(
   x: gt.SetTypeErrorIgnoreRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTypeErrorIgnore", x);
+}
+
+export async function route_set_code_section_diagnostics_mute(
+  x: gt.SetCodeSectionDiagnosticsMuteRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticsMute", x);
+}
+
+export async function route_set_code_section_diagnostic_code_suppression(
+  x: gt.SetCodeSectionDiagnosticCodeSuppressionRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionDiagnosticCodeSuppression", x);
 }
 
 export async function route_set_code_obj_name(
