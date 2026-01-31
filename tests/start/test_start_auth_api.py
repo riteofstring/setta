@@ -33,12 +33,9 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
         "CODE_FOLDER": C.CODE_FOLDER,
         "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
         "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
-        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
-        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
-        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
-        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
-        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
+        "RUN_FOLDER": C.RUN_FOLDER,
+        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
+        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
         "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
     setta_root = root / "setta_files"
@@ -46,12 +43,9 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
     C.CODE_FOLDER = setta_root / "code"
     C.ARTIFACTS_FOLDER = setta_root / "artifacts"
     C.DB_BACKUP_FOLDER = setta_root / "backups"
-    C.RUNTIME_FOLDER = setta_root / "runtime"
-    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
-    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
-    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
-    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
-    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
+    C.RUN_FOLDER = setta_root / "run"
+    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
+    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
     C.SHARE_DEPLOYMENTS_FOLDER = setta_root / "share_deployments"
     return originals
 
@@ -61,12 +55,9 @@ def _restore_fixture_constants(originals: dict[str, Path]) -> None:
     C.CODE_FOLDER = originals["CODE_FOLDER"]
     C.ARTIFACTS_FOLDER = originals["ARTIFACTS_FOLDER"]
     C.DB_BACKUP_FOLDER = originals["DB_BACKUP_FOLDER"]
-    C.RUNTIME_FOLDER = originals["RUNTIME_FOLDER"]
-    C.RUNTIME_SESSIONS_FOLDER = originals["RUNTIME_SESSIONS_FOLDER"]
-    C.RUNTIME_LOGS_FOLDER = originals["RUNTIME_LOGS_FOLDER"]
-    C.RUNTIME_MCP_FOLDER = originals["RUNTIME_MCP_FOLDER"]
-    C.RUNTIME_SECRETS_FOLDER = originals["RUNTIME_SECRETS_FOLDER"]
-    C.DETACHED_RUNS_FOLDER = originals["DETACHED_RUNS_FOLDER"]
+    C.RUN_FOLDER = originals["RUN_FOLDER"]
+    C.RUN_SESSIONS_FOLDER = originals["RUN_SESSIONS_FOLDER"]
+    C.RUN_LOGS_FOLDER = originals["RUN_LOGS_FOLDER"]
     C.SHARE_DEPLOYMENTS_FOLDER = originals["SHARE_DEPLOYMENTS_FOLDER"]
 
 
@@ -81,9 +72,9 @@ def _write_auth_json(root: Path) -> Path:
 
 @pytest.fixture
 def auth_env(tmp_path):
-    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
-    C.RUNTIME_SESSIONS_FOLDER = sessions_root
+    original_sessions_root = C.RUN_SESSIONS_FOLDER
+    sessions_root = tmp_path / "setta_files" / "run" / "sessions"
+    C.RUN_SESSIONS_FOLDER = sessions_root
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -113,7 +104,7 @@ def auth_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
+        C.RUN_SESSIONS_FOLDER = original_sessions_root
 
 
 @pytest.fixture(scope="class")
@@ -186,9 +177,9 @@ def api_integration_env(request):
 
 @pytest.fixture
 def api_input_env(tmp_path):
-    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
-    C.RUNTIME_SESSIONS_FOLDER = sessions_root
+    original_sessions_root = C.RUN_SESSIONS_FOLDER
+    sessions_root = tmp_path / "setta_files" / "run" / "sessions"
+    C.RUN_SESSIONS_FOLDER = sessions_root
 
     original_cwd = Path.cwd()
     workspace = tmp_path / "workspace"
@@ -205,7 +196,7 @@ def api_input_env(tmp_path):
         yield env
     finally:
         os.chdir(original_cwd)
-        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
+        C.RUN_SESSIONS_FOLDER = original_sessions_root
 
 
 def test_auth_json_emits_payload(auth_env) -> None:

@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
+from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -149,7 +150,7 @@ class BaseArtifact(BaseModel):
 class ImageArtifact(BaseArtifact):
     type: Literal[ArtifactType.Image] = ArtifactType.Image
     id: str = Field(default_factory=create_png_artifact_id)
-    value: str
+    value: BinaryContentRef
 
 
 class BrushStrokeArtifact(BaseArtifact):
@@ -175,7 +176,7 @@ class ChartDataArtifact(BaseArtifact):
 class FileArtifact(BaseArtifact):
     type: Literal[ArtifactType.File] = ArtifactType.File
     id: str = Field(default_factory=create_file_artifact_id)
-    value: str
+    value: BinaryContentRef
 
 
 ImageMapping = dict[Path, ImageArtifact]

@@ -4,7 +4,6 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
-    GetPasswordParamValueResponse,
     MoveParamGroup,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
@@ -15,6 +14,7 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.binary_content import BinaryContentRef
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -336,13 +336,6 @@ class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
-class ListenerGetPasswordParamValueRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    paramInfoId: ID
-
-
 class ListenerGroupSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -434,7 +427,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
     sectionId: ID | None
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
-    drawSnapshotsBySectionId: NotRequired[dict[ID, str] | None]
+    drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
@@ -1092,11 +1085,6 @@ class RouterEndpointAPI:
         self, payload: ListenerListenerCoverageRequestPayload
     ) -> ListenerCoverageSnapshot:
         return await self._caller("route_get_listener_coverage", payload)
-
-    async def get_password_param_value(
-        self, payload: ListenerGetPasswordParamValueRequestPayload
-    ) -> GetPasswordParamValueResponse:
-        return await self._caller("route_get_password_param_value", payload)
 
     async def group_sections(
         self, payload: ListenerGroupSectionsRequestPayload

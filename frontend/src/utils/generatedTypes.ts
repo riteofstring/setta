@@ -232,7 +232,7 @@ export const DependencyKeyTypeEnum = {
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
-  Base64: "Base64",
+  Binary: "Binary",
   FileRead: "FileRead",
 } as const;
 
@@ -395,7 +395,8 @@ export const RouteEnum = {
   LOAD_ARTIFACTS: "/loadArtifacts",
   LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
   UPDATE_ARTIFACTS: "/updateArtifacts",
-  READ_CSV_BASE64: "/readCSVBase64",
+  BINARY_UPLOAD: "/binary/upload",
+  BINARY_DOWNLOAD: "/binary/{contentId}",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
@@ -509,7 +510,6 @@ export const RouteEnum = {
   SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
   SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
-  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
@@ -872,10 +872,19 @@ const DrawAreaTransformSchema = z.tuple([
 
 export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
+const BinaryContentRefSchema = z.object({
+  contentId: z.string(),
+  byteLength: z.int(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  sha256: z.union([z.string(), z.null()]).default(null),
+});
+
+export type BinaryContentRef = z.infer<typeof BinaryContentRefSchema>;
+
 const FileArtifactSchema = z.object({
   type: z.literal("File").default(ArtifactTypeEnum.File),
   id: z.string().default(create_file_artifact_id),
-  value: z.string(),
+  value: BinaryContentRefSchema,
 });
 
 export type FileArtifact = z.infer<typeof FileArtifactSchema>;
@@ -883,7 +892,7 @@ export type FileArtifact = z.infer<typeof FileArtifactSchema>;
 const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
   id: z.string().default(create_png_artifact_id),
-  value: z.string(),
+  value: BinaryContentRefSchema,
 });
 
 export type ImageArtifact = z.infer<typeof ImageArtifactSchema>;
@@ -1366,7 +1375,6 @@ const SharedModifierSchema = z.object({
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
     .optional(),
-  hasSecret: z.boolean().optional(),
   headingAsSectionName: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   hideParams: z.boolean().optional(),
@@ -1490,7 +1498,6 @@ const CoreSchema = z.object({
         "eraserBrushSize",
         "folder",
         "format",
-        "hasSecret",
         "headingAsSectionName",
         "hideColumn",
         "hideParams",
@@ -2229,7 +2236,6 @@ const PasswordParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  hasSecret: z.boolean().default(false),
 });
 
 type PasswordParamCodeObjImpl = z.infer<typeof PasswordParamCodeObjImplSchema>;
@@ -2396,22 +2402,22 @@ export type LiteralDependencyValue = z.infer<
   typeof LiteralDependencyValueSchema
 >;
 
-const Base64DependencyValueSchema = z.object({
-  payload: z.string(),
-  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
-});
-
-export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
-
 const FileReadDependencyValueSchema = z.object({
   payload: z.string(),
   type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
 });
 
+const BinaryDependencyValueSchema = z.object({
+  payload: BinaryContentRefSchema,
+  type: z.literal("Binary").default(DependencyValueTypeEnum.Binary),
+});
+
+export type BinaryDependencyValue = z.infer<typeof BinaryDependencyValueSchema>;
+
 const BaseDependencyValueUnionSchema = z.union([
   LiteralDependencyValueSchema,
-  Base64DependencyValueSchema,
   FileReadDependencyValueSchema,
+  BinaryDependencyValueSchema,
 ]);
 
 export type BaseDependencyValueUnion = z.infer<
@@ -2714,7 +2720,6 @@ const PasswordParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
-  hasSecret: z.boolean().optional(),
 });
 
 type PasswordParamCodeObjImplArgs = z.infer<
@@ -3207,8 +3212,8 @@ const RealtimeUIChangeContentSchema = z.object({
   ]),
   value: z.union([
     LiteralDependencyValueSchema,
-    Base64DependencyValueSchema,
     FileReadDependencyValueSchema,
+    BinaryDependencyValueSchema,
   ]),
 });
 
@@ -3224,12 +3229,21 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
 >;
 
-const DependencyEventSchema = z.object({
+export const DependencyEventSchema = z.object({
   dependencyKey: z.union([
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  payload: z.union([z.string(), z.null()]).default(null),
+  payload: z
+    .union([
+      z.discriminatedUnion("type", [
+        LiteralDependencyValueSchema,
+        FileReadDependencyValueSchema,
+        BinaryDependencyValueSchema,
+      ]),
+      z.null(),
+    ])
+    .default(null),
   timestampMs: z.int(),
 });
 
@@ -4912,7 +4926,6 @@ const UserDefaultPasswordParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  hasSecret: z.boolean().default(false),
 });
 
 type UserDefaultPasswordParamCodeObjImpl = z.infer<
@@ -6976,25 +6989,6 @@ export type GetLatestProjectStateRequestInput = z.input<
   typeof GetLatestProjectStateRequestSchema
 >;
 
-const GetPasswordParamValueRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  paramInfoId: IDSchema,
-});
-
-export type GetPasswordParamValueRequestInput = z.input<
-  typeof GetPasswordParamValueRequestSchema
->;
-
-const GetPasswordParamValueResponseSchema = z.object({
-  value: z.string(),
-});
-
-export type GetPasswordParamValueResponse = z.infer<
-  typeof GetPasswordParamValueResponseSchema
->;
-
 const GroupSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -8133,7 +8127,7 @@ const RunCodeRequestSchema = z.object({
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
   drawSnapshotsBySectionId: z
-    .union([z.record(IDSchema, z.string()), z.null()])
+    .union([z.record(IDSchema, BinaryContentRefSchema), z.null()])
     .default(null),
 });
 

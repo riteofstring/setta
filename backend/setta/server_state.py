@@ -1,5 +1,4 @@
 import asyncio
-import os
 import shutil
 import time
 from pathlib import Path
@@ -195,7 +194,6 @@ class SettaFastAPIState:
             runtime_root=self.share_runtime_root,
             lock_root=self.share_runtime_root,
         )
-        os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:

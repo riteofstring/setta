@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
@@ -42,9 +42,19 @@ class ListenerRealtimeEventContent(BaseModel):
 
 
 class DependencyEvent(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: str | None = None
+    payload: BaseDependencyValueUnionWithDiscriminator | None = None
     timestampMs: int
+    _binary_payload: bytes | None = PrivateAttr(default=None)
+
+    @property
+    def binaryPayload(self) -> bytes | None:
+        return self._binary_payload
+
+    @binaryPayload.setter
+    def binaryPayload(self, value: bytes | None) -> None:
+        self._binary_payload = value
 
 
 class RealtimeDependencyEventContent(BaseModel):
@@ -118,6 +128,15 @@ class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dependency: BaseDependencyKeyUnionWithDiscriminator
     value: BaseDependencyValueUnionWithDiscriminator
+    _binary_payload: bytes | None = PrivateAttr(default=None)
+
+    @property
+    def binaryPayload(self) -> bytes | None:
+        return self._binary_payload
+
+    @binaryPayload.setter
+    def binaryPayload(self, value: bytes | None) -> None:
+        self._binary_payload = value
 
 
 class ListenerRegisterCallback(BaseModel):

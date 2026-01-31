@@ -28,7 +28,7 @@ class SessionMetadata(BaseModel):
 
 class SessionRegistry:
     def __init__(self, sessions_root: Path | None = None) -> None:
-        self._sessions_root = sessions_root or C.RUNTIME_SESSIONS_FOLDER
+        self._sessions_root = sessions_root or C.RUN_SESSIONS_FOLDER
         self._suspicious_session_ids: set[str] = set()
 
     def load_session(
