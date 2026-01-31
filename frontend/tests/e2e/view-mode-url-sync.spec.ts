@@ -66,6 +66,53 @@ test("view mode selection updates url on /view route", async ({ page }) => {
   });
 });
 
+test("view mode selection keeps encoded project name in url", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await setOverviewTab(page, "ViewModes");
+
+  const suffix = Date.now().toString(36);
+  const projectNameWithSpaces = `View Mode Sync ${suffix}`;
+  const previewImgColor = "bg-blue-500/60 dark:bg-blue-600/30";
+  const { projectConfigId } = await createProjectConfig(page, previewImgColor);
+
+  const createdViewModeIds: string[] = [];
+  try {
+    await setProjectConfigName(page, projectConfigId, projectNameWithSpaces);
+
+    const viewNames = [`view_alpha_${suffix}`, `view_beta_${suffix}`];
+    createdViewModeIds.push(
+      await createNamedViewMode(page, projectConfigId, viewNames[0]),
+    );
+    createdViewModeIds.push(
+      await createNamedViewMode(page, projectConfigId, viewNames[1]),
+    );
+
+    const encodedProjectName = encodeURIComponent(projectNameWithSpaces);
+    const firstViewUrl = `${BASE_URL}/${encodedProjectName}/view/${encodeURIComponent(
+      viewNames[0],
+    )}`;
+    await page.goto(firstViewUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+
+    const firstViewButton = page.getByRole("button", { name: viewNames[0] });
+    const secondViewButton = page.getByRole("button", { name: viewNames[1] });
+    await expect(firstViewButton).toBeVisible();
+    await expect(secondViewButton).toBeVisible();
+
+    await secondViewButton.click();
+
+    const secondViewUrl = `${BASE_URL}/${encodedProjectName}/view/${encodeURIComponent(
+      viewNames[1],
+    )}`;
+    await expect(page).toHaveURL(secondViewUrl);
+  } finally {
+    await deleteViewModes(page, projectConfigId, createdViewModeIds);
+    await deleteProjectConfig(page, projectConfigId);
+  }
+});
+
 async function ensureAppReady(page: Page): Promise<void> {
   await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
   if (await isAppReady(page)) {
@@ -207,6 +254,69 @@ async function createNamedViewMode(
     viewModeId,
   });
   return viewModeId;
+}
+
+async function createProjectConfig(
+  page: Page,
+  previewImgColor: string,
+): Promise<{ projectConfigId: string; projectConfigName: string }> {
+  const projectConfigName = await postBackend<string>(
+    page,
+    "/createProjectConfig",
+    { previewImgColor },
+  );
+  if (!projectConfigName) {
+    throw new Error("Missing project config name when creating project config.");
+  }
+
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const match = metadata.projectMetadata.find(
+    (entry) => entry.name === projectConfigName,
+  );
+  if (!match) {
+    throw new Error("Unable to resolve project config id for new project.");
+  }
+  return { projectConfigId: match.id, projectConfigName: match.name };
+}
+
+async function setProjectConfigName(
+  page: Page,
+  projectConfigId: string,
+  newName: string,
+): Promise<void> {
+  await postBackend(page, "/setProjectConfigName", {
+    projectConfigId,
+    newName,
+  });
+}
+
+async function deleteViewModes(
+  page: Page,
+  projectConfigId: string,
+  viewModeIds: string[],
+): Promise<void> {
+  for (const viewModeId of viewModeIds) {
+    await postBackend(page, "/deleteViewMode", {
+      projectConfigId,
+      viewModeId,
+    });
+  }
+}
+
+async function deleteProjectConfig(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  await postBackend(page, "/deleteProjectConfigs", {
+    ids: [projectConfigId],
+  });
 }
 
 async function postBackend<T>(

@@ -106,7 +106,8 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     if (!activeViewModeName) {
       return;
     }
-    const nextPath = `/${projectConfigName}/view/${encodeURIComponent(
+    const encodedProjectConfigName = encodeURIComponent(projectConfigName);
+    const nextPath = `/${encodedProjectConfigName}/view/${encodeURIComponent(
       activeViewModeName,
     )}`;
     if (location.pathname === nextPath) {
