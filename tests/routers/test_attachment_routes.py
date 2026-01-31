@@ -300,43 +300,6 @@ class TestAttachmentRoutes:
                     finally:
                         await _shutdown_state(state)
 
-    async def test_download_attachment_handles_unicode_filename(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            with _patched_setta_paths(tmpdir):
-                root = Path(tmpdir)
-                session_id, sessions_root = _create_session(root)
-                with _set_session_env(session_id, sessions_root):
-                    state = await _build_state()
-                    try:
-                        filename = "Screenshot 2026-01-30 8.59.34\u202fAM.png"
-                        artifact_path = (
-                            Path(C.ARTIFACTS_FOLDER) / filename
-                        ).resolve()
-                        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-                        artifact_path.write_bytes(b"hello")
-                        request = GetAttachmentDownloadUrlRequest(
-                            artifactId=artifact_path.as_posix()
-                        )
-                        with runtime_context(state) as runtime_ctx:
-                            response = await route_get_attachment_download_url(
-                                request, runtime_ctx
-                            )
-                        token = _extract_token(response.url)
-                        with runtime_context(state) as runtime_ctx:
-                            downloaded = await route_download_attachment(
-                                token, runtime_ctx
-                            )
-                        content_disposition = downloaded.headers.get(
-                            "content-disposition"
-                        )
-                        assert content_disposition is not None
-                        content_disposition.encode("latin-1")
-                        assert "filename*=" in content_disposition
-                        assert "\u202f" not in content_disposition
-                        assert downloaded.body == b"hello"
-                    finally:
-                        await _shutdown_state(state)
-
     async def test_get_attachment_download_urls_skips_invalid_entries(self) -> None:
         with TemporaryDirectory() as tmpdir:
             with _patched_setta_paths(tmpdir):

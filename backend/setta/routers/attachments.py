@@ -1,6 +1,5 @@
 import mimetypes
 from datetime import datetime, timezone
-from urllib.parse import quote
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -165,28 +164,6 @@ def _build_attachment_download_entry(
     )
 
 
-def _sanitize_ascii_filename(filename: str) -> str:
-    ascii_name = filename.encode("ascii", errors="ignore").decode("ascii").strip()
-    if not ascii_name:
-        return "attachment"
-    sanitized = []
-    for char in ascii_name:
-        code = ord(char)
-        if code < 32 or code == 127 or char in {'"', "\\"}:
-            sanitized.append("_")
-        else:
-            sanitized.append(char)
-    return "".join(sanitized)
-
-
-def _build_content_disposition(filename: str) -> str:
-    ascii_name = _sanitize_ascii_filename(filename)
-    if filename == ascii_name:
-        return f'inline; filename="{ascii_name}"'
-    encoded = quote(filename, safe="")
-    return f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
-
-
 @router.post(Route.GET_ATTACHMENT_DOWNLOAD_URL)
 async def route_get_attachment_download_url(
     x: GetAttachmentDownloadUrlRequest,
@@ -288,5 +265,5 @@ async def route_download_attachment(
     mime_type, _ = mimetypes.guess_type(resolved_path.as_posix())
     media_type = mime_type or "application/octet-stream"
     filename = resolved_path.name
-    headers = {"Content-Disposition": _build_content_disposition(filename)}
+    headers = {"Content-Disposition": f'inline; filename="{filename}"'}
     return Response(content=data, media_type=media_type, headers=headers)
