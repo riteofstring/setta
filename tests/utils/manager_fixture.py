@@ -320,8 +320,13 @@ async def _close_lsp_process(process) -> None:
         with suppress(RuntimeError, AttributeError):
             await writer.wait_closed()
 
-    with suppress(ProcessLookupError):
-        await process.wait()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=3)
+    except (asyncio.TimeoutError, ProcessLookupError):
+        with suppress(ProcessLookupError):
+            process.kill()
+        with suppress(asyncio.TimeoutError, ProcessLookupError):
+            await asyncio.wait_for(process.wait(), timeout=3)
 
     for reader in (
         getattr(process, "stdout", None),
