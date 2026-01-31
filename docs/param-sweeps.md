@@ -105,11 +105,11 @@ runner.cancel_run(run_ids[0])
 ```
 
 Run metadata and stdout are stored under:
-- `setta_files/runs/<run_id>/meta.json`
-- `setta_files/runs/<run_id>/stdout.log`
+- `setta_files/runtime/detached_runs/<run_id>/meta.json`
+- `setta_files/runtime/detached_runs/<run_id>/stdout.log`
 
 Snapshots are written to:
-- `setta_files/run/_<timestamp>/` when `RunSnapshotMode.ephemeral` (default)
+- `setta_files/runtime/_<timestamp>/` when `RunSnapshotMode.ephemeral` (default)
 - `setta_files/code/_<timestamp>/` when `RunSnapshotMode.always`
 
 Detached runs always snapshot; `RunSnapshotMode.never` is rejected.

@@ -4,6 +4,7 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
+    GetPasswordParamValueResponse,
     MoveParamGroup,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
@@ -333,6 +334,13 @@ class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+
+
+class ListenerGetPasswordParamValueRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoId: ID
 
 
 class ListenerGroupSectionsRequestPayload(TypedDict):
@@ -1084,6 +1092,11 @@ class RouterEndpointAPI:
         self, payload: ListenerListenerCoverageRequestPayload
     ) -> ListenerCoverageSnapshot:
         return await self._caller("route_get_listener_coverage", payload)
+
+    async def get_password_param_value(
+        self, payload: ListenerGetPasswordParamValueRequestPayload
+    ) -> GetPasswordParamValueResponse:
+        return await self._caller("route_get_password_param_value", payload)
 
     async def group_sections(
         self, payload: ListenerGroupSectionsRequestPayload

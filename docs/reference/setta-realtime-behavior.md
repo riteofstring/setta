@@ -15,6 +15,9 @@ This page explains how realtime listener updates move through the system, how ca
 - Consumer side: `_handle_realtime_event` enforces sequencing (sequence must strictly increase), skips deltas with unknown dependency keys, and ignores updates until runtime state is available.
 - `_set_dependency_value` updates the generated state instance by evaluating the code-generated expression for the dependency.
 - Applied values update `_dependency_cache`, and matching callbacks are scheduled through `ListenerCallbackScheduler`. Callbacks with `dependency_mode=REFRESH_ONLY` are skipped for realtime deltas; callbacks with empty `deps` receive the merged `changed` map for the batch.
+- PasswordParam changes never emit realtime deltas (to avoid broadcasting
+  secrets). They persist via `route_set_param_entered_value` and are only
+  reflected on snapshot refreshes.
 
 ## Action event pipeline
 - Action controls emit `RealtimeDependencyEvent`, and `RealtimeEventHub.emit_dependency_event` increments the same per-project sequence counter used by dependency deltas.
