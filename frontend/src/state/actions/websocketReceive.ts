@@ -604,6 +604,7 @@ async function uploadRealtimeBinaryPayload(
   const blob = new Blob([payload], { type: mimeType });
   const form = new FormData();
   form.append("file", blob, "realtime.bin");
+  form.append("durable", "false");
   const res = await route_binary_upload(form);
   if (!res200(res)) {
     return null;
@@ -616,6 +617,17 @@ async function sendRealtimeSectionBinaryViaUpload(
   payload: ArrayBuffer,
   mimeType: string,
 ) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  if (!dependencyKeyCovered(projectConfigId, dependencyKey)) {
+    return;
+  }
   const ref = await uploadRealtimeBinaryPayload(payload, mimeType);
   if (!ref) {
     maybeWarnRealtimeOversize(
@@ -623,10 +635,6 @@ async function sendRealtimeSectionBinaryViaUpload(
     );
     return;
   }
-  const dependencyKey: SectionDependencyKey = {
-    type: DependencyKeyTypeEnum.Section,
-    sectionId,
-  };
   const dependencyValue: BinaryDependencyValue = {
     payload: ref,
     type: DependencyValueTypeEnum.Binary,

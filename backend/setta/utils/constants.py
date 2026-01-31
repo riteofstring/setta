@@ -64,6 +64,15 @@ class C:
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 
     BINARY_TTL_SECONDS = int(os.environ.get("SETTA_BINARY_TTL_SECONDS", "21600") or 0)
+    BINARY_UPLOAD_MAX_BYTES = int(
+        os.environ.get("SETTA_BINARY_UPLOAD_MAX_BYTES", str(32 * 1024 * 1024)) or 0
+    )
+    BINARY_CLEANUP_INTERVAL_SECONDS = int(
+        os.environ.get("SETTA_BINARY_CLEANUP_INTERVAL_SECONDS", "60") or 0
+    )
+    BINARY_CLEANUP_WRITE_INTERVAL = int(
+        os.environ.get("SETTA_BINARY_CLEANUP_WRITE_INTERVAL", "50") or 0
+    )
     REALTIME_BINARY_MAX_BYTES = int(
         os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
     )

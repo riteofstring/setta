@@ -1,7 +1,7 @@
 import hashlib
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
@@ -17,6 +17,10 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024
 class BinaryStore:
     root: Path
     ttl_seconds: int = C.BINARY_TTL_SECONDS
+    _last_cleanup_at: float | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _writes_since_cleanup: int = field(default=0, init=False, repr=False, compare=False)
 
     @classmethod
     def from_dbe(cls, dbe: DBE) -> "BinaryStore":
@@ -32,8 +36,30 @@ class BinaryStore:
         return self.root / f"{content_id}.json"
 
     def _guard_content_id(self, content_id: str) -> None:
-        if not content_id or "/" in content_id or "\\" in content_id:
+        if (
+            not content_id
+            or content_id in {".", ".."}
+            or "/" in content_id
+            or "\\" in content_id
+        ):
             raise ValueError(f"Invalid content id: {content_id!r}")
+
+    def _record_write(self) -> None:
+        object.__setattr__(
+            self, "_writes_since_cleanup", self._writes_since_cleanup + 1
+        )
+
+    def _should_cleanup(self, now: float) -> bool:
+        interval = C.BINARY_CLEANUP_INTERVAL_SECONDS
+        write_interval = C.BINARY_CLEANUP_WRITE_INTERVAL
+        if interval <= 0 and write_interval <= 0:
+            return True
+        if write_interval > 0 and self._writes_since_cleanup >= write_interval:
+            return True
+        last_cleanup = self._last_cleanup_at
+        if interval > 0 and (last_cleanup is None or now - last_cleanup >= interval):
+            return True
+        return False
 
     def _write_metadata(self, ref: BinaryContentRef, *, durable: bool) -> None:
         metadata_path = self._metadata_path(ref.contentId)
@@ -94,6 +120,7 @@ class BinaryStore:
             sha256=sha256,
         )
         self._write_metadata(ref, durable=durable)
+        self._record_write()
         self.cleanup_expired()
         return ref
 
@@ -125,6 +152,7 @@ class BinaryStore:
             sha256=sha256.hexdigest(),
         )
         self._write_metadata(ref, durable=durable)
+        self._record_write()
         self.cleanup_expired()
         return ref
 
@@ -172,6 +200,32 @@ class BinaryStore:
         if metadata_path.exists():
             metadata_path.unlink()
 
+    def promote_to_durable(
+        self, content_id: str, *, mime_type: str | None = None
+    ) -> BinaryContentRef:
+        self._guard_content_id(content_id)
+        path = self._content_path(content_id)
+        if not path.exists():
+            raise FileNotFoundError(f"Missing binary payload: {content_id}")
+        metadata = self._read_metadata(content_id) or {}
+        byte_length = metadata.get("byteLength")
+        if not isinstance(byte_length, int):
+            byte_length = path.stat().st_size
+        existing_mime = metadata.get("mimeType")
+        if existing_mime is not None and not isinstance(existing_mime, str):
+            existing_mime = None
+        sha256 = metadata.get("sha256")
+        if sha256 is not None and not isinstance(sha256, str):
+            sha256 = None
+        ref = self._build_ref(
+            content_id,
+            byte_length=byte_length,
+            mime_type=mime_type or existing_mime,
+            sha256=sha256,
+        )
+        self._write_metadata(ref, durable=True)
+        return ref
+
     def delete(self, content_id: str) -> None:
         self._guard_content_id(content_id)
         path = self._content_path(content_id)
@@ -186,7 +240,12 @@ class BinaryStore:
             return
         if not self.root.exists():
             return
-        cutoff = time.time() - self.ttl_seconds
+        now = time.time()
+        if not self._should_cleanup(now):
+            return
+        object.__setattr__(self, "_last_cleanup_at", now)
+        object.__setattr__(self, "_writes_since_cleanup", 0)
+        cutoff = now - self.ttl_seconds
         for entry in self.root.iterdir():
             if entry.is_dir():
                 continue

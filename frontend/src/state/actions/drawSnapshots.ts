@@ -44,6 +44,7 @@ export async function collectDrawSnapshotPayloads(
     blobs.map(async ({ sectionId, blob }) => {
       const form = new FormData();
       form.append("file", blob, "snapshot.png");
+      form.append("durable", "false");
       const res = await route_binary_upload(form);
       if (!res200(res)) {
         return null;

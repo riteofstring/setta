@@ -1,9 +1,10 @@
+import json
 import os
-from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
+from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
 
@@ -23,8 +24,9 @@ from setta.routers.artifact import (
     route_import_files_to_artifacts,
     route_update_artifacts,
 )
-from setta.routers.binary import route_binary_download, route_binary_upload
+from setta.routers.binary import route_binary_download, router as binary_router
 from setta.server_state import SettaFastAPIState
+from setta.types.routes import Route
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -153,6 +155,7 @@ class TestFileBrowserRoutes:
         *,
         share_mode: bool = False,
         share_deployment_root: Path | None = None,
+        app: FastAPI | None = None,
     ) -> SettaFastAPIState:
         if not share_mode:
             temp_dir = TemporaryDirectory()
@@ -183,7 +186,8 @@ class TestFileBrowserRoutes:
             C.RUN_SESSIONS_FOLDER = run_sessions_folder
             C.RUN_LOGS_FOLDER = run_logs_folder
             C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
-        app = FastAPI()
+        if app is None:
+            app = FastAPI()
         state = SettaFastAPIState(
             app,
             share_mode=share_mode,
@@ -191,6 +195,7 @@ class TestFileBrowserRoutes:
             enable_mcp_connections=False,
             enable_language_server=False,
         )
+        app.state.setta = state
         self._states.append(state)
         await state.wait_until_ready()
         return state
@@ -481,19 +486,50 @@ class TestFileBrowserRoutes:
         assert ctx.value.status_code == 400
 
     async def test_binary_upload_and_download(self) -> None:
-        state = await self._build_state()
+        app = FastAPI()
+        state = await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
         payload = b"binary-payload"
-        upload = UploadFile(
-            filename="payload.bin",
-            file=BytesIO(payload),
-        )
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+        assert response.status_code == 200
+        ref = BinaryContentRef(**response.json())
         with runtime_context(state) as runtime_ctx:
-            ref = await route_binary_upload(runtime_ctx, upload)
             response = route_binary_download(ref.contentId, runtime_ctx)
         binary_store = BinaryStore.from_dbe(state.dbe)
         assert binary_store.read_bytes(ref.contentId) == payload
         assert response.media_type == "application/octet-stream"
         assert Path(response.path).read_bytes() == payload
+
+    async def test_binary_upload_allows_non_durable(self) -> None:
+        app = FastAPI()
+        state = await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
+        payload = b"temporary"
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                data={"durable": "false"},
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+        assert response.status_code == 200
+        ref = BinaryContentRef(**response.json())
+        binary_store = BinaryStore.from_dbe(state.dbe)
+        metadata_path = binary_store.root / f"{ref.contentId}.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        assert metadata["durable"] is False
+
+    async def test_binary_download_rejects_invalid_content_id(self) -> None:
+        state = await self._build_state()
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_binary_download("..", runtime_ctx)
+        assert ctx.value.status_code == 400
 
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:
         state = await self._build_state()

@@ -16,9 +16,12 @@ export class C {
   static AUTH_COOKIE_SAMESITE = "lax";
   static AUTH_COOKIE_SECURE = false;
   static BACKEND_INIT_DELAY_SECONDS = 0.0;
+  static BINARY_CLEANUP_INTERVAL_SECONDS = 60;
+  static BINARY_CLEANUP_WRITE_INTERVAL = 50;
   static BINARY_FOLDER = "setta_files/binary";
   static BINARY_FOLDER_NAME = "binary";
   static BINARY_TTL_SECONDS = 21600;
+  static BINARY_UPLOAD_MAX_BYTES = 33554432;
   static BOOTSTRAP_TOKEN_TTL_SECONDS = 600;
   static CODE_FOLDER = "setta_files/code";
   static DB_BACKUP_FOLDER = "setta_files/backups";

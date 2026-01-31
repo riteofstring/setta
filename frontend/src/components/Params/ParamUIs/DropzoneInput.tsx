@@ -640,6 +640,7 @@ export function DropzoneInput({
         allowedFiles.map(async (file) => {
           const form = new FormData();
           form.append("file", file, file.name);
+          form.append("durable", "false");
           const res = await route_binary_upload(form);
           if (!res200(res)) {
             throw new Error("Upload failed");

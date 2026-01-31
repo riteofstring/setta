@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import os
 from ast import literal_eval
 from dataclasses import dataclass
 from typing import (
@@ -308,6 +309,13 @@ class SettaListener:
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
         self._router_endpoint_api: RouterEndpointAPI | None = None
         self._logging_configured = False
+        base_url = os.environ.get("SETTA_BINARY_BASE_URL")
+        if base_url is None:
+            if "://" in self._host:
+                base_url = f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+            else:
+                base_url = f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+            os.environ["SETTA_BINARY_BASE_URL"] = base_url
 
     @property
     def _log_identifier(self) -> str:

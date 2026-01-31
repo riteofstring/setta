@@ -1,12 +1,34 @@
+import os
 from pathlib import Path
+from urllib.request import urlopen
+
+_BINARY_BASE_URL_ENV = "SETTA_BINARY_BASE_URL"
+_RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
 
 
 def read_binary_value(payload: dict[str, object]) -> bytes:
-    """Read a binary payload from the local binary store."""
+    """Read a binary payload from the local store or via HTTP fallback."""
     content_id = payload.get("contentId")
     if not isinstance(content_id, str) or not content_id:
         raise ValueError("Binary payload missing contentId.")
-    return (Path("setta_files") / "binary" / content_id).read_bytes()
+    runtime_root = os.environ.get(_RUNTIME_ROOT_ENV)
+    if runtime_root:
+        runtime_path = Path(runtime_root) / "binary" / content_id
+        if runtime_path.exists():
+            return runtime_path.read_bytes()
+    local_path = Path("setta_files") / "binary" / content_id
+    if local_path.exists():
+        return local_path.read_bytes()
+    download_url = payload.get("downloadUrl")
+    if isinstance(download_url, str) and download_url:
+        with urlopen(download_url) as response:
+            return response.read()
+    base_url = os.environ.get(_BINARY_BASE_URL_ENV)
+    if not base_url:
+        raise FileNotFoundError(f"Missing binary payload: {content_id}")
+    base_url = base_url.rstrip("/")
+    with urlopen(f"{base_url}/binary/{content_id}") as response:
+        return response.read()
 
 
 def read_file_value(path: str) -> str | bytes:

@@ -642,23 +642,19 @@ class Artifacts:
         if result.status == "skipped":
             return result
         if isinstance(artifact, ImageArtifact):
-            self._binary_store.delete(artifact.value.contentId)
             mime_type, _ = mimetypes.guess_type(path.name)
-            ref = self._binary_store.store_bytes(
-                prepared.payload,
+            ref = self._binary_store.promote_to_durable(
+                artifact.value.contentId,
                 mime_type=mime_type
                 or artifact.value.mimeType
                 or "application/octet-stream",
-                durable=True,
             )
             self.images[path] = artifact.model_copy(update={"value": ref})
         elif isinstance(artifact, FileArtifact):
-            self._binary_store.delete(artifact.value.contentId)
             mime_type, _ = mimetypes.guess_type(path.name)
-            ref = self._binary_store.store_bytes(
-                prepared.payload,
+            ref = self._binary_store.promote_to_durable(
+                artifact.value.contentId,
                 mime_type=mime_type or "application/octet-stream",
-                durable=True,
             )
             self.files[path] = artifact.model_copy(update={"value": ref})
         return result

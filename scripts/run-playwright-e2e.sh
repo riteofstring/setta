@@ -112,7 +112,7 @@ export SETTA_WORKSPACE_ROOT
 export SETTA_DEV_FRONTEND_HOST
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
-LOG_DIR="${SETTA_E2E_LOG_DIR:-${SETTA_WORKSPACE_ROOT}/e2e-logs-$(date +%Y%m%d-%H%M%S)}"
+LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "${LOG_DIR}"
 
 log() {

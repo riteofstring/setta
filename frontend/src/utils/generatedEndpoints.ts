@@ -220,9 +220,9 @@ export async function route_delete_artifacts(
 }
 
 export async function route_binary_upload(
-  file: FormData,
+  form: FormData,
 ): Promise<ResponseDataAndStatus<gt.BinaryContentRef>> {
-  return await post("/binary/upload", file);
+  return await post("/binary/upload", form);
 }
 
 async function route_binary_download(
