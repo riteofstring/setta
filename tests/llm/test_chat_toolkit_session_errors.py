@@ -19,7 +19,6 @@ from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.types.chat_messages import (
     AssistantChatMessage,
-    ChatFileAttachment,
     ChatRole,
     MessageTextContent,
     SystemChatMessage,
@@ -287,66 +286,6 @@ class TestChatSessionOpenFromEvent:
 
             assert len(captured_messages) == 1
             assert isinstance(captured_messages[0], SystemChatMessage)
-
-    async def test_open_from_event_preserves_attachments(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
-            captured_messages: list[object] = []
-            section_chat_ids: dict[ID, ID] = {}
-
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat_section_chat_id":
-                    chat_id = section_chat_ids.get(payload["sectionId"])
-                    return str(chat_id) if chat_id else None
-                if endpoint_name == "route_set_chat_section_chat_id":
-                    section_chat_ids[payload["sectionId"]] = payload["chatId"]
-                    return None
-                if endpoint_name == "route_create_chat":
-                    first_message = payload["firstMessage"]
-                    captured_messages.append(first_message)
-                    chat_entry = history.create(
-                        first_message=first_message,
-                        llm_config=llm_config,
-                    )
-                    return chat_entry.model_dump(mode="json")
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
-
-            project_state = _build_chat_project_state(ID("proj-chat-attachments"))
-            ctx = _build_listener_context(project_state, router_caller)
-
-            attachment = ChatFileAttachment(
-                id="artifacts/notes.txt",
-                name="notes.txt",
-                mimeType="text/plain",
-                size=12,
-            )
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="User note",
-                attachments=[attachment],
-                role=ChatRole.user,
-                timestampMs=123,
-                managed=True,
-            )
-            await ChatSession.open_from_event(
-                ctx=ctx,
-                section_id=section_id,
-                engine_config_id=engine_config_id,
-                event=event,
-            )
-
-            assert len(captured_messages) == 1
-            message = captured_messages[0]
-            assert isinstance(message, UserChatMessage)
-            assert len(message.attachments) == 1
-            assert message.attachments[0].id == "artifacts/notes.txt"
 
     async def test_open_from_event_uses_assistant_role(self) -> None:
         with TemporaryDirectory() as temp_dir:

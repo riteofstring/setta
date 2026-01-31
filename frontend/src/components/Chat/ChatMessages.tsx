@@ -4,7 +4,6 @@ import {
   ReactNode,
   Ref,
   memo,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -18,8 +17,6 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
   APPROVAL_TOOL_NAME,
@@ -35,11 +32,8 @@ import {
   parseTodoPayload,
   resolveToolCallArguments,
 } from "utils/claudeTools";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
-  ChatFileAttachment,
   ChatRoleEnum,
   ToolCall,
   ToolChatMessage,
@@ -66,17 +60,6 @@ type ToolCallContext = {
 
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
-const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
-
-type AttachmentUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
-type AttachmentUrlResponseEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
-};
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -208,15 +191,7 @@ function useIdleStreamSpinner(
   return showSpinner;
 }
 
-function ChatImage({
-  url,
-  className,
-  onError,
-}: {
-  url: string;
-  className?: string;
-  onError?: () => void;
-}) {
+function ChatImage({ url, className }: { url: string; className?: string }) {
   const baseClassName =
     "max-h-64 w-auto max-w-full rounded-md border border-setta-200/70 bg-white";
   const combinedClassName = className
@@ -228,153 +203,7 @@ function ChatImage({
       alt="Chat attachment"
       className={combinedClassName}
       loading="lazy"
-      onError={onError}
     />
-  );
-}
-
-function resolveAttachmentExpiry(expiresAt: number | undefined, now: number) {
-  if (typeof expiresAt === "number" && Number.isFinite(expiresAt)) {
-    return expiresAt * 1000;
-  }
-  return now + C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS * 1000;
-}
-
-function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
-  return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
-}
-
-function collectAttachments(
-  messages: Array<BaseChatMessageUnion>,
-): ChatFileAttachment[] {
-  const map = new Map<string, ChatFileAttachment>();
-  for (const message of messages) {
-    const attachments =
-      "attachments" in message && Array.isArray(message.attachments)
-        ? message.attachments
-        : [];
-    for (const attachment of attachments) {
-      if (!map.has(attachment.id)) {
-        map.set(attachment.id, attachment);
-      }
-    }
-  }
-  return Array.from(map.values());
-}
-
-function ChatAttachmentList({
-  attachments,
-  isUser,
-  attachmentUrlMap,
-  requestAttachmentUrls,
-}: {
-  attachments: ChatFileAttachment[];
-  isUser: boolean;
-  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
-  requestAttachmentUrls: (
-    targets: ChatFileAttachment[],
-    options?: { force?: boolean },
-  ) => Promise<Record<string, AttachmentUrlEntry>>;
-}) {
-  if (attachments.length === 0) {
-    return null;
-  }
-  const pillClassName = isUser
-    ? "border-white/40 bg-white/10 text-white"
-    : "border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200";
-  const detailClassName = isUser ? "text-white/70" : "text-setta-400";
-  const now = Date.now();
-  const handleImageError = useCallback(
-    (attachment: ChatFileAttachment) => {
-      void requestAttachmentUrls([attachment], { force: true });
-    },
-    [requestAttachmentUrls],
-  );
-  const handleAttachmentOpen = useCallback(
-    async (attachment: ChatFileAttachment) => {
-      const now = Date.now();
-      const entry = attachmentUrlMap[attachment.id];
-      if (entry && !isAttachmentUrlStale(entry, now)) {
-        window.open(entry.url, "_blank", "noopener,noreferrer");
-        return;
-      }
-      const refreshed = await requestAttachmentUrls([attachment], {
-        force: true,
-      });
-      const nextEntry =
-        refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
-      if (!nextEntry || isAttachmentUrlStale(nextEntry, Date.now())) {
-        return;
-      }
-      window.open(nextEntry.url, "_blank", "noopener,noreferrer");
-    },
-    [attachmentUrlMap, requestAttachmentUrls],
-  );
-
-  useEffect(() => {
-    const staleImages = attachments.filter((attachment) => {
-      const mimeType = attachment.mimeType ?? "application/octet-stream";
-      if (!mimeType.startsWith("image/")) {
-        return false;
-      }
-      const entry = attachmentUrlMap[attachment.id];
-      if (!entry) {
-        return false;
-      }
-      return isAttachmentUrlStale(entry, Date.now());
-    });
-    if (staleImages.length > 0) {
-      void requestAttachmentUrls(staleImages);
-    }
-  }, [attachments, attachmentUrlMap, requestAttachmentUrls]);
-
-  return (
-    <div className="flex flex-col gap-2">
-      {attachments.map((attachment) => {
-        const mimeType = attachment.mimeType ?? "application/octet-stream";
-        const isImage = mimeType.startsWith("image/");
-        const entry = attachmentUrlMap[attachment.id];
-        const url = entry ? entry.url : "";
-        const sizeLabel =
-          attachment.size !== null && attachment.size !== undefined
-            ? formatBytes(attachment.size)
-            : null;
-        if (isImage && url) {
-          return (
-            <div key={attachment.id} className="flex flex-col gap-1">
-              <ChatImage
-                url={url}
-                onError={() => handleImageError(attachment)}
-              />
-              <span className={`text-[10px] ${detailClassName}`}>
-                {attachment.name}
-                {sizeLabel ? ` • ${sizeLabel}` : ""}
-              </span>
-            </div>
-          );
-        }
-        return (
-          <div
-            key={attachment.id}
-            className={`flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
-          >
-            <span className="max-w-[220px] truncate">{attachment.name}</span>
-            {sizeLabel ? (
-              <span className={`text-[10px] ${detailClassName}`}>
-                {sizeLabel}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void handleAttachmentOpen(attachment)}
-              className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
-            >
-              Open
-            </button>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -642,24 +471,13 @@ const ChatMessage = memo(function ChatMessage({
   toolCallArguments,
   isStreaming,
   toolCallContext,
-  attachmentUrlMap,
-  requestAttachmentUrls,
 }: {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
   isStreaming: boolean;
   toolCallContext: ToolCallContext;
-  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
-  requestAttachmentUrls: (
-    targets: ChatFileAttachment[],
-    options?: { force?: boolean },
-  ) => Promise<Record<string, AttachmentUrlEntry>>;
 }) {
-  const attachments =
-    "attachments" in message && Array.isArray(message.attachments)
-      ? message.attachments
-      : [];
   const isAssistant = message.role === ChatRoleEnum.assistant;
   const assistantContent = isAssistant
     ? message.content
@@ -680,12 +498,6 @@ const ChatMessage = memo(function ChatMessage({
     const showTypingIndicator = showAssistantSpinner;
     return (
       <LLMChatBubble>
-        <ChatAttachmentList
-          attachments={attachments}
-          isUser={false}
-          attachmentUrlMap={attachmentUrlMap}
-          requestAttachmentUrls={requestAttachmentUrls}
-        />
         {message.content.map((item, idx) => (
           <StreamItem
             key={idx}
@@ -796,12 +608,6 @@ const ChatMessage = memo(function ChatMessage({
 
   return (
     <Wrapper>
-      <ChatAttachmentList
-        attachments={attachments}
-        isUser={message.role === ChatRoleEnum.user}
-        attachmentUrlMap={attachmentUrlMap}
-        requestAttachmentUrls={requestAttachmentUrls}
-      />
       {content.map((item, idx) => {
         const key = `${message.id}-${idx}`;
         if (item.type === C.LLM_TEXT) {
@@ -868,14 +674,6 @@ function ChatMessages({
   toolCallArguments: Record<string, string>;
   allMessages: Array<BaseChatMessageUnion>;
 }) {
-  const [attachmentUrlMap, setAttachmentUrlMap] = useState<
-    Record<string, AttachmentUrlEntry>
-  >({});
-  const attachmentUrlRequests = useRef<Set<string>>(new Set());
-  const allAttachments = useMemo(
-    () => collectAttachments(messages),
-    [messages],
-  );
   const toolResultsById = useMemo(
     () => buildToolResultMap(allMessages),
     [allMessages],
@@ -884,77 +682,6 @@ function ChatMessages({
     () => buildToolCallContext(allMessages, toolCallArguments),
     [allMessages, toolCallArguments],
   );
-  const requestAttachmentUrls = useCallback(
-    async (
-      targets: ChatFileAttachment[],
-      options: { force?: boolean } = {},
-    ) => {
-      if (targets.length === 0) {
-        return {};
-      }
-      const now = Date.now();
-      const pending = targets.filter((attachment) => {
-        const entry = attachmentUrlMap[attachment.id];
-        if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
-          return false;
-        }
-        if (attachmentUrlRequests.current.has(attachment.id)) {
-          return false;
-        }
-        return true;
-      });
-      if (pending.length === 0) {
-        return {};
-      }
-      for (const attachment of pending) {
-        attachmentUrlRequests.current.add(attachment.id);
-      }
-      const projectConfigId = getCurrProjectConfigId();
-      let entries: AttachmentUrlResponseEntry[] = [];
-      try {
-        const res = await route_get_attachment_download_urls({
-          artifactIds: pending.map((attachment) => attachment.id),
-          projectConfigId,
-        });
-        if (!res200(res)) {
-          const detail = getErrorDetail(res.data);
-          console.warn(
-            "Failed to load attachment URLs",
-            detail ?? pending.map((attachment) => attachment.id),
-          );
-          return {};
-        }
-        entries = res.data;
-      } catch (error) {
-        console.warn("Failed to load attachment URLs", error);
-        return {};
-      } finally {
-        for (const attachment of pending) {
-          attachmentUrlRequests.current.delete(attachment.id);
-        }
-      }
-      const nextEntries: Record<string, AttachmentUrlEntry> = {};
-      for (const entry of entries) {
-        const expiresAt = resolveAttachmentExpiry(entry.expiresAt, now);
-        nextEntries[entry.artifactId] = {
-          url: entry.url,
-          expiresAt,
-        };
-      }
-      if (Object.keys(nextEntries).length > 0) {
-        setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));
-      }
-      return nextEntries;
-    },
-    [attachmentUrlMap],
-  );
-
-  useEffect(() => {
-    if (allAttachments.length === 0) {
-      return;
-    }
-    void requestAttachmentUrls(allAttachments);
-  }, [allAttachments, requestAttachmentUrls]);
   const output: ReactNode[] = [];
   const lastMessage = messages[messages.length - 1];
   let streamingMessageId: string | null = null;
@@ -974,8 +701,6 @@ function ChatMessages({
         toolCallArguments={toolCallArguments}
         isStreaming={isStreamingMessage}
         toolCallContext={toolCallContext}
-        attachmentUrlMap={attachmentUrlMap}
-        requestAttachmentUrls={requestAttachmentUrls}
       />,
     );
   }
@@ -998,8 +723,6 @@ function ChatMessages({
         toolCallArguments={toolCallArguments}
         isStreaming={true}
         toolCallContext={toolCallContext}
-        attachmentUrlMap={attachmentUrlMap}
-        requestAttachmentUrls={requestAttachmentUrls}
       />,
     );
   }

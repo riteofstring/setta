@@ -45,7 +45,6 @@ import {
   APIKeys,
   AssistantChatMessage,
   BaseChatMessageUnion,
-  ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
   CreateAgentProfileRequestInput,
@@ -590,28 +589,21 @@ export async function getExternalAgentChat(
 export async function submitMessage(
   chatId: string | null,
   message: string,
-  attachments: ChatFileAttachment[],
   thinking: boolean,
   engineConfigId: string,
   isExternalEngine: boolean,
   messageId?: string,
   agentProfileId?: string | null,
 ): Promise<string | null> {
-  const trimmed = message.trim();
-  if ((!trimmed && attachments.length === 0) || !engineConfigId) {
+  if (!message.trim() || !engineConfigId) {
     return null;
   }
 
   // Add user message immediately for responsive UI
-  const content = [];
-  if (trimmed) {
-    content.push(createMessageTextContent({ text: message }));
-  }
   const userMessage = {
     id: messageId ?? createNewId(),
     role: ChatRoleEnum.user,
-    content,
-    attachments,
+    content: [createMessageTextContent({ text: message })],
   };
   const userMessageId = userMessage.id;
 
@@ -1278,15 +1270,13 @@ function pickMoreCompleteMessage(
 }
 
 function getMessageCompletenessScore(message: BaseChatMessageUnion): number {
-  let score = 0;
   if (message.role === ChatRoleEnum.assistant) {
-    score = getAssistantMessageScore(message);
-  } else if (message.role === ChatRoleEnum.tool) {
-    score = getToolMessageScore(message);
-  } else {
-    score = getContentScore(message.content);
+    return getAssistantMessageScore(message);
   }
-  return score + getAttachmentScore(message);
+  if (message.role === ChatRoleEnum.tool) {
+    return getToolMessageScore(message);
+  }
+  return getContentScore(message.content);
 }
 
 function getAssistantMessageScore(message: AssistantChatMessage): number {
@@ -1302,17 +1292,6 @@ function getAssistantMessageScore(message: AssistantChatMessage): number {
     }
   }
   return score;
-}
-
-function getAttachmentScore(message: BaseChatMessageUnion): number {
-  if (!("attachments" in message)) {
-    return 0;
-  }
-  const attachments = message.attachments;
-  if (!Array.isArray(attachments)) {
-    return 0;
-  }
-  return attachments.length * 8;
 }
 
 function getToolMessageScore(message: ToolChatMessage): number {

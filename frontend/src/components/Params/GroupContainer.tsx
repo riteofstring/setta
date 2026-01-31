@@ -21,6 +21,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import { setSectionSize } from "state/actions/sections/sectionSizes";
 import {
   useProjectState,
   useSettings,
@@ -40,9 +41,13 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { route_set_section_pinned_area_height } from "utils/generatedEndpoints";
+import {
+  route_set_section_pinned_area_height,
+  route_set_section_sizes,
+} from "utils/generatedEndpoints";
 import {
   isBaseSectionWithParamsImpl,
+  SectionSize,
   SectionSizeModeEnum,
 } from "utils/generatedTypes";
 import { ParamDndList } from "./ParamDndList";
@@ -79,6 +84,16 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
     null,
   );
   const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
+  const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
+  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+
+  // Clear stale cached heights on mount to prevent using outdated values from previous sessions
+  useLayoutEffect(() => {
+    useTemporaryMiscState.setState({
+      [pinnedMinHeightKey]: 0,
+      [unpinnedMinHeightKey]: 0,
+    });
+  }, [pinnedMinHeightKey, unpinnedMinHeightKey]);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -444,7 +459,7 @@ function ResizablePinnedArea({
   positionAndSizeLocked,
   unpinnedMinHeight,
 }: ResizablePinnedAreaProps) {
-  const { height, hasUnpinnedParams } = useProjectState((x) => {
+  const { height, hasUnpinnedParams, sectionHeight } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
@@ -461,6 +476,7 @@ function ResizablePinnedArea({
       hasUnpinnedParams:
         !impl.hideUnpinnedParams &&
         filteredUnpinned.topLevelParamIds.length > 0,
+      sectionHeight: x.sections[sectionId]?.size?.height ?? null,
     };
   }, _.isEqual);
   const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
@@ -486,6 +502,7 @@ function ResizablePinnedArea({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [minContentHeight, setMinContentHeight] = useState<number | null>(null);
+  const [measurementsReady, setMeasurementsReady] = useState(false);
   const lastMeasuredMinHeightRef = useRef<number | null>(null);
   const edgesStripHeight = useTemporaryMiscState(
     (x) => x[getEdgesStripHeightKey(sectionId)] ?? 0,
@@ -691,7 +708,31 @@ function ResizablePinnedArea({
           Number.parseFloat(sectionStyle.borderBottomWidth)
         : 0;
       const headerHeight = headerRef.current?.offsetHeight ?? 0;
-      const listHeight = list.scrollHeight;
+      const rowCandidates = Array.from(
+        list.querySelectorAll("article.section-args-nested-key-value"),
+      );
+      const fallbackRows =
+        rowCandidates.length > 0
+          ? rowCandidates
+          : Array.from(list.querySelectorAll("article.section-lg-value"));
+      let listHeight = list.scrollHeight;
+      if (fallbackRows.length > 0) {
+        const zoom = useReactFlow.getState().transform[2] ?? 1;
+        const safeZoom = zoom > 0 ? zoom : 1;
+        const listRect = list.getBoundingClientRect();
+        const listScrollTop = list.scrollTop;
+        let maxBottom = 0;
+        for (const row of fallbackRows) {
+          const rowRect = row.getBoundingClientRect();
+          const top =
+            (rowRect.top - listRect.top) / safeZoom + listScrollTop;
+          const bottom = top + rowRect.height / safeZoom;
+          if (bottom > maxBottom) {
+            maxBottom = bottom;
+          }
+        }
+        listHeight = maxBottom > 0 ? maxBottom : listHeight;
+      }
       const nextHeight = Math.ceil(
         listHeight + headerHeight + padding + borderHeight,
       );
@@ -764,7 +805,7 @@ function ResizablePinnedArea({
     0,
   );
   const maxHeight =
-    typeof contentHeight === "number" && !isPinnedManual
+    typeof contentHeight === "number"
       ? Math.min(availableHeight, contentHeight)
       : availableHeight;
   const pinnedMinHeight =
@@ -777,30 +818,112 @@ function ResizablePinnedArea({
     typeof height === "number" && Number.isFinite(maxHeight)
       ? Math.min(Math.max(height, resolvedMinHeight), maxHeight)
       : height;
+  const numericSectionHeight =
+    typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
+      ? sectionHeight
+      : null;
 
+  // Track when measurements are complete to avoid acting on stale/zero values
   useLayoutEffect(() => {
+    const ready =
+      measuredContainerHeight !== null &&
+      contentHeight !== null &&
+      (resolvedUnpinnedMinHeight > 0 || !hasUnpinnedParams);
+    setMeasurementsReady(ready);
+  }, [
+    measuredContainerHeight,
+    contentHeight,
+    resolvedUnpinnedMinHeight,
+    hasUnpinnedParams,
+  ]);
+
+  // Consolidated height constraint effect - guards with measurementsReady to avoid race conditions
+  useLayoutEffect(() => {
+    // Skip all height adjustments until measurements are complete
+    if (!measurementsReady) {
+      return;
+    }
+
+    // Reset max-follow tracking when height becomes non-numeric
     if (typeof height !== "number") {
       lastMaxHeightRef.current = null;
       return;
     }
-    if (typeof maxHeight !== "number" || !Number.isFinite(maxHeight)) {
+
+    // 1. Expand section height if pinned area needs more space
+    if (
+      canResize &&
+      numericSectionHeight !== null &&
+      pinnedMinHeight > 0 &&
+      pinnedMinHeight - availableHeight > 1
+    ) {
+      const heightShortfall = pinnedMinHeight - availableHeight;
+      const nextHeight = Math.round(numericSectionHeight + heightShortfall);
+      let updatedSectionSizes: Record<string, SectionSize> = {};
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          updatedSectionSizes = {
+            [sectionId]: setSectionSize(
+              sectionId,
+              { height: nextHeight },
+              state,
+            ),
+          };
+        },
+        send: (frontendOpId) =>
+          route_set_section_sizes({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionSizes: updatedSectionSizes,
+            frontendOpId,
+          }),
+      });
       return;
     }
-    const lastMax = lastMaxHeightRef.current;
-    if (typeof lastMax !== "number" || !Number.isFinite(lastMax)) {
+
+    // 2. Clamp height to min constraint
+    if (canResize && resolvedMinHeight > 0 && height < resolvedMinHeight - 2) {
+      persistPinnedAreaHeight(Math.round(resolvedMinHeight));
       return;
     }
-    if (Math.abs(height - lastMax) > 2) {
-      lastMaxHeightRef.current = null;
+
+    // 3. Clamp height to max constraint
+    if (
+      canResize &&
+      typeof maxHeight === "number" &&
+      Number.isFinite(maxHeight) &&
+      height > maxHeight + 2
+    ) {
+      persistPinnedAreaHeight(Math.round(maxHeight));
       return;
     }
-    if (Math.abs(maxHeight - lastMax) <= 2) {
-      return;
+
+    // 4. Track max-follow behavior (pinned area stays at max when max changes)
+    if (typeof maxHeight === "number" && Number.isFinite(maxHeight)) {
+      const lastMax = lastMaxHeightRef.current;
+      if (typeof lastMax === "number" && Number.isFinite(lastMax)) {
+        if (Math.abs(height - lastMax) > 2) {
+          // User moved away from max, stop following
+          lastMaxHeightRef.current = null;
+        } else if (Math.abs(maxHeight - lastMax) > 2) {
+          // Max changed while we're following it
+          const roundedMaxHeight = Math.round(maxHeight);
+          lastMaxHeightRef.current = roundedMaxHeight;
+          persistPinnedAreaHeight(roundedMaxHeight);
+        }
+      }
     }
-    const roundedMaxHeight = Math.round(maxHeight);
-    lastMaxHeightRef.current = roundedMaxHeight;
-    persistPinnedAreaHeight(roundedMaxHeight);
-  }, [height, maxHeight, persistPinnedAreaHeight]);
+  }, [
+    measurementsReady,
+    availableHeight,
+    canResize,
+    height,
+    maxHeight,
+    numericSectionHeight,
+    pinnedMinHeight,
+    resolvedMinHeight,
+    sectionId,
+    persistPinnedAreaHeight,
+  ]);
 
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
@@ -979,6 +1102,9 @@ function GetUnpinnedParams({
 
   const scheduleUpdate = useCallback(
     (node: HTMLDivElement) => {
+      // Immediate synchronous measurement to avoid race conditions on initial render
+      updateMinHeight(node);
+      // RAF fallback for layout-dependent updates after paint
       if (rafIdRef.current !== 0) {
         return;
       }
