@@ -2496,9 +2496,19 @@ class BaseProjectManager(ABC):
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
-        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        project_state.projectConfig.activeViewModeId = view_mode.id
+        view_modes = project_state.projectConfig.viewModes
+        if view_modes:
+            for view_mode in view_modes.values():
+                view_mode.visibilityBySectionId = dict(visibility_by_section_id)
+            active_view_mode_id = project_state.projectConfig.activeViewModeId
+            if active_view_mode_id not in view_modes:
+                project_state.projectConfig.activeViewModeId = next(
+                    iter(view_modes)
+                )
+        else:
+            view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+            view_modes[view_mode.id] = view_mode
+            project_state.projectConfig.activeViewModeId = view_mode.id
         self.project_state_backend = merge_single_config_into_backend(
             self.project_state_backend, project_state
         )
