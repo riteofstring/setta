@@ -365,8 +365,8 @@ def _should_auto_auth_dev_request(request: Request) -> bool:
     if not client or client.host not in {"127.0.0.1", "::1"}:
         return False
     origin = request.headers.get("origin")
-    if origin:
-        return origin in C.FRONTEND_ORIGINS
+    if origin and origin in C.FRONTEND_ORIGINS:
+        return True
     referer = request.headers.get("referer")
     if not referer:
         return False
