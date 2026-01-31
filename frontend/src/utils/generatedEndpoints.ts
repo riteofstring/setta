@@ -671,12 +671,6 @@ export async function route_toggle_view_mode_user_facing(
   return await post("/toggleViewModeUserFacing", x);
 }
 
-export async function route_toggle_view_mode_tab(
-  x: gt.ToggleViewModeTabRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleViewModeTab", x);
-}
-
 export async function route_set_view_mode_name(
   x: gt.SetViewModeNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1055,12 +1049,6 @@ export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionPinnedParams", x);
-}
-
-export async function route_set_section_pinned_area_height(
-  x: gt.SetSectionPinnedAreaHeightRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionPinnedAreaHeight", x);
 }
 
 export async function route_set_section_column_width(

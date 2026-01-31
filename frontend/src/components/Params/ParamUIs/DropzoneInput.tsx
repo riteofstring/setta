@@ -19,11 +19,6 @@ import {
   DropzoneConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import {
-  getAttachmentPolicy,
-  isAttachmentMimeAllowed,
-} from "utils/attachmentPolicy";
-import { formatBytes } from "utils/attachments";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import {
   createDropzoneFileArtifactId,
@@ -77,15 +72,45 @@ type DropzoneStatelessDisplayAttachment =
       text: string;
     };
 
-const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
-const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
+function formatBytes(bytes: number): string {
+  const megaBytes = bytes / (1024 * 1024);
+  if (megaBytes >= 1) {
+    const rounded = Math.round(megaBytes * 10) / 10;
+    return `${rounded} MB`;
+  }
+  const kiloBytes = bytes / 1024;
+  const rounded = Math.round(kiloBytes * 10) / 10;
+  return `${rounded} KB`;
+}
+
+const DROPZONE_MAX_FILE_BYTES_STATEFUL = 25 * 1024 * 1024;
+const DROPZONE_MAX_FILE_BYTES_STATELESS = 5 * 1024 * 1024;
+const DROPZONE_MAX_STATELESS_PAYLOAD_BYTES = 16 * 1024 * 1024;
+const DROPZONE_MAX_FILE_LABEL_STATEFUL = formatBytes(
+  DROPZONE_MAX_FILE_BYTES_STATEFUL,
+);
+const DROPZONE_MAX_FILE_LABEL_STATELESS = formatBytes(
+  DROPZONE_MAX_FILE_BYTES_STATELESS,
+);
+const DROPZONE_MAX_STATELESS_PAYLOAD_LABEL = formatBytes(
+  DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
+);
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
 
-function resolveDropzonePolicy(mode: DropzoneModeEnum) {
+function getMaxFileLimit(mode: DropzoneModeEnum): {
+  maxBytes: number;
+  label: string;
+} {
   if (mode === DropzoneModeEnum.STATELESS) {
-    return DROPZONE_STATELESS_POLICY;
+    return {
+      maxBytes: DROPZONE_MAX_FILE_BYTES_STATELESS,
+      label: DROPZONE_MAX_FILE_LABEL_STATELESS,
+    };
   }
-  return DROPZONE_STATEFUL_POLICY;
+  return {
+    maxBytes: DROPZONE_MAX_FILE_BYTES_STATEFUL,
+    label: DROPZONE_MAX_FILE_LABEL_STATEFUL,
+  };
 }
 
 function notifyOversizedFiles(files: File[], limitLabel: string): void {
@@ -154,18 +179,6 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
 
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
-}
-
-function notifyDisallowedMime(files: File[], allowedLabel: string): void {
-  if (files.length === 0) {
-    return;
-  }
-  const prefix =
-    files.length === 1
-      ? "A file was skipped due to type restrictions."
-      : "Some files were skipped due to type restrictions.";
-  const message = `${prefix} ${allowedLabel}`.trim();
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
@@ -395,7 +408,6 @@ export function DropzoneInput({
   const { isShareMode } = useShareSession((state) => ({
     isShareMode: state.isShareMode,
   }));
-  const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
   const parsedStatefulValue = useMemo(() => {
     return parseDropzoneValue(value);
@@ -534,45 +546,30 @@ export function DropzoneInput({
     if (slots === 0) {
       return;
     }
-    const { accepted, rejected } = splitFilesBySize(
-      files,
-      dropzonePolicy.maxFileBytes,
-    );
+    const maxLimit = getMaxFileLimit(mode);
+    const { accepted, rejected } = splitFilesBySize(files, maxLimit.maxBytes);
     if (rejected.length > 0) {
-      notifyOversizedFiles(rejected, dropzonePolicy.maxFileLabel);
+      notifyOversizedFiles(rejected, maxLimit.label);
     }
     let allowedFiles = slots === null ? accepted : accepted.slice(0, slots);
     if (allowedFiles.length === 0) {
       return;
     }
-    const rejectedByType = allowedFiles.filter((file) => {
-      const mimeType = file.type || "application/octet-stream";
-      return !isAttachmentMimeAllowed(mimeType, dropzonePolicy);
-    });
-    if (rejectedByType.length > 0) {
-      notifyDisallowedMime(rejectedByType, dropzonePolicy.allowedMimeLabel);
-    }
-    allowedFiles = allowedFiles.filter((file) => {
-      const mimeType = file.type || "application/octet-stream";
-      return isAttachmentMimeAllowed(mimeType, dropzonePolicy);
-    });
-    if (allowedFiles.length === 0) {
-      return;
-    }
     if (mode === DropzoneModeEnum.STATELESS) {
-      const maxTotalBytes = dropzonePolicy.maxTotalBytes;
-      if (maxTotalBytes !== null) {
-        const maxTotalLabel =
-          dropzonePolicy.maxTotalLabel ?? formatBytes(maxTotalBytes);
-        const { accepted: sizeAccepted, rejected: sizeRejected } =
-          splitFilesByTotalBytes(allowedFiles, maxTotalBytes);
-        if (sizeRejected.length > 0) {
-          notifyStatelessPayloadLimit(sizeRejected, maxTotalLabel);
-        }
-        allowedFiles = sizeAccepted;
-        if (allowedFiles.length === 0) {
-          return;
-        }
+      const { accepted: sizeAccepted, rejected: sizeRejected } =
+        splitFilesByTotalBytes(
+          allowedFiles,
+          DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
+        );
+      if (sizeRejected.length > 0) {
+        notifyStatelessPayloadLimit(
+          sizeRejected,
+          DROPZONE_MAX_STATELESS_PAYLOAD_LABEL,
+        );
+      }
+      allowedFiles = sizeAccepted;
+      if (allowedFiles.length === 0) {
+        return;
       }
     }
     const previousValue = value;
@@ -727,15 +724,10 @@ export function DropzoneInput({
       return;
     }
     if (mode === DropzoneModeEnum.STATELESS) {
-      const maxTotalBytes = dropzonePolicy.maxTotalBytes;
-      if (maxTotalBytes !== null) {
-        const textBytes = getUtf8ByteLength(text);
-        if (textBytes > maxTotalBytes) {
-          const maxTotalLabel =
-            dropzonePolicy.maxTotalLabel ?? formatBytes(maxTotalBytes);
-          notifyStatelessTextPayloadLimit(maxTotalLabel);
-          return;
-        }
+      const textBytes = getUtf8ByteLength(text);
+      if (textBytes > DROPZONE_MAX_STATELESS_PAYLOAD_BYTES) {
+        notifyStatelessTextPayloadLimit(DROPZONE_MAX_STATELESS_PAYLOAD_LABEL);
+        return;
       }
       const attachment: DropzoneStatelessAttachment = {
         kind: "text",
@@ -1030,7 +1022,7 @@ export function DropzoneInput({
                 </span>
                 {attachment.size !== null && attachment.size !== undefined && (
                   <span className="text-[10px] uppercase tracking-wide text-setta-400">
-                    {formatBytes(attachment.size)}
+                    {attachment.size} bytes
                   </span>
                 )}
               </div>

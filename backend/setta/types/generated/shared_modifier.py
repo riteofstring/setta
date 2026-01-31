@@ -1,7 +1,7 @@
 # Auto-generated shared modifier model - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Literal, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
 from setta.types.artifact import (
     DrawAreaBrushShape,
@@ -34,7 +34,6 @@ from setta.types.section_impls import (
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     SectionSize,
-    SectionSizeMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -119,7 +118,6 @@ class SharedModifier(TypedDict):
     overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
-    pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
     pinnedParams: NotRequired[list[ID]]
     placeholder: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]

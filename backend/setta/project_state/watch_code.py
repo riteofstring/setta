@@ -467,7 +467,6 @@ class WatchCodeManager:
         self._project_manager = project_manager
         self._loop = loop
         self._observer = Observer()
-        self._observer.daemon = True
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
@@ -476,7 +475,6 @@ class WatchCodeManager:
         self._notified_import_failures: set[tuple[ID, str]] = set()
         self._pending_moves: dict[tuple[ID, Path], Path] = {}
         self._started = False
-        self._started_once = False
         self._handler = WatchCodeEventHandler(
             self._get_loop,
             self._handle_event,
@@ -494,44 +492,21 @@ class WatchCodeManager:
 
     def start(self) -> None:
         if self._started:
-            if self._observer.is_alive():
-                return
-            self._started = False
-        if self._observer.is_alive():
-            self._started = True
             return
-        if self._started_once:
-            self._reset_observer()
         self._observer.start()
         self._started = True
-        self._started_once = True
 
     def shutdown(self) -> None:
         if self._started:
-            observer = self._observer
-            if observer.is_alive():
-                observer.stop()
-                observer.join(timeout=1.0)
-                if observer.is_alive():
-                    logger.warning(
-                        "Watch code observer did not shut down within timeout."
-                    )
-                else:
-                    self._started = False
-            else:
-                self._started = False
+            self._observer.stop()
+            self._observer.join()
+            self._started = False
         for debouncer in self._debouncers.values():
             debouncer.cancel()
         self._debouncers.clear()
         for debouncer in self._delete_debouncers.values():
             debouncer.cancel()
         self._delete_debouncers.clear()
-
-    def _reset_observer(self) -> None:
-        self._observer = Observer()
-        self._observer.daemon = True
-        self._watched_dirs.clear()
-        self._sync_watch_dirs({})
 
     def sync_from_backend(self, backend: ProjectStateBackend) -> None:
         configs = backend.projectConfigs
