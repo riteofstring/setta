@@ -3,7 +3,7 @@
 This repo has two different runtime shapes: dev (split frontend/backend) and built (single origin).
 
 ## Dev (Vite + Backend)
-- Frontend: Vite on `http://127.0.0.1:3000` in the main worktree (`pnpm -C frontend start`, offset per worktree).
+- Frontend: Vite on `http://127.0.0.1:3000` (`pnpm start`).
 - Backend: Setta on `http://127.0.0.1:8000` (`frontend/backendStart.sh`).
 - UI assets come from Vite; the backend does **not** serve static files in dev.
 - Auth cookie is set via the backend bootstrap page (`/__setta__/bootstrap`), then the page redirects to the dev frontend.
@@ -22,5 +22,5 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
   - sdist installs catch missing files/packaging errors; wheel installs match end-user installs but can skip sdist-only issues.
 
 ## Quick Checks
-- Dev: `pnpm -C frontend start` (Vite on 3000, backend on 8000 in the main worktree, offset per worktree).
+- Dev: `pnpm start` (Vite on 3000, backend on 8000).
 - Built: `./build.sh`, then `source activate.sh && setta` to run the single-origin build.

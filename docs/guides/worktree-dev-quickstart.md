@@ -10,14 +10,14 @@ copies any `.env*` files that exist in the root, then runs `./dev_install.sh` in
 
 Run a dev instance (from each worktree root):
 ```sh
-pnpm -C frontend start
+./scripts/run-dev-instance.sh
 ```
-The dev scripts use the worktree folder name for ports and cookie isolation.
+The runner uses the worktree folder name for ports and cookie isolation.
 Examples: `setta.feature-auth-1` -> backend `8001`, frontend `3001`; `setta.fix-realtime-2` -> `8002`/`3002`.
 Use a trailing number if you want predictable port offsets.
 
 Optional overrides:
 ```sh
-pnpm -C frontend startr
-SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 pnpm -C frontend start
+./scripts/run-dev-instance.sh --mode startr
+SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 ./scripts/run-dev-instance.sh
 ```
