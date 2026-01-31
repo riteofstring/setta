@@ -66,8 +66,8 @@ def test_build_ssh_tunnel_command_uses_host() -> None:
 
 
 def test_format_remote_path_uses_posix_separators() -> None:
-    windows_path = PureWindowsPath("setta_files\\run\\logs")
-    assert _format_remote_path(windows_path) == "setta_files/run/logs"
+    windows_path = PureWindowsPath("setta_files\\runtime\\logs")
+    assert _format_remote_path(windows_path) == "setta_files/runtime/logs"
 
 
 def test_ensure_background_process_started_raises_on_exit() -> None:

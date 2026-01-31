@@ -80,6 +80,7 @@ class SharedModifier(TypedDict):
     eraserBrushSize: NotRequired[int]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
+    hasSecret: NotRequired[bool]
     headingAsSectionName: NotRequired[bool]
     hideColumn: NotRequired[bool]
     hideParams: NotRequired[bool]
