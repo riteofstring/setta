@@ -2,6 +2,8 @@ Compare the current branch with the main branch. Do the changes make sense? Is t
 
 
 
+Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
+
 
 
 Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need backward compatibility or legacy support! It's also ok for the application to be broken during this refactor! DO NOT KEEP CODE AROUND JUST TO KEEP THE CODE FUNCTIONAL. THIS IS A REFACTORING. WE EXPECT THE CODE TO BE BROKEN DURING THE REFACTOR.
@@ -27,3 +29,7 @@ Merge the main branch into our current branch. If there are merge conflicts, res
 
 
 Any unit/integration/e2e backend/frontend tests worth adding? If so, add them.
+
+
+
+Read all the top-level review*.md docs. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
