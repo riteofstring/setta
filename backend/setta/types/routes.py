@@ -48,6 +48,9 @@ class Route(str, Enum):
     DELETE_JSON_SOURCE_FILE_AND_VARIANT = "/deleteJsonSourceFileAndVariant"
     CHECK_IF_FILE_EXISTS = "/checkIfFileExists"
     LOAD_ARTIFACT_FROM_DISK = "/loadArtifactFromDisk"
+    GET_ATTACHMENT_DOWNLOAD_URL = "/getAttachmentDownloadUrl"
+    GET_ATTACHMENT_DOWNLOAD_URLS = "/getAttachmentDownloadUrls"
+    ATTACHMENT_DOWNLOAD = "/attachments/{token}"
     RESTART_LANGUAGE_SERVER = "/restartLanguageServer"
     GET_NOTIFICATIONS = "/getNotifications"
     DELETE_NOTIFICATION = "/deleteNotification"
@@ -150,10 +153,6 @@ class Route(str, Enum):
     SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
-    SET_CODE_SECTION_DIAGNOSTICS_MUTE = "/setCodeSectionDiagnosticsMute"
-    SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
-        "/setCodeSectionDiagnosticCodeSuppression"
-    )
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"

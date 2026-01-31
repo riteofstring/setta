@@ -189,6 +189,23 @@ function parseModel(value) {
   return undefined;
 }
 
+function normalizeParts(rawParts, fallbackPrompt) {
+  if (Array.isArray(rawParts)) {
+    const parts = rawParts.filter((part) => {
+      return part && typeof part === "object" && typeof part.type === "string";
+    });
+    if (parts.length > 0) {
+      return parts;
+    }
+  }
+  const text =
+    typeof fallbackPrompt === "string" ? fallbackPrompt.trim() : "";
+  if (!text) {
+    return [];
+  }
+  return [{ type: "text", text }];
+}
+
 function isSessionIdleEvent(event, sessionId) {
   if (!sessionId) {
     return false;
@@ -557,6 +574,7 @@ if (!input) {
 }
 
 const prompt = typeof input.prompt === "string" ? input.prompt : "";
+const rawParts = Array.isArray(input.parts) ? input.parts : null;
 const systemPrompt =
   typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
 const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl : null;
@@ -714,11 +732,12 @@ const abortEvents = () => {
     eventsController.abort();
   }
 };
+const parts = normalizeParts(rawParts, prompt);
 const promptPayload = {
   path: { id: sessionId },
   query: { directory: workingDir },
   body: {
-    parts: [{ type: "text", text: prompt }],
+    parts,
   },
 };
 if (systemPrompt) {
