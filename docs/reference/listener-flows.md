@@ -11,7 +11,8 @@ UI change
      else:
        update local pending value on the control param
        send RealtimeUIChange for SectionDependencyKey
-         (only if listener coverage matches)
+         (only if listener coverage matches; PasswordParam controls skip realtime
+         emits to avoid broadcasting secrets)
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
       -> WMHPythonScriptSender fan-out
            - realtime deltas -> sockets with matching dependencies or realtime wildcard
@@ -76,6 +77,10 @@ Key paths:
 - Backend route + handler: `backend/setta/routers/project_manager.py`,
   `backend/setta/project_state/base_project_manager.py`,
   `backend/setta/types/helpers_lvl2.py`
+
+Note:
+- PasswordParam persistence stores the secret in the runtime secret store and
+  keeps the project state value empty (`hasSecret` tracks presence).
 
 ## Flow D: Listener callback -> emit_to_frontend -> project state + artifacts
 ```

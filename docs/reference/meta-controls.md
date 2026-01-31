@@ -47,6 +47,16 @@ their values and action events propagate, and how they appear in generated code 
   - `mode=STATELESS` behaves like button controls (no persisted value). Frontend
     sends `RealtimeDependencyEvent` with the section dependency key and a JSON
     payload that includes the attachments plus `sectionId`/`paramInfoId`.
+- Password controls:
+  - Secrets are stored in the runtime secret store
+    (`setta_files/runtime/secrets/passwords.json` or `SETTA_RUNTIME_ROOT`);
+    project state keeps `value`/`defaultVal` empty and tracks presence via
+    `hasSecret`.
+  - The UI shows a "Saved" placeholder when `hasSecret` is true and reveals the
+    secret only on demand (`route_get_password_param_value`), which is blocked
+    in share mode.
+  - Realtime deltas are not emitted for password values; they only persist via
+    `route_set_param_entered_value`.
 
 ## Dependency graph + generated code
 - The dependency graph exports a `SectionNode` for each meta control, using the
@@ -59,7 +69,7 @@ their values and action events propagate, and how they appear in generated code 
   param id.
 - Literal formatting uses the control type (for example,
   `SwitchParam` -> `True`/`False`, `ColorPickerParam` -> quoted string,
-  `TextParam`/`PasswordParam` -> `repr(...)`).
+  `TextParam` -> `repr(...)`, `PasswordParam` -> `read_password_value(...)`).
 - `DropzoneParam` values render as a list of attachment objects when stateful
   (or `[]` when empty/ stateless).
 
