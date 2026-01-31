@@ -8,7 +8,6 @@ from setta.agentic.chat_view import (
     get_run_engine_config_id,
     get_run_project_config_id,
     get_run_sort_key,
-    is_external_agent_run,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
@@ -17,7 +16,6 @@ from setta.agentic.external_agent_preflight import (
 from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
     list_agent_runs_by_metadata,
-    load_agent_run,
     require_agent_profile,
 )
 from setta.database.utils import create_new_id
