@@ -37,6 +37,6 @@ In share mode only, those flags gate specific route families. Here is what each 
 - `always`: run outputs are retained.
 - `never` is rejected for share deployments.
 
-See `docs/guides/sharing-mode-vs-ide-mode.md` for the share session lifecycle and deployment setup.
+See `docs/reference/sharing-mode-vs-ide-mode.md` for the share session lifecycle and deployment setup.
 
 If you want, I can map these directly to the UI toggles or share policy JSON you're using.

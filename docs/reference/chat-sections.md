@@ -119,5 +119,5 @@ async def on_chat(state, ctx) -> None:
 ```
 
 ## Related docs
-- `docs/chat-toolkit.md`
-- `docs/mcp-system-overview.md`
+- `docs/reference/chat-toolkit.md`
+- `docs/reference/mcp-system-overview.md`
