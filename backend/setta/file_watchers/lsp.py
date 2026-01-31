@@ -13,7 +13,7 @@ from setta.utils.constants import C
 
 def _default_ignore_paths() -> list[Path]:
     return [
-        C.RUNTIME_MCP_FOLDER.resolve(),
+        (C.RUN_FOLDER / "mcp").resolve(),
     ]
 
 

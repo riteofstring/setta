@@ -149,7 +149,6 @@ class Route(str, Enum):
     SET_WATCH_CODE_ENABLED = "/setWatchCodeEnabled"
     SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
-    GET_PASSWORD_PARAM_VALUE = "/getPasswordParamValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"

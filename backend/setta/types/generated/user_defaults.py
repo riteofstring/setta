@@ -292,7 +292,7 @@ class UserDefaultDropdownParamCodeObjImpl(
 class UserDefaultPasswordParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    hasSecret: bool = False
+    pass
 
 
 class UserDefaultTextAreaParamCodeObjImpl(

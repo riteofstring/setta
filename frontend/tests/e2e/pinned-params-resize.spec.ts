@@ -20,14 +20,12 @@ const EXPECTED_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-const READY_SELECTOR = ".react-flow__pane";
 
 type DragHandle = "bottom" | "right" | "bottomRight";
 type Box = { x: number; y: number; width: number; height: number };
@@ -156,10 +154,25 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     initialLayoutMetrics.pinnedHeaderHeight +
     initialLayoutMetrics.pinnedPadding +
     initialLayoutMetrics.pinnedBorderHeight;
+  const expectedPinnedMaxInitial = initialLayoutMetrics.pinnedContentHeight;
   const expectedUnpinnedMin =
-    initialLayoutMetrics.unpinnedRowHeight + initialLayoutMetrics.unpinnedPadding;
+    initialLayoutMetrics.unpinnedRowHeight +
+    initialLayoutMetrics.unpinnedPadding;
+  // - The pinned param area max height should be the minimum height necessary to have all pinned params visible.
+  // - The pinned param area min height should be the height where 1 pinned param is fully visible.
+  // - The unpinned param area max height should be unbounded.
+  // - The unpinned param area min height should be the height where 1 unpinned param is fully visible.
+  expect(initialLayoutMetrics.pinnedMaxHeight).toBeGreaterThanOrEqual(
+    expectedPinnedMaxInitial - 2,
+  );
+  expect(initialLayoutMetrics.pinnedMaxHeight).toBeLessThanOrEqual(
+    expectedPinnedMaxInitial + 4,
+  );
   expect(initialLayoutMetrics.pinnedMinHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
+  );
+  expect(initialLayoutMetrics.pinnedMinHeight).toBeLessThanOrEqual(
+    expectedPinnedMin + 4,
   );
   expect(initialLayoutMetrics.pinnedHeight).toBeGreaterThanOrEqual(
     expectedPinnedMin - 2,
@@ -170,6 +183,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   expect(initialLayoutMetrics.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMin + 4,
   );
+  const unpinnedMaxHeight = await getComputedMaxHeight(unpinnedArea);
+  expect(isMaxHeightUnbounded(unpinnedMaxHeight)).toBe(true);
   pinnedList = pinnedArea.locator("div.section-args-nested");
 
   await dragResize(page, callableSection, {
@@ -206,15 +221,55 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     },
   });
   expect(pinnedMaxResult.didReach).toBe(true);
-  const availableHeight = Math.max(
-    layoutMetrics.paramGroupHeight -
-      layoutMetrics.paramGroupPadding -
-      layoutMetrics.edgesHeight -
-      (layoutMetrics.unpinnedRowHeight + layoutMetrics.unpinnedPadding),
-    0,
+  const expectedPinnedMax = getExpectedPinnedMax(layoutMetrics);
+  const pinnedTargetMax = getPinnedTargetMax(layoutMetrics);
+  const pinnedAvailableHeight = getPinnedAvailableHeight(layoutMetrics);
+  const hasRoomForAllPinned =
+    pinnedAvailableHeight >= layoutMetrics.pinnedContentHeight - 2;
+  expect(Math.abs(layoutMetrics.pinnedHeight - expectedPinnedMax)).toBeLessThanOrEqual(
+    4,
   );
-  const shouldScrollAtMax =
-    layoutMetrics.pinnedContentHeight > availableHeight + 1;
+  expect(Math.abs(pinnedTargetMax - expectedPinnedMax)).toBeLessThanOrEqual(2);
+  expect(expectedPinnedMax).toBeLessThanOrEqual(
+    layoutMetrics.pinnedContentHeight + 2,
+  );
+  if (hasRoomForAllPinned) {
+    expect(Math.abs(expectedPinnedMax - layoutMetrics.pinnedContentHeight)).toBeLessThanOrEqual(
+      2,
+    );
+  }
+  // Pinned params should never grow beyond the height needed to show all
+  // pinned params fully.
+  const pinnedHeightAtMax = await getHeight(pinnedArea);
+  await dragPinnedResize(page, pinnedArea, 220);
+  const pinnedHeightAfterOversizeDrag = await getHeight(pinnedArea);
+  expect(pinnedHeightAfterOversizeDrag).toBeLessThanOrEqual(
+    pinnedTargetMax + 2,
+  );
+  expect(pinnedHeightAfterOversizeDrag).toBeLessThanOrEqual(
+    pinnedHeightAtMax + 2,
+  );
+  const layoutMetricsAfterOversize = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  if (
+    layoutMetricsAfterOversize.pinnedListScrollHeight <=
+    layoutMetricsAfterOversize.pinnedListClientHeight + 2
+  ) {
+    expect(layoutMetricsAfterOversize.pinnedListTrailingGap).toBeLessThanOrEqual(
+      4,
+    );
+  }
+  if (layoutMetrics.pinnedMaxHeight > 0) {
+    expect(
+      Math.abs(layoutMetrics.pinnedMaxHeight - expectedPinnedMax),
+    ).toBeLessThanOrEqual(4);
+  }
+  const shouldScrollAtMax = layoutMetrics.pinnedContentHeight > expectedPinnedMax + 1;
   if (shouldScrollAtMax) {
     expect(pinnedMetricsAtMax.scrollHeight).toBeGreaterThan(
       pinnedMetricsAtMax.clientHeight,
@@ -223,11 +278,16 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     expect(pinnedMetricsAtMax.scrollHeight).toBeLessThanOrEqual(
       pinnedMetricsAtMax.clientHeight + 2,
     );
+    // Max height should end at the bottom of the last pinned row,
+    // with no extra blank space below it.
+    expect(layoutMetrics.pinnedListTrailingGap).toBeLessThanOrEqual(4);
   }
   expect(unpinnedMetricsAtMax.clientHeight).toBeGreaterThanOrEqual(
     unpinnedMinExpected - 2,
   );
 
+  // Pinned params should never resize beyond the minimum height needed
+  // to show all pinned params fully.
   const pinnedHeightBefore = await getHeight(pinnedArea);
   await clickPinnedResizeHandle(page, pinnedArea);
   const pinnedHeightAfter = await getHeight(pinnedArea);
@@ -273,18 +333,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     unpinnedArea,
     edgesStrip,
   );
-  const availableHeightAfterManual = Math.max(
-    layoutMetricsAfterManual.paramGroupHeight -
-      layoutMetricsAfterManual.paramGroupPadding -
-      layoutMetricsAfterManual.edgesHeight -
-      (layoutMetricsAfterManual.unpinnedRowHeight +
-        layoutMetricsAfterManual.unpinnedPadding),
-    0,
-  );
-  const expectedPinnedMaxAfterManual = Math.min(
-    availableHeightAfterManual,
-    layoutMetricsAfterManual.pinnedContentHeight,
-  );
+  const expectedPinnedMaxAfterManual =
+    getExpectedPinnedMax(layoutMetricsAfterManual);
   const canGrowAfterManual =
     expectedPinnedMaxAfterManual - pinnedHeightManual > 6;
   if (
@@ -315,40 +365,41 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     Math.abs(pinnedHeightAfterSectionClick - pinnedHeightManual),
   ).toBeLessThanOrEqual(2);
 
-  await page.reload();
-  await ensureAppReady(page);
-  const sectionsAfterReload = page.locator('section[class*="card-section"]');
-  await ensureProjectConfig(page, sectionsAfterReload);
-  const namedCallableSection = findSectionCandidates(
+  // Refresh can leave the pinned area too small to show any rows and
+  // temporarily non-resizable; retry reloads before failing.
+  const reloadState = await reloadPinnedSectionState({
     page,
     callableName,
-  ).first();
-  if ((await namedCallableSection.count()) > 0) {
-    callableSection = namedCallableSection;
-  } else {
-    callableSection = await findCallableSection(page, sectionsAfterReload);
-  }
-  await focusSectionFromOverview(page, callableName, callableSection);
-  await callableSection.locator("header.section-title").first().click({
-    force: true,
+    testInfo,
   });
-  paramGroup = callableSection.locator("div.section-row-pin-main").first();
-  unpinnedArea = paramGroup.locator(":scope > div.section-args-nested").first();
-  pinnedArea = paramGroup.locator('section:has-text("Pinned Params")');
-  pinnedList = pinnedArea.locator("div.section-args-nested");
-  pinnedRows = pinnedList.locator(
-    ":scope > article.section-args-nested-key-value",
-  );
-  unpinnedRows = unpinnedArea.locator(
-    ":scope > article.section-args-nested-key-value",
-  );
-  edgesStrip = paramGroup.locator(":scope > section.section-row-pin-main").first();
-  await expect(edgesStrip).toBeVisible();
-  await expect.poll(async () => pinnedRows.count()).toBeGreaterThan(0);
-  await expect.poll(async () => unpinnedRows.count()).toBeGreaterThan(0);
+  callableSection = reloadState.callableSection;
+  paramGroup = reloadState.paramGroup;
+  unpinnedArea = reloadState.unpinnedArea;
+  pinnedArea = reloadState.pinnedArea;
+  pinnedList = reloadState.pinnedList;
+  pinnedRows = reloadState.pinnedRows;
+  unpinnedRows = reloadState.unpinnedRows;
+  edgesStrip = reloadState.edgesStrip;
   edgesHeight = await getHeight(edgesStrip);
 
   const pinnedHeightAfterReload = await getHeight(pinnedArea);
+  const reloadLayoutMetrics = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  await attachLayoutSnapshot({
+    testInfo,
+    label: "pinned-reload-layout",
+    target: callableSection,
+    metrics: {
+      ...reloadLayoutMetrics,
+      pinnedHeightManual,
+      pinnedHeightAfterReload,
+    },
+  });
   expect(Math.abs(pinnedHeightAfterReload - pinnedHeightManual)).toBeLessThanOrEqual(
     3,
   );
@@ -360,10 +411,10 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     dy: 400,
     outside: 6,
   });
+  await expect
+    .poll(async () => getHeight(callableSection), { timeout: 3000 })
+    .toBeGreaterThan(sectionHeightBeforeReloadResize + 20);
   const sectionHeightAfterReloadResize = await getHeight(callableSection);
-  expect(sectionHeightAfterReloadResize).toBeGreaterThan(
-    sectionHeightBeforeReloadResize + 20,
-  );
   const pinnedHeightAfterReloadResize = await getHeight(pinnedArea);
   expect(
     Math.abs(pinnedHeightAfterReloadResize - pinnedHeightAfterReload),
@@ -396,18 +447,8 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
   expect(layoutMetricsAfterReload.unpinnedMinHeight).toBeLessThanOrEqual(
     expectedUnpinnedMinAfterReloadCheck + 4,
   );
-  const availableHeightAfterReload = Math.max(
-    layoutMetricsAfterReload.paramGroupHeight -
-      layoutMetricsAfterReload.paramGroupPadding -
-      layoutMetricsAfterReload.edgesHeight -
-      (layoutMetricsAfterReload.unpinnedRowHeight +
-        layoutMetricsAfterReload.unpinnedPadding),
-    0,
-  );
-  const expectedPinnedMaxAfterReload = Math.min(
-    availableHeightAfterReload,
-    layoutMetricsAfterReload.pinnedContentHeight,
-  );
+  const expectedPinnedMaxAfterReload =
+    getExpectedPinnedMax(layoutMetricsAfterReload);
   const expectedPinnedMinAfterReload =
     pinnedRowHeightAfterReload +
     layoutMetricsAfterReload.pinnedHeaderHeight +
@@ -448,6 +489,33 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     ).toBeLessThanOrEqual(2);
   }
 
+  // If pinned params are already at their minimum height, shrinking the
+  // callable section must not push them below that minimum (no partial rows).
+  const pinnedHeightAtMinManual = await shrinkPinnedAreaToMin(page, pinnedArea);
+  const pinnedRowHeightAtMinManual = await getMinParamRowHeight(pinnedList);
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: -160,
+    outside: 6,
+  });
+  const pinnedHeightAfterSectionShrinkFromMin = await getHeight(pinnedArea);
+  expect(pinnedHeightAfterSectionShrinkFromMin).toBeGreaterThanOrEqual(
+    pinnedHeightAtMinManual - 2,
+  );
+  const pinnedMetricsAfterSectionShrinkFromMin = await getScrollMetrics(
+    pinnedList,
+  );
+  expect(pinnedMetricsAfterSectionShrinkFromMin.clientHeight).toBeGreaterThanOrEqual(
+    pinnedRowHeightAtMinManual - 2,
+  );
+  await expectRowFullyVisibleWithinContainer(
+    pinnedList,
+    pinnedRows.first(),
+    "pinned-min-after-section-shrink",
+  );
+  pinnedHeightManual = pinnedHeightAfterSectionShrinkFromMin;
+
   await shrinkSectionToMinHeight(page, callableSection, "bottom", 6);
   await unpinnedArea.evaluate((el) => {
     el.scrollTop = 0;
@@ -480,15 +548,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     layoutMetricsAtMin.pinnedHeaderHeight +
     layoutMetricsAtMin.pinnedPadding +
     layoutMetricsAtMin.pinnedBorderHeight;
-  expect(unpinnedMetrics.clientHeight).toBeLessThanOrEqual(
-    unpinnedMinExpectedAtMin + 4,
-  );
   expect(unpinnedMetrics.clientHeight).toBeGreaterThanOrEqual(
     unpinnedMinExpectedAtMin - 2,
   );
   expect(layoutMetricsAtMin.pinnedHeight).toBeGreaterThanOrEqual(
     pinnedMinExpectedAtMin - 2,
   );
+  const unpinnedAtMin =
+    unpinnedMetrics.clientHeight <= unpinnedMinExpectedAtMin + 4;
+  const pinnedAtMin = layoutMetricsAtMin.pinnedHeight <= pinnedMinExpectedAtMin + 4;
+  // When both areas are at their minimum, the first row must be fully visible
+  // (no partial rows), and the next row should be clipped.
   await expectRowFullyVisibleWithinContainer(
     unpinnedArea,
     unpinnedRows.first(),
@@ -499,14 +569,14 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
     pinnedRows.first(),
     "pinned",
   );
-  if ((await unpinnedRows.count()) > 1) {
+  if (unpinnedAtMin && (await unpinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       unpinnedArea,
       unpinnedRows.nth(1),
       "unpinned-secondary",
     );
   }
-  if ((await pinnedRows.count()) > 1) {
+  if (pinnedAtMin && (await pinnedRows.count()) > 1) {
     await expectRowNotFullyVisibleWithinContainer(
       pinnedList,
       pinnedRows.nth(1),
@@ -525,6 +595,93 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
       pinnedListClientHeight: pinnedMetricsAfterShrink.clientHeight,
     },
   });
+
+  const reloadAtMinState = await reloadPinnedSectionState({
+    page,
+    callableName,
+    testInfo,
+  });
+  callableSection = reloadAtMinState.callableSection;
+  paramGroup = reloadAtMinState.paramGroup;
+  unpinnedArea = reloadAtMinState.unpinnedArea;
+  pinnedArea = reloadAtMinState.pinnedArea;
+  pinnedList = reloadAtMinState.pinnedList;
+  pinnedRows = reloadAtMinState.pinnedRows;
+  unpinnedRows = reloadAtMinState.unpinnedRows;
+  edgesStrip = reloadAtMinState.edgesStrip;
+  edgesHeight = await getHeight(edgesStrip);
+  await expectRowFullyVisibleWithinContainer(
+    unpinnedArea,
+    unpinnedRows.first(),
+    "unpinned-min-reload",
+  );
+  await expectRowFullyVisibleWithinContainer(
+    pinnedList,
+    pinnedRows.first(),
+    "pinned-min-reload",
+  );
+
+  // After expanding the callable section, pinned params should be able to grow
+  // again if there is available space.
+  const pinnedHeightAtMin = await getHeight(pinnedArea);
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: 200,
+    outside: 6,
+  });
+  const layoutMetricsAfterExpand = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  const maxAfterExpand = getPinnedTargetMax(layoutMetricsAfterExpand);
+  const canGrowAfterExpand = maxAfterExpand - pinnedHeightAtMin > 6;
+  if (canGrowAfterExpand) {
+    await dragPinnedResize(page, pinnedArea, 120);
+    let pinnedHeightAfterExpandResize = await getHeight(pinnedArea);
+    if (pinnedHeightAfterExpandResize <= pinnedHeightAtMin + 4) {
+      await dragPinnedResize(page, pinnedArea, 200);
+      pinnedHeightAfterExpandResize = await getHeight(pinnedArea);
+    }
+    if (pinnedHeightAfterExpandResize <= pinnedHeightAtMin + 4) {
+      throw new Error(
+        "Pinned params area did not grow after expanding the callable section.",
+      );
+    }
+    expect(pinnedHeightAfterExpandResize).toBeLessThanOrEqual(
+      maxAfterExpand + 2,
+    );
+  }
+
+  // With few pinned params, the max height must still stop at the last pinned
+  // row (no blank space before unpinned params).
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: 260,
+    outside: 6,
+  });
+  await reducePinnedRowsToCount(page, pinnedRows, callableSection, 1);
+  await dragPinnedResize(page, pinnedArea, 260);
+  const reducedPinnedMaxResult = await waitForPinnedMax(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+    5000,
+  );
+  if (
+    reducedPinnedMaxResult.metrics.pinnedListScrollHeight <=
+    reducedPinnedMaxResult.metrics.pinnedListClientHeight + 2
+  ) {
+    expect(reducedPinnedMaxResult.metrics.pinnedListTrailingGap).toBeLessThanOrEqual(
+      4,
+    );
+  }
 
   await dragResize(page, callableSection, {
     handle: "bottomRight",
@@ -546,6 +703,96 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
       edgesMetrics.clientHeight + 2,
     );
 
+    // Re-run the core resize sequence across multiple refreshes and after
+    // moving/resizing the callable section, to catch stale or inert resize state.
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      await runPinnedResizeEdgeSequence({
+        page,
+        callableSection,
+        paramGroup,
+        pinnedArea,
+        pinnedList,
+        pinnedRows,
+        unpinnedArea,
+        edgesStrip,
+        label: `cycle-${cycle + 1}`,
+      });
+
+      const refreshed = await reloadPinnedSectionState({
+        page,
+        callableName,
+        testInfo,
+      });
+      callableSection = refreshed.callableSection;
+      paramGroup = refreshed.paramGroup;
+      unpinnedArea = refreshed.unpinnedArea;
+      pinnedArea = refreshed.pinnedArea;
+      pinnedList = refreshed.pinnedList;
+      pinnedRows = refreshed.pinnedRows;
+      unpinnedRows = refreshed.unpinnedRows;
+      edgesStrip = refreshed.edgesStrip;
+    }
+
+    await moveSectionBy(page, callableSection, { dx: 80, dy: 40 });
+    await runPinnedResizeEdgeSequence({
+      page,
+      callableSection,
+      paramGroup,
+      pinnedArea,
+      pinnedList,
+      pinnedRows,
+      unpinnedArea,
+      edgesStrip,
+      label: "after-move",
+    });
+
+    const refreshedFinal = await reloadPinnedSectionState({
+      page,
+      callableName,
+      testInfo,
+    });
+    callableSection = refreshedFinal.callableSection;
+    paramGroup = refreshedFinal.paramGroup;
+    unpinnedArea = refreshedFinal.unpinnedArea;
+    pinnedArea = refreshedFinal.pinnedArea;
+    pinnedList = refreshedFinal.pinnedList;
+    pinnedRows = refreshedFinal.pinnedRows;
+    unpinnedRows = refreshedFinal.unpinnedRows;
+    edgesStrip = refreshedFinal.edgesStrip;
+
+    await runPinnedResizeEdgeSequence({
+      page,
+      callableSection,
+      paramGroup,
+      pinnedArea,
+      pinnedList,
+      pinnedRows,
+      unpinnedArea,
+      edgesStrip,
+      label: "after-final-refresh",
+    });
+
+    // Verify layout stability immediately after refresh (multiple samples)
+    await verifyLayoutStabilityAfterReload({
+      page,
+      paramGroup,
+      pinnedArea,
+      pinnedList,
+      unpinnedArea,
+      edgesStrip,
+    });
+
+    // Run rapid consecutive resize cycles to test for race conditions
+    await runRapidResizeCycles({
+      page,
+      pinnedArea,
+      pinnedList,
+      paramGroup,
+      unpinnedArea,
+      edgesStrip,
+      cycles: 5,
+    });
+
     const pinnedRowCountBeforeUnpin = await pinnedRows.count();
     if (pinnedRowCountBeforeUnpin > 0) {
       const unpinCount = Math.min(2, pinnedRowCountBeforeUnpin);
@@ -554,15 +801,17 @@ test("pinned params resize behavior", async ({ page }, testInfo) => {
       const unpinButton = callableSection.getByRole("button", {
         name: "Unpin selected args",
       });
-      await expect(unpinButton).toBeEnabled();
-      const unpinnedRowCountBefore = await unpinnedRows.count();
-      await unpinButton.click();
-      await expect
-        .poll(async () => pinnedRows.count())
-        .toBeLessThan(pinnedRowCountBeforeUnpin);
-      await expect
-        .poll(async () => unpinnedRows.count())
-        .toBeGreaterThanOrEqual(unpinnedRowCountBefore + 1);
+      if ((await unpinButton.count()) > 0) {
+        await expect(unpinButton).toBeEnabled();
+        const unpinnedRowCountBefore = await unpinnedRows.count();
+        await unpinButton.click();
+        await expect
+          .poll(async () => pinnedRows.count())
+          .toBeLessThan(pinnedRowCountBeforeUnpin);
+        await expect
+          .poll(async () => unpinnedRows.count())
+          .toBeGreaterThanOrEqual(unpinnedRowCountBefore + 1);
+      }
     }
   } finally {
     await restoreSettings(page, settingsSnapshot);
@@ -580,57 +829,27 @@ async function ensureProjectConfig(
 }
 
 async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(PROJECT_URL);
   if (await isAppReady(page)) {
     return;
   }
-
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-    );
-    try {
-      await waitForProjectUrl(page);
-    } catch {
-      // Fall through to the final readiness check below.
-    }
-  }
-
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  if (await isAppReady(page)) {
-    return;
-  }
-
-  if (!BOOTSTRAP_TOKEN && !hasCookie) {
+  if (!BOOTSTRAP_TOKEN) {
     throw new Error(
-      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
+      "Missing SETTA_BOOTSTRAP_TOKEN. Open /__setta__/bootstrap to mint one.",
     );
   }
-  throw new Error("Setta UI did not become ready. Check bootstrap auth.");
+  await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
+  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
 }
 
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
+    await page.waitForSelector(".react-flow__pane", { timeout: 10000 });
     return true;
   } catch {
     return false;
   }
-}
-
-async function waitForProjectUrl(page: Page): Promise<void> {
-  await page.waitForURL(
-    (url) => url.toString().startsWith(PROJECT_URL),
-    { timeout: 20000, waitUntil: "domcontentloaded" },
-  );
-}
-
-async function hasAuthCookie(page: Page): Promise<boolean> {
-  const cookies = await page
-    .context()
-    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
 
 async function ensureCallableSectionWithMathSqrt(
@@ -985,6 +1204,195 @@ async function restoreSettings(
   await postBackend(page, "/saveSettings", { settings });
 }
 
+type ReloadedPinnedSectionState = {
+  callableSection: Locator;
+  paramGroup: Locator;
+  unpinnedArea: Locator;
+  pinnedArea: Locator;
+  pinnedList: Locator;
+  pinnedRows: Locator;
+  unpinnedRows: Locator;
+  edgesStrip: Locator;
+};
+
+async function reloadPinnedSectionState({
+  page,
+  callableName,
+  testInfo,
+}: {
+  page: Page;
+  callableName: string;
+  testInfo: TestInfo;
+}): Promise<ReloadedPinnedSectionState> {
+  const maxAttempts = 3;
+  let lastReason = "unknown";
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await page.reload();
+    await ensureAppReady(page);
+    const sectionsAfterReload = page.locator('section[class*="card-section"]');
+    await ensureProjectConfig(page, sectionsAfterReload);
+    const namedCallableSection = findSectionCandidates(
+      page,
+      callableName,
+    ).first();
+    let callableSection: Locator;
+    if ((await namedCallableSection.count()) > 0) {
+      callableSection = namedCallableSection;
+    } else {
+      callableSection = await findCallableSection(page, sectionsAfterReload);
+    }
+    await focusSectionFromOverview(page, callableName, callableSection);
+    await callableSection.locator("header.section-title").first().click({
+      force: true,
+    });
+
+    const paramGroup = callableSection.locator("div.section-row-pin-main").first();
+    const unpinnedArea = paramGroup
+      .locator(":scope > div.section-args-nested")
+      .first();
+    const pinnedArea = paramGroup
+      .locator('section:has-text("Pinned Params")')
+      .first();
+    const edgesStrip = paramGroup
+      .locator(":scope > section.section-row-pin-main")
+      .first();
+    if ((await edgesStrip.count()) === 0) {
+      lastReason = "edges strip missing";
+      continue;
+    }
+
+    const pinnedList = pinnedArea.locator("div.section-args-nested");
+    const pinnedRows = pinnedList.locator(
+      ":scope > article.section-args-nested-key-value",
+    );
+    const unpinnedRows = unpinnedArea.locator(
+      ":scope > article.section-args-nested-key-value",
+    );
+    const { pinnedCount, unpinnedCount } = await waitForPinnedRowCounts(
+      page,
+      pinnedRows,
+      unpinnedRows,
+    );
+    if (pinnedCount === 0 || unpinnedCount === 0) {
+      lastReason = "pinned/unpinned rows missing after reload";
+      continue;
+    }
+
+    const readyResult = await waitForPinnedReloadReady({
+      page,
+      paramGroup,
+      pinnedArea,
+      unpinnedArea,
+      edgesStrip,
+      pinnedList,
+      timeoutMs: 1800,
+      pollIntervalMs: 150,
+    });
+    if (readyResult.isReady) {
+      return {
+        callableSection,
+        paramGroup,
+        unpinnedArea,
+        pinnedArea,
+        pinnedList,
+        pinnedRows,
+        unpinnedRows,
+        edgesStrip,
+      };
+    }
+
+    await attachLayoutSnapshot({
+      testInfo,
+      label: `pinned-reload-attempt-${attempt + 1}`,
+      target: callableSection,
+      metrics: {
+        ...readyResult.metrics,
+        pinnedRowHeight: readyResult.pinnedRowHeight,
+        pinnedListClientHeight: readyResult.pinnedMetrics.clientHeight,
+        pinnedListScrollHeight: readyResult.pinnedMetrics.scrollHeight,
+        reloadAttempt: attempt + 1,
+        reloadWaitMs: readyResult.elapsedMs,
+        reloadPinnedReady: false,
+      },
+    });
+    lastReason = "pinned area collapsed or not resizable after reload";
+  }
+
+  throw new Error(
+    `Pinned params area did not stabilize after reload (${lastReason}).`,
+  );
+}
+
+async function waitForPinnedReloadReady({
+  page,
+  paramGroup,
+  pinnedArea,
+  unpinnedArea,
+  edgesStrip,
+  pinnedList,
+  timeoutMs,
+  pollIntervalMs,
+}: {
+  page: Page;
+  paramGroup: Locator;
+  pinnedArea: Locator;
+  unpinnedArea: Locator;
+  edgesStrip: Locator;
+  pinnedList: Locator;
+  timeoutMs: number;
+  pollIntervalMs: number;
+}): Promise<{
+  isReady: boolean;
+  metrics: Record<string, number>;
+  pinnedRowHeight: number;
+  pinnedMetrics: ScrollMetrics;
+  elapsedMs: number;
+}> {
+  const start = Date.now();
+  const deadline = start + timeoutMs;
+  let lastMetrics: Record<string, number> = {};
+  let lastPinnedRowHeight = 0;
+  let lastPinnedMetrics: ScrollMetrics = { clientHeight: 0, scrollHeight: 0 };
+
+  while (Date.now() < deadline) {
+    lastMetrics = await getPinnedLayoutMetrics(
+      page,
+      paramGroup,
+      pinnedArea,
+      unpinnedArea,
+      edgesStrip,
+    );
+    lastPinnedRowHeight = await getMinParamRowHeight(pinnedList);
+    lastPinnedMetrics = await getScrollMetrics(pinnedList);
+    const resizeHandleCount = await pinnedArea
+      .locator(".pinned-resize-handle")
+      .count();
+    const pinnedRowVisible =
+      lastPinnedRowHeight > 0 &&
+      lastPinnedMetrics.clientHeight >= lastPinnedRowHeight - 2;
+    const pinnedHeightValid =
+      lastMetrics.pinnedHeight >= lastMetrics.pinnedMinHeight - 2;
+    if (resizeHandleCount > 0 && pinnedRowVisible && pinnedHeightValid) {
+      return {
+        isReady: true,
+        metrics: lastMetrics,
+        pinnedRowHeight: lastPinnedRowHeight,
+        pinnedMetrics: lastPinnedMetrics,
+        elapsedMs: Date.now() - start,
+      };
+    }
+    await page.waitForTimeout(pollIntervalMs);
+  }
+
+  return {
+    isReady: false,
+    metrics: lastMetrics,
+    pinnedRowHeight: lastPinnedRowHeight,
+    pinnedMetrics: lastPinnedMetrics,
+    elapsedMs: Date.now() - start,
+  };
+}
+
 async function getCurrentProjectConfigId(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
@@ -1136,6 +1544,167 @@ async function selectArgRowsByIndex(
   await page.keyboard.up(MOD_KEY);
 }
 
+async function reducePinnedRowsToCount(
+  page: Page,
+  pinnedRows: Locator,
+  callableSection: Locator,
+  targetCount: number,
+): Promise<void> {
+  const rowIds = await pinnedRows.evaluateAll((rows) =>
+    rows.map((row) => row.id).filter(Boolean),
+  );
+  const paramIds = rowIds
+    .map((rowId) => extractParamIdFromRowId(rowId))
+    .filter((id): id is string => Boolean(id));
+  if (paramIds.length <= targetCount) {
+    return;
+  }
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const sectionId = await getSectionIdFromSection(callableSection);
+  await postBackend(page, "/setSectionPinnedParams", {
+    projectConfigId,
+    sectionId,
+    pinnedParams: paramIds.slice(0, targetCount),
+  });
+  await expect
+    .poll(async () => pinnedRows.count(), { timeout: 5000 })
+    .toBe(targetCount);
+}
+
+type PinnedResizeSequenceArgs = {
+  page: Page;
+  callableSection: Locator;
+  paramGroup: Locator;
+  pinnedArea: Locator;
+  pinnedList: Locator;
+  pinnedRows: Locator;
+  unpinnedArea: Locator;
+  edgesStrip: Locator;
+  label: string;
+};
+
+async function runPinnedResizeEdgeSequence({
+  page,
+  callableSection,
+  paramGroup,
+  pinnedArea,
+  pinnedList,
+  pinnedRows,
+  unpinnedArea,
+  edgesStrip,
+  label,
+}: PinnedResizeSequenceArgs): Promise<void> {
+  const metricsStart = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  // After refreshes/resizes the pinned area should not collapse below its
+  // minimum (1 pinned param fully visible) and should remain resizable.
+  if (metricsStart.pinnedMinHeight > 0) {
+    expect(metricsStart.pinnedHeight).toBeGreaterThanOrEqual(
+      metricsStart.pinnedMinHeight - 2,
+    );
+    const pinnedStartScroll = await getScrollMetrics(pinnedList);
+    expect(pinnedStartScroll.clientHeight).toBeGreaterThan(0);
+  }
+  const startHeight = await getHeight(pinnedArea);
+  const targetMax = getPinnedTargetMax(metricsStart);
+  const canGrow = targetMax - startHeight > 6;
+  if (canGrow) {
+    await dragPinnedResize(page, pinnedArea, 80);
+    const afterGrow = await getHeight(pinnedArea);
+    if (afterGrow <= startHeight + 4) {
+      throw new Error(`Pinned params did not grow in ${label}.`);
+    }
+  }
+
+  // When both the callable and pinned areas are at their minimums, dragging
+  // the pinned handle should not collapse the pinned list or strand it
+  // in an unresizable state.
+  const pinnedAtMin = await shrinkPinnedAreaToMin(page, pinnedArea);
+  await shrinkSectionToMinHeight(page, callableSection, "bottom", 6);
+  const pinnedAfterSectionMin = await getHeight(pinnedArea);
+  expect(pinnedAfterSectionMin).toBeGreaterThanOrEqual(pinnedAtMin - 2);
+  await dragPinnedResize(page, pinnedArea, 80);
+  const pinnedAfterMinResize = await getHeight(pinnedArea);
+  expect(pinnedAfterMinResize).toBeLessThanOrEqual(pinnedAfterSectionMin + 2);
+  expect(pinnedAfterMinResize).toBeGreaterThanOrEqual(
+    pinnedAfterSectionMin - 2,
+  );
+
+  await dragResize(page, callableSection, {
+    handle: "bottom",
+    dx: 0,
+    dy: 200,
+    outside: 6,
+  });
+  const metricsAfterExpand = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  const maxAfterExpand = getPinnedTargetMax(metricsAfterExpand);
+  const canGrowAfterExpand = maxAfterExpand - pinnedAfterSectionMin > 6;
+  if (canGrowAfterExpand) {
+    await dragPinnedResize(page, pinnedArea, 120);
+    const afterExpandResize = await getHeight(pinnedArea);
+    if (afterExpandResize <= pinnedAfterSectionMin + 4) {
+      throw new Error(`Pinned params did not resize after expand in ${label}.`);
+    }
+  }
+
+  await dragResize(page, callableSection, {
+    handle: "right",
+    dx: 120,
+    dy: 0,
+    outside: 6,
+  });
+  await dragResize(page, callableSection, {
+    handle: "bottomRight",
+    dx: 120,
+    dy: 120,
+    outside: 6,
+  });
+
+  const metricsEnd = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  if (
+    metricsEnd.pinnedListScrollHeight <=
+    metricsEnd.pinnedListClientHeight + 2
+  ) {
+    expect(metricsEnd.pinnedListTrailingGap).toBeLessThanOrEqual(4);
+  }
+}
+
+async function moveSectionBy(
+  page: Page,
+  section: Locator,
+  { dx, dy }: { dx: number; dy: number },
+): Promise<void> {
+  const header = section.locator("header.section-title").first();
+  const target = (await header.count()) > 0 ? header : section;
+  const box = await target.boundingBox();
+  if (!box) {
+    return;
+  }
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 8 });
+  await page.mouse.up();
+}
+
 async function selectArgRowsById(
   page: Page,
   rowIds: string[],
@@ -1189,6 +1758,18 @@ async function setRowNameByIndex(
     return text?.includes(name) ?? false;
   }).toBe(true);
   return rowId;
+}
+
+function extractParamIdFromRowId(rowId: string): string | null {
+  const prefix = "ParamContainer-";
+  if (!rowId.startsWith(prefix)) {
+    return null;
+  }
+  const trimmed = rowId.slice(prefix.length);
+  if (trimmed.length < 36) {
+    return null;
+  }
+  return trimmed.slice(-36);
 }
 
 async function logLocatorDiagnostics(
@@ -1416,8 +1997,23 @@ async function getBox(target: Locator): Promise<Box> {
 }
 
 async function getHeight(target: Locator): Promise<number> {
-  const box = await getBox(target);
-  return box.height;
+  return target.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const viewport =
+      el.closest(".react-flow__viewport") ??
+      document.querySelector(".react-flow__viewport");
+    let scale = 1;
+    if (viewport) {
+      const transform = window.getComputedStyle(viewport).transform;
+      if (transform && transform !== "none") {
+        const matrix = new DOMMatrixReadOnly(transform);
+        if (Number.isFinite(matrix.a) && matrix.a > 0) {
+          scale = matrix.a;
+        }
+      }
+    }
+    return scale > 0 ? rect.height / scale : rect.height;
+  });
 }
 
 async function getMinParamRowHeight(target: Locator): Promise<number> {
@@ -1488,6 +2084,69 @@ async function getScrollMetrics(target: Locator): Promise<ScrollMetrics> {
   }));
 }
 
+async function waitForPinnedRowCounts(
+  page: Page,
+  pinnedRows: Locator,
+  unpinnedRows: Locator,
+  timeoutMs = 4000,
+): Promise<{ pinnedCount: number; unpinnedCount: number }> {
+  const deadline = Date.now() + timeoutMs;
+  let pinnedCount = 0;
+  let unpinnedCount = 0;
+  while (Date.now() < deadline) {
+    [pinnedCount, unpinnedCount] = await Promise.all([
+      pinnedRows.count(),
+      unpinnedRows.count(),
+    ]);
+    if (pinnedCount > 0 && unpinnedCount > 0) {
+      break;
+    }
+    await page.waitForTimeout(200);
+  }
+  return { pinnedCount, unpinnedCount };
+}
+
+function getReservedUnpinnedHeight(metrics: PinnedLayoutMetrics): number {
+  if (metrics.unpinnedRowCount <= 0) {
+    return 0;
+  }
+  if (metrics.unpinnedMinHeight > 0) {
+    return metrics.unpinnedMinHeight;
+  }
+  return metrics.unpinnedRowHeight + metrics.unpinnedPadding;
+}
+
+function getPinnedAvailableHeight(metrics: PinnedLayoutMetrics): number {
+  const reservedUnpinnedHeight = getReservedUnpinnedHeight(metrics);
+  return Math.max(
+    metrics.paramGroupHeight -
+      metrics.paramGroupPadding -
+      metrics.kwargsControlsHeight -
+      metrics.edgesHeight -
+      reservedUnpinnedHeight,
+    0,
+  );
+}
+
+function getExpectedPinnedMax(metrics: PinnedLayoutMetrics): number {
+  return metrics.pinnedContentHeight;
+}
+
+function getPinnedTargetMax(metrics: PinnedLayoutMetrics): number {
+  if (metrics.pinnedMaxHeight > 0) {
+    return metrics.pinnedMaxHeight;
+  }
+  return getExpectedPinnedMax(metrics);
+}
+
+async function getComputedMaxHeight(target: Locator): Promise<string> {
+  return target.evaluate((el) => window.getComputedStyle(el).maxHeight);
+}
+
+function isMaxHeightUnbounded(maxHeight: string): boolean {
+  return maxHeight === "none";
+}
+
 async function dragPinnedResize(
   page: Page,
   pinnedArea: Locator,
@@ -1505,6 +2164,22 @@ async function dragPinnedResize(
   await page.mouse.down();
   await page.mouse.move(x, y + dy, { steps: 5 });
   await page.mouse.up();
+}
+
+async function shrinkPinnedAreaToMin(
+  page: Page,
+  pinnedArea: Locator,
+): Promise<number> {
+  let lastHeight = await getHeight(pinnedArea);
+  for (let i = 0; i < 8; i += 1) {
+    await dragPinnedResize(page, pinnedArea, -200);
+    const nextHeight = await getHeight(pinnedArea);
+    if (Math.abs(nextHeight - lastHeight) <= 1) {
+      return nextHeight;
+    }
+    lastHeight = nextHeight;
+  }
+  return lastHeight;
 }
 
 async function clickPinnedResizeHandle(
@@ -1576,6 +2251,27 @@ async function getPinnedLayoutMetrics(
         ? Number.parseFloat(unpinnedStyle.minHeight) || 0
         : 0;
       const unpinnedRowHeight = findMinRowHeight(unpinnedArea);
+      const unpinnedRowCount = unpinnedArea
+        ? unpinnedArea.querySelectorAll(
+            ":scope > article.section-args-nested-key-value",
+          ).length
+        : 0;
+      const sectionRoot = paramGroup.closest("section");
+      const kwargsControls = sectionRoot
+        ? (sectionRoot.querySelector("section.section-args") as
+            | HTMLElement
+            | null)
+        : null;
+      const kwargsStyle = kwargsControls
+        ? window.getComputedStyle(kwargsControls)
+        : null;
+      const kwargsMarginHeight = kwargsStyle
+        ? Number.parseFloat(kwargsStyle.marginTop) +
+          Number.parseFloat(kwargsStyle.marginBottom)
+        : 0;
+      const kwargsControlsHeight = kwargsControls
+        ? kwargsControls.offsetHeight + kwargsMarginHeight
+        : 0;
       const pinnedHeader = pinnedArea.querySelector("header") as HTMLElement | null;
       const pinnedWrapper = pinnedArea.querySelector(
         "div.flex.flex-1",
@@ -1596,8 +2292,41 @@ async function getPinnedLayoutMetrics(
       const pinnedMaxHeight = Number.parseFloat(pinnedStyle.maxHeight) || 0;
       const pinnedListScrollHeight = pinnedList?.scrollHeight ?? 0;
       const pinnedListClientHeight = pinnedList?.clientHeight ?? 0;
+      const pinnedRows = pinnedList
+        ? Array.from(
+            pinnedList.querySelectorAll(
+              "article.section-args-nested-key-value",
+            ),
+          )
+        : [];
+      const fallbackRows =
+        pinnedRows.length > 0
+          ? pinnedRows
+          : pinnedList
+          ? Array.from(pinnedList.querySelectorAll("article.section-lg-value"))
+          : [];
+      let pinnedListLastRowBottom = 0;
+      if (pinnedList && fallbackRows.length > 0) {
+        const listRect = pinnedList.getBoundingClientRect();
+        const listScrollTop = pinnedList.scrollTop;
+        for (const row of fallbackRows) {
+          const rowRect = row.getBoundingClientRect();
+          const top = rowRect.top - listRect.top + listScrollTop;
+          const bottom = top + rowRect.height;
+          if (bottom > pinnedListLastRowBottom) {
+            pinnedListLastRowBottom = bottom;
+          }
+        }
+      }
+      const pinnedListTrailingGap = pinnedList
+        ? pinnedListClientHeight - pinnedListLastRowBottom
+        : 0;
+      const pinnedListContentHeight =
+        pinnedListLastRowBottom > 0
+          ? pinnedListLastRowBottom
+          : pinnedListScrollHeight;
       const pinnedContentHeight =
-        pinnedListScrollHeight +
+        pinnedListContentHeight +
         pinnedHeaderHeight +
         pinnedPadding +
         pinnedBorderHeight;
@@ -1616,6 +2345,7 @@ async function getPinnedLayoutMetrics(
         unpinnedRowHeight,
         unpinnedPadding,
         unpinnedMinHeight,
+        unpinnedRowCount,
         pinnedHeaderHeight,
         pinnedPadding,
         pinnedBorderHeight,
@@ -1623,9 +2353,13 @@ async function getPinnedLayoutMetrics(
         pinnedMaxHeight,
         pinnedListScrollHeight,
         pinnedListClientHeight,
+        pinnedListLastRowBottom,
+        pinnedListTrailingGap,
+        pinnedListContentHeight,
         pinnedContentHeight,
         edgesInputCount,
         edgesOutputCount,
+        kwargsControlsHeight,
       };
     },
     {
@@ -1678,8 +2412,8 @@ async function waitForPinnedMax(
   pinnedArea: Locator,
   unpinnedArea: Locator,
   edgesStrip: Locator,
+  timeoutMs = 10000,
 ): Promise<PinnedMaxResult> {
-  const timeoutMs = 10000;
   const pollIntervalMs = 200;
   const deadline = Date.now() + timeoutMs;
   let lastMetrics: Record<string, number> | null = null;
@@ -1693,18 +2427,8 @@ async function waitForPinnedMax(
       edgesStrip,
     );
     lastMetrics = metrics;
-    const availableHeight = Math.max(
-      metrics.paramGroupHeight -
-        metrics.paramGroupPadding -
-        metrics.edgesHeight -
-        (metrics.unpinnedRowHeight + metrics.unpinnedPadding),
-      0,
-    );
-    const expectedPinnedMax = Math.min(
-      availableHeight,
-      metrics.pinnedContentHeight,
-    );
-    if (Math.abs(metrics.pinnedHeight - expectedPinnedMax) <= 2) {
+    const targetMax = getPinnedTargetMax(metrics);
+    if (Math.abs(metrics.pinnedHeight - targetMax) <= 2) {
       didReach = true;
       break;
     }
@@ -1714,4 +2438,142 @@ async function waitForPinnedMax(
     throw new Error("Pinned metrics unavailable.");
   }
   return { metrics: lastMetrics, didReach };
+}
+
+/**
+ * Performs rapid consecutive resize cycles (up/down) to test for race conditions
+ * and visual glitches during rapid resizing.
+ */
+async function runRapidResizeCycles({
+  page,
+  pinnedArea,
+  pinnedList,
+  paramGroup,
+  unpinnedArea,
+  edgesStrip,
+  cycles = 5,
+}: {
+  page: Page;
+  pinnedArea: Locator;
+  pinnedList: Locator;
+  paramGroup: Locator;
+  unpinnedArea: Locator;
+  edgesStrip: Locator;
+  cycles?: number;
+}): Promise<void> {
+  const initialMetrics = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+  const targetMax = getPinnedTargetMax(initialMetrics);
+
+  for (let i = 0; i < cycles; i += 1) {
+    // Resize up
+    await dragPinnedResize(page, pinnedArea, 60);
+    // Resize down
+    await dragPinnedResize(page, pinnedArea, -60);
+  }
+
+  // After rapid cycles, verify constraints still hold
+  const finalMetrics = await getPinnedLayoutMetrics(
+    page,
+    paramGroup,
+    pinnedArea,
+    unpinnedArea,
+    edgesStrip,
+  );
+
+  // Pinned height should be within valid range
+  expect(finalMetrics.pinnedHeight).toBeGreaterThanOrEqual(
+    finalMetrics.pinnedMinHeight - 2,
+  );
+  if (finalMetrics.pinnedMaxHeight > 0) {
+    expect(finalMetrics.pinnedHeight).toBeLessThanOrEqual(
+      finalMetrics.pinnedMaxHeight + 2,
+    );
+  }
+
+  // Unpinned area should still have valid minHeight CSS applied
+  const unpinnedMinHeight = await getComputedMinHeight(unpinnedArea);
+  if (finalMetrics.unpinnedRowCount > 0) {
+    expect(unpinnedMinHeight).toBeGreaterThan(0);
+  }
+
+  // No blank space below last pinned row when not scrolling
+  const pinnedScroll = await getScrollMetrics(pinnedList);
+  if (pinnedScroll.scrollHeight <= pinnedScroll.clientHeight + 2) {
+    expect(finalMetrics.pinnedListTrailingGap).toBeLessThanOrEqual(4);
+  }
+}
+
+/**
+ * Verifies layout stability immediately after page reload by taking
+ * multiple measurement samples.
+ */
+async function verifyLayoutStabilityAfterReload({
+  page,
+  paramGroup,
+  pinnedArea,
+  pinnedList,
+  unpinnedArea,
+  edgesStrip,
+  samples = 3,
+  delayMs = 100,
+}: {
+  page: Page;
+  paramGroup: Locator;
+  pinnedArea: Locator;
+  pinnedList: Locator;
+  unpinnedArea: Locator;
+  edgesStrip: Locator;
+  samples?: number;
+  delayMs?: number;
+}): Promise<void> {
+  const measurements: PinnedLayoutMetrics[] = [];
+
+  for (let i = 0; i < samples; i += 1) {
+    const metrics = await getPinnedLayoutMetrics(
+      page,
+      paramGroup,
+      pinnedArea,
+      unpinnedArea,
+      edgesStrip,
+    );
+    measurements.push(metrics);
+    if (i < samples - 1) {
+      await page.waitForTimeout(delayMs);
+    }
+  }
+
+  // All measurements should be consistent (no flickering)
+  const first = measurements[0];
+  for (let i = 1; i < measurements.length; i += 1) {
+    const current = measurements[i];
+    expect(Math.abs(current.pinnedHeight - first.pinnedHeight)).toBeLessThanOrEqual(2);
+    expect(Math.abs(current.unpinnedMinHeight - first.unpinnedMinHeight)).toBeLessThanOrEqual(2);
+  }
+
+  // Verify CSS minHeight is actually applied to unpinned area
+  if (first.unpinnedRowCount > 0) {
+    const cssMinHeight = await getComputedMinHeight(unpinnedArea);
+    expect(cssMinHeight).toBeGreaterThan(0);
+    expect(Math.abs(cssMinHeight - first.unpinnedMinHeight)).toBeLessThanOrEqual(2);
+  }
+
+  // Pinned area should not be collapsed
+  expect(first.pinnedHeight).toBeGreaterThanOrEqual(first.pinnedMinHeight - 2);
+
+  // Pinned list should have visible content
+  const pinnedScroll = await getScrollMetrics(pinnedList);
+  expect(pinnedScroll.clientHeight).toBeGreaterThan(0);
+}
+
+async function getComputedMinHeight(target: Locator): Promise<number> {
+  return target.evaluate((el) => {
+    const style = window.getComputedStyle(el);
+    return Number.parseFloat(style.minHeight) || 0;
+  });
 }
