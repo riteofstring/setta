@@ -10,7 +10,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageTypeAdapter
-from setta.utils.utils import normalize_path
+from setta.utils.attachment_paths import resolve_attachment_path
 
 _TEXT_MIME_TYPES = {
     "application/json",
@@ -24,10 +24,17 @@ _TEXT_MIME_TYPES = {
 }
 
 
-def normalize_attachment_mime(attachment: ChatFileAttachment) -> str:
-    if attachment.mimeType:
-        return attachment.mimeType
+def normalize_attachment_mime(
+    attachment: ChatFileAttachment, *, path: Path | None = None
+) -> str:
+    if path is not None:
+        guess, _ = mimetypes.guess_type(path.as_posix())
+        if guess:
+            return guess
     guess, _ = mimetypes.guess_type(attachment.name)
+    if guess:
+        return guess
+    guess, _ = mimetypes.guess_type(attachment.id)
     if guess:
         return guess
     return "application/octet-stream"
@@ -43,11 +50,31 @@ def is_image_mime(mime_type: str) -> bool:
     return mime_type.startswith("image/")
 
 
-def read_attachment_bytes(dbe: DBE, attachment: ChatFileAttachment) -> bytes:
-    resolved = normalize_path(Path(attachment.id))
+def _resolve_attachment_path_for_read(
+    attachment: ChatFileAttachment,
+    *,
+    base_root: Path,
+    artifacts_root: Path,
+    allow_external: bool,
+) -> Path | None:
+    try:
+        return resolve_attachment_path(
+            attachment.id,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=allow_external,
+            require_exists=False,
+        )
+    except (FileNotFoundError, IsADirectoryError, PermissionError, ValueError):
+        return None
+
+
+def read_attachment_bytes(dbe: DBE, resolved: Path | None, attachment_id: str) -> bytes:
+    if resolved is None:
+        raise FileNotFoundError(f"Attachment not found: {attachment_id}")
     content = dbe.read(resolved, "rb")
     if content is None:
-        raise FileNotFoundError(f"Attachment not found: {attachment.id}")
+        raise FileNotFoundError(f"Attachment not found: {attachment_id}")
     return content
 
 
@@ -96,13 +123,22 @@ def build_attachment_content_blocks(
     *,
     dbe: DBE,
     attachments: list[ChatFileAttachment],
+    base_root: Path,
+    artifacts_root: Path,
+    allow_external: bool,
 ) -> list[MessageTextContent | MessageImageUrlContent]:
     blocks: list[MessageTextContent | MessageImageUrlContent] = []
     for attachment in attachments:
-        mime_type = normalize_attachment_mime(attachment)
+        resolved_path = _resolve_attachment_path_for_read(
+            attachment,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=allow_external,
+        )
+        mime_type = normalize_attachment_mime(attachment, path=resolved_path)
         if is_image_mime(mime_type):
             try:
-                payload = read_attachment_bytes(dbe, attachment)
+                payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:
                 blocks.append(
                     build_missing_attachment_block(attachment, mime_type=mime_type)
@@ -118,7 +154,7 @@ def build_attachment_content_blocks(
             continue
         if is_text_mime(mime_type):
             try:
-                payload = read_attachment_bytes(dbe, attachment)
+                payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:
                 blocks.append(
                     build_missing_attachment_block(attachment, mime_type=mime_type)
@@ -137,28 +173,68 @@ def build_attachments_prompt_text(
     *,
     dbe: DBE,
     attachments: list[ChatFileAttachment],
+    base_root: Path,
+    artifacts_root: Path,
+    allow_external: bool,
     include_images: bool = True,
 ) -> str:
-    parts: list[str] = []
+    texts = build_attachments_prompt_text_pair(
+        dbe=dbe,
+        attachments=attachments,
+        base_root=base_root,
+        artifacts_root=artifacts_root,
+        allow_external=allow_external,
+    )
+    return texts[0] if include_images else texts[1]
+
+
+def build_attachments_prompt_text_pair(
+    *,
+    dbe: DBE,
+    attachments: list[ChatFileAttachment],
+    base_root: Path,
+    artifacts_root: Path,
+    allow_external: bool,
+) -> tuple[str, str]:
+    with_images: list[str] = []
+    without_images: list[str] = []
     for attachment in attachments:
-        mime_type = normalize_attachment_mime(attachment)
-        if is_image_mime(mime_type) and not include_images:
+        resolved_path = _resolve_attachment_path_for_read(
+            attachment,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=allow_external,
+        )
+        mime_type = normalize_attachment_mime(attachment, path=resolved_path)
+        if is_image_mime(mime_type):
+            with_images.append(
+                build_attachment_placeholder_block(attachment, mime_type=mime_type).text
+            )
             continue
         if is_text_mime(mime_type):
             try:
-                payload = read_attachment_bytes(dbe, attachment)
+                payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:
-                parts.append(
-                    build_missing_attachment_block(attachment, mime_type=mime_type).text
-                )
+                missing = build_missing_attachment_block(
+                    attachment, mime_type=mime_type
+                ).text
+                with_images.append(missing)
+                without_images.append(missing)
                 continue
             text = payload.decode("utf-8", errors="replace")
-            parts.append(build_attachment_text_block(attachment, text).text)
+            block = build_attachment_text_block(attachment, text).text
+            with_images.append(block)
+            without_images.append(block)
             continue
-        parts.append(
-            build_attachment_placeholder_block(attachment, mime_type=mime_type).text
-        )
-    return "\n\n".join(part for part in parts if part.strip()).strip()
+        placeholder = build_attachment_placeholder_block(
+            attachment, mime_type=mime_type
+        ).text
+        with_images.append(placeholder)
+        without_images.append(placeholder)
+    return (
+        "\n\n".join(part for part in with_images if part.strip()).strip(),
+        "\n\n".join(part for part in without_images if part.strip()).strip(),
+    )
 
 
 def collect_message_attachments(raw_messages: list[object]) -> list[ChatFileAttachment]:

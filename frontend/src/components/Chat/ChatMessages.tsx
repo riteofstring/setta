@@ -72,6 +72,7 @@ type AttachmentUrlEntry = {
   url: string;
   expiresAt: number;
 };
+type AttachmentUrlResponseEntry = AttachmentUrlEntry & { id: string };
 
 type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
@@ -285,6 +286,26 @@ function ChatAttachmentList({
     },
     [requestAttachmentUrls],
   );
+  const handleAttachmentOpen = useCallback(
+    async (attachment: ChatFileAttachment) => {
+      const now = Date.now();
+      const entry = attachmentUrlMap[attachment.id];
+      if (entry && !isAttachmentUrlStale(entry, now)) {
+        window.open(entry.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      const refreshed = await requestAttachmentUrls([attachment], {
+        force: true,
+      });
+      const nextEntry =
+        refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
+      if (!nextEntry || isAttachmentUrlStale(nextEntry, Date.now())) {
+        return;
+      }
+      window.open(nextEntry.url, "_blank", "noopener,noreferrer");
+    },
+    [attachmentUrlMap, requestAttachmentUrls],
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -322,16 +343,13 @@ function ChatAttachmentList({
                 {sizeLabel}
               </span>
             ) : null}
-            {url ? (
-              <a
-                href={url}
-                className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open
-              </a>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => void handleAttachmentOpen(attachment)}
+              className={`text-[10px] uppercase tracking-[0.2em] ${detailClassName}`}
+            >
+              Open
+            </button>
           </div>
         );
       })}
@@ -871,26 +889,38 @@ function ChatMessages({
         attachmentUrlRequests.current.add(attachment.id);
       }
       const projectConfigId = getCurrProjectConfigId();
-      const entries = await Promise.all(
-        pending.map(async (attachment) => {
-          const res = await route_get_attachment_download_url({
-            artifactId: attachment.id,
-            projectConfigId,
-          });
-          if (!res200(res)) {
-            const detail = getErrorDetail(res.data);
-            console.warn(
-              "Failed to load attachment URL",
-              detail ?? attachment.id,
-            );
-            return null;
-          }
-          const expiresAt = resolveAttachmentExpiry(res.data.expiresAt, now);
-          return { id: attachment.id, url: res.data.url, expiresAt };
-        }),
-      );
-      for (const attachment of pending) {
-        attachmentUrlRequests.current.delete(attachment.id);
+      let entries: Array<AttachmentUrlResponseEntry | null> = [];
+      try {
+        entries = await Promise.all(
+          pending.map(async (attachment) => {
+            try {
+              const res = await route_get_attachment_download_url({
+                artifactId: attachment.id,
+                projectConfigId,
+              });
+              if (!res200(res)) {
+                const detail = getErrorDetail(res.data);
+                console.warn(
+                  "Failed to load attachment URL",
+                  detail ?? attachment.id,
+                );
+                return null;
+              }
+              const expiresAt = resolveAttachmentExpiry(
+                res.data.expiresAt,
+                now,
+              );
+              return { id: attachment.id, url: res.data.url, expiresAt };
+            } catch (error) {
+              console.warn("Failed to load attachment URL", error);
+              return null;
+            }
+          }),
+        );
+      } finally {
+        for (const attachment of pending) {
+          attachmentUrlRequests.current.delete(attachment.id);
+        }
       }
       const nextEntries: Record<string, AttachmentUrlEntry> = {};
       for (const entry of entries) {

@@ -83,7 +83,7 @@ from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.chat_attachments import (
-    build_attachments_prompt_text,
+    build_attachments_prompt_text_pair,
     collect_message_attachments,
 )
 from setta.utils.constants import CWD, C
@@ -143,12 +143,14 @@ class ExternalAgentRunner:
         websocket_msg_handler: WMHFrontendSender,
         *,
         share_session_id: str | None = None,
+        share_mode: bool = False,
         adapter_registry: ExternalAgentAdapterRegistry | None = None,
         mcp_client: MultiMCPClient | None = None,
     ) -> None:
         self.dbe = dbe
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
+        self.share_mode = share_mode
         self.mcp_client = mcp_client
         self._adapter_registry = adapter_registry or ExternalAgentAdapterRegistry(
             adapters=[
@@ -419,7 +421,9 @@ class ExternalAgentRunner:
             self._apply_session_history(
                 payload_inputs, config, engine_config_id, chat_id, project_config_id
             )
-        self._augment_inputs_with_attachments(payload_inputs, project_config_id)
+        attachment_payload = self._build_attachment_payload(
+            payload_inputs, project_config_id
+        )
 
         run, chat_id, is_new = self._find_or_create_chat_run(
             chat_id=chat_id,
@@ -441,6 +445,8 @@ class ExternalAgentRunner:
             system_prompt=system_prompt,
             working_dir=working_dir,
         )
+        runtime_inputs = dict(payload_inputs)
+        runtime_inputs.update(attachment_payload)
         return ExternalAgentRunContext(
             run=run,
             config=config,
@@ -448,38 +454,42 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
-            inputs=payload_inputs,
+            inputs=runtime_inputs,
             system_prompt=system_prompt,
             working_dir=working_dir,
             env=env,
             cleanup_paths=tuple(cleanup_paths),
         ), is_new
 
-    def _augment_inputs_with_attachments(
+    def _build_attachment_payload(
         self,
         payload_inputs: dict[str, Any],
         project_config_id: ID,
-    ) -> None:
+    ) -> dict[str, Any]:
         raw_messages = payload_inputs.get("messages")
         if not isinstance(raw_messages, list):
-            return
+            return {}
         attachments = collect_message_attachments(raw_messages)
         if not attachments:
-            return
-        attachment_text = build_attachments_prompt_text(
+            return {}
+        if self.share_mode:
+            base_root = self.dbe.path
+            artifacts_root = self.dbe.path / "artifacts"
+        else:
+            base_root = CWD
+            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+        attachment_text, attachment_text_no_images = build_attachments_prompt_text_pair(
             dbe=self.dbe,
             attachments=attachments,
-            include_images=True,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=not self.share_mode,
         )
+        payload: dict[str, Any] = {}
         if attachment_text:
-            payload_inputs["attachmentText"] = attachment_text
-        attachment_text_no_images = build_attachments_prompt_text(
-            dbe=self.dbe,
-            attachments=attachments,
-            include_images=False,
-        )
+            payload["attachmentText"] = attachment_text
         if attachment_text_no_images:
-            payload_inputs["attachmentTextNoImages"] = attachment_text_no_images
+            payload["attachmentTextNoImages"] = attachment_text_no_images
         urls: dict[str, str] = {}
         for attachment in attachments:
             urls[attachment.id] = self._build_attachment_download_url(
@@ -487,7 +497,8 @@ class ExternalAgentRunner:
                 project_config_id,
             )
         if urls:
-            payload_inputs["attachmentUrls"] = urls
+            payload["attachmentUrls"] = urls
+        return payload
 
     def _build_attachment_download_url(
         self,

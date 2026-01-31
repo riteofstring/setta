@@ -83,10 +83,12 @@ class LoadCachedPathsRequest(BaseModel):
 class UpdateArtifactsRequest(BaseModel):
     artifacts: list[BaseArtifactUnion]
     conflictStrategy: SaveConflictStrategy | None = None
+    uploadScope: Literal["chat", "generic"] | None = None
 
 
 class ImportFilesToArtifactsRequest(BaseModel):
     paths: list[str]
+    uploadScope: Literal["chat", "generic"] | None = None
 
 
 class ImportFilesToArtifactsResponseItem(BaseModel):
@@ -396,6 +398,7 @@ async def route_import_files_to_artifacts(
         )
     if not x.paths:
         return []
+    upload_scope = x.uploadScope or "generic"
     artifacts = _get_artifacts(ctx)
     updates: list[FileArtifact] = []
     results: list[ImportFilesToArtifactsResponseItem] = []
@@ -434,7 +437,8 @@ async def route_import_files_to_artifacts(
         artifact_id = create_file_artifact_id(extension)
         mime_type, _ = mimetypes.guess_type(resolved.name)
         resolved_mime = mime_type or "application/octet-stream"
-        _enforce_attachment_mime_type(resolved_mime, label=resolved.name)
+        if upload_scope == "chat":
+            _enforce_attachment_mime_type(resolved_mime, label=resolved.name)
         updates.append(
             FileArtifact(
                 id=artifact_id,
@@ -514,10 +518,12 @@ async def route_update_artifacts(
     x: UpdateArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
+    upload_scope = x.uploadScope or "generic"
     for artifact in x.artifacts:
         if isinstance(artifact, FileArtifact):
             _enforce_file_artifact_size(artifact)
-            _enforce_file_artifact_mime(artifact)
+            if upload_scope == "chat":
+                _enforce_file_artifact_mime(artifact)
     if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(

@@ -13,6 +13,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.id import ID
 from setta.types.routes import Route
+from setta.utils.attachment_paths import resolve_attachment_path
 from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.constants import CWD, C
 
@@ -76,35 +77,32 @@ def _resolve_attachment_path(
     *,
     base_root: Path,
     artifacts_root: Path,
+    allow_external: bool,
     require_exists: bool,
 ) -> Path:
-    if not artifact_id or not artifact_id.strip():
+    try:
+        return resolve_attachment_path(
+            artifact_id,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=allow_external,
+            require_exists=require_exists,
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Attachment id must be a non-empty string.",
-        )
-    raw_path = Path(artifact_id)
-    resolved = (
-        raw_path.resolve()
-        if raw_path.is_absolute()
-        else (base_root / raw_path).resolve()
-    )
-    if not resolved.is_relative_to(artifacts_root):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Attachment not found.",
-        )
-    if resolved.exists() and resolved.is_dir():
+            detail=str(exc),
+        ) from exc
+    except IsADirectoryError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Attachment path is a directory.",
-        )
-    if require_exists and not resolved.exists():
+        ) from exc
+    except (FileNotFoundError, PermissionError) as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attachment not found.",
-        )
-    return resolved
+        ) from exc
 
 
 def _validate_project_config(
@@ -132,6 +130,7 @@ async def route_get_attachment_download_url(
         x.artifactId,
         base_root=base_root,
         artifacts_root=artifacts_root,
+        allow_external=not ctx.share_mode,
         require_exists=True,
     )
     artifacts = _resolve_artifacts(ctx)
@@ -157,7 +156,13 @@ async def route_download_attachment(
     ctx: RuntimeContextFromRequest,
 ) -> Response:
     secret = _require_session_secret()
-    payload = _TOKEN_MANAGER.validate(token, secret=secret)
+    try:
+        payload = _TOKEN_MANAGER.validate(token, secret=secret)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or expired attachment token.",
+        ) from exc
     if payload.shareSessionId != ctx.session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -169,6 +174,7 @@ async def route_download_attachment(
         payload.artifactId,
         base_root=base_root,
         artifacts_root=artifacts_root,
+        allow_external=not ctx.share_mode,
         require_exists=True,
     )
     artifacts = _resolve_artifacts(ctx)

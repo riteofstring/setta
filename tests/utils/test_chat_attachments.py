@@ -53,7 +53,13 @@ def test_build_attachment_content_blocks_handles_images_text_and_binary() -> Non
             ),
         ]
 
-        blocks = build_attachment_content_blocks(dbe=dbe, attachments=attachments)
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
 
         assert len(blocks) == 3
         image_block = blocks[0]
@@ -108,6 +114,9 @@ def test_build_attachments_prompt_text_skips_images_when_disabled() -> None:
         text = build_attachments_prompt_text(
             dbe=dbe,
             attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
             include_images=False,
         )
 
@@ -127,7 +136,13 @@ def test_build_attachment_helpers_handle_missing_files() -> None:
             size=10,
         )
 
-        blocks = build_attachment_content_blocks(dbe=dbe, attachments=[attachment])
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=[attachment],
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
         assert len(blocks) == 1
         missing_block = blocks[0]
         assert isinstance(missing_block, MessageTextContent)
@@ -137,6 +152,9 @@ def test_build_attachment_helpers_handle_missing_files() -> None:
         text = build_attachments_prompt_text(
             dbe=dbe,
             attachments=[attachment],
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
             include_images=True,
         )
         assert "Attachment missing" in text
@@ -179,6 +197,63 @@ def test_collect_message_attachments_dedupes_by_id() -> None:
     }
     first = next(item for item in collected if item.id == "artifacts/one.txt")
     assert first.name == "one.txt"
+
+
+def test_build_attachment_content_blocks_blocks_external_when_disallowed() -> None:
+    with TemporaryDirectory() as tmpdir:
+        base_root = Path(tmpdir)
+        artifacts_root = base_root / "artifacts"
+        artifacts_root.mkdir(parents=True, exist_ok=True)
+        dbe = DBE(base_root / "setta_files")
+        external_path = base_root / "outside.txt"
+        external_path.write_text("secret", encoding="utf-8")
+        attachment = ChatFileAttachment(
+            id=str(external_path),
+            name="outside.txt",
+            mimeType="text/plain",
+            size=6,
+        )
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=[attachment],
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=False,
+        )
+
+        assert len(blocks) == 1
+        block = blocks[0]
+        assert isinstance(block, MessageTextContent)
+        assert "Attachment missing" in block.text
+        assert "secret" not in block.text
+
+
+def test_build_attachments_prompt_text_allows_external_when_enabled() -> None:
+    with TemporaryDirectory() as tmpdir:
+        base_root = Path(tmpdir)
+        artifacts_root = base_root / "artifacts"
+        artifacts_root.mkdir(parents=True, exist_ok=True)
+        dbe = DBE(base_root / "setta_files")
+        external_path = base_root / "outside.txt"
+        external_path.write_text("secret", encoding="utf-8")
+        attachment = ChatFileAttachment(
+            id=str(external_path),
+            name="outside.txt",
+            mimeType="text/plain",
+            size=6,
+        )
+
+        text = build_attachments_prompt_text(
+            dbe=dbe,
+            attachments=[attachment],
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=True,
+            include_images=True,
+        )
+
+        assert "secret" in text
 
 
 def test_extract_attachment_helpers_ignore_invalid_inputs() -> None:

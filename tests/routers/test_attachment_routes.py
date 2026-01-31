@@ -1,5 +1,6 @@
 import base64
 import os
+from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,8 +8,10 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 import pytest
 
+from setta.auth.session import load_current_session_secret
 from setta.routers.attachments import (
     GetAttachmentDownloadUrlRequest,
+    _TOKEN_MANAGER,
     route_download_attachment,
     route_get_attachment_download_url,
 )
@@ -192,7 +195,63 @@ class TestAttachmentRoutes:
                     finally:
                         await _shutdown_state(state)
 
+    async def test_download_attachment_returns_403_when_token_expired(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        session_info = load_current_session_secret()
+                        assert session_info is not None
+                        _, secret = session_info
+                        past = datetime.now(timezone.utc) - timedelta(
+                            seconds=C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS + 5
+                        )
+                        token = _TOKEN_MANAGER.mint(
+                            artifact_id="artifacts/missing.txt",
+                            secret=secret,
+                            share_session_id="main",
+                            now=past,
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            with pytest.raises(HTTPException) as ctx:
+                                await route_download_attachment(token, runtime_ctx)
+                        assert ctx.value.status_code == 403
+                    finally:
+                        await _shutdown_state(state)
+
     async def test_update_artifacts_blocks_disallowed_mime(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    previous_prefixes = C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES
+                    C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = ["text/"]
+                    try:
+                        payload = base64.b64encode(b"payload").decode("utf-8")
+                        artifact = FileArtifact(
+                            id=(Path(C.ARTIFACTS_FOLDER) / "image.png").as_posix(),
+                            value=payload,
+                        )
+                        request = UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="chat",
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            with pytest.raises(HTTPException) as ctx:
+                                await route_update_artifacts(request, runtime_ctx)
+                        assert ctx.value.status_code == 415
+                    finally:
+                        C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = previous_prefixes
+                        await _shutdown_state(state)
+
+    async def test_update_artifacts_allows_disallowed_mime_for_generic_scope(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
@@ -209,9 +268,8 @@ class TestAttachmentRoutes:
                         )
                         request = UpdateArtifactsRequest(artifacts=[artifact])
                         with runtime_context(state) as runtime_ctx:
-                            with pytest.raises(HTTPException) as ctx:
-                                await route_update_artifacts(request, runtime_ctx)
-                        assert ctx.value.status_code == 415
+                            result = await route_update_artifacts(request, runtime_ctx)
+                        assert result
                     finally:
                         C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = previous_prefixes
                         await _shutdown_state(state)

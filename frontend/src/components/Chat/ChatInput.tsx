@@ -179,7 +179,10 @@ export const ChatInput = memo(function ChatInput({
             value: payload,
           }),
         );
-        const res = await route_update_artifacts({ artifacts });
+        const res = await route_update_artifacts({
+          artifacts,
+          uploadScope: "chat",
+        });
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           const message = detail ?? "Failed to upload attachments.";
@@ -323,7 +326,10 @@ export const ChatInput = memo(function ChatInput({
         if (paths.length === 0) {
           return;
         }
-        const res = await route_import_files_to_artifacts({ paths });
+        const res = await route_import_files_to_artifacts({
+          paths,
+          uploadScope: "chat",
+        });
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           const message = detail ?? "Failed to import attachments.";

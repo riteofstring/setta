@@ -97,7 +97,7 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import C
+from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -151,11 +151,13 @@ class AgentRunner:
         websocket_msg_handler: WMHFrontendSender,
         *,
         share_session_id: str | None = None,
+        share_mode: bool = False,
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.share_session_id = share_session_id
+        self.share_mode = share_mode
         self.config: AllLLMConfigs = AllLLMConfigs()
         self.api_keys: dict[str, str] = {}
         self._raw_env_vars: dict[str, str] = {}
@@ -884,9 +886,18 @@ class AgentRunner:
             return message
         if not message.attachments:
             return message
+        if self.share_mode:
+            base_root = self.dbe.path
+            artifacts_root = self.dbe.path / "artifacts"
+        else:
+            base_root = CWD
+            artifacts_root = CWD / C.ARTIFACTS_FOLDER
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,
             attachments=message.attachments,
+            base_root=base_root,
+            artifacts_root=artifacts_root,
+            allow_external=not self.share_mode,
         )
         if not extra_blocks:
             return message.model_copy(update={"attachments": []})

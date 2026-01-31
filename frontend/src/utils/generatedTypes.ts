@@ -6566,6 +6566,9 @@ export type GetFolderContentsRequestInput = z.input<
 
 const ImportFilesToArtifactsRequestSchema = z.object({
   paths: z.array(z.string()),
+  uploadScope: z
+    .union([z.literal(["chat", "generic"]), z.null()])
+    .default(null),
 });
 
 export type ImportFilesToArtifactsRequestInput = z.input<
@@ -6604,6 +6607,9 @@ const UpdateArtifactsRequestSchema = z.object({
   ),
   conflictStrategy: z
     .union([z.enum(SaveConflictStrategyEnum), z.null()])
+    .default(null),
+  uploadScope: z
+    .union([z.literal(["chat", "generic"]), z.null()])
     .default(null),
 });
 
