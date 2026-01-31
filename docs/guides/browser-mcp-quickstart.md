@@ -17,7 +17,7 @@ chrome-devtools-mcp and performance profiling.
 
    Or use the combined helpers:
    `pnpm -C frontend ai` (adds CDP Chrome + bootstrap/app open)
-   `pnpm -C frontend aicdt` (same + auto-open DevTools)
+   Tip: set `CHROME_EXTRA_ARGS=--auto-open-devtools-for-tabs` to auto-open DevTools.
 
 2) Start the debug Chrome instance (if you are not using `pnpm -C frontend ai`):
    `scripts/start-browser-mcp.sh --devtools`

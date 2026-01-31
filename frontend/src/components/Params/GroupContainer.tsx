@@ -306,8 +306,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-50 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
       ref={edgesStripRef}
     >
-      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-setta-200/80 dark:bg-setta-700/60" />
-      <div className="grid grid-cols-2 py-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-3">
           <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             In
@@ -331,6 +330,12 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
               </div>
             ))}
           </div>
+        </div>
+        <div
+          className="pointer-events-none flex items-stretch justify-center"
+          aria-hidden="true"
+        >
+          <div className="h-full w-px bg-setta-200/80 dark:bg-setta-700/60" />
         </div>
         <div className="flex flex-col pr-3">
           <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
