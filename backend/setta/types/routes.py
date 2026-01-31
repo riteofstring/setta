@@ -190,7 +190,6 @@ class Route(str, Enum):
     SET_CALLABLE_HIDE_PARAMS = "/setCallableHideParams"
     SET_SECTION_HIDE_UNPINNED_PARAMS = "/setSectionHideUnpinnedParams"
     SET_SECTION_PINNED_PARAMS = "/setSectionPinnedParams"
-    SET_SECTION_PINNED_AREA_HEIGHT = "/setSectionPinnedAreaHeight"
     SET_SECTION_COLUMN_WIDTH = "/setSectionColumnWidth"
     SET_BROWSER_COLUMN_WIDTHS = "/setBrowserColumnWidths"
     SET_BROWSER_AREA_VIEW_MODE = "/setBrowserAreaViewMode"

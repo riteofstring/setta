@@ -35,6 +35,8 @@ type SizeMode = {
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+// Keep edge ports visible when sections are resized to their minimum.
+const EDGES_STRIP_MIN_HEIGHT = 72;
 const EMPTY_SHOWN_PARAMS: {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
@@ -270,6 +272,8 @@ export function useSectionMinMaxDims(sectionId: string) {
       const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
       const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
       const edgeInputSet = new Set(impl.edgeInputParams);
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
       const hasPinnedParams = pinned.topLevelParamIds.some(
         (paramId) => !edgeInputSet.has(paramId),
       );
@@ -289,6 +293,9 @@ export function useSectionMinMaxDims(sectionId: string) {
       }
       if (hasUnpinnedParams) {
         requiredParamsHeight += baseUnpinnedMinHeight;
+      }
+      if (hasEdges) {
+        requiredParamsHeight += EDGES_STRIP_MIN_HEIGHT;
       }
       if (kwargsControlsHeight > 0) {
         requiredParamsHeight += kwargsControlsHeight;

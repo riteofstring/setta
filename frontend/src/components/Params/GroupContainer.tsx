@@ -38,36 +38,40 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   const setOuterRef = useCallback(
     (node: HTMLDivElement | null) => {
       outerRef.current = node;
-      scrollRef.current = node;
     },
-    [scrollRef],
+    [],
   );
 
   return (
     <ParamDndContext>
       <div
-        className={`section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-auto overflow-x-hidden pt-2 ${
-          isScrollable ? "nowheel" : ""
-        }`}
+        className="section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
         ref={setOuterRef}
       >
-        {waitingForResult ? (
-          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-        ) : (
-          <>
-            <EdgesStrip sectionId={sectionId} />
-            <GetPinnedParams
-              sectionId={sectionId}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-            />
-            <GetUnpinnedParams
-              sectionId={sectionId}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-            />
-          </>
-        )}
+        <div
+          className={`section-row-pin-main section-w-full flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${
+            isScrollable ? "nowheel" : ""
+          }`}
+          ref={scrollRef}
+        >
+          {waitingForResult ? (
+            <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+          ) : (
+            <>
+              <EdgesStrip sectionId={sectionId} />
+              <GetPinnedParams
+                sectionId={sectionId}
+                handleColumnResizeStart={handleColumnResizeStart}
+                setMaxNestedDepth={setMaxNestedDepth}
+              />
+              <GetUnpinnedParams
+                sectionId={sectionId}
+                handleColumnResizeStart={handleColumnResizeStart}
+                setMaxNestedDepth={setMaxNestedDepth}
+              />
+            </>
+          )}
+        </div>
       </div>
     </ParamDndContext>
   );

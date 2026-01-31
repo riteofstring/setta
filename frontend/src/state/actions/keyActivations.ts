@@ -760,6 +760,7 @@ function specialModTabCase(shortcutInfo) {
 }
 
 function onEscapeKey(event: KeyboardEvent) {
+  removeFrozenFloatingBox();
   const target = event.target instanceof HTMLElement ? event.target : null;
   const sectionNode = target?.closest(".react-flow__node");
   if (getIsInput(event) && !sectionNode) {
@@ -784,7 +785,6 @@ function onEscapeKey(event: KeyboardEvent) {
       }
     }
   }
-  removeFrozenFloatingBox();
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {
