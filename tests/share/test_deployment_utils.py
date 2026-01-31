@@ -14,11 +14,17 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig, SingletonSections
 from setta.types.code_obj_impls import DropzoneParamCodeObjImpl
 from setta.types.section_impls import (
+    ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
+)
+from setta.types.chat_messages import (
+    ChatFileAttachment,
+    MessageTextContent,
+    UserChatMessage,
 )
 
 
@@ -220,3 +226,59 @@ class TestShareDeploymentUtils:
         payload = parse_dropzone_value(updated_impl.value)
         assert payload is not None
         assert payload.attachments[0].id == "rebased/artifacts/old.txt"
+
+    def test_rewrite_project_state_paths_updates_chat_attachment_paths(self) -> None:
+        attachment = ChatFileAttachment(
+            id="artifacts/old.txt",
+            name="old.txt",
+            mimeType="text/plain",
+            size=10,
+        )
+        chat_impl = ChatSectionImpl(
+            id=ID("chat-impl"),
+            name="Chat",
+            messages=[
+                UserChatMessage(
+                    content=[MessageTextContent(text="Hello")],
+                    attachments=[attachment],
+                )
+            ],
+        )
+        chat_variant = Variant(
+            id=ID("chat-variant"),
+            name="Chat Variant",
+            impl=chat_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(chat_impl),
+        )
+        chat_section_id = ID("chat-section")
+        chat_core = Core(
+            id=chat_section_id,
+            name="Chat",
+            variants=[chat_variant.id],
+            defaultVariant=chat_variant.id,
+        )
+        project_config = ProjectConfig(
+            name="Chat Project",
+            sectionVariantMap={chat_section_id: chat_variant.id},
+            topLevelSections={chat_section_id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={chat_section_id: chat_core},
+            sectionImpls={chat_impl.id: chat_impl},
+            sectionVariants={chat_variant.id: chat_variant},
+        )
+
+        rewrite_project_state_paths(
+            project_state,
+            resolve_artifact_path=lambda path_str: f"rebased/{path_str}",
+            resolve_code_binding=lambda binding: binding,
+            resolve_json_source_name=lambda path_str: path_str,
+        )
+
+        updated_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            chat_section_id,
+            ChatSectionImpl,
+        )
+        assert updated_impl.messages[0].attachments[0].id == "rebased/artifacts/old.txt"

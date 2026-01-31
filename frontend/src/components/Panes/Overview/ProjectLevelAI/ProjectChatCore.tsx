@@ -26,7 +26,7 @@ import {
   route_stop_external_agent_run,
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
-import { EngineTypeEnum } from "utils/generatedTypes";
+import { ChatFileAttachment, EngineTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
 function EmptyChatState() {
@@ -118,8 +118,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleSubmit = useCallback(
-    async (message: string) => {
-      if (!message.trim()) {
+    async (message: string, attachments: ChatFileAttachment[]) => {
+      const trimmed = message.trim();
+      if (!trimmed && attachments.length === 0) {
         return false;
       }
       if (!engineConfigId) {
@@ -142,6 +143,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         submittedChatId = await submitMessage(
           chatId ?? null,
           message,
+          attachments,
           thinking,
           engineConfigId,
           isExternalEngine,

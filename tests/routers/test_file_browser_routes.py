@@ -365,7 +365,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=["/tmp/ignored.txt"]),
+                        ImportFilesToArtifactsRequest(
+                            paths=["/tmp/ignored.txt"],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 403
@@ -377,7 +380,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[str(missing_path)]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[str(missing_path)],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 404
@@ -388,7 +394,10 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
-                        ImportFilesToArtifactsRequest(paths=[tmpdir]),
+                        ImportFilesToArtifactsRequest(
+                            paths=[tmpdir],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 400
@@ -401,7 +410,10 @@ class TestFileBrowserRoutes:
             file_path.write_bytes(contents)
             with runtime_context(state) as runtime_ctx:
                 results = await route_import_files_to_artifacts(
-                    ImportFilesToArtifactsRequest(paths=[str(file_path)]),
+                    ImportFilesToArtifactsRequest(
+                        paths=[str(file_path)],
+                        uploadScope="generic",
+                    ),
                     runtime_ctx,
                 )
         assert len(results) == 1
@@ -426,13 +438,64 @@ class TestFileBrowserRoutes:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_update_artifacts(
-                        UpdateArtifactsRequest(artifacts=[artifact]),
+                        UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="generic",
+                        ),
                         runtime_ctx,
                     )
             assert ctx.value.status_code == 413
         finally:
             artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
             artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
+
+    async def test_update_artifacts_rejects_oversized_chat_file(self) -> None:
+        state = await self._build_state()
+        original_limit = C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
+        original_label = C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+        try:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 5
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "5 bytes"
+            oversized_payload = base64.b64encode(b"abcdef").decode("utf-8")
+            artifact_id = (C.ARTIFACTS_FOLDER / "too-big.txt").as_posix()
+            artifact = FileArtifact(id=artifact_id, value=oversized_payload)
+            with runtime_context(state) as runtime_ctx:
+                with pytest.raises(HTTPException) as ctx:
+                    await route_update_artifacts(
+                        UpdateArtifactsRequest(
+                            artifacts=[artifact],
+                            uploadScope="chat",
+                        ),
+                        runtime_ctx,
+                    )
+            assert ctx.value.status_code == 413
+        finally:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
+
+    async def test_import_files_to_artifacts_respects_chat_size_limit(self) -> None:
+        state = await self._build_state()
+        original_limit = C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
+        original_label = C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
+        try:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 4
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "4 bytes"
+            with TemporaryDirectory(dir=CWD) as tmpdir:
+                file_path = Path(tmpdir) / "oversized.txt"
+                file_path.write_bytes(b"12345")
+                with runtime_context(state) as runtime_ctx:
+                    with pytest.raises(HTTPException) as ctx:
+                        await route_import_files_to_artifacts(
+                            ImportFilesToArtifactsRequest(
+                                paths=[str(file_path)],
+                                uploadScope="chat",
+                            ),
+                            runtime_ctx,
+                        )
+            assert ctx.value.status_code == 413
+        finally:
+            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
+            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
 
     async def test_delete_artifacts_removes_file(self) -> None:
         state = await self._build_state()
@@ -441,7 +504,10 @@ class TestFileBrowserRoutes:
         artifact = FileArtifact(id=artifact_id, value=base64.b64encode(b"data").decode("utf-8"))
         with runtime_context(state) as runtime_ctx:
             await route_update_artifacts(
-                UpdateArtifactsRequest(artifacts=[artifact]),
+                UpdateArtifactsRequest(
+                    artifacts=[artifact],
+                    uploadScope="generic",
+                ),
                 runtime_ctx,
             )
             file_path = (CWD / artifact_id).resolve()

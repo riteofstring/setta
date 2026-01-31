@@ -408,6 +408,9 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
+  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
+  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
@@ -943,6 +946,15 @@ export function createMessageThinkingContent(
   return MessageThinkingContentSchema.parse(options);
 }
 
+const ChatFileAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  size: z.union([z.int(), z.null()]).default(null),
+});
+
+export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
+
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
@@ -955,6 +967,7 @@ const SystemChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -982,6 +995,7 @@ const AssistantChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -999,6 +1013,7 @@ const UserChatMessageSchema = z.object({
       ]),
     )
     .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -6630,6 +6645,7 @@ export type GetFolderContentsRequestInput = z.input<
 
 const ImportFilesToArtifactsRequestSchema = z.object({
   paths: z.array(z.string()),
+  uploadScope: z.literal(["chat", "generic"]),
 });
 
 export type ImportFilesToArtifactsRequestInput = z.input<
@@ -6669,10 +6685,48 @@ const UpdateArtifactsRequestSchema = z.object({
   conflictStrategy: z
     .union([z.enum(SaveConflictStrategyEnum), z.null()])
     .default(null),
+  uploadScope: z.literal(["chat", "generic"]),
 });
 
 export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
+>;
+
+const AttachmentDownloadUrlEntrySchema = z.object({
+  artifactId: z.string(),
+  url: z.string(),
+  expiresAt: z.int(),
+});
+
+export type AttachmentDownloadUrlEntry = z.infer<
+  typeof AttachmentDownloadUrlEntrySchema
+>;
+
+const GetAttachmentDownloadUrlRequestSchema = z.object({
+  artifactId: z.string(),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetAttachmentDownloadUrlRequestInput = z.input<
+  typeof GetAttachmentDownloadUrlRequestSchema
+>;
+
+const GetAttachmentDownloadUrlResponseSchema = z.object({
+  url: z.string(),
+  expiresAt: z.int(),
+});
+
+export type GetAttachmentDownloadUrlResponse = z.infer<
+  typeof GetAttachmentDownloadUrlResponseSchema
+>;
+
+const GetAttachmentDownloadUrlsRequestSchema = z.object({
+  artifactIds: z.array(z.string()),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetAttachmentDownloadUrlsRequestInput = z.input<
+  typeof GetAttachmentDownloadUrlsRequestSchema
 >;
 
 const BootstrapConsumeRequestSchema = z.object({
