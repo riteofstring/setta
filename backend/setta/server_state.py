@@ -405,7 +405,6 @@ class SettaFastAPIState:
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
-                share_mode=self.share_mode,
             )
             self.agent_runner.update_config(llm_config)
             self.agent_runner.update_api_keys(self.dbe.read_dot_env())
@@ -450,7 +449,6 @@ class SettaFastAPIState:
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
-                share_mode=self.share_mode,
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(

@@ -9,6 +9,7 @@ import {
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
+import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
@@ -28,6 +29,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
+  useLspDiagnostics,
   useMisc,
   useProjectState,
   useResizeEvent,
@@ -371,8 +373,10 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const [value, setValue] = useState<string>(combinedDoc);
   const [generatedCodeForValue, setGeneratedCodeForValue] =
     useState<string>(code);
+  const skipNextChangeRef = useRef<string | null>(null);
 
   useEffect(() => {
+    skipNextChangeRef.current = combinedDoc;
     setValue(combinedDoc);
     setGeneratedCodeForValue(code);
   }, [combinedDoc, code]);
@@ -385,12 +389,22 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const canUseLsp = !isShareMode;
   const isShareReadOnly = isShareMode;
+  const unmappedGenCodeDiagnostics = useLspDiagnostics(
+    (x) => x.unmappedGenCode,
+  );
   const completionsFn = useCallback(
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
     [generatedCodeForValue, canUseLsp],
   );
 
   function onChange(nextValue: string) {
+    if (skipNextChangeRef.current === nextValue) {
+      skipNextChangeRef.current = null;
+      return;
+    }
+    if (skipNextChangeRef.current) {
+      skipNextChangeRef.current = null;
+    }
     if (isShareReadOnly) {
       return;
     }
@@ -495,10 +509,18 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     tabToAutocomplete: true,
     indentWithTab: true,
     isDisabled: isShareReadOnly,
-  }).concat(
+  });
+  const lspLintExtensions = useMemo(() => {
+    if (isShareMode) {
+      return [];
+    }
+    return buildLspDiagnosticsExtensions(unmappedGenCodeDiagnostics);
+  }, [isShareMode, unmappedGenCodeDiagnostics]);
+  const finalExtensions = extensions.concat(
     readOnlyGeneratedRange,
     readOnlyDecorations,
     GEN_CODE_READONLY_THEME,
+    lspLintExtensions,
   );
 
   return (
@@ -513,7 +535,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
         maxHeight={maxHeight}
         value={value}
         theme={theme}
-        extensions={extensions}
+        extensions={finalExtensions}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
@@ -621,6 +643,10 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const isShareReadOnly = isShareMode;
   const isDisabled = variantIsFrozen || isShareReadOnly;
+  const codeSectionDiagnostics = useLspDiagnostics((x) => {
+    const diagnostics = x.codeSections[sectionId];
+    return diagnostics ?? [];
+  });
   const useJsx = useMemo(() => {
     if (!bindingPath) {
       return false;
@@ -655,6 +681,13 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     isDisabled,
     useJsx,
   });
+  const lspLintExtensions = useMemo(() => {
+    if (isShareMode) {
+      return [];
+    }
+    return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
+  }, [codeSectionDiagnostics, isShareMode]);
+  const finalExtensions = extensions.concat(lspLintExtensions);
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
 
@@ -670,7 +703,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
         maxHeight={maxHeight}
         value={value}
         theme={theme}
-        extensions={extensions}
+        extensions={finalExtensions}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
