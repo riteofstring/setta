@@ -555,7 +555,9 @@ class ProjectGenPythonCode(PythonCode):
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
     ):
         params = lsp_response.params
-        if params.version is not None and self.lsp_writer is not None:
+        if self.lsp_writer is not None:
+            if params.version is None:
+                return
             if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
                 return
         (
@@ -711,7 +713,9 @@ class ProjectPythonCode(PythonCode):
 
     async def diagnostics_callback(self, lsp_response):
         params = lsp_response.params
-        if params.version is not None and self.lsp_writer is not None:
+        if self.lsp_writer is not None:
+            if params.version is None:
+                return
             if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
                 return
         diagnostics = [

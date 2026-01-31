@@ -1077,9 +1077,7 @@ class BaseProjectManager(ABC):
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
         prev_gen_code = self.gen_code.get(projectConfigId)
-        prev_generated_code = (
-            prev_gen_code.generated_code if prev_gen_code is not None else None
-        )
+        prev_full_code = prev_gen_code.code if prev_gen_code is not None else None
         valid_code_section_ids: set[ID] = set()
         for section_id in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, section_id)
@@ -1109,7 +1107,7 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
-            if prev_generated_code != code_generator.generated_code:
+            if prev_full_code != code_generator.code:
                 await diagnostics_state.reset(
                     clear_gen_code=True,
                     clear_unmapped=True,

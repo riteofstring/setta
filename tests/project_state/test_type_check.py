@@ -21,10 +21,18 @@ from setta.project_state.project_code import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
+from setta.types.lsp import (
+    SettaLspDiagnostic,
+    SettaLspDiagnosticPosition,
+    SettaLspDiagnosticRange,
+    SettaProjectConfigDiagnostics,
+    SettaSectionTypeErrors,
+)
 from setta.types.project_config import (
     ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
+    get_python_codegen_target_with_type_guard,
 )
 from setta.types.project_state import (
     CODE_LANGUAGE_EXTENSIONS,
@@ -378,3 +386,51 @@ async def test_type_check_runs_gen_code_and_python_sections() -> None:
         )
         assert gen_uri in manager.lsp_writers.full.latest_version_numbers
         assert python_uri in manager.lsp_writers.full.latest_version_numbers
+
+
+@pytest.mark.asyncio
+async def test_gen_code_prefix_change_clears_diagnostics_state() -> None:
+    codegen_targets = ProjectConfig().codegenTargets
+    async with _type_check_manager(codegen_targets=codegen_targets) as manager:
+        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
+        project_state, _, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=codegen_targets,
+            include_bash=False,
+        )
+
+        await manager.update(project_state)
+
+        diagnostics_state = manager._get_lsp_diagnostics_state(project_config_id)
+        diagnostic = SettaLspDiagnostic(
+            message="Bad code",
+            severity=1,
+            code="reportFoo",
+            source="pyright",
+            range=SettaLspDiagnosticRange(
+                start=SettaLspDiagnosticPosition(line=0, character=0),
+                end=SettaLspDiagnosticPosition(line=0, character=5),
+            ),
+            uri="file:///tmp/example.py",
+        )
+        gen_code = SettaProjectConfigDiagnostics(
+            projectConfigId=project_config_id,
+            errors={
+                section_ids["python"]: SettaSectionTypeErrors(callable=["Bad code"]),
+            },
+            isGenCode=True,
+        )
+        await diagnostics_state.update_gen_code(gen_code, [diagnostic])
+        assert diagnostics_state.gen_code.errors
+        assert diagnostics_state.unmapped_gen_code
+
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        python_target.genCodePrefix = "import math\n"
+
+        await manager.update(project_state)
+
+        assert diagnostics_state.gen_code.errors == {}
+        assert diagnostics_state.unmapped_gen_code == []

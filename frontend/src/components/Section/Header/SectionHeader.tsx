@@ -15,6 +15,7 @@ import {
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
+  CodeLanguageEnum,
   SectionTypeEnum,
   SettaLspDiagnostic,
   TextBlockFormatEnum,
@@ -57,7 +58,7 @@ function _SectionHeader({
     return diagnostics ?? [];
   });
   const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
-  const codeDiagnosticsIgnoreState = useProjectState((x) => {
+  const codeDiagnosticsInfo = useProjectState((x) => {
     if (sectionTypeName !== SectionTypeEnum.Code) {
       return null;
     }
@@ -66,10 +67,18 @@ function _SectionHeader({
       sectionId,
       SectionTypeEnum.Code,
     );
-    return impl.diagnosticsIgnoreState;
+    return {
+      ignoreState: impl.diagnosticsIgnoreState,
+      language: impl.codeLanguage,
+    };
   });
+  const codeDiagnosticsIgnoreState = codeDiagnosticsInfo?.ignoreState ?? null;
   const codeDiagnosticsMuted = codeDiagnosticsIgnoreState?.muted ?? false;
   const suppressedCodes = codeDiagnosticsIgnoreState?.suppressedCodes ?? [];
+  const inlineSuppressionHint =
+    codeDiagnosticsInfo?.language === CodeLanguageEnum.python
+      ? "Inline suppressions: add a Python ignore comment on the line (for example, # type: ignore)."
+      : null;
   let codeDiagnosticsLabel = "Diagnostics";
   if (codeDiagnosticsMuted) {
     codeDiagnosticsLabel = "Diagnostics muted";
@@ -136,7 +145,7 @@ function _SectionHeader({
                 suppress,
               );
             }}
-            showInlineSuppressions
+            inlineSuppressionHint={inlineSuppressionHint}
           />
         )}
         {!isShareMode &&
@@ -192,7 +201,7 @@ function DiagnosticsPopover({
   suppressedCodes,
   isMuted,
   onSetSuppressedCode,
-  showInlineSuppressions,
+  inlineSuppressionHint,
 }: {
   diagnostics: Array<SettaLspDiagnostic>;
   label: string;
@@ -203,7 +212,7 @@ function DiagnosticsPopover({
     code: NonNullable<SettaLspDiagnostic["code"]>,
     suppress: boolean,
   ) => void;
-  showInlineSuppressions?: boolean;
+  inlineSuppressionHint?: string | null;
 }) {
   const badgeClassName = getBadgeClassName(diagnostics);
   const hasSuppressedCodes = (suppressedCodes ?? []).length > 0;
@@ -318,10 +327,9 @@ function DiagnosticsPopover({
             </div>
           </div>
         )}
-        {showInlineSuppressions && (
+        {inlineSuppressionHint && (
           <div className="border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Inline suppressions: add a Python ignore comment on the line (for
-            example, <code className="font-mono"># type: ignore</code>).
+            {inlineSuppressionHint}
           </div>
         )}
       </div>

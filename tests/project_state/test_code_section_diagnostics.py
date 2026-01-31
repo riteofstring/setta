@@ -221,7 +221,7 @@ async def test_code_section_diagnostics_prune_drops_stale_sections() -> None:
 
 
 @pytest.mark.asyncio
-async def test_code_section_diagnostics_accepts_versionless_publish() -> None:
+async def test_code_section_diagnostics_ignores_versionless_publish() -> None:
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         dbe = DBE(root)
@@ -258,8 +258,8 @@ async def test_code_section_diagnostics_accepts_versionless_publish() -> None:
         )
         await code.diagnostics_callback(notification)
 
-        stored = diagnostics_state.code_sections[section_id]
-        assert len(stored) == 1
+        assert section_id not in diagnostics_state.code_sections
+        assert section_id not in diagnostics_state.raw_code_sections
 
 
 @pytest.mark.asyncio
