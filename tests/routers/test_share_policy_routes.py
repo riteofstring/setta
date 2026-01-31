@@ -18,7 +18,6 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    GetPasswordParamValueRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     SetCallableHideParamsRequest,
@@ -83,7 +82,6 @@ from setta.routers.project_manager import (
     route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
-    route_get_password_param_value,
     route_set_image_area_image_path,
     route_set_param_entered_value,
     route_set_section_name,
@@ -709,15 +707,6 @@ class TestSharePolicyRoutes:
                         ignoreTypeErrors=True,
                     ),
                 ),
-                (
-                    "get_password_param_value",
-                    route_get_password_param_value,
-                    GetPasswordParamValueRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=section_id,
-                        paramInfoId=create_new_id(),
-                    ),
-                ),
             ]
 
             with runtime_context(state, session.id) as runtime_ctx:
@@ -779,30 +768,6 @@ class TestSharePolicyRoutes:
                     with pytest.raises(HTTPException) as ctx:
                         await handler(request, runtime_ctx)
                     assert ctx.value.status_code == 403, name
-
-    async def test_password_reveal_blocked_when_param_changes_allowed(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowParamChanges=True))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-
-            request = GetPasswordParamValueRequest(
-                projectConfigId=project_config_id,
-                sectionId=create_new_id(),
-                paramInfoId=create_new_id(),
-            )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    await route_get_password_param_value(request, runtime_ctx)
-                assert ctx.value.status_code == 403
 
     async def test_param_impl_and_kwargs_blocked_when_param_changes_allowed(
         self,

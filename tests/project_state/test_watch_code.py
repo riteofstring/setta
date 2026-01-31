@@ -516,18 +516,9 @@ class TestWatchCode:
         )
         debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
         assert debouncer_key in self.manager.watch_code_manager._debouncers
-        self.manager._get_lsp_diagnostics_state(self.project_config_id)
-        assert (
-            self.project_config_id
-            in self.manager.lsp_diagnostics_state_by_project_config
-        )
         await self.manager.delete_project_configs([self.project_config_id])
         assert self.manager.watch_code_manager._config_snapshots == {}
         assert self.manager.watch_code_manager._debouncers == {}
-        assert (
-            self.project_config_id
-            not in self.manager.lsp_diagnostics_state_by_project_config
-        )
 
     async def test_moved_file_does_not_create_sections_for_existing_callables(
         self,

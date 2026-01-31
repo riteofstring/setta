@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
-from setta.types.binary_content import BinaryContentRef
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
@@ -108,9 +107,9 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional run snapshot mode override for this run.",
     )
-    drawSnapshotsBySectionId: dict[ID, BinaryContentRef] | None = Field(
+    drawSnapshotsBySectionId: dict[ID, str] | None = Field(
         default=None,
-        description="Optional binary PNG payloads for draw sections keyed by section id.",
+        description="Optional base64 PNG payloads for draw sections keyed by section id.",
     )
 
 
@@ -461,7 +460,7 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
 
 
 class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
-    """Request the latest parsed LSP diagnostics payload for a project config."""
+    """Request the latest parsed LSP diagnostics for generated code."""
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
@@ -594,16 +593,6 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
-class GetPasswordParamValueRequest(ProjectManagerRequestWithSectionParam):
-    """Fetch the saved secret for a password parameter within a section."""
-
-
-class GetPasswordParamValueResponse(BaseModel):
-    value: str = Field(
-        description="Stored secret value for the password parameter.",
-    )
-
-
 class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     """Toggle ignoring type errors for a callable or parameter within a section."""
 
@@ -612,25 +601,6 @@ class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
     )
     ignoreTypeErrors: bool = Field(
         description="Whether to hide type errors for the targeted entry.",
-    )
-
-
-class SetCodeSectionDiagnosticsMuteRequest(ProjectManagerRequestWithSection):
-    """Toggle muting LSP diagnostics for a code section."""
-
-    mute: bool = Field(
-        description="Whether to mute LSP diagnostics for the code section.",
-    )
-
-
-class SetCodeSectionDiagnosticCodeSuppressionRequest(ProjectManagerRequestWithSection):
-    """Toggle suppressing a diagnostic code for a code section."""
-
-    code: str | int = Field(
-        description="Diagnostic code to suppress for this code section.",
-    )
-    suppress: bool = Field(
-        description="Whether to suppress the diagnostic code.",
     )
 
 

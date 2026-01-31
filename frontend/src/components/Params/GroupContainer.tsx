@@ -21,6 +21,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import { setSectionSize } from "state/actions/sections/sectionSizes";
 import {
   useProjectState,
   useSettings,
@@ -40,9 +41,13 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { route_set_section_pinned_area_height } from "utils/generatedEndpoints";
+import {
+  route_set_section_pinned_area_height,
+  route_set_section_sizes,
+} from "utils/generatedEndpoints";
 import {
   isBaseSectionWithParamsImpl,
+  SectionSize,
   SectionSizeModeEnum,
 } from "utils/generatedTypes";
 import { ParamDndList } from "./ParamDndList";
@@ -79,6 +84,16 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
     null,
   );
   const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
+  const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
+  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+
+  // Clear stale cached heights on mount to prevent using outdated values from previous sessions
+  useLayoutEffect(() => {
+    useTemporaryMiscState.setState({
+      [pinnedMinHeightKey]: 0,
+      [unpinnedMinHeightKey]: 0,
+    });
+  }, [pinnedMinHeightKey, unpinnedMinHeightKey]);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -212,7 +227,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     .map((port) => port.label)
     .join("|")}::${outputPorts.map((port) => port.label).join("|")}`;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hasEdges) {
       const currentHeight = useTemporaryMiscState.getState()[heightKey];
       if (currentHeight !== 0) {
@@ -243,8 +258,9 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     };
 
     const measureHeight = () => {
-      const zoom = useReactFlow.getState().transform[2];
-      const rectHeight = node.getBoundingClientRect().height / zoom;
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      const rectHeight = node.getBoundingClientRect().height / safeZoom;
       const style = window.getComputedStyle(node);
       const marginHeight =
         (Number.parseFloat(style.marginTop) || 0) +
@@ -261,7 +277,17 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     observer.observe(node);
     measureHeight();
 
-    return () => observer.disconnect();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        measureHeight();
+      },
+    );
+
+    return () => {
+      observer.disconnect();
+      unsubscribe();
+    };
   }, [hasEdges, heightKey, portsKey]);
 
   if (!hasEdges) {
@@ -281,12 +307,12 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       ref={edgesStripRef}
     >
       <div className="pointer-events-none absolute inset-y-5 left-1/2 w-px bg-transparent shadow-[6px_0_12px_-8px_rgba(15,23,42,0.2)] dark:bg-setta-700/50 dark:shadow-none" />
-      <div className="grid grid-cols-2">
-        <div className="flex flex-col px-2 pb-3">
+      <div className="grid grid-cols-2 py-2">
+        <div className="flex flex-col pl-3">
           <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             In
           </div>
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="-ml-2 flex flex-col gap-1 pt-1">
             {inputPorts.map((port) => (
               <div
                 key={port.id}
@@ -306,11 +332,11 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
             ))}
           </div>
         </div>
-        <div className="flex flex-col px-2 pb-3">
+        <div className="flex flex-col pr-3">
           <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             Out
           </div>
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="-mr-2 flex flex-col gap-1 pt-1">
             {outputPorts.map((port) => (
               <div
                 key={port.id}
@@ -444,7 +470,7 @@ function ResizablePinnedArea({
   positionAndSizeLocked,
   unpinnedMinHeight,
 }: ResizablePinnedAreaProps) {
-  const { height, hasUnpinnedParams } = useProjectState((x) => {
+  const { height, hasUnpinnedParams, sectionHeight } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
@@ -461,6 +487,7 @@ function ResizablePinnedArea({
       hasUnpinnedParams:
         !impl.hideUnpinnedParams &&
         filteredUnpinned.topLevelParamIds.length > 0,
+      sectionHeight: x.sections[sectionId]?.size?.height ?? null,
     };
   }, _.isEqual);
   const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
@@ -486,6 +513,8 @@ function ResizablePinnedArea({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [minContentHeight, setMinContentHeight] = useState<number | null>(null);
+  const [measurementsReady, setMeasurementsReady] = useState(false);
+  const [constraintsReady, setConstraintsReady] = useState(false);
   const lastMeasuredMinHeightRef = useRef<number | null>(null);
   const edgesStripHeight = useTemporaryMiscState(
     (x) => x[getEdgesStripHeightKey(sectionId)] ?? 0,
@@ -649,7 +678,12 @@ function ResizablePinnedArea({
     const update = () => {
       const zoom = useReactFlow.getState().transform[2] ?? 1;
       const rectHeight = node.getBoundingClientRect().height;
-      const nextHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
+      const unscaledHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
+      const clientHeight = node.clientHeight;
+      const nextHeight =
+        clientHeight > 0
+          ? Math.max(clientHeight, unscaledHeight)
+          : unscaledHeight;
       const roundedHeight = Math.ceil(nextHeight);
       setMeasuredContainerHeight(roundedHeight > 0 ? roundedHeight : null);
       const style = window.getComputedStyle(node);
@@ -664,7 +698,16 @@ function ResizablePinnedArea({
       update();
     });
     observer.observe(node);
-    return () => observer.disconnect();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
+    return () => {
+      observer.disconnect();
+      unsubscribe();
+    };
   }, [outerRef]);
 
   const { ref: listRef, isScrollable } = useIsScrollable();
@@ -679,7 +722,11 @@ function ResizablePinnedArea({
       useTemporaryMiscState.setState({ [pinnedMinHeightKey]: 0 });
       return;
     }
+    let didCleanup = false;
     const update = () => {
+      if (didCleanup) {
+        return;
+      }
       const style = window.getComputedStyle(wrapper);
       const padding =
         Number.parseFloat(style.paddingTop) +
@@ -691,12 +738,69 @@ function ResizablePinnedArea({
           Number.parseFloat(sectionStyle.borderBottomWidth)
         : 0;
       const headerHeight = headerRef.current?.offsetHeight ?? 0;
-      const listHeight = list.scrollHeight;
+      const rowCandidates = Array.from(
+        list.querySelectorAll<HTMLElement>(
+          "article.section-args-nested-key-value",
+        ),
+      );
+      let listRows = rowCandidates;
+      if (listRows.length === 0) {
+        listRows = Array.from(
+          list.querySelectorAll<HTMLElement>("article.section-lg-value"),
+        );
+      }
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      let listHeight = list.scrollHeight;
+      let maxBottom = 0;
+      if (listRows.length > 0) {
+        const listRect = list.getBoundingClientRect();
+        const listScrollTop = list.scrollTop;
+        for (const row of listRows) {
+          const rowRect = row.getBoundingClientRect();
+          const top = (rowRect.top - listRect.top) / safeZoom + listScrollTop;
+          const bottom = top + rowRect.height / safeZoom;
+          if (bottom > maxBottom) {
+            maxBottom = bottom;
+          }
+        }
+      }
+      if (maxBottom > 0) {
+        const clientHeight = list.clientHeight;
+        if (listHeight <= clientHeight + 1) {
+          listHeight = maxBottom;
+        } else if (maxBottom > listHeight) {
+          listHeight = maxBottom;
+        }
+      }
       const nextHeight = Math.ceil(
         listHeight + headerHeight + padding + borderHeight,
       );
       setContentHeight(nextHeight > 0 ? nextHeight : null);
-      const rowHeight = getMinParamRowHeight(list, true);
+      // Prefer the first non-zero row height to guarantee one pinned row fits.
+      let rowHeight = 0;
+      for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
+        const measuredHeight = Math.max(
+          row.offsetHeight,
+          row.scrollHeight,
+          rectHeight,
+        );
+        if (measuredHeight > 0) {
+          rowHeight = measuredHeight;
+          break;
+        }
+      }
+      if (listRows.length > 0) {
+        const listStyle = window.getComputedStyle(list);
+        const rowGapValue = Number.parseFloat(listStyle.rowGap);
+        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
+        const inferredRowHeight =
+          (listHeight - rowGap * (listRows.length - 1)) / listRows.length;
+        if (inferredRowHeight > rowHeight) {
+          rowHeight = inferredRowHeight;
+        }
+      }
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
@@ -718,6 +822,18 @@ function ResizablePinnedArea({
       });
     };
     update();
+    const rafId = window.requestAnimationFrame(() => {
+      update();
+    });
+    const timeoutIds = [
+      window.setTimeout(update, 120),
+      window.setTimeout(update, 360),
+    ];
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        update();
+      });
+    }
     const resizeObserver = new ResizeObserver(() => {
       update();
     });
@@ -725,8 +841,26 @@ function ResizablePinnedArea({
     if (headerRef.current) {
       resizeObserver.observe(headerRef.current);
     }
+    const rowObserver = new ResizeObserver(() => {
+      update();
+    });
+    const observeRows = () => {
+      rowObserver.disconnect();
+      const rows = list.querySelectorAll(
+        "article.section-args-nested-key-value, article.section-lg-value",
+      );
+      rows.forEach((row) => rowObserver.observe(row));
+    };
+    observeRows();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
     const mutationObserver = new MutationObserver(() => {
       update();
+      observeRows();
     });
     mutationObserver.observe(list, {
       childList: true,
@@ -743,7 +877,14 @@ function ResizablePinnedArea({
       });
     }
     return () => {
+      didCleanup = true;
+      window.cancelAnimationFrame(rafId);
+      timeoutIds.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
       resizeObserver.disconnect();
+      rowObserver.disconnect();
+      unsubscribe();
       mutationObserver.disconnect();
     };
   }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
@@ -764,9 +905,7 @@ function ResizablePinnedArea({
     0,
   );
   const maxHeight =
-    typeof contentHeight === "number" && !isPinnedManual
-      ? Math.min(availableHeight, contentHeight)
-      : availableHeight;
+    typeof contentHeight === "number" ? contentHeight : availableHeight;
   const pinnedMinHeight =
     typeof minContentHeight === "number"
       ? minContentHeight
@@ -777,30 +916,158 @@ function ResizablePinnedArea({
     typeof height === "number" && Number.isFinite(maxHeight)
       ? Math.min(Math.max(height, resolvedMinHeight), maxHeight)
       : height;
+  const numericSectionHeight =
+    typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
+      ? sectionHeight
+      : null;
+
+  // Track when measurements are complete to avoid acting on stale/zero values
+  useLayoutEffect(() => {
+    const ready =
+      measuredContainerHeight !== null &&
+      contentHeight !== null &&
+      (resolvedUnpinnedMinHeight > 0 || !hasUnpinnedParams);
+    setMeasurementsReady(ready);
+  }, [
+    measuredContainerHeight,
+    contentHeight,
+    resolvedUnpinnedMinHeight,
+    hasUnpinnedParams,
+  ]);
 
   useLayoutEffect(() => {
+    if (!measurementsReady) {
+      setConstraintsReady(false);
+      return;
+    }
+    setConstraintsReady(false);
+    let rafId = 0;
+    let rafId2 = 0;
+    rafId = window.requestAnimationFrame(() => {
+      rafId2 = window.requestAnimationFrame(() => {
+        setConstraintsReady(true);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.cancelAnimationFrame(rafId2);
+    };
+  }, [measurementsReady, availableHeight, maxHeight, contentHeight]);
+
+  // Consolidated height constraint effect - guards with measurementsReady to avoid race conditions
+  useLayoutEffect(() => {
+    // Skip all height adjustments until measurements are complete and stable
+    if (!measurementsReady || !constraintsReady) {
+      return;
+    }
+
+    const manualPinnedHeight =
+      typeof height === "number" && Number.isFinite(height) ? height : null;
+    const desiredPinnedHeight =
+      manualPinnedHeight !== null
+        ? Math.max(
+            pinnedMinHeight,
+            contentHeight !== null
+              ? Math.min(manualPinnedHeight, contentHeight)
+              : manualPinnedHeight,
+          )
+        : pinnedMinHeight;
+
+    // 1. Expand section height if pinned area needs more space
+    if (
+      canResize &&
+      desiredPinnedHeight > 0 &&
+      desiredPinnedHeight - availableHeight > 1
+    ) {
+      const heightShortfall = desiredPinnedHeight - availableHeight;
+      let baseSectionHeight = numericSectionHeight;
+      if (baseSectionHeight === null && outerRef.current) {
+        const sectionRoot = outerRef.current.closest("section");
+        if (sectionRoot) {
+          const zoom = useReactFlow.getState().transform[2] ?? 1;
+          const safeZoom = zoom > 0 ? zoom : 1;
+          baseSectionHeight =
+            sectionRoot.getBoundingClientRect().height / safeZoom;
+        }
+      }
+      if (baseSectionHeight === null) {
+        return;
+      }
+      const nextHeight = Math.round(baseSectionHeight + heightShortfall);
+      let updatedSectionSizes: Record<string, SectionSize> = {};
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          updatedSectionSizes = {
+            [sectionId]: setSectionSize(
+              sectionId,
+              { height: nextHeight },
+              state,
+            ),
+          };
+        },
+        send: (frontendOpId) =>
+          route_set_section_sizes({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionSizes: updatedSectionSizes,
+            frontendOpId,
+          }),
+      });
+      return;
+    }
+
+    // Reset max-follow tracking when height becomes non-numeric
     if (typeof height !== "number") {
       lastMaxHeightRef.current = null;
       return;
     }
-    if (typeof maxHeight !== "number" || !Number.isFinite(maxHeight)) {
+
+    // 2. Clamp height to min constraint
+    if (canResize && resolvedMinHeight > 0 && height < resolvedMinHeight - 2) {
+      persistPinnedAreaHeight(Math.round(resolvedMinHeight));
       return;
     }
-    const lastMax = lastMaxHeightRef.current;
-    if (typeof lastMax !== "number" || !Number.isFinite(lastMax)) {
+
+    // 3. Clamp height to max constraint
+    if (
+      canResize &&
+      typeof maxHeight === "number" &&
+      Number.isFinite(maxHeight) &&
+      height > maxHeight + 2
+    ) {
+      persistPinnedAreaHeight(Math.round(maxHeight));
       return;
     }
-    if (Math.abs(height - lastMax) > 2) {
-      lastMaxHeightRef.current = null;
-      return;
+
+    // 4. Track max-follow behavior (pinned area stays at max when max changes)
+    if (typeof maxHeight === "number" && Number.isFinite(maxHeight)) {
+      const lastMax = lastMaxHeightRef.current;
+      if (typeof lastMax === "number" && Number.isFinite(lastMax)) {
+        if (Math.abs(height - lastMax) > 2) {
+          // User moved away from max, stop following
+          lastMaxHeightRef.current = null;
+        } else if (Math.abs(maxHeight - lastMax) > 2) {
+          // Max changed while we're following it
+          const roundedMaxHeight = Math.round(maxHeight);
+          lastMaxHeightRef.current = roundedMaxHeight;
+          persistPinnedAreaHeight(roundedMaxHeight);
+        }
+      }
     }
-    if (Math.abs(maxHeight - lastMax) <= 2) {
-      return;
-    }
-    const roundedMaxHeight = Math.round(maxHeight);
-    lastMaxHeightRef.current = roundedMaxHeight;
-    persistPinnedAreaHeight(roundedMaxHeight);
-  }, [height, maxHeight, persistPinnedAreaHeight]);
+  }, [
+    constraintsReady,
+    measurementsReady,
+    availableHeight,
+    canResize,
+    contentHeight,
+    height,
+    maxHeight,
+    numericSectionHeight,
+    pinnedMinHeight,
+    resolvedMinHeight,
+    sectionId,
+    persistPinnedAreaHeight,
+    outerRef,
+  ]);
 
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
@@ -841,8 +1108,8 @@ function ResizablePinnedArea({
       }}
       handleStyles={{
         bottom: {
-          bottom: "0px",
-          height: "18px",
+          bottom: "-5px",
+          height: "10px",
           left: 0,
           right: 0,
           width: "100%",
@@ -851,7 +1118,7 @@ function ResizablePinnedArea({
       }}
     >
       <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-4"
+        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
         ref={contentRef}
       >
         <header className="flex w-full gap-1 px-2" ref={headerRef}>
@@ -924,28 +1191,34 @@ function GetUnpinnedParams({
         useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
         return;
       }
-      const observedRow =
-        node.querySelector(":scope > article.section-args-nested-key-value") ??
-        node.querySelector(":scope > article.section-lg-value") ??
-        null;
-      const underlineBuffer = 2;
-      const getHeaderHeight = (row: Element) => {
-        const element = row as HTMLElement;
-        let height = element.offsetHeight;
-        const nestedContainer = element.querySelector<HTMLElement>(
-          ":scope > div.section-args-nested.section-key-value",
+      const rowCandidates = Array.from(
+        node.querySelectorAll<HTMLElement>(
+          ":scope > article.section-args-nested-key-value",
+        ),
+      );
+      const listRows =
+        rowCandidates.length > 0
+          ? rowCandidates
+          : Array.from(
+              node.querySelectorAll<HTMLElement>(
+                ":scope > article.section-lg-value",
+              ),
+            );
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      let rowHeight = 0;
+      for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
+        const measuredHeight = Math.max(
+          row.offsetHeight,
+          row.scrollHeight,
+          rectHeight,
         );
-        if (!nestedContainer) {
-          return height;
+        if (measuredHeight > 0) {
+          rowHeight = measuredHeight;
+          break;
         }
-        const rowStyle = window.getComputedStyle(element);
-        const rowGapValue = Number.parseFloat(rowStyle.rowGap);
-        const rowGap = Number.isFinite(rowGapValue) ? rowGapValue : 0;
-        const nestedHeight = nestedContainer.offsetHeight;
-        const headerHeight = Math.ceil(height - nestedHeight - rowGap);
-        return headerHeight > 0 ? headerHeight : height;
-      };
-      const rowHeight = observedRow ? getHeaderHeight(observedRow) : 0;
+      }
       if (rowHeight <= 0) {
         const lastMeasured = lastMeasuredMinHeightRef.current;
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
@@ -963,7 +1236,7 @@ function GetUnpinnedParams({
       const padding =
         Number.parseFloat(style.paddingTop) +
         Number.parseFloat(style.paddingBottom);
-      const nextHeight = Math.ceil(rowHeight + padding + underlineBuffer);
+      const nextHeight = Math.ceil(rowHeight + padding);
       const resolvedMinHeight = nextHeight > 0 ? nextHeight : null;
       if (lastMeasuredMinHeightRef.current === resolvedMinHeight) {
         return;
@@ -979,6 +1252,9 @@ function GetUnpinnedParams({
 
   const scheduleUpdate = useCallback(
     (node: HTMLDivElement) => {
+      // Immediate synchronous measurement to avoid race conditions on initial render
+      updateMinHeight(node);
+      // RAF fallback for layout-dependent updates after paint
       if (rafIdRef.current !== 0) {
         return;
       }
@@ -1095,34 +1371,6 @@ function getLongestListLength(obj: Record<string, Array<string>>) {
     (max, arr) => (arr.length > max ? arr.length : max),
     0,
   );
-}
-
-function getMinParamRowHeight(
-  container: HTMLElement,
-  directChildrenOnly: boolean,
-): number {
-  const prefix = directChildrenOnly ? ":scope > " : "";
-  const rows = Array.from(
-    container.querySelectorAll<HTMLElement>(
-      `${prefix}article.section-args-nested-key-value`,
-    ),
-  );
-  const candidates =
-    rows.length > 0
-      ? rows
-      : Array.from(
-          container.querySelectorAll<HTMLElement>(
-            `${prefix}article.section-lg-value`,
-          ),
-        );
-  let minHeight = Number.POSITIVE_INFINITY;
-  for (const row of candidates) {
-    const height = row.offsetHeight;
-    if (height > 0 && height < minHeight) {
-      minHeight = height;
-    }
-  }
-  return Number.isFinite(minHeight) ? minHeight : 0;
 }
 
 function filterEdgeInputs(

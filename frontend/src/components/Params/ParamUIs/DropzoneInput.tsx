@@ -30,7 +30,6 @@ import {
 } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_binary_upload,
   route_delete_artifacts,
   route_import_files_to_artifacts,
   route_set_param_entered_value,
@@ -44,7 +43,6 @@ import {
   FileArtifact,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 
 type DropzoneInputProps = {
@@ -145,20 +143,6 @@ function notifyReadFailures(files: File[]): void {
   addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
 }
 
-function notifyUploadFailures(files: File[]): void {
-  if (files.length === 0) {
-    return;
-  }
-  const names = files.slice(0, 3).map((file) => file.name);
-  const suffix =
-    files.length > names.length ? ` +${files.length - names.length} more` : "";
-  const noun = files.length === 1 ? "file" : "files";
-  const message = `Failed to upload ${files.length} ${noun}: ${names.join(
-    ", ",
-  )}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
-}
-
 function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
@@ -211,7 +195,11 @@ function getUtf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-function splitFilesByTotalBytes(
+function estimateBase64Bytes(bytes: number): number {
+  return Math.ceil(bytes / 3) * 4;
+}
+
+function splitFilesByTotalBase64Size(
   files: File[],
   maxBytes: number,
 ): {
@@ -222,11 +210,12 @@ function splitFilesByTotalBytes(
   const rejected: File[] = [];
   let totalBytes = 0;
   for (const file of files) {
-    if (totalBytes + file.size > maxBytes) {
+    const estimatedBytes = estimateBase64Bytes(file.size);
+    if (totalBytes + estimatedBytes > maxBytes) {
       rejected.push(file);
       continue;
     }
-    totalBytes += file.size;
+    totalBytes += estimatedBytes;
     accepted.push(file);
   }
   return { accepted, rejected };
@@ -530,6 +519,29 @@ export function DropzoneInput({
     return false;
   }
 
+  async function readFileAsBase64(file: File): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result !== "string") {
+          reject(new Error("Unexpected file reader payload."));
+          return;
+        }
+        const commaIndex = result.indexOf(",");
+        if (commaIndex >= 0) {
+          resolve(result.slice(commaIndex + 1));
+          return;
+        }
+        resolve(result);
+      };
+      reader.onerror = () => {
+        reject(reader.error ?? new Error("Failed to read file."));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function handleLocalFiles(files: File[]) {
     if (isDisabled || isUploading) {
       return;
@@ -557,7 +569,7 @@ export function DropzoneInput({
     }
     if (mode === DropzoneModeEnum.STATELESS) {
       const { accepted: sizeAccepted, rejected: sizeRejected } =
-        splitFilesByTotalBytes(
+        splitFilesByTotalBase64Size(
           allowedFiles,
           DROPZONE_MAX_STATELESS_PAYLOAD_BYTES,
         );
@@ -575,50 +587,42 @@ export function DropzoneInput({
     const previousValue = value;
     setIsUploading(true);
     try {
-      if (mode === DropzoneModeEnum.STATELESS) {
-        const results = await Promise.allSettled(
-          allowedFiles.map(async (file) => ({
-            file,
-            buffer: await file.arrayBuffer(),
-            contentId: createNewId(),
-          })),
-        );
-        const successful: Array<{
-          file: File;
-          buffer: ArrayBuffer;
-          contentId: string;
-        }> = [];
-        const failedFiles: File[] = [];
-        results.forEach((result, index) => {
-          const file = allowedFiles[index];
-          if (!file) {
-            return;
-          }
-          if (result.status === "fulfilled") {
-            successful.push(result.value);
-          } else {
-            failedFiles.push(file);
-          }
-        });
-        if (failedFiles.length > 0) {
-          notifyReadFailures(failedFiles);
-        }
-        if (successful.length === 0) {
+      const results = await Promise.allSettled(
+        allowedFiles.map((file) => readFileAsBase64(file)),
+      );
+      const successfulFiles: File[] = [];
+      const base64Payloads: string[] = [];
+      const failedFiles: File[] = [];
+      results.forEach((result, index) => {
+        const file = allowedFiles[index];
+        if (!file) {
           return;
         }
-        const attachments: DropzoneStatelessAttachment[] = successful.map(
-          ({ file, buffer, contentId }) => ({
+        if (result.status === "fulfilled") {
+          successfulFiles.push(file);
+          base64Payloads.push(result.value);
+        } else {
+          failedFiles.push(file);
+        }
+      });
+      if (failedFiles.length > 0) {
+        notifyReadFailures(failedFiles);
+      }
+      if (successfulFiles.length === 0) {
+        return;
+      }
+      if (mode === DropzoneModeEnum.STATELESS) {
+        const attachments: DropzoneStatelessAttachment[] = successfulFiles.map(
+          (file, index) => ({
             kind: "file",
             name: file.name,
             mimeType: file.type || "application/octet-stream",
             size: file.size,
-            contentId,
-            byteLength: buffer.byteLength,
-            binaryPayload: buffer,
+            base64: base64Payloads[index],
           }),
         );
         const displayAttachments: DropzoneStatelessDisplayAttachment[] =
-          successful.map(({ file }) => ({
+          successfulFiles.map((file) => ({
             kind: "file",
             name: file.name,
             size: file.size,
@@ -636,63 +640,26 @@ export function DropzoneInput({
       if (!onChange) {
         return;
       }
-      const uploadResults = await Promise.allSettled(
-        allowedFiles.map(async (file) => {
-          const form = new FormData();
-          form.append("file", file, file.name);
-          form.append("durable", "false");
-          const res = await route_binary_upload(form);
-          if (!res200(res)) {
-            throw new Error("Upload failed");
-          }
-          return { file, ref: res.data };
-        }),
-      );
-      const successfulUploads: Array<{
-        file: File;
-        ref: FileArtifact["value"];
-      }> = [];
-      const failedUploads: File[] = [];
-      uploadResults.forEach((result, index) => {
-        const file = allowedFiles[index];
-        if (!file) {
-          return;
-        }
-        if (result.status === "fulfilled") {
-          successfulUploads.push(result.value);
-        } else {
-          failedUploads.push(file);
-        }
-      });
-      if (failedUploads.length > 0) {
-        notifyUploadFailures(failedUploads);
-      }
-      if (successfulUploads.length === 0) {
-        return;
-      }
       const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
-      const fileIds = successfulUploads.map(({ file }) =>
+      const fileIds = successfulFiles.map((file) =>
         createDropzoneFileArtifactId(file.name, artifactBaseFolder),
       );
-      const artifacts: FileArtifact[] = successfulUploads.map(
-        ({ ref }, index) => ({
+      const artifacts: FileArtifact[] = base64Payloads.map(
+        (payload, index) => ({
           type: ArtifactTypeEnum.File,
           id: fileIds[index],
-          value: ref,
+          value: payload,
         }),
       );
-      const res = await route_update_artifacts({
-        artifacts,
-        uploadScope: "generic",
-      });
+      const res = await route_update_artifacts({ artifacts });
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to upload attachments.";
         addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
         return;
       }
-      const newAttachments: DropzoneStoredAttachment[] = successfulUploads.map(
-        ({ file }, index) => ({
+      const newAttachments: DropzoneStoredAttachment[] = successfulFiles.map(
+        (file, index) => ({
           kind: "file",
           id: fileIds[index],
           name: file.name,
@@ -794,7 +761,6 @@ export function DropzoneInput({
     try {
       const res = await route_import_files_to_artifacts({
         paths: allowedPaths,
-        uploadScope: "generic",
       });
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);

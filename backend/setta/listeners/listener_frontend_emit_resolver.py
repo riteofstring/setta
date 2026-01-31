@@ -8,9 +8,8 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import ArtifactType
-from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_value import (
-    BinaryDependencyValue,
+    Base64DependencyValue,
     DependencyValueType,
     FileReadDependencyValue,
     LiteralDependencyValue,
@@ -206,8 +205,8 @@ class ListenerFrontendEmitResolver:
             dependency_name=dependency_name,
             node=node,
         )
-        if expected_type is DependencyValueType.Binary:
-            return self._coerce_binary(dependency_name, raw_value)
+        if expected_type is DependencyValueType.Base64:
+            return self._coerce_base64(dependency_name, raw_value)
         if expected_type is DependencyValueType.FileRead:
             return self._coerce_file_read(dependency_name, raw_value)
         if expected_type is DependencyValueType.Literal:
@@ -231,7 +230,7 @@ class ListenerFrontendEmitResolver:
         if isinstance(node, SectionNode):
             section_type = node.type
             if section_type in (SectionType.Draw, SectionType.Image):
-                return DependencyValueType.Binary
+                return DependencyValueType.Base64
             if section_type in (
                 SectionType.Callable,
                 SectionType.TextBlock,
@@ -262,31 +261,16 @@ class ListenerFrontendEmitResolver:
             reason="literal values are only supported for sections and params",
         )
 
-    def _coerce_binary(
+    def _coerce_base64(
         self, dependency_name: str, raw_value: Any
-    ) -> BinaryDependencyValue:
-        if isinstance(raw_value, BinaryContentRef):
-            return BinaryDependencyValue(payload=raw_value)
-        if not isinstance(raw_value, Mapping):
+    ) -> Base64DependencyValue:
+        if not isinstance(raw_value, str):
             raise InvalidListenerDependencyValueError(
                 dependency_name,
-                expected_type=DependencyValueType.Binary,
+                expected_type=DependencyValueType.Base64,
                 actual_value=raw_value,
             )
-        byte_length = raw_value.get("byteLength")
-        if not isinstance(byte_length, int):
-            raise InvalidListenerDependencyValueError(
-                dependency_name,
-                expected_type=DependencyValueType.Binary,
-                actual_value=raw_value,
-            )
-        payload = BinaryContentRef(
-            contentId=str(raw_value.get("contentId", "")),
-            byteLength=byte_length,
-            mimeType=raw_value.get("mimeType"),
-            sha256=raw_value.get("sha256"),
-        )
-        return BinaryDependencyValue(payload=payload)
+        return Base64DependencyValue(raw_value)
 
     def _coerce_file_read(
         self, dependency_name: str, raw_value: Any

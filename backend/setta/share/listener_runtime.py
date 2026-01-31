@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 from dataclasses import dataclass
 from importlib import util
@@ -31,18 +30,12 @@ class ShareListenerRuntime:
         *,
         deployment_root: Path,
         manifest: ShareDeploymentManifest | None,
-        runtime_root: Path | None = None,
     ) -> None:
         self._deployment_root = deployment_root
         self._manifest = manifest
         self._listener_config = None if manifest is None else manifest.listener
         self._entrypoint_path = self._resolve_entrypoint_path()
         self._session_handles: dict[tuple[str, ID], _ListenerHandle] = {}
-        self._runtime_root = (
-            runtime_root.resolve() if runtime_root is not None else None
-        )
-        if self._runtime_root is not None:
-            os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self._runtime_root))
 
     def _resolve_entrypoint_path(self) -> Path | None:
         if self._listener_config is None:

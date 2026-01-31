@@ -18,8 +18,6 @@ Setta has two runtime modes. IDE mode is the full interactive editor. Share mode
 - Requires a share deployment root containing `manifest.json` + `project.json`.
 - No AuthMiddleware; all stateful routes require a share session id.
 - `ShareRuntimeState` loads the deployment snapshot and creates per-session copies.
-- PasswordParam secrets are stripped from deployment snapshots (`hasSecret` is
-  forced false), and `getPasswordParamValue` is blocked in share mode.
 - LSP, project CRUD, code edits, file creation, and settings writes are blocked.
 - The frontend connects over `/share/frontend`; CLI websockets are disabled.
 

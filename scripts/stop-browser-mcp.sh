@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
 
 profile_suffix() {
   local root="$1"
@@ -22,7 +23,9 @@ profile_suffix() {
 }
 
 PROFILE_SUFFIX="$(profile_suffix "$WORKTREE_ROOT")"
-MCP_RUN_DIR="${WORKTREE_ROOT}/setta_files/runtime/mcp"
+MCP_BASE_DIR="${MCP_BASE_DIR:-${TMPDIR:-/tmp}/setta-mcp}"
+DEFAULT_MCP_RUN_DIR="${MCP_BASE_DIR}/${INSTANCE_NAME}-${PROFILE_SUFFIX}"
+MCP_RUN_DIR="${MCP_RUN_DIR:-${DEFAULT_MCP_RUN_DIR}}"
 PROFILE_DIR="${PROFILE_DIR:-${MCP_RUN_DIR}/devtools-profile}"
 LEGACY_PROFILE_DIR="/tmp/chrome-profile-mcp-${PROFILE_SUFFIX}"
 TARGET_DEVTOOLS="0"
@@ -34,7 +37,8 @@ Usage: stop-browser-mcp.sh [--devtools]
 Default behavior stops the devtools browser MCP process.
 
 Environment variables:
-  PROFILE_DIR  User data dir for the debug instance (default: setta_files/runtime/mcp/devtools-profile)
+  MCP_RUN_DIR  Base dir for MCP state (default: ${TMPDIR:-/tmp}/setta-mcp/<worktree>)
+  PROFILE_DIR  User data dir for the debug instance (default: ${TMPDIR:-/tmp}/setta-mcp/<worktree>/devtools-profile)
 
 Flags:
   --devtools      Stop the devtools Chrome profile

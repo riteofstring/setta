@@ -19,13 +19,6 @@ class ChatRole(str, Enum):
     tool = "tool"
 
 
-class ChatFileAttachment(BaseModel):
-    id: str
-    name: str
-    mimeType: str | None = None
-    size: int | None = None
-
-
 class MessageTextContent(BaseModel):
     type: Literal["text"] = "text"
     text: str
@@ -86,13 +79,11 @@ class BaseChatMessage(BaseModel):
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
-        output.pop("attachments", None)
         return output
 
 
 class ContentChatMessage(BaseChatMessage):
     content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
 class SystemChatMessage(ContentChatMessage):

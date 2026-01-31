@@ -4,7 +4,6 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
-    GetPasswordParamValueResponse,
     MoveParamGroup,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
@@ -15,7 +14,6 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
-from setta.types.binary_content import BinaryContentRef
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -337,13 +335,6 @@ class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
-class ListenerGetPasswordParamValueRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    paramInfoId: ID
-
-
 class ListenerGroupSectionsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -435,7 +426,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
     sectionId: ID | None
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
-    drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
+    drawSnapshotsBySectionId: NotRequired[dict[ID, str] | None]
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
@@ -569,21 +560,6 @@ class ListenerSetCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     code: str
-
-
-class ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    code: str | int
-    suppress: bool
-
-
-class ListenerSetCodeSectionDiagnosticsMuteRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    mute: bool
 
 
 class ListenerSetDefaultSectionVariantRequestPayload(TypedDict):
@@ -1109,11 +1085,6 @@ class RouterEndpointAPI:
     ) -> ListenerCoverageSnapshot:
         return await self._caller("route_get_listener_coverage", payload)
 
-    async def get_password_param_value(
-        self, payload: ListenerGetPasswordParamValueRequestPayload
-    ) -> GetPasswordParamValueResponse:
-        return await self._caller("route_get_password_param_value", payload)
-
     async def group_sections(
         self, payload: ListenerGroupSectionsRequestPayload
     ) -> None:
@@ -1252,18 +1223,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetCodeObjNameRequestPayload
     ) -> None:
         return await self._caller("route_set_code_obj_name", payload)
-
-    async def set_code_section_diagnostic_code_suppression(
-        self, payload: ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_code_section_diagnostic_code_suppression", payload
-        )
-
-    async def set_code_section_diagnostics_mute(
-        self, payload: ListenerSetCodeSectionDiagnosticsMuteRequestPayload
-    ) -> None:
-        return await self._caller("route_set_code_section_diagnostics_mute", payload)
 
     async def set_default_section_variant(
         self, payload: ListenerSetDefaultSectionVariantRequestPayload

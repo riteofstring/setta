@@ -1,8 +1,6 @@
 from .agentic import router as agentic_router
 from .ai import router as ai_router
 from .artifact import router as artifact_router
-from .attachments import router as attachments_router
-from .binary import router as binary_router
 from .bootstrap import router as bootstrap_router
 from .code_info import router as code_info_router
 from .listener import router as listener_router
