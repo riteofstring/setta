@@ -23,15 +23,12 @@ import {
   DEFAULT_TEMP_TIMEOUT,
 } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
-  CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES,
-  CHAT_ATTACHMENT_MAX_FILE_BYTES,
-  CHAT_ATTACHMENT_MAX_FILE_LABEL,
-  CHAT_ATTACHMENT_MAX_FILES,
-  formatBytes,
-  isChatAttachmentMimeAllowed,
-  resolveChatAttachmentLimit,
-} from "utils/attachments";
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import { formatBytes } from "utils/attachments";
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -84,23 +81,28 @@ export const ChatInput = memo(function ChatInput({
   const { isShareMode } = useShareSession((state) => ({
     isShareMode: state.isShareMode,
   }));
+  const { canEditParams } = useShareCapabilities();
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const isDisabled = disabled;
   const isSubmitDisabled = submitDisabled || isDisabled || isUploading;
-  const { maxFiles: attachmentLimit, disabled: attachmentsDisabled } =
-    resolveChatAttachmentLimit(CHAT_ATTACHMENT_MAX_FILES);
+  const chatPolicy = useMemo(() => getAttachmentPolicy("chat"), []);
+  const attachmentLimit = chatPolicy.maxFiles;
+  const attachmentsDisabled = chatPolicy.maxFilesDisabled;
   const attachmentInputDisabled =
-    isDisabled || isUploading || attachmentsDisabled;
+    isDisabled || isUploading || attachmentsDisabled || !canEditParams;
+  const attachmentActionsDisabled = isUploading || !canEditParams;
   const remainingSlots = attachmentsDisabled
     ? 0
     : attachmentLimit === null
       ? null
       : Math.max(attachmentLimit - attachments.length, 0);
-  const allowedMimeLabel =
-    CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.length > 0
-      ? `Allowed types: ${CHAT_ATTACHMENT_ALLOWED_MIME_PREFIXES.join(", ")}.`
-      : "";
+  const allowedMimeLabel = chatPolicy.allowedMimeLabel;
+  const showSharePolicyMessage = isShareMode && !canEditParams;
+  const showAttachmentDisabledMessage =
+    attachmentsDisabled && !showSharePolicyMessage;
+  const showSlots =
+    !attachmentsDisabled && !showSharePolicyMessage && remainingSlots !== null;
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -219,6 +221,9 @@ export const ChatInput = memo(function ChatInput({
       if (isDisabled || isUploading) {
         return;
       }
+      if (!canEditParams) {
+        return;
+      }
       if (attachmentsDisabled) {
         notifyAttachmentWarning("Attachments are disabled.");
         return;
@@ -234,7 +239,7 @@ export const ChatInput = memo(function ChatInput({
         remainingSlots === null ? files : files.slice(0, remainingSlots);
       const rejectedByType = allowedFiles.filter((file) => {
         const mimeType = file.type || "application/octet-stream";
-        return !isChatAttachmentMimeAllowed(mimeType);
+        return !isAttachmentMimeAllowed(mimeType, chatPolicy);
       });
       if (rejectedByType.length > 0) {
         notifyAttachmentWarning(
@@ -243,21 +248,21 @@ export const ChatInput = memo(function ChatInput({
       }
       const typeAllowedFiles = allowedFiles.filter((file) => {
         const mimeType = file.type || "application/octet-stream";
-        return isChatAttachmentMimeAllowed(mimeType);
+        return isAttachmentMimeAllowed(mimeType, chatPolicy);
       });
       if (typeAllowedFiles.length === 0) {
         return;
       }
       const oversized = typeAllowedFiles.filter(
-        (file) => file.size > CHAT_ATTACHMENT_MAX_FILE_BYTES,
+        (file) => file.size > chatPolicy.maxFileBytes,
       );
       if (oversized.length > 0) {
         notifyAttachmentWarning(
-          `File exceeds ${CHAT_ATTACHMENT_MAX_FILE_LABEL} limit.`,
+          `File exceeds ${chatPolicy.maxFileLabel} limit.`,
         );
       }
       const validFiles = typeAllowedFiles.filter(
-        (file) => file.size <= CHAT_ATTACHMENT_MAX_FILE_BYTES,
+        (file) => file.size <= chatPolicy.maxFileBytes,
       );
       if (validFiles.length === 0) {
         return;
@@ -267,6 +272,8 @@ export const ChatInput = memo(function ChatInput({
     [
       allowedMimeLabel,
       attachmentsDisabled,
+      canEditParams,
+      chatPolicy,
       isDisabled,
       isUploading,
       notifyAttachmentWarning,
@@ -286,6 +293,9 @@ export const ChatInput = memo(function ChatInput({
 
   const handleRemoveAttachment = useCallback(
     async (attachment: ChatFileAttachment) => {
+      if (attachmentActionsDisabled) {
+        return;
+      }
       setAttachments((prev) =>
         prev.filter((item) => item.id !== attachment.id),
       );
@@ -298,10 +308,13 @@ export const ChatInput = memo(function ChatInput({
         notifyAttachmentWarning(message);
       }
     },
-    [notifyAttachmentWarning],
+    [attachmentActionsDisabled, notifyAttachmentWarning],
   );
 
   const handleClearAttachments = useCallback(async () => {
+    if (attachmentActionsDisabled) {
+      return;
+    }
     if (attachments.length === 0) {
       return;
     }
@@ -318,10 +331,13 @@ export const ChatInput = memo(function ChatInput({
       const message = detail ?? "Failed to delete attachments.";
       notifyAttachmentWarning(message);
     }
-  }, [attachments, notifyAttachmentWarning]);
+  }, [attachmentActionsDisabled, attachments, notifyAttachmentWarning]);
 
   const handlePickFromProject = useCallback(() => {
     if (isDisabled || isUploading) {
+      return;
+    }
+    if (!canEditParams) {
       return;
     }
     if (attachmentsDisabled) {
@@ -359,6 +375,7 @@ export const ChatInput = memo(function ChatInput({
     });
   }, [
     attachmentsDisabled,
+    canEditParams,
     isDisabled,
     isUploading,
     notifyAttachmentWarning,
@@ -558,12 +575,17 @@ export const ChatInput = memo(function ChatInput({
                 Project
               </button>
             ) : null}
-            {!attachmentsDisabled && remainingSlots !== null ? (
+            {showSlots ? (
               <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
                 Slots: {remainingSlots}
               </span>
             ) : null}
-            {attachmentsDisabled ? (
+            {showSharePolicyMessage ? (
+              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
+                Attachments blocked by share policy
+              </span>
+            ) : null}
+            {showAttachmentDisabledMessage ? (
               <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
                 Attachments disabled
               </span>
@@ -593,7 +615,7 @@ export const ChatInput = memo(function ChatInput({
                     type="button"
                     className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
                     onClick={() => handleRemoveAttachment(attachment)}
-                    disabled={isUploading}
+                    disabled={attachmentActionsDisabled}
                   >
                     <IoClose />
                   </button>
@@ -604,7 +626,7 @@ export const ChatInput = memo(function ChatInput({
                   type="button"
                   className="rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 hover:border-setta-400 hover:text-setta-600 dark:border-setta-800 dark:text-setta-500 dark:hover:text-setta-200"
                   onClick={handleClearAttachments}
-                  disabled={isUploading}
+                  disabled={attachmentActionsDisabled}
                 >
                   Clear all
                 </button>

@@ -1,6 +1,7 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, {
@@ -27,7 +28,7 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useIsScrollable, useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
@@ -257,12 +258,15 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     };
 
     const measureHeight = () => {
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
+      const rectHeight = node.getBoundingClientRect().height / safeZoom;
       const style = window.getComputedStyle(node);
       const marginHeight =
         (Number.parseFloat(style.marginTop) || 0) +
         (Number.parseFloat(style.marginBottom) || 0);
       const measuredHeight =
-        Math.max(node.scrollHeight, node.offsetHeight) + marginHeight;
+        Math.max(node.scrollHeight, rectHeight) + marginHeight;
       updateHeight(Math.max(measuredHeight, 0));
     };
 
@@ -273,8 +277,16 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     observer.observe(node);
     measureHeight();
 
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        measureHeight();
+      },
+    );
+
     return () => {
       observer.disconnect();
+      unsubscribe();
     };
   }, [hasEdges, heightKey, portsKey]);
 
@@ -480,7 +492,7 @@ function ResizablePinnedArea({
       hasUnpinnedParams:
         !impl.hideUnpinnedParams &&
         filteredUnpinned.topLevelParamIds.length > 0,
-      sectionHeight: impl.size.height ?? null,
+      sectionHeight: x.sections[sectionId]?.size?.height ?? null,
     };
   }, _.isEqual);
   const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
@@ -491,8 +503,6 @@ function ResizablePinnedArea({
     }),
     _.isEqual,
   );
-  const { minHeight: sectionMinHeight, maxHeight: sectionMaxHeight } =
-    useSectionMinMaxDims(sectionId);
   const { canEditLayout } = useShareCapabilities();
   const canResize = canEditLayout && !positionAndSizeLocked;
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
@@ -504,8 +514,6 @@ function ResizablePinnedArea({
   const resizeStartHeightRef = useRef<number | null>(null);
   const didResizeRef = useRef(false);
   const lastMaxHeightRef = useRef<number | null>(null);
-  const pendingSectionResizeRef = useRef<number | null>(null);
-  const pendingSectionResizeRafRef = useRef<number | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -651,73 +659,6 @@ function ResizablePinnedArea({
     if (clampedHeight < resolvedMinHeight) {
       clampedHeight = resolvedMinHeight;
     }
-    const basePinnedHeight =
-      typeof startHeight === "number" && Number.isFinite(startHeight)
-        ? startHeight
-        : typeof height === "number" && Number.isFinite(height)
-          ? height
-          : null;
-    const baseSectionHeight =
-      typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
-        ? sectionHeight
-        : null;
-    if (basePinnedHeight !== null && baseSectionHeight !== null) {
-      const heightDelta = clampedHeight - basePinnedHeight;
-      if (Math.abs(heightDelta) > 1) {
-        let nextSectionHeight = Math.round(baseSectionHeight + heightDelta);
-        let nextSectionMinHeight =
-          typeof sectionMinHeight === "number" &&
-          Number.isFinite(sectionMinHeight) &&
-          sectionMinHeight > 0
-            ? sectionMinHeight
-            : null;
-        if (nextSectionMinHeight !== null) {
-          const pinnedContributionBefore = Math.max(
-            basePinnedHeight,
-            pinnedMinHeight,
-          );
-          const pinnedContributionAfter = Math.max(
-            clampedHeight,
-            pinnedMinHeight,
-          );
-          const adjustedMin =
-            nextSectionMinHeight -
-            pinnedContributionBefore +
-            pinnedContributionAfter;
-          nextSectionMinHeight = Math.max(0, adjustedMin);
-        }
-        if (
-          typeof sectionMaxHeight === "number" &&
-          Number.isFinite(sectionMaxHeight) &&
-          sectionMaxHeight > 0
-        ) {
-          nextSectionHeight = Math.min(nextSectionHeight, sectionMaxHeight);
-        }
-        if (nextSectionMinHeight !== null) {
-          nextSectionHeight = Math.max(nextSectionHeight, nextSectionMinHeight);
-        }
-        if (Math.abs(nextSectionHeight - baseSectionHeight) > 1) {
-          let updatedSectionSizes: Record<string, SectionSize> = {};
-          dispatchOptimisticProjectStateUpdate({
-            apply: (state) => {
-              updatedSectionSizes = {
-                [sectionId]: setSectionSize(
-                  sectionId,
-                  { height: nextSectionHeight },
-                  state,
-                ),
-              };
-            },
-            send: (frontendOpId) =>
-              route_set_section_sizes({
-                projectConfigId: getCurrProjectConfigId(),
-                sectionSizes: updatedSectionSizes,
-                frontendOpId,
-              }),
-          });
-        }
-      }
-    }
     const isAtMax =
       resolvedMaxHeight !== null &&
       Math.abs(clampedHeight - resolvedMaxHeight) <= 2;
@@ -740,9 +681,14 @@ function ResizablePinnedArea({
       return;
     }
     const update = () => {
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const rectHeight = node.getBoundingClientRect().height;
+      const unscaledHeight = zoom > 0 ? rectHeight / zoom : rectHeight;
       const clientHeight = node.clientHeight;
-      const offsetHeight = node.offsetHeight;
-      const nextHeight = Math.max(clientHeight, offsetHeight);
+      const nextHeight =
+        clientHeight > 0
+          ? Math.max(clientHeight, unscaledHeight)
+          : unscaledHeight;
       const roundedHeight = Math.ceil(nextHeight);
       setMeasuredContainerHeight(roundedHeight > 0 ? roundedHeight : null);
       const style = window.getComputedStyle(node);
@@ -757,8 +703,15 @@ function ResizablePinnedArea({
       update();
     });
     observer.observe(node);
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
     return () => {
       observer.disconnect();
+      unsubscribe();
     };
   }, [outerRef]);
 
@@ -801,12 +754,17 @@ function ResizablePinnedArea({
           list.querySelectorAll<HTMLElement>("article.section-lg-value"),
         );
       }
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
       let listHeight = list.scrollHeight;
       let maxBottom = 0;
       if (listRows.length > 0) {
+        const listRect = list.getBoundingClientRect();
+        const listScrollTop = list.scrollTop;
         for (const row of listRows) {
-          const top = row.offsetTop;
-          const bottom = top + Math.max(row.offsetHeight, row.scrollHeight);
+          const rowRect = row.getBoundingClientRect();
+          const top = (rowRect.top - listRect.top) / safeZoom + listScrollTop;
+          const bottom = top + rowRect.height / safeZoom;
           if (bottom > maxBottom) {
             maxBottom = bottom;
           }
@@ -827,9 +785,11 @@ function ResizablePinnedArea({
       // Prefer the first non-zero row height to guarantee one pinned row fits.
       let rowHeight = 0;
       for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
         const measuredHeight = Math.max(
           row.offsetHeight,
           row.scrollHeight,
+          rectHeight,
         );
         if (measuredHeight > 0) {
           rowHeight = measuredHeight;
@@ -897,6 +857,12 @@ function ResizablePinnedArea({
       rows.forEach((row) => rowObserver.observe(row));
     };
     observeRows();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform[2],
+      () => {
+        update();
+      },
+    );
     const mutationObserver = new MutationObserver(() => {
       update();
       observeRows();
@@ -923,6 +889,7 @@ function ResizablePinnedArea({
       });
       resizeObserver.disconnect();
       rowObserver.disconnect();
+      unsubscribe();
       mutationObserver.disconnect();
     };
   }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
@@ -950,39 +917,14 @@ function ResizablePinnedArea({
       : pinnedParamsAreaMinHeight;
   const minHeight = maxHeight > 0 ? Math.min(pinnedMinHeight, maxHeight) : 0;
   const resolvedMinHeight = minHeight;
-  const resolvedAutoHeight =
-    typeof maxHeight === "number" && Number.isFinite(maxHeight)
-      ? Math.max(resolvedMinHeight, Math.min(maxHeight, availableHeight))
-      : height;
   const resolvedHeight =
     typeof height === "number" && Number.isFinite(maxHeight)
       ? Math.min(Math.max(height, resolvedMinHeight), maxHeight)
-      : resolvedAutoHeight;
+      : height;
   const numericSectionHeight =
     typeof sectionHeight === "number" && Number.isFinite(sectionHeight)
       ? sectionHeight
       : null;
-  const numericSectionHeightRef = useRef<number | null>(numericSectionHeight);
-
-  useEffect(() => {
-    numericSectionHeightRef.current = numericSectionHeight;
-    if (
-      numericSectionHeight !== null &&
-      pendingSectionResizeRef.current !== null &&
-      Math.abs(pendingSectionResizeRef.current - numericSectionHeight) <= 1
-    ) {
-      pendingSectionResizeRef.current = null;
-    }
-  }, [numericSectionHeight]);
-
-  useEffect(() => {
-    return () => {
-      if (pendingSectionResizeRafRef.current !== null) {
-        window.cancelAnimationFrame(pendingSectionResizeRafRef.current);
-        pendingSectionResizeRafRef.current = null;
-      }
-    };
-  }, []);
 
   // Track when measurements are complete to avoid acting on stale/zero values
   useLayoutEffect(() => {
@@ -1017,53 +959,6 @@ function ResizablePinnedArea({
     };
   }, [measurementsReady, availableHeight, maxHeight, contentHeight]);
 
-  const queueSectionResize = useCallback(
-    (nextHeight: number) => {
-      const currentHeight = numericSectionHeightRef.current;
-      if (
-        currentHeight !== null &&
-        Math.abs(currentHeight - nextHeight) <= 1
-      ) {
-        pendingSectionResizeRef.current = null;
-        return;
-      }
-      const pending = pendingSectionResizeRef.current;
-      if (pending !== null && Math.abs(pending - nextHeight) <= 1) {
-        return;
-      }
-      pendingSectionResizeRef.current = nextHeight;
-      if (pendingSectionResizeRafRef.current !== null) {
-        return;
-      }
-      pendingSectionResizeRafRef.current = window.requestAnimationFrame(() => {
-        pendingSectionResizeRafRef.current = null;
-        const targetHeight = pendingSectionResizeRef.current;
-        if (targetHeight === null) {
-          return;
-        }
-        let updatedSectionSizes: Record<string, SectionSize> = {};
-        dispatchOptimisticProjectStateUpdate({
-          apply: (state) => {
-            updatedSectionSizes = {
-              [sectionId]: setSectionSize(
-                sectionId,
-                { height: targetHeight },
-                state,
-              ),
-            };
-          },
-          send: (frontendOpId) =>
-            route_set_section_sizes({
-              projectConfigId: getCurrProjectConfigId(),
-              sectionSizes: updatedSectionSizes,
-              frontendOpId,
-            }),
-        });
-      });
-    },
-    [sectionId],
-  );
-
   // Consolidated height constraint effect - guards with measurementsReady to avoid race conditions
   useLayoutEffect(() => {
     // Skip all height adjustments until measurements are complete and stable
@@ -1082,12 +977,10 @@ function ResizablePinnedArea({
               : manualPinnedHeight,
           )
         : pinnedMinHeight;
-    const shouldAutoExpandSection = manualPinnedHeight === null;
 
     // 1. Expand section height if pinned area needs more space
     if (
       canResize &&
-      shouldAutoExpandSection &&
       desiredPinnedHeight > 0 &&
       desiredPinnedHeight - availableHeight > 1
     ) {
@@ -1096,29 +989,36 @@ function ResizablePinnedArea({
       if (baseSectionHeight === null && outerRef.current) {
         const sectionRoot = outerRef.current.closest("section");
         if (sectionRoot) {
-          baseSectionHeight = sectionRoot.offsetHeight;
+          const zoom = useReactFlow.getState().transform[2] ?? 1;
+          const safeZoom = zoom > 0 ? zoom : 1;
+          baseSectionHeight =
+            sectionRoot.getBoundingClientRect().height / safeZoom;
         }
       }
       if (baseSectionHeight === null) {
-        pendingSectionResizeRef.current = null;
         return;
       }
-      let nextHeight = Math.round(baseSectionHeight + heightShortfall);
-      if (
-        typeof sectionMaxHeight === "number" &&
-        Number.isFinite(sectionMaxHeight) &&
-        sectionMaxHeight > 0
-      ) {
-        nextHeight = Math.min(nextHeight, sectionMaxHeight);
-      }
-      if (Math.abs(nextHeight - baseSectionHeight) <= 1) {
-        pendingSectionResizeRef.current = null;
-        return;
-      }
-      queueSectionResize(nextHeight);
+      const nextHeight = Math.round(baseSectionHeight + heightShortfall);
+      let updatedSectionSizes: Record<string, SectionSize> = {};
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          updatedSectionSizes = {
+            [sectionId]: setSectionSize(
+              sectionId,
+              { height: nextHeight },
+              state,
+            ),
+          };
+        },
+        send: (frontendOpId) =>
+          route_set_section_sizes({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionSizes: updatedSectionSizes,
+            frontendOpId,
+          }),
+      });
       return;
     }
-    pendingSectionResizeRef.current = null;
 
     // Reset max-follow tracking when height becomes non-numeric
     if (typeof height !== "number") {
@@ -1169,10 +1069,8 @@ function ResizablePinnedArea({
     numericSectionHeight,
     pinnedMinHeight,
     resolvedMinHeight,
-    sectionMaxHeight,
     sectionId,
     persistPinnedAreaHeight,
-    queueSectionResize,
     outerRef,
   ]);
 
@@ -1311,11 +1209,15 @@ function GetUnpinnedParams({
                 ":scope > article.section-lg-value",
               ),
             );
+      const zoom = useReactFlow.getState().transform[2] ?? 1;
+      const safeZoom = zoom > 0 ? zoom : 1;
       let rowHeight = 0;
       for (const row of listRows) {
+        const rectHeight = row.getBoundingClientRect().height / safeZoom;
         const measuredHeight = Math.max(
           row.offsetHeight,
           row.scrollHeight,
+          rectHeight,
         );
         if (measuredHeight > 0) {
           rowHeight = measuredHeight;
