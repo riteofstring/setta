@@ -18,7 +18,10 @@ import {
   useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
-import { getKwargsControlsHeightKey } from "utils/constants";
+import {
+  getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+} from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
   MetaControlSizingPolicyTypeEntry,
@@ -208,6 +211,10 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
   const kwargsControlsHeight = useTemporaryMiscState((x) => {
     const height = x[getKwargsControlsHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
@@ -295,7 +302,9 @@ export function useSectionMinMaxDims(sectionId: string) {
         requiredParamsHeight += baseUnpinnedMinHeight;
       }
       if (hasEdges) {
-        requiredParamsHeight += EDGES_STRIP_MIN_HEIGHT;
+        const resolvedEdgesStripHeight =
+          edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
+        requiredParamsHeight += resolvedEdgesStripHeight;
       }
       if (kwargsControlsHeight > 0) {
         requiredParamsHeight += kwargsControlsHeight;

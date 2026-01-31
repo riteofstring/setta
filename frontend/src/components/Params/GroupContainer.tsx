@@ -10,13 +10,15 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useTemporaryMiscState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
+import { getEdgesStripHeightKey } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { getEdgeStripEstimatedHeight } from "./edgeStripUtils";
 import { ParamDndList } from "./ParamDndList";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -81,6 +83,8 @@ export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
 function EdgesStrip({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
+  const lastHeightRef = useRef(0);
+  const heightKey = getEdgesStripHeightKey(sectionId);
   const { inputPorts, outputPorts, shouldRoundBottom, positionAndSizeLocked } =
     useProjectState((state) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -133,6 +137,33 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
     }, _.isEqual);
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
+
+  useEffect(() => {
+    if (!hasEdges) {
+      if (lastHeightRef.current !== 0) {
+        lastHeightRef.current = 0;
+        useTemporaryMiscState.setState({ [heightKey]: 0 });
+      }
+      return;
+    }
+    const nextHeight = Math.ceil(
+      getEdgeStripEstimatedHeight(inputPorts.length, outputPorts.length),
+    );
+    if (nextHeight === lastHeightRef.current) {
+      return;
+    }
+    lastHeightRef.current = nextHeight;
+    useTemporaryMiscState.setState({ [heightKey]: nextHeight });
+  }, [hasEdges, heightKey, inputPorts.length, outputPorts.length]);
+
+  useEffect(() => {
+    return () => {
+      if (lastHeightRef.current !== 0) {
+        lastHeightRef.current = 0;
+        useTemporaryMiscState.setState({ [heightKey]: 0 });
+      }
+    };
+  }, [heightKey]);
 
   if (!hasEdges) {
     return null;
