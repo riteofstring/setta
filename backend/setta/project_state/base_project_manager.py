@@ -31,7 +31,6 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
-from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -91,6 +90,7 @@ from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
+    CreateAgenticEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
@@ -99,6 +99,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
+    DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -129,6 +130,7 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
+    SetAgenticEdgesRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -194,12 +196,12 @@ from setta.project_state.project_manager_types import (
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
-    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
     UnindentParamsRequest,
     UnselectAllParamsRequest,
+    UpdateAgenticEdgeRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -209,6 +211,7 @@ from setta.project_state.watch_code import (
     normalize_watch_code_files,
     normalize_watch_code_folders,
 )
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -235,11 +238,13 @@ from setta.types.helpers_lvl2 import (
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
+    create_agentic_edge,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
     create_top_level_section,
+    delete_agentic_edges,
     delete_child_sections_via_decrementer,
     delete_edges,
     delete_kwarg,
@@ -257,6 +262,7 @@ from setta.types.helpers_lvl2 import (
     move_sections_to_parent_section,
     reconnect_edge,
     resolve_top_level_section_position_and_pan,
+    set_agentic_edges,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -309,6 +315,7 @@ from setta.types.helpers_lvl2 import (
     ungroup_groups,
     unindent_params,
     unselect_all_params,
+    update_agentic_edge,
     update_edge,
     update_param_impl_config,
 )
@@ -359,7 +366,6 @@ from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
-from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     collect_param_name_errors,
     collect_project_name_format_errors,
@@ -369,7 +375,6 @@ from setta.utils.name_validation import (
     validate_param_name,
     validate_param_name_format,
     validate_project_name,
-    validate_view_mode_name,
 )
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -2092,6 +2097,43 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        edge = AgenticEdge(
+            sourceSectionId=x.sourceSectionId,
+            targetSectionId=x.targetSectionId,
+            kind=x.kind,
+            contextMode=x.contextMode,
+            style=x.style,
+            hidden=x.hidden,
+            zIndex=x.zIndex,
+        )
+        create_agentic_edge(project_state, edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        update_agentic_edge(project_state, x.edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_agentic_edges(project_state, x.edgeIds)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_agentic_edges(project_state, x.edges)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -2497,17 +2539,9 @@ class BaseProjectManager(ABC):
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
-        view_modes = project_state.projectConfig.viewModes
-        if view_modes:
-            for view_mode in view_modes.values():
-                view_mode.visibilityBySectionId = dict(visibility_by_section_id)
-            active_view_mode_id = project_state.projectConfig.activeViewModeId
-            if active_view_mode_id not in view_modes:
-                project_state.projectConfig.activeViewModeId = next(iter(view_modes))
-        else:
-            view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-            view_modes[view_mode.id] = view_mode
-            project_state.projectConfig.activeViewModeId = view_mode.id
+        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        project_state.projectConfig.activeViewModeId = view_mode.id
         self.project_state_backend = merge_single_config_into_backend(
             self.project_state_backend, project_state
         )
@@ -2708,17 +2742,7 @@ class BaseProjectManager(ABC):
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
-        existing_slugs = {
-            sanitize_slug(view_mode.name)
-            for view_mode in project_state.projectConfig.viewModes.values()
-        }
-        name = generate_memorable_string()
-        while sanitize_slug(name) in existing_slugs:
-            name = generate_memorable_string()
-        view_mode = ViewModeConfig(
-            name=name,
-            visibilityBySectionId=visibility_by_section_id,
-        )
+        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         project_state.projectConfig.activeViewModeId = view_mode.id
         project_state.projectConfig.isEditingViewMode = True
@@ -2783,18 +2807,10 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
-        view_mode.isTab = not view_mode.isTab
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
-        normalized_name = validate_view_mode_name(project_state, x.viewModeId, x.name)
-        view_mode.name = normalized_name
+        view_mode.name = x.name
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

@@ -596,6 +596,7 @@ export async function submitMessage(
   isExternalEngine: boolean,
   messageId?: string,
   agentProfileId?: string | null,
+  sectionId?: string | null,
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
@@ -626,6 +627,7 @@ export async function submitMessage(
       engineConfigId,
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
+      sectionId: sectionId ?? null,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;

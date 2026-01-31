@@ -22,6 +22,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
+import { AgenticLinkButton } from "./AgenticLinkButton";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -180,6 +181,9 @@ function _SectionHeader({
               sectionTypeName={sectionTypeName}
             />
           </>
+        )}
+        {!isUserView && sectionTypeName === SectionTypeEnum.Chat && (
+          <AgenticLinkButton sectionId={sectionId} />
         )}
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />

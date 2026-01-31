@@ -521,6 +521,18 @@ export const useMisc = withProjectState(
   ),
 );
 
+type AgenticLinkState = {
+  sourceSectionId: string | null;
+};
+
+export const useAgenticLinkState = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AgenticLinkState>(() => ({
+      sourceSectionId: null,
+    })),
+  ),
+);
+
 export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;

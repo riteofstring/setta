@@ -2,6 +2,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import { handleAgenticLinkClick } from "state/actions/agenticEdges";
 import { hasSectionIdInProject } from "state/aiFollowUtils";
 import { useAIFollow, useMisc } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
@@ -69,6 +70,9 @@ export function getOnSectionClick(sectionId: string) {
     e.stopPropagation(); // to prevent parent section from becoming active
     if (useMisc.getState().mouseDownDrawArea) {
       useMisc.setState({ mouseDownDrawArea: false });
+      return;
+    }
+    if (handleAgenticLinkClick(sectionId)) {
       return;
     }
     applyActiveSectionChange({ interaction: "section-click", sectionId });
