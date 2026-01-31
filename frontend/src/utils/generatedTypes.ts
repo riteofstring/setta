@@ -291,7 +291,7 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
-export const SectionSizeModeEnum = { auto: "auto" } as const;
+const SectionSizeModeEnum = { auto: "auto" } as const;
 
 export const TextBlockDisplayModeEnum = {
   Render: "Render",

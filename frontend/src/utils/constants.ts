@@ -163,7 +163,6 @@ export function getKwargsControlsHeightKey(sectionId: string) {
   return `${KWARGS_CONTROLS_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
-
 const MODEL_GROUPS = [
   {
     group: "Anthropic",

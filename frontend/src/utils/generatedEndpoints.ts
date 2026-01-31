@@ -1051,7 +1051,7 @@ export async function route_set_section_pinned_params(
   return await post("/setSectionPinnedParams", x);
 }
 
-export async function route_set_section_pinned_area_height(
+async function route_set_section_pinned_area_height(
   x: gt.SetSectionPinnedAreaHeightRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionPinnedAreaHeight", x);

@@ -2,12 +2,7 @@ import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createEdgeFromConnection } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -51,7 +46,7 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   return (
     <ParamDndContext>
       <div
-        className={`section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-x-hidden overflow-y-auto pt-2 ${
+        className={`section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-auto overflow-x-hidden pt-2 ${
           isScrollable ? "nowheel" : ""
         }`}
         ref={setOuterRef}
@@ -326,9 +321,7 @@ function PinnedParamsArea({
           </p>
         </header>
 
-        <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-        >
+        <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5">
           <ParamDndList
             sectionId={sectionId}
             paramIds={topLevelParamIds}
@@ -360,9 +353,7 @@ function GetUnpinnedParams({
   }, _.isEqual);
 
   return (
-    <div
-      className="section-args-nested grid auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5 min-h-0 min-w-0 !max-w-full shrink-0"
-    >
+    <div className="section-args-nested grid min-h-0 min-w-0 !max-w-full shrink-0 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5">
       {!hideUnpinnedParams && (
         <GetUnpinnedParamsCore
           sectionId={sectionId}
