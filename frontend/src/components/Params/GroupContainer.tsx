@@ -37,12 +37,9 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
 
-  const setOuterRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      outerRef.current = node;
-    },
-    [],
-  );
+  const setOuterRef = useCallback((node: HTMLDivElement | null) => {
+    outerRef.current = node;
+  }, []);
 
   return (
     <ParamDndContext>
