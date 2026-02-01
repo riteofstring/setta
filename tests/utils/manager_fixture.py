@@ -1,4 +1,6 @@
 import asyncio
+import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -13,8 +15,6 @@ from setta.lsp.managers import (
     LSPReaders,
     LSPServers,
     LSPWriters,
-    start_lsps,
-    stop_file_watcher,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -44,6 +44,120 @@ __all__ = [
     "real_project_manager",
     "real_settings_manager",
 ]
+
+_SETUP_LOG_ENV = "SETTA_TEST_SETUP_LOG"
+
+
+def _setup_log(message: str, start: float | None = None) -> None:
+    if os.environ.get(_SETUP_LOG_ENV) != "1":
+        return
+    now = time.monotonic()
+    prefix = f"+{now - start:.3f}s " if start is not None else ""
+    print(f"[setup-log {prefix}manager_fixture] {message}", flush=True)
+
+
+def _maybe_patch_queue_logging(
+    stack: AsyncExitStack, *, label: str, start: float
+) -> None:
+    if os.environ.get(_SETUP_LOG_ENV) != "1":
+        return
+
+    original_process_queue = BaseProjectManager._process_queue
+
+    async def _process_queue_with_logs(self: BaseProjectManager):
+        _setup_log(f"{label} queue start", start)
+        self._process_queue_task_started.set()
+        while True:
+            _setup_log(
+                f"{label} queue waiting size={self.message_queue.qsize()}",
+                start,
+            )
+            coroutine, future, frontend_op_id = await self.message_queue.get()
+            handler_name = self._describe_coroutine(coroutine)
+            _setup_log(
+                f"{label} queue got handler={handler_name} frontend_op_id={frontend_op_id}",
+                start,
+            )
+            try:
+                _setup_log(
+                    f"{label} handler start handler={handler_name}",
+                    start,
+                )
+                async with self._track_frontend_op(frontend_op_id):
+                    result = await coroutine
+                _setup_log(
+                    f"{label} handler done handler={handler_name}",
+                    start,
+                )
+                if future.cancelled():
+                    _setup_log(
+                        f"{label} handler skip result handler={handler_name} reason=cancelled",
+                        start,
+                    )
+                elif future.done():
+                    _setup_log(
+                        f"{label} handler skip result handler={handler_name} reason=done",
+                        start,
+                    )
+                else:
+                    future.set_result(result)
+            except Exception as exc:
+                _setup_log(
+                    f"{label} handler error handler={handler_name} exc={exc!r}",
+                    start,
+                )
+                if future.cancelled():
+                    _setup_log(
+                        f"{label} handler skip exception handler={handler_name} reason=cancelled",
+                        start,
+                    )
+                elif future.done():
+                    _setup_log(
+                        f"{label} handler skip exception handler={handler_name} reason=done",
+                        start,
+                    )
+                else:
+                    future.set_exception(exc)
+            finally:
+                self.message_queue.task_done()
+
+    original_enqueue = BaseProjectManager._enqueue
+
+    async def _enqueue_with_logs(
+        self: BaseProjectManager, coroutine, frontend_op_id: str | None = None
+    ):
+        queue_done = self.queue_task.done()
+        queue_cancelled = self.queue_task.cancelled()
+        queue_exc = None
+        if queue_done:
+            queue_exc = self.queue_task.exception()
+        _setup_log(
+            f"{label} enqueue start frontend_op_id={frontend_op_id} "
+            f"queue_done={queue_done} queue_cancelled={queue_cancelled} "
+            f"queue_exc={queue_exc} queue_size={self.message_queue.qsize()}",
+            start,
+        )
+        result = await original_enqueue(self, coroutine, frontend_op_id)
+        _setup_log(
+            f"{label} enqueue done frontend_op_id={frontend_op_id}",
+            start,
+        )
+        return result
+
+    stack.enter_context(
+        patch.object(
+            BaseProjectManager,
+            "_process_queue",
+            _process_queue_with_logs,
+        )
+    )
+    stack.enter_context(
+        patch.object(
+            BaseProjectManager,
+            "_enqueue",
+            _enqueue_with_logs,
+        )
+    )
 
 
 @dataclass(slots=True)
@@ -87,6 +201,8 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
     minimal project bundle.
     """
     with TemporaryDirectory() as tmpdir:
+        start = time.monotonic()
+        _setup_log(f"real_settings_manager enter tmpdir={tmpdir}", start)
         root = Path(tmpdir)
         setta_root = root / "setta_files"
         code_folder = setta_root / "code"
@@ -97,11 +213,14 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             path.mkdir(parents=True, exist_ok=True)
 
         async with AsyncExitStack() as stack:
+            _maybe_patch_queue_logging(stack, label="settings", start=start)
+            _setup_log("real_settings_manager patching constants", start)
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
             stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
             stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
             stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
+            _setup_log("real_settings_manager building managers", start)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             listener_registry = ListenerRegistry()
@@ -136,10 +255,20 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
+            _setup_log(
+                "real_settings_manager waiting for queue task started", start
+            )
             await manager._process_queue_task_started.wait()
+            _setup_log("real_settings_manager queue task started", start)
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                _setup_log("real_settings_manager starting LSP servers", start)
+                await lsps.start()
+                _setup_log("real_settings_manager starting LSP readers", start)
+                await lsp_readers.start()
+                _setup_log("real_settings_manager starting LSP writers", start)
+                await lsp_writers.start()
+                _setup_log("real_settings_manager LSP started", start)
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -149,7 +278,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
+            _setup_log("real_settings_manager starting file watcher", start)
             specific_file_watcher.start()
+            _setup_log("real_settings_manager file watcher started", start)
             stack.push_async_callback(
                 _stop_specific_file_watcher, specific_file_watcher
             )
@@ -169,6 +300,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 listener_registry=listener_registry,
             )
 
+            _setup_log("real_settings_manager fixture ready", start)
             yield fixture
 
 
@@ -176,6 +308,8 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
     """Provision a SessionProjectManager (main) backed by a minimal project bundle."""
     with TemporaryDirectory() as tmpdir:
+        start = time.monotonic()
+        _setup_log(f"real_project_manager enter tmpdir={tmpdir}", start)
         root = Path(tmpdir)
         setta_root = root / "setta_files"
         setta_root.mkdir(parents=True, exist_ok=True)
@@ -190,11 +324,14 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         _seed_minimal_setta_files(setta_root)
 
         async with AsyncExitStack() as stack:
+            _maybe_patch_queue_logging(stack, label="project", start=start)
+            _setup_log("real_project_manager patching constants", start)
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
             stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
             stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
             stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
+            _setup_log("real_project_manager building managers", start)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             listener_registry = ListenerRegistry()
@@ -229,10 +366,20 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
+            _setup_log(
+                "real_project_manager waiting for queue task started", start
+            )
             await manager._process_queue_task_started.wait()
+            _setup_log("real_project_manager queue task started", start)
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                _setup_log("real_project_manager starting LSP servers", start)
+                await lsps.start()
+                _setup_log("real_project_manager starting LSP readers", start)
+                await lsp_readers.start()
+                _setup_log("real_project_manager starting LSP writers", start)
+                await lsp_writers.start()
+                _setup_log("real_project_manager LSP started", start)
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -242,7 +389,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
+            _setup_log("real_project_manager starting file watcher", start)
             specific_file_watcher.start()
+            _setup_log("real_project_manager file watcher started", start)
             stack.push_async_callback(
                 _stop_specific_file_watcher, specific_file_watcher
             )
@@ -262,13 +411,13 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 listener_registry=listener_registry,
             )
 
+            _setup_log("real_project_manager fixture ready", start)
             yield fixture
 
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
-    manager.autosave_debouncer.cancel()
+    manager.shutdown()
     manager.autosave_debouncer.cancel_pending()
-    manager.queue_task.cancel()
 
     while True:
         try:
@@ -288,10 +437,7 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
-    try:
-        watcher.stop()
-    except RuntimeError:
-        pass
+    watcher.stop()
 
 
 async def _stop_lsps_and_file_watcher(
@@ -299,7 +445,7 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
-    stop_file_watcher(lsp_writers)
+    lsp_writers.file_watcher.stop()
     await _close_lsp_process(process)
 
 
@@ -313,8 +459,13 @@ async def _close_lsp_process(process) -> None:
         with suppress(RuntimeError, AttributeError):
             await writer.wait_closed()
 
-    with suppress(ProcessLookupError):
-        await process.wait()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=3)
+    except (asyncio.TimeoutError, ProcessLookupError):
+        with suppress(ProcessLookupError):
+            process.kill()
+        with suppress(asyncio.TimeoutError, ProcessLookupError):
+            await asyncio.wait_for(process.wait(), timeout=3)
 
     for reader in (
         getattr(process, "stdout", None),
@@ -323,7 +474,7 @@ async def _close_lsp_process(process) -> None:
         if reader is None:
             continue
         with suppress(Exception):
-            await reader.read()
+            await asyncio.wait_for(reader.read(), timeout=3)
 
 
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
