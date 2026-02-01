@@ -77,6 +77,78 @@ def test_build_attachment_content_blocks_handles_images_text_and_binary() -> Non
         assert "Type: application/octet-stream" in binary_block.text
 
 
+def test_build_attachment_content_blocks_inlines_text_for_known_extension() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        payload = "title = \"Setta\""
+        text_path = dbe.path / "attachments" / "config.toml"
+        dbe.write(text_path, payload, mode="w")
+
+        attachments = [
+            ChatFileAttachment(
+                id=str(text_path),
+                name="config.toml",
+                mimeType="application/octet-stream",
+                size=len(payload),
+            )
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert len(blocks) == 1
+        block = blocks[0]
+        assert isinstance(block, MessageTextContent)
+        assert payload in block.text
+
+
+def test_build_attachment_content_blocks_inlines_text_for_multi_dot_names() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        toml_payload = "title = \"Setta\""
+        toml_path = dbe.path / "attachments" / "config.local.toml"
+        dbe.write(toml_path, toml_payload, mode="w")
+        txt_payload = "Hello"
+        txt_path = dbe.path / "attachments" / "notes.en.txt"
+        dbe.write(txt_path, txt_payload, mode="w")
+
+        attachments = [
+            ChatFileAttachment(
+                id=str(toml_path),
+                name="config.local.toml",
+                mimeType="application/octet-stream",
+                size=len(toml_payload),
+            ),
+            ChatFileAttachment(
+                id=str(txt_path),
+                name="notes.en.txt",
+                mimeType="application/octet-stream",
+                size=len(txt_payload),
+            ),
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert len(blocks) == 2
+        first = blocks[0]
+        second = blocks[1]
+        assert isinstance(first, MessageTextContent)
+        assert isinstance(second, MessageTextContent)
+        assert toml_payload in first.text
+        assert txt_payload in second.text
+
+
 def test_build_attachment_content_blocks_prefers_mime_type_override() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = DBE(Path(tmpdir) / "setta_files")
@@ -151,7 +223,34 @@ def test_build_attachments_prompt_text_skips_images_when_disabled() -> None:
 
         assert "[Attachment: image.png]" not in text
         assert "[Attachment: notes.txt]" in text
-        assert "[Attachment: blob.bin]" in text
+    assert "[Attachment: blob.bin]" in text
+
+
+def test_build_attachments_prompt_text_includes_octet_stream_text_by_extension() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        payload = "name = \"setta\""
+        text_path = dbe.path / "attachments" / "config.toml"
+        dbe.write(text_path, payload, mode="w")
+        attachments = [
+            ChatFileAttachment(
+                id=str(text_path),
+                name="config.toml",
+                mimeType="application/octet-stream",
+                size=len(payload),
+            )
+        ]
+
+        text = build_attachments_prompt_text(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+            include_images=True,
+        )
+
+        assert payload in text
 
 
 def test_build_attachment_helpers_handle_missing_files() -> None:

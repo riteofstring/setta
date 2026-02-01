@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -7,9 +7,7 @@ import {
 } from "state/actions/sectionInfos";
 import {
   adjustSizeToBeAtLeastMin,
-  isHeightResizeDirection,
   setSelfParentSiblingChildrenWidths,
-  type ResizeHandleDirection,
 } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
@@ -105,16 +103,11 @@ function CustomResizableCore({
     useAspectRatio(sectionId);
   const { canEditLayout } = useShareCapabilities();
 
-  function onResizeStart(event, direction, ref) {
-    if (isHeightResizeDirection(direction)) {
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "start", state);
-      });
-    }
+  function onResizeStart() {
+    useResizeEvent.setState((state) => {
+      setSectionResizeEvent(sectionId, "start", state);
+    });
     useMisc.setState({ mouseDownDraggingSection: true });
-    if (!ref || typeof ref.getBoundingClientRect !== "function") {
-      return;
-    }
   }
 
   function onResizeStop(...props) {
@@ -123,10 +116,6 @@ function CustomResizableCore({
     const isDoubleClick =
       typeof event.detail === "number" && event.detail === 2;
     if (isZeroDelta && !isDoubleClick) {
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "end", state);
-      });
-      useMisc.setState({ mouseDownDraggingSection: false });
       return;
     }
     const changedSize = getChangedSize({
@@ -307,7 +296,6 @@ function CustomResizableSuperCore({
   positionAndSizeLocked,
   onResizeStart,
   onResizeStop,
-  onResizePointerDown,
   aspectRatio,
   aspectRatioExtraHeight,
   aspectRatioExtraWidth,
@@ -370,40 +358,6 @@ function CustomResizableSuperCore({
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
 
-  function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
-    if (!onResizePointerDown) {
-      return;
-    }
-    const currentTarget = event.currentTarget;
-    if (!(currentTarget instanceof HTMLElement)) {
-      return;
-    }
-    let direction: ResizeHandleDirection | null = null;
-    const target = event.target;
-    if (target instanceof HTMLElement) {
-      const handleElement = target.closest(".section-resize-handle");
-      if (handleElement) {
-        if (
-          handleElement.classList.contains("section-resize-handle-bottom-right")
-        ) {
-          direction = "bottomRight";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-bottom")
-        ) {
-          direction = "bottom";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-right")
-        ) {
-          direction = "right";
-        }
-      }
-    }
-    if (!direction) {
-      return;
-    }
-    onResizePointerDown(direction, currentTarget);
-  }
-
   function handleResizeStart(event, direction, ref) {
     setActiveResizeHandle(direction);
     if (onResizeStart) {
@@ -448,7 +402,6 @@ function CustomResizableSuperCore({
       maxWidth={maxWidth}
       onResizeStart={handleResizeStart}
       onResizeStop={handleResizeStop}
-      onMouseDownCapture={handleResizeMouseDownCapture}
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}
       lockAspectRatioExtraWidth={aspectRatioExtraWidth}
