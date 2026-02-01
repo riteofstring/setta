@@ -417,10 +417,6 @@ function ProjectChatContextLinks({
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const canEditLinks = canEditStructure && typeof chatId === "string";
 
-  if (typeof chatId !== "string") {
-    return null;
-  }
-
   const handleAddContextSection = useCallback(
     (value: string | null) => {
       if (!value || typeof chatId !== "string" || !canEditLinks) {
@@ -443,6 +439,10 @@ function ProjectChatContextLinks({
     }
     return labels;
   }, [sections]);
+
+  if (typeof chatId !== "string") {
+    return null;
+  }
 
   return (
     <div className="mb-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
