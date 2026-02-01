@@ -1152,6 +1152,12 @@ class BaseProjectManager(ABC):
                 new_gen_code.write_meta_to_disk()
             if self.lsp_writers.full is not None:
                 await new_gen_code.sync_lsp(new_gen_code.code)
+            else:
+                # No LSP will publish new diagnostics, so clear stale gen code state.
+                await diagnostics_state.reset(
+                    clear_gen_code=True,
+                    clear_unmapped=True,
+                )
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
