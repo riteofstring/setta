@@ -54,9 +54,13 @@ class TopLevelSectionLayout(Position, extra="forbid"):
 class ViewModeConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    sortIndex: int = 0
     isUserFacing: bool = False
     isTab: bool = False
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
+    viewport: Viewport | None = Field(default_factory=Viewport)
+    viewportInitialized: bool = False
+    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
 
 
 class ProjectCodegenLanguage(str, Enum):

@@ -28,8 +28,9 @@ code sections, how they are broadcast to the UI, and how suppression works.
   so the UI can associate errors with sections/params.
 - Diagnostics that cannot be mapped are preserved in `unmappedGenCode` so the
   GenPythonCode section can surface them with line/column context.
-- When generated code changes, the diagnostics cache for `genCode` and
-  `unmappedGenCode` is reset to avoid stale mappings.
+- When generated code changes, existing diagnostics are kept until the LSP
+  publishes for the new code to avoid UI flicker. If there is no LSP writer,
+  the backend clears `genCode` and `unmappedGenCode` to avoid stale mappings.
 
 ## Code section diagnostics
 - Each Code section maintains a diagnostics list keyed by section id.
@@ -37,6 +38,14 @@ code sections, how they are broadcast to the UI, and how suppression works.
   `ProjectLspDiagnosticsState`, which filters and broadcasts updates.
 - CodeMirror linting uses the LSP ranges to highlight inline issues in the
   section editor.
+
+## Formatter diagnostics
+- The format-code action uses Ruff and returns errors through the API; the
+  frontend converts those into diagnostics with `source=Formatter`.
+- Formatter diagnostics are stored alongside LSP diagnostics for Code sections,
+  and in `unmappedGenCode` for GenPythonCode prefix/suffix errors.
+- Incoming LSP updates preserve existing formatter diagnostics unless the
+  formatter produces new ones; successful formatting clears them.
 
 ## Diagnostics ignore state
 Code sections store `diagnosticsIgnoreState`:
