@@ -19,6 +19,7 @@ async def run_code(
         command,
         x.projectConfigId,
         x.sectionId,
+        x.terminalSectionId,
         x.cliId,
         project_manager,
         terminals,
@@ -31,6 +32,7 @@ async def run_command(
     command: str,
     projectConfigId: ID,
     sectionId: ID | None,
+    terminalSectionId: ID | None,
     cliId: str | None,
     project_manager: BaseProjectManager | None,
     terminals: Terminals,
@@ -42,23 +44,32 @@ async def run_command(
     if cliId:
         await websocket_msg_handler.send_command(command, cliId)
     else:
-        terminal_id = terminals.get_free_terminal(
-            projectConfigId,
-            share_session_id=share_session_id,
-        )
-
-        if not terminal_id:
-            raw_terminal_id = create_new_id()
-            terminal_id = build_terminal_id(raw_terminal_id, share_session_id)
-            terminals.new_terminal(
+        if terminalSectionId:
+            terminal_id = build_terminal_id(terminalSectionId, share_session_id)
+            if terminal_id not in terminals.PTY_PIDS:
+                terminals.new_terminal(
+                    projectConfigId,
+                    terminal_id,
+                    share_session_id=share_session_id,
+                )
+        else:
+            terminal_id = terminals.get_free_terminal(
                 projectConfigId,
-                terminal_id,
                 share_session_id=share_session_id,
             )
-            if project_manager is not None:
-                await project_manager.create_temporary_terminal(
-                    projectConfigId, raw_terminal_id
+
+            if not terminal_id:
+                raw_terminal_id = create_new_id()
+                terminal_id = build_terminal_id(raw_terminal_id, share_session_id)
+                terminals.new_terminal(
+                    projectConfigId,
+                    terminal_id,
+                    share_session_id=share_session_id,
                 )
+                if project_manager is not None:
+                    await project_manager.create_temporary_terminal(
+                        projectConfigId, raw_terminal_id
+                    )
 
         spawn_background_task(
             terminals.run_command_in_terminal(terminal_id, command),

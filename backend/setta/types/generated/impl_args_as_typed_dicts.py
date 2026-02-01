@@ -64,6 +64,7 @@ class CoreArgs(TypedDict):
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
+                "attachedTerminalSectionId",
                 "brushColor",
                 "brushOpacity",
                 "brushShape",
@@ -261,6 +262,7 @@ class BaseCodeSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     code: NotRequired[str]
     codeFileBinding: NotRequired[CodeFileBinding | None]
+    attachedTerminalSectionId: NotRequired[ID | None]
 
 
 class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -271,6 +273,7 @@ class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | None
         | Callable[[CodeFileBinding | None], CodeFileBinding | None]
     ]
+    attachedTerminalSectionId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
 
 
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
