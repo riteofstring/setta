@@ -2,6 +2,7 @@ import _ from "lodash";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
+import { logStateEvent } from "state/actions/stateLogs";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -399,7 +400,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
-      console.log(
+      logStateEvent(
         "[websocketReceive] LLMStreamingResponse",
         JSON.stringify(m.content),
       );
@@ -416,6 +417,15 @@ function receiveMessage(message: string) {
       // TODO
       return null;
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
+      logStateEvent(
+        "[websocketReceive] UpdateFrontendProjectState",
+        JSON.stringify({
+          projectConfigId: m.content.projectState.projectConfig.id,
+          pendingOpIdsCount: m.content.pendingOpIds.length,
+          completedOpIdsCount: m.content.completedOpIds.length,
+          sectionsCount: Object.keys(m.content.projectState.sections).length,
+        }),
+      );
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
