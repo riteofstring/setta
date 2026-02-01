@@ -1,5 +1,6 @@
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
+import { markChatStreamActive } from "state/aiStreamingTracker";
 import {
   ChatRoleEnum,
   LLMConfig,
@@ -296,6 +297,7 @@ describe("chat history sync to section state", () => {
       impl.waitingForResponse = true;
       impl.toolCallArguments = { local: "{}" };
     });
+    markChatStreamActive(chatId, sectionId);
 
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
 
