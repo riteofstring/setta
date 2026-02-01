@@ -433,7 +433,21 @@ async function createChatSectionViaCommandPalette(page: Page): Promise<void> {
   await expect(searchInput).toBeVisible();
   await searchInput.fill("Chat");
   const chatOption = page.getByRole("option", { name: "Chat" }).first();
-  await expect(chatOption).toBeVisible();
+  let optionVisible = await chatOption.isVisible();
+  for (let attempt = 0; attempt < 3 && !optionVisible; attempt += 1) {
+    await page.keyboard.press(shortcut);
+    await searchInput.fill("Chat");
+    await page.waitForTimeout(150);
+    optionVisible = await chatOption.isVisible();
+    if (optionVisible) {
+      break;
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(150);
+  }
+  if (!optionVisible) {
+    await expect(chatOption).toBeVisible({ timeout: 2000 });
+  }
   const responsePromise = page.waitForResponse(
     (response) =>
       response.url().includes("/api/createTopLevelSection") &&
