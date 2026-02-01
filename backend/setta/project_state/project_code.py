@@ -429,7 +429,6 @@ class ProjectGenPythonCode(PythonCode):
             lsp_status,
             [obj.name for obj in codeObjs],
         )
-
         maybe_invoke_before_mutation()
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
@@ -572,12 +571,6 @@ class ProjectGenPythonCode(PythonCode):
             self.ignored_type_errors_by_section,
             uri=params.uri,
         )
-        if callable_mismatch_sections:
-            logger.debug(
-                "gen_code diagnostics callable_mismatch_sections=%s project_config_id=%s",
-                sorted(callable_mismatch_sections),
-                self.project_config_id,
-            )
         new_mismatch_sections = (
             callable_mismatch_sections - self.latest_callable_mismatch_sections
         )

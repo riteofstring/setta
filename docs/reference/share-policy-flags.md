@@ -8,6 +8,7 @@ In share mode only, those flags gate specific route families. Here is what each 
 - Chat and dropzone attachments: file uploads, deletes, and attachment metadata updates are blocked without `allowParamChanges` (chat attachments, dropzone files/text).
 - Example: viewer edits a text block or changes chart data -> allowed only if `allowParamChanges` is true.
 - Note: CodeParam edits are *always* blocked in share mode (even if this is true).
+- Note: Code section edits (set code, format code, gen code prefix/suffix) are *always* blocked in share mode.
 - Note: Code section diagnostics settings (mute/suppress) are *always* blocked in share mode.
 
 **allowVariantChanges** (variants + view modes)
