@@ -11,6 +11,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
+const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -58,7 +59,11 @@ export async function ensureAppReady(page: Page): Promise<void> {
     }
   }
 
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+    await navigateToDefaultProject(page);
+  } else {
+    await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  }
   if (await isAppReady(page)) {
     return;
   }
@@ -278,10 +283,37 @@ export async function postBackend<T>(
 
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
+    await page.waitForSelector(READY_SELECTOR, { timeout: 20000 });
     return true;
   } catch {
     return false;
+  }
+}
+
+async function navigateToDefaultProject(page: Page): Promise<void> {
+  try {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      return;
+    }
+    const defaultId = metadata.defaultProjectConfigId;
+    const defaultEntry = metadata.projectMetadata.find(
+      (entry) => entry.id === defaultId,
+    );
+    if (!defaultEntry?.name) {
+      return;
+    }
+    const targetUrl = new URL(
+      encodeURIComponent(defaultEntry.name),
+      BASE_URL,
+    ).toString();
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  } catch {
+    // Ignore failures; callers will fall back to readiness checks.
   }
 }
 
