@@ -1,5 +1,3 @@
-import copy
-
 from pydantic import (
     BaseModel,
     Field,
@@ -440,15 +438,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             view_mode = ViewModeConfig(
                 visibilityBySectionId=visibility_by_section_id,
             )
-            view_mode.topLevelSections = copy.deepcopy(project_config.topLevelSections)
-            view_mode.viewport = copy.deepcopy(project_config.viewport)
-            view_mode.viewportInitialized = project_config.viewportInitialized
             project_config.viewModes[view_mode.id] = view_mode
             project_config.activeViewModeId = view_mode.id
             return self
 
         section_ids = set(self.sections.keys())
-        top_level_sections = project_config.topLevelSections
         for view_mode in project_config.viewModes.values():
             visibility = view_mode.visibilityBySectionId
             for section_id in section_ids:
@@ -461,27 +455,8 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             for section_id in stale_ids:
                 del visibility[section_id]
 
-            if not view_mode.topLevelSections:
-                view_mode.topLevelSections = copy.deepcopy(top_level_sections)
-            else:
-                for section_id, layout in top_level_sections.items():
-                    if section_id not in view_mode.topLevelSections:
-                        view_mode.topLevelSections[section_id] = layout.model_copy(
-                            deep=True
-                        )
-                for section_id in list(view_mode.topLevelSections.keys()):
-                    if section_id not in top_level_sections:
-                        del view_mode.topLevelSections[section_id]
-
-            if view_mode.viewport is None:
-                view_mode.viewportInitialized = False
-
         if project_config.activeViewModeId not in project_config.viewModes:
             project_config.activeViewModeId = next(iter(project_config.viewModes))
-        active_view_mode = project_config.viewModes[project_config.activeViewModeId]
-        project_config.topLevelSections = active_view_mode.topLevelSections
-        project_config.viewport = active_view_mode.viewport
-        project_config.viewportInitialized = active_view_mode.viewportInitialized
         return self
 
 

@@ -17,10 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
-  getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  persistChatSectionState,
   submitMessage,
 } from "state/actions/ai";
 import {
@@ -416,15 +416,18 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
-  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+  const { messages, toolCallArguments, waitingForResponse } = useProjectState(
     (state) => {
-      if (chatId === null) {
-        return state.pendingChatDetails ?? getDefaultChatDetails();
-      }
-      if (typeof chatId !== "string") {
-        return getDefaultChatDetails();
-      }
-      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      return {
+        messages: impl.messages ?? [],
+        toolCallArguments: impl.toolCallArguments ?? {},
+        waitingForResponse: Boolean(impl.waitingForResponse),
+      };
     },
     shallow,
   );
@@ -559,15 +562,54 @@ function ManagedChatArea({
   }, [externalEngineStatus]);
 
   useEffect(() => {
+    console.log(
+      "[ManagedChatArea] state",
+      JSON.stringify({
+        sectionId,
+        chatId,
+        engineConfigId,
+        agentProfileId,
+        effectiveEngineConfigId,
+        engineType,
+        isExternalEngine,
+        hasEngineConfig,
+        hasLLMConfig,
+        noConfigsAvailable,
+        externalEngineAvailable,
+        externalEngineStatus,
+        waitingForResponse,
+        isDisabled:
+          !hasEngineConfig ||
+          (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
+          (isExternalEngine && !externalEngineAvailable),
+      }),
+    );
+  }, [
+    agentProfileId,
+    chatId,
+    effectiveEngineConfigId,
+    engineConfigId,
+    engineType,
+    externalEngineAvailable,
+    externalEngineStatus,
+    hasEngineConfig,
+    hasLLMConfig,
+    isExternalEngine,
+    noConfigsAvailable,
+    sectionId,
+    waitingForResponse,
+  ]);
+
+  useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
     if (isExternalEngine) {
-      getExternalAgentChat(chatId, projectConfigId);
+      getExternalAgentChat(chatId, projectConfigId, sectionId);
       return;
     }
-    getLLMChat(chatId);
-  }, [chatId, isExternalEngine, projectConfigId]);
+    getLLMChat(chatId, sectionId);
+  }, [chatId, isExternalEngine, projectConfigId, sectionId]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
@@ -599,12 +641,25 @@ function ManagedChatArea({
   );
 
   const handleNewChatStart = useCallback(() => {
+    console.log(
+      "[ManagedChatArea] new-chat-start",
+      JSON.stringify({ sectionId, chatId }),
+    );
     initializePendingChatDetails();
     setChatId(null);
   }, [setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
+      console.log(
+        "[ManagedChatArea] new-chat-settled",
+        JSON.stringify({
+          sectionId,
+          priorChatId: chatId,
+          newChatId,
+          succeeded,
+        }),
+      );
       clearPendingChatDetails();
       setChatId((currentChatId) => {
         if (currentChatId !== null) {
@@ -622,20 +677,74 @@ function ManagedChatArea({
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
+      console.log(
+        "[ManagedChatArea] submit-attempt",
+        JSON.stringify({
+          sectionId,
+          chatId,
+          messageLength: message.length,
+          hasText: Boolean(trimmed),
+          attachmentsCount: attachments.length,
+          hasEngineConfig,
+          hasLLMConfig,
+          isExternalEngine,
+          externalEngineAvailable,
+          effectiveEngineConfigId,
+          agentProfileId,
+          thinking,
+        }),
+      );
       if (!trimmed && attachments.length === 0) {
+        console.log(
+          "[ManagedChatArea] submit-blocked",
+          JSON.stringify({ reason: "empty-input", sectionId, chatId }),
+        );
         return false;
       }
       if (!hasEngineConfig) {
+        console.log(
+          "[ManagedChatArea] submit-blocked",
+          JSON.stringify({ reason: "missing-engine-config", sectionId, chatId }),
+        );
         return false;
       }
       if (!isExternalEngine && !hasLLMConfig) {
+        console.log(
+          "[ManagedChatArea] submit-blocked",
+          JSON.stringify({
+            reason: "missing-llm-config",
+            sectionId,
+            chatId,
+          }),
+        );
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
+        console.log(
+          "[ManagedChatArea] submit-blocked",
+          JSON.stringify({
+            reason: "external-engine-unavailable",
+            sectionId,
+            chatId,
+          }),
+        );
         return false;
       }
       const messageId = createNewId();
       const timestampMs = Date.now();
+      const content = [];
+      if (trimmed) {
+        content.push(createMessageTextContent({ text: message }));
+      }
+      const optimisticMessage = {
+        id: messageId,
+        role: ChatRoleEnum.user,
+        content,
+        attachments,
+      };
+      const priorMessages = messages;
+      const priorToolCallArguments = toolCallArguments;
+      const priorWaitingForResponse = waitingForResponse;
       emitChatSendAction({
         sectionId,
         messageId,
@@ -649,13 +758,45 @@ function ManagedChatArea({
       if (isFirstMessage) {
         handleNewChatStart();
       }
+      const baseMessages = isFirstMessage ? [] : priorMessages;
+      const nextMessages = [...baseMessages, optimisticMessage];
+      const nextState: ChatSectionState = {
+        messages: nextMessages,
+        inputText: "",
+        waitingForResponse: true,
+        toolCallArguments: priorToolCallArguments,
+      };
+      persistChatSectionState({
+        sectionId,
+        nextState,
+        reason: "optimistic-user-message",
+      });
 
       let submittedChatId: string | null = null;
       let succeeded = false;
       try {
         if (!effectiveEngineConfigId) {
+          console.log(
+            "[ManagedChatArea] submit-blocked",
+            JSON.stringify({
+              reason: "missing-effective-engine-config",
+              sectionId,
+              chatId,
+            }),
+          );
           return false;
         }
+        console.log(
+          "[ManagedChatArea] submit-dispatch",
+          JSON.stringify({
+            sectionId,
+            chatId,
+            messageId,
+            effectiveEngineConfigId,
+            agentProfileId,
+            isExternalEngine,
+          }),
+        );
         submittedChatId = await submitMessage(
           chatId,
           message,
@@ -665,11 +806,55 @@ function ManagedChatArea({
           isExternalEngine,
           messageId,
           agentProfileId,
+          sectionId,
         );
         succeeded = Boolean(submittedChatId);
+        console.log(
+          "[ManagedChatArea] submit-result",
+          JSON.stringify({
+            sectionId,
+            chatId,
+            submittedChatId,
+            succeeded,
+          }),
+        );
       } catch (err) {
-        console.error("Failed to submit LLM chat message", err);
+        console.error(
+          "[ManagedChatArea] submit-error",
+          JSON.stringify({
+            sectionId,
+            chatId,
+            error: String(err),
+          }),
+        );
       } finally {
+        if (!succeeded) {
+          const currentState = useProjectState.getState();
+          let impl: ReturnType<typeof getCurrEffectiveSectionImplOfType> | null =
+            null;
+          try {
+            impl = getCurrEffectiveSectionImplOfType(
+              currentState,
+              sectionId,
+              SectionTypeEnum.Chat,
+            );
+          } catch {
+            impl = null;
+          }
+          if (impl && impl.messages?.some((entry) => entry.id === messageId)) {
+            const rollbackState: ChatSectionState = {
+              messages: priorMessages,
+              inputText: impl.inputText ?? "",
+              waitingForResponse: priorWaitingForResponse,
+              toolCallArguments: priorToolCallArguments,
+            };
+            persistChatSectionState({
+              sectionId,
+              nextState: rollbackState,
+              reason: "submit-rollback",
+            });
+          }
+        }
         if (isFirstMessage) {
           handleNewChatSettled(submittedChatId, succeeded);
         }
@@ -687,6 +872,8 @@ function ManagedChatArea({
       hasLLMConfig,
       agentProfileId,
       messages,
+      toolCallArguments,
+      waitingForResponse,
       sectionId,
       thinking,
     ],

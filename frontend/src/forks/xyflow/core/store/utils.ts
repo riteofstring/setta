@@ -24,15 +24,7 @@ export function fitView(options: InternalFitViewOptions = {}) {
     fitViewOnInit,
   } = useReactFlow.getState();
 
-  const { minZoom, maxZoom, defaultZoomLevel } = useSettings.getState().gui;
-  const resolvedMinZoom = options.minZoom ?? minZoom;
-  let resolvedMaxZoom = options.maxZoom ?? maxZoom;
-  if (options.initial) {
-    resolvedMaxZoom = Math.min(resolvedMaxZoom, defaultZoomLevel);
-  }
-  if (resolvedMaxZoom < resolvedMinZoom) {
-    resolvedMaxZoom = resolvedMinZoom;
-  }
+  const { minZoom, maxZoom } = useSettings.getState().gui;
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
@@ -56,8 +48,8 @@ export function fitView(options: InternalFitViewOptions = {}) {
         bounds,
         width,
         height,
-        resolvedMinZoom,
-        resolvedMaxZoom,
+        options.minZoom ?? minZoom,
+        options.maxZoom ?? maxZoom,
         options.padding ?? 0.1,
       );
 

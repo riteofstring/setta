@@ -12,10 +12,29 @@ import {
   route_set_edges,
   route_update_edge,
 } from "utils/generatedEndpoints";
+import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+
+const agenticHandleIds = new Set<string>([
+  AGENTIC_EDGE_HANDLE_IDS.source,
+  AGENTIC_EDGE_HANDLE_IDS.target,
+]);
+
+export function isValidDataEdgeConnection(connection: Connection): boolean {
+  if (!connection.sourceHandle || !connection.targetHandle) {
+    return false;
+  }
+  if (agenticHandleIds.has(connection.sourceHandle)) {
+    return false;
+  }
+  if (agenticHandleIds.has(connection.targetHandle)) {
+    return false;
+  }
+  return true;
+}
 
 export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
   dispatchOptimisticProjectStateUpdate({

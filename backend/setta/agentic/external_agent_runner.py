@@ -61,13 +61,17 @@ from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    MessageTextContent,
     ToolCall,
     ToolCallFunction,
     ToolChatMessage,
 )
 from setta.types.chat_stream_events import (
+    MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
+    MessageStopEvent,
+    MessageTextDelta,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -99,6 +103,20 @@ _CLAUDE_MCP_CONFIG_NAME = ".mcp.json"
 _APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
 _APPROVAL_TOOL_NAME = "setta.approval"
 _ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
+_SUB_AGENT_TOOL_NAMES = {"task", "run_agent_profile", "subagent", "sub_agent"}
+_SUBAGENT_STREAM_MESSAGE_PREFIX = "subagent-result:"
+_SUB_AGENT_TOOL_CONTEXT_KEYS = (
+    "parentToolCallId",
+    "parent_tool_call_id",
+    "parentToolUseId",
+    "parent_tool_use_id",
+    "taskToolCallId",
+    "task_tool_call_id",
+    "taskId",
+    "task_id",
+    "subTaskId",
+    "sub_task_id",
+)
 _SUMMARY_EVENT_TYPES = {
     "run_started",
     "run_completed",
@@ -136,6 +154,13 @@ class ExternalAgentQuestionState:
     approval_id: str | None = None
 
 
+@dataclass
+class _SubAgentStreamState:
+    message_id: str
+    text: str = ""
+    started: bool = False
+
+
 class ExternalAgentRunner:
     def __init__(
         self,
@@ -169,6 +194,9 @@ class ExternalAgentRunner:
         self._pending_approvals: dict[str, ExternalAgentApprovalState] = {}
         self._pending_questions: dict[str, ExternalAgentQuestionState] = {}
         self._pending_question_approvals: dict[ID, list[str]] = {}
+        self._active_subagent_tool_calls: dict[ID, set[str]] = {}
+        self._subagent_streams: dict[ID, dict[str, _SubAgentStreamState]] = {}
+        self._subagent_tool_call_parents: dict[ID, dict[str, str]] = {}
         self._system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
         self._attachment_token_manager = AttachmentTokenManager(
             C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
@@ -213,6 +241,14 @@ class ExternalAgentRunner:
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
     ) -> AgentRun:
+        logger.info(
+            "ExternalAgentRunner.start_run request engine_config_id=%s tool_type=%s "
+            "run_mode=%s inputs=%s",
+            engine_config_id,
+            config.toolType,
+            config.runMode,
+            inputs,
+        )
         adapter = self._adapter_registry.lookup(
             config.toolType,
             config.runMode,
@@ -227,6 +263,16 @@ class ExternalAgentRunner:
         run = context.run
         self._runs[run.id] = run
         self._init_chat_state(run)
+        logger.info(
+            "ExternalAgentRunner.start_run context run_id=%s chat_id=%s section_id=%s "
+            "project_config_id=%s is_new=%s input_keys=%s",
+            run.id,
+            context.chat_id,
+            context.section_id,
+            context.project_config_id,
+            is_new,
+            sorted(context.inputs.keys()) if context.inputs else None,
+        )
         if is_new:
             self._record_event(
                 run,
@@ -254,6 +300,9 @@ class ExternalAgentRunner:
             self._chat_states.pop(run_id, None)
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
+            self._active_subagent_tool_calls.pop(run_id, None)
+            self._subagent_streams.pop(run_id, None)
+            self._subagent_tool_call_parents.pop(run_id, None)
             self._clear_pending_approvals(run_id)
             self._clear_pending_questions(run_id)
 
@@ -308,6 +357,14 @@ class ExternalAgentRunner:
         run = context.run
         handle: ExternalAgentRunHandle | None = None
         adapter: ExternalAgentAdapter | None = None
+        logger.info(
+            "ExternalAgentRunner._run_external_agent start run_id=%s chat_id=%s "
+            "section_id=%s tool_type=%s",
+            run.id,
+            context.chat_id,
+            context.section_id,
+            context.config.toolType,
+        )
         try:
             adapter = self._adapter_registry.lookup(
                 context.config.toolType,
@@ -318,10 +375,118 @@ class ExternalAgentRunner:
                 handle=handle, adapter=adapter
             )
             async for event in adapter.stream_events(handle, context):
+                logger.info(
+                    "ExternalAgentRunner.stream_event run_id=%s chat_id=%s "
+                    "section_id=%s raw_type=%s raw_keys=%s has_stream_chunk=%s "
+                    "chunk_type=%s",
+                    run.id,
+                    context.chat_id,
+                    context.section_id,
+                    event.raw.get("type") if isinstance(event.raw, dict) else None,
+                    list(event.raw.keys()) if isinstance(event.raw, dict) else None,
+                    event.stream_chunk is not None,
+                    getattr(event.stream_chunk, "type", None),
+                )
+                if isinstance(event.raw, dict) and event.raw.get("type") == "tool_context":
+                    tool_call_id = None
+                    for key in ("toolUseId", "tool_use_id", "toolCallId", "tool_call_id"):
+                        raw_value = event.raw.get(key)
+                        if isinstance(raw_value, str) and raw_value:
+                            tool_call_id = raw_value
+                            break
+                    if tool_call_id is None:
+                        tool_context = event.raw.get("toolContext") or event.raw.get(
+                            "tool_context"
+                        )
+                        if isinstance(tool_context, dict):
+                            for key in (
+                                "toolUseId",
+                                "tool_use_id",
+                                "toolCallId",
+                                "tool_call_id",
+                            ):
+                                value = tool_context.get(key)
+                                if isinstance(value, str) and value:
+                                    tool_call_id = value
+                                    break
+                    if tool_call_id:
+                        self._maybe_capture_subagent_tool_call_parent(
+                            run.id, tool_call_id, event.raw
+                        )
+                    continue
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
+                tool_result_delta = self._extract_tool_result_delta(event.raw)
+                if tool_result_delta is not None:
+                    tool_call_id, text = tool_result_delta
+                    self._maybe_capture_subagent_tool_call_parent(
+                        run.id, tool_call_id, event.raw
+                    )
+                    await self._handle_subagent_tool_result_delta(
+                        run, tool_call_id, text
+                    )
+                    continue
                 if event.stream_chunk is not None:
+                    if isinstance(event.stream_chunk, ToolCallDeltaEvent):
+                        self._maybe_capture_subagent_tool_call_parent(
+                            run.id, event.stream_chunk.tool_call_id, event.raw
+                        )
+                    if isinstance(event.stream_chunk, ToolResultEvent):
+                        tool_call_id = event.stream_chunk.result.tool_call_id
+                        tool_name = event.stream_chunk.result.tool_name
+                        if tool_call_id and self._is_subagent_tool_call(
+                            run.id, tool_call_id, tool_name
+                        ):
+                            await self._maybe_finalize_subagent_tool_result(
+                                run, event.stream_chunk
+                            )
+                            await self.websocket_msg_handler.send_streaming_response(
+                                tool_call_id,
+                                event.stream_chunk,
+                                section_id=None,
+                                share_session_id=self.share_session_id,
+                            )
+                            self._record_event(
+                                run,
+                                "tool_result",
+                                {
+                                    "toolCallId": tool_call_id,
+                                    "toolName": tool_name,
+                                    "isError": event.stream_chunk.result.is_error,
+                                },
+                            )
+                            continue
+                        if tool_call_id:
+                            parent_tool_call_id = (
+                                self._resolve_subagent_parent_for_tool_result(
+                                    run, tool_call_id, tool_name, event.raw
+                                )
+                            )
+                            if (
+                                parent_tool_call_id
+                                and parent_tool_call_id != context.chat_id
+                            ):
+                                await self.websocket_msg_handler.send_streaming_response(
+                                    parent_tool_call_id,
+                                    event.stream_chunk,
+                                    section_id=None,
+                                    share_session_id=self.share_session_id,
+                                )
+                                self._record_event(
+                                    run,
+                                    "tool_result",
+                                    {
+                                        "toolCallId": tool_call_id,
+                                        "toolName": tool_name,
+                                        "isError": event.stream_chunk.result.is_error,
+                                        "parentToolCallId": parent_tool_call_id,
+                                    },
+                                )
+                                continue
+                        await self._maybe_finalize_subagent_tool_result(
+                            run, event.stream_chunk
+                        )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
                         event.stream_chunk,
@@ -1029,8 +1194,11 @@ class ExternalAgentRunner:
                 tool_calls = self._build_tool_calls_from_buffers(run.id)
             else:
                 tool_calls = self._normalize_tool_calls(tool_calls)
+            names = self._tool_call_names.setdefault(run.id, {})
             for tool_call in tool_calls:
                 normalized = self._normalize_tool_name(tool_call.function.name)
+                if normalized:
+                    names[tool_call.id] = normalized
                 if normalized == _ASK_USER_QUESTION_TOOL_NAME:
                     self._register_question_call(
                         run.id,
@@ -1063,6 +1231,307 @@ class ExternalAgentRunner:
             )
             self._persist_outputs_from_state(run, context.config, state)
 
+    @staticmethod
+    def _extract_tool_result_delta(payload: dict[str, Any]) -> tuple[str, str] | None:
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("type") != "tool_result_delta":
+            return None
+        tool_use_id = payload.get("toolUseId") or payload.get("tool_use_id")
+        if not isinstance(tool_use_id, str) or not tool_use_id:
+            return None
+        text = payload.get("text")
+        if not isinstance(text, str) or not text:
+            return None
+        return tool_use_id, text
+
+    @staticmethod
+    def _extract_subagent_tool_call_id(tool_context: Any) -> str | None:
+        if not isinstance(tool_context, dict):
+            return None
+        for key in _SUB_AGENT_TOOL_CONTEXT_KEYS:
+            value = tool_context.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return None
+
+    @classmethod
+    def _extract_subagent_tool_call_id_from_payload(
+        cls, payload: Any, *, max_depth: int = 4
+    ) -> str | None:
+        if max_depth < 0:
+            return None
+        if isinstance(payload, dict):
+            for key in _SUB_AGENT_TOOL_CONTEXT_KEYS:
+                value = payload.get(key)
+                if isinstance(value, str) and value:
+                    return value
+            for value in payload.values():
+                found = cls._extract_subagent_tool_call_id_from_payload(
+                    value, max_depth=max_depth - 1
+                )
+                if found:
+                    return found
+            return None
+        if isinstance(payload, list):
+            for value in payload:
+                found = cls._extract_subagent_tool_call_id_from_payload(
+                    value, max_depth=max_depth - 1
+                )
+                if found:
+                    return found
+        return None
+
+    def _normalize_subagent_tool_name(self, tool_name: str | None) -> str | None:
+        normalized = self._normalize_tool_name(tool_name)
+        if not normalized:
+            return None
+        trimmed = normalized.strip()
+        if not trimmed:
+            return None
+        tail = trimmed.split("__")[-1] if "__" in trimmed else trimmed
+        tail = tail.split(".")[-1] if "." in tail else tail
+        lowered = tail.strip().lower()
+        return lowered if lowered else None
+
+    def _is_subagent_tool_call(
+        self, run_id: ID, tool_call_id: str, tool_name: str | None = None
+    ) -> bool:
+        resolved_name = tool_name or self._tool_call_names.get(run_id, {}).get(
+            tool_call_id
+        )
+        normalized = self._normalize_subagent_tool_name(resolved_name)
+        if normalized in _SUB_AGENT_TOOL_NAMES:
+            return True
+        active = self._active_subagent_tool_calls.get(run_id)
+        return tool_call_id in active if active else False
+
+    @staticmethod
+    def _build_subagent_stream_message_id(tool_call_id: str) -> str:
+        return f"{_SUBAGENT_STREAM_MESSAGE_PREFIX}{tool_call_id}"
+
+    def _register_subagent_tool_call(self, run_id: ID, tool_call_id: str) -> None:
+        active = self._active_subagent_tool_calls.setdefault(run_id, set())
+        active.add(tool_call_id)
+
+    def _register_subagent_tool_call_parent(
+        self, run_id: ID, tool_call_id: str, parent_tool_call_id: str
+    ) -> None:
+        if tool_call_id == parent_tool_call_id:
+            return
+        parents = self._subagent_tool_call_parents.setdefault(run_id, {})
+        parents[tool_call_id] = parent_tool_call_id
+
+    def _get_subagent_tool_call_parent(
+        self, run_id: ID, tool_call_id: str
+    ) -> str | None:
+        parents = self._subagent_tool_call_parents.get(run_id)
+        if not parents:
+            return None
+        return parents.get(tool_call_id)
+
+    def _maybe_capture_subagent_tool_call_parent(
+        self, run_id: ID, tool_call_id: str | None, payload: Any
+    ) -> str | None:
+        if not tool_call_id:
+            return None
+        parent_id = self._extract_subagent_tool_call_id_from_payload(payload)
+        if parent_id:
+            self._register_subagent_tool_call_parent(run_id, tool_call_id, parent_id)
+            self._register_subagent_tool_call(run_id, parent_id)
+        return parent_id
+
+    def _has_known_tool_call(self, run_id: ID, tool_call_id: str) -> bool:
+        names = self._tool_call_names.get(run_id)
+        if names and tool_call_id in names:
+            return True
+        buffers = self._tool_call_buffers.get(run_id)
+        return tool_call_id in buffers if buffers else False
+
+    def _resolve_subagent_parent_for_tool_result(
+        self,
+        run: AgentRun,
+        tool_call_id: str,
+        tool_name: str | None,
+        payload: Any,
+    ) -> str | None:
+        parent_id = self._get_subagent_tool_call_parent(run.id, tool_call_id)
+        if not parent_id:
+            parent_id = self._extract_subagent_tool_call_id_from_payload(payload)
+            if parent_id:
+                self._register_subagent_tool_call_parent(
+                    run.id, tool_call_id, parent_id
+                )
+        if parent_id:
+            self._register_subagent_tool_call(run.id, parent_id)
+            return parent_id
+        if self._has_known_tool_call(run.id, tool_call_id):
+            return None
+        if tool_name:
+            return None
+        return self._get_single_active_subagent_tool_call(run.id)
+
+    def _discard_subagent_tool_call(self, run_id: ID, tool_call_id: str) -> None:
+        active = self._active_subagent_tool_calls.get(run_id)
+        if not active:
+            return
+        active.discard(tool_call_id)
+        if not active:
+            self._active_subagent_tool_calls.pop(run_id, None)
+
+    def _get_single_active_subagent_tool_call(self, run_id: ID) -> str | None:
+        active = self._active_subagent_tool_calls.get(run_id)
+        if not active or len(active) != 1:
+            return None
+        return next(iter(active))
+
+    async def _handle_subagent_tool_result_delta(
+        self,
+        run: AgentRun,
+        tool_call_id: str,
+        text: str,
+    ) -> None:
+        target_tool_call_id = tool_call_id
+        if not self._is_subagent_tool_call(run.id, tool_call_id):
+            parent_id = self._get_subagent_tool_call_parent(run.id, tool_call_id)
+            if not parent_id:
+                return
+            self._register_subagent_tool_call(run.id, parent_id)
+            target_tool_call_id = parent_id
+        streams = self._subagent_streams.setdefault(run.id, {})
+        stream_state = streams.get(target_tool_call_id)
+        if stream_state is None:
+            stream_state = _SubAgentStreamState(
+                message_id=self._build_subagent_stream_message_id(target_tool_call_id)
+            )
+            streams[target_tool_call_id] = stream_state
+        if not stream_state.started:
+            start_chunk = MessageStartEvent(
+                message=AssistantChatMessage(id=stream_state.message_id, content=[])
+            )
+            await self.websocket_msg_handler.send_streaming_response(
+                target_tool_call_id,
+                start_chunk,
+                section_id=None,
+                share_session_id=self.share_session_id,
+            )
+            stream_state.started = True
+        stream_state.text += text
+        delta_chunk = MessageDeltaEvent(
+            message_id=stream_state.message_id,
+            content=[MessageTextDelta(index=0, text=text)],
+        )
+        await self.websocket_msg_handler.send_streaming_response(
+            target_tool_call_id,
+            delta_chunk,
+            section_id=None,
+            share_session_id=self.share_session_id,
+        )
+
+    async def _maybe_finalize_subagent_tool_result(
+        self,
+        run: AgentRun,
+        chunk: ToolResultEvent,
+    ) -> None:
+        tool_call_id = chunk.result.tool_call_id
+        if not self._is_subagent_tool_call(
+            run.id, tool_call_id, chunk.result.tool_name
+        ):
+            return
+        streams = self._subagent_streams.setdefault(run.id, {})
+        stream_state = streams.get(tool_call_id)
+        if stream_state is None:
+            stream_state = _SubAgentStreamState(
+                message_id=self._build_subagent_stream_message_id(tool_call_id)
+            )
+            streams[tool_call_id] = stream_state
+        if not stream_state.text:
+            result_text = self._extract_tool_result_text(chunk.result)
+            if result_text:
+                if not stream_state.started:
+                    start_chunk = MessageStartEvent(
+                        message=AssistantChatMessage(
+                            id=stream_state.message_id, content=[]
+                        )
+                    )
+                    await self.websocket_msg_handler.send_streaming_response(
+                        tool_call_id,
+                        start_chunk,
+                        section_id=None,
+                        share_session_id=self.share_session_id,
+                    )
+                    stream_state.started = True
+                stream_state.text = result_text
+                delta_chunk = MessageDeltaEvent(
+                    message_id=stream_state.message_id,
+                    content=[MessageTextDelta(index=0, text=result_text)],
+                )
+                await self.websocket_msg_handler.send_streaming_response(
+                    tool_call_id,
+                    delta_chunk,
+                    section_id=None,
+                    share_session_id=self.share_session_id,
+                )
+            else:
+                streams.pop(tool_call_id, None)
+                self._discard_subagent_tool_call(run.id, tool_call_id)
+                return
+        if not stream_state.started:
+            start_chunk = MessageStartEvent(
+                message=AssistantChatMessage(id=stream_state.message_id, content=[])
+            )
+            await self.websocket_msg_handler.send_streaming_response(
+                tool_call_id,
+                start_chunk,
+                section_id=None,
+                share_session_id=self.share_session_id,
+            )
+            stream_state.started = True
+        stop_chunk = MessageStopEvent(message_id=stream_state.message_id)
+        finalized_message = AssistantChatMessage(
+            id=stream_state.message_id,
+            content=[MessageTextContent(text=stream_state.text)]
+            if stream_state.text
+            else [],
+        )
+        finalized_chunk = MessageFinalizedEvent(message=finalized_message)
+        await self.websocket_msg_handler.send_streaming_response(
+            tool_call_id,
+            stop_chunk,
+            section_id=None,
+            share_session_id=self.share_session_id,
+        )
+        await self.websocket_msg_handler.send_streaming_response(
+            tool_call_id,
+            finalized_chunk,
+            section_id=None,
+            share_session_id=self.share_session_id,
+        )
+        streams.pop(tool_call_id, None)
+        self._discard_subagent_tool_call(run.id, tool_call_id)
+
+    @staticmethod
+    def _extract_tool_result_text(tool_message: ToolChatMessage) -> str:
+        parts: list[str] = []
+        for entry in tool_message.content or []:
+            if isinstance(entry, dict):
+                if entry.get("type") == "text" and isinstance(entry.get("text"), str):
+                    parts.append(entry["text"])
+                continue
+            entry_type = getattr(entry, "type", None)
+            if entry_type == "text":
+                text = getattr(entry, "text", None)
+                if isinstance(text, str):
+                    parts.append(text)
+        if parts:
+            return "".join(parts)
+        raw_result = tool_message.result
+        if isinstance(raw_result, str):
+            return raw_result
+        if raw_result is None:
+            return ""
+        return json.dumps(raw_result, ensure_ascii=True)
+
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
         buffers = self._tool_call_buffers.setdefault(run_id, {})
         names = self._tool_call_names.setdefault(run_id, {})
@@ -1073,6 +1542,9 @@ class ExternalAgentRunner:
             normalized = self._normalize_tool_name(chunk.tool_name)
             if normalized:
                 names[chunk.tool_call_id] = normalized
+                subagent_name = self._normalize_subagent_tool_name(normalized)
+                if subagent_name in _SUB_AGENT_TOOL_NAMES:
+                    self._register_subagent_tool_call(run_id, chunk.tool_call_id)
 
     def _build_tool_calls_from_buffers(self, run_id: ID) -> list[ToolCall]:
         buffers = self._tool_call_buffers.get(run_id)
@@ -1164,6 +1636,26 @@ class ExternalAgentRunner:
             logger.warning("Approval request missing approvalId: %s", payload)
             return
         tool_name = self._extract_tool_name(payload)
+        tool_context = payload.get("toolContext") or payload.get("tool_context")
+        subagent_chat_id = self._extract_subagent_tool_call_id(tool_context)
+        payload_with_context = payload
+        if subagent_chat_id is None:
+            inferred = self._get_single_active_subagent_tool_call(run.id)
+            if inferred:
+                subagent_chat_id = inferred
+                if tool_context is None:
+                    tool_context = {"parentToolCallId": inferred}
+                elif isinstance(tool_context, dict):
+                    tool_context = {**tool_context, "parentToolCallId": inferred}
+                if tool_context is not None:
+                    payload_with_context = dict(payload)
+                    payload_with_context["toolContext"] = tool_context
+                logger.info(
+                    "Approval request inferred subagent_chat_id=%s run_id=%s approval_id=%s",
+                    inferred,
+                    run.id,
+                    approval_id,
+                )
         logger.info(
             "Approval request received run_id=%s approval_id=%s tool_name=%s payload=%s",
             run.id,
@@ -1171,6 +1663,14 @@ class ExternalAgentRunner:
             tool_name,
             payload,
         )
+        if tool_context is not None:
+            logger.info(
+                "Approval request context run_id=%s approval_id=%s subagent_chat_id=%s tool_context=%s",
+                run.id,
+                approval_id,
+                subagent_chat_id,
+                tool_context,
+            )
         is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
             attached = False
@@ -1195,22 +1695,29 @@ class ExternalAgentRunner:
             self._record_event(
                 run,
                 "approval_request",
-                {"approvalId": approval_id, "payload": payload},
+                {"approvalId": approval_id, "payload": payload_with_context},
             )
             return
         else:
+            target_chat_id = context.chat_id
+            target_section_id = context.section_id
+            if subagent_chat_id:
+                target_chat_id = subagent_chat_id
+                target_section_id = None
             self._pending_approvals[approval_id] = ExternalAgentApprovalState(
                 approval_id=approval_id,
                 run_id=run.id,
                 project_config_id=context.project_config_id,
-                chat_id=context.chat_id,
-                section_id=context.section_id,
+                chat_id=target_chat_id,
+                section_id=target_section_id,
             )
             tool_call = ToolCall(
                 id=approval_id,
                 function=ToolCallFunction(
                     name=_APPROVAL_TOOL_NAME,
-                    arguments=self._build_approval_arguments(payload, approval_id),
+                    arguments=self._build_approval_arguments(
+                        payload_with_context, approval_id
+                    ),
                 ),
             )
         message = AssistantChatMessage(
@@ -1220,9 +1727,9 @@ class ExternalAgentRunner:
         )
         chunk = MessageStartEvent(message=message)
         await self.websocket_msg_handler.send_streaming_response(
-            context.chat_id,
+            target_chat_id,
             chunk,
-            section_id=context.section_id,
+            section_id=target_section_id,
             share_session_id=self.share_session_id,
         )
         state = self._apply_stream_chunk_to_state(run, chunk)
@@ -1230,7 +1737,7 @@ class ExternalAgentRunner:
         self._record_event(
             run,
             "approval_request",
-            {"approvalId": approval_id, "payload": payload},
+            {"approvalId": approval_id, "payload": payload_with_context},
         )
 
     @staticmethod
@@ -1272,13 +1779,17 @@ class ExternalAgentRunner:
         tool_name = payload.get("toolName") or payload.get("tool_name")
         if not tool_name and isinstance(tool, str) and tool:
             tool_name = tool
-        return {
+        output = {
             "approvalId": approval_id,
             "tool": tool,
             "input": input_payload,
             "toolName": tool_name,
             "toolType": payload.get("toolType") or payload.get("tool_type"),
         }
+        tool_context = payload.get("toolContext") or payload.get("tool_context")
+        if tool_context is not None:
+            output["toolContext"] = tool_context
+        return output
 
     async def respond_to_approval(self, approval_id: str, approved: bool) -> None:
         state = self._pending_approvals.get(approval_id)

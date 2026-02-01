@@ -73,9 +73,6 @@ describe("ViewModeTabs", () => {
           isUserFacing: false,
           isTab: true,
           visibilityBySectionId: {},
-          viewport: { x: 0, y: 0, zoom: 1 },
-          viewportInitialized: false,
-          topLevelSections: {},
         },
         [hiddenId]: {
           id: hiddenId,
@@ -83,9 +80,6 @@ describe("ViewModeTabs", () => {
           isUserFacing: false,
           isTab: false,
           visibilityBySectionId: {},
-          viewport: { x: 0, y: 0, zoom: 1 },
-          viewportInitialized: false,
-          topLevelSections: {},
         },
       },
     });
@@ -112,9 +106,6 @@ describe("ViewModeTabs", () => {
           isUserFacing: false,
           isTab: false,
           visibilityBySectionId: {},
-          viewport: { x: 0, y: 0, zoom: 1 },
-          viewportInitialized: false,
-          topLevelSections: {},
         },
       },
     });
