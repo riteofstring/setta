@@ -441,8 +441,8 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       sectionId,
     );
     await waitForTerminalReady(page, terminalId, {
-      required: false,
-      timeoutMs: 5000,
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
     });
 
     const terminalHost = page.locator(
