@@ -346,9 +346,9 @@ class SectionSizingPolicyByType(BaseModel):
     )
     Prompt: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=100,
+            minHeight=150,
             maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
+            minWidth=300,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )

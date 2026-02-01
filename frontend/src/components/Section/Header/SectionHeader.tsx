@@ -1,6 +1,7 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import React, { useLayoutEffect, useRef } from "react";
+import { RiFocus2Line } from "react-icons/ri";
 import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
 import {
   setCodeSectionDiagnosticCodeSuppression,
@@ -8,6 +9,7 @@ import {
 } from "state/actions/lspDiagnostics";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
+  useAIFollow,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
@@ -84,11 +86,24 @@ function _SectionHeader({
     };
   }, [heightKey]);
 
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
   const isShareMode = useShareSession((x) => x.isShareMode);
+  const selectedSectionIds = useAIFollow(
+    (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
+    _.isEqual,
+  );
+  const isFollowSelected = selectedSectionIds.includes(sectionId);
+  let followButtonClassName =
+    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
+  if (isFollowSelected) {
+    followButtonClassName = `${followButtonClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
+  } else {
+    followButtonClassName = `${followButtonClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
+  }
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? [];
@@ -222,6 +237,34 @@ function _SectionHeader({
         )}
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
+        )}
+        {!isShareMode && sectionTypeName === SectionTypeEnum.Chat && (
+          <button
+            aria-label="Follow chat"
+            aria-pressed={isFollowSelected}
+            className={followButtonClassName}
+            onClick={() => {
+              useAIFollow.setState((state) => {
+                const selected =
+                  state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+                  (state.selectedSectionIdsByProjectConfigId[projectConfigId] =
+                    []);
+                const existingIndex = selected.indexOf(sectionId);
+                if (existingIndex === -1) {
+                  selected.push(sectionId);
+                } else {
+                  selected.splice(existingIndex, 1);
+                }
+                if (state.mode !== "selected") {
+                  state.mode = "selected";
+                }
+              });
+            }}
+            title={isFollowSelected ? "Stop following chat" : "Follow chat"}
+            type="button"
+          >
+            <RiFocus2Line className="text-[12px]" />
+          </button>
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}

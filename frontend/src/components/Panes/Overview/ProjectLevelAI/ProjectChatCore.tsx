@@ -145,6 +145,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           isExternalEngine,
           undefined,
           null,
+          null,
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {

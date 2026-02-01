@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
+    CreateAgenticEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
@@ -19,6 +20,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
+    DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -48,6 +50,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
+    SetAgenticEdgesRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -118,6 +121,7 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnindentParamsRequest,
     UnselectAllParamsRequest,
+    UpdateAgenticEdgeRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -896,6 +900,42 @@ async def route_set_edges(x: SetEdgesRequest, ctx: RuntimeContextFromRequest):
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_edges(x)
+
+
+@router.post(Route.CREATE_AGENTIC_EDGE)
+async def route_create_agentic_edge(
+    x: CreateAgenticEdgeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.create_agentic_edge(x)
+
+
+@router.post(Route.UPDATE_AGENTIC_EDGE)
+async def route_update_agentic_edge(
+    x: UpdateAgenticEdgeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.update_agentic_edge(x)
+
+
+@router.post(Route.DELETE_AGENTIC_EDGES)
+async def route_delete_agentic_edges(
+    x: DeleteAgenticEdgesRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.delete_agentic_edges(x)
+
+
+@router.post(Route.SET_AGENTIC_EDGES)
+async def route_set_agentic_edges(
+    x: SetAgenticEdgesRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_agentic_edges(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)

@@ -16,7 +16,7 @@ Chat sections store the following fields on the section impl:
 ## Managed mode
 Managed mode uses the central LLM chat manager:
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
-- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, and `thinking`.
+- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
@@ -35,6 +35,19 @@ Scriptable mode keeps chat state inside the section:
 - In share mode, attachments require `allowParamChanges`; the UI disables attachment actions and the backend enforces the same policy on artifact updates.
 - Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
 - The chat UI previews attachments in-place; clicking an attachment opens a preview dialog (images, text, PDF, audio, video). Large files may be truncated or show a "preview unavailable" message.
+- Managed mode inlines attachments into the LLM prompt: text files are inserted as `[Attachment: ...]` blocks, supported images (JPEG/PNG/GIF/WebP) are embedded as data URLs, and other files are represented by metadata placeholders.
+- Unsupported image types are rejected client-side and skipped during attachment import.
+- External agents receive attachments as text blocks and/or URLs depending on adapter type. See `docs/reference/external-agents.md`.
+
+## Agentic links
+Chat sections can link to other sections and agents without touching codegen edges:
+- Context sources: `Section -> Chat` edges that define context inputs.
+- Scope sections: `Chat -> Section` edges that define output or scope boundaries.
+- Linked agents: `Chat <-> Chat` edges for agent-to-agent relationships.
+
+These links live on `ProjectConfig.agenticEdges`, render as a separate edge layer,
+and are editable via the Chat settings "Context & Links" panel or by dragging the
+agentic handles on sections.
 
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
