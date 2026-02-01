@@ -3,6 +3,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
+import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
@@ -232,8 +233,8 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="-mt-1.5 flex min-h-[50px] flex-col gap-2 border-b border-setta-100 pb-8 pt-2 @[17.5rem]:flex-row @[17.5rem]:items-center @[17.5rem]:pb-2 dark:border-setta-800">
-          <div className="flex gap-2">
+        <nav className="-mt-1.5 flex min-h-[50px] flex-col gap-3 border-b border-setta-100 pb-8 pt-2 dark:border-setta-800">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
@@ -268,20 +269,13 @@ export function ProjectChat() {
             </button>
           </div>
 
-          {viewHistory ? null : (
-            <div className="ml-auto flex w-full items-center justify-end gap-2">
-              <IdNameCombobox
-                allItems={engineGroups}
-                value={selectedEngineId}
-                small={false}
-                onSelectedItemChange={handleEngineChange}
-                placeholder="Select an engine"
-                outerDivClasses="@[17.5rem]:max-w-64 justify-center"
-              />
-              {showPlanModeBadge ? <PlanModeBadge /> : null}
-
-              {engineType === EngineTypeEnum.setta_llm ||
-              engineType === EngineTypeEnum.external_agent ? (
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <FollowAIToggleButton />
+              {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
+              {!viewHistory &&
+              (engineType === EngineTypeEnum.setta_llm ||
+                engineType === EngineTypeEnum.external_agent) ? (
                 <button
                   className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
                   aria-label="Thinking"
@@ -293,25 +287,36 @@ export function ProjectChat() {
                   <span className="hidden @[33.5rem]:block">Thinking</span>
                 </button>
               ) : null}
-
-              {engineType === EngineTypeEnum.setta_llm ? (
-                <IdNameCombobox
-                  allItems={availableConfigGroups}
-                  value={selectedLLMConfigId}
-                  small={false}
-                  onSelectedItemChange={handleLLMConfigChange}
-                  placeholder={
-                    noConfigsAvailable
-                      ? "Add an LLM config or API key"
-                      : "Select an LLM"
-                  }
-                  // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                  bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
-                  outerDivClasses="@[17.5rem]:max-w-64 justify-center"
-                />
-              ) : null}
             </div>
-          )}
+            {!viewHistory ? (
+              <div className="flex w-full flex-col gap-2 @[30rem]:flex-row @[30rem]:items-center">
+                <IdNameCombobox
+                  allItems={engineGroups}
+                  value={selectedEngineId}
+                  small={false}
+                  onSelectedItemChange={handleEngineChange}
+                  placeholder="Select an engine"
+                  outerDivClasses="@[30rem]:w-64 justify-center"
+                />
+                {engineType === EngineTypeEnum.setta_llm ? (
+                  <IdNameCombobox
+                    allItems={availableConfigGroups}
+                    value={selectedLLMConfigId}
+                    small={false}
+                    onSelectedItemChange={handleLLMConfigChange}
+                    placeholder={
+                      noConfigsAvailable
+                        ? "Add an LLM config or API key"
+                        : "Select an LLM"
+                    }
+                    // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                    bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                    outerDivClasses="@[30rem]:w-64 justify-center"
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
         {viewHistory ? (
