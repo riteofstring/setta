@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { ViewModeConfig } from "utils/generatedTypes";
+import { sortViewModes } from "utils/viewModeOrdering";
 import { ensureAppReady, postBackend } from "./helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -20,6 +22,35 @@ type ViewModeRef = {
   viewModeName: string;
 };
 
+type SwitchRestoreEntry = {
+  sectionId: string;
+  paramId: string;
+  value: string;
+};
+
+let restoreSnapshot:
+  | { projectConfigId: string; entries: SwitchRestoreEntry[] }
+  | null = null;
+
+test.afterEach(async ({ page }) => {
+  if (!restoreSnapshot || restoreSnapshot.entries.length === 0) {
+    return;
+  }
+  await ensureAppReady(page);
+  for (const entry of restoreSnapshot.entries) {
+    await postBackend(page, "/setParamEnteredValue", {
+      projectConfigId: restoreSnapshot.projectConfigId,
+      sectionId: entry.sectionId,
+      paramInfoId: entry.paramId,
+      value: entry.value,
+    });
+  }
+  await postBackend(page, "/saveProject", {
+    projectConfigId: restoreSnapshot.projectConfigId,
+  });
+  restoreSnapshot = null;
+});
+
 test("settings tabs persist changes across reloads", async ({ page }) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -30,6 +61,22 @@ test("settings tabs persist changes across reloads", async ({ page }) => {
   const latestState = await getLatestProjectState(page, projectConfigId);
   const targets = getSwitchTargets(latestState);
   expect(targets.length).toBeGreaterThan(0);
+
+  const restoreEntries = new Map<string, SwitchRestoreEntry>();
+  for (const target of targets) {
+    const key = `${target.sectionId}:${target.paramId}`;
+    if (!restoreEntries.has(key)) {
+      restoreEntries.set(key, {
+        sectionId: target.sectionId,
+        paramId: target.paramId,
+        value: target.currentValue,
+      });
+    }
+  }
+  restoreSnapshot = {
+    projectConfigId,
+    entries: [...restoreEntries.values()],
+  };
 
   for (const target of targets) {
     await openViewModeTab(page, {
@@ -74,16 +121,7 @@ type ProjectStatePayload = {
   projectState: {
     projectConfig: {
       sectionVariantMap: Record<string, string>;
-      viewModes: Record<
-        string,
-        {
-          id: string;
-          name: string;
-          isTab: boolean;
-          sortIndex: number;
-          visibilityBySectionId: Record<string, boolean>;
-        }
-      >;
+      viewModes: Record<string, ViewModeConfig>;
     };
     sections: Record<string, { name: string; sharedModifier?: Record<string, unknown> }>;
     sectionVariants: Record<string, { impl: string; modifier?: Record<string, unknown> }>;
@@ -102,14 +140,11 @@ type ProjectStatePayload = {
 
 function getSwitchTargets(payload: ProjectStatePayload): ViewModeSwitchTarget[] {
   const { projectState } = payload;
-  const viewModes = Object.values(projectState.projectConfig.viewModes)
-    .filter((mode) => mode.isTab)
-    .sort((a, b) => {
-      if (a.sortIndex !== b.sortIndex) {
-        return a.sortIndex - b.sortIndex;
-      }
-      return a.name.localeCompare(b.name);
-    });
+  const viewModes = sortViewModes(
+    Object.values(projectState.projectConfig.viewModes).filter(
+      (mode) => mode.isTab,
+    ),
+  );
 
   const targets: ViewModeSwitchTarget[] = [];
 
