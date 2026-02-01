@@ -26,8 +26,6 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectState } from "state/definitions";
 import {
   getAttachmentPreviewKind,
   isImageAttachment,
@@ -48,7 +46,6 @@ import {
   parseAskUserQuestionPayload,
   parseTodoPayload,
   resolveToolCallArguments,
-  extractSubAgentToolCallIdFromApproval,
 } from "utils/claudeTools";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
@@ -56,11 +53,9 @@ import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
-  SectionTypeEnum,
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
-import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { ApprovalCard } from "./ApprovalCard";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
@@ -83,91 +78,6 @@ type ToolCallContext = {
 
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
-
-type SubAgentInfo = {
-  sectionId: string;
-  label: string;
-  messageCount: number;
-  waitingForResponse: boolean;
-};
-
-function isSubAgentSystemMessage(message: BaseChatMessageUnion): boolean {
-  if (message.role !== ChatRoleEnum.system) {
-    return false;
-  }
-  const content = message.content ?? [];
-  return content.some(
-    (item) =>
-      item.type === C.LLM_TEXT &&
-      item.text.toLowerCase().includes("sub-agent"),
-  );
-}
-
-type SubAgentStateSnapshot = {
-  sections: Record<string, { name?: string; displayName?: string | null }>;
-  sectionVariants: Record<string, { impl: string }>;
-  sectionImpls: Record<
-    string,
-    {
-      type: string;
-      messages?: BaseChatMessageUnion[];
-      waitingForResponse?: boolean;
-    }
-  >;
-  sectionVariantMap: Record<string, string>;
-};
-
-function buildSubAgentInfoByToolCallId(
-  state: SubAgentStateSnapshot,
-): Record<string, SubAgentInfo> {
-  const results: Record<string, SubAgentInfo> = {};
-  for (const [sectionId, variantId] of Object.entries(
-    state.sectionVariantMap,
-  )) {
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      continue;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const messages = Array.isArray(impl.messages) ? impl.messages : [];
-    const systemIndex = messages.findIndex(isSubAgentSystemMessage);
-    if (systemIndex === -1) {
-      continue;
-    }
-    const seedMessage = messages
-      .slice(systemIndex + 1)
-      .find(
-        (message) =>
-          message.role === ChatRoleEnum.assistant &&
-          (message.tool_calls?.length ?? 0) > 0,
-      );
-    if (!seedMessage?.tool_calls) {
-      continue;
-    }
-    const core = state.sections[sectionId];
-    const rawLabel =
-      core?.displayName?.trim() || core?.name || "Sub-agent";
-    const cleanedLabel = rawLabel
-      .replace(/^sub-agent\s*[:\-]\s*/i, "")
-      .trim();
-    const label = cleanedLabel || rawLabel;
-    const info: SubAgentInfo = {
-      sectionId,
-      label,
-      messageCount: messages.length,
-      waitingForResponse: Boolean(impl.waitingForResponse),
-    };
-    for (const toolCall of seedMessage.tool_calls) {
-      if (!results[toolCall.id]) {
-        results[toolCall.id] = info;
-      }
-    }
-  }
-  return results;
-}
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 
 type AttachmentUrlEntry = {
@@ -1026,14 +936,12 @@ const ToolCallItem = memo(function ToolCallItem({
   result,
   success,
   isStreaming,
-  subAgentInfo,
 }: {
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
   success: boolean | undefined;
   isStreaming: boolean;
-  subAgentInfo?: SubAgentInfo;
 }) {
   const resultDisplay = (() => {
     if (typeof result === "string") {
@@ -1058,20 +966,6 @@ const ToolCallItem = memo(function ToolCallItem({
     }
     return null;
   })();
-  const handleOpenSubAgent = useCallback(() => {
-    if (!subAgentInfo) {
-      return;
-    }
-    goToSection(subAgentInfo.sectionId);
-  }, [subAgentInfo]);
-  const messageCountLabel = subAgentInfo
-    ? `${subAgentInfo.messageCount} message${
-        subAgentInfo.messageCount === 1 ? "" : "s"
-      }`
-    : null;
-  const statusLabel = subAgentInfo?.waitingForResponse
-    ? "Working"
-    : "Idle";
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -1084,16 +978,8 @@ const ToolCallItem = memo(function ToolCallItem({
             />
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
-            <div className="truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
-              {name}
-            </div>
-            {subAgentInfo ? (
-              <div className="flex min-w-0 items-center gap-1 text-[11px] text-setta-400 dark:text-setta-400">
-                <span className="uppercase tracking-wide">Sub-agent</span>
-                <span className="truncate">{subAgentInfo.label}</span>
-              </div>
-            ) : null}
+          <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+            {name}
           </div>
           <ToolCallAccordionStatus
             success={success}
@@ -1102,30 +988,6 @@ const ToolCallItem = memo(function ToolCallItem({
         </Accordion.Trigger>
 
         <Accordion.Content className="overflow-hidden rounded-b-md data-[state=open]:-mt-2.5 data-[state=open]:mb-2 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          {subAgentInfo ? (
-            <div className="bg-setta-200/40 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860/70">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300">
-                    Sub-agent
-                  </div>
-                  <div className="truncate text-sm font-semibold text-setta-700 dark:text-setta-100">
-                    {subAgentInfo.label}
-                  </div>
-                  <div className="text-[11px] text-setta-500 dark:text-setta-400">
-                    {messageCountLabel} · {statusLabel}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className={`${NO_DRAG_CLASS_NAME} inline-flex items-center justify-center rounded-md border border-setta-200 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-setta-600 transition-colors hover:border-setta-300 hover:text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:border-setta-600`}
-                  onClick={handleOpenSubAgent}
-                >
-                  Open
-                </button>
-              </div>
-            </div>
-          ) : null}
           {args && (
             <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
               <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
@@ -1191,9 +1053,7 @@ function StreamItem({
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-4 flex justify-start">
-      <div
-        className={`${NO_DRAG_CLASS_NAME} flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text select-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50`}
-      >
+      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
         {children}
       </div>
     </div>
@@ -1203,9 +1063,7 @@ function LLMChatBubble({ children }: { children: ReactNode }) {
 function UserChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-4 flex justify-end">
-      <div
-        className={`${NO_DRAG_CLASS_NAME} flex w-fit max-w-[min(85%,800px)] flex-shrink cursor-text select-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700`}
-      >
+      <div className="flex w-fit max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
         {children}
       </div>
     </div>
@@ -1215,9 +1073,7 @@ function UserChatBubble({ children }: { children: ReactNode }) {
 function SystemChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="my-3 flex justify-center">
-      <div
-        className={`${NO_DRAG_CLASS_NAME} flex max-w-[min(90%,800px)] cursor-text select-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300`}
-      >
+      <div className="flex max-w-[min(90%,800px)] cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
         {children}
       </div>
     </div>
@@ -1235,7 +1091,6 @@ const ChatMessage = memo(function ChatMessage({
   toolCallArguments,
   isStreaming,
   toolCallContext,
-  subAgentInfoByToolCallId,
   attachmentUrlMap,
   requestAttachmentUrls,
 }: {
@@ -1244,7 +1099,6 @@ const ChatMessage = memo(function ChatMessage({
   toolCallArguments: Record<string, string>;
   isStreaming: boolean;
   toolCallContext: ToolCallContext;
-  subAgentInfoByToolCallId: Record<string, SubAgentInfo>;
   attachmentUrlMap: Record<string, AttachmentUrlEntry>;
   requestAttachmentUrls: (
     targets: ChatFileAttachment[],
@@ -1300,7 +1154,6 @@ const ChatMessage = memo(function ChatMessage({
           <div className="flex flex-col gap-1">
             {toolCalls.map((toolCall: ToolCall) => {
               const toolResult = toolResultsById[toolCall.id];
-              const subAgentInfo = subAgentInfoByToolCallId[toolCall.id];
               const questionPayload =
                 toolCallContext.questionPayloadById[toolCall.id];
               if (questionPayload) {
@@ -1332,11 +1185,6 @@ const ChatMessage = memo(function ChatMessage({
               const approvalPayload =
                 toolCallContext.approvalPayloadById[toolCall.id];
               if (approvalPayload) {
-                const approvalToolCallId =
-                  extractSubAgentToolCallIdFromApproval(approvalPayload);
-                const approvalSubAgent = approvalToolCallId
-                  ? subAgentInfoByToolCallId[approvalToolCallId]
-                  : undefined;
                 return (
                   <ApprovalCard
                     key={toolCall.id}
@@ -1346,8 +1194,6 @@ const ChatMessage = memo(function ChatMessage({
                     input={approvalPayload.input}
                     toolResult={toolResult}
                     isStreaming={isStreaming}
-                    subAgentLabel={approvalSubAgent?.label}
-                    subAgentSectionId={approvalSubAgent?.sectionId}
                   />
                 );
               }
@@ -1377,7 +1223,6 @@ const ChatMessage = memo(function ChatMessage({
                   result={formatToolResult(toolResult)}
                   success={toolResult ? !toolResult.is_error : undefined}
                   isStreaming={isStreaming}
-                  subAgentInfo={subAgentInfo}
                 />
               );
             })}
@@ -1472,13 +1317,6 @@ function ChatMessages({
   toolCallArguments: Record<string, string>;
   allMessages: Array<BaseChatMessageUnion>;
 }) {
-  const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
-    useProjectState((state) => ({
-      sections: state.sections,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-    }));
   const [attachmentUrlMap, setAttachmentUrlMap] = useState<
     Record<string, AttachmentUrlEntry>
   >({});
@@ -1494,16 +1332,6 @@ function ChatMessages({
   const toolCallContext = useMemo(
     () => buildToolCallContext(allMessages, toolCallArguments),
     [allMessages, toolCallArguments],
-  );
-  const subAgentInfoByToolCallId = useMemo(
-    () =>
-      buildSubAgentInfoByToolCallId({
-        sections,
-        sectionVariants,
-        sectionImpls,
-        sectionVariantMap,
-      }),
-    [sections, sectionVariants, sectionImpls, sectionVariantMap],
   );
   const requestAttachmentUrls = useCallback(
     async (
@@ -1602,7 +1430,6 @@ function ChatMessages({
         toolCallArguments={toolCallArguments}
         isStreaming={isStreamingMessage}
         toolCallContext={toolCallContext}
-        subAgentInfoByToolCallId={subAgentInfoByToolCallId}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
       />,
@@ -1627,7 +1454,6 @@ function ChatMessages({
         toolCallArguments={toolCallArguments}
         isStreaming={true}
         toolCallContext={toolCallContext}
-        subAgentInfoByToolCallId={subAgentInfoByToolCallId}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
       />,
@@ -1644,21 +1470,12 @@ export const ChatMessageList = memo(function ChatMessageList({
   className,
   scrollRef,
 }: ChatMessageListProps) {
-  const isSubAgentSection = messages.some(isSubAgentSystemMessage);
-  const filteredMessages = messages.filter((message) => {
-    if (message.role === ChatRoleEnum.tool) {
-      return false;
-    }
-    if (!isSubAgentSection || message.role !== ChatRoleEnum.assistant) {
-      return true;
-    }
-    const content = message.content ?? [];
-    const toolCalls = message.tool_calls ?? [];
-    return !(toolCalls.length > 0 && content.length === 0);
-  });
+  const filteredMessages = messages.filter(
+    (message) => message.role !== ChatRoleEnum.tool,
+  );
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
-    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-2 ${NO_DRAG_CLASS_NAME} ${className ?? ""}`.trim();
+    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-2 ${className ?? ""}`.trim();
 
   return (
     <div ref={scrollRef} className={wrapperClassName}>

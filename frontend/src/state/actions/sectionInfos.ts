@@ -58,7 +58,7 @@ function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
 }
 
 function getEffectiveSectionImplIfPresent(
-  projectState: ProjectStateSingleConfig,
+  projectState: ZustandProjectState,
   sectionId: string,
 ): BaseSectionImplUnion | null {
   const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
@@ -78,56 +78,6 @@ function getEffectiveSectionImplIfPresent(
     return null;
   }
   return getEffectiveImpl(impl, core, variant);
-}
-
-type ChatSectionSummary = {
-  sectionId: string;
-  messageCount: number;
-  waitingForResponse: boolean;
-  toolCallArgumentsCount: number;
-  inputTextLength: number;
-  chatId: string | null;
-  managed: boolean | null;
-  engineConfigId: string | null;
-  agentProfileId: string | null;
-};
-
-function summarizeChatSections(
-  projectState: ProjectStateSingleConfig,
-): ChatSectionSummary[] {
-  const summaries: ChatSectionSummary[] = [];
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getEffectiveSectionImplIfPresent(projectState, sectionId);
-    if (!impl || impl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const chatImpl = impl as Extract<
-      BaseSectionImplUnion,
-      { type: SectionTypeEnum.Chat }
-    >;
-    summaries.push({
-      sectionId,
-      messageCount: Array.isArray(chatImpl.messages)
-        ? chatImpl.messages.length
-        : 0,
-      waitingForResponse: Boolean(chatImpl.waitingForResponse),
-      toolCallArgumentsCount: chatImpl.toolCallArguments
-        ? Object.keys(chatImpl.toolCallArguments).length
-        : 0,
-      inputTextLength: (chatImpl.inputText ?? "").length,
-      chatId: typeof chatImpl.chatId === "string" ? chatImpl.chatId : null,
-      managed: typeof chatImpl.managed === "boolean" ? chatImpl.managed : null,
-      engineConfigId:
-        typeof chatImpl.engineConfigId === "string"
-          ? chatImpl.engineConfigId
-          : null,
-      agentProfileId:
-        typeof chatImpl.agentProfileId === "string"
-          ? chatImpl.agentProfileId
-          : null,
-    });
-  }
-  return summaries;
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -652,18 +602,6 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  const currentChatSummary = summarizeChatSections(useProjectState.getState());
-  const incomingChatSummary = summarizeChatSections(x.projectState);
-  console.log(
-    "[processProjectStateUpdateFromBackend] start",
-    JSON.stringify({
-      projectConfigId,
-      pendingOpIdsCount: x.pendingOpIds.length,
-      completedOpIdsCount: x.completedOpIds.length,
-      currentChatSummary,
-      incomingChatSummary,
-    }),
-  );
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -685,27 +623,9 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  console.log(
-    "[processProjectStateUpdateFromBackend] pending",
-    JSON.stringify({
-      projectConfigId,
-      currentPendingIds: currentPending.map((op) => op.opId),
-      nextPendingIds: nextPending.map((op) => op.opId),
-      backendPendingIds: Array.from(backendPendingIds),
-      completedIds: Array.from(completedIds),
-    }),
-  );
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const mergedChatSummary = summarizeChatSections(x.projectState);
-  console.log(
-    "[processProjectStateUpdateFromBackend] merged",
-    JSON.stringify({
-      projectConfigId,
-      mergedChatSummary,
-    }),
-  );
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
