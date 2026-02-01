@@ -25,10 +25,7 @@ import {
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  NO_PAN_CLASS_NAME,
-} from "utils/constants";
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_clear_text_field_completion,
@@ -264,7 +261,6 @@ function SectionSearchCore({
         onEscape={onEscape}
         language={configLanguage}
         isDisabled={isDisabled}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {showRightIndicator && (
         <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">

@@ -399,6 +399,10 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
+      console.log(
+        "[websocketReceive] LLMStreamingResponse",
+        JSON.stringify(m.content),
+      );
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
       return processLspDiagnostics(m.content);

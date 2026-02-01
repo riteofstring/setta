@@ -480,6 +480,7 @@ def _build_options(
 
         approval_id = str(create_new_id())
         tool_type = None
+        tool_context_payload = _normalize_tool_context_payload(tool_context)
         if tool_context is not None:
             tool_type = getattr(tool_context, "tool_type", None) or getattr(
                 tool_context, "toolType", None
@@ -493,6 +494,8 @@ def _build_options(
             "toolName": normalized_tool_name,
             "toolType": tool_type,
         }
+        if tool_context_payload is not None:
+            approval_payload["toolContext"] = tool_context_payload
         await queue.put((_QUEUE_KIND_RAW, approval_payload))
         future = asyncio.get_running_loop().create_future()
         pending_approvals[approval_id] = _PendingApproval(
@@ -1612,6 +1615,36 @@ def _extract_tool_result_text(payload: Any) -> str:
                 parts.append(part)
         return "".join(parts)
     return ""
+
+
+def _normalize_tool_context_payload(tool_context: Any) -> dict[str, Any] | None:
+    if tool_context is None:
+        return None
+    if isinstance(tool_context, dict):
+        return tool_context
+    if hasattr(tool_context, "model_dump"):
+        payload = tool_context.model_dump(mode="json", exclude_none=True)
+        if isinstance(payload, dict) and payload:
+            return payload
+    payload: dict[str, Any] = {}
+    for key in (
+        "tool_use_id",
+        "toolUseId",
+        "parent_tool_use_id",
+        "parentToolUseId",
+        "task_id",
+        "taskId",
+        "parent_task_id",
+        "parentTaskId",
+        "tool_call_id",
+        "toolCallId",
+        "parent_tool_call_id",
+        "parentToolCallId",
+    ):
+        value = getattr(tool_context, key, None)
+        if value is not None:
+            payload[key] = value
+    return payload or None
 
 
 def _extract_thinking_summary(payload: dict[str, Any]) -> str | None:

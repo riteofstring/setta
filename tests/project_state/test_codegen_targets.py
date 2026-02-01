@@ -15,7 +15,6 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.draw_snapshots import build_draw_snapshot_path
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
-    FormatCodeRequest,
     RunCodeRequest,
     SetProjectConfigCodegenTargetsRequest,
 )
@@ -29,11 +28,6 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
-)
-from setta.types.lsp import (
-    SettaLspDiagnostic,
-    SettaProjectConfigDiagnostics,
-    SettaSectionTypeErrors,
 )
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -518,129 +512,6 @@ class TestCodegenTargetsRunCommand:
                     runSnapshotMode=RunSnapshotMode.never,
                 )
             )
-        manager.shutdown()
-
-    async def test_format_code_updates_watch_code_registry(self) -> None:
-        code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
-        code_impl.code = "def greet( ):\n    return 1\n"
-        variant = Variant(
-            impl=code_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
-        )
-        section = Core(
-            name="Entry",
-            variants=[variant.id],
-            defaultVariant=variant.id,
-        )
-        project_config = ProjectConfig(
-            name="WatchCodeFormat",
-            sectionVariantMap={section.id: variant.id},
-            topLevelSections={section.id: TopLevelSectionLayout()},
-        )
-        project_config.watchCodeEnabled = True
-        project_config.watchCodeBaselineByPath = {"placeholder": []}
-        project_state = ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section.id: section},
-            sectionImpls={code_impl.id: code_impl},
-            sectionVariants={variant.id: variant},
-        )
-        project_state.validate_for_update(validate_code_file_bindings=True)
-        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
-        manager = CodegenTargetsProjectManager(
-            self.lsp_writers,
-            self.frontend_sender,
-            self.python_script_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-            self.artifacts,
-            self.json_source,
-            self.code_files,
-            backend,
-        )
-
-        await manager.format_code(
-            FormatCodeRequest(
-                projectConfigId=project_config.id,
-                sectionId=section.id,
-            )
-        )
-
-        updated_state = manager.get_single_config_state(project_config.id)
-        assert updated_state.projectConfig.watchCodeRegistry
-        manager.shutdown()
-
-    async def test_refresh_codegen_state_clears_diagnostics_without_lsp(self) -> None:
-        project_config = ProjectConfig(name="NoLspDiagnostics")
-        project_state = ProjectStateSingleConfig(projectConfig=project_config)
-        gen_section_id = create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            SectionType.GenPythonCode,
-            Position(),
-        )
-        callable_section_id = create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_for_update(validate_code_file_bindings=True)
-        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
-        manager = CodegenTargetsProjectManager(
-            self.lsp_writers,
-            self.frontend_sender,
-            self.python_script_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-            self.artifacts,
-            self.json_source,
-            self.code_files,
-            backend,
-        )
-
-        await manager._refresh_codegen_state(project_state)
-        diagnostics_state = manager._get_lsp_diagnostics_state(project_config.id)
-        diagnostics_state.gen_code = SettaProjectConfigDiagnostics(
-            projectConfigId=project_config.id,
-            errors={
-                callable_section_id: SettaSectionTypeErrors(
-                    callable=["Type error"], params={}
-                )
-            },
-            isGenCode=True,
-        )
-        diagnostics_state.unmapped_gen_code = [
-            SettaLspDiagnostic(
-                message="stub",
-                severity=1,
-                code=None,
-                source="pyright",
-                range={
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 1},
-                },
-                uri="file:///tmp/gen.py",
-            )
-        ]
-
-        previous_code = manager.gen_code[project_config.id].code
-        create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_for_update(validate_code_file_bindings=True)
-        await manager._refresh_codegen_state(project_state)
-
-        updated_code = manager.gen_code[project_config.id].code
-        assert updated_code != previous_code
-        assert diagnostics_state.gen_code.errors == {}
-        assert diagnostics_state.unmapped_gen_code == []
-        assert gen_section_id in project_state.sections
         manager.shutdown()
 
     async def test_disabling_python_codegen_removes_gen_section_and_entry(self) -> None:

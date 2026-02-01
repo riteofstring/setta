@@ -213,6 +213,14 @@ class ExternalAgentRunner:
         profile: AgentProfile | None,
         inputs: dict[str, Any] | None,
     ) -> AgentRun:
+        logger.info(
+            "ExternalAgentRunner.start_run request engine_config_id=%s tool_type=%s "
+            "run_mode=%s inputs=%s",
+            engine_config_id,
+            config.toolType,
+            config.runMode,
+            inputs,
+        )
         adapter = self._adapter_registry.lookup(
             config.toolType,
             config.runMode,
@@ -227,6 +235,16 @@ class ExternalAgentRunner:
         run = context.run
         self._runs[run.id] = run
         self._init_chat_state(run)
+        logger.info(
+            "ExternalAgentRunner.start_run context run_id=%s chat_id=%s section_id=%s "
+            "project_config_id=%s is_new=%s input_keys=%s",
+            run.id,
+            context.chat_id,
+            context.section_id,
+            context.project_config_id,
+            is_new,
+            sorted(context.inputs.keys()) if context.inputs else None,
+        )
         if is_new:
             self._record_event(
                 run,
@@ -308,6 +326,14 @@ class ExternalAgentRunner:
         run = context.run
         handle: ExternalAgentRunHandle | None = None
         adapter: ExternalAgentAdapter | None = None
+        logger.info(
+            "ExternalAgentRunner._run_external_agent start run_id=%s chat_id=%s "
+            "section_id=%s tool_type=%s",
+            run.id,
+            context.chat_id,
+            context.section_id,
+            context.config.toolType,
+        )
         try:
             adapter = self._adapter_registry.lookup(
                 context.config.toolType,
@@ -318,6 +344,18 @@ class ExternalAgentRunner:
                 handle=handle, adapter=adapter
             )
             async for event in adapter.stream_events(handle, context):
+                logger.info(
+                    "ExternalAgentRunner.stream_event run_id=%s chat_id=%s "
+                    "section_id=%s raw_type=%s raw_keys=%s has_stream_chunk=%s "
+                    "chunk_type=%s",
+                    run.id,
+                    context.chat_id,
+                    context.section_id,
+                    event.raw.get("type") if isinstance(event.raw, dict) else None,
+                    list(event.raw.keys()) if isinstance(event.raw, dict) else None,
+                    event.stream_chunk is not None,
+                    getattr(event.stream_chunk, "type", None),
+                )
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
@@ -1272,13 +1310,17 @@ class ExternalAgentRunner:
         tool_name = payload.get("toolName") or payload.get("tool_name")
         if not tool_name and isinstance(tool, str) and tool:
             tool_name = tool
-        return {
+        output = {
             "approvalId": approval_id,
             "tool": tool,
             "input": input_payload,
             "toolName": tool_name,
             "toolType": payload.get("toolType") or payload.get("tool_type"),
         }
+        tool_context = payload.get("toolContext") or payload.get("tool_context")
+        if tool_context is not None:
+            output["toolContext"] = tool_context
+        return output
 
     async def respond_to_approval(self, approval_id: str, approved: bool) -> None:
         state = self._pending_approvals.get(approval_id)
