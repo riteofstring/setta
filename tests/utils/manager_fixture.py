@@ -1,4 +1,6 @@
 import asyncio
+import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -13,7 +15,6 @@ from setta.lsp.managers import (
     LSPReaders,
     LSPServers,
     LSPWriters,
-    start_lsps,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -43,6 +44,16 @@ __all__ = [
     "real_project_manager",
     "real_settings_manager",
 ]
+
+_SETUP_LOG_ENV = "SETTA_TEST_SETUP_LOG"
+
+
+def _setup_log(message: str, start: float | None = None) -> None:
+    if os.environ.get(_SETUP_LOG_ENV) != "1":
+        return
+    now = time.monotonic()
+    prefix = f"+{now - start:.3f}s " if start is not None else ""
+    print(f"[setup-log {prefix}manager_fixture] {message}", flush=True)
 
 
 @dataclass(slots=True)
@@ -86,6 +97,8 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
     minimal project bundle.
     """
     with TemporaryDirectory() as tmpdir:
+        start = time.monotonic()
+        _setup_log(f"real_settings_manager enter tmpdir={tmpdir}", start)
         root = Path(tmpdir)
         setta_root = root / "setta_files"
         code_folder = setta_root / "code"
@@ -96,11 +109,13 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             path.mkdir(parents=True, exist_ok=True)
 
         async with AsyncExitStack() as stack:
+            _setup_log("real_settings_manager patching constants", start)
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
             stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
             stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
             stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
+            _setup_log("real_settings_manager building managers", start)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             listener_registry = ListenerRegistry()
@@ -135,10 +150,20 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
+            _setup_log(
+                "real_settings_manager waiting for queue task started", start
+            )
             await manager._process_queue_task_started.wait()
+            _setup_log("real_settings_manager queue task started", start)
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                _setup_log("real_settings_manager starting LSP servers", start)
+                await lsps.start()
+                _setup_log("real_settings_manager starting LSP readers", start)
+                await lsp_readers.start()
+                _setup_log("real_settings_manager starting LSP writers", start)
+                await lsp_writers.start()
+                _setup_log("real_settings_manager LSP started", start)
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -148,7 +173,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
+            _setup_log("real_settings_manager starting file watcher", start)
             specific_file_watcher.start()
+            _setup_log("real_settings_manager file watcher started", start)
             stack.push_async_callback(
                 _stop_specific_file_watcher, specific_file_watcher
             )
@@ -168,6 +195,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 listener_registry=listener_registry,
             )
 
+            _setup_log("real_settings_manager fixture ready", start)
             yield fixture
 
 
