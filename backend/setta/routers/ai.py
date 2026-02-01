@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
@@ -39,6 +41,7 @@ from setta.types.routes import Route
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _get_llm_chat_runs(
@@ -199,9 +202,33 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
+    message_content = getattr(x.message, "content", None)
+    message_attachments = getattr(x.message, "attachments", None)
+    logger.info(
+        "route_get_llm_response request chat_id=%s project_config_id=%s section_id=%s "
+        "engine_config_id=%s thinking=%s agent_profile_id=%s message_id=%s role=%s "
+        "content_items=%s attachments=%s",
+        x.chatId,
+        x.projectConfigId,
+        x.sectionId,
+        x.engineConfigId,
+        x.thinking,
+        x.agentProfileId,
+        getattr(x.message, "id", None),
+        getattr(x.message, "role", None),
+        len(message_content) if isinstance(message_content, list) else None,
+        len(message_attachments) if isinstance(message_attachments, list) else None,
+    )
     chat_id = x.chatId or create_new_id()
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
+    )
+    logger.info(
+        "route_get_llm_response resolved engine_config_id=%s engine_type=%s "
+        "external_agent_config_id=%s",
+        x.engineConfigId,
+        resolved.engine_config.engineType,
+        getattr(resolved.engine_config, "externalAgentConfigId", None),
     )
     prior_messages: list[BaseChatMessageUnion] = []
     if x.chatId is not None:
@@ -214,6 +241,11 @@ async def route_get_llm_response(
     combined_messages = _build_inputs_messages(
         prior_messages=prior_messages,
         message=x.message,
+    )
+    logger.info(
+        "route_get_llm_response messages prior=%s combined=%s",
+        len(prior_messages),
+        len(combined_messages),
     )
     profile: AgentProfile | None = None
     if x.agentProfileId is not None:
@@ -244,7 +276,15 @@ async def route_get_llm_response(
         }
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
-        ctx.state.agent_runner.start_run(profile, inputs)
+        run = ctx.state.agent_runner.start_run(profile, inputs)
+        logger.info(
+            "route_get_llm_response started internal run run_id=%s chat_id=%s "
+            "section_id=%s project_config_id=%s",
+            run.id,
+            chat_id,
+            x.sectionId,
+            x.projectConfigId,
+        )
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
         runner = ctx.state.external_agent_runner
@@ -264,6 +304,15 @@ async def route_get_llm_response(
                 status_code=500, detail="External agent config not found"
             )
         status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
+        logger.info(
+            "route_get_llm_response external preflight available=%s issues=%s "
+            "tool_type=%s engine_config_id=%s external_config_id=%s",
+            status.available,
+            status.issues,
+            external_config.toolType,
+            x.engineConfigId,
+            external_config.id,
+        )
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(
@@ -289,7 +338,15 @@ async def route_get_llm_response(
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
         try:
-            runner.start_run(x.engineConfigId, external_config, profile, inputs)
+            run = runner.start_run(x.engineConfigId, external_config, profile, inputs)
+            logger.info(
+                "route_get_llm_response started external run run_id=%s chat_id=%s "
+                "section_id=%s project_config_id=%s",
+                run.id,
+                chat_id,
+                x.sectionId,
+                x.projectConfigId,
+            )
         except KeyError as exc:
             raise HTTPException(
                 status_code=409,
@@ -321,6 +378,11 @@ async def route_get_llm_chat(
     ctx: RuntimeContextFromRequest,
 ) -> GetLLMChatRequestResponse:
     await ctx.enforce_llm_allowed()
+    logger.info(
+        "route_get_llm_chat request chat_id=%s project_config_id=%s",
+        x.chatId,
+        x.projectConfigId,
+    )
     runs = _get_llm_chat_runs(
         dbe=ctx.state.dbe,
         chat_id=x.chatId,
@@ -344,6 +406,14 @@ async def route_get_llm_chat(
         raise HTTPException(status_code=500, detail="Chat engine is not internal")
     if resolved.llm_config is None:
         raise HTTPException(status_code=500, detail="Chat LLM config not found")
+    logger.info(
+        "route_get_llm_chat response chat_id=%s message_count=%s waiting=%s "
+        "engine_config_id=%s",
+        x.chatId,
+        len(state.messages),
+        state.waitingForResponse,
+        engine_config_id,
+    )
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
@@ -357,6 +427,11 @@ async def route_get_external_agent_chat(
     ctx: RuntimeContextFromRequest,
 ) -> GetExternalAgentChatResponse:
     await ctx.enforce_llm_allowed()
+    logger.info(
+        "route_get_external_agent_chat request chat_id=%s project_config_id=%s",
+        x.chatId,
+        x.projectConfigId,
+    )
     runs = _get_external_agent_chat_runs(
         dbe=ctx.state.dbe,
         chat_id=x.chatId,
@@ -372,6 +447,14 @@ async def route_get_external_agent_chat(
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
+    logger.info(
+        "route_get_external_agent_chat response chat_id=%s message_count=%s "
+        "waiting=%s tool_args=%s",
+        x.chatId,
+        len(state.messages),
+        state.waitingForResponse,
+        len(state.toolCallArguments or {}),
+    )
     return GetExternalAgentChatResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
