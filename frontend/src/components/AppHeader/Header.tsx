@@ -2,6 +2,8 @@ import { useRef } from "react";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
+import { DarkModeSwitch } from "./DarkModeSwitch";
+import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
@@ -23,7 +25,7 @@ export function HeaderContainer({ path }: { path: string }) {
 
   return (
     <header
-      className={`z-20 flex h-9 min-h-9 w-[100vw] flex-row items-center border-b border-setta-200/75 bg-white px-2 dark:border-setta-850 dark:bg-setta-875 `}
+      className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center border-b border-transparent bg-white px-4 shadow-md dark:border-setta-700/30 dark:bg-setta-875 `}
       ref={headerRef}
       data-tab-scope="header"
     >
@@ -41,7 +43,8 @@ export function HeaderContainer({ path }: { path: string }) {
       )}
       <div className="relative flex flex-1 items-center justify-end">
         <Notification />
-        {/* <HelpText /> */}
+        <HelpText />
+        <DarkModeSwitch />
       </div>
     </header>
   );

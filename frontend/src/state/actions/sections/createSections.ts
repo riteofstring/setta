@@ -19,7 +19,6 @@ import {
   Position,
   SectionType,
   SectionTypeEnum,
-  TextBlockFormatEnum,
   TextBlockDisplayModeEnum,
   TopLevelSectionLayout,
   ViewportBounds,
@@ -147,8 +146,7 @@ function getViewportBoundsForPlacement(): ViewportBounds | null {
     return null;
   }
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
-  const uiEditorWidth = useLocalStorage.getState().uiEditorTrueWidth;
-  const paneRect = getPaneRect(reactFlowState, overviewWidth, uiEditorWidth);
+  const paneRect = getPaneRect(reactFlowState, overviewWidth);
   if (paneRect.width <= 0 || paneRect.height <= 0) {
     return null;
   }
@@ -223,44 +221,6 @@ export async function openFileInCodeSection({
         canonical_path: filePath,
         access_mode: CodeFileAccessModeEnum.read_write,
       },
-    },
-    position: null,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await route_set_section_name({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: newSectionId,
-    name: fileName,
-  });
-  goToSection(newSectionId);
-  return newSectionId;
-}
-
-type OpenFileInTextSectionArgs = {
-  fileName: string;
-  text: string;
-  format: TextBlockFormatEnum;
-  textDisplayMode: TextBlockDisplayModeEnum;
-};
-
-export async function openFileInTextSection({
-  fileName,
-  text,
-  format,
-  textDisplayMode,
-}: OpenFileInTextSectionArgs) {
-  if (useShareSession.getState().isShareMode) {
-    return null;
-  }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.TextBlock,
-    implOverrides: {
-      type: SectionTypeEnum.TextBlock,
-      format,
-      textDisplayMode,
-      text,
     },
     position: null,
   });

@@ -1,74 +1,44 @@
-import {
-  FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
-  FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-  FileBrowserFilter,
-  FileBrowserPane,
-} from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ResizeHandle } from "components/Params/ResizeHandle";
-import {
-  MediaCarousel,
-  type MediaCarouselItem,
-} from "components/Utils/MediaCarousel";
+import { MediaCarousel } from "components/Utils/MediaCarousel";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useRef, useState } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
-import {
-  FiArchive,
-  FiChevronLeft,
-  FiChevronRight,
-  FiFileText,
-  FiMusic,
-} from "react-icons/fi";
+import { FiFileText, FiMusic } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
-import { TbCarouselHorizontal, TbFolder } from "react-icons/tb";
+import { TbCarouselHorizontal } from "react-icons/tb";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  openFileInCodeSection,
-  openFileInTextSection,
-} from "state/actions/sections/createSections";
-import {
-  useBrowserSectionFileBrowserState,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { getAttachmentPreviewKind } from "utils/attachmentPreview";
-import { formatBytes } from "utils/attachments";
-import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_file_browser_download_urls,
-  route_get_file_browser_root,
+  AUDIO_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  PDF_EXTENSIONS,
+  TEXT_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+} from "utils/attachmentExtensions";
+import { res200 } from "utils/endpointUtils";
+import {
   route_get_folder_contents,
   route_set_browser_area_view_mode,
 } from "utils/generatedEndpoints";
 import {
+  BrowserAreaItem,
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
-  FolderContentItem,
   SectionTypeEnum,
-  TextBlockDisplayModeEnum,
-  TextBlockFormatEnum,
 } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 
 const artifactTypes = [
   // { type: "Select All" },
@@ -81,38 +51,12 @@ const artifactTypes = [
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
-const FILE_URL_REFRESH_BUFFER_MS = 30_000;
-const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
-const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
-const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
-
-type BrowserFileAttachment = {
-  id: string;
-  name: string;
-  mimeType: string | null;
-  size: number | null;
-};
-
-type FileUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
-
-type FileTextPreview = {
-  text: string;
-  truncated: boolean;
-  isLoading: boolean;
-  error: string | null;
-};
-
 type BrowserPreviewKind =
   | "image"
   | "pdf"
   | "audio"
   | "video"
   | "text"
-  | "archive"
-  | "folder"
   | "other";
 
 type PreviewIcon = React.ComponentType<{ className?: string; size?: number }>;
@@ -123,8 +67,6 @@ const PREVIEW_KIND_ICON_MAP: Record<BrowserPreviewKind, PreviewIcon> = {
   audio: FiMusic,
   video: IoVideocam,
   text: FiFileText,
-  archive: FiArchive,
-  folder: TbFolder,
   other: FiFileText,
 };
 
@@ -134,8 +76,6 @@ const PREVIEW_KIND_ICON_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   audio: "text-amber-500/80 dark:text-amber-300",
   video: "text-emerald-500/80 dark:text-emerald-300",
   text: "text-sky-500/80 dark:text-sky-300",
-  archive: "text-amber-500/80 dark:text-amber-300",
-  folder: "text-setta-300 dark:text-setta-600",
   other: "text-setta-300 dark:text-setta-600",
 };
 
@@ -146,9 +86,6 @@ const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   video:
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
   text: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
-  archive:
-    "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
-  folder: "",
   other: "bg-setta-200 text-setta-700 dark:bg-setta-700/40 dark:text-setta-200",
 };
 
@@ -179,31 +116,36 @@ function getExtensionBadge(value: string | undefined): string | null {
   return label.length > 6 ? label.slice(0, 6) : label;
 }
 
-function toBrowserAttachment(item: FolderContentItem): BrowserFileAttachment {
-  return {
-    id: item.fullPath,
-    name: item.name,
-    mimeType: null,
-    size: item.size ?? null,
-  };
-}
-
-function getBrowserPreviewKind(item: FolderContentItem): BrowserPreviewKind {
-  if (item.type.toLowerCase() === "folder") {
-    return "folder";
+function getBrowserPreviewKind(item: BrowserAreaItem): BrowserPreviewKind {
+  const extension = extractExtension(item.id);
+  if (extension) {
+    if (IMAGE_EXTENSIONS.has(extension)) {
+      return "image";
+    }
+    if (PDF_EXTENSIONS.has(extension)) {
+      return "pdf";
+    }
+    if (AUDIO_EXTENSIONS.has(extension)) {
+      return "audio";
+    }
+    if (VIDEO_EXTENSIONS.has(extension)) {
+      return "video";
+    }
+    if (TEXT_EXTENSIONS.has(extension)) {
+      return "text";
+    }
   }
-  return getAttachmentPreviewKind(toBrowserAttachment(item));
-}
-
-function isFileUrlStale(entry: FileUrlEntry, now: number): boolean {
-  return entry.expiresAt * 1000 - FILE_URL_REFRESH_BUFFER_MS <= now;
-}
-
-function getFileSizeLabel(item: FolderContentItem): string | null {
-  if (item.size === undefined) {
-    return null;
+  const type = item.type?.toString().toLowerCase();
+  if (type === "image") {
+    return "image";
   }
-  return formatBytes(item.size);
+  if (type === "video") {
+    return "video";
+  }
+  if (type === "text") {
+    return "text";
+  }
+  return "other";
 }
 
 function BrowserThumbnailContent({
@@ -273,22 +215,6 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
     cssVarName: "--browser-types-column-width",
   });
   const typesColumnWidth = "var(--browser-types-column-width, 50%)";
-  const handleFilesColumnResizeStart = useBrowserColumnWidth({
-    sectionId,
-    outerRef: containerRef,
-    widthKey: "columnWidth",
-    cssVarName: "--browser-column-width",
-    getBoundedWidth: (width, containerWidth) =>
-      clamp(
-        width,
-        FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-        Math.max(
-          FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-          containerWidth - FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
-        ),
-      ),
-  });
-  const filesColumnWidth = "var(--browser-column-width, 55%)";
 
   return (
     <div
@@ -302,13 +228,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
           onResizeStart={handleTypesColumnResizeStart}
         />
       )}
-      <ItemsColumn
-        sectionId={sectionId}
-        viewMode={viewMode}
-        folder={folder}
-        filesColumnWidth={filesColumnWidth}
-        onFilesColumnResizeStart={handleFilesColumnResizeStart}
-      />
+      <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
     </div>
   );
 }
@@ -365,7 +285,7 @@ function ViewSelectorButton({
   view: BrowserAreaViewMode;
   setView: (newView: BrowserAreaViewMode) => void;
   viewType: BrowserAreaViewMode;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <button
@@ -408,21 +328,18 @@ function ThumbnailItem({
   badgeText,
   label,
   children,
-  onClick,
 }: {
   size: string;
   thumbnailUrl?: string | null;
   previewKind: BrowserPreviewKind;
   badgeText?: string | null;
   label: string;
-  children: ReactNode;
-  onClick?: () => void;
+  children: React.ReactNode;
 }) {
   return (
     <div
       className="group/thumbnail flex cursor-pointer flex-col items-center gap-1"
       style={{ width: size }}
-      onClick={onClick}
     >
       <div
         className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
@@ -446,227 +363,90 @@ function ThumbnailItem({
   );
 }
 
+function ResizableFileList({
+  items,
+  sectionId,
+}: {
+  items: Array<BrowserAreaItem>;
+  sectionId: string;
+}) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const handleResize = useBrowserColumnWidth({
+    sectionId,
+    outerRef,
+    widthKey: "columnWidth",
+    cssVarName: "--browser-column-width",
+  });
+  const { ref, isScrollable } = useIsScrollable();
+  const columnWidth = "var(--browser-column-width, 50%)";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" ref={outerRef}>
+      {/* Header Row */}
+      <div
+        className="mb-3 grid border-b border-solid border-setta-200 text-xs text-setta-300 dark:border-setta-700 dark:text-setta-700"
+        style={{
+          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
+        }}
+      >
+        <div className="relative flex items-center px-1 py-2">
+          <p>Name</p>
+          <div className="absolute right-0 top-0 h-full">
+            <ResizeHandle showResizeHandle={true} onMouseDown={handleResize} />
+          </div>
+        </div>
+        <div className="flex items-center px-1 py-2">
+          <p>Last Modified</p>
+        </div>
+      </div>
+
+      {/* List Items */}
+      <div
+        className={`min-h-0 flex-1 overflow-x-auto overflow-y-scroll ${isScrollable ? "nowheel" : ""}`}
+        ref={ref}
+      >
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="group/listitem grid"
+            style={{
+              gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
+            }}
+          >
+            <div className="relative w-full">
+              <div className="absolute min-h-6 w-full min-w-0 cursor-pointer items-center gap-2 overflow-clip truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/listitem:!text-blue-500 dark:text-setta-200">
+                <div className="flex w-full justify-between">
+                  <p className="min-w-0 truncate">{item.id}</p>
+
+                  <button className="bottom-0 right-0 top-0 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500 focus-visible:outline group-hover/listitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/listitem:text-setta-600">
+                    <i className="gg-pen" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-400 group-hover/listitem:!text-blue-500 dark:text-setta-600">
+              {item.lastModified}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ViewSwitch({
   view,
+  sectionId,
   items,
-  filesColumnWidth,
-  onFilesColumnResizeStart,
-  fileUrlMap,
-  selectedCarouselId,
-  onSelectCarouselId,
-  textPreviewMap,
-  onOpenFolder,
-  onOpenFile,
 }: {
   view: BrowserAreaViewMode;
-  items: Array<FolderContentItem>;
-  filesColumnWidth: string;
-  onFilesColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  fileUrlMap: Record<string, FileUrlEntry>;
-  selectedCarouselId: string | null;
-  onSelectCarouselId: (nextId: string | null) => void;
-  textPreviewMap: Record<string, FileTextPreview>;
-  onOpenFolder: (path: string) => void;
-  onOpenFile: (item: FolderContentItem) => void;
+  sectionId: string;
+  items: Array<BrowserAreaItem>;
 }) {
   const { ref, isScrollable } = useIsScrollable();
-  const renderFileCard = useCallback(
-    (item: FolderContentItem, icon: ReactNode, description?: string) => {
-      const sizeLabel = getFileSizeLabel(item);
-      return (
-        <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
-          <div className="text-setta-400 dark:text-setta-500">{icon}</div>
-          <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
-            {item.name}
-          </span>
-          {description ? (
-            <span className="text-xs text-setta-400 dark:text-setta-500">
-              {description}
-            </span>
-          ) : null}
-          {sizeLabel ? (
-            <span className="text-xs text-setta-400 dark:text-setta-500">
-              {sizeLabel}
-            </span>
-          ) : null}
-        </div>
-      );
-    },
-    [],
-  );
-
-  const renderPreview = useCallback(
-    (item: MediaCarouselItem<FolderContentItem>) => {
-      const data = item.data;
-      if (!data) {
-        return (
-          <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
-            <IoImageOutline size={40} />
-            <span>Loading preview...</span>
-          </div>
-        );
-      }
-      if (data.type.toLowerCase() === "folder") {
-        return (
-          <div className="flex flex-col items-center gap-3 text-sm text-setta-500 dark:text-setta-300">
-            <div className="text-setta-400 dark:text-setta-500">
-              <TbFolder size={40} />
-            </div>
-            <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
-              {data.name}
-            </span>
-            <button
-              type="button"
-              className="rounded-md border border-solid border-setta-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-setta-500 transition hover:bg-setta-100 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-              onClick={() => onOpenFolder(data.fullPath)}
-            >
-              Open folder
-            </button>
-          </div>
-        );
-      }
-      const previewKind = getBrowserPreviewKind(data);
-      const fileUrl = fileUrlMap[data.fullPath]?.url ?? "";
-      if (previewKind === "image") {
-        if (!fileUrl) {
-          return (
-            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
-              <IoImageOutline size={40} />
-              <span>Loading preview...</span>
-            </div>
-          );
-        }
-        return (
-          <div className="relative h-full w-full">
-            <img
-              src={fileUrl}
-              alt={data.name}
-              className="h-full w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        );
-      }
-      if (previewKind === "text") {
-        if (data.size && data.size > TEXT_PREVIEW_MAX_BYTES) {
-          return renderFileCard(
-            data,
-            <FiFileText size={40} />,
-            "Preview disabled for large files.",
-          );
-        }
-        const preview = textPreviewMap[data.fullPath];
-        if (!preview || preview.isLoading) {
-          return (
-            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
-              <FiFileText size={40} />
-              <span>Loading preview...</span>
-            </div>
-          );
-        }
-        if (preview.error) {
-          return renderFileCard(data, <FiFileText size={40} />, preview.error);
-        }
-        return (
-          <div className="flex h-full w-full flex-col gap-2">
-            <div className="h-full w-full overflow-hidden rounded-md border border-setta-200/60 bg-white/70 dark:border-setta-700 dark:bg-setta-900/60">
-              <pre className="h-full w-full overflow-auto p-4 text-xs leading-relaxed text-setta-700 dark:text-setta-200">
-                {preview.text || ""}
-              </pre>
-            </div>
-            {preview.truncated ? (
-              <div className="text-[11px] text-setta-400">
-                Preview truncated.
-              </div>
-            ) : null}
-          </div>
-        );
-      }
-      if (previewKind === "pdf") {
-        if (data.size && data.size > PDF_PREVIEW_MAX_BYTES) {
-          return renderFileCard(
-            data,
-            <FiFileText size={40} />,
-            "Preview disabled for large PDFs.",
-          );
-        }
-        if (!fileUrl) {
-          return renderFileCard(
-            data,
-            <FiFileText size={40} />,
-            "Preview unavailable.",
-          );
-        }
-        return (
-          <div className="relative h-full w-full overflow-hidden rounded-md">
-            <iframe src={fileUrl} title={data.name} className="h-full w-full" />
-          </div>
-        );
-      }
-      if (previewKind === "audio") {
-        if (!fileUrl) {
-          return renderFileCard(
-            data,
-            <FiMusic size={40} />,
-            "Preview unavailable.",
-          );
-        }
-        return (
-          <div className="flex h-full w-full items-center justify-center">
-            <audio controls preload="metadata" className="w-full max-w-[720px]">
-              <source src={fileUrl} />
-            </audio>
-          </div>
-        );
-      }
-      if (previewKind === "video") {
-        if (!fileUrl) {
-          return renderFileCard(
-            data,
-            <IoVideocam size={40} />,
-            "Preview unavailable.",
-          );
-        }
-        return (
-          <div className="relative h-full w-full">
-            <video controls preload="metadata" className="h-full w-full">
-              <source src={fileUrl} />
-            </video>
-          </div>
-        );
-      }
-      if (previewKind === "archive") {
-        return renderFileCard(
-          data,
-          <FiArchive size={40} />,
-          "Archive preview not available.",
-        );
-      }
-      return renderFileCard(
-        data,
-        <FiFileText size={40} />,
-        "Preview not available.",
-      );
-    },
-    [fileUrlMap, onOpenFolder, renderFileCard, textPreviewMap],
-  );
   switch (view) {
     case BrowserAreaViewModeEnum.list:
-      return (
-        <section
-          aria-label="File explorer"
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <FileBrowserPane
-            useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            showFilter={false}
-            columnWidthConfig={{
-              columnWidth: filesColumnWidth,
-              onResizeStart: onFilesColumnResizeStart,
-            }}
-          />
-        </section>
-      );
+      return <ResizableFileList items={items} sectionId={sectionId} />;
 
     case BrowserAreaViewModeEnum.thumbnail:
       return (
@@ -678,27 +458,18 @@ function ViewSwitch({
             {items.map((item) => {
               const previewKind = getBrowserPreviewKind(item);
               const badgeText =
-                previewKind === "image" || previewKind === "folder"
-                  ? null
-                  : getExtensionBadge(item.name) ?? previewKind.toUpperCase();
-              const thumbnailUrl =
                 previewKind === "image"
-                  ? fileUrlMap[item.fullPath]?.url ?? null
-                  : null;
-              const handleClick =
-                previewKind === "folder"
-                  ? () => onOpenFolder(item.fullPath)
-                  : undefined;
+                  ? null
+                  : getExtensionBadge(item.id) ?? previewKind.toUpperCase();
               return (
                 <ThumbnailItem
-                  key={item.fullPath}
+                  key={item.id}
                   previewKind={previewKind}
                   badgeText={badgeText}
-                  thumbnailUrl={thumbnailUrl}
-                  label={item.name}
-                  onClick={handleClick}
+                  thumbnailUrl={null}
+                  label={item.id}
                 >
-                  {item.name}
+                  {item.id}
                 </ThumbnailItem>
               );
             })}
@@ -709,44 +480,21 @@ function ViewSwitch({
     case BrowserAreaViewModeEnum.carousel:
       return (
         <MediaCarousel
-          items={items.map((item) => {
-            const previewKind = getBrowserPreviewKind(item);
-            const fileUrl =
-              previewKind === "image"
-                ? fileUrlMap[item.fullPath]?.url ?? null
-                : null;
-            return {
-              id: item.fullPath,
-              label: item.name,
-              thumbnailUrl: fileUrl,
-              imageUrl: fileUrl,
-              data: item,
-            };
-          })}
-          selectedId={selectedCarouselId ?? undefined}
-          onSelect={(id) => onSelectCarouselId(id)}
-          onThumbnailDoubleClick={(item) => {
-            const data = item.data as FolderContentItem | undefined;
-            if (!data) {
-              return;
-            }
-            if (data.type.toLowerCase() === "folder") {
-              onOpenFolder(data.fullPath);
-              return;
-            }
-            onOpenFile(data);
-          }}
-          renderPreview={renderPreview}
+          items={items.map((item) => ({
+            id: item.id,
+            label: item.id,
+            data: item,
+          }))}
           renderThumbnail={(item) => {
-            const data = item.data as FolderContentItem | undefined;
+            const data = item.data as BrowserAreaItem | undefined;
             if (!data) {
               return null;
             }
             const previewKind = getBrowserPreviewKind(data);
             const badgeText =
-              previewKind === "image" || previewKind === "folder"
+              previewKind === "image"
                 ? null
-                : getExtensionBadge(data.name) ?? previewKind.toUpperCase();
+                : getExtensionBadge(data.id) ?? previewKind.toUpperCase();
             const thumbnailUrl =
               previewKind === "image" ? item.thumbnailUrl : null;
             return (
@@ -765,7 +513,6 @@ function ViewSwitch({
               onClick={(event) => event.stopPropagation()}
             />
           )}
-          showNavButtons={items.length > 1}
         />
       );
 
@@ -778,251 +525,13 @@ function ItemsColumn({
   sectionId,
   viewMode,
   folder,
-  filesColumnWidth,
-  onFilesColumnResizeStart,
 }: {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
   folder: string;
-  filesColumnWidth: string;
-  onFilesColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 }) {
   const [value, setValue] = useLocalPendingValue(viewMode);
-  const [items, setItems] = useState<Array<FolderContentItem>>([]);
-  const [fileUrlMap, setFileUrlMap] = useState<Record<string, FileUrlEntry>>(
-    {},
-  );
-  const fileUrlRequests = useRef<Set<string>>(new Set());
-  const [selectedCarouselId, setSelectedCarouselId] = useState<string | null>(
-    null,
-  );
-  const [textPreviewMap, setTextPreviewMap] = useState<
-    Record<string, FileTextPreview>
-  >({});
-  const [rootInfo, setRootInfo] = useState<{
-    rootPath: string;
-    ignorePatterns: string[];
-  } | null>(null);
-  const [localFolder, setLocalFolder] = useState<string | null>(null);
-  const [historyState, setHistoryState] = useState<{
-    entries: string[];
-    index: number;
-  }>({ entries: [], index: -1 });
-  const rootRequestIdRef = useRef(0);
-  const folderRequestIdRef = useRef(0);
-  const historyStateRef = useRef(historyState);
-  const historySkipRef = useRef(false);
-  const isListView = value === BrowserAreaViewModeEnum.list;
-  const trimmedFolder = folder.trim();
-  const effectiveFolder =
-    localFolder ?? (trimmedFolder ? trimmedFolder : rootInfo?.rootPath ?? "");
-  const selectedCarouselItem = useMemo(() => {
-    if (!selectedCarouselId) {
-      return null;
-    }
-    return items.find((item) => item.fullPath === selectedCarouselId) ?? null;
-  }, [items, selectedCarouselId]);
-
-  useEffect(() => {
-    const trimmed = folder.trim();
-    if (!trimmed) {
-      return;
-    }
-    setLocalFolder(trimmed);
-  }, [folder]);
-
-  useEffect(() => {
-    historyStateRef.current = historyState;
-  }, [historyState]);
-
-  useEffect(() => {
-    if (isListView) {
-      return;
-    }
-    if (!effectiveFolder) {
-      return;
-    }
-    if (historySkipRef.current) {
-      historySkipRef.current = false;
-      return;
-    }
-    const normalized = effectiveFolder.trim();
-    if (!normalized) {
-      return;
-    }
-    setHistoryState((prev) => {
-      const current = prev.entries[prev.index];
-      if (current === normalized) {
-        return prev;
-      }
-      const nextEntries = prev.entries.slice(0, prev.index + 1);
-      nextEntries.push(normalized);
-      return { entries: nextEntries, index: nextEntries.length - 1 };
-    });
-  }, [effectiveFolder, isListView]);
-
-  const requestFileUrls = useCallback(
-    async (paths: string[], options: { force?: boolean } = {}) => {
-      if (paths.length === 0) {
-        return {};
-      }
-      const now = Date.now();
-      const pending = paths.filter((path) => {
-        const entry = fileUrlMap[path];
-        if (!options.force && entry && !isFileUrlStale(entry, now)) {
-          return false;
-        }
-        if (fileUrlRequests.current.has(path)) {
-          return false;
-        }
-        return true;
-      });
-      if (pending.length === 0) {
-        return {};
-      }
-      for (const path of pending) {
-        fileUrlRequests.current.add(path);
-      }
-      const res = await route_get_file_browser_download_urls({
-        paths: pending,
-      });
-      for (const path of pending) {
-        fileUrlRequests.current.delete(path);
-      }
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        console.warn("Failed to load file preview URLs", detail ?? pending);
-        return {};
-      }
-      const nextEntries: Record<string, FileUrlEntry> = {};
-      for (const entry of res.data) {
-        nextEntries[entry.path] = {
-          url: entry.url,
-          expiresAt: entry.expiresAt,
-        };
-      }
-      setFileUrlMap((prev) => ({ ...prev, ...nextEntries }));
-      return nextEntries;
-    },
-    [fileUrlMap],
-  );
-
-  const requestTextPreview = useCallback(
-    async (item: FolderContentItem) => {
-      if (item.size && item.size > TEXT_PREVIEW_MAX_BYTES) {
-        setTextPreviewMap((prev) => ({
-          ...prev,
-          [item.fullPath]: {
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error: "Preview disabled for large files.",
-          },
-        }));
-        return;
-      }
-      const existing = textPreviewMap[item.fullPath];
-      if (existing && (existing.isLoading || existing.text || existing.error)) {
-        return;
-      }
-      setTextPreviewMap((prev) => ({
-        ...prev,
-        [item.fullPath]: {
-          text: "",
-          truncated: false,
-          isLoading: true,
-          error: null,
-        },
-      }));
-      let entry = fileUrlMap[item.fullPath];
-      if (!entry || isFileUrlStale(entry, Date.now())) {
-        const refreshed = await requestFileUrls([item.fullPath], {
-          force: true,
-        });
-        entry = refreshed[item.fullPath] ?? fileUrlMap[item.fullPath];
-      }
-      if (!entry?.url) {
-        setTextPreviewMap((prev) => ({
-          ...prev,
-          [item.fullPath]: {
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error: "Preview unavailable.",
-          },
-        }));
-        return;
-      }
-      let response: Response;
-      try {
-        response = await fetch(entry.url);
-      } catch {
-        setTextPreviewMap((prev) => ({
-          ...prev,
-          [item.fullPath]: {
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error: "Preview unavailable.",
-          },
-        }));
-        return;
-      }
-      if (!response.ok) {
-        setTextPreviewMap((prev) => ({
-          ...prev,
-          [item.fullPath]: {
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error: "Preview unavailable.",
-          },
-        }));
-        return;
-      }
-      const text = await response.text();
-      const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
-      const previewText = truncated
-        ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT)
-        : text;
-      setTextPreviewMap((prev) => ({
-        ...prev,
-        [item.fullPath]: {
-          text: previewText,
-          truncated,
-          isLoading: false,
-          error: null,
-        },
-      }));
-    },
-    [fileUrlMap, requestFileUrls, textPreviewMap],
-  );
-
-  const loadFolderContents = useCallback(
-    async (folderPath: string) => {
-      const trimmed = folderPath.trim();
-      if (!trimmed) {
-        setItems([]);
-        return;
-      }
-      const requestId = folderRequestIdRef.current + 1;
-      folderRequestIdRef.current = requestId;
-      const res = await route_get_folder_contents({
-        folderPath: trimmed,
-        ignorePatterns: rootInfo?.ignorePatterns ?? null,
-        includeSize: true,
-      });
-      if (folderRequestIdRef.current !== requestId) {
-        return;
-      }
-      if (res200(res)) {
-        setItems(res.data);
-      } else {
-        setItems([]);
-      }
-    },
-    [rootInfo?.ignorePatterns],
-  );
+  const [items, setItems] = useState<Array<BrowserAreaItem>>([]);
 
   function setView(newView: BrowserAreaViewMode) {
     setValue(newView);
@@ -1042,247 +551,29 @@ function ItemsColumn({
     });
   }
 
-  const setFolder = useCallback(
-    async (newFolder: string) => {
-      const trimmed = newFolder.trim();
-      if (!trimmed) {
-        setLocalFolder(null);
-        setItems([]);
-        return;
-      }
-      setLocalFolder(trimmed);
-      await loadFolderContents(trimmed);
-    },
-    [loadFolderContents],
-  );
-
-  useEffect(() => {
-    if (value !== BrowserAreaViewModeEnum.carousel) {
-      setSelectedCarouselId(null);
-      return;
+  async function setFolder(newFolder: string) {
+    const res = await route_get_folder_contents({ folderPath: newFolder });
+    if (res200(res)) {
+      console.log("res", res.data);
+      setItems(
+        res.data.map((d) => ({ id: d.name, type: d.type, lastModified: "" })),
+      );
     }
-    if (items.length === 0) {
-      setSelectedCarouselId(null);
-      return;
-    }
-    if (
-      selectedCarouselId &&
-      items.some((item) => item.fullPath === selectedCarouselId)
-    ) {
-      return;
-    }
-    const preferred =
-      items.find((item) => getBrowserPreviewKind(item) === "image") ?? items[0];
-    if (preferred) {
-      setSelectedCarouselId(preferred.fullPath);
-    }
-  }, [items, selectedCarouselId, value]);
-
-  useEffect(() => {
-    if (isListView) {
-      return;
-    }
-    const filePaths = items
-      .filter((item) => item.type.toLowerCase() === "file")
-      .map((item) => item.fullPath);
-    if (filePaths.length === 0) {
-      return;
-    }
-    void requestFileUrls(filePaths);
-  }, [isListView, items, requestFileUrls]);
-
-  useEffect(() => {
-    if (value !== BrowserAreaViewModeEnum.carousel) {
-      return;
-    }
-    if (!selectedCarouselItem) {
-      return;
-    }
-    if (getBrowserPreviewKind(selectedCarouselItem) !== "text") {
-      return;
-    }
-    void requestTextPreview(selectedCarouselItem);
-  }, [requestTextPreview, selectedCarouselItem, value]);
-
-  const handleOpenFolder = useCallback(
-    (path: string) => {
-      void setFolder(path);
-    },
-    [setFolder],
-  );
-
-  const handleOpenFile = useCallback(
-    (item: FolderContentItem) => {
-      if (item.type.toLowerCase() === "folder") {
-        return;
-      }
-      const extension = extractExtension(item.name);
-      const isMarkdown = extension === ".md" || extension === ".markdown";
-      const isPlaintext = extension === ".txt";
-      if (!isMarkdown && !isPlaintext) {
-        void openFileInCodeSection({
-          filePath: item.fullPath,
-          fileName: item.name,
-          codeLanguage: resolveCodeLanguageFromPath(item.fullPath),
-        });
-        return;
-      }
-      const loadAndOpenText = async () => {
-        let entry = fileUrlMap[item.fullPath];
-        if (!entry || isFileUrlStale(entry, Date.now())) {
-          const refreshed = await requestFileUrls([item.fullPath], {
-            force: true,
-          });
-          entry = refreshed[item.fullPath] ?? fileUrlMap[item.fullPath];
-        }
-        if (!entry?.url) {
-          void openFileInCodeSection({
-            filePath: item.fullPath,
-            fileName: item.name,
-            codeLanguage: resolveCodeLanguageFromPath(item.fullPath),
-          });
-          return;
-        }
-        let response: Response;
-        try {
-          response = await fetch(entry.url);
-        } catch {
-          void openFileInCodeSection({
-            filePath: item.fullPath,
-            fileName: item.name,
-            codeLanguage: resolveCodeLanguageFromPath(item.fullPath),
-          });
-          return;
-        }
-        if (!response.ok) {
-          void openFileInCodeSection({
-            filePath: item.fullPath,
-            fileName: item.name,
-            codeLanguage: resolveCodeLanguageFromPath(item.fullPath),
-          });
-          return;
-        }
-        const text = await response.text();
-        void openFileInTextSection({
-          fileName: item.name,
-          text,
-          format: isMarkdown
-            ? TextBlockFormatEnum.Markdown
-            : TextBlockFormatEnum.Plaintext,
-          textDisplayMode: isMarkdown
-            ? TextBlockDisplayModeEnum.Render
-            : TextBlockDisplayModeEnum.Edit,
-        });
-      };
-      void loadAndOpenText();
-    },
-    [
-      fileUrlMap,
-      openFileInCodeSection,
-      openFileInTextSection,
-      requestFileUrls,
-      resolveCodeLanguageFromPath,
-    ],
-  );
-
-  const canGoBack = historyState.index > 0;
-  const canGoForward =
-    historyState.index >= 0 &&
-    historyState.index < historyState.entries.length - 1;
-
-  const handleGoBack = useCallback(() => {
-    const current = historyStateRef.current;
-    if (current.index <= 0) {
-      return;
-    }
-    const nextIndex = current.index - 1;
-    const nextFolder = current.entries[nextIndex];
-    if (!nextFolder) {
-      return;
-    }
-    historySkipRef.current = true;
-    setHistoryState({ entries: current.entries, index: nextIndex });
-    void setFolder(nextFolder);
-  }, [setFolder]);
-
-  const handleGoForward = useCallback(() => {
-    const current = historyStateRef.current;
-    if (current.index < 0 || current.index >= current.entries.length - 1) {
-      return;
-    }
-    const nextIndex = current.index + 1;
-    const nextFolder = current.entries[nextIndex];
-    if (!nextFolder) {
-      return;
-    }
-    historySkipRef.current = true;
-    setHistoryState({ entries: current.entries, index: nextIndex });
-    void setFolder(nextFolder);
-  }, [setFolder]);
-
-  useEffect(() => {
-    if (isListView || rootInfo) {
-      return;
-    }
-    const requestId = rootRequestIdRef.current + 1;
-    rootRequestIdRef.current = requestId;
-    const loadRoot = async () => {
-      const res = await route_get_file_browser_root();
-      if (!res200(res)) {
-        return;
-      }
-      if (rootRequestIdRef.current !== requestId) {
-        return;
-      }
-      setRootInfo({
-        rootPath: res.data.rootPath,
-        ignorePatterns: res.data.ignorePatterns,
-      });
-    };
-    void loadRoot();
-  }, [isListView, rootInfo]);
-
-  useEffect(() => {
-    if (isListView) {
-      return;
-    }
-    void loadFolderContents(effectiveFolder);
-  }, [effectiveFolder, isListView, loadFolderContents]);
+  }
 
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
-      <div className="-mt-[4.5px] mb-1 flex flex-row items-center gap-2">
-        <div className="flex w-full min-w-0 items-center gap-2">
-          {isListView ? (
-            <FileBrowserFilter
-              useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            />
-          ) : (
-            <>
-              <FolderHistoryControls
-                canGoBack={canGoBack}
-                canGoForward={canGoForward}
-                onBack={handleGoBack}
-                onForward={handleGoForward}
-              />
-              <FolderPath folder={effectiveFolder} setFolder={setFolder} />
-            </>
-          )}
+      <div className="-mt-[4.5px] mb-1 flex flex-row">
+        <div className="flex w-full min-w-0 gap-2">
+          <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            Artifacts
+          </div>
+          {/* <FilterSection /> */}
+          <FolderPath folder={folder} setFolder={setFolder} />
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch
-        view={value}
-        items={items}
-        filesColumnWidth={filesColumnWidth}
-        onFilesColumnResizeStart={onFilesColumnResizeStart}
-        fileUrlMap={fileUrlMap}
-        selectedCarouselId={selectedCarouselId}
-        onSelectCarouselId={setSelectedCarouselId}
-        textPreviewMap={textPreviewMap}
-        onOpenFolder={handleOpenFolder}
-        onOpenFile={handleOpenFile}
-      />
+      <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>
   );
 }
@@ -1335,50 +626,6 @@ function FilterSection() {
       inputStyles={inputStyles}
       outerClasses="flex-1"
     />
-  );
-}
-
-function FolderHistoryControls({
-  canGoBack,
-  canGoForward,
-  onBack,
-  onForward,
-}: {
-  canGoBack: boolean;
-  canGoForward: boolean;
-  onBack: () => void;
-  onForward: () => void;
-}) {
-  const baseClassName =
-    "nodrag inline-flex h-7 w-7 items-center justify-center rounded-md border border-solid border-setta-100 text-setta-400 transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800";
-  const disabledClassName =
-    "cursor-default opacity-40 hover:bg-transparent dark:hover:bg-transparent";
-  const backClassName = `${baseClassName} ${canGoBack ? "" : disabledClassName}`;
-  const forwardClassName = `${baseClassName} ${
-    canGoForward ? "" : disabledClassName
-  }`;
-
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <button
-        type="button"
-        className={backClassName}
-        onClick={onBack}
-        disabled={!canGoBack}
-        aria-label="Go back"
-      >
-        <FiChevronLeft size={16} />
-      </button>
-      <button
-        type="button"
-        className={forwardClassName}
-        onClick={onForward}
-        disabled={!canGoForward}
-        aria-label="Go forward"
-      >
-        <FiChevronRight size={16} />
-      </button>
-    </div>
   );
 }
 

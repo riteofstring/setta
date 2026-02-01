@@ -81,6 +81,25 @@ function _DndWatcherAndContainer({
   );
   const trueDragListeners =
     isMovingFree || (!isTopLevel && isSorting) ? dragListeners : {};
+  const wrappedDragListeners = React.useMemo(() => {
+    if (isTopLevel || !trueDragListeners) {
+      return trueDragListeners;
+    }
+    const { onPointerDown, onMouseDown, onTouchStart, ...rest } =
+      trueDragListeners;
+    const wrap = (handler) => (event) => {
+      event.stopPropagation();
+      if (handler) {
+        handler(event);
+      }
+    };
+    return {
+      ...rest,
+      ...(onPointerDown ? { onPointerDown: wrap(onPointerDown) } : {}),
+      ...(onMouseDown ? { onMouseDown: wrap(onMouseDown) } : {}),
+      ...(onTouchStart ? { onTouchStart: wrap(onTouchStart) } : {}),
+    };
+  }, [isTopLevel, trueDragListeners]);
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
@@ -102,7 +121,7 @@ function _DndWatcherAndContainer({
       sectionId={sectionId}
       droppableRef={droppableRef}
       draggableRef={draggableRef}
-      trueDragListeners={trueDragListeners}
+      trueDragListeners={wrappedDragListeners}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
       className={className}

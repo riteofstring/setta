@@ -160,6 +160,7 @@ class Route(str, Enum):
     SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
         "/setCodeSectionDiagnosticCodeSuppression"
     )
+    SET_CODE_SECTION_ATTACHED_TERMINAL = "/setCodeSectionAttachedTerminal"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"
@@ -217,8 +218,6 @@ class Route(str, Enum):
     PASTE_SECTIONS = "/pasteSections"
     GET_FILE_BROWSER_ROOT = "/getFileBrowserRoot"
     GET_FOLDER_CONTENTS = "/getFolderContents"
-    GET_FILE_BROWSER_DOWNLOAD_URLS = "/getFileBrowserDownloadUrls"
-    FILE_BROWSER_DOWNLOAD = "/fileBrowser/{token}"
     IMPORT_FILES_TO_ARTIFACTS = "/importFilesToArtifacts"
     DELETE_ARTIFACTS = "/deleteArtifacts"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"

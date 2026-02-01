@@ -173,18 +173,6 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
-export async function route_get_file_browser_download_urls(
-  x: gt.GetFileBrowserDownloadUrlsRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.FileBrowserDownloadUrlEntry>>> {
-  return await post("/getFileBrowserDownloadUrls", x);
-}
-
-async function route_file_browser_download(
-  token: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/fileBrowser/{token}", { token });
-}
-
 export async function route_import_files_to_artifacts(
   x: gt.ImportFilesToArtifactsRequestInput,
 ): Promise<
@@ -869,6 +857,12 @@ export async function route_set_code_section_diagnostic_code_suppression(
   x: gt.SetCodeSectionDiagnosticCodeSuppressionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCodeSectionDiagnosticCodeSuppression", x);
+}
+
+export async function route_set_code_section_attached_terminal(
+  x: gt.SetCodeSectionAttachedTerminalRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionAttachedTerminal", x);
 }
 
 export async function route_set_code_obj_name(

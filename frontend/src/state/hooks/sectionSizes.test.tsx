@@ -81,7 +81,7 @@ function buildSizingPolicy(): SectionSizingPolicy {
     },
     globals: {
       pinnedParamsAreaMinHeight: 64,
-      unpinnedParamsAreaMinHeight: 36,
+      unpinnedParamsAreaMinHeight: 38,
       minimizedHeight: 32,
       infiniteMaxHeight: 100000,
       infiniteMaxWidth: 100000,

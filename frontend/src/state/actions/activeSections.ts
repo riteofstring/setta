@@ -6,6 +6,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getTopLevelSectionIdsForDisplay,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 
@@ -91,9 +92,9 @@ export function selectAll() {
 
 export function setTopLevelNonGroupSectionsAsActive() {
   const p = useProjectState.getState();
-  const { topLevelSections } = p.projectConfig;
   const nonGroup: Array<string> = [];
-  for (const sectionId of Object.keys(topLevelSections)) {
+  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
+  for (const sectionId of topLevelSectionIds) {
     if (
       getCurrEffectiveSectionImpl(p, sectionId).type !== SectionTypeEnum.Group
     ) {
