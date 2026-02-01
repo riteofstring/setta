@@ -93,6 +93,12 @@ type BrowserFileAttachment = {
   size: number | null;
 };
 
+type OpenableBrowserItem = {
+  name: string;
+  fullPath: string;
+  type: string;
+};
+
 type FileUrlEntry = {
   url: string;
   expiresAt: number;
@@ -360,15 +366,18 @@ function ViewSelectorButton({
   view,
   setView,
   viewType,
+  ariaLabel,
   children,
 }: {
   view: BrowserAreaViewMode;
   setView: (newView: BrowserAreaViewMode) => void;
   viewType: BrowserAreaViewMode;
+  ariaLabel: string;
   children: ReactNode;
 }) {
   return (
     <button
+      aria-label={ariaLabel}
       onClick={() => {
         setView(viewType);
       }}
@@ -388,13 +397,28 @@ function ViewSelector({
 }) {
   return (
     <div className="flex gap-0.5">
-      <ViewSelectorButton view={view} setView={setView} viewType="list">
+      <ViewSelectorButton
+        view={view}
+        setView={setView}
+        viewType="list"
+        ariaLabel="List view"
+      >
         <MdList />
       </ViewSelectorButton>
-      <ViewSelectorButton view={view} setView={setView} viewType="thumbnail">
+      <ViewSelectorButton
+        view={view}
+        setView={setView}
+        viewType="thumbnail"
+        ariaLabel="Icon view"
+      >
         <HiOutlineViewGrid />
       </ViewSelectorButton>
-      <ViewSelectorButton view={view} setView={setView} viewType="carousel">
+      <ViewSelectorButton
+        view={view}
+        setView={setView}
+        viewType="carousel"
+        ariaLabel="Carousel view"
+      >
         <TbCarouselHorizontal />
       </ViewSelectorButton>
     </div>
@@ -467,7 +491,7 @@ function ViewSwitch({
   onSelectCarouselId: (nextId: string | null) => void;
   textPreviewMap: Record<string, FileTextPreview>;
   onOpenFolder: (path: string) => void;
-  onOpenFile: (item: FolderContentItem) => void;
+  onOpenFile: (item: OpenableBrowserItem) => void;
 }) {
   const { ref, isScrollable } = useIsScrollable();
   const renderFileCard = useCallback(
@@ -664,6 +688,13 @@ function ViewSwitch({
               columnWidth: filesColumnWidth,
               onResizeStart: onFilesColumnResizeStart,
             }}
+            onFileOpen={(node) =>
+              onOpenFile({
+                name: node.name,
+                fullPath: node.fullPath,
+                type: node.type,
+              })
+            }
           />
         </section>
       );
@@ -792,6 +823,7 @@ function ItemsColumn({
   const [fileUrlMap, setFileUrlMap] = useState<Record<string, FileUrlEntry>>(
     {},
   );
+  const fileUrlMapRef = useRef<Record<string, FileUrlEntry>>({});
   const fileUrlRequests = useRef<Set<string>>(new Set());
   const [selectedCarouselId, setSelectedCarouselId] = useState<string | null>(
     null,
@@ -830,6 +862,10 @@ function ItemsColumn({
     }
     setLocalFolder(trimmed);
   }, [folder]);
+
+  useEffect(() => {
+    fileUrlMapRef.current = fileUrlMap;
+  }, [fileUrlMap]);
 
   useEffect(() => {
     historyStateRef.current = historyState;
@@ -907,6 +943,19 @@ function ItemsColumn({
     [fileUrlMap],
   );
 
+  const waitForFileUrl = useCallback(async (path: string) => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const entry = fileUrlMapRef.current[path];
+      if (entry) {
+        return entry;
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, 100);
+      });
+    }
+    return fileUrlMapRef.current[path] ?? null;
+  }, []);
+
   const requestTextPreview = useCallback(
     async (item: FolderContentItem) => {
       if (item.size && item.size > TEXT_PREVIEW_MAX_BYTES) {
@@ -934,12 +983,16 @@ function ItemsColumn({
           error: null,
         },
       }));
-      let entry = fileUrlMap[item.fullPath];
+      const pathKey = item.fullPath;
+      let entry = fileUrlMapRef.current[pathKey];
       if (!entry || isFileUrlStale(entry, Date.now())) {
-        const refreshed = await requestFileUrls([item.fullPath], {
+        const refreshed = await requestFileUrls([pathKey], {
           force: true,
         });
-        entry = refreshed[item.fullPath] ?? fileUrlMap[item.fullPath];
+        entry = refreshed[pathKey] ?? fileUrlMapRef.current[pathKey];
+        if (!entry) {
+          entry = (await waitForFileUrl(pathKey)) ?? undefined;
+        }
       }
       if (!entry?.url) {
         setTextPreviewMap((prev) => ({
@@ -1112,7 +1165,7 @@ function ItemsColumn({
   );
 
   const handleOpenFile = useCallback(
-    (item: FolderContentItem) => {
+    (item: OpenableBrowserItem) => {
       if (item.type.toLowerCase() === "folder") {
         return;
       }
@@ -1177,11 +1230,11 @@ function ItemsColumn({
       void loadAndOpenText();
     },
     [
-      fileUrlMap,
       openFileInCodeSection,
       openFileInTextSection,
       requestFileUrls,
       resolveCodeLanguageFromPath,
+      waitForFileUrl,
     ],
   );
 

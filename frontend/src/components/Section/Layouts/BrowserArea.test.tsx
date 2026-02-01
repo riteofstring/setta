@@ -120,4 +120,20 @@ describe("BrowserArea list view", () => {
     expect(markup).not.toContain("Files");
     expect(markup).not.toContain("Filter");
   });
+
+  it("renders history controls in non-list views", () => {
+    setBrowserSectionState(BrowserAreaViewModeEnum.thumbnail);
+    const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
+
+    expect(markup).toContain('aria-label="Go back"');
+    expect(markup).toContain('aria-label="Go forward"');
+  });
+
+  it("omits history controls in list view", () => {
+    setBrowserSectionState(BrowserAreaViewModeEnum.list);
+    const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
+
+    expect(markup).not.toContain('aria-label="Go back"');
+    expect(markup).not.toContain('aria-label="Go forward"');
+  });
 });
