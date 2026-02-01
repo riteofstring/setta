@@ -54,10 +54,10 @@ import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
+import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { resolvePathWithinRoot } from "utils/browserPaths";
 import {
   route_get_file_browser_download_urls,
   route_get_file_browser_root,
@@ -1552,11 +1552,7 @@ function FolderPath({
   completionSource: ReturnType<typeof createFolderPathCompletionSource>;
 }) {
   const { inputValue, onChange, onBlur, blurTriggeredByEscapeKey } =
-    useEditableOnSubmit(
-      folder,
-      setFolder,
-      () => true,
-    );
+    useEditableOnSubmit(folder, setFolder, () => true);
 
   const blurActiveElement = useCallback(() => {
     if (typeof document !== "undefined") {

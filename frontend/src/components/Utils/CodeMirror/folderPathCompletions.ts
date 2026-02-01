@@ -1,7 +1,6 @@
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";
 import {
   isAbsoluteBrowserPath,
-  normalizeBrowserPath,
   resolvePathWithinRoot,
 } from "utils/browserPaths";
 import { res200 } from "utils/endpointUtils";
@@ -70,8 +69,7 @@ export function createFolderPathCompletionSource(
     return null;
   }
   const fallbackSeparator =
-    options.pathSeparator ??
-    (options.rootPath.includes("\\") ? "\\" : "/");
+    options.pathSeparator ?? (options.rootPath.includes("\\") ? "\\" : "/");
   const cache = new Map<string, FolderContentItem[]>();
   const inflight = new Map<string, Promise<FolderContentItem[]>>();
 
@@ -113,10 +111,7 @@ export function createFolderPathCompletionSource(
       textBefore,
       fallbackSeparator,
     );
-    const targetFolder = resolvePathWithinRoot(
-      dirPart || "",
-      options.rootPath,
-    );
+    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
     }

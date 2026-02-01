@@ -1,8 +1,8 @@
 import {
   acceptCompletion,
   autocompletion,
-  CompletionSource,
   completionKeymap,
+  CompletionSource,
   completionStatus,
   pickedCompletion,
   startCompletion,

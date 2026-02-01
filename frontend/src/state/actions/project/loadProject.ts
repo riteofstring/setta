@@ -19,9 +19,9 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
-import { processLspDiagnostics } from "../lspDiagnostics";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
+import { processLspDiagnostics } from "../lspDiagnostics";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeShareSessionFromCurrentDeployment } from "../share";
 

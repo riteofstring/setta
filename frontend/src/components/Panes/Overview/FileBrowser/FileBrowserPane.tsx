@@ -1,5 +1,14 @@
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
+import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder } from "react-icons/tb";
 import { List, useListRef } from "react-window";
@@ -7,8 +16,6 @@ import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
-import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
-import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";

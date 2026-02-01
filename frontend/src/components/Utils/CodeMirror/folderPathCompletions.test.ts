@@ -1,8 +1,8 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
+import { route_get_folder_contents } from "utils/generatedEndpoints";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFolderPathCompletionSource } from "./folderPathCompletions";
-import { route_get_folder_contents } from "utils/generatedEndpoints";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_folder_contents: vi.fn(),
@@ -51,7 +51,10 @@ describe("createFolderPathCompletionSource", () => {
       ignorePatterns: null,
       maxEntries: null,
     });
-    expect(result?.options.map((option) => option.label)).toEqual(["alpha", "beta"]);
+    expect(result?.options.map((option) => option.label)).toEqual([
+      "alpha",
+      "beta",
+    ]);
     expect(result?.options[0].apply).toBe("alpha/");
     expect(result?.from).toBe("/root/".length);
   });
