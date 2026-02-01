@@ -18,31 +18,9 @@ _TEXT_MIME_TYPES = {
     "application/javascript",
     "application/x-javascript",
     "application/x-python",
-    "application/toml",
     "application/x-yaml",
     "application/yaml",
     "application/x-www-form-urlencoded",
-    "text/markdown",
-    "text/x-markdown",
-    "text/x-python",
-    "text/x-toml",
-}
-_TEXT_FILE_EXTENSIONS = {
-    ".cfg",
-    ".conf",
-    ".csv",
-    ".ini",
-    ".json",
-    ".log",
-    ".md",
-    ".markdown",
-    ".py",
-    ".toml",
-    ".tsv",
-    ".txt",
-    ".xml",
-    ".yaml",
-    ".yml",
 }
 
 
@@ -74,28 +52,6 @@ def is_text_mime(mime_type: str) -> bool:
 
 def is_image_mime(mime_type: str) -> bool:
     return mime_type.startswith("image/")
-
-
-def _get_attachment_suffixes(
-    attachment: ChatFileAttachment, path: Path | None
-) -> list[str]:
-    if path is not None:
-        suffixes = [suffix.lower() for suffix in path.suffixes if suffix]
-        if suffixes:
-            return suffixes
-    name_suffixes = [suffix.lower() for suffix in Path(attachment.name).suffixes]
-    return name_suffixes
-
-
-def is_text_attachment(
-    attachment: ChatFileAttachment, mime_type: str, path: Path | None
-) -> bool:
-    if is_text_mime(mime_type):
-        return True
-    if mime_type != "application/octet-stream":
-        return False
-    suffixes = _get_attachment_suffixes(attachment, path)
-    return any(suffix in _TEXT_FILE_EXTENSIONS for suffix in suffixes)
 
 
 def _resolve_attachment_path_for_read(
@@ -200,7 +156,7 @@ def build_attachment_content_blocks(
                 )
             )
             continue
-        if is_text_attachment(attachment, mime_type, resolved_path):
+        if is_text_mime(mime_type):
             try:
                 payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:
@@ -259,7 +215,7 @@ def build_attachments_prompt_text_pair(
                 build_attachment_placeholder_block(attachment, mime_type=mime_type).text
             )
             continue
-        if is_text_attachment(attachment, mime_type, resolved_path):
+        if is_text_mime(mime_type):
             try:
                 payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:

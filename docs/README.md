@@ -26,7 +26,6 @@
 - `reference/setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
 - `reference/share-policy-flags.md` – share policy flag coverage for route families and behavior.
 - `reference/sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
-- `reference/urls-and-routes.md` – frontend URL paths, routing behavior, and API route separation.
 
 ## Other Docs
 - `agent-cli-integration.md` – CLI integration notes for agent workflows.

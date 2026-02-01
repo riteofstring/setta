@@ -2301,21 +2301,6 @@ def set_section_pinned_params(
     )
 
 
-def set_section_pinned_area_height(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    pinnedAreaHeight: float | SectionSizeMode,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(pinnedAreaHeight=pinnedAreaHeight),
-    )
-
-
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):
