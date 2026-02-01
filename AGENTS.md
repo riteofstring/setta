@@ -29,7 +29,9 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
-- Avoid div soup: keep markup semantic, minimize unnecessary wrappers, and favor the smallest readable/performant DOM tree.
+- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting when it is not required.
+- Prefer semantic elements in JSX (`section`, `header`, `nav`, `main`, `article`, `button`, `ul/li`) over generic `div`/`span` when appropriate.
+- Frontend code must prioritize performance, assuming very large DOMs (for example, hundreds of complex sections on the React Flow canvas).
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
@@ -52,6 +54,10 @@
 - You should never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset`; if chrome-devtools-mcp is needed, the developer runs it first.
 - Follow `docs/guides/verification-checklist.md` for the standard verification flow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
+- Treat performance testing as a priority for frontend work; include coverage for large DOM scenarios and guard against costly render/update behavior.
+- Use chrome-devtools-mcp for performance profiling when needed (Performance/Rendering/Memory tooling in DevTools) and document the measurements or observations.
+- Playwright can capture automated performance signals (timings, traces, marks/measures), but DevTools profiling via chrome-devtools-mcp is required for deeper analysis.
+- New components must ship with Playwright tests, Vitest coverage where applicable, and deeper DevTools performance profiling results.
 - Playwright tests do not require running `pnpm ai`; when running Playwright tests as an AI, use `./scripts/run-playwright-e2e.sh`.
 - Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace.
