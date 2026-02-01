@@ -243,7 +243,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
-          className="rounded-md border border-white/40 px-3 py-1 text-xs font-semibold text-white/80 transition-colors hover:border-white hover:text-white disabled:opacity-40"
+          className="cursor-pointer rounded-md border border-white/40 px-3 py-1 text-xs font-semibold text-white/80 transition-colors hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           onClick={handleCancel}
           disabled={isSaving}
         >
@@ -251,7 +251,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
         </button>
         <button
           type="submit"
-          className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-md bg-white px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!canSubmit}
         >
           Save
