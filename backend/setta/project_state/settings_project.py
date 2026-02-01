@@ -360,7 +360,7 @@ def _create_settings_view_modes(
         ("All Settings", all_sections),
     ]
     view_modes: list[ViewModeConfig] = []
-    for name, visible_section_names in view_mode_definitions:
+    for idx, (name, visible_section_names) in enumerate(view_mode_definitions):
         visibility_by_section_id = _build_settings_view_mode_visibility(
             section_name_to_id,
             visible_section_names,
@@ -378,6 +378,7 @@ def _create_settings_view_modes(
         view_modes.append(
             ViewModeConfig(
                 name=name,
+                sortIndex=idx,
                 isTab=True,
                 visibilityBySectionId=visibility_by_section_id,
                 topLevelSections=view_layout,

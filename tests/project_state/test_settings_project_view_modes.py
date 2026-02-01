@@ -3,6 +3,7 @@ from pathlib import Path
 from setta.project_state.settings_project import (
     SETTINGS_VIEW_GRID_COLUMNS,
     SETTINGS_VIEW_GRID_SPACING,
+    SETTINGS_VIEW_MODE_GROUPS,
     create_settings_project_state,
     ensure_settings_view_modes,
 )
@@ -16,6 +17,11 @@ def test_settings_view_modes_layout_and_viewport():
     }
     core_view = view_modes["Core"]
     param_view = view_modes["Param Defaults"]
+    expected_order = [name for name, _ in SETTINGS_VIEW_MODE_GROUPS] + [
+        "All Settings"
+    ]
+    for idx, name in enumerate(expected_order):
+        assert view_modes[name].sortIndex == idx
 
     assert core_view.viewport is None
     assert core_view.viewportInitialized is False

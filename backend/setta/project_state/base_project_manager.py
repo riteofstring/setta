@@ -2829,6 +2829,16 @@ class BaseProjectManager(ABC):
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
         }
+        next_sort_index = (
+            max(
+                (
+                    view_mode.sortIndex
+                    for view_mode in project_state.projectConfig.viewModes.values()
+                ),
+                default=-1,
+            )
+            + 1
+        )
         existing_slugs = {
             sanitize_slug(view_mode.name)
             for view_mode in project_state.projectConfig.viewModes.values()
@@ -2842,6 +2852,7 @@ class BaseProjectManager(ABC):
         viewport = self._clone_viewport(project_state.projectConfig.viewport)
         view_mode = ViewModeConfig(
             name=name,
+            sortIndex=next_sort_index,
             visibilityBySectionId=visibility_by_section_id,
             topLevelSections=top_level_sections,
             viewport=viewport,

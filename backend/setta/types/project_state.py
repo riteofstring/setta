@@ -476,6 +476,13 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if view_mode.viewport is None:
                 view_mode.viewportInitialized = False
 
+        sort_indices = [
+            view_mode.sortIndex for view_mode in project_config.viewModes.values()
+        ]
+        if len(set(sort_indices)) != len(sort_indices):
+            for idx, view_mode in enumerate(project_config.viewModes.values()):
+                view_mode.sortIndex = idx
+
         if project_config.activeViewModeId not in project_config.viewModes:
             project_config.activeViewModeId = next(iter(project_config.viewModes))
         active_view_mode = project_config.viewModes[project_config.activeViewModeId]

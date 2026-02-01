@@ -70,6 +70,7 @@ describe("ViewModeTabs", () => {
         [tabId]: {
           id: tabId,
           name: "Tab View",
+          sortIndex: 0,
           isUserFacing: false,
           isTab: true,
           visibilityBySectionId: {},
@@ -80,6 +81,7 @@ describe("ViewModeTabs", () => {
         [hiddenId]: {
           id: hiddenId,
           name: "Hidden View",
+          sortIndex: 1,
           isUserFacing: false,
           isTab: false,
           visibilityBySectionId: {},
@@ -109,6 +111,7 @@ describe("ViewModeTabs", () => {
         [viewId]: {
           id: viewId,
           name: "Hidden View",
+          sortIndex: 0,
           isUserFacing: false,
           isTab: false,
           visibilityBySectionId: {},
@@ -126,5 +129,66 @@ describe("ViewModeTabs", () => {
 
     const markup = renderToStaticMarkup(<ViewModeTabs />);
     expect(markup).toBe("");
+  });
+
+  it("orders tab view modes by sort index", () => {
+    const firstId = "view-1";
+    const secondId = "view-2";
+    const thirdId = "view-3";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: firstId,
+      viewModes: {
+        [firstId]: {
+          id: firstId,
+          name: "First",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+        [secondId]: {
+          id: secondId,
+          name: "Second",
+          sortIndex: 2,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+        [thirdId]: {
+          id: thirdId,
+          name: "Third",
+          sortIndex: 1,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(<ViewModeTabs />);
+    const firstIdx = markup.indexOf("First");
+    const thirdIdx = markup.indexOf("Third");
+    const secondIdx = markup.indexOf("Second");
+
+    expect(firstIdx).toBeGreaterThan(-1);
+    expect(thirdIdx).toBeGreaterThan(-1);
+    expect(secondIdx).toBeGreaterThan(-1);
+    expect(firstIdx).toBeLessThan(thirdIdx);
+    expect(thirdIdx).toBeLessThan(secondIdx);
   });
 });

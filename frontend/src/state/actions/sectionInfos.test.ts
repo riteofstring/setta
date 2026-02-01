@@ -127,6 +127,7 @@ describe("createNodesMapFromProjectConfigChildren", () => {
         [viewModeId]: {
           id: viewModeId,
           name: "Visible Only",
+          sortIndex: 0,
           isUserFacing: false,
           isTab: true,
           visibilityBySectionId: {
@@ -183,6 +184,7 @@ describe("createNodesMapFromProjectConfigChildren", () => {
         [viewModeId]: {
           id: viewModeId,
           name: "Visible Only",
+          sortIndex: 0,
           isUserFacing: false,
           isTab: true,
           visibilityBySectionId: {
@@ -277,6 +279,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewMode: ViewModeConfig = {
       id: viewModeId,
       name: "View A",
+      sortIndex: 0,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: { [sectionId]: true },
@@ -362,6 +365,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewMode: ViewModeConfig = {
       id: viewModeId,
       name: "Visible View",
+      sortIndex: 0,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: {
@@ -454,6 +458,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeA: ViewModeConfig = {
       id: viewModeAId,
       name: "View A",
+      sortIndex: 0,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: {
@@ -470,6 +475,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeB: ViewModeConfig = {
       id: viewModeBId,
       name: "View B",
+      sortIndex: 1,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: {
@@ -565,6 +571,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeA: ViewModeConfig = {
       id: viewModeAId,
       name: "View A",
+      sortIndex: 0,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: {
@@ -581,6 +588,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeB: ViewModeConfig = {
       id: viewModeBId,
       name: "View B",
+      sortIndex: 1,
       isUserFacing: false,
       isTab: true,
       visibilityBySectionId: {
